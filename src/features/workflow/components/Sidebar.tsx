@@ -32,10 +32,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
   const filteredRegistry = useMemo(() => {
     if (!normalizedKeyword) return NODE_REGISTRY;
     return NODE_REGISTRY.filter((node) => {
-      return (
-        node.label.toLowerCase().includes(normalizedKeyword) ||
-        node.type.toLowerCase().includes(normalizedKeyword)
-      );
+      return node.label.toLowerCase().includes(normalizedKeyword) || node.type.toLowerCase().includes(normalizedKeyword);
     });
   }, [normalizedKeyword]);
 
@@ -52,6 +49,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
       <div className="workflow-sidebar__search">
         <Search size={14} />
         <input
+          data-testid="workflow-node-search"
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
           placeholder="搜索节点"
@@ -110,9 +108,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
         })}
       </div>
 
-      <div className="workflow-panel__footer">
-        点击可快速添加，拖拽可精确放到指定位置。
-      </div>
+      <div className="workflow-panel__footer">点击可快速添加，拖拽可精确放到指定位置。</div>
     </aside>
   );
 }
@@ -134,6 +130,7 @@ function NodeItem({
 
   return (
     <div
+      data-testid={`workflow-node-item-${nodeType.type}`}
       draggable={!disabled}
       onDragStart={(event) => {
         if (disabled) {

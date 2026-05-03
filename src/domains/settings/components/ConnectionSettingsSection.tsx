@@ -30,7 +30,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             ))}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0 }} data-testid="settings-config-name-field">
               <IOSLabel>配置名称</IOSLabel>
               <IOSInput value={view.activeConfig?.name || ''} onChange={actions.setActiveConfigName} />
             </div>
@@ -54,7 +54,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <IOSButton small label="测试连接" onClick={() => void actions.testConnection()} />
+            <IOSButton small label="测试连接" onClick={() => void actions.testConnection()} data-testid="settings-test-connection" />
             <IOSButton small label="添加配置" onClick={actions.addConfig} color={T.green} />
             {view.apiConfigs.length > 1 && <IOSButton small label="删除当前" color={T.red} onClick={() => actions.deleteConfig(view.activeConfigId)} />}
           </div>
@@ -63,11 +63,11 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
 
       <SectionCard title="连接参数" description="基础地址和密钥是大多数模型能力的入口。">
         <div className="flex-col" style={{ gap: 12 }}>
-          <div>
+          <div data-testid="settings-base-url-field">
             <IOSLabel>接口地址</IOSLabel>
             <IOSInput value={view.base} onChange={actions.setConnectionBase} placeholder="https://..." />
           </div>
-          <div>
+          <div data-testid="settings-api-key-field">
             <IOSLabel>API 密钥</IOSLabel>
             <IOSInput value={view.apiKey} onChange={actions.setConnectionApiKey} type="password" placeholder="sk-..." />
           </div>
@@ -86,7 +86,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <div>
               <IOSLabel>认证方式</IOSLabel>
-              <IOSSelect value={view.providerConfig.authType} onChange={(value) => actions.setProviderAuthType(value as typeof view.providerConfig.authType)}>
+              <IOSSelect value={view.providerConfig.authType} onChange={(value) => actions.setProviderAuthType(value as typeof view.providerConfig.authType)} data-testid="settings-provider-auth-type">
                 <option value="bearer">Bearer Token</option>
                 <option value="api-key">API Key Header</option>
                 <option value="custom">自定义 Header</option>
@@ -94,7 +94,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             </div>
             <div>
               <IOSLabel>模型列表接口</IOSLabel>
-              <IOSInput value={view.providerConfig.modelsEndpoint ?? ''} onChange={actions.setProviderModelsEndpoint} />
+              <IOSInput value={view.providerConfig.modelsEndpoint ?? ''} onChange={actions.setProviderModelsEndpoint} data-testid="settings-provider-models-endpoint" />
             </div>
           </div>
           {view.providerConfig.authType === 'custom' && (

@@ -18,7 +18,10 @@
     "test:backend": "npm run test --prefix backend",
     "build": "vite build",
     "check": "npm run check:workflow-store && npm run typecheck && npm run build && npm run test:backend",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@xyflow/react": "^12.10.2",
@@ -29,6 +32,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@tailwindcss/vite": "4.1.17",
     "@types/node": "22.19.17",
     "@types/react": "19.2.7",

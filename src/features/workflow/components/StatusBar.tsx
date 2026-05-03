@@ -36,7 +36,7 @@ export default function StatusBar({
     <div className="workflow-statusbar">
       <div className="workflow-statusbar__frame glass">
         <div className="workflow-statusbar__items">
-          <StatusPill label="节点" value={String(nodeCount)} />
+          <StatusPill label="节点" value={String(nodeCount)} testId="workflow-node-count" />
           <StatusPill label="连线" value={String(edgeCount)} />
           <StatusPill label="撤销" value={canUndo ? '可用' : '不可用'} />
           <StatusPill label="重做" value={canRedo ? '可用' : '不可用'} />
@@ -68,9 +68,9 @@ export default function StatusBar({
   );
 }
 
-function StatusPill({ label, value }: { label: string; value: string }) {
+function StatusPill({ label, value, testId }: { label: string; value: string; testId?: string }) {
   return (
-    <div className="workflow-statusbar__pill">
+    <div className="workflow-statusbar__pill" data-testid={testId}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>

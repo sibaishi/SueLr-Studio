@@ -6,12 +6,15 @@ coverage/
 .logs/
 .run-logs/
 .codex-logs/
+playwright-report/
+test-results/
 
 storage/**
 !storage/.gitkeep
 !storage/**/.gitkeep
 
 backend/storage/
+backend/.playwright/
 data/
 outputs/
 logs/

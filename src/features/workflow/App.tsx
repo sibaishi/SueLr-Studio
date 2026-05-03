@@ -374,7 +374,7 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
   }, [store.executingNodeId, store.nodes]);
 
   return (
-    <div className="workflow-page flex h-full w-full min-w-0 flex-col overflow-hidden">
+    <div className="workflow-page flex h-full w-full min-w-0 flex-col overflow-hidden" data-testid="workflow-page">
       <Toolbar
         workflowId={store.workflowId}
         workflowName={store.workflowName}
@@ -549,7 +549,7 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
 function EmptyCanvasHint() {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
-      <div className="workflow-empty-state">
+      <div className="workflow-empty-state" data-testid="workflow-empty-canvas">
         <div className="workflow-empty-state__icon">
           <Boxes size={28} />
         </div>

@@ -214,7 +214,7 @@ export default function Toolbar(props: ToolbarProps) {
             停止
           </button>
 
-          <ToolbarIconButton icon={<Settings2 size={15} />} label="设置" onClick={onSettings} />
+          <ToolbarIconButton icon={<Settings2 size={15} />} label="设置" onClick={onSettings} testId="workflow-open-settings" />
         </div>
       </div>
     </div>
@@ -227,17 +227,20 @@ function ToolbarIconButton({
   onClick,
   disabled = false,
   active = false,
+  testId,
 }: {
   icon: ReactNode;
   label: string;
   onClick: () => void;
   disabled?: boolean;
   active?: boolean;
+  testId?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      data-testid={testId}
       className="workflow-toolbar__icon-button"
       style={{
         opacity: disabled ? 0.45 : 1,

@@ -66,7 +66,7 @@ export function ModelsSection({ T, actions, view }: Props) {
           </div>
 
           {view.importableModels.length > 0 && (
-            <div style={{ ...mutedPanelStyle(), overflow: 'hidden', borderColor: `${T.blue}36`, background: `linear-gradient(180deg, ${T.blue}12, var(--color-bg-secondary) 42%)` }}>
+            <div data-testid="settings-importable-models-panel" style={{ ...mutedPanelStyle(), overflow: 'hidden', borderColor: `${T.blue}36`, background: `linear-gradient(180deg, ${T.blue}12, var(--color-bg-secondary) 42%)` }}>
               <div style={{ padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid var(--color-border)' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
@@ -116,6 +116,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                     <button
                       key={id}
                       type="button"
+                      data-testid={`settings-importable-model-${id}`}
                       onClick={() => toggleImport(id)}
                       style={{
                         width: '100%',
@@ -158,6 +159,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                 </div>
                 <button
                   type="button"
+                  data-testid="settings-import-selected-models"
                   onClick={actions.importSelectedModels}
                   disabled={view.selectedImports.length === 0}
                   style={{
@@ -183,7 +185,7 @@ export function ModelsSection({ T, actions, view }: Props) {
 
           <div className="flex-col" style={{ gap: 10 }}>
             {view.filteredProjectModels.map((model) => (
-              <IOSCard key={model.modelId} style={{ borderRadius: 18, boxShadow: 'none', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+              <IOSCard key={model.modelId} data-testid={`settings-project-model-card-${model.modelId}`} style={{ borderRadius: 18, boxShadow: 'none', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
                 <div className="flex-col" style={{ gap: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                     <div style={{ minWidth: 0 }}>

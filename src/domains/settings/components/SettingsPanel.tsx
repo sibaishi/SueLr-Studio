@@ -241,7 +241,7 @@ export function SettingsPanel({
   }[activeModule];
 
   return (
-    <div className="workflow-page" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, overflow: 'hidden' }}>
+    <div className="workflow-page" data-testid="settings-page" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, overflow: 'hidden' }}>
       <div className="workflow-toolbar glass" style={{ marginBottom: 0 }}>
         <div className="workflow-toolbar__frame" style={{ alignItems: 'stretch', flexWrap: 'wrap', rowGap: 12 }}>
           <div className="workflow-toolbar__identity" style={{ minWidth: 220, alignItems: 'flex-start' }}>
@@ -288,6 +288,7 @@ export function SettingsPanel({
                 <button
                   key={module.id}
                   onClick={() => setActiveModule(module.id)}
+                  data-testid={`settings-module-${module.id}`}
                   style={{
                     ...mutedPanelStyle(),
                     textAlign: 'left',

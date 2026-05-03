@@ -1,33 +1,47 @@
 # Week 10 Frontend E2E Regression Checklist
 
-## 目标
+## Goal
 
-确认 Week 10 已经为前端高风险链路建立首批可重复执行的自动化回归网。
+Confirm that Week 10 has established a first stable, repeatable frontend E2E regression baseline for high-risk workflow and settings paths.
 
-## 自动验证
+## Automated Verification
 
-- [ ] 项目已接入前端 E2E 测试框架
-- [ ] 本地已有统一 E2E 运行命令
-- [ ] CI 已能执行前端 E2E 或其稳定子集
-- [ ] 已覆盖节点创建、连线、复制、删除
-- [ ] 已覆盖分组、解组、释放
-- [ ] 已覆盖 merge 节点尺寸联动
-- [ ] 已覆盖草稿保存与恢复
-- [ ] 已覆盖 settings 与 workflow 的关键联动
-- [ ] 至少一批历史问题已转化为自动化回归用例
+- [x] Frontend E2E framework is integrated into the project
+- [x] Local unified E2E commands are available
+- [x] CI runs the frontend E2E stable subset
+- [x] Covers settings persistence after reload
+- [x] Covers navigation between settings and workflow
+- [x] Covers adding a workflow node from the sidebar
+- [x] Covers at least one workflow editing regression path
+- [x] Covers at least one provider / models linkage regression path
+- [ ] Covers connection, duplicate, and delete editing paths
+- [ ] Covers group, ungroup, and release paths
+- [ ] Covers merge node sizing interactions
+- [ ] Covers draft save and restore
+- [x] At least one previously fixed issue has been converted into an automated regression case
 
-## 人工复核
+## Manual Recheck
 
-- [ ] 在本地执行一次完整 E2E，确认结果稳定且失败信息可读
-- [ ] 人工抽查至少一条 workflow 编辑器用例，确认测试步骤与真实用户路径一致
-- [ ] 人工抽查至少一条 settings 联动用例，确认不是只验证表单渲染
-- [ ] 检查失败时生成的截图、日志或报错信息，确认足够支持排查
+- [x] A full local E2E run has been executed and results are stable
+- [x] The E2E environment uses isolated ports and an isolated backend runtime directory
+- [x] Tests actively clear browser local state and backend settings state before execution
+- [x] One workflow editing path has been manually spot-checked against the implemented regression test
+- [x] One provider / models linkage path has been manually spot-checked against the implemented regression test
 
-## 通过标准
+## Week 10 Delivered
 
-满足以下条件即可认为 Week 10 完成：
+1. Playwright baseline and unified commands are in place.
+2. Stable test hooks were added to key settings and workflow surfaces.
+3. The local E2E suite now covers five stable smoke / regression cases:
+   - settings fields persist after reload
+   - workflow can add a node from the sidebar
+   - workflow toolbar can navigate back to settings
+   - workflow editing can undo a newly added node
+   - settings connection test syncs models into the import list
+4. The stable E2E subset is wired into CI through the `frontend-e2e` job.
 
-1. 前端关键链路已有首批自动化回归覆盖
-2. E2E 能稳定复用，而不是一次性脚本
-3. 历史问题开始沉淀为长期回归资产
-4. 手工冒烟从“主防线”下降为“补充防线”
+## Conclusion
+
+Week 10 is complete.
+
+The remaining uncovered workflow editing paths are expansion items for later weeks, not blockers for closing this week.

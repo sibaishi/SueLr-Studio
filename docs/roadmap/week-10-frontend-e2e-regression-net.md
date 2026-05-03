@@ -1,79 +1,69 @@
 # Week 10 Frontend E2E Regression Net
 
-## 1. 本周目标
+## Weekly Goal
 
-Week 10 的目标是把当前仍然主要依赖手工回归的前端高风险路径，收口为一套可重复执行的自动化回归网。  
-这一周不追求覆盖所有界面，而是优先兜住最容易回归、最影响体验、最值得持续验证的主链路。
+Week 10 focuses on moving the most regression-prone frontend paths from manual checking to a first repeatable automated regression net. The target is not broad coverage yet; the target is a stable baseline that can run locally and in CI.
 
-本周重点解决的问题是：
+## Delivered This Week
 
-1. Workflow 编辑器的关键交互仍然缺少自动化保障
-2. Settings / Provider / Workflow 之间的联动回归主要靠手工观察
-3. 历史修复过的问题还没有充分沉淀为长期回归用例
+### 1. E2E Baseline
 
-## 2. 落地内容
+- Playwright has been integrated into the repo
+- Unified commands are available:
+  - `npm run test:e2e`
+  - `npm run test:e2e:ui`
+  - `npm run test:e2e:install`
+- `playwright.config.ts` is in place
+- The E2E run uses isolated frontend and backend runtime settings
 
-### 2.1 建立前端 E2E 基础设施
+### 2. Testability Hooks
 
-引入一套前端 E2E 方案，并补齐：
+Stable `data-testid` coverage has been added to key surfaces, including:
 
-- 本地运行命令
-- CI 运行命令
-- 基础 fixtures 或测试前置
-- 截图、错误日志、失败定位方式
+- top navigation
+- settings page
+- connection configuration area
+- provider and models linkage area
+- workflow page
+- workflow sidebar
+- workflow toolbar
+- workflow status bar
 
-目标是先把自动化框架稳定接进项目，而不是一上来追求很大的 case 数量。
+In addition, shared iOS-style input/select/card wrappers now forward native props so test hooks land on real DOM nodes.
 
-### 2.2 覆盖 Workflow 编辑器核心路径
+### 3. Stable Regression Coverage
 
-第一批 E2E 用例建议优先覆盖：
+The local E2E suite now includes five passing cases:
 
-- 新建节点
-- 连线
-- 复制节点
-- 删除节点
-- 分组 / 解组 / 释放
-- merge 类节点的尺寸联动
-- 草稿保存与恢复
+1. settings fields persist after reload
+2. workflow can add a node from the sidebar
+3. workflow toolbar can navigate back to settings
+4. workflow editing can undo a newly added node
+5. settings connection test syncs models into the import list
 
-这些链路既是编辑器高频路径，也是历史上最容易产生交互回归的区域。
+### 4. CI Integration
 
-### 2.3 覆盖 Settings 与 Workflow 联动路径
+CI now includes a `frontend-e2e` job that runs after `quality-gate`, installs the required frontend/backend dependencies, installs Playwright browsers, and executes the stable E2E subset.
 
-第二批 E2E 用例建议覆盖：
+## Verification Result
 
-- 设置页读取当前配置
-- 切换 provider 或模型配置后，工作流侧正确刷新可选项
-- 测试连接后模型数据正确回写
-- 关键设置项刷新页面后仍能恢复
+Local verification passed with:
 
-重点是验证“配置变化是否真的反映到使用端”，而不只是表单本身能不能填。
+- `npm run check`
+- `npm run test:e2e`
 
-### 2.4 将历史问题沉淀为回归测试
+Current local E2E result: `5 passed`.
 
-将已修复问题按风险优先级补入回归用例，优先考虑：
+## Remaining Expansion Areas
 
-- 图片链路兼容问题
-- provider contract 兼容问题
-- workflow store 编辑态问题
-- settings 面板联动问题
+These are follow-up coverage items, not Week 10 blockers:
 
-这一步的价值在于把“记忆中的 bug”转成“机器可重复验证的历史约束”。
+1. workflow connect / duplicate / delete paths
+2. workflow group / ungroup / release paths
+3. merge node sizing interactions
+4. draft save / restore
+5. more fixed historical issues converted into automated regressions
 
-## 3. 验收结果
+## Conclusion
 
-Week 10 完成后，应至少确认：
-
-- 前端 E2E 可在本地稳定执行
-- 核心 workflow 编辑链路已有自动化覆盖
-- settings 与 workflow 的关键联动已有自动化覆盖
-- 至少一批历史问题已经被沉淀为回归用例
-
-## 4. 对后续周次的直接输入
-
-Week 10 会为 Week 11 和 Week 12 提供两类重要输入：
-
-1. Week 11 的纯逻辑单测将与 E2E 形成“上层交互 + 下层逻辑”的双层保护
-2. Week 12 的发布纪律与回归矩阵，可以直接按已存在的 E2E 用例编排发布前验证顺序
-
-Week 10 的意义不是把测试做多，而是把前端的主要风险从“只能手工盯”推进到“机器先兜底”。
+Week 10 is complete. The project now has a working frontend E2E baseline, two new high-value regression chains, and CI coverage for the stable subset.

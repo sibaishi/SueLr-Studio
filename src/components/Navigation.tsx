@@ -91,7 +91,7 @@ export function DesktopSidebar({ tab, setTab, modelCount, themeMode, setThemeMod
         {NAV_ITEMS.map(it => {
           const active = tab === it.key;
           return (
-            <button key={it.key} onClick={() => setTab(it.key)} title={it.label} style={{
+            <button key={it.key} onClick={() => setTab(it.key)} title={it.label} data-testid={`nav-tab-${it.key}`} style={{
               width: '100%', minHeight: navButtonHeight, borderRadius: navButtonRadius, border: '1px solid transparent', cursor: 'pointer',
               background: active && !collapsed ? 'var(--glass-bg)' : 'transparent',
               display: 'flex', flexDirection: 'column', alignItems: 'center',
