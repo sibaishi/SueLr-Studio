@@ -608,6 +608,78 @@ test('HTTP contract: capabilities image route rejects invalid request bodies', a
   }
 });
 
+test('HTTP contract: images generate route returns envelope-only payloads', async () => {
+  const { server, baseUrl } = await createTestServer('images-generate');
+  try {
+    const { imagesService } = await import('../src/modules/images/images.service.js');
+    const originalGenerate = imagesService.generate;
+    imagesService.generate = async () => ({
+      images: ['https://example.com/generated.png'],
+      request: { model: 'demo-image-model' },
+    });
+
+    try {
+      const success = await requestJson(baseUrl, '/api/images/generate', {
+        method: 'POST',
+        body: JSON.stringify({ model: 'demo-image-model', prompt: 'phase 2 image' }),
+      });
+
+      assert.equal(success.status, 200);
+      assertEnvelopeShape(success.body);
+      assert.deepEqual(success.body, {
+        success: true,
+        data: {
+          images: ['https://example.com/generated.png'],
+          request: { model: 'demo-image-model' },
+        },
+      });
+      assert.equal(success.body.images, undefined);
+      assert.equal(success.body.request, undefined);
+    } finally {
+      imagesService.generate = originalGenerate;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: images generate route matches capabilities image validation', async () => {
+  const { server, baseUrl } = await createTestServer('images-generate-validation');
+  try {
+    const cases = [
+      {
+        name: 'missing prompt',
+        body: { model: 'demo-image-model' },
+      },
+      {
+        name: 'invalid image url',
+        body: { model: 'demo-image-model', prompt: 'phase 2 image', image: ['file:///tmp/image.png'] },
+      },
+      {
+        name: 'invalid n',
+        body: { model: 'demo-image-model', prompt: 'phase 2 image', n: 0 },
+      },
+    ];
+
+    for (const item of cases) {
+      const generateInvalid = await requestJson(baseUrl, '/api/images/generate', {
+        method: 'POST',
+        body: JSON.stringify(item.body),
+      });
+      const capabilityInvalid = await requestJson(baseUrl, '/api/capabilities/image', {
+        method: 'POST',
+        body: JSON.stringify(item.body),
+      });
+
+      assert.equal(generateInvalid.status, 400, item.name);
+      assert.equal(capabilityInvalid.status, 400, item.name);
+      assert.deepEqual(generateInvalid.body, capabilityInvalid.body, item.name);
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: capabilities video route rejects invalid request bodies', async () => {
   const { server, baseUrl } = await createTestServer('capabilities-video-validation');
   try {

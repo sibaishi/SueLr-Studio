@@ -4,7 +4,6 @@ import {
   migrateProjectModels,
   normalizeProjectModels,
 } from '../../../engine/helpers/projectModels.js';
-import { sanitizeProviderConfig, normalizeModelOverrides } from '../../../routes/settingsShared.js';
 import { ProviderError, ValidationError } from '../../app/errors/index.js';
 import {
   LEGACY_PATHS,
@@ -18,6 +17,7 @@ import {
 import { getProviderAdapter } from '../../platform/providers/index.js';
 import { parseProviderErrorResponse, toProviderError } from '../../platform/providers/provider-http.js';
 import { assertSafeProviderBaseUrl } from '../../platform/security/network-guards.js';
+import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.js';
 
 const SETTINGS_VERSION = 1;
 

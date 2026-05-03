@@ -6,11 +6,12 @@
 - Week 2：完成
 - Week 3：完成
 - Week 4：完成
-- Week 5-8：待开始
+- Week 5：完成
+- Week 6-8：待开始
 
 ## 阶段目标
 
-用 8 周把项目从“功能可用但结构负担较重”推进到“入口清晰、契约统一、状态可拆、验证可复用”的状态。
+用 8 周把项目从“功能可用但结构负担偏重”推进到“入口清晰、契约统一、状态可拆、验证可复用”的状态。
 
 ## 执行原则
 
@@ -39,35 +40,43 @@
 ### Week 4 · Workflow Store 预拆分
 
 - 状态：完成
-- 目标：把 Workflow Store 从“大一统实现”推进到“可拆分结构”
-
-本周已完成：
-
-1. 抽出 `src/features/workflow/lib/store/types.ts`
-2. 抽出 `src/features/workflow/lib/store/persistence.ts`
-3. 抽出 `src/features/workflow/lib/store/selectors.ts`
-4. 将 `src/features/workflow/App.tsx` 改为页面侧选择性订阅
-5. 将 `src/features/workflow/components/FlowCanvas.tsx` 改为画布侧选择性订阅
-6. 补齐 `ProviderConfig` 类型导出口，恢复 `npx tsc --noEmit`
-7. 补齐 Week 4 设计文档与检查清单
-
-验收结果：
-
-- `npm run build` 通过
-- `npx tsc --noEmit` 通过
-- Store 公共类型、持久化边界、页面/画布 selector 已拆出
-- `store.ts` 仍作为稳定公开入口保留
-
-后续承接：
-
-1. Week 5 开始后端收口实施
-2. Week 6 开始前端 Provider 收口实施
-3. Week 7 再进行 Workflow Store 真正切片拆分
+- 已完成：
+  1. 抽出 `src/features/workflow/lib/store/types.ts`
+  2. 抽出 `src/features/workflow/lib/store/persistence.ts`
+  3. 抽出 `src/features/workflow/lib/store/selectors.ts`
+  4. 将 `src/features/workflow/App.tsx` 调整为页面侧选择性订阅
+  5. 将 `src/features/workflow/components/FlowCanvas.tsx` 调整为画布侧选择性订阅
+  6. 补齐 `ProviderConfig` 类型导出，恢复 `npx tsc --noEmit`
+  7. 补齐 Week 4 设计文档与检查清单
+- 验收结果：
+  - `npm run build` 通过
+  - `npx tsc --noEmit` 通过
+  - Store 公共类型、持久化边界、页面/画布 selector 已拆出
+  - `store.ts` 继续作为稳定公开入口保留
 
 ### Week 5 · 后端收口实施
 
-- 状态：待开始
+- 状态：完成
 - 依赖：Week 2、Week 4 已完成
+- 第一批完成：
+  1. 明确 `/api/capabilities/image` 为图片主入口
+  2. 保留 `/api/images/generate` 作为兼容别名入口
+  3. 将 `CapabilitiesService.image()` 收口到 `imagesService.generate()`
+  4. 为 `/api/images/generate` 补齐 `validateImageBody()` 校验
+  5. 补齐兼容图片入口的 HTTP contract 测试
+- 第二批完成：
+  1. 新增 `backend/src/modules/settings/settings.shared.js` 作为 settings 模块内部共享 helper
+  2. 将 `settings.repository.js` 改为从模块内 helper 读取 `sanitizeProviderConfig` 与 `normalizeModelOverrides`
+  3. 保留 `backend/routes/settingsShared.js` 为兼容性 re-export，避免旧路径瞬时断裂
+  4. 补齐 providerConfig 清洗与 `modelOverrides` 归一化回归测试
+- 当前交付：
+  - `docs/roadmap/week-5-image-chain-consolidation.md`
+  - `docs/roadmap/week-5-settings-boundary-consolidation.md`
+  - `docs/testing/week-5-image-contract-checklist.md`
+  - `docs/testing/week-5-settings-boundary-checklist.md`
+- 验收结果：
+  - `npm --prefix backend test` 通过
+  - `npm run build` 通过
 
 ### Week 6 · 前端 Provider 收口实施
 
@@ -77,7 +86,7 @@
 ### Week 7 · Workflow Store 真拆分
 
 - 状态：待开始
-- 依赖：Week 4 设计与验证闭环完成
+- 依赖：Week 4 设计与预拆分完成
 
 ### Week 8 · 质量门禁与长期标准化
 
@@ -86,12 +95,12 @@
 
 ## 当前风险
 
-1. `src/features/workflow/lib/store.ts` 仍然体量较大，当前只是预拆分
-2. `executeWorkflow` 与文档/执行状态仍在同一文件中，Week 7 拆分时要控制回归风险
+1. `src/features/workflow/lib/store.ts` 体量仍偏大，目前只是预拆分
+2. `executeWorkflow` 与执行状态逻辑仍在高耦合区域，Week 7 拆分时要控制回归风险
 3. 手工冒烟回归尚未形成自动化能力，后续需要逐步补齐
 
 ## 当前建议
 
-1. 以 Week 4 当前状态作为 Workflow 模块重构基线
-2. Week 5、Week 6 不再回头扩展 Week 4 范围，避免并行重构互相干扰
-3. Week 7 拆分时继续保留 `store.ts` 作为兼容入口，分阶段迁移调用方
+1. Week 6 先盘点前端 Provider 读写入口，避免 UI 层继续直接拼 provider 字段
+2. Week 7 继续保留 `store.ts` 作为兼容入口，按调用热区逐步搬迁
+3. Week 8 再把 Week 1-5 的检查清单抽成可重复执行的脚本与发布门禁

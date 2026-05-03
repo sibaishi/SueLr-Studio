@@ -48,3 +48,25 @@ test('settings response does not expose secrets in plaintext', async () => {
   assert.equal(response.activeConfig.apiKey, '');
   assert.equal(response.activeConfig.apiKeySet, true);
 });
+
+test('settings module sanitizes provider config without legacy route dependency', async () => {
+  process.env.APP_STORAGE_DIR = createStorageDir('settings-provider-config');
+
+  const { settingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
+
+  const updated = settingsService.updateRuntimeConfig({
+    providerConfig: {
+      imageTimeoutMs: '4200.2',
+      modelOverrides: {
+        '  image-model  ': { type: 'image', endpoint: ' /custom-image ' },
+        'bad-model': { type: 'invalid' },
+      },
+    },
+  });
+
+  assert.equal(updated.activeConfig.providerConfig.imageTimeoutMs, 4200);
+  assert.deepEqual(updated.activeConfig.providerConfig.modelOverrides, {
+    'image-model': { type: 'image', endpoint: '/custom-image' },
+  });
+  assert.equal(updated.activeConfig.providerConfig.imageEndpoint, '/v1/images/generations');
+});

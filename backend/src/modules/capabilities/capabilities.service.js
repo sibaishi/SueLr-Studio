@@ -1,16 +1,21 @@
 import { createLogger } from '../../platform/logging/logger.js';
 import { ProviderError, ValidationError } from '../../app/errors/index.js';
 import { settingsService } from '../settings/settings.service.js';
+import { imagesService } from '../images/images.service.js';
 import { runChatCompletion } from '../../../services/chatService.js';
-import { runImageGeneration } from '../../../services/imageService.js';
 import { formatWebSearchResult, runWebSearch } from '../../../services/searchService.js';
 import { pollVideoTask, submitVideoGeneration } from '../../../services/videoService.js';
 
 const logger = createLogger({ module: 'capabilities-service' });
 
 export class CapabilitiesService {
+  constructor(dependencies = {}) {
+    this.settingsService = dependencies.settingsService || settingsService;
+    this.imagesService = dependencies.imagesService || imagesService;
+  }
+
   buildRuntimeConfig(apiConfig = {}) {
-    return settingsService.buildRuntimeConfig(apiConfig || {});
+    return this.settingsService.buildRuntimeConfig(apiConfig || {});
   }
 
   async chat(body) {
@@ -71,12 +76,7 @@ export class CapabilitiesService {
   }
 
   async image(body) {
-    try {
-      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
-      return await runImageGeneration(body, { ...runtimeConfig, abortSignal: undefined });
-    } catch (error) {
-      throw error?.status ? error : new ProviderError('IMAGE_FAILED', error instanceof Error ? error.message : 'Image generation failed');
-    }
+    return this.imagesService.generate(body);
   }
 
   async submitVideo(body) {
