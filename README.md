@@ -2,30 +2,45 @@
 
 SueLr Studio is a local-first multimodal studio for chat, image, video, and workflow-based AI tasks.
 
-Project documentation shipped with the repository is intentionally minimal:
+It is built for people who want a desktop-style AI workspace on their own machine: configure providers, run multimodal tasks, assemble workflows on canvas, and keep runtime data under local control.
+
+## What This Repository Ships
+
+- a Vite + React frontend for chat, image, video, and workflow editing
+- an Express-based local backend for provider access, workflow runtime, files, and settings
+- a local-first runtime model that stores app data outside the repository by default
+- repository quality gates for docs, runtime boundaries, workflow store structure, tests, and builds
+
+## Project Status
+
+This repository is actively maintained as a local application project, not a hosted multi-user SaaS.
+
+Current public documentation is intentionally small:
 
 - [User Guide](docs/user-guide.md)
 - [Developer Guide](docs/developer-guide.md)
 
-## Overview
-
-This repository is organized as a browser frontend plus a local backend:
-
-- frontend: React + Vite + TypeScript
-- backend: Express-based local API and workflow runtime
-- focus areas: chat, image, video, workflow editing, local file/runtime storage
-
-The project is designed first for local desktop-style use rather than multi-user hosted deployment.
-
 ## Quick Start
+
+### Requirements
+
+- Node.js `>=22.12.0 <23`
+- npm
+
+### Install
 
 ```bash
 npm install
-npm install --prefix backend
+npm run install:all
+```
+
+### Start
+
+```bash
 npm run dev
 ```
 
-On Windows PowerShell, if script policy blocks `npm.ps1`, use:
+Windows PowerShell may block `npm.ps1` depending on local execution policy. If that happens, use:
 
 ```bash
 cmd /c npm run dev
@@ -36,9 +51,18 @@ Default local addresses:
 - frontend: `http://localhost:5173`
 - backend: `http://127.0.0.1:3001`
 
+## Typical Use
+
+SueLr Studio is organized around four everyday flows:
+
+1. Configure providers and model access from settings.
+2. Run direct chat, image, and video tasks.
+3. Build and execute workflows on the canvas.
+4. Review outputs, logs, generated files, and workflow run details locally.
+
 ## Runtime Data
 
-Runtime data is stored in the system config directory by default instead of the repo `storage/` folder:
+Runtime data is stored in the system config directory by default instead of the repository `storage/` folder:
 
 ```text
 Windows: %APPDATA%\SueLr-Studio
@@ -69,3 +93,12 @@ docs/           public project documentation
 scripts/        repository quality-gate scripts
 workflows/      example workflow files
 ```
+
+## Contributing
+
+External collaboration is welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, validation commands, and repository conventions.
+
+## License Status
+
+This repository does not currently declare an open-source license file.
+If you plan to publish it for broader reuse, the license choice should be made explicitly before treating it as an open-source distribution.
