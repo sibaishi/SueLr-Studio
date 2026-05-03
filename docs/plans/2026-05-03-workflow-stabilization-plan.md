@@ -10,10 +10,14 @@
 - Week 6：完成
 - Week 7：完成
 - Week 8：完成
+- Week 9：进行中
+- Week 10：待开始
+- Week 11：待开始
+- Week 12：待开始
 
 ## 阶段目标
 
-用 8 周把项目从“功能可用但结构负担偏重”推进到“入口清晰、契约统一、状态可拆、验证可复用”的状态。
+用 12 周把项目从“功能可用但结构负担偏重”推进到“入口清晰、契约统一、状态可拆、验证可复用、发布与回归机制稳定可持续”的状态。
 
 ## 执行原则
 
@@ -21,6 +25,7 @@
 - 优先做可回滚、可验证的收口
 - 先定义边界，再做迁移
 - 每周都留下代码或文档交付物
+- Week 9 之后优先补自动化与发布工程化，不再轻易引入大规模结构漂移
 
 ## 周计划
 
@@ -105,7 +110,7 @@
   3. 在项目根 `package.json` 中补齐 `typecheck` 与 `check` 统一验证脚本
   4. 补齐 Week 8 路线文档与检查清单
 - 第二批完成：
-  1. 新增 `scripts/check-workflow-store-structure.mjs`，将 `store.ts` 薄入口边界固化为结构门禁
+  1. 新增 `scripts/check-workflow-store-structure.mjs`，将 `store.ts` 入口边界固化为结构门禁
   2. 将结构门禁接入项目根 `npm run check`
   3. 同步补齐 Week 8 文档中的验收结果与后续建议
 - 后半段完成：
@@ -118,14 +123,76 @@
   - `store.ts` 与 `editor.ts` 均维持薄层入口
   - 对外 store API 未发生破坏性变化
 
+### Week 9 - CI 与发布回滚加固
+
+- 状态：进行中
+- 已完成：
+  1. 新增 `.github/workflows/ci.yml`，将 `npm run check` 接入远程 CI
+  2. 新增 `.nvmrc`，统一 Node 基线为 `22.17.0`
+  3. 在根 `package.json` 与 `backend/package.json` 中补齐 `engines.node`
+  4. 新增 `docs/ops/environment-baseline.md`
+  5. 新增 `docs/ops/deployment-and-rollback.md`
+- 目标：
+  1. 将 `npm run check` 接入远程 CI
+  2. 锁定 Node / env / 启动方式等运行基线
+  3. 补齐部署、发布后验收与回滚文档
+  4. 固定一组发布前最小人工冒烟项
+- 交付：
+  - CI 工作流
+  - 环境基线文档
+  - 部署 / 回滚说明
+  - Week 9 检查清单
+
+### Week 10 - 前端关键链路自动化回归网
+
+- 状态：待开始
+- 目标：
+  1. 建立前端 E2E 基础设施
+  2. 覆盖 workflow 编辑器核心交互路径
+  3. 覆盖 settings 与 workflow 的关键联动
+  4. 将历史高风险问题沉淀为回归用例
+- 交付：
+  - 前端 E2E 测试入口
+  - 首批 workflow / settings 回归用例
+  - Week 10 检查清单
+
+### Week 11 - Store 证明性测试与边界护栏增强
+
+- 状态：待开始
+- 目标：
+  1. 为 workflow store 高风险纯逻辑补第一批单元测试
+  2. 继续压薄 `store.ts` 与 `editor.ts` 的组合层边界
+  3. 强化结构检查脚本
+  4. 为 editor / document / execution 补边界说明
+- 交付：
+  - store 纯逻辑测试
+  - 增强后的结构门禁
+  - 模块边界说明文档
+  - Week 11 检查清单
+
+### Week 12 - 发布纪律、回归矩阵与观测收口
+
+- 状态：待开始
+- 目标：
+  1. 建立 release checklist
+  2. 建立关键模块回归矩阵
+  3. 收口最小观测与排查入口
+  4. 建立后续迭代纪律
+- 交付：
+  - 发布清单
+  - 回归矩阵文档
+  - 观测 / 排查说明
+  - Week 12 检查清单
+
 ## 当前风险
 
 1. 当前门禁已经覆盖结构约束、类型、构建与后端契约，但前端交互回归仍主要依赖手工验证。
-2. `editorGraph.ts` 仍有继续按“节点/连线”细分的空间，但优先级已经低于补测试闭环。
-3. 分组、复制、拖拽布局仍是 workflow 编辑区的高回归路径，后续更适合补纯逻辑测试与手工冒烟闭环。
+2. 远程 CI、环境基线、部署和回滚仍未完全收口到统一工程入口。
+3. `editorGraph.ts` 仍有继续按“节点 / 连线”细拆的空间，但优先级已经低于补测试闭环。
+4. 分组、复制、拖拽布局仍是 workflow 编辑区的高回归路径，后续更适合补纯逻辑测试与前端自动化回归闭环。
 
 ## 当前建议
 
 1. Week 8 之后继续保留 `store.ts` 与 `editor.ts` 的稳定薄层入口，不轻易回流实现细节。
-2. 下一步优先补 editor/document/execution 的更细粒度手工回归清单，并视风险补第一批 store 纯逻辑测试。
+2. Week 9-12 的优先级顺序建议固定为：CI 与发布基线 -> 前端 E2E -> store 纯逻辑测试 -> 发布纪律与回归矩阵。
 3. 后续每完成一周结构性调整，都同步更新 `docs/README.md`、对应 roadmap 文档与 testing 清单。
