@@ -1,37 +1,17 @@
 import { Router } from 'express';
+import { validateBody, validateParam } from '../../app/middleware/validate-request.js';
 import { workflowsController } from './workflows.controller.js';
-import { ensureWorkflowBody } from './workflows.schema.js';
+import { ensureWorkflowBody, validateWorkflowId } from './workflows.schema.js';
 
 const router = Router();
 
 router.get('/', workflowsController.list.bind(workflowsController));
-router.post('/import', (req, _res, next) => {
-  try {
-    req.body = ensureWorkflowBody(req.body);
-    next();
-  } catch (error) {
-    next(error);
-  }
-}, workflowsController.import.bind(workflowsController));
-router.get('/:id', workflowsController.get.bind(workflowsController));
-router.get('/:id/export', workflowsController.export.bind(workflowsController));
-router.post('/', (req, _res, next) => {
-  try {
-    req.body = ensureWorkflowBody(req.body);
-    next();
-  } catch (error) {
-    next(error);
-  }
-}, workflowsController.create.bind(workflowsController));
-router.put('/:id', (req, _res, next) => {
-  try {
-    req.body = ensureWorkflowBody(req.body);
-    next();
-  } catch (error) {
-    next(error);
-  }
-}, workflowsController.update.bind(workflowsController));
-router.delete('/:id', workflowsController.remove.bind(workflowsController));
-router.post('/:id/duplicate', workflowsController.duplicate.bind(workflowsController));
+router.post('/import', validateBody(ensureWorkflowBody), workflowsController.import.bind(workflowsController));
+router.get('/:id', validateParam('id', validateWorkflowId), workflowsController.get.bind(workflowsController));
+router.get('/:id/export', validateParam('id', validateWorkflowId), workflowsController.export.bind(workflowsController));
+router.post('/', validateBody(ensureWorkflowBody), workflowsController.create.bind(workflowsController));
+router.put('/:id', validateParam('id', validateWorkflowId), validateBody(ensureWorkflowBody), workflowsController.update.bind(workflowsController));
+router.delete('/:id', validateParam('id', validateWorkflowId), workflowsController.remove.bind(workflowsController));
+router.post('/:id/duplicate', validateParam('id', validateWorkflowId), workflowsController.duplicate.bind(workflowsController));
 
 export default router;

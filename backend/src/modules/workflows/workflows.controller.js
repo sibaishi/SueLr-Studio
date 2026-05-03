@@ -1,6 +1,5 @@
 import { successEnvelope } from '../../app/http/envelope.js';
 import { workflowsService } from './workflows.service.js';
-import { validateWorkflowId } from './workflows.schema.js';
 
 export class WorkflowsController {
   list(_req, res, next) {
@@ -13,7 +12,7 @@ export class WorkflowsController {
 
   get(req, res, next) {
     try {
-      res.json(successEnvelope(workflowsService.getById(validateWorkflowId(req.params.id))));
+      res.json(successEnvelope(workflowsService.getById(req.params.id)));
     } catch (error) {
       next(error);
     }
@@ -29,7 +28,7 @@ export class WorkflowsController {
 
   update(req, res, next) {
     try {
-      res.json(successEnvelope(workflowsService.update(validateWorkflowId(req.params.id), req.body)));
+      res.json(successEnvelope(workflowsService.update(req.params.id, req.body)));
     } catch (error) {
       next(error);
     }
@@ -37,7 +36,7 @@ export class WorkflowsController {
 
   remove(req, res, next) {
     try {
-      workflowsService.delete(validateWorkflowId(req.params.id));
+      workflowsService.delete(req.params.id);
       res.json(successEnvelope(null));
     } catch (error) {
       next(error);
@@ -46,7 +45,7 @@ export class WorkflowsController {
 
   duplicate(req, res, next) {
     try {
-      res.json(successEnvelope(workflowsService.duplicate(validateWorkflowId(req.params.id))));
+      res.json(successEnvelope(workflowsService.duplicate(req.params.id)));
     } catch (error) {
       next(error);
     }
@@ -54,7 +53,7 @@ export class WorkflowsController {
 
   export(req, res, next) {
     try {
-      res.json(successEnvelope(workflowsService.export(validateWorkflowId(req.params.id))));
+      res.json(successEnvelope(workflowsService.export(req.params.id)));
     } catch (error) {
       next(error);
     }

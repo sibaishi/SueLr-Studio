@@ -1,26 +1,43 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const checks = [
   {
-    path: 'docs/ops/release-checklist.md',
-    sections: ['## Scope', '## Automated Gates', '## Manual Smoke', '## Release Record'],
+    path: 'docs/user-guide.md',
+    sections: ['## Overview', '## Install', '## Start The App', '## Main User Flows', '## Troubleshooting'],
   },
   {
-    path: 'docs/ops/regression-matrix.md',
-    sections: ['## Scope', '## Matrix', '## Change Mapping Rules'],
-  },
-  {
-    path: 'docs/ops/triage-entrypoints.md',
-    sections: ['## Scope', '## Startup And Configuration', '## Workflow Execution', '## Provider And Media Requests', '## Frontend Failures'],
-  },
-  {
-    path: 'docs/ops/release-rhythm.md',
-    sections: ['## Scope', '## Per Change', '## Per Release', '## Per Regression'],
+    path: 'docs/developer-guide.md',
+    sections: [
+      '## Overview',
+      '## Repository Layout',
+      '## Frontend Structure',
+      '## Backend Structure',
+      '## Testing Strategy',
+      '## Public Documentation Policy',
+    ],
   },
 ];
 
 const failures = [];
+const allowedMarkdownDocs = new Set([
+  'docs/user-guide.md',
+  'docs/developer-guide.md',
+]);
+
+function collectMarkdownFiles(dir, bucket = []) {
+  for (const entry of readdirSync(resolve(dir), { withFileTypes: true })) {
+    const entryPath = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) {
+      collectMarkdownFiles(entryPath, bucket);
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      bucket.push(entryPath.replaceAll('\\', '/'));
+    }
+  }
+  return bucket;
+}
 
 for (const check of checks) {
   const absolutePath = resolve(check.path);
@@ -37,12 +54,21 @@ for (const check of checks) {
   }
 }
 
+if (existsSync(resolve('docs'))) {
+  const markdownFiles = collectMarkdownFiles('docs');
+  for (const file of markdownFiles) {
+    if (!allowedMarkdownDocs.has(file)) {
+      failures.push(`docs directory may only contain public markdown docs, found extra file: ${file}`);
+    }
+  }
+}
+
 if (failures.length > 0) {
-  console.error('Release docs check failed:');
+  console.error('Documentation check failed:');
   for (const failure of failures) {
     console.error(`- ${failure}`);
   }
   process.exit(1);
 }
 
-console.log('Release docs check passed.');
+console.log('Documentation check passed.');

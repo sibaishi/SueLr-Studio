@@ -1,6 +1,4 @@
-import {
-  ValidationError,
-} from '../../app/errors/index.js';
+import { ValidationError } from '../../app/errors/index.js';
 
 function ensureObject(payload, message) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -37,6 +35,13 @@ function validateNumber(value, fallback, min = undefined, max = undefined) {
   return parsed;
 }
 
+function formatRange(min, max) {
+  if (min !== undefined && max !== undefined) return `${min} 到 ${max}`;
+  if (min !== undefined) return `大于等于 ${min}`;
+  if (max !== undefined) return `小于等于 ${max}`;
+  return '允许范围内';
+}
+
 function validateBoundedNumber(value, fieldName, { min, max, integer = false } = {}) {
   if (value === undefined || value === null || value === '') return undefined;
   const parsed = Number(value);
@@ -47,7 +52,7 @@ function validateBoundedNumber(value, fieldName, { min, max, integer = false } =
     throw new ValidationError('VALIDATION_ERROR', `${fieldName} 必须为整数`);
   }
   if ((min !== undefined && parsed < min) || (max !== undefined && parsed > max)) {
-    throw new ValidationError('VALIDATION_ERROR', `${fieldName} 必须在 ${min} 到 ${max} 之间`);
+    throw new ValidationError('VALIDATION_ERROR', `${fieldName} 必须在 ${formatRange(min, max)} 之间`);
   }
   return parsed;
 }
@@ -61,26 +66,35 @@ function validateEnum(value, fieldName, allowedValues) {
   return normalized;
 }
 
+function getUrlLabel(allowedDataTypes) {
+  if (allowedDataTypes.includes('image/')) return '图片链接格式';
+  if (allowedDataTypes.includes('video/')) return '视频链接格式';
+  if (allowedDataTypes.includes('audio/')) return '音频链接格式';
+  return '链接格式';
+}
+
 function validateUrlOrEmpty(value, fieldName, allowedDataTypes = []) {
   const normalized = cleanOptionalString(value, 2000);
   if (!normalized) return '';
+
   const isHttp = /^https?:\/\//i.test(normalized);
   const isApiPath = normalized.startsWith('/api/');
   const dataMatch = normalized.match(/^data:([^;]+);base64,[a-zA-Z0-9+/=\s]+$/);
-  const isAllowedDataUrl = Boolean(dataMatch && allowedDataTypes.some((prefix) => dataMatch[1].toLowerCase().startsWith(prefix)));
+  const isAllowedDataUrl = Boolean(
+    dataMatch && allowedDataTypes.some((prefix) => dataMatch[1].toLowerCase().startsWith(prefix)),
+  );
+
   if (!isHttp && !isApiPath && !isAllowedDataUrl) {
-    const label = allowedDataTypes.includes('image/') ? '图片链接格式'
-      : allowedDataTypes.includes('video/') ? '视频链接格式'
-        : allowedDataTypes.includes('audio/') ? '音频链接格式'
-          : '链接格式';
-    throw new ValidationError('VALIDATION_ERROR', `${fieldName} 不是允许的${label}`);
+    throw new ValidationError('VALIDATION_ERROR', `${fieldName} 不是允许的${getUrlLabel(allowedDataTypes)}`);
   }
   return normalized;
 }
 
 function validateUrlArray(value, fieldName, allowedDataTypes) {
   if (value === undefined) return undefined;
-  return validateArray(value, fieldName).map((item, index) => validateUrlOrEmpty(item, `${fieldName}[${index}]`, allowedDataTypes)).filter(Boolean);
+  return validateArray(value, fieldName)
+    .map((item, index) => validateUrlOrEmpty(item, `${fieldName}[${index}]`, allowedDataTypes))
+    .filter(Boolean);
 }
 
 function normalizeApiConfig(value) {
@@ -165,9 +179,11 @@ export function validateVideoBody(payload) {
       || normalized.input_audios?.length
       || normalized.messages?.length,
   );
+
   if (!hasInput) {
     throw new ValidationError('VALIDATION_ERROR', '视频生成输入不能为空');
   }
+
   return normalized;
 }
 

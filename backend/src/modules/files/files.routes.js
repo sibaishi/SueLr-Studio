@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { ValidationError } from '../../app/errors/index.js';
+import { validateParam } from '../../app/middleware/validate-request.js';
 import { filesController } from './files.controller.js';
 import { filesService } from './files.service.js';
 import { validateFilename, validateUploadFile } from './files.schema.js';
@@ -23,13 +24,6 @@ router.post('/files/upload', (req, res, next) => {
   });
 }, filesController.upload.bind(filesController));
 
-router.delete('/files/:filename', (req, _res, next) => {
-  try {
-    req.params.filename = validateFilename(req.params.filename);
-    next();
-  } catch (error) {
-    next(error);
-  }
-}, filesController.remove.bind(filesController));
+router.delete('/files/:filename', validateParam('filename', validateFilename), filesController.remove.bind(filesController));
 
 export default router;

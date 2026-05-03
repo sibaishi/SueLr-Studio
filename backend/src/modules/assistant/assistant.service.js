@@ -103,9 +103,9 @@ export class AssistantService {
 
   openGeneratedFile(relativePath) {
     const filePath = this.repository.resolveGeneratedFile(relativePath);
-    if (!filePath) throw new ValidationError('FILE_ACCESS_DENIED', 'Forbidden');
+    if (!filePath) throw new ValidationError('FILE_ACCESS_DENIED', '非法文件路径');
     if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-      throw new NotFoundError('FILE_NOT_FOUND', 'Not found');
+      throw new NotFoundError('FILE_NOT_FOUND', '文件不存在');
     }
 
     return {

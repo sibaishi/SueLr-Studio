@@ -107,7 +107,7 @@ export class CapabilitiesService {
   }
 
   async getVideoStatus(taskId) {
-    if (!taskId) throw new ValidationError('VALIDATION_ERROR', 'taskId cannot be empty');
+    if (!taskId) throw new ValidationError('VALIDATION_ERROR', 'taskId 不能为空');
     try {
       const runtimeConfig = this.buildRuntimeConfig();
       return await pollVideoTask({

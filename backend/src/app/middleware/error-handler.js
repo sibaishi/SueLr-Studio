@@ -10,7 +10,9 @@ function toSafeClientError(error, status) {
   if (status >= 500) {
     return {
       code,
-      message: status === 502 ? '上游服务请求失败，请检查配置或稍后重试' : '服务器内部错误，请稍后重试',
+      message: status === 502
+        ? '上游服务请求失败，请检查配置或稍后重试'
+        : '服务器内部错误，请稍后重试',
     };
   }
 

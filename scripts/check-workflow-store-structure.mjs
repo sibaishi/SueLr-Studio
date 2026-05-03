@@ -5,7 +5,7 @@ const storePath = resolve('src/features/workflow/lib/store.ts');
 const storeSource = readFileSync(storePath, 'utf8');
 const editorPath = resolve('src/features/workflow/lib/store/editor.ts');
 const editorSource = readFileSync(editorPath, 'utf8');
-const boundaryDocPath = resolve('docs/architecture/workflow-store-boundaries.md');
+const boundaryDocPath = resolve('docs/developer-guide.md');
 const boundaryDocSource = existsSync(boundaryDocPath)
   ? readFileSync(boundaryDocPath, 'utf8')
   : '';
@@ -88,9 +88,9 @@ for (const marker of forbiddenEditorMarkers) {
 }
 
 if (!existsSync(boundaryDocPath)) {
-  failures.push('workflow store boundary documentation is missing: docs/architecture/workflow-store-boundaries.md');
+  failures.push('workflow store boundary documentation is missing: docs/developer-guide.md');
 } else {
-  for (const section of ['## Editor', '## Document', '## Execution']) {
+  for (const section of ['### Workflow Editor', '### Workflow Document', '### Workflow Execution']) {
     if (!boundaryDocSource.includes(section)) {
       failures.push(`workflow store boundary documentation is missing required section: ${section}`);
     }

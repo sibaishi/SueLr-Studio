@@ -20,13 +20,16 @@ export function ensureWorkflowBody(value) {
 }
 
 function normalizeNode(node, index) {
-  if (!isPlainObject(node)) throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}] 必须为对象`, { path: `nodes[${index}]` });
+  if (!isPlainObject(node)) {
+    throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}] 必须为对象`, { path: `nodes[${index}]` });
+  }
   if (typeof node.id !== 'string' || !node.id.trim()) {
     throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}].id 不能为空`, { path: `nodes[${index}].id` });
   }
   if (typeof node.type !== 'string' || !node.type.trim()) {
     throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}].type 不能为空`, { path: `nodes[${index}].type`, nodeId: node.id });
   }
+
   const contract = getNodeContract(node.type);
   if (!contract) {
     throw new ValidationError('WORKFLOW_NODE_TYPE_UNSUPPORTED', `不支持的节点类型: ${node.type}`, { path: `nodes[${index}].type`, nodeId: node.id });
@@ -58,7 +61,9 @@ function normalizeNode(node, index) {
 }
 
 function normalizeEdge(edge, index, nodeIds) {
-  if (!isPlainObject(edge)) throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}] 必须为对象`, { path: `edges[${index}]` });
+  if (!isPlainObject(edge)) {
+    throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}] 必须为对象`, { path: `edges[${index}]` });
+  }
   if (typeof edge.id !== 'string' || !edge.id.trim()) {
     throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}].id 不能为空`, { path: `edges[${index}].id` });
   }
@@ -82,6 +87,7 @@ export function normalizePersistedWorkflow(payload, options = {}) {
   const body = ensureWorkflowBody(payload);
   const id = validateWorkflowId(body.id, 'workflow.id');
   const name = String(body.name || '').trim().slice(0, 200);
+
   if (!name) throw new ValidationError('VALIDATION_ERROR', 'workflow.name 不能为空', { path: 'name' });
   if (!Array.isArray(body.nodes)) throw new ValidationError('VALIDATION_ERROR', 'workflow.nodes 必须为数组', { path: 'nodes' });
   if (!Array.isArray(body.edges)) throw new ValidationError('VALIDATION_ERROR', 'workflow.edges 必须为数组', { path: 'edges' });

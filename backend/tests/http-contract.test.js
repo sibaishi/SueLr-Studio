@@ -86,6 +86,49 @@ test('HTTP contract: settings endpoints use unified envelope', async () => {
   }
 });
 
+test('HTTP contract: health and status endpoints expose runtime baseline payloads', async () => {
+  const { server, baseUrl } = await createTestServer('runtime-baseline');
+  try {
+    const health = await requestJson(baseUrl, '/api/health');
+    assert.equal(health.status, 200);
+    assertEnvelopeShape(health.body);
+    assert.equal(health.body.data.status, 'ok');
+    assert.equal(health.body.data.version, '0.1.0');
+    assert.equal(typeof health.body.data.timestamp, 'number');
+
+    const status = await requestJson(baseUrl, '/api/status');
+    assert.equal(status.status, 200);
+    assertEnvelopeShape(status.body);
+    assert.equal(status.body.data.ok, true);
+    assert.equal(status.body.data.version, '1.0.0');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: CORS rejection stays on the unified error envelope', async () => {
+  const { server, baseUrl } = await createTestServer('cors-envelope');
+  try {
+    const response = await fetch(`${baseUrl}/api/health`, {
+      headers: {
+        Origin: 'https://blocked.example.com',
+      },
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 403);
+    assert.deepEqual(body, {
+      success: false,
+      error: {
+        code: 'CORS_FORBIDDEN',
+        message: '当前来源未被允许访问 API',
+      },
+    });
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: settings test-api blocks local provider targets', async () => {
   process.env.APP_HOST = '0.0.0.0';
   const { server, baseUrl } = await createTestServer('settings-ssrf');
@@ -183,6 +226,11 @@ test('HTTP contract: workflows CRUD endpoints return expected envelopes', async 
     assert.equal(missing.status, 404);
     assert.equal(missing.body.success, false);
     assert.equal(missing.body.error.code, 'WORKFLOW_NOT_FOUND');
+
+    const invalidId = await requestJson(baseUrl, '/api/workflows/%20');
+    assert.equal(invalidId.status, 400);
+    assertEnvelopeShape(invalidId.body);
+    assert.equal(invalidId.body.error.code, 'VALIDATION_ERROR');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
