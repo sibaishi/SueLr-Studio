@@ -1,0 +1,64 @@
+import { useShallow } from 'zustand/react/shallow';
+import { useWorkflowStore } from '@/features/workflow/lib/store';
+
+export function useWorkflowPageStore() {
+  return useWorkflowStore(useShallow((state) => ({
+    workflowId: state.workflowId,
+    workflowName: state.workflowName,
+    workflowList: state.workflowList,
+    isHydratingWorkflow: state.isHydratingWorkflow,
+    isSavingWorkflow: state.isSavingWorkflow,
+    hasUnsavedChanges: state.hasUnsavedChanges,
+    lastSavedAt: state.lastSavedAt,
+    nodes: state.nodes,
+    edges: state.edges,
+    selectedNodeId: state.selectedNodeId,
+    isExecuting: state.isExecuting,
+    executionProgress: state.executionProgress,
+    executionMessage: state.executionMessage,
+    currentRunId: state.currentRunId,
+    executingNodeId: state.executingNodeId,
+    lastExecutionStatus: state.lastExecutionStatus,
+    lastExecutionTime: state.lastExecutionTime,
+    lastExecutionError: state.lastExecutionError,
+    lastExecutionSummary: state.lastExecutionSummary,
+    snapToGridEnabled: state.snapToGridEnabled,
+    setWorkflowName: state.setWorkflowName,
+    addNode: state.addNode,
+    applyEditorSnapshot: state.applyEditorSnapshot,
+    cancelWorkflowExecution: state.cancelWorkflowExecution,
+    deleteCurrentWorkflow: state.deleteCurrentWorkflow,
+    duplicateCurrentWorkflow: state.duplicateCurrentWorkflow,
+    executeWorkflow: state.executeWorkflow,
+    exportCurrentWorkflow: state.exportCurrentWorkflow,
+    importWorkflowData: state.importWorkflowData,
+    importWorkflowDataWithMode: state.importWorkflowDataWithMode,
+    loadWorkflow: state.loadWorkflow,
+    newWorkflow: state.newWorkflow,
+    persistLocalDraft: state.persistLocalDraft,
+    saveWorkflow: state.saveWorkflow,
+    setSnapToGridEnabled: state.setSnapToGridEnabled,
+  })));
+}
+
+export function useWorkflowCanvasStore() {
+  return useWorkflowStore(useShallow((state) => ({
+    nodes: state.nodes,
+    edges: state.edges,
+    snapToGridEnabled: state.snapToGridEnabled,
+    addNode: state.addNode,
+    addEdge: state.addEdge,
+    createNodeGroup: state.createNodeGroup,
+    onEdgesChange: state.onEdgesChange,
+    onNodesChange: state.onNodesChange,
+    releaseNodesFromGroup: state.releaseNodesFromGroup,
+    removeEdge: state.removeEdge,
+    removeNode: state.removeNode,
+    removeNodes: state.removeNodes,
+    resetNodeSize: state.resetNodeSize,
+    selectNode: state.selectNode,
+    toggleNodesDisabled: state.toggleNodesDisabled,
+    ungroupNodes: state.ungroupNodes,
+    updateNodeData: state.updateNodeData,
+  })));
+}

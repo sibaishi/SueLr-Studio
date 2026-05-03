@@ -34,6 +34,7 @@ import {
 import { uploadFile } from '@/features/workflow/lib/api';
 import { constrainChildNodeToGroupContent, enforceGroupLayout, pushRootNodeOutsideGroupAreas } from '@/features/workflow/lib/groupLayout';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
+import { useWorkflowCanvasStore } from '@/features/workflow/lib/store/selectors';
 import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
 import FlowNode from './nodes/FlowNode';
 import './contextMenu.css';
@@ -375,7 +376,7 @@ function getContextMenuLayout(
 }
 
 function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
-  const store = useWorkflowStore();
+  const store = useWorkflowCanvasStore();
   const reactFlow = useReactFlow();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);

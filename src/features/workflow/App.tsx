@@ -15,6 +15,7 @@ import {
   serializeWorkflowExport,
 } from '@/domains/workflow/import-export';
 import { useWorkflowStore, type WorkflowEditorSnapshot } from '@/features/workflow/lib/store';
+import { useWorkflowPageStore } from '@/features/workflow/lib/store/selectors';
 import type { NodeTypeDef } from '@/features/workflow/lib/types';
 import type { WorkflowImportError, WorkflowImportReport } from '@/domains/workflow/types';
 
@@ -24,7 +25,7 @@ interface WorkflowPageProps {
   onOpenStudioSettings?: () => void;
 }
 
-function buildSnapshot(store: ReturnType<typeof useWorkflowStore.getState>): WorkflowEditorSnapshot {
+function buildSnapshot(store: Pick<WorkflowEditorSnapshot, 'workflowId' | 'workflowName' | 'nodes' | 'edges' | 'selectedNodeId'>): WorkflowEditorSnapshot {
   return {
     workflowId: store.workflowId,
     workflowName: store.workflowName,
@@ -63,7 +64,7 @@ export default function WorkflowPage({ onOpenStudioSettings }: WorkflowPageProps
 }
 
 function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
-  const store = useWorkflowStore();
+  const store = useWorkflowPageStore();
   const viewportCenterRef = useRef<{ x: number; y: number } | null>(null);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);

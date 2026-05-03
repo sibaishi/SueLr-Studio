@@ -37,6 +37,7 @@ export interface Colors { bg: string; card: string; card2: string; menuBg: strin
 export interface ApiConfig { id: string; name: string; base: string; apiKey: string; models: ModelInfo[]; providerConfig?: ProviderConfig; projectModels?: ProjectModel[]; }
 export interface BridgeRef { addToImageGallery: (items: GalleryItem[]) => void; addToVideoGallery: (item: GalleryItem) => void; addToChatPending: (urls: string[]) => void; }
 export type { ProjectModel } from '../features/workflow/lib/projectModels';
+export type { ProviderConfig } from './provider-config';
 
 // ====== API Response Types ======
 export interface ChatCompletionResponse {

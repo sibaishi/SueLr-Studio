@@ -7,9 +7,7 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
   type Edge,
-  type EdgeChange,
   type Node,
-  type NodeChange,
 } from '@xyflow/react';
 import { DEFAULT_WORKFLOW_NAME, getNodeDefaultSize, GRID_SIZE, NODE_REGISTRY } from '@/features/workflow/lib/constants';
 import {
@@ -23,10 +21,21 @@ import {
   pushRootNodeOutsideGroupAreas,
 } from '@/features/workflow/lib/groupLayout';
 import * as api from '@/features/workflow/lib/api';
-import type { WorkflowListItem } from '@/features/workflow/lib/api';
-import type { PersistedWorkflow, WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/types';
+import type { PersistedWorkflow, WorkflowImportError, WorkflowImportReport } from '@/domains/workflow/types';
 import type { Workflow } from '@/features/workflow/lib/types';
-import { groupConfiguredProjectModels, normalizeProjectModels, type ProjectModel } from '@/features/workflow/lib/projectModels';
+import { groupConfiguredProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
+import { clearActiveRunSnapshot, loadActiveRunSnapshot, loadLocalDraft, saveActiveRunSnapshot, saveLocalDraft } from '@/features/workflow/lib/store/persistence';
+import type { WorkflowState } from '@/features/workflow/lib/store/types';
+
+export type {
+  ActiveRunSnapshot,
+  ExecutionLogEntry,
+  NodeExecStatus,
+  WorkflowDraftSnapshot,
+  WorkflowEditorSnapshot,
+  WorkflowImportResult,
+  WorkflowState,
+} from '@/features/workflow/lib/store/types';
 
 function gid(): string {
   return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -36,78 +45,9 @@ function snapValue(value: number) {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
 }
 
-const LOCAL_DRAFT_KEY = 'flow-studio-local-draft';
-const ACTIVE_RUN_KEY = 'flow-studio-active-run';
 const AI_TYPES = ['aiChat', 'imageGen', 'videoGen'];
 const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile']);
 const FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
-
-type WorkflowDraftSnapshot = {
-  workflowId: string;
-  workflowName: string;
-  nodes: Node[];
-  edges: Edge[];
-};
-
-type ActiveRunSnapshot = {
-  runId: string;
-  workflowId: string;
-  source?: string;
-  snapshotVersion?: number;
-};
-
-export type WorkflowEditorSnapshot = {
-  workflowId: string;
-  workflowName: string;
-  nodes: Node[];
-  edges: Edge[];
-  selectedNodeId: string | null;
-};
-
-type WorkflowImportResult = {
-  success: boolean;
-  report: WorkflowImportReport | null;
-  error?: WorkflowImportError | null;
-};
-
-function loadLocalDraft(): WorkflowDraftSnapshot | null {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_DRAFT_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as Partial<WorkflowDraftSnapshot>;
-    if (
-      !parsed ||
-      typeof parsed.workflowId !== 'string' ||
-      typeof parsed.workflowName !== 'string' ||
-      !Array.isArray(parsed.nodes) ||
-      !Array.isArray(parsed.edges)
-    ) {
-      return null;
-    }
-
-    return {
-      workflowId: parsed.workflowId,
-      workflowName: parsed.workflowName,
-      nodes: parsed.nodes as Node[],
-      edges: parsed.edges as Edge[],
-    };
-  } catch {
-    return null;
-  }
-}
-
-function saveLocalDraft(snapshot: WorkflowDraftSnapshot) {
-  if (typeof window === 'undefined') return;
-
-  try {
-    window.localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify(snapshot));
-  } catch {
-    // Ignore local draft persistence failures.
-  }
-}
 
 function getDefaultData(nodeType: string): Record<string, unknown> {
   const def = NODE_REGISTRY.find((nodeDef) => nodeDef.type === nodeType);
@@ -149,48 +89,6 @@ function formatLogDetails(details: unknown): string | undefined {
   }
 }
 
-function loadActiveRunSnapshot(): ActiveRunSnapshot | null {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const raw = window.localStorage.getItem(ACTIVE_RUN_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as Partial<ActiveRunSnapshot>;
-    if (!parsed || typeof parsed.runId !== 'string' || typeof parsed.workflowId !== 'string') {
-      return null;
-    }
-
-    return {
-      runId: parsed.runId,
-      workflowId: parsed.workflowId,
-      source: typeof parsed.source === 'string' ? parsed.source : undefined,
-      snapshotVersion: typeof parsed.snapshotVersion === 'number' ? parsed.snapshotVersion : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function saveActiveRunSnapshot(snapshot: ActiveRunSnapshot) {
-  if (typeof window === 'undefined') return;
-
-  try {
-    window.localStorage.setItem(ACTIVE_RUN_KEY, JSON.stringify(snapshot));
-  } catch {
-    // Ignore active run persistence failures.
-  }
-}
-
-function clearActiveRunSnapshot() {
-  if (typeof window === 'undefined') return;
-
-  try {
-    window.localStorage.removeItem(ACTIVE_RUN_KEY);
-  } catch {
-    // Ignore active run persistence failures.
-  }
-}
 
 function sanitizeNodeData(nodeType: string, data: Record<string, unknown>) {
   if (!data || typeof data !== 'object') return getDefaultData(nodeType);
@@ -593,105 +491,6 @@ function getAiNodesMissingValidOutputs(nodes: Node[], edges: Edge[]) {
 
     return true;
   });
-}
-
-export type NodeExecStatus = 'idle' | 'running' | 'success' | 'error';
-
-export interface ExecutionLogEntry {
-  id: string;
-  timestamp: number;
-  level: 'info' | 'success' | 'error';
-  message: string;
-  nodeId?: string;
-  details?: unknown;
-}
-
-interface WorkflowState {
-  workflowId: string;
-  workflowName: string;
-  workflowList: WorkflowListItem[];
-  isHydratingWorkflow: boolean;
-  isSavingWorkflow: boolean;
-  hasUnsavedChanges: boolean;
-  lastSavedAt: number | null;
-  nodes: Node[];
-  edges: Edge[];
-  selectedNodeId: string | null;
-  isExecuting: boolean;
-  executionProgress: { current: number; total: number } | null;
-  executionMessage: string | null;
-  currentRunId: string | null;
-  executingNodeId: string | null;
-  lastExecutionStatus: 'success' | 'error' | null;
-  lastExecutionTime: number | null;
-  lastExecutionError: string | null;
-  lastExecutionSummary: { successCount: number; failCount: number; totalDuration: number } | null;
-  nodeExecStatus: Record<string, NodeExecStatus>;
-  nodeExecutionTime: Record<string, number>;
-  nodeExecutionStartedAt: Record<string, number>;
-  nodeErrors: Record<string, string>;
-  nodeWarnings: Record<string, string>;
-  nodeOutputs: Record<string, Record<string, unknown>>;
-  aiResultOutputs: Record<string, Record<string, unknown>>;
-  executionLogs: ExecutionLogEntry[];
-  workflowWarningMessage: string | null;
-  availableModels: {
-    all: string[];
-    chat: string[];
-    image: string[];
-    video: string[];
-  };
-  projectModels: ProjectModel[];
-  showDebugSizes: boolean;
-  snapToGridEnabled: boolean;
-
-  setWorkflowName: (name: string) => void;
-  addNode: (type: string, position: { x: number; y: number }, data?: Record<string, unknown>) => string;
-  duplicateNode: (nodeId: string) => string | null;
-  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void;
-  setNodeSize: (nodeId: string, size: { width: number; height: number }) => void;
-  resetNodeSize: (nodeId: string) => void;
-  removeNode: (nodeId: string) => void;
-  removeNodes: (nodeIds: string[]) => void;
-  addEdge: (source: string, sourceHandle: string, target: string, targetHandle: string) => void;
-  removeEdge: (edgeId: string) => void;
-  selectNode: (nodeId: string | null) => void;
-  duplicateNodes: (nodeIds: string[]) => string[];
-  createNodeGroup: (nodeIds: string[]) => string | null;
-  ungroupNodes: (groupIds: string[]) => void;
-  releaseNodesFromGroup: (nodeIds: string[]) => void;
-  toggleNodesDisabled: (nodeIds: string[], disabled?: boolean) => void;
-  onNodesChange: (changes: NodeChange[]) => void;
-  onEdgesChange: (changes: EdgeChange[]) => void;
-  setNodeExecStatus: (nodeId: string, status: NodeExecStatus, error?: string) => void;
-  clearAllExecStatus: () => void;
-  setExecuting: (executing: boolean, progress?: { current: number; total: number }) => void;
-  setExecutionResult: (status: 'success' | 'error', time?: number, error?: string) => void;
-  addExecutionLog: (log: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => void;
-  clearExecutionLogs: () => void;
-  applyEditorSnapshot: (snapshot: WorkflowEditorSnapshot, markDirty?: boolean) => void;
-  newWorkflow: () => void;
-  markWorkflowDirty: () => void;
-  setShowDebugSizes: (show: boolean) => void;
-  setSnapToGridEnabled: (enabled: boolean) => void;
-
-  executeWorkflow: () => Promise<void>;
-  cancelWorkflowExecution: () => Promise<void>;
-  saveWorkflow: () => Promise<boolean>;
-  loadWorkflow: (id: string) => Promise<boolean>;
-  fetchWorkflowList: () => Promise<void>;
-  initializeWorkflowPersistence: () => Promise<void>;
-  restoreExecutionRun: () => Promise<void>;
-  syncExecutionRunStatus: () => Promise<void>;
-  duplicateCurrentWorkflow: () => Promise<boolean>;
-  deleteCurrentWorkflow: () => Promise<boolean>;
-  exportCurrentWorkflow: () => PersistedWorkflow;
-  importWorkflowData: (payload: unknown, fallbackName?: string) => Promise<WorkflowImportResult>;
-  importWorkflowDataWithMode: (payload: unknown, mode: WorkflowImportMode, fallbackName?: string) => Promise<WorkflowImportResult>;
-  fetchModels: () => Promise<{ success: boolean; error?: string; count: number }>;
-  setAvailableModels: (models: { all: string[]; chat: string[]; image: string[]; video: string[] }) => void;
-  setProjectModels: (models: ProjectModel[]) => void;
-  persistLocalDraft: () => void;
 }
 
 const initialDraft = loadLocalDraft();
