@@ -1,5 +1,4 @@
 import { Settings } from 'lucide-react';
-import type { ProviderConfig } from '@/lib/types';
 import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/components/ios';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';
@@ -33,7 +32,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
               <IOSLabel>配置名称</IOSLabel>
-              <IOSInput value={view.activeConfig?.name || ''} onChange={(value) => actions.updateConfig({ name: value })} />
+              <IOSInput value={view.activeConfig?.name || ''} onChange={actions.setActiveConfigName} />
             </div>
             <div style={{ minWidth: 0 }}>
               <IOSLabel>认证状态</IOSLabel>
@@ -66,11 +65,11 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
         <div className="flex-col" style={{ gap: 12 }}>
           <div>
             <IOSLabel>接口地址</IOSLabel>
-            <IOSInput value={view.base} onChange={(value) => { actions.setBase(value); actions.updateConfig({ base: value }); }} placeholder="https://..." />
+            <IOSInput value={view.base} onChange={actions.setConnectionBase} placeholder="https://..." />
           </div>
           <div>
             <IOSLabel>API 密钥</IOSLabel>
-            <IOSInput value={view.apiKey} onChange={(value) => { actions.setApiKey(value); actions.updateConfig({ apiKey: value }); }} type="password" placeholder="sk-..." />
+            <IOSInput value={view.apiKey} onChange={actions.setConnectionApiKey} type="password" placeholder="sk-..." />
           </div>
           {(!view.base || !view.apiKey) && (
             <EmptyStateCard
@@ -87,7 +86,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <div>
               <IOSLabel>认证方式</IOSLabel>
-              <IOSSelect value={view.activeConfig?.providerConfig?.authType || 'bearer'} onChange={(value) => actions.updateProviderConfig({ authType: value as ProviderConfig['authType'] })}>
+              <IOSSelect value={view.providerConfig.authType} onChange={(value) => actions.setProviderAuthType(value as typeof view.providerConfig.authType)}>
                 <option value="bearer">Bearer Token</option>
                 <option value="api-key">API Key Header</option>
                 <option value="custom">自定义 Header</option>
@@ -95,24 +94,24 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             </div>
             <div>
               <IOSLabel>模型列表接口</IOSLabel>
-              <IOSInput value={view.activeConfig?.providerConfig?.modelsEndpoint || '/v1/models'} onChange={(value) => actions.updateProviderConfig({ modelsEndpoint: value })} />
+              <IOSInput value={view.providerConfig.modelsEndpoint} onChange={actions.setProviderModelsEndpoint} />
             </div>
           </div>
-          {view.activeConfig?.providerConfig?.authType === 'custom' && (
+          {view.providerConfig.authType === 'custom' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
               <div>
                 <IOSLabel>Header 名称</IOSLabel>
-                <IOSInput value={view.activeConfig?.providerConfig?.customHeaderName || 'Authorization'} onChange={(value) => actions.updateProviderConfig({ customHeaderName: value })} />
+                <IOSInput value={view.providerConfig.customHeaderName} onChange={actions.setProviderCustomHeaderName} />
               </div>
               <div>
                 <IOSLabel>Header 前缀</IOSLabel>
-                <IOSInput value={view.activeConfig?.providerConfig?.customPrefix || 'Bearer '} onChange={(value) => actions.updateProviderConfig({ customPrefix: value })} />
+                <IOSInput value={view.providerConfig.customPrefix} onChange={actions.setProviderCustomPrefix} />
               </div>
             </div>
           )}
           <div>
             <IOSLabel>图像请求超时（毫秒）</IOSLabel>
-            <IOSInput value={String(view.activeConfig?.providerConfig?.imageTimeoutMs || 300000)} onChange={(value) => actions.updateProviderConfig({ imageTimeoutMs: Math.max(1000, Number(value) || 300000) })} />
+            <IOSInput value={String(view.providerConfig.imageTimeoutMs)} onChange={actions.setProviderImageTimeoutMs} />
           </div>
         </div>
       </SectionCard>

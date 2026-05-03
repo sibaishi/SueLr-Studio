@@ -20,6 +20,8 @@
   - Week 5 上半段：图片能力入口与服务链路收口
 - `docs/roadmap/week-5-settings-boundary-consolidation.md`
   - Week 5 下半段：`settings` 模块去除对旧 `routes` helper 的反向依赖
+- `docs/roadmap/week-6-frontend-provider-consolidation.md`
+  - Week 6 前端 settings/provider 写入边界收口说明
 
 ## Plans
 
@@ -40,6 +42,8 @@
   - Week 5 上半段图片链路检查清单
 - `docs/testing/week-5-settings-boundary-checklist.md`
   - Week 5 下半段 settings 边界收口检查清单
+- `docs/testing/week-6-frontend-provider-checklist.md`
+  - Week 6 前端 Provider 收口检查清单
 
 ## Current Focus
 
@@ -48,7 +52,8 @@
 3. Week 3：完成
 4. Week 4：完成
 5. Week 5：完成
-6. Week 6-8：待开始
+6. Week 6：完成
+7. Week 7-8：待开始
 
 ## Recommended Reading Order
 

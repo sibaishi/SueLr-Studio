@@ -5,9 +5,8 @@ import { useT } from '@/contexts/ThemeContext';
 import { THEME_LABELS } from '@/lib/constants';
 import type { AgentRole, ApiConfig, ProjectModel } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/types';
-import { DEFAULT_PROVIDER_CONFIG } from '@/lib/providers';
 import { capabilityWebSearch } from '@/domains/capabilities';
-import { testSettingsConnection } from '@/domains/settings';
+import { useSettingsPanelController } from '@/domains/settings';
 import type { SettingsPanelProps } from '@/domains/settings';
 import { createImportedProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
@@ -58,7 +57,32 @@ export function SettingsPanel({
   const [memoryQuery, setMemoryQuery] = useState('');
   const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>('connection');
 
-  const activeConfig = apiConfigs.find((config) => config.id === activeConfigId);
+  const {
+    activeConfig,
+    providerConfig,
+    setActiveConfigName,
+    setConnectionApiKey,
+    setConnectionBase,
+    setProjectModels,
+    setProviderAuthType,
+    setProviderCustomHeaderName,
+    setProviderCustomPrefix,
+    setProviderImageTimeoutMs,
+    setProviderModelsEndpoint,
+    testConnectionAndSyncModels,
+    updateProjectModel,
+  } = useSettingsPanelController({
+    activeConfigId,
+    apiConfigs,
+    apiKey,
+    base,
+    addLog,
+    setApiConfigs,
+    setApiKey,
+    setBase,
+    setModels,
+  });
+
   const projectModels = useMemo(() => normalizeProjectModels(activeConfig?.projectModels || []), [activeConfig?.projectModels]);
   const importedIds = useMemo(() => new Set(projectModels.map((model) => model.modelId)), [projectModels]);
   const importableModels = useMemo(() => discoveredModels.filter((id) => !importedIds.has(id)), [discoveredModels, importedIds]);
@@ -73,29 +97,18 @@ export function SettingsPanel({
   };
 
   const updateProviderConfig = (patch: Partial<ProviderConfig>) => {
-    updateConfig({ providerConfig: { ...(activeConfig?.providerConfig ?? DEFAULT_PROVIDER_CONFIG), ...patch } });
+    const nextProviderConfig = { ...providerConfig, ...patch };
+    updateConfig({ providerConfig: nextProviderConfig });
   };
 
-  const setProjectModels = (nextModels: ProjectModel[]) => {
-    updateConfig({ projectModels: normalizeProjectModels(nextModels) });
-  };
-
-  const updateProjectModel = (modelId: string, patch: Partial<ProjectModel>) => {
-    setProjectModels(projectModels.map((model) => (model.modelId === modelId ? { ...model, ...patch, updatedAt: Date.now() } : model)));
+  const updateProjectModelAction = (modelId: string, patch: Partial<ProjectModel>) => {
+    updateProjectModel(projectModels, modelId, patch);
   };
 
   const testConnection = async () => {
-    addLog('info', `测试连接: ${base}`);
-    try {
-      const result = await testSettingsConnection(apiKey || 'use-stored', base, activeConfig?.providerConfig as unknown as Record<string, unknown> | undefined);
-      if (!result.success) throw new Error(result.error || '模型获取失败');
-      const nextModels = result.models || [];
-      setModels(nextModels);
-      updateConfig({ models: nextModels });
+    const nextModels = await testConnectionAndSyncModels();
+    if (nextModels.length > 0) {
       setDiscoveredModels([...new Set(nextModels.map((model) => model.id))].sort((a, b) => a.localeCompare(b)));
-      addLog('success', `连接成功，发现 ${nextModels.length} 个模型`);
-    } catch (error) {
-      addLog('error', error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -167,6 +180,7 @@ export function SettingsPanel({
     memories,
     memoryQuery,
     models,
+    providerConfig,
     projectModelSearch,
     projectModels,
     roles,
@@ -189,15 +203,23 @@ export function SettingsPanel({
     onDeleteMemory,
     removeProjectModel,
     saveCustomRole,
+    setActiveConfigName,
     setActiveModule,
     setApiConfigs,
     setApiKey,
     setBase,
+    setConnectionApiKey,
+    setConnectionBase,
     setCustomRoles,
     setEditingRole,
     setMemoryQuery,
     setModels,
     setProjectModelSearch,
+    setProviderAuthType,
+    setProviderCustomHeaderName,
+    setProviderCustomPrefix,
+    setProviderImageTimeoutMs,
+    setProviderModelsEndpoint,
     setSelectedImports,
     setTavilyApiKey,
     setTavilyApiKeySet,
@@ -205,7 +227,7 @@ export function SettingsPanel({
     testConnection,
     testSearch,
     updateConfig,
-    updateProjectModel,
+    updateProjectModel: updateProjectModelAction,
     updateProviderConfig,
   };
 

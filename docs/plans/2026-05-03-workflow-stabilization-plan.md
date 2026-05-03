@@ -7,7 +7,8 @@
 - Week 3：完成
 - Week 4：完成
 - Week 5：完成
-- Week 6-8：待开始
+- Week 6：完成
+- Week 7-8：待开始
 
 ## 阶段目标
 
@@ -80,8 +81,16 @@
 
 ### Week 6 · 前端 Provider 收口实施
 
-- 状态：待开始
+- 状态：完成
 - 依赖：Week 3 已完成
+- 已完成：
+  1. 新增 `src/domains/settings/useSettingsPanelController.ts` 作为 settings panel 的前端控制器
+  2. 将 provider 默认值补齐、连接字段写入、连接测试模型回写从 `SettingsPanel.tsx` 收口到 controller hook
+  3. 将 `ConnectionSettingsSection.tsx` 改为调用语义化 action，而不是直接双写配置与拼 provider patch
+  4. 补齐 Week 6 路线文档与检查清单
+- 当前交付：
+  - `docs/roadmap/week-6-frontend-provider-consolidation.md`
+  - `docs/testing/week-6-frontend-provider-checklist.md`
 
 ### Week 7 · Workflow Store 真拆分
 
@@ -97,10 +106,11 @@
 
 1. `src/features/workflow/lib/store.ts` 体量仍偏大，目前只是预拆分
 2. `executeWorkflow` 与执行状态逻辑仍在高耦合区域，Week 7 拆分时要控制回归风险
-3. 手工冒烟回归尚未形成自动化能力，后续需要逐步补齐
+3. settings 前端仍保留较宽的 props 面，后续可以继续向 domain controller / selector 收口
+4. 手工冒烟回归尚未形成自动化能力，后续需要逐步补齐
 
 ## 当前建议
 
-1. Week 6 先盘点前端 Provider 读写入口，避免 UI 层继续直接拼 provider 字段
-2. Week 7 继续保留 `store.ts` 作为兼容入口，按调用热区逐步搬迁
-3. Week 8 再把 Week 1-5 的检查清单抽成可重复执行的脚本与发布门禁
+1. Week 7 继续保留 `store.ts` 作为兼容入口，按调用热区逐步搬迁
+2. Week 7 同步评估 settings 页 props 面是否还能进一步缩窄
+3. Week 8 再把 Week 1-6 的检查清单抽成可重复执行的脚本与发布门禁

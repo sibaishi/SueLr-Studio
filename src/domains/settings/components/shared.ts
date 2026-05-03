@@ -26,10 +26,18 @@ export type SettingsActions = {
   onDeleteMemory: (id: string) => void;
   removeProjectModel: (modelId: string) => void;
   saveCustomRole: (role: AgentRole) => void;
+  setActiveConfigName: (value: string) => void;
   setActiveModule: (id: 'connection' | 'models' | 'defaults' | 'roles' | 'memory' | 'diagnostics') => void;
+  setConnectionApiKey: (value: string) => void;
+  setConnectionBase: (value: string) => void;
   setEditingRole: (role: AgentRole | null) => void;
   setMemoryQuery: (value: string) => void;
   setProjectModelSearch: (value: string) => void;
+  setProviderAuthType: (value: ProviderConfig['authType']) => void;
+  setProviderCustomHeaderName: (value: string) => void;
+  setProviderCustomPrefix: (value: string) => void;
+  setProviderImageTimeoutMs: (value: string) => void;
+  setProviderModelsEndpoint: (value: string) => void;
   setSelectedImports: (value: string[]) => void;
   setTavilyApiKey: (value: string) => void;
   setTavilyApiKeySet: (value: boolean) => void;
@@ -64,6 +72,7 @@ export type SettingsViewModel = {
   memories: Memory[];
   memoryQuery: string;
   models: ModelInfo[];
+  providerConfig: Required<Pick<ProviderConfig, 'authType' | 'modelsEndpoint' | 'customHeaderName' | 'customPrefix' | 'imageTimeoutMs'>>;
   projectModelSearch: string;
   projectModels: ProjectModel[];
   roles: AgentRole[];
