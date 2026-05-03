@@ -33,13 +33,20 @@ export function useSettingsPanelController({
     [activeConfigId, apiConfigs],
   );
 
-  const providerConfig = useMemo<Required<Pick<ProviderConfig, 'authType' | 'modelsEndpoint' | 'customHeaderName' | 'customPrefix' | 'imageTimeoutMs'>>>(
+  const providerConfig = useMemo<ProviderConfig>(
     () => ({
-      authType: activeConfig?.providerConfig?.authType || DEFAULT_PROVIDER_CONFIG.authType,
-      modelsEndpoint: activeConfig?.providerConfig?.modelsEndpoint || DEFAULT_PROVIDER_CONFIG.modelsEndpoint,
-      customHeaderName: activeConfig?.providerConfig?.customHeaderName || DEFAULT_PROVIDER_CONFIG.customHeaderName,
-      customPrefix: activeConfig?.providerConfig?.customPrefix || DEFAULT_PROVIDER_CONFIG.customPrefix,
-      imageTimeoutMs: activeConfig?.providerConfig?.imageTimeoutMs || DEFAULT_PROVIDER_CONFIG.imageTimeoutMs,
+      ...DEFAULT_PROVIDER_CONFIG,
+      ...activeConfig?.providerConfig,
+      authType: activeConfig?.providerConfig?.authType ?? DEFAULT_PROVIDER_CONFIG.authType,
+      videoMode: activeConfig?.providerConfig?.videoMode ?? DEFAULT_PROVIDER_CONFIG.videoMode,
+      videoEndpoint: activeConfig?.providerConfig?.videoEndpoint ?? DEFAULT_PROVIDER_CONFIG.videoEndpoint,
+      imageEndpoint: activeConfig?.providerConfig?.imageEndpoint ?? DEFAULT_PROVIDER_CONFIG.imageEndpoint,
+      imageEditEndpoint: activeConfig?.providerConfig?.imageEditEndpoint ?? DEFAULT_PROVIDER_CONFIG.imageEditEndpoint,
+      imageTimeoutMs: activeConfig?.providerConfig?.imageTimeoutMs ?? DEFAULT_PROVIDER_CONFIG.imageTimeoutMs ?? 300000,
+      chatEndpoint: activeConfig?.providerConfig?.chatEndpoint ?? DEFAULT_PROVIDER_CONFIG.chatEndpoint,
+      modelsEndpoint: activeConfig?.providerConfig?.modelsEndpoint ?? DEFAULT_PROVIDER_CONFIG.modelsEndpoint ?? '/v1/models',
+      customHeaderName: activeConfig?.providerConfig?.customHeaderName ?? DEFAULT_PROVIDER_CONFIG.customHeaderName ?? '',
+      customPrefix: activeConfig?.providerConfig?.customPrefix ?? DEFAULT_PROVIDER_CONFIG.customPrefix ?? '',
     }),
     [activeConfig?.providerConfig],
   );
@@ -91,7 +98,7 @@ export function useSettingsPanelController({
   }, [updateProviderConfig]);
 
   const setProviderImageTimeoutMs = useCallback((value: string) => {
-    updateProviderConfig({ imageTimeoutMs: Math.max(1000, Number(value) || DEFAULT_PROVIDER_CONFIG.imageTimeoutMs) });
+    updateProviderConfig({ imageTimeoutMs: Math.max(1000, Number(value) || DEFAULT_PROVIDER_CONFIG.imageTimeoutMs || 300000) });
   }, [updateProviderConfig]);
 
   const setProjectModels = useCallback((nextModels: ProjectModel[]) => {

@@ -15,13 +15,15 @@
 - `docs/roadmap/week-3-provider-contract-consolidation.md`
   - Week 3 Provider / Capability Contract 收口说明
 - `docs/roadmap/week-4-workflow-store-split-design.md`
-  - Week 4 Workflow Store 预拆分设计与首批落地
+  - Week 4 Workflow Store 预拆分设计与边界说明
 - `docs/roadmap/week-5-image-chain-consolidation.md`
   - Week 5 上半段：图片能力入口与服务链路收口
 - `docs/roadmap/week-5-settings-boundary-consolidation.md`
-  - Week 5 下半段：`settings` 模块去除对旧 `routes` helper 的反向依赖
+  - Week 5 下半段：`settings` 模块边界收口
 - `docs/roadmap/week-6-frontend-provider-consolidation.md`
-  - Week 6 前端 settings/provider 写入边界收口说明
+  - Week 6 前端 settings/provider 写入边界收口
+- `docs/roadmap/week-7-workflow-store-runtime-split.md`
+  - Week 7 Workflow Store 运行时动作拆分与验收结果
 
 ## Plans
 
@@ -41,9 +43,11 @@
 - `docs/testing/week-5-image-contract-checklist.md`
   - Week 5 上半段图片链路检查清单
 - `docs/testing/week-5-settings-boundary-checklist.md`
-  - Week 5 下半段 settings 边界收口检查清单
+  - Week 5 下半段 settings 边界检查清单
 - `docs/testing/week-6-frontend-provider-checklist.md`
   - Week 6 前端 Provider 收口检查清单
+- `docs/testing/week-7-workflow-store-runtime-checklist.md`
+  - Week 7 Workflow Store 运行时拆分检查清单
 
 ## Current Focus
 
@@ -53,7 +57,8 @@
 4. Week 4：完成
 5. Week 5：完成
 6. Week 6：完成
-7. Week 7-8：待开始
+7. Week 7：完成
+8. Week 8：待开始
 
 ## Recommended Reading Order
 

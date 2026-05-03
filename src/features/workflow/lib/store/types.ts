@@ -129,3 +129,11 @@ export interface WorkflowState {
   setProjectModels: (models: ProjectModel[]) => void;
   persistLocalDraft: () => void;
 }
+
+export type WorkflowStoreSet = (
+  partial:
+    | Partial<WorkflowState>
+    | ((state: WorkflowState) => Partial<WorkflowState>)
+) => void;
+
+export type WorkflowStoreGet = () => WorkflowState;

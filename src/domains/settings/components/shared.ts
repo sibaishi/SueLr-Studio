@@ -72,7 +72,7 @@ export type SettingsViewModel = {
   memories: Memory[];
   memoryQuery: string;
   models: ModelInfo[];
-  providerConfig: Required<Pick<ProviderConfig, 'authType' | 'modelsEndpoint' | 'customHeaderName' | 'customPrefix' | 'imageTimeoutMs'>>;
+  providerConfig: ProviderConfig;
   projectModelSearch: string;
   projectModels: ProjectModel[];
   roles: AgentRole[];

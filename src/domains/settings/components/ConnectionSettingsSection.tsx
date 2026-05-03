@@ -94,18 +94,18 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             </div>
             <div>
               <IOSLabel>模型列表接口</IOSLabel>
-              <IOSInput value={view.providerConfig.modelsEndpoint} onChange={actions.setProviderModelsEndpoint} />
+              <IOSInput value={view.providerConfig.modelsEndpoint ?? ''} onChange={actions.setProviderModelsEndpoint} />
             </div>
           </div>
           {view.providerConfig.authType === 'custom' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
               <div>
                 <IOSLabel>Header 名称</IOSLabel>
-                <IOSInput value={view.providerConfig.customHeaderName} onChange={actions.setProviderCustomHeaderName} />
+                <IOSInput value={view.providerConfig.customHeaderName ?? ''} onChange={actions.setProviderCustomHeaderName} />
               </div>
               <div>
                 <IOSLabel>Header 前缀</IOSLabel>
-                <IOSInput value={view.providerConfig.customPrefix} onChange={actions.setProviderCustomPrefix} />
+                <IOSInput value={view.providerConfig.customPrefix ?? ''} onChange={actions.setProviderCustomPrefix} />
               </div>
             </div>
           )}
