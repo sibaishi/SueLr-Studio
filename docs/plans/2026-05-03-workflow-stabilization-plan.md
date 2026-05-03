@@ -9,7 +9,7 @@
 - Week 5：完成
 - Week 6：完成
 - Week 7：完成
-- Week 8：待开始
+- Week 8：完成
 
 ## 阶段目标
 
@@ -98,17 +98,34 @@
 
 ### Week 8 - 质量门禁与长期标准化
 
-- 状态：待开始
-- 目标：沉淀验证脚本、边界文档与长期维护规范
+- 状态：完成
+- 第一批完成：
+  1. 新增 `src/features/workflow/lib/store/editor.ts` 承载编辑态高频动作
+  2. 将 `src/features/workflow/lib/store.ts` 收回为稳定入口与 action 组装层
+  3. 在项目根 `package.json` 中补齐 `typecheck` 与 `check` 统一验证脚本
+  4. 补齐 Week 8 路线文档与检查清单
+- 第二批完成：
+  1. 新增 `scripts/check-workflow-store-structure.mjs`，将 `store.ts` 薄入口边界固化为结构门禁
+  2. 将结构门禁接入项目根 `npm run check`
+  3. 同步补齐 Week 8 文档中的验收结果与后续建议
+- 后半段完成：
+  1. 新增 `editorGraph.ts`、`editorGroups.ts`、`editorSession.ts`、`editorShared.ts`
+  2. 将 `editor.ts` 收回为 editor 组合层
+  3. 将结构门禁升级为同时检查 `store.ts` 与 `editor.ts`
+  4. 重新跑通 `npm run check`
+- 验收结果：
+  - `npm run check` 通过
+  - `store.ts` 与 `editor.ts` 均维持薄层入口
+  - 对外 store API 未发生破坏性变化
 
 ## 当前风险
 
-1. `src/features/workflow/lib/store.ts` 仍然承载较多编辑态逻辑，Week 8 还可以继续往下拆。
-2. 手工冒烟项仍未自动化，当前门禁以 `tsc + build` 为主。
-3. Workflow 编辑态的上下文菜单、分组、复制、拖拽布局仍属于高耦合区，需要继续按主题拆分。
+1. 当前门禁已经覆盖结构约束、类型、构建与后端契约，但前端交互回归仍主要依赖手工验证。
+2. `editorGraph.ts` 仍有继续按“节点/连线”细分的空间，但优先级已经低于补测试闭环。
+3. 分组、复制、拖拽布局仍是 workflow 编辑区的高回归路径，后续更适合补纯逻辑测试与手工冒烟闭环。
 
 ## 当前建议
 
-1. Week 8 继续保留 `store.ts` 稳定入口，只拆内部实现，不动消费 API。
-2. Week 8 优先处理编辑态热点逻辑，再评估是否补 store 层自动化验证。
+1. Week 8 之后继续保留 `store.ts` 与 `editor.ts` 的稳定薄层入口，不轻易回流实现细节。
+2. 下一步优先补 editor/document/execution 的更细粒度手工回归清单，并视风险补第一批 store 纯逻辑测试。
 3. 后续每完成一周结构性调整，都同步更新 `docs/README.md`、对应 roadmap 文档与 testing 清单。

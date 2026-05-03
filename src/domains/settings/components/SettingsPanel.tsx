@@ -157,7 +157,7 @@ export function SettingsPanel({
     { id: 'defaults', label: '默认项', desc: '主题与界面偏好', icon: CircleDot, accent: T.orange, stat: themeMode },
     { id: 'roles', label: '角色', desc: '系统角色与自定义角色', icon: Bot, accent: T.purple, stat: `${roles.length} 个` },
     { id: 'memory', label: '记忆', desc: '检索、导出与清理', icon: Brain, accent: T.blue, stat: `${memories.length} 条` },
-    { id: 'diagnostics', label: '诊断', desc: '日志、搜索与能力检查', icon: Gauge, accent: T.red, stat: `${logs.length} 条日志` },
+    { id: 'diagnostics', label: '诊断', desc: '日志、搜索与能力检查', icon: Gauge, accent: T.red, stat: `${logs.length} 条` },
   ];
 
   const activeModuleMeta = modules.find((module) => module.id === activeModule) || modules[0];
@@ -299,13 +299,13 @@ export function SettingsPanel({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${module.accent}20`, color: module.accent }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                      <div style={{ width: 34, height: 34, flex: '0 0 34px', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${module.accent}20`, color: module.accent }}>
                         <Icon size={16} />
                       </div>
-                      <div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{module.label}</div>
-                        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 3 }}>{module.desc}</div>
+                        <div style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--color-text-secondary)', marginTop: 3, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{module.desc}</div>
                       </div>
                     </div>
                     <span style={{ ...chipStyle(active ? module.accent : undefined), padding: '5px 8px' }}>{module.stat}</span>

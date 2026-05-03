@@ -24,6 +24,8 @@
   - Week 6 前端 settings/provider 写入边界收口
 - `docs/roadmap/week-7-workflow-store-runtime-split.md`
   - Week 7 Workflow Store 运行时动作拆分与验收结果
+- `docs/roadmap/week-8-quality-gate-and-editor-split.md`
+  - Week 8 质量门禁与编辑态动作拆分
 
 ## Plans
 
@@ -48,6 +50,8 @@
   - Week 6 前端 Provider 收口检查清单
 - `docs/testing/week-7-workflow-store-runtime-checklist.md`
   - Week 7 Workflow Store 运行时拆分检查清单
+- `docs/testing/week-8-quality-gate-checklist.md`
+  - Week 8 质量门禁与编辑态拆分检查清单
 
 ## Current Focus
 
@@ -58,7 +62,7 @@
 5. Week 5：完成
 6. Week 6：完成
 7. Week 7：完成
-8. Week 8：待开始
+8. Week 8：完成
 
 ## Recommended Reading Order
 
