@@ -67,6 +67,9 @@ Run the minimum manual smoke after deployment:
 The detailed Week 9 checklist lives in:
 
 - `docs/testing/week-9-ci-and-release-hardening-checklist.md`
+- `docs/ops/release-checklist.md`
+- `docs/ops/regression-matrix.md`
+- `docs/ops/triage-entrypoints.md`
 
 ## 6. Rollback Procedure
 

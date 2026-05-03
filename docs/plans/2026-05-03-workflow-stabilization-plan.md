@@ -13,7 +13,7 @@
 - Week 9: Completed
 - Week 10: Completed
 - Week 11: Completed
-- Week 12: Not started
+- Week 12: Completed
 
 ## Current Phase Summary
 
@@ -77,11 +77,22 @@ Closure:
 - `npm run test:unit` passed
 - `npm run check` passed
 
-## Week 12 - Upcoming
+## Week 12 - Completed
 
-Goals:
+Delivered:
 
-1. harden the release checklist
-2. build a clear key-regression matrix
-3. close the loop on minimum observability and triage entry points
-4. establish a more disciplined release rhythm
+1. a release checklist for pre-release gates, manual smoke, rollback readiness,
+   and release record capture
+2. a regression matrix mapping high-risk change areas to automated and manual
+   verification
+3. a triage entrypoint note covering startup, workflow execution, provider and
+   media failures, and frontend-only failures
+4. a release-rhythm note describing the minimum discipline expected per change,
+   per release, and per escaped regression
+5. a lightweight `check:release-docs` gate folded into `npm run check`
+
+Closure:
+
+- `npm run check:release-docs` passed
+- `npm run check` passed
+- release, regression, and triage docs are now part of the maintained baseline

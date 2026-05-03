@@ -1,29 +1,33 @@
 # Week 12 Release Discipline Checklist
 
-## 目标
+## Goal
 
-确认 Week 12 已经把发布清单、回归矩阵与最小观测入口整理为长期可执行的项目纪律。
+Confirm that Week 12 converted release knowledge, regression mapping, and
+triage entrypoints into repeatable project discipline.
 
-## 自动验证
+## Automated Verification
 
-- [ ] 发布前自动化检查入口已固定
-- [ ] 高风险改动已能映射到对应自动化验证集
-- [ ] 关键回归矩阵已落入文档
-- [ ] 发布清单已明确自动化、手工冒烟与文档更新要求
-- [ ] 最小观测或排查入口已在文档中统一说明
+- [x] `npm run check:release-docs` passes
+- [x] release docs are part of `npm run check`
+- [x] release checklist exists under `docs/ops/release-checklist.md`
+- [x] regression matrix exists under `docs/ops/regression-matrix.md`
+- [x] triage entrypoints exist under `docs/ops/triage-entrypoints.md`
+- [x] release rhythm note exists under `docs/ops/release-rhythm.md`
 
-## 人工复核
+## Manual Review
 
-- [ ] 按 release checklist 走读一次，确认步骤顺序合理且没有跳步
-- [ ] 随机挑选一类高风险改动，确认能从回归矩阵定位到该跑哪些检查
-- [ ] 检查关键失败场景的排查入口，确认开发者知道先看哪里
-- [ ] 复核文档之间的引用关系，确认 roadmap、testing、release 文档没有互相脱节
+- [x] read the release checklist once from top to bottom
+- [x] confirm a risky change can be mapped to the regression matrix
+- [x] confirm the first debugging entrypoint is documented for backend,
+  frontend, and provider/media failures
+- [x] confirm `docs/README.md`, the Week 12 roadmap note, and ops docs point to
+  the same release process
 
-## 通过标准
+## Pass Criteria
 
-满足以下条件即可认为 Week 12 完成：
+Week 12 is complete when all of the following are true:
 
-1. 发布流程从经验动作沉淀为固定清单
-2. 自动化与手工回归形成统一矩阵
-3. 问题出现时具备最小但稳定的排查入口
-4. 12 周治理成果已经转化为后续迭代纪律
+1. release flow is documented as a fixed checklist
+2. automated and manual regression expectations are mapped by risk area
+3. debugging starts from stable entrypoints instead of memory
+4. the release-process docs are guarded by the quality gate

@@ -11,6 +11,11 @@ Current documentation baseline date: `2026-05-03`
 5. Week 9 operations documents:
    - `docs/ops/environment-baseline.md`
    - `docs/ops/deployment-and-rollback.md`
+6. Week 12 release discipline documents:
+   - `docs/ops/release-checklist.md`
+   - `docs/ops/regression-matrix.md`
+   - `docs/ops/triage-entrypoints.md`
+   - `docs/ops/release-rhythm.md`
 
 ## Current Status
 
@@ -25,7 +30,7 @@ Current documentation baseline date: `2026-05-03`
 - Week 9: Completed
 - Week 10: Completed
 - Week 11: Completed
-- Week 12: Not started
+- Week 12: Completed
 
 ## Week 9 Delivered
 
@@ -53,9 +58,17 @@ Current documentation baseline date: `2026-05-03`
 
 ## Current Focus
 
-1. Prepare the Week 12 release hardening and regression matrix closure
+1. Keep new changes aligned with the Week 12 release checklist and regression matrix
 2. Continue expanding frontend regression coverage on top of the Week 10 baseline
 3. Keep extending the cheaper store-level proof layer when workflow logic changes
+
+## Week 12 Delivered
+
+- `docs/ops/release-checklist.md` defines the minimum release gate
+- `docs/ops/regression-matrix.md` maps risky change areas to verification lanes
+- `docs/ops/triage-entrypoints.md` captures the minimum debugging map
+- `docs/ops/release-rhythm.md` records the minimum long-term release discipline
+- `npm run check` now includes `npm run check:release-docs`
 
 ## Week 11 Delivered
 

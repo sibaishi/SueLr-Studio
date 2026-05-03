@@ -1,87 +1,94 @@
 # Week 12 Release Discipline And Observability
 
-## 1. 本周目标
+## Weekly Goal
 
-Week 12 的目标是把前 11 周积累下来的结构、测试、文档和门禁，收束成一套可长期运行的发布纪律。  
-这周不再以新增技术拆分为主，而是把“怎么稳定迭代”本身沉淀成项目机制。
+Week 12 turns the previous eleven weeks of cleanup into a release habit the
+project can keep using.
 
-本周要解决的是：
+The point is not to add another feature. The point is to make release,
+regression selection, and first-response debugging more repeatable.
 
-1. 自动化已经补起来，但发布动作仍然缺少统一编排
-2. 手工冒烟、自动化回归和模块边界说明还没有形成统一执行矩阵
-3. 出问题后的定位、归因和复盘入口还不够集中
+## Delivered This Week
 
-## 2. 落地内容
+### 1. Release Checklist
 
-### 2.1 建立发布清单
+`docs/ops/release-checklist.md` now defines the minimum release gate:
 
-整理一份面向实际发版的 release checklist，至少覆盖：
+- which automated checks must pass
+- how to classify a change before release
+- which manual smoke steps are always required
+- when docs must move with code
+- what release record must be captured
 
-- 发版前必须通过的自动化检查
-- 哪类改动必须补测试
-- 哪类改动必须执行手工冒烟
-- 哪类改动必须更新文档
-- 发版后要检查哪些关键路径
+This moves the project from ad hoc release memory to a stable checklist.
 
-目标是把“经验型发版”改成“流程型发版”。
+### 2. Regression Matrix
 
-### 2.2 建立回归矩阵
+`docs/ops/regression-matrix.md` now maps risky change areas to the expected
+verification lanes.
 
-按模块和风险等级整理回归矩阵，建议至少覆盖：
+Covered areas include:
 
-- workflow editor
-- workflow execution
-- settings
-- provider contract
-- image chain
-- backend contract
+1. workflow editor
+2. workflow execution
+3. settings
+4. provider contract
+5. image and media chain
+6. storage and files
+7. frontend shell
+8. docs-only process changes
 
-每一类标明：
+### 3. Triage Entry Points
 
-- 自动化入口
-- 手工补充项
-- 风险说明
-- 改动触发条件
+`docs/ops/triage-entrypoints.md` now captures the minimum debugging map for:
 
-### 2.3 收口最小观测入口
+- startup and configuration failures
+- workflow execution failures
+- provider and media request failures
+- frontend-only failures
+- release-day triage order
 
-在不过度引入复杂系统的前提下，统一关键观测点，例如：
+This is intentionally lightweight. It gives a stable first place to look
+without introducing a heavy observability platform.
 
-- 关键工作流执行日志
-- provider 或图片请求失败定位信息
-- 前端关键错误信息收集方式
-- 发布后快速排查入口
+### 4. Release Rhythm Rules
 
-这里的重点不是“大而全监控平台”，而是让高频问题出现时有稳定入口可查。
+`docs/ops/release-rhythm.md` now records the minimum maintenance discipline for:
 
-### 2.4 建立后续迭代纪律
+- per-change proof expectations
+- per-release record expectations
+- per-regression follow-up expectations
+- which long-lived documents must stay aligned
 
-补齐一套最小协作规则，例如：
+### 5. Lightweight Release Docs Gate
 
-- 修复 bug 时优先补回归用例
-- 结构调整时同步更新 roadmap / testing docs
-- 高风险改动默认先跑相关自动化，再做手工冒烟
-- 发布记录保留最小执行痕迹
+The repo now includes `npm run check:release-docs`, backed by
+`scripts/check-release-docs.mjs`.
 
-这一步是为了把 12 周治理成果变成项目日常的一部分，而不是一次性活动。
+`npm run check` now enforces that the Week 12 release documents exist and
+contain their required sections.
 
-## 3. 验收结果
+## Verification Result
 
-Week 12 完成后，应至少确认：
+Week 12 closes when the following pass together:
 
-- 有可执行的 release checklist
-- 有覆盖关键模块的回归矩阵
-- 有一致的最小观测与排查入口
-- 有明确的后续迭代纪律说明
+- `npm run check:release-docs`
+- `npm run check`
+- one manual review pass across the release checklist, regression matrix, and
+  triage entrypoints
 
-## 4. 阶段结论
+## Why This Matters
 
-Week 12 完成后，项目应从“结构已治理完成”进一步进入“长期稳态可维护”阶段。  
-届时四项十分的判断标准不再只是一次性达成，而是：
+Weeks 9 through 11 made the codebase safer to change.
 
-1. 结构边界守得住
-2. 改动风险兜得住
-3. 发布过程跑得顺
-4. 问题出现后找得到
+Week 12 makes the release process safer to repeat:
 
-这也是 Week 9-12 这一轮补强真正想完成的事情。
+1. change risk now maps to an explicit regression lane
+2. debugging starts from a documented entry point instead of guesswork
+3. release proof is expected to leave behind a small record
+4. release-process docs are now guarded by the repo quality gate
+
+## Conclusion
+
+Week 12 is complete once the release checklist, regression matrix, triage
+entrypoints, release-rhythm note, and release-docs gate all land together.
