@@ -34,7 +34,7 @@ export default defineConfig({
       },
     },
     {
-      command: 'cmd /c npm.cmd run dev:frontend -- --host 127.0.0.1 --port 4173',
+      command: 'npm run dev:frontend -- --host 127.0.0.1 --port 4173',
       cwd: '.',
       url: frontendUrl,
       reuseExistingServer: !process.env.CI,
