@@ -450,6 +450,83 @@ test('HTTP contract: capabilities chat route returns envelope-only payloads', as
   }
 });
 
+test('HTTP contract: capabilities chat stream route forwards SSE payloads', async () => {
+  const { server, baseUrl } = await createTestServer('capabilities-chat-stream');
+  try {
+    const { capabilitiesService } = await import('../src/modules/capabilities/capabilities.service.js');
+    const originalChatStream = capabilitiesService.chatStream;
+    capabilitiesService.chatStream = async () => new Response(
+      'data: {"choices":[{"delta":{"content":"hel"}}]}\n\n'
+      + 'data: {"choices":[{"delta":{"content":"lo"},"finish_reason":"stop"}]}\n\n'
+      + 'data: [DONE]\n\n',
+      {
+        headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+      },
+    );
+
+    try {
+      const response = await fetch(`${baseUrl}/api/capabilities/chat?stream=true`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'demo-chat-model',
+          messages: [{ role: 'user', content: 'ping' }],
+          stream: true,
+        }),
+      });
+
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type') || '', /text\/event-stream/i);
+      const body = await response.text();
+      assert.match(body, /data: \{"choices":\[\{"delta":\{"content":"hel"\}\}\]\}/);
+      assert.match(body, /data: \[DONE\]/);
+    } finally {
+      capabilitiesService.chatStream = originalChatStream;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: capabilities chat stream route wraps JSON upstream as SSE events', async () => {
+  const { server, baseUrl } = await createTestServer('capabilities-chat-stream-json');
+  try {
+    const { capabilitiesService } = await import('../src/modules/capabilities/capabilities.service.js');
+    const originalChatStream = capabilitiesService.chatStream;
+    capabilitiesService.chatStream = async () => new Response(
+      JSON.stringify({
+        id: 'chatcmpl-json-fallback',
+        choices: [{ message: { role: 'assistant', content: 'json fallback' }, finish_reason: 'stop' }],
+      }),
+      {
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+
+    try {
+      const response = await fetch(`${baseUrl}/api/capabilities/chat?stream=true`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'demo-chat-model',
+          messages: [{ role: 'user', content: 'ping' }],
+          stream: true,
+        }),
+      });
+
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type') || '', /text\/event-stream/i);
+      const body = await response.text();
+      assert.match(body, /data: \{"id":"chatcmpl-json-fallback","choices":\[/);
+      assert.match(body, /data: \[DONE\]/);
+    } finally {
+      capabilitiesService.chatStream = originalChatStream;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: capabilities image route returns envelope-only payloads', async () => {
   const { server, baseUrl } = await createTestServer('capabilities-image');
   try {

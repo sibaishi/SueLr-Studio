@@ -6,7 +6,7 @@ import type { AIProvider, ProviderConfig, ChatCompletionParams, ChatCompletionRe
 import type { ModelInfo } from '../types';
 import { DEFAULT_PROVIDER_CONFIG } from './types';
 import { cleanKey, catModel } from '../utils';
-import { capabilityChatCompletion, capabilityGenerateImage, capabilitySubmitVideoGeneration } from '@/domains/capabilities';
+import { capabilityChatCompletion, capabilityChatCompletionStream, capabilityGenerateImage, capabilitySubmitVideoGeneration } from '@/domains/capabilities';
 
 type ModelsResponse = {
   data?: Array<{ id?: string }>;
@@ -18,6 +18,15 @@ type ChatResponse = {
     finish_reason?: string;
   }>;
 };
+
+function emitChatCompletionResult(result: ChatCompletionResult, callbacks: import('./types').StreamCallbacks, aborted: boolean) {
+  if (result.content && !aborted) {
+    callbacks.onToken(result.content);
+  }
+  if (!aborted) {
+    callbacks.onFinish(result);
+  }
+}
 
 export function createProvider(base: string, apiKey: string, config?: Partial<ProviderConfig>): AIProvider {
   const cfg: ProviderConfig = { ...DEFAULT_PROVIDER_CONFIG, ...config };
@@ -95,43 +104,40 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
 
   // ====== Streaming Chat Completion (SSE, chat-only path) ======
   function chatCompletionStream(params: ChatCompletionParams, callbacks: import('./types').StreamCallbacks): void {
-    const endpoint = cfg.chatEndpoint || '/v1/chat/completions';
-    const body: Record<string, any> = { model: params.model, messages: params.messages, stream: true };
-    if (params.tools && params.tools.length > 0) body.tools = params.tools;
     let aborted = false;
 
     (async () => {
       try {
-        const res = await fetch(`${base}${endpoint}`, {
-          method: 'POST',
-          headers: buildHeaders(),
-          body: JSON.stringify(body),
+        const res = await capabilityChatCompletionStream({
+          model: params.model,
+          messages: params.messages,
+          tools: params.tools,
+          apiConfig: {
+            apiKey,
+            baseUrl: base,
+            providerConfig: cfg,
+          },
           signal: params.signal,
         });
-        if (!res.ok) {
-          const e = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
-          throw new Error(e.error?.message || `HTTP ${res.status}`);
-        }
-        if (!res.body) {
-          // Fallback: no streaming body, parse as normal JSON
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.body || contentType.includes('application/json')) {
           const data = await res.json() as ChatResponse;
           const msg = data.choices?.[0]?.message;
-          const result: ChatCompletionResult = {
+          emitChatCompletionResult({
             content: typeof msg?.content === 'string' ? msg.content : '',
             toolCalls: msg?.tool_calls || null,
             finishReason: data.choices?.[0]?.finish_reason || 'stop',
-          };
-          if (result.content) callbacks.onToken(result.content);
-          if (!aborted) callbacks.onFinish(result);
+          }, callbacks, aborted);
           return;
         }
-        // Read SSE stream
+
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
         let fullContent = '';
         let toolCalls: any[] | null = null;
         let finishReason = 'stop';
+        let emittedFullMessage = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -157,10 +163,9 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
                 if (choice.delta?.tool_calls) {
                   toolCalls = choice.delta.tool_calls;
                 }
-                // Non-streaming fallback: full message in single chunk
                 if (choice.message?.content && !choice.delta) {
                   fullContent = choice.message.content;
-                  if (!aborted) callbacks.onToken(fullContent);
+                  emittedFullMessage = true;
                 }
                 if (choice.message?.tool_calls && !choice.delta) {
                   toolCalls = choice.message.tool_calls;
@@ -171,6 +176,9 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
           }
         }
         if (!aborted) {
+          if (emittedFullMessage && fullContent) {
+            callbacks.onToken(fullContent);
+          }
           callbacks.onFinish({
             content: fullContent,
             toolCalls,

@@ -1,35 +1,23 @@
 // ============================================================
-// Flow Studio - Provider type definitions
+// Flow Studio - Workflow provider compatibility types
 // ============================================================
 
+import type { ProviderConfig as SharedProviderConfig } from '@/lib/providers';
+import { DEFAULT_PROVIDER_CONFIG as SHARED_DEFAULT_PROVIDER_CONFIG } from '@/lib/providers';
 import type { ModelInfo } from '../types';
 
-export interface ProviderConfig {
-  authType: 'bearer' | 'api-key' | 'custom';
-  customHeaderName?: string;
-  customPrefix?: string;
-  videoEndpoint?: string;
-  imageEndpoint?: string;
-  imageEditEndpoint?: string;
-  imageTimeoutMs?: number;
-  chatEndpoint?: string;
-  modelsEndpoint?: string;
-  modelOverrides?: {
-    [modelId: string]: {
-      type?: 'chat' | 'image' | 'video' | '';
-      endpoint?: string;
-    };
-  };
+type WorkflowModelOverride = {
+  type?: 'chat' | 'image' | 'video' | '';
+  endpoint?: string;
+};
+
+export interface ProviderConfig extends SharedProviderConfig {
+  modelOverrides?: Record<string, WorkflowModelOverride>;
 }
 
 export const DEFAULT_PROVIDER_CONFIG: ProviderConfig = {
-  authType: 'bearer',
-  chatEndpoint: '/chat/completions',
-  modelsEndpoint: '/models',
-  imageEndpoint: '/images/generations',
-  imageEditEndpoint: '/images/edits',
-  imageTimeoutMs: 300000,
-  videoEndpoint: '/video/generations',
+  ...SHARED_DEFAULT_PROVIDER_CONFIG,
+  modelOverrides: {},
 };
 
 export interface ChatCompletionParams {

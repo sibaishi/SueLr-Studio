@@ -105,6 +105,7 @@ export function validateChatBody(payload) {
     model: validateRequiredString(body.model, 'model', 200),
     messages: body.messages === undefined ? [] : validateArray(body.messages, 'messages'),
     tools: body.tools === undefined ? undefined : validateArray(body.tools, 'tools'),
+    stream: body.stream === true,
   };
 }
 

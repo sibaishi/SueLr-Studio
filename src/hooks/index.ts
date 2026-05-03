@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { createProvider } from '../lib/providers';
+import type { ProviderConfig } from '../lib/providers';
 
 export function useLiveRef<T>(value: T) {
   const ref = useRef(value);
@@ -11,7 +12,7 @@ export function useApiRefs(base: string, apiKey: string) {
   return { baseR: useLiveRef(base), keyR: useLiveRef(apiKey) };
 }
 
-export function useProvider(base: string, apiKey: string, providerConfig?: any) {
+export function useProvider(base: string, apiKey: string, providerConfig?: Partial<ProviderConfig>) {
   const { baseR, keyR } = useApiRefs(base, apiKey);
   const configR = useLiveRef(providerConfig);
   const getProvider = useCallback(

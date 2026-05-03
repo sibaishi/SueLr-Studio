@@ -28,6 +28,38 @@ export async function capabilityChatCompletion(params: {
   });
 }
 
+export async function capabilityChatCompletionStream(params: {
+  model: string;
+  messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: any[] }>;
+  tools?: ToolDefinition[];
+  apiConfig?: ApiConfigPayload;
+  signal?: AbortSignal;
+}) {
+  const response = await fetch('/api/capabilities/chat?stream=true', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ...params, stream: true, signal: undefined }),
+    signal: params.signal,
+  });
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const payload = await response.json() as { error?: { message?: string } };
+      if (payload?.error?.message) {
+        message = payload.error.message;
+      }
+    } catch {
+      // ignore parse failure and keep the HTTP fallback
+    }
+    throw new Error(message);
+  }
+
+  return response;
+}
+
 export async function capabilityWebSearch(params: {
   query: string;
   maxResults?: number;

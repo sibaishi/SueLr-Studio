@@ -1,4 +1,5 @@
 import type { ProjectModel } from '../features/workflow/lib/projectModels';
+import type { ProviderConfig } from './provider-config';
 
 export type ImageMode = 'standalone' | 'chat';
 
@@ -33,18 +34,6 @@ export interface GalleryItem { id: string; url: string; prompt: string; model: s
 export interface VTask { id: string; taskId: string; status: VideoStatus; prompt: string; model: string; params: string; videoUrl?: string; error?: string; }
 export interface LogEntry { time: string; level: string; msg: string; }
 export interface Colors { bg: string; card: string; card2: string; menuBg: string; border: string; text: string; text2: string; text3: string; blue: string; green: string; red: string; orange: string; purple: string; neutral: string; }
-export interface ProviderConfig {
-  authType: 'bearer' | 'api-key' | 'custom';
-  customHeaderName?: string;
-  customPrefix?: string;
-  videoMode: 'poll' | 'none';
-  videoEndpoint?: string;
-  chatEndpoint?: string;
-  modelsEndpoint?: string;
-  imageEndpoint?: string;
-  imageEditEndpoint?: string;
-  imageTimeoutMs?: number;
-}
 export interface ApiConfig { id: string; name: string; base: string; apiKey: string; models: ModelInfo[]; providerConfig?: ProviderConfig; projectModels?: ProjectModel[]; }
 export interface BridgeRef { addToImageGallery: (items: GalleryItem[]) => void; addToVideoGallery: (item: GalleryItem) => void; addToChatPending: (urls: string[]) => void; }
 export type { ProjectModel } from '../features/workflow/lib/projectModels';

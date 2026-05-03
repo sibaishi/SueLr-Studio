@@ -34,6 +34,26 @@ export class CapabilitiesService {
     }
   }
 
+  async chatStream(body) {
+    try {
+      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
+      return await runChatCompletion({
+        apiKey: runtimeConfig.apiKey,
+        baseUrl: runtimeConfig.baseUrl,
+        providerConfig: runtimeConfig.providerConfig,
+        projectModels: runtimeConfig.projectModels,
+        model: body.model,
+        messages: body.messages || [],
+        tools: body.tools,
+        stream: true,
+        signal: undefined,
+      });
+    } catch (error) {
+      logger.error('chat stream capability failed', { code: error?.code, message: error?.message });
+      throw error?.status ? error : new ProviderError('CHAT_STREAM_FAILED', error instanceof Error ? error.message : 'Chat stream failed');
+    }
+  }
+
   async search(body) {
     try {
       const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});

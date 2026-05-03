@@ -14,6 +14,7 @@ import {
   Search,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
+import type { ProviderConfig } from '@/lib/providers';
 import type { NodeExecStatus } from '@/features/workflow/lib/store';
 
 type NodeIconComponent = ComponentType<{ size?: number | string; strokeWidth?: number; className?: string }>;
@@ -65,14 +66,13 @@ export const PORT_TYPE_LABELS: Record<string, string> = {
   'any[]': 'ANY[]',
 };
 
-export const NODE_API_PROVIDER_CONFIG = {
+export const NODE_API_PROVIDER_CONFIG: Partial<ProviderConfig> = {
   authType: 'bearer',
   modelsEndpoint: '/models',
   chatEndpoint: '/chat/completions',
   imageEndpoint: '/images/generations',
   videoEndpoint: '/video/generations',
-  modelOverrides: {},
-} as const;
+};
 
 export const NODE_INNER_GUTTER = 10;
 export const NODE_PORT_GUTTER = 18;
