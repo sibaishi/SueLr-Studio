@@ -1,0 +1,78 @@
+{
+  "id": "sample-basic-chat",
+  "name": "示例：基础聊天流",
+  "description": "最小可演示样例，不依赖本地上传文件。",
+  "version": 1,
+  "createdAt": 0,
+  "updatedAt": 0,
+  "nodes": [
+    {
+      "id": "node_prompt",
+      "type": "textInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "width": 364,
+      "height": 224,
+      "data": {
+        "text": "请用三句话概括这段内容。"
+      }
+    },
+    {
+      "id": "node_chat",
+      "type": "aiChat",
+      "position": {
+        "x": 420,
+        "y": 0
+      },
+      "width": 392,
+      "height": 616,
+      "data": {
+        "model": "",
+        "enableWebSearch": false,
+        "temperature": 0.7,
+        "maxTokens": 4096,
+        "systemPrompt": ""
+      }
+    },
+    {
+      "id": "node_output",
+      "type": "output",
+      "position": {
+        "x": 840,
+        "y": 0
+      },
+      "width": 420,
+      "height": 616,
+      "data": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_prompt_chat",
+      "source": "node_prompt",
+      "sourceHandle": "text",
+      "target": "node_chat",
+      "targetHandle": "prompt",
+      "type": "smoothstep",
+      "animated": false,
+      "style": {
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "edge_chat_output",
+      "source": "node_chat",
+      "sourceHandle": "response",
+      "target": "node_output",
+      "targetHandle": "content",
+      "type": "smoothstep",
+      "animated": false,
+      "style": {
+        "strokeWidth": 2
+      }
+    }
+  ],
+  "settings": {}
+}
