@@ -28,7 +28,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <div style={{ position: 'fixed', top: 'max(env(safe-area-inset-top, 16px), 16px)', right: 16, zIndex: 100000, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
         {items.map(t => (
-          <div key={t.id} style={{
+          <div key={t.id} role="alert" aria-live="assertive" style={{
             padding: '10px 18px', borderRadius: 12, background: colors[t.type], color: '#fff',
             fontSize: 13, fontWeight: 500, boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
             animation: t.exiting ? 'toastOut 0.3s ease forwards' : 'toastIn 0.3s ease',

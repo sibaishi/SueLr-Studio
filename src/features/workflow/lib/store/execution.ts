@@ -17,6 +17,26 @@ type WorkflowStoreExecutionActions = Pick<
 
 const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
 
+function buildSyncedExecutionSummary(status: {
+  totalDuration?: number;
+  successCount?: number;
+  failCount?: number;
+}) {
+  if (
+    typeof status.totalDuration !== 'number'
+    || typeof status.successCount !== 'number'
+    || typeof status.failCount !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    totalDuration: status.totalDuration,
+    successCount: status.successCount,
+    failCount: status.failCount,
+  };
+}
+
 export function createWorkflowExecutionActions(
   set: WorkflowStoreSet,
   get: WorkflowStoreGet,
@@ -335,11 +355,12 @@ export function createWorkflowExecutionActions(
       const statusResult = await api.fetchExecutionStatus(state.currentRunId);
       if (!statusResult.success || !statusResult.data) return;
 
-      if (statusResult.data.status === 'running') {
+      const syncedStatus = statusResult.data;
+      if (syncedStatus.status === 'running') {
         if (!state.isExecuting) {
           set({
             isExecuting: true,
-            executionMessage: '已重新连接到工作流执行...',
+            executionMessage: '\u5df2\u91cd\u65b0\u8fde\u63a5\u5230\u5de5\u4f5c\u6d41\u6267\u884c...',
           });
         }
         return;
@@ -348,9 +369,45 @@ export function createWorkflowExecutionActions(
       clearActiveRunSnapshot();
       get().addExecutionLog({
         level: 'info',
-        message: `执行运行状态已同步为 ${statusResult.data.status}`,
-        details: formatLogDetails(statusResult.data),
+        message: `\u6267\u884c\u8fd0\u884c\u72b6\u6001\u5df2\u540c\u6b65\u4e3a\uff1a${syncedStatus.status}` ,
+        details: formatLogDetails(syncedStatus),
       });
+
+      if (syncedStatus.status === 'completed') {
+        set({
+          isExecuting: false,
+          executionProgress: null,
+          executionMessage: '\u5de5\u4f5c\u6d41\u6267\u884c\u5b8c\u6210',
+          currentRunId: null,
+          executingNodeId: null,
+          lastExecutionStatus: typeof syncedStatus.failCount === 'number' && syncedStatus.failCount > 0 ? 'error' : 'success',
+          lastExecutionTime: syncedStatus.totalDuration ?? null,
+          lastExecutionError: null,
+          lastExecutionSummary: buildSyncedExecutionSummary(syncedStatus),
+        });
+        return;
+      }
+
+      if (syncedStatus.status === 'failed' || syncedStatus.status === 'cancelled') {
+        set({
+          isExecuting: false,
+          executionProgress: null,
+          executionMessage: syncedStatus.status === 'cancelled'
+            ? '\u5de5\u4f5c\u6d41\u6267\u884c\u5df2\u505c\u6b62'
+            : '\u5de5\u4f5c\u6d41\u6267\u884c\u5931\u8d25',
+          currentRunId: null,
+          executingNodeId: null,
+          lastExecutionStatus: 'error',
+          lastExecutionTime: syncedStatus.totalDuration ?? null,
+          lastExecutionError: syncedStatus.error
+            || (syncedStatus.status === 'cancelled'
+              ? '\u5de5\u4f5c\u6d41\u6267\u884c\u5df2\u53d6\u6d88'
+              : '\u672a\u77e5\u9519\u8bef'),
+          lastExecutionSummary: buildSyncedExecutionSummary(syncedStatus),
+        });
+        return;
+      }
+
       set({
         isExecuting: false,
         executionProgress: null,

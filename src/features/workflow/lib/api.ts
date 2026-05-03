@@ -215,7 +215,18 @@ export async function cancelExecution(runId: string) {
 }
 
 export async function fetchExecutionStatus(runId: string) {
-  return apiFetch<{ status: string; runId: string; workflowId?: string; source?: string; snapshotVersion?: number }>(`/execute/runs/${runId}/status`);
+  return apiFetch<{
+    status: string;
+    runId: string;
+    workflowId?: string;
+    source?: string;
+    snapshotVersion?: number;
+    finishedAt?: number;
+    totalDuration?: number;
+    successCount?: number;
+    failCount?: number;
+    error?: string;
+  }>(`/execute/runs/${runId}/status`);
 }
 
 export async function fetchSettings() {

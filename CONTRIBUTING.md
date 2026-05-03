@@ -35,6 +35,26 @@ If Windows PowerShell blocks `npm.ps1`, run commands through:
 cmd /c npm run dev
 ```
 
+Convenience launchers are also available at the repo root:
+
+- `start.bat`
+- `start.sh`
+
+They install missing dependencies and then start the combined dev flow.
+
+## First Local Pass
+
+For a clean newcomer sanity check:
+
+1. Install dependencies with `npm install` and `npm run install:all`.
+2. Start the app with `npm run dev`.
+3. Open `http://localhost:5173` and confirm the shell loads while the backend responds on `http://127.0.0.1:3001`.
+4. Install Playwright once on the machine before the first local browser run:
+
+```bash
+npm run test:e2e:install
+```
+
 ## Validation Before Submission
 
 Run the repository quality gate before opening a pull request:
@@ -47,6 +67,12 @@ Run end-to-end smoke coverage when your change touches user-facing flows:
 
 ```bash
 npm run test:e2e
+```
+
+If this is the first E2E run on the machine, install the Playwright browser first:
+
+```bash
+npm run test:e2e:install
 ```
 
 ## Contribution Expectations

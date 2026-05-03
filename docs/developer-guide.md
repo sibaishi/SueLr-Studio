@@ -107,6 +107,18 @@ The current verification stack is layered:
 
 Workflow store proof tests live under `tests/unit/workflow-store/` and act as the first regression net for editor, document, and execution boundary changes.
 
+## Maintenance Workflow
+
+For most contributor changes, the practical local sequence is:
+
+1. `npm run dev` to confirm the app boots end to end
+2. `npm run check` for repository gates, type safety, unit coverage, build validation, and backend tests
+3. `npm run test:e2e` when user-facing flows, workflow behavior, or settings interactions change
+
+On a new machine, install the Playwright browser once with `npm run test:e2e:install` before the first local E2E run.
+
+Repository hygiene should keep generated and operator-only content out of source review. In practice that means `dist/`, `playwright-report/`, `test-results/`, runtime data under `storage/`, and private planning material under `.private-docs/` are not treated as maintained source.
+
 ## Public Documentation Policy
 
 The `docs/` directory is reserved for stable public-facing documentation that should ship with the project.

@@ -8,11 +8,13 @@ import { workflowsRepository } from '../workflows/workflows.repository.js';
 import { createExecutionSnapshot } from './execution-snapshot.js';
 
 const logger = createLogger({ module: 'execution-service' });
+const RECENT_RUN_TTL_MS = 5 * 60 * 1000;
 
 export class ExecutionService {
   constructor(repository = workflowsRepository) {
     this.repository = repository;
     this.runningExecutions = new Map();
+    this.recentExecutions = new Map();
   }
 
   getRun(runId) {
@@ -20,8 +22,14 @@ export class ExecutionService {
   }
 
   getStatus(runId) {
+    this.pruneRecentExecutions();
+
     const run = this.getRun(runId);
     if (!run) {
+      const recentRun = this.recentExecutions.get(runId);
+      if (recentRun) {
+        return recentRun.status;
+      }
       return { status: 'idle', runId };
     }
 
@@ -39,6 +47,22 @@ export class ExecutionService {
     if (!run) return false;
     run.abortController.abort();
     return true;
+  }
+
+  pruneRecentExecutions(now = Date.now()) {
+    for (const [runId, entry] of this.recentExecutions.entries()) {
+      if (entry.expiresAt <= now) {
+        this.recentExecutions.delete(runId);
+      }
+    }
+  }
+
+  rememberRecentExecution(status, now = Date.now()) {
+    this.pruneRecentExecutions(now);
+    this.recentExecutions.set(status.runId, {
+      status,
+      expiresAt: now + RECENT_RUN_TTL_MS,
+    });
   }
 
   async execute(workflowId, body, res, requestId) {
@@ -61,10 +85,44 @@ export class ExecutionService {
       snapshotVersion: snapshot.snapshotVersion,
       abortController,
     });
+    let terminalStatus = null;
 
     const sendSSE = (event, data) => {
       runLogger.log(event, data);
       logger.info('workflow event', { runId: runLogger.runId, workflowId, event });
+      if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
+        terminalStatus = {
+          status: 'completed',
+          runId: snapshot.runId,
+          workflowId: snapshot.workflowId,
+          source: snapshot.source,
+          snapshotVersion: snapshot.snapshotVersion,
+          finishedAt: Date.now(),
+          totalDuration: data.totalDuration,
+          successCount: data.successCount,
+          failCount: data.failCount,
+        };
+      } else if (event === WORKFLOW_SSE_EVENTS.RUN_FAILED || event === WORKFLOW_SSE_EVENTS.VALIDATION_FAILED) {
+        terminalStatus = {
+          status: 'failed',
+          runId: snapshot.runId,
+          workflowId: snapshot.workflowId,
+          source: snapshot.source,
+          snapshotVersion: snapshot.snapshotVersion,
+          finishedAt: Date.now(),
+          error: data.error,
+        };
+      } else if (event === WORKFLOW_SSE_EVENTS.RUN_CANCELLED) {
+        terminalStatus = {
+          status: 'cancelled',
+          runId: snapshot.runId,
+          workflowId: snapshot.workflowId,
+          source: snapshot.source,
+          snapshotVersion: snapshot.snapshotVersion,
+          finishedAt: Date.now(),
+          error: data.error,
+        };
+      }
       if (res.writableEnded) return false;
       try {
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -114,6 +172,9 @@ export class ExecutionService {
       runLogger.close(abortController.signal.aborted ? 'cancelled' : 'error', { error: message });
     } finally {
       this.runningExecutions.delete(snapshot.runId);
+      if (terminalStatus) {
+        this.rememberRecentExecution(terminalStatus);
+      }
       if (!res.writableEnded) {
         res.end();
       }

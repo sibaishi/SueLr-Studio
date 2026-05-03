@@ -81,7 +81,10 @@ npm run dev:backend
 npm run build
 npm run check
 npm run test:e2e
+npm run test:e2e:install
 ```
+
+`start.bat` and `start.sh` are convenience launchers that install missing dependencies and then call `npm run dev`.
 
 ## Repository Layout
 
@@ -97,6 +100,7 @@ workflows/      example workflow files
 ## Contributing
 
 External collaboration is welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, validation commands, and repository conventions.
+For a first contributor pass, run the app locally once, then use `npm run check`, and install Playwright with `npm run test:e2e:install` before your first local `npm run test:e2e`.
 
 ## License Status
 

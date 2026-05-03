@@ -21,6 +21,7 @@ logs/
 tmp/
 temp/
 .private-docs/
+.tmp-*.png
 
 *.log
 

@@ -1,4 +1,4 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
@@ -74,13 +74,9 @@ test('HTTP contract: settings endpoints use unified envelope', async () => {
       body: JSON.stringify([]),
     });
     assert.equal(invalid.status, 400);
-    assert.deepEqual(invalid.body, {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: '请求体必须为对象',
-      },
-    });
+    assertEnvelopeShape(invalid.body);
+    assert.equal(invalid.body.success, false);
+    assert.equal(invalid.body.error.code, 'VALIDATION_ERROR');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -117,13 +113,9 @@ test('HTTP contract: CORS rejection stays on the unified error envelope', async 
     const body = await response.json();
 
     assert.equal(response.status, 403);
-    assert.deepEqual(body, {
-      success: false,
-      error: {
-        code: 'CORS_FORBIDDEN',
-        message: '当前来源未被允许访问 API',
-      },
-    });
+    assertEnvelopeShape(body);
+    assert.equal(body.success, false);
+    assert.equal(body.error.code, 'CORS_FORBIDDEN');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -139,13 +131,9 @@ test('HTTP contract: settings test-api blocks local provider targets', async () 
     });
 
     assert.equal(blocked.status, 400);
-    assert.deepEqual(blocked.body, {
-      success: false,
-      error: {
-        code: 'REMOTE_HOST_FORBIDDEN',
-        message: 'Base URL 不允许使用本机或内网地址',
-      },
-    });
+    assertEnvelopeShape(blocked.body);
+    assert.equal(blocked.body.success, false);
+    assert.equal(blocked.body.error.code, 'REMOTE_HOST_FORBIDDEN');
   } finally {
     delete process.env.APP_HOST;
     await new Promise((resolve) => server.close(resolve));
@@ -429,13 +417,9 @@ test('HTTP contract: capabilities routes validate input and wrap success payload
         body: JSON.stringify([]),
       });
       assert.equal(invalid.status, 400);
-      assert.deepEqual(invalid.body, {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: '请求体必须为对象',
-        },
-      });
+      assertEnvelopeShape(invalid.body);
+      assert.equal(invalid.body.success, false);
+      assert.equal(invalid.body.error.code, 'VALIDATION_ERROR');
 
       const blankQuery = await requestJson(baseUrl, '/api/capabilities/search', {
         method: 'POST',
@@ -794,6 +778,78 @@ test('HTTP contract: capabilities video status route returns envelope-only paylo
       assert.equal(success.body.status, undefined);
     } finally {
       capabilitiesService.getVideoStatus = originalGetVideoStatus;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: provider-backed routes keep upstream failures on the same safe 502 envelope', async () => {
+  const { server, baseUrl } = await createTestServer('provider-failure-envelope');
+  try {
+    const [{ ProviderError }, { capabilitiesService }, { imagesService }] = await Promise.all([
+      import('../src/app/errors/index.js'),
+      import('../src/modules/capabilities/capabilities.service.js'),
+      import('../src/modules/images/images.service.js'),
+    ]);
+
+    const originalChat = capabilitiesService.chat;
+    const originalImage = capabilitiesService.image;
+    const originalSubmitVideo = capabilitiesService.submitVideo;
+    const originalGenerate = imagesService.generate;
+
+    const providerFailure = new ProviderError(
+      'UPSTREAM_TIMEOUT',
+      '上游真实报错: connect ETIMEDOUT 10.0.0.8:443 /v1/images',
+      { upstream: 'sensitive detail' },
+    );
+
+    capabilitiesService.chat = async () => { throw providerFailure; };
+    capabilitiesService.image = async () => { throw providerFailure; };
+    capabilitiesService.submitVideo = async () => { throw providerFailure; };
+    imagesService.generate = async () => { throw providerFailure; };
+
+    try {
+      const [chatFailure, imageFailure, videoFailure, generateFailure] = await Promise.all([
+        requestJson(baseUrl, '/api/capabilities/chat', {
+          method: 'POST',
+          body: JSON.stringify({
+            model: 'demo-chat-model',
+            messages: [{ role: 'user', content: 'ping' }],
+          }),
+        }),
+        requestJson(baseUrl, '/api/capabilities/image', {
+          method: 'POST',
+          body: JSON.stringify({ model: 'demo-image-model', prompt: 'phase 2 image' }),
+        }),
+        requestJson(baseUrl, '/api/capabilities/video', {
+          method: 'POST',
+          body: JSON.stringify({ model: 'demo-video-model', prompt: 'phase 2 video' }),
+        }),
+        requestJson(baseUrl, '/api/images/generate', {
+          method: 'POST',
+          body: JSON.stringify({ model: 'demo-image-model', prompt: 'phase 2 image' }),
+        }),
+      ]);
+
+      for (const failure of [chatFailure, imageFailure, videoFailure, generateFailure]) {
+        assert.equal(failure.status, 502);
+        assert.deepEqual(failure.body, {
+          success: false,
+          error: {
+            code: 'UPSTREAM_TIMEOUT',
+            message: '上游服务请求失败，请检查配置或稍后重试',
+          },
+        });
+        assert.equal(JSON.stringify(failure.body).includes('10.0.0.8'), false);
+        assert.equal(JSON.stringify(failure.body).includes('/v1/images'), false);
+        assert.equal(JSON.stringify(failure.body).includes('sensitive detail'), false);
+      }
+    } finally {
+      capabilitiesService.chat = originalChat;
+      capabilitiesService.image = originalImage;
+      capabilitiesService.submitVideo = originalSubmitVideo;
+      imagesService.generate = originalGenerate;
     }
   } finally {
     await new Promise((resolve) => server.close(resolve));

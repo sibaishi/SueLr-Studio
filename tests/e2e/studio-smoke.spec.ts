@@ -146,4 +146,33 @@ test.describe('studio smoke', () => {
 
     await expect(page.getByTestId('settings-project-model-card-gpt-image-1')).toBeVisible();
   });
+
+  test('settings connection failure shows visible feedback and does not import phantom models', async ({ page }) => {
+    await clearLocalState(page);
+
+    await page.route('**/api/settings/test-api', async (route) => {
+      await route.fulfill({
+        status: 502,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: false,
+          error: {
+            code: 'UPSTREAM_TIMEOUT',
+            message: '????????????',
+          },
+        }),
+      });
+    });
+
+    await page.getByTestId('settings-base-url-field').locator('input').fill('https://provider.example/v1');
+    await page.getByTestId('settings-api-key-field').locator('input').fill('sk-week15-failure');
+    await page.getByTestId('settings-provider-auth-type').selectOption('api-key');
+    await page.getByTestId('settings-provider-models-endpoint').fill('/v1/models');
+
+    await page.getByTestId('settings-test-connection').click();
+
+    await expect(page.locator('text=ERROR')).toBeVisible();
+    await expect(page.getByTestId('settings-importable-models-panel')).toHaveCount(0);
+    await expect(page.locator('[data-testid^="settings-project-model-card-"]')).toHaveCount(0);
+  });
 });

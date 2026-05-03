@@ -156,4 +156,169 @@ describe('workflow store execution actions', () => {
     expect(state.executingNodeId).toBeNull();
     expect(addExecutionLog).toHaveBeenCalledTimes(1);
   });
+
+  it('stops execution cleanly when workflow save fails before launch', async () => {
+    const addExecutionLog = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'ai_node',
+          type: 'aiChat',
+          position: { x: 0, y: 0 },
+          data: { disabled: false },
+        },
+        {
+          id: 'output_node',
+          type: 'output',
+          position: { x: 320, y: 0 },
+          data: { disabled: false },
+        },
+      ],
+      edges: [{ id: 'edge-1', source: 'ai_node', target: 'output_node' }],
+      saveWorkflow: vi.fn(async () => false),
+      addExecutionLog,
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflow();
+
+    const state = harness.getState();
+    expect(api.executeWorkflow).not.toHaveBeenCalled();
+    expect(clearActiveRunSnapshot).toHaveBeenCalledTimes(1);
+    expect(state.isExecuting).toBe(false);
+    expect(state.currentRunId).toBeNull();
+    expect(state.lastExecutionStatus).toBe('error');
+    expect(state.lastExecutionError).toBe('工作流保存失败，未启动执行');
+    expect(addExecutionLog).toHaveBeenCalledWith(expect.objectContaining({
+      level: 'error',
+      message: '工作流保存失败，已取消执行',
+    }));
+  });
+
+  it('marks execution stopped when cancel is requested without a run id', async () => {
+    const addExecutionLog = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      isExecuting: true,
+      currentRunId: null,
+      executionMessage: '正在执行工作流...',
+      addExecutionLog,
+    });
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.cancelWorkflowExecution();
+
+    const state = harness.getState();
+    expect(api.cancelExecution).not.toHaveBeenCalled();
+    expect(clearActiveRunSnapshot).toHaveBeenCalledTimes(1);
+    expect(state.isExecuting).toBe(false);
+    expect(state.executionMessage).toBe('工作流执行已停止');
+    expect(state.lastExecutionStatus).toBe('error');
+    expect(state.lastExecutionError).toBe('没有可取消的运行 ID');
+    expect(addExecutionLog).toHaveBeenCalledWith(expect.objectContaining({
+      level: 'info',
+      message: '用户请求停止工作流',
+    }));
+  });
+
+  it('keeps local execution state untouched when sync status fetch fails', async () => {
+    vi.mocked(api.fetchExecutionStatus).mockResolvedValue({
+      success: false,
+      error: 'network failed',
+    } as Awaited<ReturnType<typeof api.fetchExecutionStatus>>);
+
+    const addExecutionLog = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      currentRunId: 'run_sync_failed',
+      isExecuting: true,
+      executionMessage: '正在执行：节点 A',
+      addExecutionLog,
+    });
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.syncExecutionRunStatus();
+
+    const state = harness.getState();
+    expect(clearActiveRunSnapshot).not.toHaveBeenCalled();
+    expect(state.isExecuting).toBe(true);
+    expect(state.currentRunId).toBe('run_sync_failed');
+    expect(state.executionMessage).toBe('正在执行：节点 A');
+    expect(addExecutionLog).not.toHaveBeenCalled();
+  });
+
+  it('settles synced completed runs into final success state', async () => {
+    vi.mocked(api.fetchExecutionStatus).mockResolvedValue({
+      success: true,
+      data: {
+        runId: 'run_completed_sync',
+        status: 'completed',
+        totalDuration: 1800,
+        successCount: 3,
+        failCount: 0,
+      },
+    } as Awaited<ReturnType<typeof api.fetchExecutionStatus>>);
+
+    const addExecutionLog = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      currentRunId: 'run_completed_sync',
+      isExecuting: true,
+      executionMessage: 'running...',
+      addExecutionLog,
+    });
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.syncExecutionRunStatus();
+
+    const state = harness.getState();
+    expect(clearActiveRunSnapshot).toHaveBeenCalledTimes(1);
+    expect(state.isExecuting).toBe(false);
+    expect(state.currentRunId).toBeNull();
+    expect(state.executingNodeId).toBeNull();
+    expect(state.lastExecutionStatus).toBe('success');
+    expect(state.lastExecutionTime).toBe(1800);
+    expect(state.lastExecutionError).toBeNull();
+    expect(state.lastExecutionSummary).toEqual({
+      totalDuration: 1800,
+      successCount: 3,
+      failCount: 0,
+    });
+    expect(addExecutionLog).toHaveBeenCalledTimes(1);
+  });
+
+  it('settles synced failed runs into final error state', async () => {
+    vi.mocked(api.fetchExecutionStatus).mockResolvedValue({
+      success: true,
+      data: {
+        runId: 'run_failed_sync',
+        status: 'failed',
+        error: 'upstream timeout',
+      },
+    } as Awaited<ReturnType<typeof api.fetchExecutionStatus>>);
+
+    const addExecutionLog = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      currentRunId: 'run_failed_sync',
+      isExecuting: true,
+      executionMessage: 'running...',
+      addExecutionLog,
+    });
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.syncExecutionRunStatus();
+
+    const state = harness.getState();
+    expect(clearActiveRunSnapshot).toHaveBeenCalledTimes(1);
+    expect(state.isExecuting).toBe(false);
+    expect(state.currentRunId).toBeNull();
+    expect(state.lastExecutionStatus).toBe('error');
+    expect(state.lastExecutionError).toBe('upstream timeout');
+    expect(state.lastExecutionSummary).toBeNull();
+    expect(addExecutionLog).toHaveBeenCalledTimes(1);
+  });
+
 });
