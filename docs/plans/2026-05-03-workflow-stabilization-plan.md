@@ -12,7 +12,7 @@
 - Week 8: Completed
 - Week 9: Completed
 - Week 10: Completed
-- Week 11: Not started
+- Week 11: Completed
 - Week 12: Not started
 
 ## Current Phase Summary
@@ -62,13 +62,20 @@ Closure:
 - local `npm run test:e2e` passed
 - Week 10 goal is complete
 
-## Week 11 - Upcoming
+## Week 11 - Completed
 
-Goals:
+Delivered:
 
-1. add proof-oriented tests around high-risk workflow store logic
-2. keep reducing behavior hidden inside composition layers
-3. strengthen structural checks and boundary documentation
+1. a frontend unit-test lane for workflow store proof tests through `vitest`
+2. the first proof-oriented coverage batch for graph editing, grouping, merge sizing, document hydration/import, and execution restore/resync
+3. stronger structural checks requiring both workflow store proof tests and boundary documentation
+4. a dedicated workflow store boundary note for `editor`, `document`, and `execution`
+
+Closure:
+
+- `npm run check:workflow-store` passed
+- `npm run test:unit` passed
+- `npm run check` passed
 
 ## Week 12 - Upcoming
 

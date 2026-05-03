@@ -1,10 +1,18 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const storePath = resolve('src/features/workflow/lib/store.ts');
 const storeSource = readFileSync(storePath, 'utf8');
 const editorPath = resolve('src/features/workflow/lib/store/editor.ts');
 const editorSource = readFileSync(editorPath, 'utf8');
+const boundaryDocPath = resolve('docs/architecture/workflow-store-boundaries.md');
+const boundaryDocSource = existsSync(boundaryDocPath)
+  ? readFileSync(boundaryDocPath, 'utf8')
+  : '';
+const storeProofTestsDir = resolve('tests/unit/workflow-store');
+const storeProofTestFiles = existsSync(storeProofTestsDir)
+  ? readdirSync(storeProofTestsDir).filter((file) => file.endsWith('.test.ts'))
+  : [];
 
 const maxLineCount = 120;
 const lineCount = storeSource.split(/\r?\n/).length;
@@ -77,6 +85,20 @@ for (const marker of forbiddenEditorMarkers) {
   if (editorSource.includes(marker)) {
     failures.push(`editor.ts still contains editor implementation marker: ${marker}`);
   }
+}
+
+if (!existsSync(boundaryDocPath)) {
+  failures.push('workflow store boundary documentation is missing: docs/architecture/workflow-store-boundaries.md');
+} else {
+  for (const section of ['## Editor', '## Document', '## Execution']) {
+    if (!boundaryDocSource.includes(section)) {
+      failures.push(`workflow store boundary documentation is missing required section: ${section}`);
+    }
+  }
+}
+
+if (storeProofTestFiles.length === 0) {
+  failures.push('workflow store proof tests are missing under tests/unit/workflow-store.');
 }
 
 if (failures.length > 0) {

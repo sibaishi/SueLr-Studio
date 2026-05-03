@@ -24,7 +24,7 @@ Current documentation baseline date: `2026-05-03`
 - Week 8: Completed
 - Week 9: Completed
 - Week 10: Completed
-- Week 11: Not started
+- Week 11: Completed
 - Week 12: Not started
 
 ## Week 9 Delivered
@@ -53,6 +53,24 @@ Current documentation baseline date: `2026-05-03`
 
 ## Current Focus
 
-1. Move into Week 11 store-level proof tests and boundary strengthening
+1. Prepare the Week 12 release hardening and regression matrix closure
 2. Continue expanding frontend regression coverage on top of the Week 10 baseline
-3. Prepare the Week 12 release hardening and regression matrix closure
+3. Keep extending the cheaper store-level proof layer when workflow logic changes
+
+## Week 11 Delivered
+
+- `vitest` is integrated for frontend store-level unit verification
+- Local unit-test commands are available:
+  - `npm run test:unit`
+  - `npm run test:unit:watch`
+- `npm run check` now includes the workflow store proof-test lane
+- The workflow store proof suite now covers:
+  - edge replacement on the same target handle
+  - descendant-aware node deletion cleanup
+  - group creation and ungroup recovery
+  - merge node sizing normalization
+  - workflow load / hydration / import runtime reset behavior
+  - execution preflight guardrails, restore, and resync
+- Structure checks now also require:
+  - workflow store proof tests under `tests/unit/workflow-store`
+  - workflow store boundary documentation under `docs/architecture/workflow-store-boundaries.md`

@@ -1,32 +1,34 @@
 # Week 11 Store Proof Tests Checklist
 
-## 目标
+## Goal
 
-确认 Week 11 已经为 workflow store 高风险纯逻辑建立证明性测试，并继续增强结构边界护栏。
+Confirm that Week 11 establishes a first repeatable proof layer for high-risk workflow store behavior and strengthens the boundaries that protect that layer from drifting back into large composition files.
 
-## 自动验证
+## Automated Verification
 
-- [ ] store 纯逻辑已有独立测试入口
-- [ ] 已覆盖节点复制、删除与连线替换逻辑
-- [ ] 已覆盖 merge 节点尺寸联动逻辑
-- [ ] 已覆盖分组、解组、释放逻辑
-- [ ] 已覆盖草稿恢复或文档切换后的运行态清理逻辑
-- [ ] `store.ts` 继续保持薄入口定位
-- [ ] `editor.ts` 继续保持 editor 组合层定位
-- [ ] 结构检查脚本已增强并接入统一门禁
-- [ ] editor / document / execution 模块说明文档已补齐
+- [x] Workflow store logic has an independent frontend unit-test entry point
+- [x] Node deletion and edge replacement logic are covered
+- [x] Merge node sizing normalization is covered
+- [x] Group creation / ungroup recovery logic is covered
+- [x] Workflow load / hydration / import runtime reset logic is covered
+- [x] Execution preflight / restore / resync logic is covered
+- [x] `store.ts` remains a thin entry and composition layer
+- [x] `editor.ts` remains a thin editor composition layer
+- [x] Structure checks now enforce proof-test and boundary-doc presence
+- [x] Editor / document / execution boundary documentation is in place
 
-## 人工复核
+## Manual Review
 
-- [ ] 阅读新增测试，确认主要覆盖的是纯逻辑而不是重复写一层伪 E2E
-- [ ] 抽查结构检查脚本，确认其约束的是边界，而不是偶然的代码文本格式
-- [ ] 抽查 editor / document / execution 说明文档，确认职责边界足够清晰
-- [ ] 从一次真实改动路径回看，确认开发者能知道应该改哪一层、补哪类测试
+- [x] New tests are logic-first unit tests, not pseudo-E2E rewrites
+- [x] Boundary checks protect module responsibilities instead of formatting trivia
+- [x] Editor / document / execution responsibilities are documented in one place
+- [x] A future contributor can now tell where to patch logic and what proof to add
 
-## 通过标准
+## Pass Criteria
 
-满足以下条件即可认为 Week 11 完成：
+Week 11 is complete when these all hold:
 
-1. store 高风险逻辑已有第一批低成本、可重复的单元测试
-2. 薄入口与组合层边界继续被脚本和文档共同守住
-3. 后续再改 workflow store 时，有更清晰的修改与验证路径
+1. `npm run test:unit` passes
+2. `npm run check:workflow-store` passes
+3. `npm run check` passes
+4. the new docs and tests clearly point developers toward the correct workflow-store layer

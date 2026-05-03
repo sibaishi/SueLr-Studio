@@ -1,83 +1,71 @@
 # Week 11 Store Proof Tests And Boundary Hardening
 
-## 1. 本周目标
+## Weekly Goal
 
-Week 11 的目标是把当前已经拆分完成的 workflow store，从“结构上更清楚”进一步推进到“逻辑上更可证明、边界上更不容易回流”。  
-这一周的关注点不在 UI 表象，而在 editor / document / execution 几块核心状态逻辑本身。
+Week 11 moves the workflow store from "split into cleaner files" to "backed by proof and harder to regress by accident".
 
-本周要解决的问题是：
+The focus this week is not the UI surface. The focus is the high-risk logic inside the workflow store boundary:
 
-1. store 关键纯逻辑尚未形成足够密度的单元测试
-2. `store.ts` / `editor.ts` 的边界虽然已有门禁，但仍可继续增强
-3. `editorGraph.ts` 仍有继续按职责细拆的空间
+1. graph editing actions
+2. grouping and merge-sizing behavior
+3. document lifecycle transitions
+4. execution restore and resync state
 
-## 2. 落地内容
+## Delivered This Week
 
-### 2.1 为 store 纯逻辑补第一批证明性测试
+### 1. Store Proof Test Baseline
 
-优先为以下主题建立可重复验证的单元测试：
+A dedicated frontend unit-test lane now exists for workflow store logic:
 
-- 节点复制
-- 节点删除
-- 连线替换
-- merge 节点尺寸联动
-- 分组 / 解组 / 释放
-- 草稿恢复
-- 文档切换后的运行态清理
+- `vitest` is integrated
+- `npm run test:unit` runs the store proof suite
+- `npm run check` now includes the unit-test lane
 
-这些测试应尽量落在纯函数或低副作用入口上，避免把 store 单测写成难维护的伪 E2E。
+The first Week 11 proof suite covers:
 
-### 2.2 继续压薄组合层
+1. edge replacement on the same target handle
+2. descendant-aware node removal and execution residue cleanup
+3. group creation and ungroup recovery
+4. merge node input-count and minimum-size normalization
+5. workflow load / hydration / import lifecycle reset behavior
+6. execution preflight validation, restore, and status resync
 
-在不破坏外部 API 的前提下，继续评估并收口：
+### 2. Boundary Hardening
 
-- `editorGraph.ts` 是否继续拆分为节点逻辑与连线逻辑
-- 共用校验与 payload 构建逻辑是否还能进一步纯函数化
-- 组合层中是否还有“实现细节回流”的迹象
+The workflow store structure check now also guards two Week 11 expectations:
 
-目标不是为了拆而拆，而是让最常改、最容易出错的逻辑拥有更稳定的停靠位置。
+- workflow store proof tests must exist under `tests/unit/workflow-store`
+- workflow store boundary documentation must exist and include editor / document / execution sections
 
-### 2.3 强化目录级结构护栏
+This keeps the Week 11 outcome from being only a one-time cleanup.
 
-在现有结构检查脚本基础上，继续补齐规则，例如：
+### 3. Boundary Documentation
 
-- 限制 `store.ts` 只能承担入口与组装职责
-- 限制 `editor.ts` 只能承担 editor 组合职责
-- 防止高风险实现标记重新回流到薄入口文件
-- 在必要时增加目录说明或边界 README
+`docs/architecture/workflow-store-boundaries.md` now records:
 
-这一周的门禁增强目标，是把“团队约定”再向“项目规则”推进一步。
+- what `editor` owns
+- what `document` owns
+- what `execution` owns
+- what each module explicitly does not own
+- what kind of proof should be added when that module changes
 
-### 2.4 为核心模块补边界说明
+## Verification Result
 
-为以下主题补齐简短但明确的说明文档：
+Week 11 closes when the following pass together:
 
-- editor
-- document
-- execution
+- `npm run check:workflow-store`
+- `npm run test:unit`
+- `npm run check`
 
-每份说明至少回答：
+## Why This Matters
 
-- 模块负责什么
-- 不负责什么
-- 对外暴露什么入口
-- 改动时优先补哪类验证
+Week 10 gave the project a stable UI regression net. Week 11 adds a cheaper and faster proof layer under it.
 
-## 3. 验收结果
+That changes the maintenance posture in two useful ways:
 
-Week 11 完成后，应至少确认：
+1. store regressions can now be proven close to the logic instead of only through browser behavior
+2. future refactors have a clearer boundary map, so logic is less likely to drift back into composition files
 
-- store 高风险纯逻辑已有第一批单元测试
-- `store.ts` 与 `editor.ts` 继续保持薄入口与组合层定位
-- 结构检查脚本能覆盖更多边界回流风险
-- editor / document / execution 的职责说明已经成文
+## Conclusion
 
-## 4. 对后续周次的直接输入
-
-Week 11 的成果会直接影响 Week 12 的完成质量：
-
-1. 发布前的回归矩阵会更容易区分“跑 E2E”还是“跑纯逻辑单测”
-2. 结构边界一旦成文，后续多人协作时更不容易在高风险文件里重新堆逻辑
-3. 观测与发布纪律可以围绕这些模块边界建立更明确的归因路径
-
-Week 11 的价值，在于让 workflow store 从“已经拆好了”真正变成“后面也守得住”。
+Week 11 is complete once the unit-test baseline, boundary documentation, and structural checks all pass together. After that, Week 12 can focus on release discipline and observability instead of still shoring up core workflow logic.
