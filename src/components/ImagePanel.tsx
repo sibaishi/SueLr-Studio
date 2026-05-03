@@ -7,27 +7,15 @@ import { CHAT_COLOR, RATIOS, QUICK_PROMPTS } from '../lib/constants';
 import { taskStatusColor, taskStatusLabel } from '../lib/utils';
 import { useImageGen } from '../hooks/useImageGen';
 import { FullscreenViewer, IOSSegmentedControl, IOSLabel, IOSSelect, AutoTextarea, IOSButton, FileUploadArea, RefImageList, TaskDetailModal } from './ios';
-import { MediaWorkbench, chipStyle, eyebrowStyle, panelStyle } from './MediaWorkbench';
+import { MediaWorkbench, WorkbenchEmptyState, WorkbenchInsightCard, WorkbenchSectionCard, chipStyle, eyebrowStyle, mutedPanelStyle, panelStyle } from './MediaWorkbench';
 
 const pairStyle = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 } as const;
 
-function mutedPanelStyle(): React.CSSProperties {
-  return {
-    background: 'var(--color-bg-secondary)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 18,
-  };
-}
-
 function sectionCard(title: string, description: string, body: React.ReactNode) {
   return (
-    <section style={{ ...mutedPanelStyle(), padding: 18 }}>
-      <div style={{ marginBottom: 14 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>{title}</h3>
-        <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', margin: '6px 0 0' }}>{description}</p>
-      </div>
+    <WorkbenchSectionCard title={title} description={description}>
       {body}
-    </section>
+    </WorkbenchSectionCard>
   );
 }
 
@@ -47,13 +35,7 @@ function EmptyPanelState({
   action: string;
 }) {
   return (
-    <div style={{ ...mutedPanelStyle(), minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24 }}>
-      <div style={{ maxWidth: 320 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>{title}</div>
-        <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>{body}</div>
-        <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)' }}>{action}</div>
-      </div>
-    </div>
+    <WorkbenchEmptyState title={title} body={body} action={action} />
   );
 }
 
@@ -155,8 +137,7 @@ export function ImagePanel({ base, apiKey, models, addLog, bridgeRef, onAddToCha
 
   const insightContent = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ ...panelStyle(), padding: 16 }}>
-        <div style={eyebrowStyle()}>Run State</div>
+      <WorkbenchInsightCard eyebrow="Run State">
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>任务队列</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
           {img.tasks.length === 0 && <EmptyPanelState title="还没有任务" body="这里会记录每一次图片生成的排队、运行和失败状态。" action="提交一条图片任务后，可以回到这里查看进度和错误信息。" />}
@@ -174,17 +155,16 @@ export function ImagePanel({ base, apiKey, models, addLog, bridgeRef, onAddToCha
             </div>
           ))}
         </div>
-      </div>
+      </WorkbenchInsightCard>
 
-      <div style={{ ...panelStyle(), padding: 16 }}>
-        <div style={eyebrowStyle()}>Snapshot</div>
+      <WorkbenchInsightCard eyebrow="Snapshot">
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>当前状态</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
           <span style={chipStyle(img.model ? T.orange : undefined)}>{img.model || '还没有选择模型'}</span>
           <span style={chipStyle(img.mode === 'image' ? T.green : undefined)}>{img.mode === 'image' ? '图生图' : '文生图'}</span>
           <span style={chipStyle(img.gallery.length > 0 ? T.blue : undefined)}>{img.gallery.length} 张图片</span>
         </div>
-      </div>
+      </WorkbenchInsightCard>
     </div>
   );
 

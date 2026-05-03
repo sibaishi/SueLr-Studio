@@ -393,3 +393,43 @@ button:focus-visible {
 .empty-hint { color: var(--t-text3); text-align: center; margin-top: 60px; font-size: 14px; }
 .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .section-title-text { font-size: 14px; font-weight: 600; color: var(--t-text); }
+
+/* ==================== Workbench ==================== */
+
+.workbench-shell {
+  align-items: stretch;
+}
+
+.workbench-panel {
+  min-height: 0;
+}
+
+.workbench-insight {
+  padding-right: 2px;
+}
+
+.workbench-section-card,
+.workbench-insight-card,
+.workbench-empty-state {
+  min-width: 0;
+}
+
+.workbench-empty-state > div {
+  width: 100%;
+}
+
+.workbench-empty-state--compact {
+  padding: 18px;
+}
+
+@media (max-width: 1440px) {
+  .workbench-insight {
+    gap: 14px !important;
+  }
+}
+
+@media (max-width: 1280px) {
+  .workbench-empty-state {
+    min-height: 190px !important;
+  }
+}

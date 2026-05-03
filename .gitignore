@@ -20,6 +20,7 @@ outputs/
 logs/
 tmp/
 temp/
+.private-docs/
 
 *.log
 

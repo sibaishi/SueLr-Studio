@@ -399,7 +399,7 @@ function EmptyState({
       <div className="workflow-results__empty-icon">{icon}</div>
       <div className="workflow-results__empty-title">{title}</div>
       <div className="workflow-results__empty-body">{body}</div>
-      {action && <div className="workflow-results__empty-body">{action}</div>}
+      {action && <div className="workflow-results__empty-action">{action}</div>}
     </div>
   );
 }

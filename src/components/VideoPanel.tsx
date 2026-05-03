@@ -8,25 +8,13 @@ import { ftime, taskStatusColor } from '../lib/utils';
 import { fileToB64 } from '../lib/image';
 import { useVideoGen } from '../hooks/useVideoGen';
 import { IOSSegmentedControl, IOSLabel, IOSSelect, AutoTextarea, IOSButton, FileUploadArea, RefImageList, TaskDetailModal, VideoThumbnail } from './ios';
-import { MediaWorkbench, chipStyle, eyebrowStyle, panelStyle } from './MediaWorkbench';
-
-function mutedPanelStyle(): React.CSSProperties {
-  return {
-    background: 'var(--color-bg-secondary)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 18,
-  };
-}
+import { MediaWorkbench, WorkbenchEmptyState, WorkbenchInsightCard, WorkbenchSectionCard, chipStyle, eyebrowStyle, mutedPanelStyle, panelStyle } from './MediaWorkbench';
 
 function sectionCard(title: string, description: string, body: React.ReactNode) {
   return (
-    <section style={{ ...mutedPanelStyle(), padding: 18 }}>
-      <div style={{ marginBottom: 14 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>{title}</h3>
-        <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', margin: '6px 0 0' }}>{description}</p>
-      </div>
+    <WorkbenchSectionCard title={title} description={description}>
       {body}
-    </section>
+    </WorkbenchSectionCard>
   );
 }
 
@@ -40,13 +28,7 @@ function EmptyPanelState({
   action: string;
 }) {
   return (
-    <div style={{ ...mutedPanelStyle(), minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24 }}>
-      <div style={{ maxWidth: 340 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>{title}</div>
-        <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>{body}</div>
-        <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)' }}>{action}</div>
-      </div>
-    </div>
+    <WorkbenchEmptyState title={title} body={body} action={action} />
   );
 }
 
@@ -145,8 +127,7 @@ export function VideoPanel({ base, apiKey, models, addLog, bridgeRef, onAddToCha
 
   const insightContent = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ ...panelStyle(), padding: 16 }}>
-        <div style={eyebrowStyle()}>Run State</div>
+      <WorkbenchInsightCard eyebrow="Run State">
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>视频任务</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
           {vid.tasks.length === 0 && <EmptyPanelState title="还没有视频任务" body="这里会展示视频任务的提交、轮询、完成和失败状态。" action="当前功能停用时，这里主要用于保留历史任务观察入口。" />}
@@ -164,17 +145,16 @@ export function VideoPanel({ base, apiKey, models, addLog, bridgeRef, onAddToCha
             </div>
           ))}
         </div>
-      </div>
+      </WorkbenchInsightCard>
 
-      <div style={{ ...panelStyle(), padding: 16 }}>
-        <div style={eyebrowStyle()}>Snapshot</div>
+      <WorkbenchInsightCard eyebrow="Snapshot">
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>当前状态</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
           <span style={chipStyle(T.purple)}>功能停用</span>
           <span style={chipStyle(vid.mode === 'image' ? T.green : undefined)}>{vid.mode === 'image' ? '图生视频' : '文生视频'}</span>
           <span style={chipStyle(vid.completedVideos.length > 0 ? T.blue : undefined)}>{vid.completedVideos.length} 个结果</span>
         </div>
-      </div>
+      </WorkbenchInsightCard>
     </div>
   );
 

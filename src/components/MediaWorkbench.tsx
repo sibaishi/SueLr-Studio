@@ -36,6 +36,85 @@ function eyebrowStyle(): React.CSSProperties {
   };
 }
 
+function mutedPanelStyle(): React.CSSProperties {
+  return {
+    background: 'var(--color-bg-secondary)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 18,
+  };
+}
+
+export function WorkbenchSectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="workbench-section-card" style={{ ...mutedPanelStyle(), padding: 18 }}>
+      <div style={{ marginBottom: 14 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>{title}</h3>
+        <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', margin: '6px 0 0' }}>{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function WorkbenchEmptyState({
+  title,
+  body,
+  action,
+  compact = false,
+}: {
+  title: string;
+  body: string;
+  action: string;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`workbench-empty-state${compact ? ' workbench-empty-state--compact' : ''}`}
+      style={{
+        ...mutedPanelStyle(),
+        minHeight: compact ? 160 : 220,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        padding: 24,
+      }}
+    >
+      <div style={{ maxWidth: compact ? 360 : 320 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>{title}</div>
+        <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>{body}</div>
+        <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)' }}>{action}</div>
+      </div>
+    </div>
+  );
+}
+
+export function WorkbenchInsightCard({
+  eyebrow,
+  title,
+  children,
+}: {
+  eyebrow: string;
+  title?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="workbench-insight-card" style={{ ...panelStyle(), padding: 16 }}>
+      <div style={eyebrowStyle()}>{eyebrow}</div>
+      {title ? <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>{title}</div> : null}
+      <div style={{ marginTop: title ? 14 : 10 }}>{children}</div>
+    </div>
+  );
+}
+
 export function MediaWorkbench({
   eyebrow,
   title,
@@ -82,13 +161,13 @@ export function MediaWorkbench({
         </div>
       </div>
 
-      <div className="workflow-shell" style={{ display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 320px', minHeight: 0, flex: 1, overflow: 'hidden' }}>
-        <aside style={{ ...panelStyle(), overflow: 'hidden', minWidth: 0 }}>{sidebar}</aside>
-        <section style={{ ...panelStyle(), minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>{main}</section>
-        {insight && <aside style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, overflow: 'auto' }}>{insight}</aside>}
+      <div className="workflow-shell workbench-shell" style={{ display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 320px', minHeight: 0, flex: 1, overflow: 'hidden' }}>
+        <aside className="workbench-panel" style={{ ...panelStyle(), overflow: 'hidden', minWidth: 0 }}>{sidebar}</aside>
+        <section className="workbench-panel" style={{ ...panelStyle(), minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>{main}</section>
+        {insight && <aside className="workbench-insight" style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, overflow: 'auto' }}>{insight}</aside>}
       </div>
     </div>
   );
 }
 
-export { chipStyle, eyebrowStyle, panelStyle };
+export { chipStyle, eyebrowStyle, mutedPanelStyle, panelStyle };
