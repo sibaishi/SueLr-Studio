@@ -8,6 +8,8 @@ import { validateFilename, validateUploadFile } from './files.schema.js';
 const router = Router();
 const upload = filesService.createUploader();
 
+router.get('/files/generated', filesController.listGenerated.bind(filesController));
+
 router.post('/files/upload', (req, res, next) => {
   upload.single('file')(req, res, (error) => {
     if (error) {

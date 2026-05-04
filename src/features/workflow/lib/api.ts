@@ -300,6 +300,21 @@ export interface UploadResult {
   error?: string;
 }
 
+export interface GeneratedOutputFile {
+  id: string;
+  name: string;
+  relativePath: string;
+  url: string;
+  type: 'image' | 'video' | 'audio' | 'text' | 'data' | 'file';
+  mimeType: string;
+  size: number;
+  modifiedAt: number;
+}
+
+export async function fetchGeneratedOutputs() {
+  return apiFetch<GeneratedOutputFile[]>('/files/generated');
+}
+
 export async function uploadFile(file: File): Promise<UploadResult> {
   const formData = new FormData();
   formData.append('file', file);

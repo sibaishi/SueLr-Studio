@@ -47,58 +47,6 @@ function getNodeDisplayName(node, nodes) {
   return index >= 0 ? `${baseLabel} ${index + 1}` : baseLabel;
 }
 
-function pickFirstDefined(...values) {
-  for (const value of values) {
-    if (value !== undefined && value !== null && value !== '') {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function collectMergeItems(inputs) {
-  return Object.entries(inputs)
-    .filter(([key, value]) => key.startsWith('item') && value !== undefined && value !== null && value !== '')
-    .sort((left, right) => left[0].localeCompare(right[0], undefined, { numeric: true }))
-    .map(([, value]) => value);
-}
-
-function buildDisabledPassthroughOutputs(node, inputs) {
-  switch (node.type) {
-    case 'aiChat': {
-      const response = pickFirstDefined(inputs.prompt);
-      return response !== undefined ? { response } : {};
-    }
-    case 'imageGen': {
-      const references = pickFirstDefined(inputs.reference);
-      if (references === undefined) return {};
-      return { images: Array.isArray(references) ? references : [references] };
-    }
-    case 'imageResize': {
-      const image = pickFirstDefined(inputs.image);
-      return image !== undefined ? { image } : {};
-    }
-    case 'videoGen': {
-      const video = pickFirstDefined(inputs.video);
-      return video !== undefined ? { video } : {};
-    }
-    case 'textMerge':
-    case 'imageMerge':
-    case 'videoMerge':
-    case 'audioMerge':
-    case 'universalMerge': {
-      const merged = collectMergeItems(inputs);
-      return merged.length > 0 ? { merged } : {};
-    }
-    case 'saveFile': {
-      const content = pickFirstDefined(inputs.content);
-      return content !== undefined ? { content, savedFiles: [], savedPaths: [] } : {};
-    }
-    default:
-      return {};
-  }
-}
-
 function failWorkflowAtNode({
   node,
   nodes,
@@ -133,7 +81,7 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE) {
     return;
   }
 
-  const executableNodes = nodes.filter((node) => isExecutableNodeType(node.type));
+  const executableNodes = nodes.filter((node) => isExecutableNodeType(node.type) && !node.data?.disabled);
   const executableNodeIds = new Set(executableNodes.map((node) => node.id));
   const executableEdges = edges.filter((edge) => executableNodeIds.has(edge.source) && executableNodeIds.has(edge.target));
 
@@ -195,7 +143,6 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE) {
 
     try {
       const inputs = collectInputs(node, executableEdges, outputs);
-      const isDisabled = Boolean(node.data?.disabled);
       const failedDependencies = executableEdges
         .filter((edge) => edge.target === node.id && failedNodeErrors[edge.source])
         .map((edge) => ({
@@ -218,24 +165,6 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE) {
           error: `上游节点执行失败，${nodeLabel} 已中断。失败节点：${sourceLabel}${firstFailed.targetHandle ? ` -> ${firstFailed.targetHandle}` : ''}；原因：${firstFailed.error}`,
           sendSSE,
         });
-      }
-
-      if (isDisabled) {
-        const result = buildDisabledPassthroughOutputs(node, inputs);
-        outputs[node.id] = result;
-        successCount += 1;
-
-        sendSSE(WORKFLOW_SSE_EVENTS.NODE_PROGRESS, {
-          nodeId: node.id,
-          progress: -1,
-          message: `${nodeLabel} 已禁用，已跳过执行并尝试透传输出`,
-        });
-        sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
-          nodeId: node.id,
-          outputs: result,
-          duration: Date.now() - nodeStartTime,
-        });
-        continue;
       }
 
       const requiredInputs = getRequiredInputs(node.type);

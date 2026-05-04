@@ -18,7 +18,7 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   audioMerge: { w: 11, h: 8 },
   universalMerge: { w: 11, h: 8 },
   aiChat: { w: 14, h: 20 },
-  imageGen: { w: 14, h: 18 },
+  imageGen: { w: 14, h: 20 },
   videoGen: { w: 14, h: 23 },
   saveFile: { w: 14, h: 12 },
   output: { w: 13, h: 10 },

@@ -1,4 +1,5 @@
 import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
+import { materializeContentForOutput } from '../helpers/saveHelper.js';
 import { runImageGeneration } from '../../services/imageService.js';
 
 export async function execute(node, inputs, apiConfig, sendProgress) {
@@ -27,9 +28,12 @@ export async function execute(node, inputs, apiConfig, sendProgress) {
 
   const result = await runImageGeneration(request, imageRuntimeConfig, sendProgress);
   sendProgress?.(`Image generation completed: ${result.images.length}`);
+  const materialized = await materializeContentForOutput(result.images, { prefix: 'imageGen' });
 
   return {
-    images: result.images,
+    images: materialized.content,
+    savedFiles: materialized.savedFiles,
+    savedPaths: materialized.savedPaths,
     request: result.request,
   };
 }

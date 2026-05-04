@@ -41,6 +41,10 @@ export class FilesService {
     logger.info('file deleted', { filename });
   }
 
+  listGeneratedOutputs() {
+    return this.repository.listGeneratedOutputsSinceProcessStart();
+  }
+
   cleanupUploadedFile(file) {
     if (!file?.path) return;
     try {
