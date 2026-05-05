@@ -24,6 +24,7 @@ const ALLOWED_FORMAT = new Set(['png', 'jpeg', 'webp']);
 const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const DEFAULT_IMAGE_ENDPOINT = '/v1/images/generations';
+const IMAGE_REQUEST_RETRY_DELAYS_MS = [1_000, 2_000];
 
 function cleanText(value) {
   return String(value || '').trim();
@@ -218,14 +219,55 @@ function logOutgoingRequest(sendProgress, details) {
   sendProgress?.(`[ImageRequest] ${stringifyForLog(details)}`);
 }
 
-async function fetchWithImageTimeout(url, options, timeoutMs, externalSignal) {
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function getFetchErrorCode(error) {
+  return error?.cause?.code || error?.code || '';
+}
+
+function isRetryableImageRequestError(error) {
+  const code = getFetchErrorCode(error);
+  return code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'ETIMEDOUT' || code === 'ECONNRESET';
+}
+
+function isChatCompletionsEndpoint(endpoint) {
+  return String(endpoint || '').toLowerCase().includes('/chat/completions');
+}
+
+async function fetchWithImageTimeout(url, options, timeoutMs, externalSignal, sendProgress) {
   const signal = externalSignal
     ? AbortSignal.any([externalSignal, AbortSignal.timeout(timeoutMs)])
     : AbortSignal.timeout(timeoutMs);
-  return fetch(url, {
-    ...options,
-    signal,
-  });
+
+  let lastError;
+  const attempts = IMAGE_REQUEST_RETRY_DELAYS_MS.length + 1;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await fetch(url, {
+        ...options,
+        signal,
+      });
+    } catch (error) {
+      lastError = error;
+      const shouldRetry = !signal.aborted
+        && isRetryableImageRequestError(error)
+        && attempt < IMAGE_REQUEST_RETRY_DELAYS_MS.length;
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      const retryDelayMs = IMAGE_REQUEST_RETRY_DELAYS_MS[attempt];
+      sendProgress?.(`图像请求连接异常，${retryDelayMs}ms 后重试第 ${attempt + 2}/${attempts} 次: ${describeFetchError(error)}`);
+      await sleep(retryDelayMs);
+    }
+  }
+
+  throw lastError;
 }
 
 async function downloadRemoteImage(url, sendProgress, externalSignal) {
@@ -411,6 +453,7 @@ async function callImageGenerationApi(url, headers, payload, timeoutMs, sendProg
       },
       timeoutMs,
       externalSignal,
+      sendProgress,
     );
   } catch (error) {
     throw new Error(`图像生成请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
@@ -438,6 +481,7 @@ async function callImageGenerationApiWithAdapter(adapter, request, payload, time
       request.options,
       timeoutMs,
       externalSignal,
+      sendProgress,
     );
   } catch (error) {
     throw new Error(`图像生成请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
@@ -467,6 +511,7 @@ async function callImageGenerationViaChatApiWithAdapter(adapter, request, payloa
       request.options,
       timeoutMs,
       externalSignal,
+      sendProgress,
     );
   } catch (error) {
     throw new Error(`对话生图请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
@@ -494,6 +539,7 @@ async function callImageEditApiWithAdapter(adapter, request, payload, timeoutMs,
       request.options,
       timeoutMs,
       externalSignal,
+      sendProgress,
     );
   } catch (error) {
     throw new Error(`图像编辑请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
@@ -534,6 +580,7 @@ async function callImageGenerationViaChatApi(url, headers, payload, timeoutMs, s
       },
       timeoutMs,
       externalSignal,
+      sendProgress,
     );
   } catch (error) {
     throw new Error(`对话生图请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
@@ -584,6 +631,7 @@ async function callImageEditApi(url, headers, payload, timeoutMs, sendProgress, 
       },
       timeoutMs,
       externalSignal,
+      sendProgress,
     );
   } catch (error) {
     throw new Error(`图像编辑请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
@@ -633,7 +681,14 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
   for (let index = 0; index < requestCount; index += 1) {
     sendProgress?.(`正在生成第 ${index + 1}/${requestCount} 张图片...`);
 
-    const attemptData = payload.image.length > 0 || payload.mask
+    const { endpoint: imageEndpoint } = resolveModelRuntime(runtimeConfig, payload.model, {
+      expectedType: 'image',
+      purpose: 'image',
+    });
+    const usesChatPayload = isChatCompletionsEndpoint(imageEndpoint);
+    const shouldUseEditEndpoint = (payload.image.length > 0 || payload.mask) && !usesChatPayload;
+
+    const attemptData = shouldUseEditEndpoint
       ? await (() => {
           const { endpoint } = resolveModelRuntime(runtimeConfig, payload.model, {
             expectedType: 'image',
@@ -696,12 +751,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
           })();
         })()
       : await (() => {
-          const { endpoint } = resolveModelRuntime(runtimeConfig, payload.model, {
-            expectedType: 'image',
-            purpose: 'image',
-          });
-          const normalizedEndpoint = String(endpoint || '').toLowerCase();
-          const usesChatPayload = normalizedEndpoint.includes('/chat/completions');
+          const endpoint = imageEndpoint;
 
           if (usesChatPayload) {
             const requestBody = {
