@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { AlertTriangle, CheckCircle2, GitBranch, RefreshCw } from 'lucide-react';
-import { buildImportReportSections, getImportModeLabel } from '@/domains/workflow/import-export';
-import type { WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/types';
+import { buildImportReportSections, getImportModeLabel } from '@/features/workflow/lib/importExport';
+import type { WorkflowImportMode, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
 
 interface WorkflowImportReportModalProps {
   fileName: string;

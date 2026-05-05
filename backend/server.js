@@ -5,6 +5,7 @@
 import { pathToFileURL } from 'url';
 import { createLogger } from './src/platform/logging/logger.js';
 import { createApp } from './src/app/create-app.js';
+import './src/platform/system/restart-trigger.js';
 import {
   getProcessInstanceId,
   installRuntimeObservability,

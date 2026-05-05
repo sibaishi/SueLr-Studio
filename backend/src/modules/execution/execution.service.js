@@ -1,4 +1,4 @@
-import { executeWorkflow } from '../../../engine/executor.js';
+import { executeWorkflow } from '../../engine/executor.js';
 import { createLogger } from '../../platform/logging/logger.js';
 import { sanitizeNodeOutputsForLogs } from '../../platform/logging/workflow-log-sanitizer.js';
 import { createWorkflowRunLogger } from '../../platform/logging/workflow-run-logger.js';

@@ -1,9 +1,9 @@
 import type { DependencyList, MutableRefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/lib/types';
-import type { StreamMode, StudioSettingsPayload } from '@/domains/settings';
-import type { StudioSettingsState } from '@/domains/settings';
-import { checkSettingsServer, loadStudioSettings, saveStudioSettings, testSettingsConnection } from '@/domains/settings';
+import type { StreamMode, StudioSettingsPayload } from '@/features/settings';
+import type { StudioSettingsState } from '@/features/settings';
+import { checkSettingsServer, loadStudioSettings, saveStudioSettings, testSettingsConnection } from '@/features/settings';
 import { debouncedSaveJSON } from '@/lib/utils';
 
 type UseAppBootstrapParams = {

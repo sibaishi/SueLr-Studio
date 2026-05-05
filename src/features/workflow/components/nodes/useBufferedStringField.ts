@@ -46,6 +46,10 @@ export function useBufferedStringField(
 
   return {
     value: draft,
+    setValue: (nextValue: string) => {
+      clearPending();
+      setDraft(nextValue);
+    },
     onChange: (nextValue: string) => {
       setDraft(nextValue);
       scheduleCommit(nextValue);

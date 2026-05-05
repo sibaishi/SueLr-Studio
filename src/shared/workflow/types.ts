@@ -29,6 +29,7 @@ export interface ParamDef {
   type: ParamType;
   default?: unknown;
   group?: string;
+  picker?: 'directory';
   options?: { label: string; value: unknown }[];
   min?: number;
   max?: number;

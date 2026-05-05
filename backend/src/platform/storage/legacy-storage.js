@@ -51,6 +51,9 @@ function copyDirectoryFilesIfMissing(sourceDir, targetDir) {
 }
 
 export function migrateLegacyStorageIfNeeded() {
+  if (process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION === '1') {
+    return;
+  }
   ensureStorageDirectories();
   copyJsonWorkflowFilesIfMissing(LEGACY_PATHS.projectWorkflowsDir, STORAGE_PATHS.workflowsDir);
   copyFileIfMissing(path.join(LEGACY_PATHS.backendAssistantDir, 'conversations.json'), STORAGE_PATHS.conversationsFile);

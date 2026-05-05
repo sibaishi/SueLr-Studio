@@ -1,7 +1,7 @@
 import { DEFAULT_WORKFLOW_NAME } from '@/features/workflow/lib/constants';
 import * as api from '@/features/workflow/lib/api';
 import type { Workflow } from '@/features/workflow/lib/types';
-import type { WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/types';
+import type { WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
 import { clearActiveRunSnapshot, loadLocalDraft } from '@/features/workflow/lib/store/persistence';
 import { buildWorkflowPayload, gid, normalizeEdges, normalizeNodes } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowImportResult, WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';

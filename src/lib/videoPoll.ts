@@ -1,4 +1,4 @@
-import { capabilityPollVideoTask } from '@/domains/capabilities';
+import { capabilityPollVideoTask } from '@/shared/api/capabilities';
 
 interface PollOptions {
   /** Platform task ID to poll */

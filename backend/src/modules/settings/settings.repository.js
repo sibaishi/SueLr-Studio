@@ -3,15 +3,18 @@ import {
   groupConfiguredProjectModels,
   migrateProjectModels,
   normalizeProjectModels,
-} from '../../../engine/helpers/projectModels.js';
+} from '../../engine/helpers/projectModels.js';
 import { ProviderError, ValidationError } from '../../app/errors/index.js';
 import {
+  clearStoredStorageRootOverride,
+  getEffectiveStorageRootInfo,
   LEGACY_PATHS,
   STORAGE_PATHS,
   ensureJsonFile,
   ensureStorageDirectories,
   migrateLegacyStorageIfNeeded,
   readJsonFile,
+  writeStoredStorageRootOverride,
   writeJsonFile,
 } from '../../platform/storage/index.js';
 import { getProviderAdapter } from '../../platform/providers/index.js';
@@ -354,6 +357,25 @@ function readSettingsInternal() {
 }
 
 export class SettingsRepository {
+  readStorageSettings() {
+    return getEffectiveStorageRootInfo();
+  }
+
+  updateStorageSettings(patch) {
+    assertPlainObject(patch, '外部路径设置更新体必须为对象');
+    const customRoot = cleanOptionalString(patch.customRoot);
+    if (!customRoot) {
+      throw new ValidationError('SETTINGS_STORAGE_PATH_REQUIRED', '自定义外部路径不能为空');
+    }
+    writeStoredStorageRootOverride(customRoot);
+    return this.readStorageSettings();
+  }
+
+  resetStorageSettings() {
+    clearStoredStorageRootOverride();
+    return this.readStorageSettings();
+  }
+
   readSettings() {
     return readSettingsInternal();
   }

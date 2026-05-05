@@ -1,6 +1,6 @@
 import type { Edge, Node } from '@xyflow/react';
 import { GRID_SIZE, NODE_REGISTRY } from '@/features/workflow/lib/constants';
-import type { PersistedWorkflow } from '@/domains/workflow/types';
+import type { PersistedWorkflow } from '@/features/workflow/lib/persistenceTypes';
 
 const AI_TYPES = ['aiChat', 'imageGen', 'videoGen'];
 const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile']);

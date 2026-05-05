@@ -5,7 +5,7 @@
 
 import type { ChatCompletionParams, ChatCompletionResult } from './types';
 import type { ModelInfo } from '../types';
-import { capabilityWebSearch } from '@/domains/capabilities';
+import { capabilityWebSearch } from '@/shared/api/capabilities';
 import { createProvider } from './generic';
 
 /** Chat Completion（非流式） */

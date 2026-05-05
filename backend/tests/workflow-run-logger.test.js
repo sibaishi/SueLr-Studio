@@ -10,7 +10,10 @@ function createStorageDir(name) {
 }
 
 test('workflow run logger writes stable run metadata and lifecycle events', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('run-logger');
+  const root = createStorageDir('run-logger');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { createWorkflowRunLogger } = await import(`../src/platform/logging/workflow-run-logger.js?test=${Date.now()}`);
 
@@ -53,7 +56,10 @@ test('workflow run logger writes stable run metadata and lifecycle events', asyn
 });
 
 test('workflow run logger can store auxiliary inline payload files', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('run-logger-artifact');
+  const root = createStorageDir('run-logger-artifact');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { createWorkflowRunLogger } = await import(`../src/platform/logging/workflow-run-logger.js?artifact=${Date.now()}`);
 

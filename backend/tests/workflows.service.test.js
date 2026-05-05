@@ -10,7 +10,10 @@ function createStorageDir(name) {
 }
 
 test('workflows service supports CRUD through repository layer', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('workflows');
+  const root = createStorageDir('workflows');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
   const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);
@@ -45,7 +48,10 @@ test('workflows service supports CRUD through repository layer', async () => {
 });
 
 test('workflows service rejects unsupported node types', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('workflow-invalid-node');
+  const root = createStorageDir('workflow-invalid-node');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
   const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);
@@ -65,7 +71,10 @@ test('workflows service rejects unsupported node types', async () => {
 });
 
 test('workflow update keeps createdAt stable', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('workflow-created-at');
+  const root = createStorageDir('workflow-created-at');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
   const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);
@@ -92,7 +101,10 @@ test('workflow update keeps createdAt stable', async () => {
 });
 
 test('workflow import/export round-trip keeps structure stable', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('workflow-roundtrip');
+  const root = createStorageDir('workflow-roundtrip');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
   const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);
@@ -119,7 +131,10 @@ test('workflow import/export round-trip keeps structure stable', async () => {
 });
 
 test('workflow import supports preserve id conflict and overwrite mode', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('workflow-import-conflict');
+  const root = createStorageDir('workflow-import-conflict');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
   const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);
@@ -165,7 +180,10 @@ test('workflow import supports preserve id conflict and overwrite mode', async (
 });
 
 test('workflow import migrates historical version and reports applied migration', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('workflow-import-migration');
+  const root = createStorageDir('workflow-import-migration');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
   const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);
@@ -192,7 +210,10 @@ test('workflow import migrates historical version and reports applied migration'
 });
 
 test('workflow import rejects future version and unknown node type with structured errors', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('workflow-import-validation');
+  const root = createStorageDir('workflow-import-validation');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
   const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);

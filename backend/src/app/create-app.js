@@ -13,6 +13,7 @@ import { requestContextMiddleware } from './middleware/request-context.js';
 import { requestLoggerMiddleware } from './middleware/request-logger.js';
 import { STORAGE_PATHS, ensureStorageDirectories, migrateLegacyStorageIfNeeded } from '../platform/storage/index.js';
 import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js';
+import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
 
 function buildAllowedOrigins() {
   const configured = String(process.env.APP_ALLOWED_ORIGINS || '')
@@ -72,7 +73,7 @@ export function createApp() {
   });
 
   app.get('/api/status', (_req, res) => {
-    res.json(successEnvelope({ ok: true, version: '1.0.0' }));
+    res.json(successEnvelope({ ok: true, version: '1.0.0', processInstanceId: getProcessInstanceId() }));
   });
 
   app.use((error, _req, res, next) => {

@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 function resetStorageEnv() {
   delete process.env.APP_CONFIG_DIR;
   delete process.env.APP_STORAGE_DIR;
+  delete process.env.APP_STORAGE_BOOTSTRAP_FILE;
 }
 
 function isWithin(baseDir, targetDir) {
@@ -13,15 +16,26 @@ function isWithin(baseDir, targetDir) {
   return target === base || target.startsWith(`${base}${path.sep}`);
 }
 
+function createBootstrapFile() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'suelr-storage-test-'));
+  const bootstrapFile = path.join(tempRoot, 'config', 'bootstrap.json');
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = bootstrapFile;
+  return bootstrapFile;
+}
+
 test('storage root defaults to the current user config directory', async () => {
   resetStorageEnv();
+  createBootstrapFile();
   const { getDefaultConfigRoot, getStorageRoot, PROJECT_ROOT } = await import(`../src/platform/storage/storage-root.js?test=${Date.now()}`);
 
   assert.equal(getStorageRoot(), getDefaultConfigRoot());
   assert.equal(isWithin(PROJECT_ROOT, getStorageRoot()), false);
+  resetStorageEnv();
 });
 
-test('APP_CONFIG_DIR overrides legacy APP_STORAGE_DIR', async () => {
+test('APP_CONFIG_DIR overrides stored custom path and legacy APP_STORAGE_DIR', async () => {
+  resetStorageEnv();
+  createBootstrapFile();
   process.env.APP_CONFIG_DIR = path.resolve('C:/tmp/suelr-config');
   process.env.APP_STORAGE_DIR = 'storage';
 
@@ -31,8 +45,22 @@ test('APP_CONFIG_DIR overrides legacy APP_STORAGE_DIR', async () => {
   resetStorageEnv();
 });
 
+test('stored custom root overrides legacy APP_STORAGE_DIR', async () => {
+  resetStorageEnv();
+  createBootstrapFile();
+  process.env.APP_STORAGE_DIR = 'storage';
+
+  const { writeStoredStorageRootOverride } = await import(`../src/platform/storage/storage-bootstrap.js?test=${Date.now()}`);
+  writeStoredStorageRootOverride(path.resolve('D:/custom-suelr-data'));
+
+  const { getStorageRoot } = await import(`../src/platform/storage/storage-root.js?test=${Date.now()}`);
+  assert.equal(getStorageRoot(), path.resolve('D:/custom-suelr-data'));
+  resetStorageEnv();
+});
+
 test('APP_STORAGE_DIR remains supported for existing deployments', async () => {
   resetStorageEnv();
+  createBootstrapFile();
   process.env.APP_STORAGE_DIR = 'storage';
 
   const { getStorageRoot, PROJECT_ROOT } = await import(`../src/platform/storage/storage-root.js?test=${Date.now()}`);

@@ -2,9 +2,9 @@ import { createLogger } from '../../platform/logging/logger.js';
 import { ProviderError, ValidationError } from '../../app/errors/index.js';
 import { settingsService } from '../settings/settings.service.js';
 import { imagesService } from '../images/images.service.js';
-import { runChatCompletion } from '../../../services/chatService.js';
-import { formatWebSearchResult, runWebSearch } from '../../../services/searchService.js';
-import { pollVideoTask, submitVideoGeneration } from '../../../services/videoService.js';
+import { runChatCompletion } from '../../platform/ai/chat-service.js';
+import { formatWebSearchResult, runWebSearch } from '../../platform/ai/search-service.js';
+import { pollVideoTask, submitVideoGeneration } from '../../platform/ai/video-service.js';
 
 const logger = createLogger({ module: 'capabilities-service' });
 

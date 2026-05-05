@@ -1,4 +1,5 @@
 import { useEffect, type FocusEvent } from 'react';
+import { selectDirectory } from '@/shared/api';
 import { getNodeDef } from '@/features/workflow/lib/constants';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
 import type { ParamDef } from '@/features/workflow/lib/types';
@@ -130,6 +131,7 @@ function ParamEditor({
   hasImageGroupInput?: boolean;
 }) {
   const availableModels = useWorkflowStore((s) => s.availableModels);
+  const addExecutionLog = useWorkflowStore((s) => s.addExecutionLog);
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
   const connectedApiKeyNode = nodeId
@@ -155,6 +157,17 @@ function ParamEditor({
   const textField = useBufferedStringField(String((value as string) ?? (param.default as string) ?? ''), (nextValue) => {
     onChange(nextValue);
   });
+  const handlePickDirectory = async () => {
+    try {
+      const selectedPath = await selectDirectory();
+      if (!selectedPath) return;
+      textField.setValue(selectedPath);
+      onChange(selectedPath);
+      addExecutionLog({ level: 'success', message: '已选择保存目录' });
+    } catch (error) {
+      addExecutionLog({ level: 'error', message: error instanceof Error ? error.message : String(error) });
+    }
+  };
 
   switch (param.type) {
     case 'textarea':
@@ -184,22 +197,46 @@ function ParamEditor({
       return (
         <div className="node-param">
           <label className="node-param__label">{param.label}</label>
-          <input
-            type={param.id === 'apiKey' ? 'password' : 'text'}
-            value={textField.value}
-            onChange={(event) => textField.onChange(event.target.value)}
-            className="node-field"
-            onFocus={(event) => {
-              textField.onFocus();
-              handleFocus(event);
-            }}
-            onBlur={(event) => {
-              textField.onBlur(event.target.value);
-              handleBlur(event);
-            }}
-            onCompositionStart={() => textField.onCompositionStart()}
-            onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
-          />
+          {param.picker === 'directory' ? (
+            <div className="node-param__input-row">
+              <input
+                type={param.id === 'apiKey' ? 'password' : 'text'}
+                value={textField.value}
+                onChange={(event) => textField.onChange(event.target.value)}
+                className="node-field"
+                onFocus={(event) => {
+                  textField.onFocus();
+                  handleFocus(event);
+                }}
+                onBlur={(event) => {
+                  textField.onBlur(event.target.value);
+                  handleBlur(event);
+                }}
+                onCompositionStart={() => textField.onCompositionStart()}
+                onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
+              />
+              <button type="button" className="node-secondary-button node-param__picker-button" onClick={() => { void handlePickDirectory(); }}>
+                选择文件夹
+              </button>
+            </div>
+          ) : (
+            <input
+              type={param.id === 'apiKey' ? 'password' : 'text'}
+              value={textField.value}
+              onChange={(event) => textField.onChange(event.target.value)}
+              className="node-field"
+              onFocus={(event) => {
+                textField.onFocus();
+                handleFocus(event);
+              }}
+              onBlur={(event) => {
+                textField.onBlur(event.target.value);
+                handleBlur(event);
+              }}
+              onCompositionStart={() => textField.onCompositionStart()}
+              onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
+            />
+          )}
         </div>
       );
 

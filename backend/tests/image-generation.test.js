@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { generateImages } from '../engine/helpers/imageGeneration.js';
+import { generateImages } from '../src/engine/helpers/imageGeneration.js';
 
 function createRuntimeConfig(overrides = {}) {
   return {

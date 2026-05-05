@@ -13,11 +13,11 @@ import {
   getSuggestedImportModes,
   parseWorkflowImport,
   serializeWorkflowExport,
-} from '@/domains/workflow/import-export';
+} from '@/features/workflow/lib/importExport';
 import { useWorkflowStore, type WorkflowEditorSnapshot } from '@/features/workflow/lib/store';
 import { useWorkflowPageStore } from '@/features/workflow/lib/store/selectors';
 import type { NodeTypeDef } from '@/features/workflow/lib/types';
-import type { WorkflowImportError, WorkflowImportReport } from '@/domains/workflow/types';
+import type { WorkflowImportError, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
 
 const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
 

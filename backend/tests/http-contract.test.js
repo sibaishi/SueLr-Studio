@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
+import { ConflictError } from '../src/app/errors/app-error.js';
 
 function createStorageDir(name) {
   const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `phase2-http-${name}-${Date.now()}`);
@@ -10,7 +11,10 @@ function createStorageDir(name) {
 }
 
 async function createTestServer(name) {
-  process.env.APP_STORAGE_DIR = createStorageDir(name);
+  const root = createStorageDir(name);
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
   const { createApp } = await import(`../src/app/create-app.js?test=${Date.now()}`);
   const app = createApp();
 
@@ -77,6 +81,40 @@ test('HTTP contract: settings endpoints use unified envelope', async () => {
     assertEnvelopeShape(invalid.body);
     assert.equal(invalid.body.success, false);
     assert.equal(invalid.body.error.code, 'VALIDATION_ERROR');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: restart backend endpoint uses unified envelopes', async () => {
+  const { server, baseUrl } = await createTestServer('settings-restart');
+  try {
+    const { settingsService } = await import('../src/modules/settings/settings.service.js');
+    const originalRequestBackendRestart = settingsService.requestBackendRestart;
+
+    try {
+      settingsService.requestBackendRestart = async () => ({ mode: 'watch' });
+      const success = await requestJson(baseUrl, '/api/settings/restart-backend', {
+        method: 'POST',
+      });
+      assert.equal(success.status, 200);
+      assertEnvelopeShape(success.body);
+      assert.deepEqual(success.body, { success: true, data: { mode: 'watch' } });
+
+      settingsService.requestBackendRestart = async () => {
+        throw new ConflictError('PROJECT_BUSY', '项目正在运行中，请稍后再试');
+      };
+      const conflict = await requestJson(baseUrl, '/api/settings/restart-backend', {
+        method: 'POST',
+      });
+      assert.equal(conflict.status, 409);
+      assertEnvelopeShape(conflict.body);
+      assert.equal(conflict.body.success, false);
+      assert.equal(conflict.body.error.code, 'PROJECT_BUSY');
+      assert.equal(conflict.body.error.message, '项目正在运行中，请稍后再试');
+    } finally {
+      settingsService.requestBackendRestart = originalRequestBackendRestart;
+    }
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

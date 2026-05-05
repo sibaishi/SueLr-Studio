@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
+import { ConflictError } from '../src/app/errors/app-error.js';
 
 function createStorageDir(name) {
   const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `phase2-${name}-${Date.now()}`);
@@ -10,7 +11,10 @@ function createStorageDir(name) {
 }
 
 test('settings service reads and updates studio settings', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('settings');
+  const root = createStorageDir('settings');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { settingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
 
@@ -29,7 +33,10 @@ test('settings service reads and updates studio settings', async () => {
 });
 
 test('settings response does not expose secrets in plaintext', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('settings-response');
+  const root = createStorageDir('settings-response');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { settingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
   settingsService.updateStudioSettings({
@@ -50,7 +57,10 @@ test('settings response does not expose secrets in plaintext', async () => {
 });
 
 test('settings module sanitizes provider config without legacy route dependency', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('settings-provider-config');
+  const root = createStorageDir('settings-provider-config');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { settingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
 
@@ -69,4 +79,45 @@ test('settings module sanitizes provider config without legacy route dependency'
     'image-model': { type: 'image', endpoint: '/custom-image' },
   });
   assert.equal(updated.activeConfig.providerConfig.imageEndpoint, '/v1/images/generations');
+});
+
+test('settings service blocks backend restart while project is busy', async () => {
+  const root = createStorageDir('settings-restart-busy');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { SettingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
+  const service = new SettingsService(undefined, {
+    executionService: { runningExecutions: new Set(['run-1']) },
+    restartBackend: async () => ({ mode: 'watch' }),
+  });
+
+  await assert.rejects(() => service.requestBackendRestart(), (error) => {
+    assert.ok(error instanceof ConflictError);
+    assert.equal(error.code, 'PROJECT_BUSY');
+    assert.equal(error.message, '项目正在运行中，请稍后再试');
+    return true;
+  });
+});
+
+test('settings service requests backend restart when project is idle', async () => {
+  const root = createStorageDir('settings-restart-idle');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { SettingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
+  let called = false;
+  const service = new SettingsService(undefined, {
+    executionService: { runningExecutions: new Set() },
+    restartBackend: async () => {
+      called = true;
+      return { mode: 'spawn' };
+    },
+  });
+
+  const result = await service.requestBackendRestart();
+  assert.equal(called, true);
+  assert.deepEqual(result, { mode: 'spawn' });
 });

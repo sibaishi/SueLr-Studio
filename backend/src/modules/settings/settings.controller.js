@@ -71,6 +71,46 @@ export class SettingsController {
     }
   }
 
+  getStorageSettings(_req, res, next) {
+    try {
+      res.json(successEnvelope(settingsService.getStorageSettings()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  updateStorageSettings(req, res, next) {
+    try {
+      res.json(successEnvelope(settingsService.updateStorageSettings(req.body)));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  resetStorageSettings(_req, res, next) {
+    try {
+      res.json(successEnvelope(settingsService.resetStorageSettings()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async selectDirectory(_req, res, next) {
+    try {
+      res.json(successEnvelope(await settingsService.selectDirectory()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async restartBackend(_req, res, next) {
+    try {
+      res.json(successEnvelope(await settingsService.requestBackendRestart()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   updateStudioSettings(req, res, next) {
     try {
       res.json(successEnvelope(settingsService.updateStudioSettings(req.body)));

@@ -6,7 +6,7 @@ import type { AIProvider, ProviderConfig, ChatCompletionParams, ChatCompletionRe
 import type { ModelInfo } from '../types';
 import { DEFAULT_PROVIDER_CONFIG } from './types';
 import { cleanKey, catModel } from '../utils';
-import { capabilityChatCompletion, capabilityChatCompletionStream, capabilityGenerateImage, capabilitySubmitVideoGeneration } from '@/domains/capabilities';
+import { capabilityChatCompletion, capabilityChatCompletionStream, capabilityGenerateImage, capabilitySubmitVideoGeneration } from '@/shared/api/capabilities';
 
 type ModelsResponse = {
   data?: Array<{ id?: string }>;

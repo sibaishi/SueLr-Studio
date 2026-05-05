@@ -1,5 +1,5 @@
 import { ValidationError } from '../../app/errors/index.js';
-import { getNodeContract, getNodeDataDefaults } from '../../../engine/contracts/node-registry.js';
+import { getNodeContract, getNodeDataDefaults } from '../../engine/contracts/node-registry.js';
 import { CURRENT_WORKFLOW_SCHEMA_VERSION } from './workflow-migrations.js';
 
 function isPlainObject(value) {

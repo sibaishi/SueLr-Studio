@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { executeWorkflow } from '../engine/executor.js';
+import { executeWorkflow } from '../src/engine/executor.js';
 import { WORKFLOW_SSE_EVENTS } from '../src/platform/logging/workflow-events.js';
 import { createWorkflowRunLogger } from '../src/platform/logging/workflow-run-logger.js';
 import { sanitizeNodeOutputsForLogs } from '../src/platform/logging/workflow-log-sanitizer.js';
@@ -66,7 +66,10 @@ test('disabled nodes are excluded from workflow execution and validation', async
 });
 
 test('workflow node completed events include sanitized log outputs while preserving raw outputs', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('inline-data');
+  const root = createStorageDir('inline-data');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const inlineImage = `data:image/png;base64,${'A'.repeat(1024)}`;
   const events = [];

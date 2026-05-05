@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PersistedWorkflow, WorkflowImportReport } from '@/domains/workflow/types';
+import type { PersistedWorkflow, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
 import { createWorkflowDocumentActions } from '@/features/workflow/lib/store/document';
 import { createWorkflowStoreHarness } from './testHarness';
 

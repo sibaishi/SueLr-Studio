@@ -10,7 +10,10 @@ function createStorageDir(name) {
 }
 
 test('assistant service persists records through repository layer', async () => {
-  process.env.APP_STORAGE_DIR = createStorageDir('assistant');
+  const root = createStorageDir('assistant');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { AssistantRepository } = await import(`../src/modules/assistant/assistant.repository.js?test=${Date.now()}`);
   const { AssistantService } = await import(`../src/modules/assistant/assistant.service.js?test=${Date.now()}`);

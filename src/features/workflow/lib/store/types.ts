@@ -1,6 +1,6 @@
 import type { Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
 import type { WorkflowListItem } from '@/features/workflow/lib/api';
-import type { PersistedWorkflow, WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/types';
+import type { PersistedWorkflow, WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
 import type { ProjectModel } from '@/features/workflow/lib/projectModels';
 
 export type WorkflowDraftSnapshot = {

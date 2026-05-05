@@ -15,5 +15,10 @@ router.get('/models', settingsController.getModels.bind(settingsController));
 router.post('/discover-models', validateObjectBody(), settingsController.discoverModels.bind(settingsController));
 router.get('/studio', settingsController.getStudioSettings.bind(settingsController));
 router.put('/studio', validateObjectBody(), settingsController.updateStudioSettings.bind(settingsController));
+router.get('/storage', settingsController.getStorageSettings.bind(settingsController));
+router.put('/storage', validateObjectBody(), settingsController.updateStorageSettings.bind(settingsController));
+router.post('/storage/reset', settingsController.resetStorageSettings.bind(settingsController));
+router.post('/select-directory', settingsController.selectDirectory.bind(settingsController));
+router.post('/restart-backend', settingsController.restartBackend.bind(settingsController));
 
 export default router;

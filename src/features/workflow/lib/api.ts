@@ -5,7 +5,7 @@ import type {
   WorkflowImportError,
   WorkflowImportMode,
   WorkflowImportReport,
-} from '@/domains/workflow/types';
+} from '@/features/workflow/lib/persistenceTypes';
 import { apiRequest } from '@/shared/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';

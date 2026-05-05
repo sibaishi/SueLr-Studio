@@ -1,7 +1,7 @@
 import { createLogger } from '../../platform/logging/logger.js';
 import { ProviderError } from '../../app/errors/index.js';
 import { settingsService } from '../settings/settings.service.js';
-import { runImageGeneration } from '../../../services/imageService.js';
+import { runImageGeneration } from '../../platform/ai/image-service.js';
 
 const logger = createLogger({ module: 'images-service' });
 
