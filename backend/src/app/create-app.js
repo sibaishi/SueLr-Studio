@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import executeRoutes from '../modules/execution/execution.routes.js';
 import workflowRoutes from '../modules/workflows/workflows.routes.js';
 import assistantRoutes from '../modules/assistant/assistant.routes.js';
@@ -75,6 +77,18 @@ export function createApp() {
   app.get('/api/status', (_req, res) => {
     res.json(successEnvelope({ ok: true, version: '1.0.0', processInstanceId: getProcessInstanceId() }));
   });
+
+  const frontendDist = process.env.APP_FRONTEND_DIST ? resolve(process.env.APP_FRONTEND_DIST) : '';
+  if (frontendDist && existsSync(resolve(frontendDist, 'index.html'))) {
+    app.use(express.static(frontendDist));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/')) {
+        next();
+        return;
+      }
+      res.sendFile(resolve(frontendDist, 'index.html'));
+    });
+  }
 
   app.use((error, _req, res, next) => {
     if (error?.message === 'CORS origin not allowed') {

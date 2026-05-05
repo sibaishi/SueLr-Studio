@@ -2,16 +2,26 @@ import fs from 'fs';
 import path from 'path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
 import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.js';
+import { BUILTIN_WORKFLOW_TEMPLATES } from './workflow-templates.js';
 
 export class WorkflowsRepository {
   constructor() {
     ensureStorageDirectories();
+    this.seedBuiltinTemplatesIfEmpty();
   }
 
   getFilePath(id) {
     const filePath = safeResolveWithin(STORAGE_PATHS.workflowsDir, `${id}.json`);
     if (!filePath) throw new ValidationError('WORKFLOW_INVALID', '工作流 ID 非法');
     return filePath;
+  }
+
+  seedBuiltinTemplatesIfEmpty() {
+    const files = fs.readdirSync(STORAGE_PATHS.workflowsDir).filter((file) => file.endsWith('.json'));
+    if (files.length > 0) return;
+    for (const template of BUILTIN_WORKFLOW_TEMPLATES) {
+      this.save(template.id, template);
+    }
   }
 
   list() {

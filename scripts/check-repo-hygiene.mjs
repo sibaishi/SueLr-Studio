@@ -92,6 +92,7 @@ if (failures.length === 0) {
     'node_modules/',
     'backend/node_modules/',
     'dist/',
+    'release/',
     '.logs/',
     '.run-logs/',
     'playwright-report/',
