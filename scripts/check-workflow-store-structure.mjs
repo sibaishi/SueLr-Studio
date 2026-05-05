@@ -53,6 +53,16 @@ const forbiddenEditorMarkers = [
   'saveLocalDraft',
 ];
 
+const requiredBoundaryDocMarkers = [
+  '## Frontend Structure',
+  '### Workflow',
+  '- `src/features/workflow/lib/store.ts`',
+  '- `src/features/workflow/lib/store/document.ts`',
+  '- `src/features/workflow/lib/store/editor.ts`',
+  '- `src/features/workflow/lib/store/execution.ts`',
+  '## Public Documentation Policy',
+];
+
 const failures = [];
 
 if (lineCount > maxLineCount) {
@@ -90,9 +100,9 @@ for (const marker of forbiddenEditorMarkers) {
 if (!existsSync(boundaryDocPath)) {
   failures.push('workflow store boundary documentation is missing: docs/developer-guide.md');
 } else {
-  for (const section of ['### Workflow Editor', '### Workflow Document', '### Workflow Execution']) {
-    if (!boundaryDocSource.includes(section)) {
-      failures.push(`workflow store boundary documentation is missing required section: ${section}`);
+  for (const marker of requiredBoundaryDocMarkers) {
+    if (!boundaryDocSource.includes(marker)) {
+      failures.push(`workflow store boundary documentation is missing required marker: ${marker}`);
     }
   }
 }
