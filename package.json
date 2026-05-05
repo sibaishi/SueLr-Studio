@@ -2,7 +2,11 @@
   "name": "suelr-studio",
   "private": true,
   "version": "0.0.0",
+  "description": "Local-first multimodal AI studio",
+  "author": "SueLr",
+  "license": "UNLICENSED",
   "type": "module",
+  "main": "electron/main.cjs",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -25,6 +29,9 @@
     "build": "vite build",
     "check": "npm run check:workflow-store && npm run check:docs && npm run check:runtime-baseline && npm run check:test-surface && npm run check:repo-hygiene && npm run typecheck && npm run test:unit && npm run build && npm run test:backend",
     "preview": "vite preview",
+    "electron:dev": "electron .",
+    "electron:pack": "npm run build && electron-builder --dir",
+    "electron:dist": "npm run build && electron-builder",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:install": "playwright install --with-deps chromium"
@@ -45,10 +52,58 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.1",
     "concurrently": "^9.2.1",
+    "electron": "^41.5.0",
+    "electron-builder": "^26.8.1",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
     "vite": "7.2.4",
     "vite-plugin-singlefile": "2.3.0",
     "vitest": "^3.2.4"
+  },
+  "build": {
+    "appId": "com.suelr.studio",
+    "productName": "SueLr Studio",
+    "artifactName": "SueLr-Studio.${ext}",
+    "copyright": "Copyright (c) 2026 SueLr",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.ico",
+      "build/icon.png",
+      "backend/**/*",
+      "src/shared/workflow/**/*",
+      "package.json",
+      "!node_modules/**/*",
+      "!backend/package-lock.json",
+      "!backend/node_modules/.package-lock.json",
+      "!backend/tests/**/*",
+      "!backend/node_modules/**/{test,tests,docs,.github}/**/*",
+      "!backend/node_modules/**/test*.js",
+      "!backend/node_modules/**/tests*.js",
+      "!backend/node_modules/**/*.md",
+      "!backend/node_modules/**/*.markdown",
+      "!backend/node_modules/**/{README,CHANGELOG,HISTORY,LICENSE,NOTICE}*"
+    ],
+    "asarUnpack": [
+      "backend/node_modules/**/*.node",
+      "backend/node_modules/sharp/**/*",
+      "backend/node_modules/@img/**/*"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "legalTrademarks": "SueLr Studio",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   }
 }

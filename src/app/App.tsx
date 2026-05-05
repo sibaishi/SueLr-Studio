@@ -14,7 +14,7 @@ import { useWorkflowStore } from '@/features/workflow/lib/store';
 import { useNavigationState } from './navigation/useNavigationState';
 import { useThemeState } from './theme/useThemeState';
 import { useAppBootstrap } from './bootstrap/useAppBootstrap';
-import { SettingsPanel, useStudioSettingsState } from '@/features/settings';
+import { FirstRunOnboarding, SettingsPanel, useStudioSettingsState } from '@/features/settings';
 import '@/features/workflow/index.css';
 
 export default function App() {
@@ -28,6 +28,7 @@ export default function App() {
   const [chatBusy, setChatBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [videoBusy, setVideoBusy] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => localStorage.getItem('suelr_onboarding_dismissed') === 'true');
   const projectBusy = workflowBusy || chatBusy || imageBusy || videoBusy;
 
   const { splashFading, splashHidden } = useAppBootstrap({
@@ -40,6 +41,11 @@ export default function App() {
     tab,
     themeMode,
   });
+  const hasUsableConfig = settings.apiConfigs.some((config) => (
+    Boolean(config.base && config.apiKey) &&
+    ((config.projectModels || []).some((model) => model.configured) || (config.models || []).length > 0)
+  ));
+  const showOnboarding = splashHidden && !hasUsableConfig && !onboardingDismissed;
 
   useEffect(() => {
     if (tab !== 'workflow') return;
@@ -50,7 +56,25 @@ export default function App() {
     <TCtx.Provider value={colors}>
       <ToastProvider>
         {!splashHidden && <SplashScreen fading={splashFading} />}
-        <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif', background: 'transparent', color: colors.text, minWidth: 1280 }}>
+        {showOnboarding && (
+          <FirstRunOnboarding
+            activeConfigId={settings.activeConfigId}
+            addLog={settings.addLog}
+            addNewConfig={settings.addNewConfig}
+            apiConfigs={settings.apiConfigs}
+            applyConfig={settings.applyConfig}
+            onComplete={() => {
+              localStorage.setItem('suelr_onboarding_dismissed', 'true');
+              setOnboardingDismissed(true);
+              setTab('workflow');
+            }}
+            setApiConfigs={settings.setApiConfigs}
+            setApiKey={settings.setApiKey}
+            setBase={settings.setBase}
+            setModels={settings.setModels}
+          />
+        )}
+        {!showOnboarding && <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif', background: 'transparent', color: colors.text, minWidth: 1280 }}>
           <DesktopSidebar tab={tab} setTab={setTab} modelCount={settings.configuredProjectModels.length} themeMode={themeMode} setThemeMode={setThemeMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)} />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
             <div style={{ flex: 1, overflow: 'hidden', display: tab === 'chat' ? 'flex' : 'none' }}><ErrorBoundary><ChatPanel base={settings.base} apiKey={settings.apiKey} models={settings.configuredProjectModels} addLog={settings.addLog} bridgeRef={bridgeRef} roles={settings.roles} getMemoryContext={memory.getMemoryContext} scheduleExtraction={memory.scheduleExtraction} tavilyApiKey={settings.tavilyApiKey} providerConfig={settings.providerConfig} chatStreamingMode={settings.chatStreamingMode} imageStreamingMode={settings.imageStreamingMode} videoStreamingMode={settings.videoStreamingMode} activeTab={tab} searchMemories={memory.searchMemories} onBusyChange={setChatBusy} /></ErrorBoundary></div>
@@ -59,7 +83,7 @@ export default function App() {
             <div style={{ flex: 1, overflow: 'hidden', display: tab === 'workflow' ? 'flex' : 'none' }}><ErrorBoundary><WorkflowPage onOpenStudioSettings={() => setTab('settings')} /></ErrorBoundary></div>
             <div style={{ flex: 1, overflow: 'hidden', display: tab === 'settings' ? 'flex' : 'none' }}><ErrorBoundary><SettingsPanel apiConfigs={settings.apiConfigs} setApiConfigs={settings.setApiConfigs} activeConfigId={settings.activeConfigId} setActiveConfigId={settings.setActiveConfigId} applyConfig={settings.applyConfig} addNewConfig={settings.addNewConfig} deleteConfig={settings.deleteConfig} base={settings.base} apiKey={settings.apiKey} setBase={settings.setBase} setApiKey={settings.setApiKey} models={settings.models} setModels={settings.setModels} addLog={settings.addLog} logs={settings.logs} onClearLogs={settings.clearLogs} themeMode={themeMode} setThemeMode={setThemeMode} roles={settings.roles} customRoles={settings.customRoles} setCustomRoles={settings.setCustomRoles} memories={memory.memories} onDeleteMemory={memory.deleteMemory} onClearMemories={memory.clearMemories} exportMemories={memory.exportMemories} tavilyApiKey={settings.tavilyApiKey} tavilyApiKeySet={settings.tavilyApiKeySet} setTavilyApiKey={settings.setTavilyApiKey} setTavilyApiKeySet={settings.setTavilyApiKeySet} projectBusy={projectBusy} /></ErrorBoundary></div>
           </div>
-        </div>
+        </div>}
       </ToastProvider>
     </TCtx.Provider>
   );

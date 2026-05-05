@@ -38,7 +38,8 @@ export type BackendStatusPayload = {
 };
 
 export type BackendRestartPayload = {
-  mode?: 'watch' | 'spawn' | string;
+  mode?: 'watch' | 'spawn' | 'desktop' | 'desktop-relaunch' | string;
+  restartRequired?: boolean;
 };
 
 export type SettingsPanelProps = {
