@@ -200,9 +200,16 @@ export function FirstRunOnboarding({
         ? await saveStorageSettings(storageDraft.trim())
         : await resetStorageSettings();
       if (next.restartRequired) {
-        await restartBackendRequest();
-        await waitForBackendReady({ timeoutMs: 25000, intervalMs: 500 });
-        next = await loadStorageSettings() || next;
+        const restartResult = await restartBackendRequest();
+        if (restartResult.mode === 'desktop') {
+          addLog('info', '桌面端已保存数据路径。请关闭并重新打开应用，让新的路径生效。');
+        } else if (restartResult.mode === 'desktop-relaunch') {
+          addLog('info', '桌面端正在重新启动以应用新的数据路径。');
+          return;
+        } else {
+          await waitForBackendReady({ timeoutMs: 25000, intervalMs: 500 });
+          next = await loadStorageSettings() || next;
+        }
       }
       setStorage(next);
       setStorageDraft(next.customRoot || '');

@@ -261,6 +261,25 @@ export function SettingsPanel({
 
       const result = await restartBackendRequest();
 
+      if (result.mode === 'desktop') {
+        const message = '桌面端已保存设置。请关闭并重新打开应用，让新的后端配置生效。';
+        const next = await loadStorageSettings().catch(() => null);
+        if (next) {
+          setStorageSettings(next);
+          setStoragePathDraft(next.customRoot || '');
+        }
+        addLog('info', message);
+        toast(message, 'info');
+        return;
+      }
+
+      if (result.mode === 'desktop-relaunch') {
+        const message = '桌面端正在重新启动...';
+        addLog('info', message);
+        toast(message, 'info');
+        return;
+      }
+
       await waitForBackendReady({
         previousProcessInstanceId: previousStatus?.processInstanceId,
         timeoutMs: result.mode === 'spawn' ? 25000 : 20000,

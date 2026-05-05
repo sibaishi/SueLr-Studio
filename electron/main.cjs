@@ -5,6 +5,7 @@ const path = require('node:path');
 
 let mainWindow = null;
 let backendServer = null;
+let relaunching = false;
 
 function findFreePort(host = '127.0.0.1') {
   return new Promise((resolvePort, reject) => {
@@ -35,6 +36,15 @@ async function startBackend() {
   process.env.APP_PORT = String(port);
   process.env.APP_FRONTEND_DIST = frontendDist;
   process.env.APP_ALLOWED_ORIGINS = `http://${host}:${port}`;
+  process.env.APP_EMBEDDED_BACKEND = '1';
+  process.env.APP_DESKTOP_RELAUNCH = '1';
+  process.env.APP_DESKTOP_RELAUNCH_HOOK = '1';
+  globalThis.__SUE_LR_RELAUNCH__ = () => {
+    if (relaunching) return;
+    relaunching = true;
+    app.relaunch();
+    app.exit(0);
+  };
 
   const { startServer } = await import(pathToFileURL(backendEntry).href);
   backendServer = startServer(port, host);

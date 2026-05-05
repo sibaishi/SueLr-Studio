@@ -13,9 +13,43 @@ function isWatchMode() {
   return process.execArgv.some((arg) => arg === '--watch' || arg.startsWith('--watch='));
 }
 
+function isEmbeddedBackend() {
+  return process.env.APP_EMBEDDED_BACKEND === '1';
+}
+
+function canRelaunchElectronApp() {
+  return process.env.APP_DESKTOP_RELAUNCH === '1';
+}
+
+function getDesktopRelaunchHook() {
+  return globalThis.__SUE_LR_RELAUNCH__;
+}
+
 async function triggerWatchRestart() {
   await fs.writeFile(restartTriggerPath, `export const RESTART_TRIGGER = ${Date.now()};\n`, 'utf8');
   return { mode: 'watch' };
+}
+
+function scheduleElectronRelaunch() {
+  if (process.env.APP_DISABLE_DESKTOP_RELAUNCH === '1') {
+    return { mode: 'desktop-relaunch', restartRequired: true };
+  }
+
+  setTimeout(async () => {
+    try {
+      const relaunch = getDesktopRelaunchHook();
+      if (typeof relaunch === 'function') {
+        relaunch();
+        return;
+      }
+      throw new Error('Desktop relaunch hook is not available');
+    } catch (error) {
+      console.error(error);
+      process.exit(0);
+    }
+  }, 250);
+
+  return { mode: 'desktop-relaunch', restartRequired: true };
 }
 
 function spawnReplacementServer() {
@@ -37,6 +71,12 @@ function spawnReplacementServer() {
 }
 
 export async function scheduleBackendRestart() {
+  if (isEmbeddedBackend()) {
+    if (canRelaunchElectronApp() && process.env.APP_DESKTOP_RELAUNCH_HOOK === '1') {
+      return scheduleElectronRelaunch();
+    }
+    return { mode: 'desktop', restartRequired: true };
+  }
   if (isWatchMode()) {
     return triggerWatchRestart();
   }
