@@ -243,7 +243,7 @@ body {
 
 .workflow-toolbar__group--workflow {
   gap: 8px;
-  flex: 999 1 320px;
+  flex: 999 1 280px;
   min-width: 0;
 }
 
@@ -265,6 +265,7 @@ body {
 .workflow-toolbar__group--actions {
   margin-left: auto;
   flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 
 .workflow-toolbar__icon-button {
@@ -304,14 +305,14 @@ body {
 
 .workflow-toolbar__select {
   width: 150px;
-  min-width: 92px;
-  flex: 1 1 126px;
+  min-width: 84px;
+  flex: 1 1 118px;
 }
 
 .workflow-toolbar__input {
   width: 190px;
-  min-width: 116px;
-  flex: 999 1 168px;
+  min-width: 96px;
+  flex: 999 1 132px;
 }
 
 .workflow-toolbar__status-chip {
@@ -962,7 +963,7 @@ body {
   color: var(--color-text-tertiary);
 }
 
-@media (max-width: 1480px) {
+@media (max-width: 1680px) {
   .workflow-toolbar__status {
     display: none;
   }
@@ -978,7 +979,7 @@ body {
   }
 
   .workflow-toolbar__group--workflow {
-    flex-basis: 260px;
+    flex-basis: 220px;
   }
 
   .workflow-toolbar__status {
