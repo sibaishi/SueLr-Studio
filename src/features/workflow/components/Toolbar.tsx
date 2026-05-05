@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import {
+  AlignStartVertical,
   Copy,
   Download,
   Grid3x3,
@@ -31,6 +32,7 @@ interface ToolbarProps {
   onDeleteWorkflow: () => void;
   onImportWorkflow: () => void;
   onExportWorkflow: () => void;
+  onAutoArrange: () => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -78,6 +80,7 @@ export default function Toolbar(props: ToolbarProps) {
     onDeleteWorkflow,
     onImportWorkflow,
     onExportWorkflow,
+    onAutoArrange,
     onUndo,
     onRedo,
     canUndo,
@@ -137,6 +140,7 @@ export default function Toolbar(props: ToolbarProps) {
             onClick={onToggleSnapToGrid}
             active={snapToGridEnabled}
           />
+          <ToolbarIconButton icon={<AlignStartVertical size={15} />} label="自动整理" onClick={onAutoArrange} />
         </div>
 
         <div className="workflow-toolbar__group workflow-toolbar__group--workflow">

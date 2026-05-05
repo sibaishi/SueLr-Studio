@@ -1,5 +1,5 @@
 import type { Edge, Node } from '@xyflow/react';
-import { DEFAULT_WORKFLOW_NAME, getNodeDefaultSize, NODE_REGISTRY } from '@/features/workflow/lib/constants';
+import { DEFAULT_WORKFLOW_NAME, getNodeDefaultSize, GRID_SIZE, NODE_REGISTRY } from '@/features/workflow/lib/constants';
 import {
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
@@ -19,6 +19,7 @@ export type WorkflowStoreEditorActions = Pick<
   | 'setWorkflowName'
   | 'addNode'
   | 'duplicateNode'
+  | 'autoArrangeWorkflow'
   | 'updateNodeData'
   | 'setNodeSize'
   | 'resetNodeSize'
@@ -31,6 +32,7 @@ export type WorkflowStoreEditorActions = Pick<
   | 'createNodeGroup'
   | 'ungroupNodes'
   | 'releaseNodesFromGroup'
+  | 'toggleNodesLocked'
   | 'toggleNodesDisabled'
   | 'onNodesChange'
   | 'onEdgesChange'
@@ -156,6 +158,23 @@ export function expandNodeActionIds(nodes: Node[], nodeIds: string[]) {
   const uniqueIds = [...new Set(nodeIds)].filter((id) => nodes.some((node) => node.id === id));
   if (uniqueIds.length === 0) return [];
   return [...new Set([...uniqueIds, ...getDescendantNodeIds(nodes, uniqueIds)])];
+}
+
+export function isNodeLocked(node: Node | undefined) {
+  return Boolean(node?.data?.locked);
+}
+
+export function isNodeLockedWithAncestors(nodeId: string, nodes: Node[]) {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  let current = nodeMap.get(nodeId);
+
+  while (current) {
+    if (isNodeLocked(current)) return true;
+    const parentId = (current as Node & { parentId?: string }).parentId;
+    current = parentId ? nodeMap.get(parentId) : undefined;
+  }
+
+  return false;
 }
 
 export function duplicateNodesWithGroups(nodes: Node[], edges: Edge[], nodeIds: string[]) {
@@ -304,6 +323,251 @@ export function ungroupGroupNodes(nodes: Node[], groupIds: string[]) {
 
     return [node];
   });
+}
+
+function getNodeParentId(node: Node) {
+  return (node as Node & { parentId?: string }).parentId;
+}
+
+function buildChildLayerMap(nodes: Node[], edges: Edge[]) {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const indegree = new Map<string, number>();
+  const outgoing = new Map<string, string[]>();
+  const layerMap = new Map<string, number>();
+
+  for (const node of nodes) {
+    indegree.set(node.id, 0);
+    outgoing.set(node.id, []);
+  }
+
+  for (const edge of edges) {
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target) || edge.source === edge.target) continue;
+    outgoing.get(edge.source)?.push(edge.target);
+    indegree.set(edge.target, (indegree.get(edge.target) || 0) + 1);
+  }
+
+  const queue = nodes
+    .filter((node) => (indegree.get(node.id) || 0) === 0)
+    .sort((a, b) => (a.position.y - b.position.y) || (a.position.x - b.position.x))
+    .map((node) => node.id);
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId) continue;
+    const nextLayer = layerMap.get(nodeId) || 0;
+    for (const targetId of outgoing.get(nodeId) || []) {
+      layerMap.set(targetId, Math.max(layerMap.get(targetId) || 0, nextLayer + 1));
+      indegree.set(targetId, (indegree.get(targetId) || 0) - 1);
+      if ((indegree.get(targetId) || 0) <= 0) {
+        queue.push(targetId);
+      }
+    }
+  }
+
+  for (const node of nodes) {
+    if (layerMap.has(node.id)) continue;
+    const incomingLayers = edges
+      .filter((edge) => edge.target === node.id && nodeIds.has(edge.source))
+      .map((edge) => layerMap.get(edge.source) || 0);
+    layerMap.set(node.id, incomingLayers.length > 0 ? Math.max(...incomingLayers) + 1 : 0);
+  }
+
+  return layerMap;
+}
+
+function buildNodeOrderMap(nodes: Node[]) {
+  const orderMap = new Map<string, number>();
+  nodes.forEach((node, index) => {
+    orderMap.set(node.id, index);
+  });
+  return orderMap;
+}
+
+function average(values: number[]) {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function sortLayerNodesByFlow(
+  layerNodes: Node[],
+  allLayerNodes: Map<number, Node[]>,
+  edges: Edge[],
+  layerMap: Map<string, number>,
+) {
+  const incomingOrder = new Map<string, number[]>();
+  const outgoingOrder = new Map<string, number[]>();
+
+  const previousLayerNodes = new Map<number, Map<string, number>>();
+  const nextLayerNodes = new Map<number, Map<string, number>>();
+
+  for (const [layer, nodes] of allLayerNodes.entries()) {
+    const orderMap = buildNodeOrderMap(nodes);
+    previousLayerNodes.set(layer, orderMap);
+    nextLayerNodes.set(layer, orderMap);
+  }
+
+  for (const edge of edges) {
+    const sourceLayer = layerMap.get(edge.source);
+    const targetLayer = layerMap.get(edge.target);
+    if (sourceLayer === undefined || targetLayer === undefined || sourceLayer === targetLayer) continue;
+
+    const sourceOrder = previousLayerNodes.get(sourceLayer)?.get(edge.source);
+    const targetOrder = nextLayerNodes.get(targetLayer)?.get(edge.target);
+    if (sourceOrder !== undefined) {
+      const current = incomingOrder.get(edge.target) || [];
+      current.push(sourceOrder);
+      incomingOrder.set(edge.target, current);
+    }
+    if (targetOrder !== undefined) {
+      const current = outgoingOrder.get(edge.source) || [];
+      current.push(targetOrder);
+      outgoingOrder.set(edge.source, current);
+    }
+  }
+
+  return [...layerNodes].sort((a, b) => {
+    const aIncoming = average(incomingOrder.get(a.id) || []);
+    const bIncoming = average(incomingOrder.get(b.id) || []);
+    if (aIncoming !== null && bIncoming !== null && aIncoming !== bIncoming) {
+      return aIncoming - bIncoming;
+    }
+
+    const aOutgoing = average(outgoingOrder.get(a.id) || []);
+    const bOutgoing = average(outgoingOrder.get(b.id) || []);
+    if (aOutgoing !== null && bOutgoing !== null && aOutgoing !== bOutgoing) {
+      return aOutgoing - bOutgoing;
+    }
+
+    return (a.position.y - b.position.y) || (a.position.x - b.position.x);
+  });
+}
+
+export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?: string[]) {
+  const nextNodes = nodes.map((node) => ({
+    ...node,
+    position: { ...node.position },
+    data: node.data ? { ...node.data } : node.data,
+  }));
+  const nodeMap = new Map(nextNodes.map((node) => [node.id, node]));
+  const rootStart = GRID_SIZE * 2;
+  const columnGap = GRID_SIZE * 4;
+  const rowGap = GRID_SIZE * 2;
+  const expandedSelectedIds = selectedNodeIds?.length ? new Set(expandNodeActionIds(nextNodes, selectedNodeIds)) : null;
+
+  const arrangeScope = (parentId?: string) => {
+    const directChildren = nextNodes.filter((node) => getNodeParentId(node) === parentId);
+    if (directChildren.length === 0) return;
+
+    for (const child of directChildren) {
+      if (child.type === 'group') {
+        arrangeScope(child.id);
+      }
+    }
+
+    const targetChildren = expandedSelectedIds
+      ? directChildren.filter((node) => expandedSelectedIds.has(node.id))
+      : directChildren;
+    if (targetChildren.length === 0) return;
+
+    const layerMap = buildChildLayerMap(
+      targetChildren,
+      edges.filter((edge) => (
+        targetChildren.some((node) => node.id === edge.source)
+        && targetChildren.some((node) => node.id === edge.target)
+      )),
+    );
+
+    const groupedByLayer = new Map<number, Node[]>();
+    for (const child of targetChildren) {
+      const layer = layerMap.get(child.id) || 0;
+      const current = groupedByLayer.get(layer) || [];
+      current.push(child);
+      groupedByLayer.set(layer, current);
+    }
+
+    const layers = [...groupedByLayer.keys()].sort((a, b) => a - b);
+    const orderedByLayer = new Map<number, Node[]>();
+    for (const layer of layers) {
+      orderedByLayer.set(
+        layer,
+        sortLayerNodesByFlow(
+          groupedByLayer.get(layer) || [],
+          groupedByLayer,
+          edges.filter((edge) => (
+            targetChildren.some((node) => node.id === edge.source)
+            && targetChildren.some((node) => node.id === edge.target)
+          )),
+          layerMap,
+        ),
+      );
+    }
+    const selectedBounds = targetChildren.reduce((acc, node) => {
+      const size = getEffectiveNodeSize(node);
+      return {
+        minX: Math.min(acc.minX, node.position.x),
+        minY: Math.min(acc.minY, node.position.y),
+        maxX: Math.max(acc.maxX, node.position.x + size.width),
+        maxY: Math.max(acc.maxY, node.position.y + size.height),
+      };
+    }, {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+    });
+    const baseX = Number.isFinite(selectedBounds.minX)
+      ? selectedBounds.minX
+      : parentId ? GROUP_SAFE_MARGIN : rootStart;
+    const baseY = Number.isFinite(selectedBounds.minY)
+      ? selectedBounds.minY
+      : parentId ? getGroupTopInset() : rootStart;
+    let nextX = snapValue(parentId ? Math.max(GROUP_SAFE_MARGIN, baseX) : Math.max(rootStart, baseX));
+    const startY = snapValue(parentId ? Math.max(getGroupTopInset(), baseY) : Math.max(rootStart, baseY));
+
+    for (const layer of layers) {
+      const layerNodes = orderedByLayer.get(layer) || [];
+      let nextY = startY;
+      let maxLayerWidth = 0;
+
+      for (const node of layerNodes) {
+        const movable = !isNodeLockedWithAncestors(node.id, nextNodes);
+        const size = getEffectiveNodeSize(nodeMap.get(node.id) || node);
+        if (movable) {
+          node.position = {
+            x: snapValue(nextX),
+            y: snapValue(nextY),
+          };
+        }
+        maxLayerWidth = Math.max(maxLayerWidth, size.width);
+        nextY = snapValue(nextY + size.height + rowGap);
+      }
+
+      nextX = snapValue(nextX + maxLayerWidth + columnGap);
+    }
+
+    if (!parentId) return;
+
+    const groupNode = nodeMap.get(parentId);
+    if (!groupNode || groupNode.type !== 'group') return;
+
+    const minSize = getNodeDefaultSize('group');
+    let maxX = GROUP_SAFE_MARGIN;
+    let maxY = getGroupTopInset();
+
+    for (const child of directChildren) {
+      const size = getEffectiveNodeSize(child);
+      maxX = Math.max(maxX, child.position.x + size.width);
+      maxY = Math.max(maxY, child.position.y + size.height);
+    }
+
+    if (!isNodeLocked(groupNode)) {
+      groupNode.width = Math.max(minSize.w, snapValue(maxX + GROUP_SAFE_MARGIN));
+      groupNode.height = Math.max(minSize.h, snapValue(maxY + GROUP_SAFE_MARGIN));
+    }
+  };
+
+  arrangeScope(undefined);
+  return enforceGroupLayout(nextNodes);
 }
 
 export const EMPTY_WORKFLOW_SNAPSHOT = {

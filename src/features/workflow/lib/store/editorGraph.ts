@@ -12,7 +12,9 @@ import {
 } from '@/features/workflow/lib/groupLayout';
 import { getDefaultData, gid } from '@/features/workflow/lib/store/helpers';
 import {
+  autoArrangeNodes,
   expandNodeActionIds,
+  isNodeLockedWithAncestors,
   normalizeMergeNodeSizes,
 } from '@/features/workflow/lib/store/editorShared';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
@@ -22,6 +24,7 @@ type WorkflowStoreGraphEditorActions = Pick<
   | 'setWorkflowName'
   | 'addNode'
   | 'duplicateNode'
+  | 'autoArrangeWorkflow'
   | 'updateNodeData'
   | 'setNodeSize'
   | 'resetNodeSize'
@@ -30,6 +33,7 @@ type WorkflowStoreGraphEditorActions = Pick<
   | 'addEdge'
   | 'removeEdge'
   | 'selectNode'
+  | 'toggleNodesLocked'
   | 'onNodesChange'
   | 'onEdgesChange'
   | 'markWorkflowDirty'
@@ -88,6 +92,20 @@ export function createWorkflowGraphEditorActions(
       return duplicatedNodeId;
     },
 
+    autoArrangeWorkflow: () => {
+      set((state) => ({
+        nodes: normalizeMergeNodeSizes(
+          autoArrangeNodes(
+            state.nodes,
+            state.edges,
+            state.nodes.filter((node) => node.selected).map((node) => node.id),
+          ),
+          state.edges,
+        ),
+        hasUnsavedChanges: true,
+      }));
+    },
+
     updateNodeData: (nodeId, data) => {
       set((state) => ({
         nodes: state.nodes.map((node) => (
@@ -100,6 +118,7 @@ export function createWorkflowGraphEditorActions(
     },
 
     setNodeSize: (nodeId, size) => {
+      if (isNodeLockedWithAncestors(nodeId, get().nodes)) return;
       set((state) => {
         const nodeMap = new Map(state.nodes.map((node) => [node.id, node]));
         return {
@@ -130,6 +149,7 @@ export function createWorkflowGraphEditorActions(
     },
 
     resetNodeSize: (nodeId) => {
+      if (isNodeLockedWithAncestors(nodeId, get().nodes)) return;
       set((state) => ({
         nodes: state.nodes.map((node) => (
           node.id === nodeId
@@ -234,6 +254,27 @@ export function createWorkflowGraphEditorActions(
 
     selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
 
+    toggleNodesLocked: (nodeIds, locked) => {
+      const targetIds = expandNodeActionIds(get().nodes, nodeIds);
+      if (targetIds.length === 0) return;
+
+      const targetSet = new Set(targetIds);
+      const shouldLock = typeof locked === 'boolean'
+        ? locked
+        : get().nodes
+          .filter((node) => targetSet.has(node.id))
+          .some((node) => !Boolean(node.data?.locked));
+
+      set((state) => ({
+        nodes: state.nodes.map((node) => (
+          targetSet.has(node.id)
+            ? { ...node, data: { ...node.data, locked: shouldLock } }
+            : node
+        )),
+        hasUnsavedChanges: true,
+      }));
+    },
+
     onNodesChange: (changes) => {
       set((state) => {
         const removedIds = expandNodeActionIds(
@@ -242,9 +283,14 @@ export function createWorkflowGraphEditorActions(
             .filter((change) => change.type === 'remove')
             .map((change) => change.id),
         );
-        const filteredChanges = removedIds.length > 0
+        const filteredChanges = (removedIds.length > 0
           ? changes.filter((change) => !(change.type === 'remove' && removedIds.includes(change.id)))
-          : changes;
+          : changes)
+          .filter((change) => {
+            if (change.type === 'remove' || change.type === 'select') return true;
+            if (!('id' in change)) return true;
+            return !isNodeLockedWithAncestors(change.id, state.nodes);
+          });
         const nodes = applyNodeChanges(filteredChanges, state.nodes).filter((node) => !removedIds.includes(node.id));
 
         if (removedIds.length === 0) {

@@ -93,9 +93,11 @@ export interface WorkflowState {
   removeEdge: (edgeId: string) => void;
   selectNode: (nodeId: string | null) => void;
   duplicateNodes: (nodeIds: string[]) => string[];
+  autoArrangeWorkflow: () => void;
   createNodeGroup: (nodeIds: string[]) => string | null;
   ungroupNodes: (groupIds: string[]) => void;
   releaseNodesFromGroup: (nodeIds: string[]) => void;
+  toggleNodesLocked: (nodeIds: string[], locked?: boolean) => void;
   toggleNodesDisabled: (nodeIds: string[], disabled?: boolean) => void;
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;

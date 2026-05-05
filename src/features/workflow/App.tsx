@@ -386,6 +386,7 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
         onDeleteWorkflow={handleDeleteWorkflow}
         onImportWorkflow={handleImportClick}
         onExportWorkflow={handleExportWorkflow}
+        onAutoArrange={store.autoArrangeWorkflow}
         onUndo={handleUndo}
         onRedo={handleRedo}
         canUndo={canUndo}

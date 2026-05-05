@@ -34,6 +34,7 @@ import {
 import { uploadFile } from '@/features/workflow/lib/api';
 import { constrainChildNodeToGroupContent, enforceGroupLayout, pushRootNodeOutsideGroupAreas } from '@/features/workflow/lib/groupLayout';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
+import { isNodeLockedWithAncestors } from '@/features/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/features/workflow/lib/store/selectors';
 import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
 import FlowNode from './nodes/FlowNode';
@@ -497,6 +498,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   }, [store]);
 
   const onNodeDragStop = useCallback<NodeMouseHandler>((_, node) => {
+    if (isNodeLockedWithAncestors(node.id, store.nodes)) return;
     const corrected = pushRootNodeOutsideGroupAreas(node as FlowNodeType, renderNodes);
     let snapped = store.snapToGridEnabled ? snapNodeBox(corrected as FlowNodeType) : corrected;
     const parentId = (snapped as FlowNodeType & { parentId?: string }).parentId;
@@ -519,7 +521,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       ))),
       hasUnsavedChanges: true,
     }));
-  }, [renderNodes, store.snapToGridEnabled]);
+  }, [renderNodes, store.nodes, store.snapToGridEnabled]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     store.onEdgesChange(changes);
@@ -796,6 +798,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const hasSingleImageInputContextNode = contextNodes.length === 1 && contextNodes[0]?.type === 'imageInput';
   const canCreateGroup = hasMultipleContextNodes && contextNodes.every((node) => node?.type !== 'group');
   const allContextNodesDisabled = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.disabled));
+  const allContextNodesLocked = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.locked));
   const canvasEditorNode = useMemo(() => {
     if (!canvasEditorNodeId) return null;
     return store.nodes.find((node) => node.id === canvasEditorNodeId) || null;
@@ -950,6 +953,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const setContextNodesDisabled = useCallback((disabled: boolean) => {
     if (contextNodeIds.length === 0) return;
     store.toggleNodesDisabled(contextNodeIds, disabled);
+    closeContextMenu();
+  }, [closeContextMenu, contextNodeIds, store]);
+
+  const setContextNodesLocked = useCallback((locked: boolean) => {
+    if (contextNodeIds.length === 0) return;
+    store.toggleNodesLocked(contextNodeIds, locked);
     closeContextMenu();
   }, [closeContextMenu, contextNodeIds, store]);
 
@@ -1248,11 +1257,19 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
                   label={allContextNodesDisabled ? '启用所选节点' : '禁用所选节点'}
                   onClick={() => setContextNodesDisabled(!allContextNodesDisabled)}
                 />
+                <ContextMenuButton
+                  label={allContextNodesLocked ? '解锁所选节点' : '锁定所选节点'}
+                  onClick={() => setContextNodesLocked(!allContextNodesLocked)}
+                />
                 <ContextMenuButton label="删除所选节点" onClick={deleteContextNodes} danger />
               </>
             ) : (
               <>
                 <ContextMenuButton label={hasSingleGroupContextNode ? '复制节点组' : '复制节点'} onClick={hasSingleGroupContextNode ? copyContextNodes : copySelectedNode} />
+                <ContextMenuButton
+                  label={allContextNodesLocked ? (hasSingleGroupContextNode ? '解锁组' : '解锁节点') : (hasSingleGroupContextNode ? '锁定组' : '锁定节点')}
+                  onClick={() => setContextNodesLocked(!allContextNodesLocked)}
+                />
                 <ContextMenuButton
                   label={allContextNodesDisabled ? (hasSingleGroupContextNode ? '启用组' : '启用节点') : (hasSingleGroupContextNode ? '禁用组' : '禁用节点')}
                   onClick={() => setContextNodesDisabled(!allContextNodesDisabled)}

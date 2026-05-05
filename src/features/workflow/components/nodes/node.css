@@ -169,6 +169,10 @@
   filter: saturate(0.35);
 }
 
+.flow-node--locked {
+  border-color: color-mix(in srgb, var(--node-color) 42%, var(--node-card-line-strong));
+}
+
 .flow-node__frame {
   display: flex;
   min-height: 0;
@@ -270,6 +274,31 @@
 .flow-node__status-text--error {
   color: #ff3b30;
   font-weight: 800;
+}
+
+.flow-node__lock-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid var(--node-card-line);
+  background: var(--node-card-field);
+  color: var(--node-card-muted);
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.flow-node__lock-button:hover {
+  color: var(--node-card-ink);
+  border-color: var(--node-card-line-strong);
+}
+
+.flow-node__lock-button--active {
+  color: #ff9500;
+  background: rgba(255, 149, 0, 0.12);
+  border-color: rgba(255, 149, 0, 0.28);
 }
 
 .flow-node__ports {

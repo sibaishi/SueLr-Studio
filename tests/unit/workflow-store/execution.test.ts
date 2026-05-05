@@ -318,7 +318,78 @@ describe('workflow store execution actions', () => {
     expect(state.lastExecutionStatus).toBe('error');
     expect(state.lastExecutionError).toBe('upstream timeout');
     expect(state.lastExecutionSummary).toBeNull();
-    expect(addExecutionLog).toHaveBeenCalledTimes(1);
+    expect(addExecutionLog).toHaveBeenCalledTimes(2);
+    expect(addExecutionLog).toHaveBeenLastCalledWith(expect.objectContaining({
+      level: 'error',
+      message: '工作流执行失败',
+    }));
+  });
+
+  it('finalizes lingering running nodes when sync reports completion', async () => {
+    vi.mocked(api.fetchExecutionStatus).mockResolvedValue({
+      success: true,
+      data: {
+        runId: 'run_completed_sync',
+        status: 'completed',
+        totalDuration: 1800,
+        successCount: 2,
+        failCount: 0,
+      },
+    } as Awaited<ReturnType<typeof api.fetchExecutionStatus>>);
+
+    const startedAt = Date.now() - 1500;
+    const harness = createWorkflowStoreHarness({
+      currentRunId: 'run_completed_sync',
+      isExecuting: true,
+      nodeExecStatus: { node_a: 'running' },
+      nodeExecutionStartedAt: { node_a: startedAt },
+      nodeExecutionTime: { node_a: 0 },
+      addExecutionLog: vi.fn(),
+    });
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.syncExecutionRunStatus();
+
+    const state = harness.getState();
+    expect(state.nodeExecStatus.node_a).toBe('success');
+    expect(state.nodeExecutionTime.node_a).toBeGreaterThanOrEqual(1000);
+    expect(state.nodeErrors.node_a).toBeUndefined();
+  });
+
+  it('attaches fallback error details to lingering running nodes when sync reports failure', async () => {
+    vi.mocked(api.fetchExecutionStatus).mockResolvedValue({
+      success: true,
+      data: {
+        runId: 'run_failed_sync',
+        status: 'failed',
+        error: 'upstream timeout',
+      },
+    } as Awaited<ReturnType<typeof api.fetchExecutionStatus>>);
+
+    const addExecutionLog = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      currentRunId: 'run_failed_sync',
+      isExecuting: true,
+      nodeExecStatus: { node_b: 'running' },
+      nodeExecutionStartedAt: { node_b: Date.now() - 600 },
+      nodeExecutionTime: { node_b: 0 },
+      addExecutionLog,
+    });
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.syncExecutionRunStatus();
+
+    const state = harness.getState();
+    expect(state.nodeExecStatus.node_b).toBe('error');
+    expect(state.nodeErrors.node_b).toBe('upstream timeout');
+    expect(state.nodeExecutionTime.node_b).toBeGreaterThanOrEqual(500);
+    expect(addExecutionLog).toHaveBeenCalledTimes(2);
+    expect(addExecutionLog).toHaveBeenLastCalledWith(expect.objectContaining({
+      level: 'error',
+      message: '工作流执行失败',
+    }));
   });
 
 });

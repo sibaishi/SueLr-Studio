@@ -37,6 +37,41 @@ function buildSyncedExecutionSummary(status: {
   };
 }
 
+function settleLingeringNodeExecutions(
+  state: WorkflowState,
+  options: {
+    status: 'success' | 'error';
+    fallbackError?: string | null;
+  },
+) {
+  const nextNodeExecStatus = { ...state.nodeExecStatus };
+  const nextNodeExecutionTime = { ...state.nodeExecutionTime };
+  const nextNodeErrors = { ...state.nodeErrors };
+  const now = Date.now();
+  let changed = false;
+
+  for (const [nodeId, status] of Object.entries(state.nodeExecStatus)) {
+    if (status !== 'running') continue;
+    changed = true;
+    nextNodeExecStatus[nodeId] = options.status;
+    nextNodeExecutionTime[nodeId] = state.nodeExecutionStartedAt[nodeId]
+      ? Math.max(0, now - state.nodeExecutionStartedAt[nodeId])
+      : nextNodeExecutionTime[nodeId] ?? 0;
+
+    if (options.status === 'error') {
+      nextNodeErrors[nodeId] = nextNodeErrors[nodeId] || options.fallbackError || '执行已结束，但未收到节点失败详情';
+    }
+  }
+
+  if (!changed) return null;
+
+  return {
+    nodeExecStatus: nextNodeExecStatus,
+    nodeExecutionTime: nextNodeExecutionTime,
+    nodeErrors: nextNodeErrors,
+  };
+}
+
 export function createWorkflowExecutionActions(
   set: WorkflowStoreSet,
   get: WorkflowStoreGet,
@@ -380,6 +415,12 @@ export function createWorkflowExecutionActions(
       });
 
       if (syncedStatus.status === 'completed') {
+        const currentState = get();
+        const settledNodes = settleLingeringNodeExecutions(currentState, {
+          status: typeof syncedStatus.failCount === 'number' && syncedStatus.failCount > 0 ? 'error' : 'success',
+          fallbackError: syncedStatus.error || '工作流已结束，但部分节点未返回最终事件',
+        });
+
         set({
           isExecuting: false,
           executionProgress: null,
@@ -388,13 +429,32 @@ export function createWorkflowExecutionActions(
           executingNodeId: null,
           lastExecutionStatus: typeof syncedStatus.failCount === 'number' && syncedStatus.failCount > 0 ? 'error' : 'success',
           lastExecutionTime: syncedStatus.totalDuration ?? null,
-          lastExecutionError: null,
+          lastExecutionError: syncedStatus.error ?? null,
           lastExecutionSummary: buildSyncedExecutionSummary(syncedStatus),
+          ...settledNodes,
         });
         return;
       }
 
       if (syncedStatus.status === 'failed' || syncedStatus.status === 'cancelled') {
+        const currentState = get();
+        const fallbackError = syncedStatus.error
+          || (syncedStatus.status === 'cancelled'
+            ? '\u5de5\u4f5c\u6d41\u6267\u884c\u5df2\u53d6\u6d88'
+            : '\u672a\u77e5\u9519\u8bef');
+        const settledNodes = settleLingeringNodeExecutions(currentState, {
+          status: 'error',
+          fallbackError,
+        });
+
+        get().addExecutionLog({
+          level: 'error',
+          message: syncedStatus.status === 'cancelled'
+            ? '\u5de5\u4f5c\u6d41\u6267\u884c\u5df2\u505c\u6b62'
+            : '\u5de5\u4f5c\u6d41\u6267\u884c\u5931\u8d25',
+          details: formatLogDetails(fallbackError),
+        });
+
         set({
           isExecuting: false,
           executionProgress: null,
@@ -405,11 +465,9 @@ export function createWorkflowExecutionActions(
           executingNodeId: null,
           lastExecutionStatus: 'error',
           lastExecutionTime: syncedStatus.totalDuration ?? null,
-          lastExecutionError: syncedStatus.error
-            || (syncedStatus.status === 'cancelled'
-              ? '\u5de5\u4f5c\u6d41\u6267\u884c\u5df2\u53d6\u6d88'
-              : '\u672a\u77e5\u9519\u8bef'),
+          lastExecutionError: fallbackError,
           lastExecutionSummary: buildSyncedExecutionSummary(syncedStatus),
+          ...settledNodes,
         });
         return;
       }

@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Lock, Unlock } from 'lucide-react';
 import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
 import { getNodeDefaultSize, getNodeDef, GRID_SIZE } from '@/features/workflow/lib/constants';
 import {
@@ -8,6 +9,7 @@ import {
   getEffectiveNodeSize,
 } from '@/features/workflow/lib/groupLayout';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
+import { isNodeLockedWithAncestors } from '@/features/workflow/lib/store/editorShared';
 import type { PortDef } from '@/features/workflow/lib/types';
 import { formatDurationSeconds } from '@/features/workflow/lib/executionFormat';
 import { NodeContent } from './NodeContent';
@@ -37,6 +39,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const setNodeSize = useWorkflowStore((s) => s.setNodeSize);
   const snapToGridEnabled = useWorkflowStore((s) => s.snapToGridEnabled);
+  const toggleNodesLocked = useWorkflowStore((s) => s.toggleNodesLocked);
   const updateNodeInternals = useUpdateNodeInternals();
 
   if (!def) return <div className="p-3 text-xs">未知节点类型: {type}</div>;
@@ -48,6 +51,8 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const Icon = NODE_ICONS[def.icon] || NODE_ICONS.eye;
   const hasOutputs = def.outputs.length > 0;
   const isDisabled = Boolean(data.disabled);
+  const isLocked = isNodeLockedWithAncestors(id, nodes);
+  const isDirectlyLocked = Boolean(data.locked);
   const hasGeneratedMask = type === 'imageInput' && Boolean(data.maskFileUrl || data.maskPreviewUrl);
   const isRunning = execStatus === 'running' && !isDisabled;
   const isError = execStatus === 'error';
@@ -113,6 +118,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
     hasWarning ? 'flow-node--warning' : '',
     isRunning ? 'flow-node--running' : '',
     isDisabled ? 'flow-node--disabled' : '',
+    isLocked ? 'flow-node--locked' : '',
   ].filter(Boolean).join(' ');
   const nodeStyle = {
     '--node-color': def.color,
@@ -138,7 +144,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
       }}
     >
       <NodeResizer
-        isVisible={selected}
+        isVisible={selected && !isLocked}
         minWidth={minSize.w}
         minHeight={minSize.h}
         maxWidth={resizeMaxWidth}
@@ -203,6 +209,19 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                 {def.label}
               </span>
             )}
+            <button
+              type="button"
+              className={`flow-node__lock-button ${isLocked ? 'flow-node__lock-button--active' : ''}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleNodesLocked([id], !isDirectlyLocked);
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+              title={isLocked ? '解锁节点' : '锁定节点'}
+              aria-label={isLocked ? '解锁节点' : '锁定节点'}
+            >
+              {isLocked ? <Lock size={13} strokeWidth={2.2} /> : <Unlock size={13} strokeWidth={2.2} />}
+            </button>
             {isDisabled && (
               <span className="flow-node__state-chip">
                 已禁用
