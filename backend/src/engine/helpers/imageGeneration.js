@@ -25,6 +25,8 @@ const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const DEFAULT_IMAGE_ENDPOINT = '/v1/images/generations';
 const IMAGE_REQUEST_RETRY_DELAYS_MS = [1_000, 2_000];
+const DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
+const DATA_URL_LOG_PREVIEW_LENGTH = 48;
 
 function cleanText(value) {
   return String(value || '').trim();
@@ -197,6 +199,37 @@ function stringifyForLog(value) {
   }
 }
 
+function summarizeInlineDataUrl(value) {
+  const match = String(value).match(DATA_URL_PREFIX);
+  if (!match) return value;
+
+  return {
+    kind: 'inline-data-url',
+    mimeType: match[1] || 'application/octet-stream',
+    encoding: 'base64',
+    length: value.length,
+    preview: `${value.slice(0, DATA_URL_LOG_PREVIEW_LENGTH)}...`,
+  };
+}
+
+function sanitizeRequestDetailsForLog(value) {
+  if (typeof value === 'string') {
+    return value.startsWith('data:') ? summarizeInlineDataUrl(value) : value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeRequestDetailsForLog(item));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nestedValue]) => [key, sanitizeRequestDetailsForLog(nestedValue)]),
+  );
+}
+
 function summarizeFormData(form) {
   const summary = [];
   for (const [key, value] of form.entries()) {
@@ -216,7 +249,7 @@ function summarizeFormData(form) {
 }
 
 function logOutgoingRequest(sendProgress, details) {
-  sendProgress?.(`[ImageRequest] ${stringifyForLog(details)}`);
+  sendProgress?.(`[ImageRequest] ${stringifyForLog(sanitizeRequestDetailsForLog(details))}`);
 }
 
 function sleep(ms) {

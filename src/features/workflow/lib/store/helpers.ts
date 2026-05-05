@@ -5,6 +5,15 @@ import type { PersistedWorkflow } from '@/features/workflow/lib/persistenceTypes
 const AI_TYPES = ['aiChat', 'imageGen', 'videoGen'];
 const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile']);
 const FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+const LOG_DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
+const LOG_DATA_URL_PREVIEW_LENGTH = 48;
+const LOG_MAX_STRING_LENGTH = 6000;
+const LOG_MAX_JSON_LENGTH = 12000;
+const LOG_TRUNCATED_HEAD_LENGTH = 2400;
+const LOG_TRUNCATED_TAIL_LENGTH = 800;
+const LOG_MAX_ARRAY_ITEMS = 24;
+const LOG_MAX_OBJECT_ENTRIES = 48;
+const LOG_MAX_DEPTH = 6;
 
 export function gid(): string {
   return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -44,13 +53,70 @@ export function getNodeDisplayNameById(nodeId: string, nodes: Node[]): string {
   return getNodeDisplayName(nodes.find((node) => node.id === nodeId), nodes);
 }
 
+function summarizeInlineDataUrl(value: string): string {
+  const match = value.match(LOG_DATA_URL_PREFIX);
+  if (!match) return value;
+
+  return JSON.stringify({
+    kind: 'inline-data-url',
+    mimeType: match[1] || 'application/octet-stream',
+    encoding: 'base64',
+    length: value.length,
+    preview: `${value.slice(0, LOG_DATA_URL_PREVIEW_LENGTH)}...`,
+  });
+}
+
+function truncateLogText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return [
+    value.slice(0, LOG_TRUNCATED_HEAD_LENGTH),
+    `...[truncated ${value.length - LOG_TRUNCATED_HEAD_LENGTH - LOG_TRUNCATED_TAIL_LENGTH} chars]...`,
+    value.slice(-LOG_TRUNCATED_TAIL_LENGTH),
+  ].join('\n');
+}
+
+function sanitizeLogValue(value: unknown, depth = 0): unknown {
+  if (typeof value === 'string') {
+    const summarized = value.startsWith('data:') ? summarizeInlineDataUrl(value) : value;
+    return truncateLogText(summarized, LOG_MAX_STRING_LENGTH);
+  }
+
+  if (value === null || value === undefined) return value;
+  if (typeof value !== 'object') return value;
+  if (depth >= LOG_MAX_DEPTH) return `[truncated depth=${LOG_MAX_DEPTH}]`;
+
+  if (Array.isArray(value)) {
+    const items = value
+      .slice(0, LOG_MAX_ARRAY_ITEMS)
+      .map((item) => sanitizeLogValue(item, depth + 1));
+    if (value.length > LOG_MAX_ARRAY_ITEMS) {
+      items.push(`[+${value.length - LOG_MAX_ARRAY_ITEMS} more items truncated]`);
+    }
+    return items;
+  }
+
+  const entries = Object.entries(value);
+  const nextEntries = entries
+    .slice(0, LOG_MAX_OBJECT_ENTRIES)
+    .map(([key, nestedValue]) => [key, sanitizeLogValue(nestedValue, depth + 1)]);
+  if (entries.length > LOG_MAX_OBJECT_ENTRIES) {
+    nextEntries.push(['__truncatedEntries', entries.length - LOG_MAX_OBJECT_ENTRIES]);
+  }
+  return Object.fromEntries(nextEntries);
+}
+
+export function sanitizeLogMessage(message: unknown): string {
+  const safeValue = sanitizeLogValue(typeof message === 'string' ? message : String(message));
+  return typeof safeValue === 'string' ? safeValue : String(safeValue);
+}
+
 export function formatLogDetails(details: unknown): string | undefined {
   if (details === undefined || details === null) return undefined;
-  if (typeof details === 'string') return details;
+  if (typeof details === 'string') return sanitizeLogMessage(details);
   try {
-    return JSON.stringify(details, null, 2);
+    return truncateLogText(JSON.stringify(sanitizeLogValue(details), null, 2), LOG_MAX_JSON_LENGTH);
   } catch {
-    return String(details);
+    return sanitizeLogMessage(details);
   }
 }
 

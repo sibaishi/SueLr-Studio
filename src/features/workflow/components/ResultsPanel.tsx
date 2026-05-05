@@ -9,6 +9,8 @@ import { formatDurationSeconds, getExecutionStatusLabel } from '@/features/workf
 import { fetchGeneratedOutputs, type GeneratedOutputFile } from '@/features/workflow/lib/api';
 
 type PanelTab = 'results' | 'logs';
+const LOG_MESSAGE_PREVIEW_LIMIT = 600;
+const LOG_DETAILS_PREVIEW_LIMIT = 4000;
 
 export default function ResultsPanel() {
   const [tab, setTab] = useState<PanelTab>('results');
@@ -412,12 +414,23 @@ function LogsList({
             <span className={`workflow-results__log-level workflow-results__log-level--${log.level}`}>{log.level}</span>
             <span>{new Date(log.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
           </div>
-          <div className="workflow-results__log-message">{String(log.message)}</div>
-          {Boolean(log.details) && <pre className="workflow-results__text workflow-results__text--mono mt-2 whitespace-pre-wrap">{String(log.details)}</pre>}
+          <div className="workflow-results__log-message">{buildLogPreview(String(log.message), LOG_MESSAGE_PREVIEW_LIMIT)}</div>
+          {Boolean(log.details) && (
+            <pre className="workflow-results__text workflow-results__text--mono mt-2 whitespace-pre-wrap">
+              {buildLogPreview(String(log.details), LOG_DETAILS_PREVIEW_LIMIT)}
+            </pre>
+          )}
         </div>
       ))}
     </div>
   );
+}
+
+function buildLogPreview(value: string, limit: number) {
+  if (value.length <= limit) return value;
+  const head = value.slice(0, Math.floor(limit * 0.75));
+  const tail = value.slice(-Math.floor(limit * 0.15));
+  return `${head}\n...[log truncated ${value.length - head.length - tail.length} chars]...\n${tail}`;
 }
 
 function EmptyState({

@@ -2,7 +2,7 @@ import { DEFAULT_WORKFLOW_NAME } from '@/features/workflow/lib/constants';
 import * as api from '@/features/workflow/lib/api';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
 import { clearActiveRunSnapshot, saveLocalDraft } from '@/features/workflow/lib/store/persistence';
-import { gid } from '@/features/workflow/lib/store/helpers';
+import { formatLogDetails, gid, sanitizeLogMessage } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowEditorSnapshot, WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
 
 type WorkflowStoreEditorSessionActions = Pick<
@@ -77,6 +77,8 @@ export function createWorkflowEditorSessionActions(
             id: `log_${gid()}`,
             timestamp: Date.now(),
             ...log,
+            message: sanitizeLogMessage(log.message),
+            details: formatLogDetails(log.details),
           },
         ],
       }));
