@@ -309,4 +309,8 @@ For browser-facing changes, install and run the E2E smoke suite:
 - `npm run test:e2e:install`
 - `npm run test:e2e`
 
+For desktop WebView packaging, build the portable Windows executable:
+
+- `npm run electron:pack`
+
 Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.

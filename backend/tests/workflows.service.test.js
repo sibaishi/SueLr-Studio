@@ -20,6 +20,7 @@ test('workflows service supports CRUD through repository layer', async () => {
 
   const repository = new WorkflowsRepository();
   const service = new WorkflowsService(repository);
+  const initialCount = service.list().length;
 
   const created = service.create({
     name: 'Test Workflow',
@@ -28,7 +29,7 @@ test('workflows service supports CRUD through repository layer', async () => {
   });
 
   assert.ok(created.id.startsWith('wf_'));
-  assert.equal(service.list().length, 1);
+  assert.equal(service.list().length, initialCount + 1);
   assert.equal(service.getById(created.id).name, 'Test Workflow');
 
   const updated = service.update(created.id, {
@@ -40,11 +41,64 @@ test('workflows service supports CRUD through repository layer', async () => {
   assert.equal(updated.name, 'Updated Workflow');
 
   const duplicated = service.duplicate(created.id);
-  assert.equal(service.list().length, 2);
+  assert.equal(service.list().length, initialCount + 2);
   assert.notEqual(duplicated.id, created.id);
 
   service.delete(created.id);
-  assert.equal(service.list().length, 1);
+  assert.equal(service.list().length, initialCount + 1);
+});
+
+test('workflows repository seeds starter workflows only for empty storage', async () => {
+  const root = createStorageDir('workflow-templates');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
+  const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);
+
+  const repository = new WorkflowsRepository();
+  const service = new WorkflowsService(repository);
+  const seeded = service.list();
+
+  assert.equal(seeded.length, 3);
+  assert.deepEqual(
+    seeded.map((workflow) => workflow.id).sort(),
+    ['starter_ai_chat', 'starter_image_to_image', 'starter_text_to_image'],
+  );
+  assert.equal(service.getById('starter_text_to_image').nodes.some((node) => node.type === 'imageGen'), true);
+
+  const secondRepository = new WorkflowsRepository();
+  const secondService = new WorkflowsService(secondRepository);
+  assert.equal(secondService.list().length, 3);
+});
+
+test('workflows repository does not seed starter workflows over existing user files', async () => {
+  const root = createStorageDir('workflow-templates-existing');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const workflowsDir = path.join(root, 'workflows');
+  fs.mkdirSync(workflowsDir, { recursive: true });
+  fs.writeFileSync(path.join(workflowsDir, 'custom.json'), JSON.stringify({
+    id: 'custom',
+    name: 'Custom Workflow',
+    version: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'mine' } }],
+    edges: [],
+    settings: {},
+  }));
+
+  const { WorkflowsRepository } = await import(`../src/modules/workflows/workflows.repository.js?test=${Date.now()}`);
+  const { WorkflowsService } = await import(`../src/modules/workflows/workflows.service.js?test=${Date.now()}`);
+
+  const repository = new WorkflowsRepository();
+  const service = new WorkflowsService(repository);
+
+  assert.deepEqual(service.list().map((workflow) => workflow.id), ['custom']);
 });
 
 test('workflows service rejects unsupported node types', async () => {
