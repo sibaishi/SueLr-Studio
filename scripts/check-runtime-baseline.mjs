@@ -8,7 +8,6 @@ function readUtf8(path) {
 const failures = [];
 
 const requiredFiles = [
-  '.nvmrc',
   '.env.example',
   'README.md',
   'docs/user-guide.md',
@@ -28,7 +27,6 @@ for (const file of requiredFiles) {
 if (failures.length === 0) {
   const rootPackage = JSON.parse(readUtf8('package.json'));
   const backendPackage = JSON.parse(readUtf8('backend/package.json'));
-  const nvmrc = readUtf8('.nvmrc').trim();
   const envExample = readUtf8('.env.example');
   const userGuide = readUtf8('docs/user-guide.md');
   const developerGuide = readUtf8('docs/developer-guide.md');
@@ -43,12 +41,8 @@ if (failures.length === 0) {
     failures.push(`root and backend node engine ranges must match (${rootNodeEngine} !== ${backendNodeEngine}).`);
   }
 
-  if (!rootNodeEngine?.includes('22.12.0')) {
-    failures.push('root package node engine must keep the 22.12.0 minimum baseline.');
-  }
-
-  if (!/^22\./.test(nvmrc)) {
-    failures.push(`.nvmrc must stay on Node 22, received ${nvmrc}.`);
+  if (rootNodeEngine !== '>=22.12.0') {
+    failures.push('root package node engine must stay at the unbounded minimum baseline: >=22.12.0.');
   }
 
   for (const variable of ['VITE_API_BASE=', 'APP_PORT=', 'APP_HOST=', 'APP_ALLOWED_ORIGINS=']) {

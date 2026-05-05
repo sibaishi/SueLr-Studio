@@ -297,3 +297,16 @@ Rules for future work:
 - every structural or ownership change that affects developer navigation must update `docs/developer-guide.md`
 - do not add planning notes, weekly execution files, or private working docs under `docs/`
 - keep this guide aligned with the actual file layout so maintainers can jump directly to the right module instead of re-scanning the repo
+
+## Maintenance Workflow
+
+Before opening or merging a maintenance change, run the repo quality gate:
+
+- `npm run check`
+
+For browser-facing changes, install and run the E2E smoke suite:
+
+- `npm run test:e2e:install`
+- `npm run test:e2e`
+
+Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.
