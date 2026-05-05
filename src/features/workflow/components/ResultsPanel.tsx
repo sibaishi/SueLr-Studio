@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clipboard, Clock3, ImageIcon, PlayCircle, TerminalSquare, Video } from 'lucide-react';
 import { getNodeDef } from '@/features/workflow/lib/constants';
 import { NODE_ICONS } from '@/features/workflow/components/nodes/nodeConstants';
@@ -6,16 +6,17 @@ import { useWorkflowStore } from '@/features/workflow/lib/store';
 import { ImagePreviewModal } from '@/features/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/features/workflow/components/ImageSizeLabel';
 import { formatDurationSeconds, getExecutionStatusLabel } from '@/features/workflow/lib/executionFormat';
-
-const RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen', 'output']);
+import { fetchGeneratedOutputs, type GeneratedOutputFile } from '@/features/workflow/lib/api';
 
 type PanelTab = 'results' | 'logs';
 
 export default function ResultsPanel() {
   const [tab, setTab] = useState<PanelTab>('results');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [generatedOutputs, setGeneratedOutputs] = useState<GeneratedOutputFile[]>([]);
+  const [isLoadingOutputs, setIsLoadingOutputs] = useState(false);
+  const [outputsError, setOutputsError] = useState<string | null>(null);
   const nodes = useWorkflowStore((s) => s.nodes);
-  const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   const executionLogs = useWorkflowStore((s) => s.executionLogs);
   const lastExecutionStatus = useWorkflowStore((s) => s.lastExecutionStatus);
   const lastExecutionTime = useWorkflowStore((s) => s.lastExecutionTime);
@@ -24,6 +25,30 @@ export default function ResultsPanel() {
   const nodeWarnings = useWorkflowStore((s) => s.nodeWarnings);
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const clearExecutionLogs = useWorkflowStore((s) => s.clearExecutionLogs);
+
+  const refreshGeneratedOutputs = useCallback(async () => {
+    setIsLoadingOutputs(true);
+    const result = await fetchGeneratedOutputs();
+    setIsLoadingOutputs(false);
+    if (result.success) {
+      setGeneratedOutputs(result.data || []);
+      setOutputsError(null);
+      return;
+    }
+    setOutputsError(result.error || '读取生成文件失败');
+  }, []);
+
+  useEffect(() => {
+    void refreshGeneratedOutputs();
+  }, [refreshGeneratedOutputs, lastExecutionStatus]);
+
+  useEffect(() => {
+    if (!isExecuting) return;
+    const timer = window.setInterval(() => {
+      void refreshGeneratedOutputs();
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [isExecuting, refreshGeneratedOutputs]);
 
   const warningItems = useMemo(() => {
     return nodes
@@ -37,25 +62,6 @@ export default function ResultsPanel() {
         };
       });
   }, [nodeWarnings, nodes]);
-
-  const resultItems = useMemo(() => {
-    return nodes
-      .filter((node) => RESULT_NODE_TYPES.has(node.type || ''))
-      .map((node) => {
-        const outputs = nodeOutputs[node.id];
-        if (!outputs) return null;
-        const def = getNodeDef(node.type || '');
-        return {
-          id: node.id,
-          type: node.type || '',
-          label: def?.label || node.type || node.id,
-          color: def?.color || '#8E8E93',
-          outputLabels: Object.fromEntries((def?.outputs || []).map((output) => [output.id, output.label])),
-          outputs,
-        };
-      })
-      .filter(Boolean);
-  }, [nodeOutputs, nodes]);
 
   const selectedMaskInfo = useMemo(() => {
     if (!selectedNodeId) return null;
@@ -131,7 +137,13 @@ export default function ResultsPanel() {
         )}
 
         {tab === 'results' ? (
-          <ResultsList resultItems={resultItems} selectedMaskInfo={selectedMaskInfo} onPreviewImage={setPreviewImage} />
+          <ResultsList
+            files={generatedOutputs}
+            selectedMaskInfo={selectedMaskInfo}
+            isLoading={isLoadingOutputs}
+            error={outputsError}
+            onPreviewImage={setPreviewImage}
+          />
         ) : (
           <LogsList logs={executionLogs} onClear={clearExecutionLogs} />
         )}
@@ -177,22 +189,36 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
 }
 
 function ResultsList({
-  resultItems,
+  files,
   selectedMaskInfo,
+  isLoading,
+  error,
   onPreviewImage,
 }: {
-  resultItems: Array<{
-    id: string;
-    type: string;
-    label: string;
-    color: string;
-    outputLabels: Record<string, string>;
-    outputs: Record<string, unknown>;
-  } | null>;
+  files: GeneratedOutputFile[];
   selectedMaskInfo: { label: string; src: string; hasMask: boolean } | null;
+  isLoading: boolean;
+  error: string | null;
   onPreviewImage: (src: string) => void;
 }) {
-  if (resultItems.length === 0 && !selectedMaskInfo?.hasMask) {
+  const resultItems = files.map((file) => ({
+    id: file.id,
+    type: file.type === 'video' ? 'videoGen' : 'imageGen',
+    label: file.name,
+    color: file.type === 'video' ? '#AF52DE' : '#FF9500',
+    outputLabels: { content: file.relativePath },
+    outputs: { content: { url: file.url, type: file.type, name: file.name } },
+  }));
+
+  if (error) {
+    return <EmptyState icon={<AlertTriangle size={20} />} title="结果读取失败" body={error} />;
+  }
+
+  if (files.length === 0 && !selectedMaskInfo?.hasMask && isLoading) {
+    return <EmptyState icon={<ImageIcon size={20} />} title="正在读取生成文件" body="正在从外部文件存储生成目录同步结果。" />;
+  }
+
+  if (files.length === 0 && !selectedMaskInfo?.hasMask) {
     return <EmptyState icon={<ImageIcon size={20} />} title="还没有 AI 输出" body="执行后，这里会集中显示文本、图片和视频结果。" action="先运行一次工作流，或检查节点是否具备可输出内容。" />;
   }
 
@@ -265,6 +291,17 @@ function AiOutputGroup({
 }
 
 function AiOutputValue({ value, onPreviewImage }: { value: unknown; onPreviewImage: (src: string) => void }) {
+  if (isGeneratedOutputValue(value)) {
+    if (value.type === 'image') return <ImageResult src={value.url} onPreviewImage={onPreviewImage} />;
+    if (value.type === 'video') return <VideoResult src={value.url} />;
+    if (value.type === 'audio') return <audio src={value.url} controls className="w-full" />;
+    return (
+      <a href={value.url} target="_blank" rel="noreferrer" className="workflow-results__text">
+        {value.name || value.url}
+      </a>
+    );
+  }
+
   if (typeof value === 'string') {
     if (isVisualAssetUrl(value)) return <ImageResult src={value} onPreviewImage={onPreviewImage} />;
     if (isVideoUrl(value)) return <VideoResult src={value} />;
@@ -406,10 +443,24 @@ function EmptyState({
 
 function unwrapOutputValue(value: unknown): unknown {
   if (value && typeof value === 'object' && 'url' in (value as Record<string, unknown>)) {
-    const url = (value as Record<string, unknown>).url;
-    if (typeof url === 'string') return url;
+    const record = value as Record<string, unknown>;
+    const url = record.url;
+    const type = record.type;
+    if (typeof url === 'string' && typeof type === 'string') {
+      return { url, type, name: typeof record.name === 'string' ? record.name : '' };
+    }
+    if (typeof record.url === 'string') return record.url;
   }
   return value;
+}
+
+function isGeneratedOutputValue(value: unknown): value is { url: string; type: string; name: string } {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && typeof (value as Record<string, unknown>).url === 'string'
+    && typeof (value as Record<string, unknown>).type === 'string',
+  );
 }
 
 function isImageUrl(value: string) {

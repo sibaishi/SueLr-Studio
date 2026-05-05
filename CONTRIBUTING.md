@@ -8,7 +8,7 @@ This project is maintained as a local-first multimodal studio. The main contribu
 
 Requirements:
 
-- Node.js `>=22.12.0 <23`
+- Node.js `>=22.12.0`
 - npm
 
 Install dependencies from the repository root:

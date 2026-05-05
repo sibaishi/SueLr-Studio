@@ -77,7 +77,6 @@ export function createWorkflowExecutionActions(
         nodeErrors: {},
         nodeWarnings: {},
         nodeOutputs: {},
-        aiResultOutputs: {},
         workflowWarningMessage: null,
         executionLogs: [{
           id: `log_${gid()}`,
@@ -244,6 +243,12 @@ export function createWorkflowExecutionActions(
         },
         onWorkflowComplete: (data) => {
           clearActiveRunSnapshot();
+          const latestState = get();
+          const nextAiResultOutputs = Object.fromEntries(
+            latestState.nodes
+              .filter((node) => AI_RESULT_NODE_TYPES.has(node.type || '') && latestState.nodeOutputs[node.id])
+              .map((node) => [node.id, latestState.nodeOutputs[node.id]]),
+          );
           get().addExecutionLog({
             level: data.failCount > 0 ? 'error' : 'success',
             message: `工作流完成：${data.successCount} 成功 / ${data.failCount} 失败 (${data.totalDuration} ms)`,
@@ -262,6 +267,7 @@ export function createWorkflowExecutionActions(
               failCount: data.failCount,
               totalDuration: data.totalDuration,
             },
+            aiResultOutputs: nextAiResultOutputs,
           });
         },
         onWorkflowError: (data) => {

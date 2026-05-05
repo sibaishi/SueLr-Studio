@@ -24,7 +24,7 @@ Current public documentation is intentionally small:
 
 ### Requirements
 
-- Node.js `>=22.12.0 <23`
+- Node.js `>=22.12.0`
 - npm
 
 ### Install
