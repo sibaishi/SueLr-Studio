@@ -107,7 +107,12 @@ export async function importWorkflow(data: Record<string, unknown>, mode: Workfl
 export interface SSECallbacks {
   onNodeStart?: (data: { nodeId: string; nodeType: string; index: number; total: number }) => void;
   onNodeProgress?: (data: { nodeId: string; progress: number; message: string }) => void;
-  onNodeComplete?: (data: { nodeId: string; outputs: Record<string, unknown>; duration: number }) => void;
+  onNodeComplete?: (data: {
+    nodeId: string;
+    outputs: Record<string, unknown>;
+    logOutputs?: Record<string, unknown>;
+    duration: number;
+  }) => void;
   onNodeError?: (data: { nodeId: string; error: string }) => void;
   onWorkflowLog?: (data: Record<string, unknown>) => void;
   onSnapshotBuilt?: (data: Record<string, unknown>) => void;

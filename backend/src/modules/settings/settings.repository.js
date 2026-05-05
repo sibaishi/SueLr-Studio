@@ -15,6 +15,7 @@ import {
   writeJsonFile,
 } from '../../platform/storage/index.js';
 import { getProviderAdapter } from '../../platform/providers/index.js';
+import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
 import { parseProviderErrorResponse, toProviderError } from '../../platform/providers/provider-http.js';
 import { assertSafeProviderBaseUrl } from '../../platform/security/network-guards.js';
 import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.js';
@@ -486,7 +487,7 @@ export class SettingsRepository {
 
     let response;
     try {
-      response = await fetch(request.url, request.options);
+      response = await proxyAwareFetch(request.url, request.options);
     } catch (error) {
       throw toProviderError(error, 'PROVIDER_FETCH_FAILED', request.url);
     }

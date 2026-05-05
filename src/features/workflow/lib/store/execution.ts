@@ -163,7 +163,7 @@ export function createWorkflowExecutionActions(
             level: 'success',
             message: `节点完成：${nodeLabel} (${data.duration} ms)`,
             nodeId: data.nodeId,
-            details: formatLogDetails(data.outputs),
+            details: formatLogDetails(data.logOutputs ?? data.outputs),
           });
           set((currentState) => ({
             executionMessage: `${nodeLabel} 执行完成`,

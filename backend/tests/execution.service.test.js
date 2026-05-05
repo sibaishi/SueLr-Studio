@@ -58,3 +58,16 @@ test('ExecutionService recent run status expires after retention window', () => 
     runId: 'run_recent_failed',
   });
 });
+
+test('ExecutionService returns idle for unknown run ids when neither active nor recent state exists', () => {
+  const service = new ExecutionService({
+    read() {
+      return { workflow: { id: 'wf_1' } };
+    },
+  });
+
+  assert.deepEqual(service.getStatus('run_missing'), {
+    status: 'idle',
+    runId: 'run_missing',
+  });
+});

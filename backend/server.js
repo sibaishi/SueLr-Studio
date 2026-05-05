@@ -5,15 +5,22 @@
 import { pathToFileURL } from 'url';
 import { createLogger } from './src/platform/logging/logger.js';
 import { createApp } from './src/app/create-app.js';
+import {
+  getProcessInstanceId,
+  installRuntimeObservability,
+} from './src/platform/logging/runtime-observability.js';
 
 const PORT = process.env.APP_PORT || process.env.PORT || 3001;
 const HOST = process.env.APP_HOST || '127.0.0.1';
 const logger = createLogger({ module: 'server' });
 
+installRuntimeObservability();
+
 export function startServer(port = PORT, host = HOST) {
   const app = createApp();
   return app.listen(port, host, () => {
     logger.info('server started', {
+      processInstanceId: getProcessInstanceId(),
       host,
       port,
       url: `http://${host}:${port}`,

@@ -72,7 +72,7 @@ function failWorkflowAtNode({
   throw terminationError;
 }
 
-export async function executeWorkflow(workflow, apiConfig, sendSSE) {
+export async function executeWorkflow(workflow, apiConfig, sendSSE, executionContext = {}) {
   const { nodes, edges } = workflow;
   const abortSignal = apiConfig?.abortSignal;
 
@@ -200,6 +200,13 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE) {
       sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
         nodeId: node.id,
         outputs: result,
+        logOutputs: executionContext.getNodeLogOutputs
+          ? executionContext.getNodeLogOutputs(result, {
+              node,
+              nodes: executableNodes,
+              workflow,
+            })
+          : result,
         duration: Date.now() - nodeStartTime,
       });
     } catch (error) {

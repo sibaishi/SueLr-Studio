@@ -1,5 +1,9 @@
 import { successEnvelope } from '../../app/http/envelope.js';
+import { createLogger } from '../../platform/logging/logger.js';
+import { getProcessInstanceId } from '../../platform/logging/runtime-observability.js';
 import { executionService } from './execution.service.js';
+
+const logger = createLogger({ module: 'execution-controller' });
 
 function interceptRunIdFromChunk(chunk) {
   const payload = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
@@ -25,6 +29,7 @@ export class ExecutionController {
 
     const workflowId = req.params.id;
     let activeRunId = null;
+    let hasLoggedRunAssociation = false;
     const heartbeat = setInterval(() => {
       if (res.writableEnded) {
         clearInterval(heartbeat);
@@ -35,6 +40,11 @@ export class ExecutionController {
 
     res.on('close', () => {
       clearInterval(heartbeat);
+      logger.warn('execution SSE connection closed', {
+        activeRunId,
+        processInstanceId: getProcessInstanceId(),
+        writableEnded: res.writableEnded,
+      });
       if (activeRunId) {
         executionService.cancel(activeRunId);
       }
@@ -44,6 +54,13 @@ export class ExecutionController {
       const originalWrite = res.write.bind(res);
       res.write = (chunk, encoding, callback) => {
         activeRunId = interceptRunIdFromChunk(chunk) || activeRunId;
+        if (activeRunId && !hasLoggedRunAssociation) {
+          hasLoggedRunAssociation = true;
+          logger.info('execution SSE stream associated with run', {
+            activeRunId,
+            processInstanceId: getProcessInstanceId(),
+          });
+        }
         return originalWrite(chunk, encoding, callback);
       };
       await executionService.execute(workflowId, req.body, res, req.requestId);

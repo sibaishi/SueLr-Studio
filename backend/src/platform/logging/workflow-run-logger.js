@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { STORAGE_PATHS } from '../storage/index.js';
 import { ensureDir } from '../storage/ensure-dir.js';
+import { getProcessInstanceId } from './runtime-observability.js';
 
 function safeName(value) {
   return String(value || 'workflow')
@@ -52,6 +53,7 @@ export function createWorkflowRunLogger(workflow, context = {}) {
       event,
       runId,
       workflowId,
+      processInstanceId: getProcessInstanceId(),
       requestId: context.requestId,
       snapshotVersion: workflow?.snapshotVersion,
       source: workflow?.source,

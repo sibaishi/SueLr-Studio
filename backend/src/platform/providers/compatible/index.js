@@ -1,5 +1,6 @@
 import { ProviderError } from '../../../app/errors/index.js';
 import { CompatibleProviderAdapter } from './compatible-adapter.js';
+import { proxyAwareFetch } from '../../http/proxy-aware-fetch.js';
 import { parseProviderErrorResponse, toProviderError } from '../provider-http.js';
 import { assertSafeProviderBaseUrl } from '../../security/network-guards.js';
 
@@ -10,7 +11,7 @@ export class CompatibleHttpAdapter extends CompatibleProviderAdapter {
 
     let response;
     try {
-      response = await fetch(request.url, request.options);
+      response = await proxyAwareFetch(request.url, request.options);
     } catch (error) {
       throw toProviderError(error, errorCode, request.url);
     }
@@ -28,7 +29,7 @@ export class CompatibleHttpAdapter extends CompatibleProviderAdapter {
 
     let response;
     try {
-      response = await fetch(request.url, request.options);
+      response = await proxyAwareFetch(request.url, request.options);
     } catch (error) {
       throw toProviderError(error, errorCode, request.url);
     }

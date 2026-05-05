@@ -1,8 +1,10 @@
 import { executeWorkflow } from '../../../engine/executor.js';
 import { createLogger } from '../../platform/logging/logger.js';
+import { sanitizeNodeOutputsForLogs } from '../../platform/logging/workflow-log-sanitizer.js';
 import { createWorkflowRunLogger } from '../../platform/logging/workflow-run-logger.js';
 import { runWithRequestContext } from '../../platform/logging/request-context.js';
 import { WORKFLOW_SSE_EVENTS } from '../../platform/logging/workflow-events.js';
+import { getProcessInstanceId } from '../../platform/logging/runtime-observability.js';
 import { settingsService } from '../settings/settings.service.js';
 import { workflowsRepository } from '../workflows/workflows.repository.js';
 import { createExecutionSnapshot } from './execution-snapshot.js';
@@ -28,11 +30,27 @@ export class ExecutionService {
     if (!run) {
       const recentRun = this.recentExecutions.get(runId);
       if (recentRun) {
+        logger.info('execution status resolved from recent cache', {
+          runId,
+          processInstanceId: getProcessInstanceId(),
+          status: recentRun.status?.status,
+        });
         return recentRun.status;
       }
+      logger.warn('execution status fell back to idle', {
+        runId,
+        processInstanceId: getProcessInstanceId(),
+        runningExecutionCount: this.runningExecutions.size,
+        recentExecutionCount: this.recentExecutions.size,
+      });
       return { status: 'idle', runId };
     }
 
+    logger.info('execution status resolved from active run', {
+      runId,
+      processInstanceId: getProcessInstanceId(),
+      aborted: run.abortController.signal.aborted,
+    });
     return {
       status: run.abortController.signal.aborted ? 'cancelled' : 'running',
       runId,
@@ -44,7 +62,18 @@ export class ExecutionService {
 
   cancel(runId) {
     const run = this.runningExecutions.get(runId);
-    if (!run) return false;
+    if (!run) {
+      logger.warn('execution cancel ignored because run was missing', {
+        runId,
+        processInstanceId: getProcessInstanceId(),
+      });
+      return false;
+    }
+    logger.warn('execution cancel requested', {
+      runId,
+      workflowId: run.workflowId,
+      processInstanceId: getProcessInstanceId(),
+    });
     run.abortController.abort();
     return true;
   }
@@ -84,6 +113,14 @@ export class ExecutionService {
       source: snapshot.source,
       snapshotVersion: snapshot.snapshotVersion,
       abortController,
+    });
+    logger.info('execution run registered', {
+      runId: snapshot.runId,
+      workflowId,
+      source: snapshot.source,
+      snapshotVersion: snapshot.snapshotVersion,
+      processInstanceId: getProcessInstanceId(),
+      runningExecutionCount: this.runningExecutions.size,
     });
     let terminalStatus = null;
 
@@ -156,6 +193,11 @@ export class ExecutionService {
           snapshot,
           { ...apiConfig, abortSignal: abortController.signal },
           sendSSE,
+          {
+            getNodeLogOutputs(outputs) {
+              return sanitizeNodeOutputsForLogs(outputs, runLogger);
+            },
+          },
         );
       });
       runLogger.close('completed');
@@ -172,8 +214,22 @@ export class ExecutionService {
       runLogger.close(abortController.signal.aborted ? 'cancelled' : 'error', { error: message });
     } finally {
       this.runningExecutions.delete(snapshot.runId);
+      logger.info('execution run removed from active registry', {
+        runId: snapshot.runId,
+        workflowId,
+        terminalStatus: terminalStatus?.status ?? null,
+        processInstanceId: getProcessInstanceId(),
+        runningExecutionCount: this.runningExecutions.size,
+      });
       if (terminalStatus) {
         this.rememberRecentExecution(terminalStatus);
+        logger.info('execution terminal status cached', {
+          runId: snapshot.runId,
+          workflowId,
+          terminalStatus: terminalStatus.status,
+          processInstanceId: getProcessInstanceId(),
+          recentExecutionCount: this.recentExecutions.size,
+        });
       }
       if (!res.writableEnded) {
         res.end();
