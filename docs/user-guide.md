@@ -147,7 +147,7 @@ Main areas:
 Typical flow:
 
 1. Open `Workflow`
-2. Add nodes from the left panel
+2. Add nodes from the left panel, or double-click blank canvas space to open the centered node picker
 3. Connect them on the canvas
 4. Edit node parameters
 5. Save the workflow
@@ -160,6 +160,25 @@ Common node groups:
 - AI nodes
 - merge nodes
 - output nodes
+- group nodes
+
+Workflow groups:
+
+- group selected nodes when a canvas area becomes too crowded
+- collapse a group to keep the canvas readable while preserving the internal nodes
+- use group input and output ports to route connections across the group boundary
+- drag from a group port toward the inside of the group to create an internal connection
+- drag from a group port toward the outside of the group to create an external connection
+- connect external nodes to group ports instead of wiring every internal node directly
+- ungroup when you need to return the child nodes to the main canvas
+
+Canvas interaction notes:
+
+- double-click blank canvas space to open the centered `New Node` panel
+- right-click blank canvas space to open the lightweight action menu, including `Paste Node`
+- right-click selected nodes to open node or multi-node actions
+- use `Ctrl+C` to copy selected nodes or groups
+- use `Ctrl+V` to paste near the current mouse position on the canvas
 
 ### 5. Use Save File in Workflow
 

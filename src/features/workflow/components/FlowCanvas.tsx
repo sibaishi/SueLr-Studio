@@ -51,6 +51,7 @@ import { useWorkflowStore } from '@/features/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/features/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/features/workflow/lib/store/selectors';
 import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
+import { NODE_ICONS } from './nodes/nodeConstants';
 import FlowNode from './nodes/FlowNode';
 import './contextMenu.css';
 
@@ -164,7 +165,7 @@ type PendingConnection =
       targetType: string;
     };
 
-type ContextMenuKind = 'pane' | 'node' | 'connect';
+type ContextMenuKind = 'pane' | 'paneActions' | 'node' | 'connect';
 type MenuHorizontalDirection = 'left' | 'right';
 
 type ContextMenuState = {
@@ -336,6 +337,74 @@ function canConnectToGroupHandleExternally(node: FlowNodeType | undefined, handl
   return port ? isGroupPortExternallyConnectable(port) : false;
 }
 
+function isNodeInsideGroup(node: FlowNodeType | undefined, groupId: string, nodeMap: Map<string, FlowNodeType>) {
+  let current = node;
+  while (current) {
+    const parentId = getParentId(current);
+    if (!parentId) return false;
+    if (parentId === groupId) return true;
+    current = nodeMap.get(parentId);
+  }
+
+  return false;
+}
+
+function resolveDirectionalGroupConnection(
+  connection: {
+    source: string | null;
+    target: string | null;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
+  },
+  nodeMap: Map<string, FlowNodeType>,
+) {
+  if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) return null;
+
+  const sourceNode = nodeMap.get(connection.source);
+  const targetNode = nodeMap.get(connection.target);
+  if (!sourceNode || !targetNode) return null;
+
+  const sourceDescriptor = parseGroupHandleId(connection.sourceHandle);
+  const targetDescriptor = parseGroupHandleId(connection.targetHandle);
+  let sourceHandle = connection.sourceHandle;
+  let targetHandle = connection.targetHandle;
+
+  if (sourceDescriptor) {
+    if (sourceNode.type !== 'group') return null;
+    const targetIsInsideSourceGroup = isNodeInsideGroup(targetNode, sourceNode.id, nodeMap);
+    const nextRole = targetIsInsideSourceGroup ? 'internal' : 'external';
+
+    if (targetIsInsideSourceGroup) {
+      if (sourceDescriptor.side !== 'input') return null;
+    } else if (sourceDescriptor.side !== 'output') {
+      return null;
+    }
+
+    sourceHandle = buildGroupHandleId(sourceDescriptor.side, sourceDescriptor.portId, nextRole);
+  }
+
+  if (targetDescriptor) {
+    if (targetNode.type !== 'group') return null;
+    const sourceIsInsideTargetGroup = isNodeInsideGroup(sourceNode, targetNode.id, nodeMap);
+    const nextRole = sourceIsInsideTargetGroup ? 'internal' : 'external';
+
+    if (sourceIsInsideTargetGroup) {
+      if (targetDescriptor.side !== 'output') return null;
+    } else if (targetDescriptor.side !== 'input') {
+      return null;
+    }
+
+    targetHandle = buildGroupHandleId(targetDescriptor.side, targetDescriptor.portId, nextRole);
+  }
+
+  return {
+    source: connection.source,
+    sourceHandle,
+    target: connection.target,
+    targetHandle,
+  };
+}
+
 function getVisibleCollapsedAncestorId(
   nodeId: string,
   nodeMap: Map<string, FlowNodeType>,
@@ -353,6 +422,18 @@ function getVisibleCollapsedAncestorId(
   }
 
   return visibleCollapsedId;
+}
+
+function isPaneBackgroundTarget(target: EventTarget | null) {
+  const element = target instanceof Element ? target : null;
+  if (!element) return false;
+  return Boolean(
+    element.closest('.react-flow__pane')
+    && !element.closest('.react-flow__node')
+    && !element.closest('.react-flow__edge')
+    && !element.closest('.react-flow__selection')
+    && !element.closest('.workflow-context-menu'),
+  );
 }
 
 function getNearestGroupAncestorId(nodeId: string, nodeMap: Map<string, FlowNodeType>) {
@@ -491,8 +572,8 @@ function getContextMenuLayout(
   localY: number,
 ): { x: number; y: number; horizontalDirection: MenuHorizontalDirection } {
   const rect = container?.getBoundingClientRect();
-  const menuWidth = kind === 'node' ? 220 : 204;
-  const menuHeight = kind === 'node' ? 288 : 116;
+  const menuWidth = kind === 'node' ? 220 : 328;
+  const menuHeight = kind === 'node' ? 288 : 360;
   const maxX = rect ? Math.max(8, rect.width - menuWidth - 8) : localX;
   const maxY = rect ? Math.max(8, rect.height - menuHeight - 8) : localY;
 
@@ -510,12 +591,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [editableFocused, setEditableFocused] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [activeRootAction, setActiveRootAction] = useState<'new' | 'connect' | null>(null);
   const [activeCategory, setActiveCategory] = useState<(typeof CATEGORY_ORDER)[number] | null>(null);
   const [clipboardNode, setClipboardNode] = useState<ClipboardSnapshot | null>(null);
   const [canvasEditorNodeId, setCanvasEditorNodeId] = useState<string | null>(null);
   const pendingConnectionRef = useRef<PendingConnection | null>(null);
   const contextMenuOpenedAtRef = useRef(0);
+  const lastPointerFlowPositionRef = useRef<{ x: number; y: number } | null>(null);
 
   const wasContextMenuJustOpened = useCallback(() => Date.now() - contextMenuOpenedAtRef.current < 150, []);
 
@@ -562,7 +643,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     const closeMenuOnWindowClick = () => {
       if (wasContextMenuJustOpened()) return;
       setContextMenu(null);
-      setActiveRootAction(null);
       setActiveCategory(null);
     };
 
@@ -842,15 +922,23 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
     const currentStore = useWorkflowStore.getState();
     const nodeMap = new Map(currentStore.nodes.map((node) => [node.id, node as FlowNodeType]));
-    const sourceNode = nodeMap.get(connection.source);
-    const targetNode = nodeMap.get(connection.target);
+    const resolvedConnection = resolveDirectionalGroupConnection(connection, nodeMap);
+    if (!resolvedConnection) return;
+
+    const sourceNode = nodeMap.get(resolvedConnection.source);
+    const targetNode = nodeMap.get(resolvedConnection.target);
     if (!sourceNode || !targetNode) return;
 
-    const sourceGroupHandle = parseGroupHandleId(connection.sourceHandle);
-    const targetGroupHandle = parseGroupHandleId(connection.targetHandle);
+    const sourceGroupHandle = parseGroupHandleId(resolvedConnection.sourceHandle);
+    const targetGroupHandle = parseGroupHandleId(resolvedConnection.targetHandle);
 
     if (!sourceGroupHandle && !targetGroupHandle) {
-      currentStore.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
+      currentStore.addEdge(
+        resolvedConnection.source,
+        resolvedConnection.sourceHandle,
+        resolvedConnection.target,
+        resolvedConnection.targetHandle,
+      );
       return;
     }
 
@@ -861,10 +949,10 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       && targetGroupHandle.role === 'internal'
     ) {
       currentStore.addEdge(
-        connection.source,
-        connection.sourceHandle,
-        connection.target,
-        connection.targetHandle,
+        resolvedConnection.source,
+        resolvedConnection.sourceHandle,
+        resolvedConnection.target,
+        resolvedConnection.targetHandle,
       );
       return;
     }
@@ -876,10 +964,10 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       && sourceGroupHandle.role === 'internal'
     ) {
       currentStore.addEdge(
-        connection.source,
-        connection.sourceHandle,
-        connection.target,
-        connection.targetHandle,
+        resolvedConnection.source,
+        resolvedConnection.sourceHandle,
+        resolvedConnection.target,
+        resolvedConnection.targetHandle,
       );
       return;
     }
@@ -892,7 +980,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     ) {
       const sourcePort = findGroupPort((sourceNode.data || {}) as Record<string, unknown>, 'output', sourceGroupHandle.portId);
       if (sourcePort && isGroupPortExternallyConnectable(sourcePort)) {
-        currentStore.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
+        currentStore.addEdge(
+          resolvedConnection.source,
+          resolvedConnection.sourceHandle,
+          resolvedConnection.target,
+          resolvedConnection.targetHandle,
+        );
       }
       return;
     }
@@ -905,14 +998,18 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     ) {
       const targetPort = findGroupPort((targetNode.data || {}) as Record<string, unknown>, 'input', targetGroupHandle.portId);
       if (targetPort && isGroupPortExternallyConnectable(targetPort)) {
-        currentStore.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
+        currentStore.addEdge(
+          resolvedConnection.source,
+          resolvedConnection.sourceHandle,
+          resolvedConnection.target,
+          resolvedConnection.targetHandle,
+        );
       }
     }
   }, []);
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
-    setActiveRootAction(null);
     setActiveCategory(null);
   }, []);
 
@@ -987,8 +1084,11 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     const targetNode = renderModel.nodeMap.get(connection.target);
     if (!sourceNode || !targetNode) return false;
 
-    const sourceDescriptor = parseGroupHandleId(connection.sourceHandle);
-    const targetDescriptor = parseGroupHandleId(connection.targetHandle);
+    const resolvedConnection = resolveDirectionalGroupConnection(connection, renderModel.nodeMap);
+    if (!resolvedConnection) return false;
+
+    const sourceDescriptor = parseGroupHandleId(resolvedConnection.sourceHandle);
+    const targetDescriptor = parseGroupHandleId(resolvedConnection.targetHandle);
     const sourceGroupId = getNearestGroupAncestorId(connection.source, renderModel.nodeMap);
     const targetGroupId = getNearestGroupAncestorId(connection.target, renderModel.nodeMap);
 
@@ -1007,9 +1107,9 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         'input',
         sourceDescriptor.portId,
       );
-      if (!sourcePort || sourceNode.id !== getParentId(targetNode) || !connection.targetHandle) return false;
+      if (!sourcePort || sourceNode.id !== getParentId(targetNode) || !resolvedConnection.targetHandle) return false;
 
-      const targetType = getInputType(targetNode, connection.targetHandle);
+      const targetType = getInputType(targetNode, resolvedConnection.targetHandle);
       if (!targetType) return false;
 
       if (!sourcePort.type) return true;
@@ -1028,10 +1128,10 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         'output',
         targetDescriptor.portId,
       );
-      if (!targetPort || targetNode.id !== getParentId(sourceNode) || !connection.sourceHandle) return false;
+      if (!targetPort || targetNode.id !== getParentId(sourceNode) || !resolvedConnection.sourceHandle) return false;
       if (targetPort.insideLinks.length > 0) return false;
 
-      const sourceType = getOutputType(sourceNode, connection.sourceHandle);
+      const sourceType = getOutputType(sourceNode, resolvedConnection.sourceHandle);
       if (!sourceType) return false;
 
       if (!targetPort.type) return true;
@@ -1039,18 +1139,18 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       return compatibleTargets?.includes(targetPort.type) ?? false;
     }
 
-    const sourceType = getOutputType(sourceNode, connection.sourceHandle);
-    const targetType = getInputType(targetNode, connection.targetHandle);
+    const sourceType = getOutputType(sourceNode, resolvedConnection.sourceHandle);
+    const targetType = getInputType(targetNode, resolvedConnection.targetHandle);
     if (!sourceType || !targetType) return false;
 
     if (sourceDescriptor) {
       if (sourceDescriptor.side !== 'output' || sourceDescriptor.role !== 'external') return false;
-      if (!canConnectToGroupHandleExternally(sourceNode, connection.sourceHandle)) return false;
+      if (!canConnectToGroupHandleExternally(sourceNode, resolvedConnection.sourceHandle)) return false;
     }
 
     if (targetDescriptor) {
       if (targetDescriptor.side !== 'input' || targetDescriptor.role !== 'external') return false;
-      if (!canConnectToGroupHandleExternally(targetNode, connection.targetHandle)) return false;
+      if (!canConnectToGroupHandleExternally(targetNode, resolvedConnection.targetHandle)) return false;
     }
 
     const compatibleTargets = PORT_COMPATIBILITY[sourceType];
@@ -1089,7 +1189,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       ...extras,
     });
     contextMenuOpenedAtRef.current = Date.now();
-    setActiveRootAction(kind === 'connect' ? 'connect' : null);
     setActiveCategory(null);
   }, [reactFlow]);
 
@@ -1113,8 +1212,38 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     }
 
     store.selectNode(null);
+    openContextMenuAtPoint('paneActions', event);
+  }, [openContextMenuAtPoint, store]);
+
+  const onPaneDoubleClickOpenMenu = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    if (!isPaneBackgroundTarget(event.target)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+    store.selectNode(null);
     openContextMenuAtPoint('pane', event);
   }, [openContextMenuAtPoint, store]);
+
+  const updateLastPointerFlowPosition = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    ) {
+      return;
+    }
+
+    lastPointerFlowPositionRef.current = reactFlow.screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, [reactFlow]);
 
   const onDragOver = useCallback((event: DragEvent) => {
     event.preventDefault();
@@ -1324,6 +1453,11 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     return contextMenu.nodeId ? [contextMenu.nodeId] : [];
   }, [contextMenu]);
 
+  const selectedNodeIds = useMemo(
+    () => store.nodes.filter((node) => node.selected).map((node) => node.id),
+    [store.nodes],
+  );
+
   const contextNodes = useMemo(() => (
     contextNodeIds
       .map((nodeId) => store.nodes.find((item) => item.id === nodeId))
@@ -1354,24 +1488,36 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     return previewUrl && !(previewUrl.startsWith('blob:') && fileUrl) ? previewUrl : fileUrl;
   }, [canvasEditorNode]);
 
+  const getViewportCenterFlowPosition = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+
+    return reactFlow.screenToFlowPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+  }, [reactFlow]);
+
+  const copyNodesToClipboard = useCallback((nodeIds: string[], shouldCloseMenu = true) => {
+    if (nodeIds.length === 0) return false;
+    const snapshot = buildClipboardSnapshot(renderNodes, store.edges, nodeIds);
+    if (!snapshot) return;
+    setClipboardNode(snapshot);
+    if (shouldCloseMenu) closeContextMenu();
+    return true;
+  }, [closeContextMenu, renderNodes, store.edges]);
+
   const copySelectedNode = useCallback(() => {
     if (!contextMenu?.nodeId) return;
-    const snapshot = buildClipboardSnapshot(renderNodes, store.edges, [contextMenu.nodeId]);
-    if (!snapshot) return;
-    setClipboardNode(snapshot);
-    closeContextMenu();
-  }, [closeContextMenu, contextMenu?.nodeId, renderNodes, store.edges]);
+    copyNodesToClipboard([contextMenu.nodeId]);
+  }, [contextMenu?.nodeId, copyNodesToClipboard]);
 
   const copyContextNodes = useCallback(() => {
-    if (contextNodeIds.length === 0) return;
-    const snapshot = buildClipboardSnapshot(renderNodes, store.edges, contextNodeIds);
-    if (!snapshot) return;
-    setClipboardNode(snapshot);
-    closeContextMenu();
-  }, [closeContextMenu, contextNodeIds, renderNodes, store.edges]);
+    copyNodesToClipboard(contextNodeIds);
+  }, [contextNodeIds, copyNodesToClipboard]);
 
-  const pasteNodeAtContext = useCallback(() => {
-    if (!contextMenu || !clipboardNode) return;
+  const pasteClipboardAtPosition = useCallback((flowPosition: { x: number; y: number }) => {
+    if (!clipboardNode) return false;
     const idMap = new Map<string, string>();
     const rootNodeIds = clipboardNode.nodes
       .filter((node) => {
@@ -1399,8 +1545,8 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         const position = nextParentId
           ? { ...node.position }
           : {
-              x: snapValue(contextMenu.flowPosition.x + (node.position.x - clipboardNode.bounds.minX)),
-              y: snapValue(contextMenu.flowPosition.y + (node.position.y - clipboardNode.bounds.minY)),
+              x: snapValue(flowPosition.x + (node.position.x - clipboardNode.bounds.minX)),
+              y: snapValue(flowPosition.y + (node.position.y - clipboardNode.bounds.minY)),
             };
 
         let extent = (node as FlowNodeType & { extent?: unknown }).extent;
@@ -1456,7 +1602,13 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       hasUnsavedChanges: true,
     }));
     closeContextMenu();
-  }, [clipboardNode, closeContextMenu, contextMenu, store]);
+    return true;
+  }, [clipboardNode, closeContextMenu, store]);
+
+  const pasteNodeAtContext = useCallback(() => {
+    if (!contextMenu) return;
+    pasteClipboardAtPosition(contextMenu.flowPosition);
+  }, [contextMenu, pasteClipboardAtPosition]);
 
   const deleteContextNode = useCallback(() => {
     if (!contextMenu?.nodeId) return;
@@ -1469,6 +1621,43 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     store.createNodeGroup(contextNodeIds);
     closeContextMenu();
   }, [closeContextMenu, contextNodeIds, store]);
+
+  useEffect(() => {
+    const handleClipboardHotkeys = (event: KeyboardEvent) => {
+      if (isEditableElement(event.target)) return;
+      if (event.altKey) return;
+      if (!event.metaKey && !event.ctrlKey) return;
+
+      const key = event.key.toLowerCase();
+      if (key === 'c') {
+        if (selectedNodeIds.length === 0) return;
+        if (!copyNodesToClipboard(selectedNodeIds, false)) return;
+        event.preventDefault();
+        closeContextMenu();
+        return;
+      }
+
+      if (key === 'v') {
+        if (!clipboardNode) return;
+        const pastePosition = lastPointerFlowPositionRef.current
+          || (contextMenu && contextMenu.kind !== 'node' ? contextMenu.flowPosition : null)
+          || getViewportCenterFlowPosition();
+        if (!pasteClipboardAtPosition(pastePosition)) return;
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleClipboardHotkeys);
+    return () => window.removeEventListener('keydown', handleClipboardHotkeys);
+  }, [
+    clipboardNode,
+    closeContextMenu,
+    contextMenu,
+    copyNodesToClipboard,
+    getViewportCenterFlowPosition,
+    pasteClipboardAtPosition,
+    selectedNodeIds,
+  ]);
 
   const ungroupContextNodes = useCallback(() => {
     if (contextNodeIds.length === 0) return;
@@ -1703,11 +1892,18 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     return NODE_COLORS[node.type || ''] || '#8E8E93';
   }, []);
 
-  const submenuSideKey = contextMenu?.horizontalDirection === 'left' ? 'right' : 'left';
-  const rootActionKey = contextMenu?.kind === 'connect' ? 'connect' : 'new';
+  const currentNodeCategory = groupedNodeDefs.some((group) => group.category === activeCategory)
+    ? activeCategory
+    : groupedNodeDefs[0]?.category || null;
+  const currentNodeItems = groupedNodeDefs.find((group) => group.category === currentNodeCategory)?.items || [];
 
   return (
-    <div ref={containerRef} className="relative h-full w-full">
+    <div
+      ref={containerRef}
+      className="relative h-full w-full"
+      onDoubleClick={onPaneDoubleClickOpenMenu}
+      onMouseMove={updateLastPointerFlowPosition}
+    >
       <ReactFlow
         nodes={renderNodes}
         edges={renderEdges}
@@ -1791,16 +1987,25 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       </ReactFlow>
 
       {contextMenu && (
-        <div
-          className="workflow-context-menu workflow-context-menu--root"
-          style={{
-            left: contextMenu.x,
-            top: contextMenu.y,
-          }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {contextMenu.kind === 'node' ? (
-            hasMultipleContextNodes ? (
+        contextMenu.kind === 'node' || contextMenu.kind === 'paneActions' ? (
+          <div
+            className="workflow-context-menu workflow-context-menu--root"
+            style={{
+              left: contextMenu.x,
+              top: contextMenu.y,
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {contextMenu.kind === 'paneActions' ? (
+              <>
+                <ContextMenuButton
+                  label="粘贴节点"
+                  onClick={pasteNodeAtContext}
+                  disabled={!clipboardNode}
+                  title={!clipboardNode ? '剪贴板里还没有可粘贴的节点' : undefined}
+                />
+              </>
+            ) : hasMultipleContextNodes ? (
               <>
                 {canCreateGroup && <ContextMenuButton label="创建节点组" onClick={createGroupFromContextNodes} />}
                 <ContextMenuButton label="复制所选节点" onClick={copyContextNodes} />
@@ -1838,62 +2043,58 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
                 <ContextMenuButton label="恢复默认尺寸" onClick={resetContextNodeSize} />
                 <ContextMenuButton label={hasSingleGroupContextNode ? '删除组' : '删除节点'} onClick={deleteContextNode} danger />
               </>
-            )
-          ) : (
-            <>
-              {clipboardNode && <ContextMenuButton label="粘贴节点" onClick={pasteNodeAtContext} />}
-              <ContextMenuButton
-                label={contextMenu.kind === 'connect' ? '连接到新节点 ▸' : '新建节点 ▸'}
-                onClick={() => undefined}
-                active={activeRootAction === rootActionKey}
-                onHover={() => {
-                  setActiveRootAction(rootActionKey);
-                  if (!activeCategory) {
-                    setActiveCategory(groupedNodeDefs[0]?.category || null);
-                  }
-                }}
-              />
-            </>
-          )}
-
-          {activeRootAction && groupedNodeDefs.length > 0 && contextMenu.kind !== 'node' && (
+            )}
+          </div>
+        ) : (
+          <div className="workflow-context-panel-layer" onClick={closeContextMenu}>
             <div
-              className="workflow-context-menu workflow-context-menu--submenu"
-              style={{
-                [submenuSideKey]: 'calc(100% + 6px)',
-              }}
+              className="workflow-context-menu workflow-context-menu--panel"
+              onClick={(event) => event.stopPropagation()}
             >
-              {groupedNodeDefs.map((group) => (
-                <ContextMenuButton
-                  key={group.category}
-                  label={`${group.label} ▸`}
-                  onClick={() => undefined}
-                  active={activeCategory === group.category}
-                  onHover={() => setActiveCategory(group.category)}
-                />
-              ))}
-
-              {activeCategory && (
-                <div
-                  className="workflow-context-menu workflow-context-menu--submenu workflow-context-menu--items"
-                  style={{
-                    [submenuSideKey]: 'calc(100% + 6px)',
-                  }}
-                >
-                  {groupedNodeDefs
-                    .find((group) => group.category === activeCategory)
-                    ?.items.map((nodeDef) => (
-                      <ContextMenuButton
-                        key={nodeDef.type}
-                        label={nodeDef.label}
-                        onClick={() => addNodeFromMenu(nodeDef.type)}
-                      />
-                    ))}
+              <div className="workflow-context-menu__catalog">
+                <div className="workflow-context-menu__catalog-header">
+                  <div className="workflow-context-menu__catalog-title">
+                    {contextMenu.kind === 'connect' ? '连接到新节点' : '新建节点'}
+                  </div>
+                  <div className="workflow-context-menu__catalog-subtitle">
+                    {contextMenu.kind === 'connect' ? '只显示当前端口可以连接的节点' : '选择一个节点插入到画布'}
+                  </div>
                 </div>
-              )}
+
+                {clipboardNode && contextMenu.kind !== 'connect' && (
+                  <ContextMenuButton label="粘贴节点" onClick={pasteNodeAtContext} />
+                )}
+
+                <div className="workflow-context-menu__category-strip">
+                  {groupedNodeDefs.map((group) => (
+                    <button
+                      key={group.category}
+                      type="button"
+                      className={[
+                        'workflow-context-menu__category-chip',
+                        currentNodeCategory === group.category ? 'workflow-context-menu__category-chip--active' : '',
+                      ].filter(Boolean).join(' ')}
+                      onClick={() => setActiveCategory(group.category)}
+                    >
+                      <span>{group.label}</span>
+                      <span className="workflow-context-menu__category-count">{group.items.length}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="workflow-context-menu__node-list">
+                  {currentNodeItems.map((nodeDef) => (
+                    <NodeCatalogButton
+                      key={nodeDef.type}
+                      nodeDef={nodeDef}
+                      onClick={() => addNodeFromMenu(nodeDef.type)}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )
       )}
 
       {canvasEditorNode && canvasEditorSource && (
@@ -1951,6 +2152,43 @@ function ContextMenuButton({
       title={title || (disabled ? DISABLED_NODE_REASON : label)}
     >
       {label}
+    </button>
+  );
+}
+
+function NodeCatalogButton({
+  nodeDef,
+  onClick,
+}: {
+  nodeDef: (typeof NODE_REGISTRY)[number];
+  onClick: () => void;
+}) {
+  const Icon = NODE_ICONS[nodeDef.icon] || NODE_ICONS.eye;
+  const inputCount = nodeDef.maxInputs ? `${nodeDef.maxInputs}+` : String(nodeDef.inputs.length);
+  const outputCount = String(nodeDef.outputs.length);
+
+  return (
+    <button
+      type="button"
+      className="workflow-context-menu__node-card"
+      onClick={onClick}
+      title={nodeDef.label}
+    >
+      <span
+        className="workflow-context-menu__node-icon"
+        style={{
+          color: nodeDef.color || '#8E8E93',
+          background: `${nodeDef.color || '#8E8E93'}18`,
+          border: `1px solid ${nodeDef.color || '#8E8E93'}28`,
+        }}
+        aria-hidden="true"
+      >
+        <Icon size={16} strokeWidth={2.1} />
+      </span>
+      <span className="workflow-context-menu__node-copy">
+        <span className="workflow-context-menu__node-label">{nodeDef.label}</span>
+        <span className="workflow-context-menu__node-meta">{inputCount} 入 / {outputCount} 出</span>
+      </span>
     </button>
   );
 }

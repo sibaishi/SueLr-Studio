@@ -57,7 +57,7 @@ SueLr Studio is organized around four everyday flows:
 
 1. Configure providers and model access from settings.
 2. Run direct chat, image, and video tasks.
-3. Build and execute workflows on the canvas.
+3. Build and execute workflows on the canvas, including centered node picking, grouped nodes, and keyboard copy-paste.
 4. Review outputs, logs, generated files, and workflow run details locally.
 
 ## Runtime Data
@@ -80,6 +80,7 @@ npm run dev:frontend
 npm run dev:backend
 npm run build
 npm run check
+npm run electron:dist
 npm run test:e2e
 npm run test:e2e:install
 ```

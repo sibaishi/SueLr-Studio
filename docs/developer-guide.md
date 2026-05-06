@@ -110,19 +110,37 @@ Current cleanup and ownership notes:
 - `src/features/workflow/components/Sidebar.tsx`
   - node catalog and canvas insertion entry
 - `src/features/workflow/components/FlowCanvas.tsx`
-  - canvas graph rendering and editor interactions
+  - canvas graph rendering, context menus, centered node-picker panel, keyboard shortcuts, grouping, connection, drag/drop, and editor interactions
+- `src/features/workflow/components/nodes/FlowNode.tsx`
+  - workflow node frame rendering, node chrome, group collapse controls, and node-level actions
+- `src/features/workflow/components/nodes/NodePorts.tsx`
+  - regular node handles and group boundary port handles, including split internal and external group-port affordances
 - `src/features/workflow/components/ResultsPanel.tsx`
   - outputs, logs, and run diagnostics
 - `src/features/workflow/components/StatusBar.tsx`
   - graph summary and execution state
 - `src/features/workflow/components/nodes/NodeParamFields.tsx`
   - node parameter editors
+- `src/features/workflow/lib/groupLayout.ts`
+  - group sizing, collapsed group size, child constraints, and root-node placement around groups
+- `src/features/workflow/lib/groupPorts.ts`
+  - group input/output port normalization, boundary-handle ids, compatibility, and transit-port routing
+- `src/features/workflow/lib/executionGraph.ts`
+  - projection from editable grouped canvas graph to executable flat graph
 - `src/features/workflow/lib/store.ts`
   - main workflow state store
 - `src/features/workflow/lib/store/document.ts`
   - workflow document persistence state
 - `src/features/workflow/lib/store/editor.ts`
-  - canvas editing operations
+  - composed canvas editing operations
+- `src/features/workflow/lib/store/editorGraph.ts`
+  - node and edge editing, connection changes, and graph mutation helpers
+- `src/features/workflow/lib/store/editorGroups.ts`
+  - group creation, ungrouping, collapse state, and group membership operations
+- `src/features/workflow/lib/store/editorSession.ts`
+  - transient editor session state such as selection-oriented canvas state
+- `src/features/workflow/lib/store/editorShared.ts`
+  - shared editor helpers for layout, locking, disabling, group movement, and related graph updates
 - `src/features/workflow/lib/store/execution.ts`
   - run lifecycle and execution status
 - `src/features/workflow/lib/api.ts`
@@ -279,6 +297,12 @@ When changing behavior:
 High-value regression areas:
 
 - workflow document save/load/import/export
+- workflow group creation, collapse, ungroup, locking, and disabling behavior
+- group input/output port routing across group boundaries
+- directional group-port connection behavior from `FlowCanvas.tsx` through `NodePorts.tsx`
+- centered node-picker panel, blank-canvas double-click open, and blank-canvas right-click paste menu
+- workflow keyboard shortcuts for copy and paste placement
+- editable grouped graph to executable flat graph projection
 - workflow execution state transitions
 - image generation response normalization
 - external data path persistence and restart behavior
@@ -311,7 +335,11 @@ For browser-facing changes, install and run the E2E smoke suite:
 - `npm run test:e2e:install`
 - `npm run test:e2e`
 
-For desktop WebView packaging, build the portable Windows executable:
+For desktop release packaging, build the portable Windows executable:
+
+- `npm run electron:dist`
+
+For an unpacked desktop inspection build:
 
 - `npm run electron:pack`
 

@@ -392,13 +392,13 @@
 
 .node-port--group {
   min-height: 38px;
-  padding: 4px 42px;
+  padding: 4px 122px 4px 42px;
   justify-content: flex-start;
 }
 
 .flow-node--collapsed .node-port--group {
   min-height: 32px;
-  padding: 3px 38px;
+  padding: 3px 112px 3px 38px;
 }
 
 .node-port--group-empty {
@@ -407,6 +407,11 @@
 
 .node-port--group-output {
   justify-content: flex-end;
+  padding: 4px 42px 4px 122px;
+}
+
+.flow-node--collapsed .node-port--group-output {
+  padding: 3px 38px 3px 112px;
 }
 
 .node-port__group-main {
@@ -451,6 +456,16 @@
 .node-port__handle--overlay {
   opacity: 0;
   pointer-events: auto;
+}
+
+.node-port__handle--internal {
+  opacity: 0.72;
+}
+
+.node-port__handle--internal:hover,
+.node-port__handle--internal.connecting,
+.node-port__handle--internal.valid {
+  opacity: 1;
 }
 
 .node-port--input {

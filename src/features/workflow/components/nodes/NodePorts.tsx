@@ -103,7 +103,8 @@ function GroupHandle({
   portId,
   handleType,
   position,
-  anchorPosition,
+  visualPosition,
+  visualOffset,
   connectable,
   color,
   className,
@@ -113,22 +114,23 @@ function GroupHandle({
   portId: string;
   handleType: 'source' | 'target';
   position: Position;
-  anchorPosition?: Position;
+  visualPosition?: Position;
+  visualOffset?: number;
   connectable: boolean;
   color: string;
   className: string;
 }) {
-  const visualPosition = anchorPosition || position;
-  const sideStyle = visualPosition === Position.Left
+  const handleVisualPosition = visualPosition || position;
+  const sideStyle = handleVisualPosition === Position.Left
     ? {
-        left: NODE_PORT_GUTTER,
+        left: visualOffset ?? NODE_PORT_GUTTER,
         right: 'auto',
         top: '50%',
         transform: 'translateY(-50%)',
       }
     : {
         left: 'auto',
-        right: NODE_PORT_GUTTER,
+        right: visualOffset ?? NODE_PORT_GUTTER,
         top: '50%',
         transform: 'translateY(-50%)',
       };
@@ -192,10 +194,11 @@ export function GroupPortRow({
             portId={port.id}
             handleType="source"
             position={Position.Right}
-            anchorPosition={Position.Left}
+            visualPosition={Position.Left}
+            visualOffset={98}
             connectable={isConnectable}
             color={portColor}
-            className="node-port__handle node-port__handle--shared node-port__handle--overlay"
+            className="node-port__handle node-port__handle--shared node-port__handle--internal"
           />
           <div className="node-port__group-main">
             {isEmpty ? (
@@ -238,10 +241,11 @@ export function GroupPortRow({
             portId={port.id}
             handleType="target"
             position={Position.Left}
-            anchorPosition={Position.Right}
+            visualPosition={Position.Right}
+            visualOffset={98}
             connectable={port.insideLinks.length === 0 && isConnectable}
             color={portColor}
-            className="node-port__handle node-port__handle--shared node-port__handle--overlay"
+            className="node-port__handle node-port__handle--shared node-port__handle--internal"
           />
         </>
       )}
