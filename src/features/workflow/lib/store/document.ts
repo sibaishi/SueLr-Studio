@@ -3,6 +3,7 @@ import * as api from '@/features/workflow/lib/api';
 import type { Workflow } from '@/features/workflow/lib/types';
 import type { WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
 import { clearActiveRunSnapshot, loadLocalDraft } from '@/features/workflow/lib/store/persistence';
+import { pruneGroupPortEdges } from '@/features/workflow/lib/groupPorts';
 import { normalizeEditorNodes } from '@/features/workflow/lib/store/editorShared';
 import { buildWorkflowPayload, gid, normalizeEdges, normalizeNodes } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowImportResult, WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
@@ -80,7 +81,9 @@ export function createWorkflowDocumentActions(
 
       const workflow = result.data as Workflow;
       const rawNodes = normalizeNodes(workflow.nodes);
-      const edges = normalizeEdges(workflow.edges, new Set(rawNodes.map((node) => node.id)));
+      const normalizedEdges = normalizeEdges(workflow.edges, new Set(rawNodes.map((node) => node.id)));
+      const normalizedNodes = normalizeEditorNodes(rawNodes, normalizedEdges);
+      const edges = pruneGroupPortEdges(normalizedNodes, normalizedEdges);
       const nodes = normalizeEditorNodes(rawNodes, edges);
 
       set({
@@ -205,7 +208,9 @@ export function createWorkflowDocumentActions(
 
       const record = importResult.data as Workflow;
       const rawNodes = normalizeNodes(record.nodes);
-      const edges = normalizeEdges(record.edges, new Set(rawNodes.map((node) => node.id)));
+      const normalizedEdges = normalizeEdges(record.edges, new Set(rawNodes.map((node) => node.id)));
+      const normalizedNodes = normalizeEditorNodes(rawNodes, normalizedEdges);
+      const edges = pruneGroupPortEdges(normalizedNodes, normalizedEdges);
       const nodes = normalizeEditorNodes(rawNodes, edges);
       const importedName = typeof record.name === 'string'
         ? record.name

@@ -116,11 +116,13 @@ describe('workflow store document actions', () => {
     };
     expect(groupData.groupInputs?.[0]).toMatchObject({
       type: 'string',
-      binding: { nodeId: 'inner', handleId: 'prompt' },
+      insideLinks: [{ nodeId: 'inner', handleId: 'prompt' }],
+      outsideLinks: [{ nodeId: 'outside', handleId: 'text' }],
     });
     expect(groupData.groupOutputs?.[0]).toMatchObject({
       type: 'string',
-      binding: { nodeId: 'inner', handleId: 'response' },
+      insideLinks: [{ nodeId: 'inner', handleId: 'response' }],
+      outsideLinks: [{ nodeId: 'outside', handleId: 'text' }],
     });
     expect(state.isExecuting).toBe(false);
     expect(state.currentRunId).toBeNull();
@@ -204,7 +206,8 @@ describe('workflow store document actions', () => {
     };
     expect(groupData.groupInputs?.[0]).toMatchObject({
       type: 'string',
-      binding: { nodeId: 'inner', handleId: 'prompt' },
+      insideLinks: [{ nodeId: 'inner', handleId: 'prompt' }],
+      outsideLinks: [{ nodeId: 'outside', handleId: 'text' }],
     });
     expect(state.isExecuting).toBe(false);
     expect(state.currentRunId).toBeNull();

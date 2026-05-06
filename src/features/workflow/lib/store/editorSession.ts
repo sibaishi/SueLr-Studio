@@ -1,5 +1,6 @@
 import { DEFAULT_WORKFLOW_NAME } from '@/features/workflow/lib/constants';
 import * as api from '@/features/workflow/lib/api';
+import { pruneGroupPortEdges } from '@/features/workflow/lib/groupPorts';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
 import { normalizeEditorNodes } from '@/features/workflow/lib/store/editorShared';
 import { normalizeEdges, normalizeNodes } from '@/features/workflow/lib/store/helpers';
@@ -91,7 +92,9 @@ export function createWorkflowEditorSessionActions(
     applyEditorSnapshot: (snapshot: WorkflowEditorSnapshot, markDirty = true) => {
       clearActiveRunSnapshot();
       const rawNodes = normalizeNodes(snapshot.nodes);
-      const edges = normalizeEdges(snapshot.edges, new Set(rawNodes.map((node) => node.id)));
+      const normalizedEdges = normalizeEdges(snapshot.edges, new Set(rawNodes.map((node) => node.id)));
+      const normalizedNodes = normalizeEditorNodes(rawNodes, normalizedEdges);
+      const edges = pruneGroupPortEdges(normalizedNodes, normalizedEdges);
       const nodes = normalizeEditorNodes(rawNodes, edges);
       set({
         workflowId: snapshot.workflowId,

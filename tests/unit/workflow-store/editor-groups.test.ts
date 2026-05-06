@@ -52,37 +52,56 @@ describe('workflow store group editor actions', () => {
     expect(outputs).toHaveLength(2);
     expect(inputs[0]).toMatchObject({
       type: 'string',
-      binding: {
+      insideLinks: [{
         nodeId: 'innerA',
         handleId: 'prompt',
-      },
+      }],
+      outsideLinks: [{
+        nodeId: 'source',
+        handleId: 'text',
+      }],
     });
     expect(outputs[0]).toMatchObject({
       type: 'string',
-      binding: {
+      insideLinks: [{
         nodeId: 'innerA',
         handleId: 'response',
-      },
+      }],
+      outsideLinks: [{
+        nodeId: 'outside',
+        handleId: 'content',
+      }],
     });
-    expect(inputs[1]).toMatchObject({ binding: null });
-    expect(outputs[1]).toMatchObject({ binding: null });
+    expect(inputs[1]).toMatchObject({ insideLinks: [], outsideLinks: [] });
+    expect(outputs[1]).toMatchObject({ insideLinks: [], outsideLinks: [] });
     expect(groupNode?.data?.collapsed).toBe(false);
-    expect(state.edges).toEqual([
-      {
-        id: 'e1',
+    expect(state.edges).toHaveLength(4);
+    expect(state.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
         source: 'source',
         sourceHandle: 'text',
         target: groupId,
         targetHandle: expect.stringContaining('group-port:input:external:'),
-      },
-      {
-        id: 'e2',
+      }),
+      expect.objectContaining({
+        source: groupId,
+        sourceHandle: expect.stringContaining('group-port:input:internal:'),
+        target: 'innerA',
+        targetHandle: 'prompt',
+      }),
+      expect.objectContaining({
+        source: 'innerA',
+        sourceHandle: 'response',
+        target: groupId,
+        targetHandle: expect.stringContaining('group-port:output:internal:'),
+      }),
+      expect.objectContaining({
         source: groupId,
         sourceHandle: expect.stringContaining('group-port:output:external:'),
         target: 'outside',
         targetHandle: 'content',
-      },
-    ]);
+      }),
+    ]));
   });
 
   it('ungroups children back to root nodes with absolute positions', () => {

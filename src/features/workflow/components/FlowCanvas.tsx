@@ -38,6 +38,7 @@ import {
   collectDescendantNodeIds,
   findGroupPort,
   getGroupPorts,
+  isGroupPortExternallyConnectable,
   parseGroupHandleId,
 } from '@/features/workflow/lib/groupPorts';
 import {
@@ -327,12 +328,12 @@ function getInputType(node: FlowNodeType | undefined, handleId: string | null | 
   return def.inputs.find((port) => port.id === handleId)?.type || null;
 }
 
-function isGroupHandleExternallyConnectable(node: FlowNodeType | undefined, handleId: string | null | undefined) {
+function canConnectToGroupHandleExternally(node: FlowNodeType | undefined, handleId: string | null | undefined) {
   if (!node || node.type !== 'group' || !handleId) return false;
   const descriptor = parseGroupHandleId(handleId);
   if (!descriptor) return false;
   const port = findGroupPort((node.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId);
-  return Boolean(port?.binding);
+  return port ? isGroupPortExternallyConnectable(port) : false;
 }
 
 function getVisibleCollapsedAncestorId(
@@ -639,31 +640,35 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
       const nodeData = (node.data || {}) as Record<string, unknown>;
       for (const port of getGroupPorts(nodeData, 'input')) {
-        if (!port.binding || !visibleNodeIds.has(port.binding.nodeId)) continue;
-        internalPortEdges.push({
-          id: `group-binding:${node.id}:input:${port.id}`,
-          source: node.id,
-          sourceHandle: buildGroupHandleId('input', port.id, 'internal'),
-          target: port.binding.nodeId,
-          targetHandle: port.binding.handleId,
-          type: 'default',
-          animated: false,
-          style: { ...GROUP_INTERNAL_EDGE_STYLE },
-        });
+        for (const insideLink of port.insideLinks) {
+          if (!visibleNodeIds.has(insideLink.nodeId)) continue;
+          internalPortEdges.push({
+            id: `group-binding:${node.id}:input:${port.id}:${insideLink.nodeId}:${insideLink.handleId}`,
+            source: node.id,
+            sourceHandle: buildGroupHandleId('input', port.id, 'internal'),
+            target: insideLink.nodeId,
+            targetHandle: insideLink.handleId,
+            type: 'default',
+            animated: false,
+            style: { ...GROUP_INTERNAL_EDGE_STYLE },
+          });
+        }
       }
 
       for (const port of getGroupPorts(nodeData, 'output')) {
-        if (!port.binding || !visibleNodeIds.has(port.binding.nodeId)) continue;
-        internalPortEdges.push({
-          id: `group-binding:${node.id}:output:${port.id}`,
-          source: port.binding.nodeId,
-          sourceHandle: port.binding.handleId,
-          target: node.id,
-          targetHandle: buildGroupHandleId('output', port.id, 'internal'),
-          type: 'default',
-          animated: false,
-          style: { ...GROUP_INTERNAL_EDGE_STYLE },
-        });
+        for (const insideLink of port.insideLinks) {
+          if (!visibleNodeIds.has(insideLink.nodeId)) continue;
+          internalPortEdges.push({
+            id: `group-binding:${node.id}:output:${port.id}:${insideLink.nodeId}:${insideLink.handleId}`,
+            source: insideLink.nodeId,
+            sourceHandle: insideLink.handleId,
+            target: node.id,
+            targetHandle: buildGroupHandleId('output', port.id, 'internal'),
+            type: 'default',
+            animated: false,
+            style: { ...GROUP_INTERNAL_EDGE_STYLE },
+          });
+        }
       }
     }
 
@@ -672,6 +677,14 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       const targetDescriptor = parseGroupHandleId(edge.targetHandle);
       const sourceNodeForEdge = nodeMap.get(edge.source);
       const targetNodeForEdge = nodeMap.get(edge.target);
+      const sourceIsCollapsedGroupExternal =
+        sourceNodeForEdge?.type === 'group'
+        && collapsedGroupIds.has(edge.source)
+        && sourceDescriptor?.role === 'external';
+      const targetIsCollapsedGroupExternal =
+        targetNodeForEdge?.type === 'group'
+        && collapsedGroupIds.has(edge.target)
+        && targetDescriptor?.role === 'external';
 
       if (
         sourceDescriptor
@@ -684,7 +697,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
           'input',
           sourceDescriptor.portId,
         );
-        if (port?.binding?.nodeId === edge.target && port.binding.handleId === edge.targetHandle) {
+        if (port?.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle)) {
           continue;
         }
       }
@@ -700,9 +713,14 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
           'output',
           targetDescriptor.portId,
         );
-        if (port?.binding?.nodeId === edge.source && port.binding.handleId === edge.sourceHandle) {
+        if (port?.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle)) {
           continue;
         }
+      }
+
+      if (sourceIsCollapsedGroupExternal || targetIsCollapsedGroupExternal) {
+        visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
+        continue;
       }
 
       const sourceGroupId = getNearestGroupAncestorId(edge.source, nodeMap);
@@ -727,7 +745,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       if (!visibleSourceGroupId && visibleTargetGroupId) {
         const groupNode = nodeMap.get(visibleTargetGroupId);
         const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'input') : [];
-        const port = ports.find((item) => item.binding?.nodeId === edge.target && item.binding?.handleId === edge.targetHandle);
+        const port = ports.find((item) => item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle));
         if (!port) continue;
         virtualEdges.push({
           id: `virtual:${edge.id}`,
@@ -745,7 +763,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       if (visibleSourceGroupId && !visibleTargetGroupId) {
         const groupNode = nodeMap.get(visibleSourceGroupId);
         const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'output') : [];
-        const port = ports.find((item) => item.binding?.nodeId === edge.source && item.binding?.handleId === edge.sourceHandle);
+        const port = ports.find((item) => item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle));
         if (!port) continue;
         virtualEdges.push({
           id: `virtual:${edge.id}`,
@@ -765,8 +783,8 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         const targetGroupNode = nodeMap.get(visibleTargetGroupId);
         const sourcePorts = sourceGroupNode ? getGroupPorts((sourceGroupNode.data || {}) as Record<string, unknown>, 'output') : [];
         const targetPorts = targetGroupNode ? getGroupPorts((targetGroupNode.data || {}) as Record<string, unknown>, 'input') : [];
-        const sourcePort = sourcePorts.find((item) => item.binding?.nodeId === edge.source && item.binding?.handleId === edge.sourceHandle);
-        const targetPort = targetPorts.find((item) => item.binding?.nodeId === edge.target && item.binding?.handleId === edge.targetHandle);
+        const sourcePort = sourcePorts.find((item) => item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle));
+        const targetPort = targetPorts.find((item) => item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle));
         if (!sourcePort || !targetPort) continue;
         virtualEdges.push({
           id: `virtual:${edge.id}`,
@@ -842,16 +860,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       && targetGroupHandle.side === 'output'
       && targetGroupHandle.role === 'internal'
     ) {
-      const port = findGroupPort((targetNode.data || {}) as Record<string, unknown>, 'output', targetGroupHandle.portId);
-      if (port?.binding) return;
-
-      currentStore.updateGroupPort(targetNode.id, 'output', targetGroupHandle.portId, {
-        binding: {
-          nodeId: connection.source,
-          handleId: connection.sourceHandle,
-        },
-        type: getOutputType(sourceNode, connection.sourceHandle),
-      });
       currentStore.addEdge(
         connection.source,
         connection.sourceHandle,
@@ -867,16 +875,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       && sourceGroupHandle.side === 'input'
       && sourceGroupHandle.role === 'internal'
     ) {
-      const port = findGroupPort((sourceNode.data || {}) as Record<string, unknown>, 'input', sourceGroupHandle.portId);
-      if (port?.binding) return;
-
-      currentStore.updateGroupPort(sourceNode.id, 'input', sourceGroupHandle.portId, {
-        binding: {
-          nodeId: connection.target,
-          handleId: connection.targetHandle,
-        },
-        type: getInputType(targetNode, connection.targetHandle),
-      });
       currentStore.addEdge(
         connection.source,
         connection.sourceHandle,
@@ -893,7 +891,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       && sourceGroupHandle.role === 'external'
     ) {
       const sourcePort = findGroupPort((sourceNode.data || {}) as Record<string, unknown>, 'output', sourceGroupHandle.portId);
-      if (sourcePort?.binding) {
+      if (sourcePort && isGroupPortExternallyConnectable(sourcePort)) {
         currentStore.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
       }
       return;
@@ -906,7 +904,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       && targetGroupHandle.role === 'external'
     ) {
       const targetPort = findGroupPort((targetNode.data || {}) as Record<string, unknown>, 'input', targetGroupHandle.portId);
-      if (targetPort?.binding) {
+      if (targetPort && isGroupPortExternallyConnectable(targetPort)) {
         currentStore.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
       }
     }
@@ -957,9 +955,14 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     event.stopPropagation();
 
     if (edge.id.startsWith('group-binding:')) {
-      const [, groupId, side, portId] = edge.id.split(':');
-      if ((side === 'input' || side === 'output') && groupId && portId) {
-        store.updateGroupPort(groupId, side, portId, { binding: null, type: null });
+      const actualEdge = store.edges.find((candidate) => (
+        candidate.source === edge.source
+        && candidate.sourceHandle === edge.sourceHandle
+        && candidate.target === edge.target
+        && candidate.targetHandle === edge.targetHandle
+      ));
+      if (actualEdge) {
+        store.removeEdge(actualEdge.id);
         return;
       }
     }
@@ -986,6 +989,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
     const sourceDescriptor = parseGroupHandleId(connection.sourceHandle);
     const targetDescriptor = parseGroupHandleId(connection.targetHandle);
+    const sourceGroupId = getNearestGroupAncestorId(connection.source, renderModel.nodeMap);
+    const targetGroupId = getNearestGroupAncestorId(connection.target, renderModel.nodeMap);
+
+    if (!sourceDescriptor && !targetDescriptor && sourceGroupId !== targetGroupId) {
+      return false;
+    }
 
     if (
       sourceDescriptor
@@ -998,10 +1007,14 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         'input',
         sourceDescriptor.portId,
       );
-      if (!sourcePort?.binding) {
-        return sourceNode.id === getParentId(targetNode) && Boolean(connection.targetHandle);
-      }
-      return false;
+      if (!sourcePort || sourceNode.id !== getParentId(targetNode) || !connection.targetHandle) return false;
+
+      const targetType = getInputType(targetNode, connection.targetHandle);
+      if (!targetType) return false;
+
+      if (!sourcePort.type) return true;
+      const compatibleTargets = PORT_COMPATIBILITY[sourcePort.type];
+      return compatibleTargets?.includes(targetType) ?? false;
     }
 
     if (
@@ -1015,10 +1028,15 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         'output',
         targetDescriptor.portId,
       );
-      if (!targetPort?.binding) {
-        return targetNode.id === getParentId(sourceNode) && Boolean(connection.sourceHandle);
-      }
-      return false;
+      if (!targetPort || targetNode.id !== getParentId(sourceNode) || !connection.sourceHandle) return false;
+      if (targetPort.insideLinks.length > 0) return false;
+
+      const sourceType = getOutputType(sourceNode, connection.sourceHandle);
+      if (!sourceType) return false;
+
+      if (!targetPort.type) return true;
+      const compatibleTargets = PORT_COMPATIBILITY[sourceType];
+      return compatibleTargets?.includes(targetPort.type) ?? false;
     }
 
     const sourceType = getOutputType(sourceNode, connection.sourceHandle);
@@ -1027,12 +1045,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
     if (sourceDescriptor) {
       if (sourceDescriptor.side !== 'output' || sourceDescriptor.role !== 'external') return false;
-      if (!isGroupHandleExternallyConnectable(sourceNode, connection.sourceHandle)) return false;
+      if (!canConnectToGroupHandleExternally(sourceNode, connection.sourceHandle)) return false;
     }
 
     if (targetDescriptor) {
       if (targetDescriptor.side !== 'input' || targetDescriptor.role !== 'external') return false;
-      if (!isGroupHandleExternallyConnectable(targetNode, connection.targetHandle)) return false;
+      if (!canConnectToGroupHandleExternally(targetNode, connection.targetHandle)) return false;
     }
 
     const compatibleTargets = PORT_COMPATIBILITY[sourceType];
@@ -1226,12 +1244,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       }
 
       if (params.handleType === 'source') {
-        if (groupDescriptor.side === 'output' && groupDescriptor.role === 'external' && !port.binding) {
+        if (groupDescriptor.side === 'output' && groupDescriptor.role === 'external' && !isGroupPortExternallyConnectable(port)) {
           pendingConnectionRef.current = null;
           return;
         }
         pendingConnectionRef.current = {
-          allowCreateNode: groupDescriptor.side === 'output' && groupDescriptor.role === 'external' && Boolean(port.binding),
+          allowCreateNode: groupDescriptor.side === 'output' && groupDescriptor.role === 'external' && isGroupPortExternallyConnectable(port),
           handleType: 'source',
           sourceId: params.nodeId,
           sourceHandle: params.handleId,
@@ -1240,13 +1258,13 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         return;
       }
 
-      if (groupDescriptor.side === 'input' && groupDescriptor.role === 'external' && !port.binding) {
+      if (groupDescriptor.side === 'input' && groupDescriptor.role === 'external' && !isGroupPortExternallyConnectable(port)) {
         pendingConnectionRef.current = null;
         return;
       }
 
       pendingConnectionRef.current = {
-        allowCreateNode: groupDescriptor.side === 'input' && groupDescriptor.role === 'external' && Boolean(port.binding),
+        allowCreateNode: groupDescriptor.side === 'input' && groupDescriptor.role === 'external' && isGroupPortExternallyConnectable(port),
         handleType: 'target',
         targetId: params.nodeId,
         targetHandle: params.handleId,

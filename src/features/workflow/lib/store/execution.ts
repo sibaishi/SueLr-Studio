@@ -1,4 +1,5 @@
 import * as api from '@/features/workflow/lib/api';
+import { projectWorkflowToExecutionGraph } from '@/features/workflow/lib/executionGraph';
 import { clearActiveRunSnapshot, loadActiveRunSnapshot, saveActiveRunSnapshot } from '@/features/workflow/lib/store/persistence';
 import {
   buildWorkflowPayload,
@@ -81,9 +82,10 @@ export function createWorkflowExecutionActions(
       const state = get();
       if (state.isExecuting || state.nodes.length === 0) return;
 
-      const aiNodesMissingOutputs = getAiNodesMissingValidOutputs(state.nodes, state.edges);
+      const executableGraph = projectWorkflowToExecutionGraph(state.nodes, state.edges);
+      const aiNodesMissingOutputs = getAiNodesMissingValidOutputs(executableGraph.nodes, executableGraph.edges);
       if (aiNodesMissingOutputs.length > 0) {
-        const labels = aiNodesMissingOutputs.map((node) => getNodeDisplayName(node, state.nodes));
+        const labels = aiNodesMissingOutputs.map((node) => getNodeDisplayName(node, executableGraph.nodes));
         const nodeWarnings = Object.fromEntries(
           aiNodesMissingOutputs.map((node) => [
             node.id,
@@ -129,8 +131,8 @@ export function createWorkflowExecutionActions(
       const payload = buildWorkflowPayload(
         state.workflowId,
         state.workflowName,
-        state.nodes,
-        state.edges,
+        executableGraph.nodes,
+        executableGraph.edges,
       );
 
       const saved = await get().saveWorkflow();

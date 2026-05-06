@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { DEFAULT_WORKFLOW_NAME } from '@/features/workflow/lib/constants';
+import { pruneGroupPortEdges } from '@/features/workflow/lib/groupPorts';
 import { loadLocalDraft } from '@/features/workflow/lib/store/persistence';
 import type { WorkflowState } from '@/features/workflow/lib/store/types';
 import { createWorkflowDocumentActions } from '@/features/workflow/lib/store/document';
@@ -29,6 +30,8 @@ const initialDraftEdges = initialDraft
   ? normalizeEdges(initialDraft.edges, new Set(initialDraftNodes.map((node) => node.id)))
   : [];
 const normalizedInitialDraftNodes = normalizeEditorNodes(initialDraftNodes, initialDraftEdges);
+const prunedInitialDraftEdges = pruneGroupPortEdges(normalizedInitialDraftNodes, initialDraftEdges);
+const finalInitialDraftNodes = normalizeEditorNodes(initialDraftNodes, prunedInitialDraftEdges);
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   workflowId: initialDraft?.workflowId || gid(),
@@ -38,8 +41,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   isSavingWorkflow: false,
   hasUnsavedChanges: false,
   lastSavedAt: null,
-  nodes: normalizedInitialDraftNodes,
-  edges: initialDraftEdges,
+  nodes: finalInitialDraftNodes,
+  edges: prunedInitialDraftEdges,
   selectedNodeId: null,
   isExecuting: false,
   executionProgress: null,

@@ -2,6 +2,8 @@ import { Handle, Position } from '@xyflow/react';
 import type { CSSProperties } from 'react';
 import {
   buildGroupHandleId,
+  isGroupPortEmpty,
+  isGroupPortExternallyConnectable,
   type GroupPort,
 } from '@/features/workflow/lib/groupPorts';
 import type { PortDef } from '@/features/workflow/lib/types';
@@ -151,19 +153,16 @@ export function GroupPortRow({
   port,
   color,
   isConnectable,
-  editable,
-  onLabelChange,
 }: {
   side: 'input' | 'output';
   port: GroupPort;
   color: string;
   isConnectable: boolean;
-  editable: boolean;
-  onLabelChange: (value: string) => void;
 }) {
   const portType = port.type || 'any';
   const portColor = getPortColor(portType, color);
-  const isEmpty = !port.binding;
+  const isEmpty = isGroupPortEmpty(port);
+  const portText = isEmpty ? 'EMPTY' : (PORT_TYPE_LABELS[portType] || portType);
 
   return (
     <div
@@ -183,7 +182,7 @@ export function GroupPortRow({
             portId={port.id}
             handleType="target"
             position={Position.Left}
-            connectable={Boolean(port.binding) && isConnectable}
+            connectable={isGroupPortExternallyConnectable(port) && isConnectable}
             color={portColor}
             className="node-port__handle node-port__handle--shared"
           />
@@ -194,31 +193,18 @@ export function GroupPortRow({
             handleType="source"
             position={Position.Right}
             anchorPosition={Position.Left}
-            connectable={!port.binding && isConnectable}
+            connectable={isConnectable}
             color={portColor}
             className="node-port__handle node-port__handle--shared node-port__handle--overlay"
           />
           <div className="node-port__group-main">
-            {editable ? (
-              <input
-                value={port.label}
-                onChange={(event) => onLabelChange(event.target.value)}
-                className="node-port__group-input-field nodrag"
-                placeholder="Input"
-                onClick={(event) => event.stopPropagation()}
-                onMouseDown={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
-              />
-            ) : (
-              <span className="node-port__label">{port.label}</span>
-            )}
             {isEmpty ? (
               <span className="node-port__placeholder">
-                Empty
+                {portText}
               </span>
             ) : (
               <span className="node-port__type">
-                {PORT_TYPE_LABELS[portType] || portType}
+                {portText}
               </span>
             )}
           </div>
@@ -228,25 +214,12 @@ export function GroupPortRow({
           <div className="node-port__group-main">
             {isEmpty ? (
               <span className="node-port__placeholder">
-                Empty
+                {portText}
               </span>
             ) : (
               <span className="node-port__type">
-                {PORT_TYPE_LABELS[portType] || portType}
+                {portText}
               </span>
-            )}
-            {editable ? (
-              <input
-                value={port.label}
-                onChange={(event) => onLabelChange(event.target.value)}
-                className="node-port__group-input-field nodrag"
-                placeholder="Output"
-                onClick={(event) => event.stopPropagation()}
-                onMouseDown={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
-              />
-            ) : (
-              <span className="node-port__label">{port.label}</span>
             )}
           </div>
           <GroupHandle
@@ -255,7 +228,7 @@ export function GroupPortRow({
             portId={port.id}
             handleType="source"
             position={Position.Right}
-            connectable={Boolean(port.binding) && isConnectable}
+            connectable={isGroupPortExternallyConnectable(port) && isConnectable}
             color={portColor}
             className="node-port__handle node-port__handle--shared"
           />
@@ -266,7 +239,7 @@ export function GroupPortRow({
             handleType="target"
             position={Position.Left}
             anchorPosition={Position.Right}
-            connectable={!port.binding && isConnectable}
+            connectable={port.insideLinks.length === 0 && isConnectable}
             color={portColor}
             className="node-port__handle node-port__handle--shared node-port__handle--overlay"
           />

@@ -1,6 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { createWorkflowGraphEditorActions } from '@/features/workflow/lib/store/editorGraph';
+import { createWorkflowGroupEditorActions } from '@/features/workflow/lib/store/editorGroups';
+import { getEffectiveNodeSize } from '@/features/workflow/lib/groupLayout';
 import { createWorkflowStoreHarness } from './testHarness';
+
+function getBoundsCenter(nodes: Array<{ position: { x: number; y: number } } & Parameters<typeof getEffectiveNodeSize>[0]>) {
+  const bounds = nodes.reduce((acc, node) => {
+    const size = getEffectiveNodeSize(node);
+    return {
+      minX: Math.min(acc.minX, node.position.x),
+      minY: Math.min(acc.minY, node.position.y),
+      maxX: Math.max(acc.maxX, node.position.x + size.width),
+      maxY: Math.max(acc.maxY, node.position.y + size.height),
+    };
+  }, {
+    minX: Number.POSITIVE_INFINITY,
+    minY: Number.POSITIVE_INFINITY,
+    maxX: Number.NEGATIVE_INFINITY,
+    maxY: Number.NEGATIVE_INFINITY,
+  });
+
+  return {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+  };
+}
 
 describe('workflow store graph editor actions', () => {
   it('replaces an existing connection on the same target handle', () => {
@@ -88,10 +112,11 @@ describe('workflow store graph editor actions', () => {
 
     expect(inputs).toHaveLength(2);
     expect(inputs[0]).toMatchObject({
-      binding: { nodeId: 'child', handleId: 'prompt' },
+      insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
+      outsideLinks: [],
       type: 'string',
     });
-    expect(inputs[1]).toMatchObject({ binding: null, type: null });
+    expect(inputs[1]).toMatchObject({ insideLinks: [], outsideLinks: [], type: null });
   });
 
   it('removes descendant nodes, connected edges, and execution residue together', () => {
@@ -189,8 +214,8 @@ describe('workflow store graph editor actions', () => {
 
     expect(input?.position.x).toBeLessThan(chat?.position.x ?? 0);
     expect(chat?.position.x).toBeLessThan(output?.position.x ?? 0);
-    expect((input?.position.x ?? 1) % 28).toBe(0);
-    expect((chat?.position.y ?? 1) % 28).toBe(0);
+    expect(Math.abs((input?.position.x ?? 1) % 28)).toBe(0);
+    expect(Math.abs((chat?.position.y ?? 1) % 28)).toBe(0);
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
@@ -215,8 +240,8 @@ describe('workflow store graph editor actions', () => {
     const freeChild = state.nodes.find((node) => node.id === 'freeChild');
 
     expect(lockedChild?.position).toEqual({ x: 56, y: 140 });
-    expect((freeChild?.position.x ?? 1) % 28).toBe(0);
-    expect((freeChild?.position.y ?? 1) % 28).toBe(0);
+    expect(Math.abs((freeChild?.position.x ?? 1) % 28)).toBe(0);
+    expect(Math.abs((freeChild?.position.y ?? 1) % 28)).toBe(0);
     expect(group?.width).toBeGreaterThanOrEqual(280);
     expect(group?.height).toBeGreaterThanOrEqual(280);
   });
@@ -269,8 +294,8 @@ describe('workflow store graph editor actions', () => {
     const childB = state.nodes.find((node) => node.id === 'childB');
 
     expect(childA?.position.x).toBeLessThan(childB?.position.x ?? 0);
-    expect((childA?.position.x ?? 1) % 28).toBe(0);
-    expect((childB?.position.y ?? 1) % 28).toBe(0);
+    expect(Math.abs((childA?.position.x ?? 1) % 28)).toBe(0);
+    expect(Math.abs((childB?.position.y ?? 1) % 28)).toBe(0);
   });
 
   it('orders nodes within a layer by upstream flow to reduce crossing', () => {
@@ -297,6 +322,67 @@ describe('workflow store graph editor actions', () => {
     const rightBottom = state.nodes.find((node) => node.id === 'rightBottom');
 
     expect((rightTop?.position.y ?? 0)).toBeLessThan(rightBottom?.position.y ?? 0);
+  });
+
+  it('keeps disconnected chains as separate blocks and stacks them vertically', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'chainATop', type: 'textInput', position: { x: 56, y: 420 }, data: {} },
+        { id: 'chainABottom', type: 'aiChat', position: { x: 560, y: 84 }, data: {} },
+        { id: 'chainBTop', type: 'textInput', position: { x: 84, y: 1120 }, data: {} },
+        { id: 'chainBBottom', type: 'output', position: { x: 588, y: 700 }, data: {} },
+      ],
+      edges: [
+        { id: 'edge_a', source: 'chainATop', sourceHandle: 'output', target: 'chainABottom', targetHandle: 'text' },
+        { id: 'edge_b', source: 'chainBTop', sourceHandle: 'output', target: 'chainBBottom', targetHandle: 'input' },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.autoArrangeWorkflow();
+
+    const state = harness.getState();
+    const chainATop = state.nodes.find((node) => node.id === 'chainATop');
+    const chainABottom = state.nodes.find((node) => node.id === 'chainABottom');
+    const chainBTop = state.nodes.find((node) => node.id === 'chainBTop');
+    const chainBBottom = state.nodes.find((node) => node.id === 'chainBBottom');
+
+    expect(chainATop?.position.x).toBeLessThan(chainABottom?.position.x ?? 0);
+    expect(chainBTop?.position.x).toBeLessThan(chainBBottom?.position.x ?? 0);
+    expect((chainATop?.position.y ?? 0)).toBeLessThan(chainBTop?.position.y ?? 0);
+    expect((chainABottom?.position.y ?? 0)).toBeLessThan(chainBBottom?.position.y ?? 0);
+  });
+
+  it('keeps the root arrangement near the original bounding-box center', () => {
+    const originalNodes = [
+      { id: 'left', type: 'textInput', position: { x: 840, y: 308 }, data: {} },
+      { id: 'middle', type: 'aiChat', position: { x: 1596, y: 560 }, data: {} },
+      { id: 'right', type: 'output', position: { x: 2380, y: 896 }, data: {} },
+    ];
+    const harness = createWorkflowStoreHarness({
+      nodes: originalNodes,
+      edges: [
+        { id: 'edge_left', source: 'left', sourceHandle: 'output', target: 'middle', targetHandle: 'text' },
+        { id: 'edge_right', source: 'middle', sourceHandle: 'output', target: 'right', targetHandle: 'input' },
+      ],
+    });
+
+    const originalCenter = getBoundsCenter(originalNodes);
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.autoArrangeWorkflow();
+
+    const state = harness.getState();
+    const arrangedNodes = ['left', 'middle', 'right']
+      .map((id) => state.nodes.find((node) => node.id === id))
+      .filter((node): node is NonNullable<typeof node> => Boolean(node));
+    const arrangedCenter = getBoundsCenter(arrangedNodes);
+
+    expect(Math.abs(arrangedCenter.x - originalCenter.x)).toBeLessThanOrEqual(28);
+    expect(Math.abs(arrangedCenter.y - originalCenter.y)).toBeLessThanOrEqual(28);
   });
 
   it('keeps child node positions stable when collapsing and expanding a group', () => {
@@ -344,6 +430,124 @@ describe('workflow store graph editor actions', () => {
     expect(state.nodes.find((node) => node.id === 'childB')?.position).toEqual({ x: 420, y: 224 });
     expect(state.nodes.find((node) => node.id === 'group')?.width).toBe(840);
     expect(state.nodes.find((node) => node.id === 'group')?.height).toBe(560);
+  });
+
+  it('restores mapped group port edges into ordinary edges when ungrouping', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'group',
+          type: 'group',
+          position: { x: 280, y: 140 },
+          width: 560,
+          height: 392,
+          data: {
+            groupInputs: [
+              {
+                id: 'port_in',
+                label: 'Input 1',
+                type: 'string',
+                binding: { nodeId: 'childIn', handleId: 'prompt' },
+              },
+              {
+                id: 'port_in_empty',
+                label: 'Input 2',
+                type: null,
+                binding: null,
+              },
+            ],
+            groupOutputs: [
+              {
+                id: 'port_out',
+                label: 'Output 1',
+                type: 'string',
+                binding: { nodeId: 'childOut', handleId: 'output' },
+              },
+              {
+                id: 'port_out_empty',
+                label: 'Output 2',
+                type: null,
+                binding: null,
+              },
+            ],
+          },
+        },
+        { id: 'source', type: 'textInput', position: { x: 0, y: 180 }, data: {} },
+        { id: 'sink', type: 'output', position: { x: 980, y: 180 }, data: {} },
+        {
+          id: 'childIn',
+          type: 'aiChat',
+          position: { x: 56, y: 140 },
+          parentId: 'group',
+          extent: 'parent',
+          data: {},
+        },
+        {
+          id: 'childOut',
+          type: 'textInput',
+          position: { x: 280, y: 252 },
+          parentId: 'group',
+          extent: 'parent',
+          data: {},
+        },
+      ],
+      edges: [
+        {
+          id: 'edge_external_in',
+          source: 'source',
+          sourceHandle: 'output',
+          target: 'group',
+          targetHandle: 'group-port:input:external:port_in',
+        },
+        {
+          id: 'edge_internal_in',
+          source: 'group',
+          sourceHandle: 'group-port:input:internal:port_in',
+          target: 'childIn',
+          targetHandle: 'prompt',
+        },
+        {
+          id: 'edge_internal_out',
+          source: 'childOut',
+          sourceHandle: 'output',
+          target: 'group',
+          targetHandle: 'group-port:output:internal:port_out',
+        },
+        {
+          id: 'edge_external_out',
+          source: 'group',
+          sourceHandle: 'group-port:output:external:port_out',
+          target: 'sink',
+          targetHandle: 'input',
+        },
+      ],
+    });
+
+    const graphActions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    const groupActions = createWorkflowGroupEditorActions(harness.set, harness.get);
+    harness.attachActions(graphActions);
+    harness.attachActions(groupActions);
+
+    groupActions.ungroupNodes(['group']);
+
+    const state = harness.getState();
+
+    expect(state.nodes.some((node) => node.id === 'group')).toBe(false);
+    expect(state.edges).toHaveLength(2);
+    expect(state.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: 'source',
+        sourceHandle: 'output',
+        target: 'childIn',
+        targetHandle: 'prompt',
+      }),
+      expect.objectContaining({
+        source: 'childOut',
+        sourceHandle: 'output',
+        target: 'sink',
+        targetHandle: 'input',
+      }),
+    ]));
   });
 
   it('removes external group edges when a mapped group port is unbound', () => {
@@ -406,7 +610,11 @@ describe('workflow store graph editor actions', () => {
     const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
     harness.attachActions(actions);
 
-    actions.updateGroupPort('group', 'input', 'port_in', { binding: null, type: null });
+    actions.updateGroupPort('group', 'input', 'port_in', {
+      insideLinks: [],
+      outsideLinks: [],
+      type: null,
+    });
 
     const state = harness.getState();
     const groupNode = state.nodes.find((node) => node.id === 'group');
@@ -414,6 +622,83 @@ describe('workflow store graph editor actions', () => {
 
     expect(state.edges).toEqual([]);
     expect(inputs).toHaveLength(1);
-    expect(inputs[0]).toMatchObject({ binding: null, type: null });
+    expect(inputs[0]).toMatchObject({ insideLinks: [], outsideLinks: [], type: null });
+  });
+
+  it('removing the last internal group edge also clears the remaining virtual binding', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'group',
+          type: 'group',
+          position: { x: 0, y: 0 },
+          data: {
+            groupInputs: [
+              {
+                id: 'port_in',
+                label: 'Input 1',
+                type: 'string',
+                insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
+                outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
+              },
+              {
+                id: 'port_empty',
+                label: 'Input 2',
+                type: null,
+                insideLinks: [],
+                outsideLinks: [],
+              },
+            ],
+          },
+        },
+        {
+          id: 'source',
+          type: 'textInput',
+          position: { x: 0, y: 0 },
+          data: {},
+        },
+        {
+          id: 'child',
+          type: 'aiChat',
+          position: { x: 56, y: 84 },
+          parentId: 'group',
+          extent: 'parent',
+          data: {},
+        },
+      ],
+      edges: [
+        {
+          id: 'edge_external',
+          source: 'source',
+          sourceHandle: 'text',
+          target: 'group',
+          targetHandle: 'group-port:input:external:port_in',
+        },
+        {
+          id: 'edge_internal',
+          source: 'group',
+          sourceHandle: 'group-port:input:internal:port_in',
+          target: 'child',
+          targetHandle: 'prompt',
+        },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.removeEdge('edge_internal');
+
+    const state = harness.getState();
+    const groupNode = state.nodes.find((node) => node.id === 'group');
+    const inputs = Array.isArray(groupNode?.data?.groupInputs) ? groupNode.data.groupInputs : [];
+
+    expect(state.edges).toEqual([]);
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).toMatchObject({
+      insideLinks: [],
+      outsideLinks: [],
+      type: null,
+    });
   });
 });

@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
 import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
 import { getNodeDefaultSize, getNodeDef, GRID_SIZE } from '@/features/workflow/lib/constants';
-import { getGroupPorts } from '@/features/workflow/lib/groupPorts';
+import { getGroupPorts, isGroupPortEmpty } from '@/features/workflow/lib/groupPorts';
 import {
   GROUP_CONTENT_INSET_BOTTOM,
   GROUP_CONTENT_INSET_X,
@@ -39,7 +39,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
-  const updateGroupPort = useWorkflowStore((s) => s.updateGroupPort);
   const toggleGroupCollapsed = useWorkflowStore((s) => s.toggleGroupCollapsed);
   const setNodeSize = useWorkflowStore((s) => s.setNodeSize);
   const snapToGridEnabled = useWorkflowStore((s) => s.snapToGridEnabled);
@@ -117,8 +116,8 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
 
   const groupInputs = isGroupNode ? getGroupPorts(data, 'input') : [];
   const groupOutputs = isGroupNode ? getGroupPorts(data, 'output') : [];
-  const occupiedGroupInputCount = groupInputs.filter((port) => port.binding).length;
-  const occupiedGroupOutputCount = groupOutputs.filter((port) => port.binding).length;
+  const occupiedGroupInputCount = groupInputs.filter((port) => !isGroupPortEmpty(port)).length;
+  const occupiedGroupOutputCount = groupOutputs.filter((port) => !isGroupPortEmpty(port)).length;
   const groupPortRows = isGroupNode
     ? Array.from({ length: Math.max(groupInputs.length, groupOutputs.length, 1) }, (_, index) => ({
         input: groupInputs[index] || null,
@@ -289,8 +288,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                         port={row.input}
                         color={def.color}
                         isConnectable={isConnectable}
-                        editable
-                        onLabelChange={(value) => updateGroupPort(id, 'input', row.input!.id, { label: value })}
                       />
                     ) : (
                       <div className="node-port node-port--group-spacer" aria-hidden="true" />
@@ -301,8 +298,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                         port={row.output}
                         color={def.color}
                         isConnectable={isConnectable}
-                        editable
-                        onLabelChange={(value) => updateGroupPort(id, 'output', row.output!.id, { label: value })}
                       />
                     ) : (
                       <div className="node-port node-port--group-spacer" aria-hidden="true" />

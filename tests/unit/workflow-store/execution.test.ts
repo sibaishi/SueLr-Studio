@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Edge, Node } from '@xyflow/react';
 import { createWorkflowExecutionActions } from '@/features/workflow/lib/store/execution';
 import { createWorkflowStoreHarness } from './testHarness';
 
@@ -23,6 +24,139 @@ import {
 describe('workflow store execution actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('executes grouped transit ports as direct inner-to-outer connections', async () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'outer_prompt',
+          type: 'textInput',
+          position: { x: 0, y: 0 },
+          data: { text: 'hello group' },
+        },
+        {
+          id: 'group',
+          type: 'group',
+          position: { x: 240, y: 0 },
+          data: {
+            groupInputs: [
+              {
+                id: 'port_in',
+                label: '输入 1',
+                type: 'string',
+                binding: { nodeId: 'inner_ai', handleId: 'prompt' },
+              },
+              {
+                id: 'port_in_empty',
+                label: '输入 2',
+                type: null,
+                binding: null,
+              },
+            ],
+            groupOutputs: [
+              {
+                id: 'port_out',
+                label: '输出 1',
+                type: 'string',
+                binding: { nodeId: 'inner_ai', handleId: 'response' },
+              },
+              {
+                id: 'port_out_empty',
+                label: '输出 2',
+                type: null,
+                binding: null,
+              },
+            ],
+          },
+        },
+        {
+          id: 'inner_ai',
+          type: 'aiChat',
+          position: { x: 48, y: 96 },
+          parentId: 'group',
+          extent: 'parent',
+          data: { disabled: false },
+        },
+        {
+          id: 'outer_output',
+          type: 'output',
+          position: { x: 720, y: 0 },
+          data: { disabled: false },
+        },
+      ],
+      edges: [
+        {
+          id: 'edge_ext_in',
+          source: 'outer_prompt',
+          sourceHandle: 'text',
+          target: 'group',
+          targetHandle: 'group-port:input:external:port_in',
+        },
+        {
+          id: 'edge_bind_in',
+          source: 'group',
+          sourceHandle: 'group-port:input:internal:port_in',
+          target: 'inner_ai',
+          targetHandle: 'prompt',
+        },
+        {
+          id: 'edge_bind_out',
+          source: 'inner_ai',
+          sourceHandle: 'response',
+          target: 'group',
+          targetHandle: 'group-port:output:internal:port_out',
+        },
+        {
+          id: 'edge_ext_out',
+          source: 'group',
+          sourceHandle: 'group-port:output:external:port_out',
+          target: 'outer_output',
+          targetHandle: 'content',
+        },
+      ],
+      saveWorkflow: vi.fn(async () => true),
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflow();
+
+    expect(api.executeWorkflow).toHaveBeenCalledTimes(1);
+    expect(api.executeWorkflow).toHaveBeenCalledWith(
+      'wf_local',
+      expect.objectContaining({
+        nodes: expect.arrayContaining([
+          expect.objectContaining({ id: 'outer_prompt', type: 'textInput' }),
+          expect.objectContaining({ id: 'inner_ai', type: 'aiChat' }),
+          expect.objectContaining({ id: 'outer_output', type: 'output' }),
+        ]),
+        edges: expect.arrayContaining([
+          expect.objectContaining({
+            source: 'outer_prompt',
+            sourceHandle: 'text',
+            target: 'inner_ai',
+            targetHandle: 'prompt',
+          }),
+          expect.objectContaining({
+            source: 'inner_ai',
+            sourceHandle: 'response',
+            target: 'outer_output',
+            targetHandle: 'content',
+          }),
+        ]),
+      }),
+      expect.any(Object),
+    );
+
+    const [, payload] = vi.mocked(api.executeWorkflow).mock.calls[0] || [];
+    const payloadNodes = (payload?.nodes || []) as Node[];
+    const payloadEdges = (payload?.edges || []) as Edge[];
+    expect(payloadNodes).toHaveLength(3);
+    expect(payloadNodes.find((node) => node.id === 'group')).toBeUndefined();
+    expect(payloadEdges).toHaveLength(2);
+    expect(payloadEdges.some((edge) => edge.source === 'group' || edge.target === 'group')).toBe(false);
   });
 
   it('blocks execution when an active AI node has no valid output chain', async () => {
@@ -174,7 +308,7 @@ describe('workflow store execution actions', () => {
           data: { disabled: false },
         },
       ],
-      edges: [{ id: 'edge-1', source: 'ai_node', target: 'output_node' }],
+      edges: [{ id: 'edge-1', source: 'ai_node', sourceHandle: 'response', target: 'output_node', targetHandle: 'content' }],
       saveWorkflow: vi.fn(async () => false),
       addExecutionLog,
     });

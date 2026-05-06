@@ -14,12 +14,13 @@ import {
 import {
   buildGroupPortsFromBoundaryEdges,
   buildGroupHandleId,
-  findGroupPortByBinding,
+  getGroupPorts,
   normalizeGroupPortNodes,
   pruneGroupPortEdges,
   updateGroupPortList,
   type GroupPortSide,
 } from '@/features/workflow/lib/groupPorts';
+import { projectWorkflowToExecutionGraph } from '@/features/workflow/lib/executionGraph';
 import { gid, snapValue } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowState } from '@/features/workflow/lib/store/types';
 
@@ -223,15 +224,17 @@ export function duplicateNodesWithGroups(nodes: Node[], edges: Edge[], nodeIds: 
       nextData = {
         ...nextData,
         ...updateGroupPortList(nextData, side, (ports) => ports.map((port) => (
-          port.binding && idMap.has(port.binding.nodeId)
-            ? {
-                ...port,
-                binding: {
-                  ...port.binding,
-                  nodeId: idMap.get(port.binding.nodeId) || port.binding.nodeId,
-                },
-              }
-            : port
+          {
+            ...port,
+            insideLinks: port.insideLinks.map((link) => ({
+              ...link,
+              nodeId: idMap.get(link.nodeId) || link.nodeId,
+            })),
+            outsideLinks: port.outsideLinks.map((link) => ({
+              ...link,
+              nodeId: idMap.get(link.nodeId) || link.nodeId,
+            })),
+          }
         ))),
       };
     }
@@ -328,44 +331,88 @@ export function buildGroupForNodes(nodes: Node[], edges: Edge[], nodeIds: string
     selected: true,
   };
 
+  const appendEdge = (collection: Edge[], nextEdge: Edge) => {
+    const exists = collection.some((edge) => (
+      edge.source === nextEdge.source
+      && edge.sourceHandle === nextEdge.sourceHandle
+      && edge.target === nextEdge.target
+      && edge.targetHandle === nextEdge.targetHandle
+    ));
+    if (!exists) {
+      collection.push(nextEdge);
+    }
+  };
+
+  const rewrittenEdgesBase = edges.filter((edge) => {
+    const sourceInside = selectedSet.has(edge.source);
+    const targetInside = selectedSet.has(edge.target);
+    return sourceInside === targetInside;
+  });
+
+  const generatedGroupEdges: Edge[] = [];
+  const groupData = (groupNode.data || {}) as Record<string, unknown>;
+
+  for (const port of getGroupPorts(groupData, 'input')) {
+    const outsideLink = port.outsideLinks[0];
+    if (outsideLink) {
+      appendEdge(generatedGroupEdges, {
+        id: `edge_${gid()}`,
+        source: outsideLink.nodeId,
+        sourceHandle: outsideLink.handleId,
+        target: groupId,
+        targetHandle: buildGroupHandleId('input', port.id, 'external'),
+        type: 'default',
+        animated: false,
+        style: { strokeWidth: 2 },
+      });
+    }
+
+    for (const insideLink of port.insideLinks) {
+      appendEdge(generatedGroupEdges, {
+        id: `edge_${gid()}`,
+        source: groupId,
+        sourceHandle: buildGroupHandleId('input', port.id, 'internal'),
+        target: insideLink.nodeId,
+        targetHandle: insideLink.handleId,
+        type: 'default',
+        animated: false,
+        style: { strokeWidth: 2 },
+      });
+    }
+  }
+
+  for (const port of getGroupPorts(groupData, 'output')) {
+    const insideLink = port.insideLinks[0];
+    if (insideLink) {
+      appendEdge(generatedGroupEdges, {
+        id: `edge_${gid()}`,
+        source: insideLink.nodeId,
+        sourceHandle: insideLink.handleId,
+        target: groupId,
+        targetHandle: buildGroupHandleId('output', port.id, 'internal'),
+        type: 'default',
+        animated: false,
+        style: { strokeWidth: 2 },
+      });
+    }
+
+    for (const outsideLink of port.outsideLinks) {
+      appendEdge(generatedGroupEdges, {
+        id: `edge_${gid()}`,
+        source: groupId,
+        sourceHandle: buildGroupHandleId('output', port.id, 'external'),
+        target: outsideLink.nodeId,
+        targetHandle: outsideLink.handleId,
+        type: 'default',
+        animated: false,
+        style: { strokeWidth: 2 },
+      });
+    }
+  }
+
   const rewrittenEdges = pruneGroupPortEdges(
     [groupNode, ...nodes],
-    edges.map((edge) => {
-      const sourceInside = selectedSet.has(edge.source);
-      const targetInside = selectedSet.has(edge.target);
-
-      if (!sourceInside && targetInside && edge.targetHandle) {
-        const port = findGroupPortByBinding(
-          groupNode.data as Record<string, unknown>,
-          'input',
-          { nodeId: edge.target, handleId: edge.targetHandle },
-        );
-        if (port?.binding) {
-          return {
-            ...edge,
-            target: groupId,
-            targetHandle: buildGroupHandleId('input', port.id, 'external'),
-          };
-        }
-      }
-
-      if (sourceInside && !targetInside && edge.sourceHandle) {
-        const port = findGroupPortByBinding(
-          groupNode.data as Record<string, unknown>,
-          'output',
-          { nodeId: edge.source, handleId: edge.sourceHandle },
-        );
-        if (port?.binding) {
-          return {
-            ...edge,
-            source: groupId,
-            sourceHandle: buildGroupHandleId('output', port.id, 'external'),
-          };
-        }
-      }
-
-      return edge;
-    }),
+    [...rewrittenEdgesBase, ...generatedGroupEdges],
   );
 
   const updatedNodes = nodes.map((node) => {
@@ -486,6 +533,137 @@ function average(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+function getNodesBounds(nodes: Node[]) {
+  return nodes.reduce((acc, node) => {
+    const size = getEffectiveNodeSize(node);
+    return {
+      minX: Math.min(acc.minX, node.position.x),
+      minY: Math.min(acc.minY, node.position.y),
+      maxX: Math.max(acc.maxX, node.position.x + size.width),
+      maxY: Math.max(acc.maxY, node.position.y + size.height),
+    };
+  }, {
+    minX: Number.POSITIVE_INFINITY,
+    minY: Number.POSITIVE_INFINITY,
+    maxX: Number.NEGATIVE_INFINITY,
+    maxY: Number.NEGATIVE_INFINITY,
+  });
+}
+
+function getBoundsCenter(bounds: ReturnType<typeof getNodesBounds>) {
+  return {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+  };
+}
+
+function normalizeZero(value: number) {
+  return Object.is(value, -0) ? 0 : value;
+}
+
+function buildConnectedNodeBlocks(nodes: Node[], edges: Edge[]) {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const adjacency = new Map<string, Set<string>>();
+
+  for (const node of nodes) {
+    adjacency.set(node.id, new Set());
+  }
+
+  for (const edge of edges) {
+    if (!nodeMap.has(edge.source) || !nodeMap.has(edge.target) || edge.source === edge.target) continue;
+    adjacency.get(edge.source)?.add(edge.target);
+    adjacency.get(edge.target)?.add(edge.source);
+  }
+
+  const visited = new Set<string>();
+  const blocks: Node[][] = [];
+
+  const sortedNodes = [...nodes].sort((a, b) => (a.position.y - b.position.y) || (a.position.x - b.position.x));
+  for (const node of sortedNodes) {
+    if (visited.has(node.id)) continue;
+
+    const queue = [node.id];
+    const blockIds: string[] = [];
+    visited.add(node.id);
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (!currentId) continue;
+      blockIds.push(currentId);
+
+      for (const nextId of adjacency.get(currentId) || []) {
+        if (visited.has(nextId)) continue;
+        visited.add(nextId);
+        queue.push(nextId);
+      }
+    }
+
+    const block = blockIds
+      .map((id) => nodeMap.get(id))
+      .filter((item): item is Node => Boolean(item))
+      .sort((a, b) => (a.position.y - b.position.y) || (a.position.x - b.position.x));
+
+    if (block.length > 0) {
+      blocks.push(block);
+    }
+  }
+
+  return blocks;
+}
+
+function getScopeChildNodeId(
+  nodeId: string,
+  nodeMap: Map<string, Node>,
+  parentId?: string,
+): string | null {
+  let current = nodeMap.get(nodeId);
+  while (current) {
+    const currentParentId = getNodeParentId(current);
+    if (currentParentId === parentId) {
+      return current.id;
+    }
+    if (!currentParentId) {
+      return parentId === undefined ? current.id : null;
+    }
+    current = nodeMap.get(currentParentId);
+  }
+  return null;
+}
+
+function buildScopedArrangementEdges(
+  allNodes: Node[],
+  scopeNodes: Node[],
+  edges: Edge[],
+  parentId?: string,
+) {
+  const scopeNodeSet = new Set(scopeNodes.map((node) => node.id));
+  const nodeMap = new Map(allNodes.map((node) => [node.id, node]));
+  const projected = projectWorkflowToExecutionGraph(allNodes, edges);
+  const seen = new Set<string>();
+  const scopedEdges: Edge[] = [];
+
+  for (const edge of projected.edges) {
+    const sourceScopeId = getScopeChildNodeId(edge.source, nodeMap, parentId);
+    const targetScopeId = getScopeChildNodeId(edge.target, nodeMap, parentId);
+    if (!sourceScopeId || !targetScopeId || sourceScopeId === targetScopeId) continue;
+    if (!scopeNodeSet.has(sourceScopeId) || !scopeNodeSet.has(targetScopeId)) continue;
+
+    const key = `${sourceScopeId}->${targetScopeId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    scopedEdges.push({
+      ...edge,
+      id: `layout_${key}`,
+      source: sourceScopeId,
+      sourceHandle: null,
+      target: targetScopeId,
+      targetHandle: null,
+    });
+  }
+
+  return scopedEdges;
+}
+
 function sortLayerNodesByFlow(
   layerNodes: Node[],
   allLayerNodes: Map<number, Node[]>,
@@ -550,6 +728,7 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
   const rootStart = GRID_SIZE * 2;
   const columnGap = GRID_SIZE * 4;
   const rowGap = GRID_SIZE * 2;
+  const blockGap = GRID_SIZE * 4;
   const expandedSelectedIds = selectedNodeIds?.length ? new Set(expandNodeActionIds(nextNodes, selectedNodeIds)) : null;
 
   const arrangeScope = (parentId?: string) => {
@@ -566,50 +745,12 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
       ? directChildren.filter((node) => expandedSelectedIds.has(node.id))
       : directChildren;
     if (targetChildren.length === 0) return;
+    const movableTargetChildren = targetChildren.filter((node) => !isNodeLockedWithAncestors(node.id, nextNodes));
 
-    const scopedEdges = edges.filter((edge) => (
-      targetChildren.some((node) => node.id === edge.source)
-      && targetChildren.some((node) => node.id === edge.target)
-    ));
+    const scopedEdges = buildScopedArrangementEdges(nextNodes, targetChildren, edges, parentId);
 
-    const layerMap = buildChildLayerMap(targetChildren, scopedEdges);
-
-    const groupedByLayer = new Map<number, Node[]>();
-    for (const child of targetChildren) {
-      const layer = layerMap.get(child.id) || 0;
-      const current = groupedByLayer.get(layer) || [];
-      current.push(child);
-      groupedByLayer.set(layer, current);
-    }
-
-    const layers = [...groupedByLayer.keys()].sort((a, b) => a - b);
-    const orderedByLayer = new Map<number, Node[]>();
-    for (const layer of layers) {
-      orderedByLayer.set(
-        layer,
-        sortLayerNodesByFlow(
-          groupedByLayer.get(layer) || [],
-          groupedByLayer,
-          scopedEdges,
-          layerMap,
-        ),
-      );
-    }
-
-    const selectedBounds = targetChildren.reduce((acc, node) => {
-      const size = getEffectiveNodeSize(node);
-      return {
-        minX: Math.min(acc.minX, node.position.x),
-        minY: Math.min(acc.minY, node.position.y),
-        maxX: Math.max(acc.maxX, node.position.x + size.width),
-        maxY: Math.max(acc.maxY, node.position.y + size.height),
-      };
-    }, {
-      minX: Number.POSITIVE_INFINITY,
-      minY: Number.POSITIVE_INFINITY,
-      maxX: Number.NEGATIVE_INFINITY,
-      maxY: Number.NEGATIVE_INFINITY,
-    });
+    const selectedBounds = getNodesBounds(targetChildren);
+    const originalMovableBounds = movableTargetChildren.length > 0 ? getNodesBounds(movableTargetChildren) : null;
 
     const baseX = Number.isFinite(selectedBounds.minX)
       ? selectedBounds.minX
@@ -617,28 +758,79 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
     const baseY = Number.isFinite(selectedBounds.minY)
       ? selectedBounds.minY
       : parentId ? getGroupTopInset() : rootStart;
-    let nextX = snapValue(parentId ? Math.max(GROUP_SAFE_MARGIN, baseX) : Math.max(rootStart, baseX));
-    const startY = snapValue(parentId ? Math.max(getGroupTopInset(), baseY) : Math.max(rootStart, baseY));
 
-    for (const layer of layers) {
-      const layerNodes = orderedByLayer.get(layer) || [];
-      let nextY = startY;
-      let maxLayerWidth = 0;
+    const startX = snapValue(parentId ? Math.max(GROUP_SAFE_MARGIN, baseX) : Math.max(rootStart, baseX));
+    let nextBlockY = snapValue(parentId ? Math.max(getGroupTopInset(), baseY) : Math.max(rootStart, baseY));
+    const connectedBlocks = buildConnectedNodeBlocks(targetChildren, scopedEdges);
 
-      for (const node of layerNodes) {
-        const movable = !isNodeLockedWithAncestors(node.id, nextNodes);
-        const size = getEffectiveNodeSize(nodeMap.get(node.id) || node);
-        if (movable) {
-          node.position = {
-            x: snapValue(nextX),
-            y: snapValue(nextY),
-          };
-        }
-        maxLayerWidth = Math.max(maxLayerWidth, size.width);
-        nextY = snapValue(nextY + size.height + rowGap);
+    for (const blockNodes of connectedBlocks) {
+      const blockNodeIds = new Set(blockNodes.map((node) => node.id));
+      const blockEdges = scopedEdges.filter((edge) => blockNodeIds.has(edge.source) && blockNodeIds.has(edge.target));
+      const layerMap = buildChildLayerMap(blockNodes, blockEdges);
+
+      const groupedByLayer = new Map<number, Node[]>();
+      for (const child of blockNodes) {
+        const layer = layerMap.get(child.id) || 0;
+        const current = groupedByLayer.get(layer) || [];
+        current.push(child);
+        groupedByLayer.set(layer, current);
       }
 
-      nextX = snapValue(nextX + maxLayerWidth + columnGap);
+      const layers = [...groupedByLayer.keys()].sort((a, b) => a - b);
+      const orderedByLayer = new Map<number, Node[]>();
+      for (const layer of layers) {
+        orderedByLayer.set(
+          layer,
+          sortLayerNodesByFlow(
+            groupedByLayer.get(layer) || [],
+            groupedByLayer,
+            blockEdges,
+            layerMap,
+          ),
+        );
+      }
+
+      let nextX = startX;
+      for (const layer of layers) {
+        const layerNodes = orderedByLayer.get(layer) || [];
+        let nextY = nextBlockY;
+        let maxLayerWidth = 0;
+
+        for (const node of layerNodes) {
+          const movable = !isNodeLockedWithAncestors(node.id, nextNodes);
+          const size = getEffectiveNodeSize(nodeMap.get(node.id) || node);
+          if (movable) {
+            node.position = {
+              x: snapValue(nextX),
+              y: snapValue(nextY),
+            };
+          }
+          maxLayerWidth = Math.max(maxLayerWidth, size.width);
+          nextY = snapValue(nextY + size.height + rowGap);
+        }
+
+        nextX = snapValue(nextX + maxLayerWidth + columnGap);
+      }
+
+      const arrangedBlockBounds = getNodesBounds(blockNodes);
+      nextBlockY = snapValue(arrangedBlockBounds.maxY + blockGap);
+    }
+
+    if (!parentId && originalMovableBounds && movableTargetChildren.length > 0) {
+      const arrangedMovableBounds = getNodesBounds(movableTargetChildren);
+      const originalCenter = getBoundsCenter(originalMovableBounds);
+      const arrangedCenter = getBoundsCenter(arrangedMovableBounds);
+      const deltaX = snapValue(originalCenter.x - arrangedCenter.x);
+      const deltaY = snapValue(originalCenter.y - arrangedCenter.y);
+
+      if (deltaX !== 0 || deltaY !== 0) {
+        for (const node of movableTargetChildren) {
+          node.position = {
+            x: normalizeZero(snapValue(node.position.x + deltaX)),
+            y: normalizeZero(snapValue(node.position.y + deltaY)),
+          };
+        }
+      }
     }
 
     if (!parentId) return;
@@ -663,7 +855,13 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
   };
 
   arrangeScope(undefined);
-  return enforceGroupLayout(nextNodes);
+  return enforceGroupLayout(nextNodes).map((node) => ({
+    ...node,
+    position: {
+      x: normalizeZero(node.position.x),
+      y: normalizeZero(node.position.y),
+    },
+  }));
 }
 
 export const EMPTY_WORKFLOW_SNAPSHOT = {

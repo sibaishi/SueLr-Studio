@@ -14,7 +14,8 @@ import {
 } from '@/features/workflow/lib/groupLayout';
 import {
   buildGroupHandleId,
-  getGroupPorts,
+  findGroupPort,
+  parseGroupHandleId,
   pruneGroupPortEdges,
   updateGroupPortList,
   type GroupPort,
@@ -28,58 +29,177 @@ import {
 } from '@/features/workflow/lib/store/editorShared';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
 
-function clearGroupPortBindingsFromRemovedEdges(nodes: Node[], removedEdges: Edge[]) {
-  let changed = false;
+function collectCascadeRemovedGroupEdgeIds(nodes: Node[], edges: Edge[], removedEdges: Edge[]) {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const removedEdgeIds = new Set<string>();
 
-  const updatedNodes = nodes.map((node) => {
-    if (node.type !== 'group') return node;
+  for (const removedEdge of removedEdges) {
+    const sourceDescriptor = parseGroupHandleId(removedEdge.sourceHandle);
+    if (
+      sourceDescriptor
+      && removedEdge.source
+      && sourceDescriptor.side === 'input'
+      && sourceDescriptor.role === 'internal'
+    ) {
+      const groupNode = nodeMap.get(removedEdge.source);
+      const port = groupNode?.type === 'group'
+        ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, 'input', sourceDescriptor.portId)
+        : null;
+      const remainingInsideLinks = (port?.insideLinks || []).filter((link) => !(
+        link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle
+      ));
 
-    let nextData = (node.data || {}) as Record<string, unknown>;
-    let nodeChanged = false;
-
-    for (const side of ['input', 'output'] as const) {
-      const ports = getGroupPorts(nextData, side);
-      const nextPorts = ports.map((port) => {
-        if (!port.binding) return port;
-
-        const bindingWasRemoved = removedEdges.some((edge) => (
-          side === 'input'
-            ? edge.source === node.id
-              && edge.sourceHandle === buildGroupHandleId('input', port.id, 'internal')
-              && edge.target === port.binding?.nodeId
-              && edge.targetHandle === port.binding?.handleId
-            : edge.source === port.binding?.nodeId
-              && edge.sourceHandle === port.binding?.handleId
-              && edge.target === node.id
-              && edge.targetHandle === buildGroupHandleId('output', port.id, 'internal')
-        ));
-
-        if (!bindingWasRemoved) return port;
-        nodeChanged = true;
-        changed = true;
-        return {
-          ...port,
-          binding: null,
-          type: null,
-        } satisfies GroupPort;
-      });
-
-      if (nodeChanged) {
-        nextData = {
-          ...nextData,
-          ...updateGroupPortList(nextData, side, () => nextPorts),
-        };
+      if (port && remainingInsideLinks.length === 0) {
+        for (const edge of edges) {
+          if (
+            edge.target === removedEdge.source
+            && edge.targetHandle === buildGroupHandleId('input', port.id, 'external')
+          ) {
+            removedEdgeIds.add(edge.id);
+          }
+        }
       }
     }
 
-    if (!nodeChanged) return node;
+    const targetDescriptor = parseGroupHandleId(removedEdge.targetHandle);
+    if (
+      targetDescriptor
+      && removedEdge.target
+      && targetDescriptor.side === 'output'
+      && targetDescriptor.role === 'internal'
+    ) {
+      const groupNode = nodeMap.get(removedEdge.target);
+      const port = groupNode?.type === 'group'
+        ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, 'output', targetDescriptor.portId)
+        : null;
+      const remainingInsideLinks = (port?.insideLinks || []).filter((link) => !(
+        link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle
+      ));
+
+      if (port && remainingInsideLinks.length === 0) {
+        for (const edge of edges) {
+          if (
+            edge.source === removedEdge.target
+            && edge.sourceHandle === buildGroupHandleId('output', port.id, 'external')
+          ) {
+            removedEdgeIds.add(edge.id);
+          }
+        }
+      }
+    }
+  }
+
+  return removedEdgeIds;
+}
+
+function removeGroupPortLinksFromNodes(nodes: Node[], removedEdges: Edge[]) {
+  if (removedEdges.length === 0) return nodes;
+
+  return nodes.map((node) => {
+    if (node.type !== 'group') return node;
+
+    let nextData = (node.data || {}) as Record<string, unknown>;
+    let didChange = false;
+
+    for (const removedEdge of removedEdges) {
+      const sourceDescriptor = parseGroupHandleId(removedEdge.sourceHandle);
+      const targetDescriptor = parseGroupHandleId(removedEdge.targetHandle);
+
+      if (
+        sourceDescriptor
+        && removedEdge.source === node.id
+        && sourceDescriptor.side === 'input'
+        && sourceDescriptor.role === 'internal'
+      ) {
+        nextData = {
+          ...nextData,
+          ...updateGroupPortList(nextData, 'input', (ports) => ports.map((port) => (
+            port.id !== sourceDescriptor.portId
+              ? port
+              : {
+                  ...port,
+                  insideLinks: port.insideLinks.filter((link) => !(
+                    link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle
+                  )),
+                }
+          ))),
+        };
+        didChange = true;
+      }
+
+      if (
+        targetDescriptor
+        && removedEdge.target === node.id
+        && targetDescriptor.side === 'output'
+        && targetDescriptor.role === 'internal'
+      ) {
+        nextData = {
+          ...nextData,
+          ...updateGroupPortList(nextData, 'output', (ports) => ports.map((port) => (
+            port.id !== targetDescriptor.portId
+              ? port
+              : {
+                  ...port,
+                  insideLinks: port.insideLinks.filter((link) => !(
+                    link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle
+                  )),
+                }
+          ))),
+        };
+        didChange = true;
+      }
+
+      if (
+        targetDescriptor
+        && removedEdge.target === node.id
+        && targetDescriptor.side === 'input'
+        && targetDescriptor.role === 'external'
+      ) {
+        nextData = {
+          ...nextData,
+          ...updateGroupPortList(nextData, 'input', (ports) => ports.map((port) => (
+            port.id !== targetDescriptor.portId
+              ? port
+              : {
+                  ...port,
+                  outsideLinks: port.outsideLinks.filter((link) => !(
+                    link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle
+                  )),
+                }
+          ))),
+        };
+        didChange = true;
+      }
+
+      if (
+        sourceDescriptor
+        && removedEdge.source === node.id
+        && sourceDescriptor.side === 'output'
+        && sourceDescriptor.role === 'external'
+      ) {
+        nextData = {
+          ...nextData,
+          ...updateGroupPortList(nextData, 'output', (ports) => ports.map((port) => (
+            port.id !== sourceDescriptor.portId
+              ? port
+              : {
+                  ...port,
+                  outsideLinks: port.outsideLinks.filter((link) => !(
+                    link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle
+                  )),
+                }
+          ))),
+        };
+        didChange = true;
+      }
+    }
+
+    if (!didChange) return node;
     return {
       ...node,
       data: nextData,
     };
   });
-
-  return changed ? updatedNodes : nodes;
 }
 
 type WorkflowStoreGraphEditorActions = Pick<
@@ -231,8 +351,6 @@ export function createWorkflowGraphEditorActions(
     updateGroupPort: (groupId, side, portId, patch) => {
       set((state) => {
         let didChange = false;
-        let previousBinding: GroupPort['binding'] | undefined;
-        let nextBinding: GroupPort['binding'] | undefined;
         const updatedNodes = state.nodes.map((node) => {
           if (node.id !== groupId || node.type !== 'group') return node;
 
@@ -245,12 +363,9 @@ export function createWorkflowGraphEditorActions(
               (ports) => ports.map((port) => {
                 if (port.id !== portId) return port;
                 didChange = true;
-                previousBinding = port.binding;
-                nextBinding = patch.binding === undefined ? port.binding : patch.binding;
                 return {
                   ...port,
                   ...patch,
-                  binding: nextBinding,
                 } satisfies GroupPort;
               }),
             ),
@@ -264,11 +379,17 @@ export function createWorkflowGraphEditorActions(
 
         if (!didChange) return {};
 
-        const bindingChanged = previousBinding?.nodeId !== nextBinding?.nodeId
-          || previousBinding?.handleId !== nextBinding?.handleId;
+        const updatedGroupNode = updatedNodes.find((node) => node.id === groupId && node.type === 'group');
+        const resolvedNextPort = updatedGroupNode
+          ? findGroupPort((updatedGroupNode.data || {}) as Record<string, unknown>, side, portId)
+          : null;
+        const shouldClearPortEdges = (
+          (resolvedNextPort?.insideLinks.length ?? 0) === 0
+          && (resolvedNextPort?.outsideLinks.length ?? 0) === 0
+        );
         const externalHandleId = buildGroupHandleId(side, portId, 'external');
         const internalHandleId = buildGroupHandleId(side, portId, 'internal');
-        const nextEdges = bindingChanged
+        const nextEdges = shouldClearPortEdges
           ? pruneGroupPortEdges(
               updatedNodes,
               state.edges.filter((edge) => {
@@ -284,7 +405,7 @@ export function createWorkflowGraphEditorActions(
                 );
               }),
             )
-          : state.edges;
+          : pruneGroupPortEdges(updatedNodes, state.edges);
 
         return {
           nodes: normalizeEditorNodes(updatedNodes, nextEdges),
@@ -424,14 +545,16 @@ export function createWorkflowGraphEditorActions(
     removeEdge: (edgeId) => {
       set((state) => {
         const removedEdges = state.edges.filter((edge) => edge.id === edgeId);
-        const nodes = clearGroupPortBindingsFromRemovedEdges(state.nodes, removedEdges);
+        const cascadeRemovedEdgeIds = collectCascadeRemovedGroupEdgeIds(state.nodes, state.edges, removedEdges);
+        const allRemovedEdges = state.edges.filter((edge) => edge.id === edgeId || cascadeRemovedEdgeIds.has(edge.id));
+        const updatedNodes = removeGroupPortLinksFromNodes(state.nodes, allRemovedEdges);
         const edges = pruneGroupPortEdges(
-          nodes,
-          state.edges.filter((edge) => edge.id !== edgeId),
+          updatedNodes,
+          state.edges.filter((edge) => edge.id !== edgeId && !cascadeRemovedEdgeIds.has(edge.id)),
         );
         return {
           edges,
-          nodes: normalizeEditorNodes(nodes, edges),
+          nodes: normalizeEditorNodes(updatedNodes, edges),
           nodeWarnings: {},
           workflowWarningMessage: null,
           hasUnsavedChanges: true,
@@ -528,14 +651,16 @@ export function createWorkflowGraphEditorActions(
       set((state) => {
         const removedIds = new Set(changes.filter((change) => change.type === 'remove').map((change) => change.id));
         const removedEdges = state.edges.filter((edge) => removedIds.has(edge.id));
-        const nodes = clearGroupPortBindingsFromRemovedEdges(state.nodes, removedEdges);
+        const cascadeRemovedEdgeIds = collectCascadeRemovedGroupEdgeIds(state.nodes, state.edges, removedEdges);
+        const allRemovedEdges = state.edges.filter((edge) => removedIds.has(edge.id) || cascadeRemovedEdgeIds.has(edge.id));
+        const updatedNodes = removeGroupPortLinksFromNodes(state.nodes, allRemovedEdges);
         const edges = pruneGroupPortEdges(
-          nodes,
-          applyEdgeChanges(changes, state.edges),
+          updatedNodes,
+          applyEdgeChanges(changes, state.edges).filter((edge) => !cascadeRemovedEdgeIds.has(edge.id)),
         );
         return {
           edges,
-          nodes: normalizeEditorNodes(nodes, edges),
+          nodes: normalizeEditorNodes(updatedNodes, edges),
           nodeWarnings: {},
           workflowWarningMessage: null,
           hasUnsavedChanges: true,

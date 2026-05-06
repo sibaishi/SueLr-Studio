@@ -370,7 +370,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .flow-node--collapsed .flow-node__ports--group {
@@ -391,14 +391,14 @@
 }
 
 .node-port--group {
-  min-height: 36px;
-  padding: 4px 32px;
+  min-height: 38px;
+  padding: 4px 42px;
   justify-content: flex-start;
 }
 
 .flow-node--collapsed .node-port--group {
-  min-height: 30px;
-  padding: 2px 28px;
+  min-height: 32px;
+  padding: 3px 38px;
 }
 
 .node-port--group-empty {
@@ -412,15 +412,19 @@
 .node-port__group-main {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   width: auto;
-  min-width: 0;
+  min-width: 72px;
   max-width: 100%;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
 }
 
 .node-port--group-output .node-port__group-main {
   justify-content: flex-end;
+}
+
+.flow-node--collapsed .node-port__group-main {
+  min-width: 64px;
 }
 
 .node-port__group-input-field {
@@ -505,7 +509,7 @@
 }
 
 .node-port--group-spacer {
-  min-height: 36px;
+  min-height: 38px;
   opacity: 0;
   pointer-events: none;
 }
