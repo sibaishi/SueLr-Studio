@@ -1,6 +1,8 @@
 import { DEFAULT_WORKFLOW_NAME } from '@/features/workflow/lib/constants';
 import * as api from '@/features/workflow/lib/api';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
+import { normalizeEditorNodes } from '@/features/workflow/lib/store/editorShared';
+import { normalizeEdges, normalizeNodes } from '@/features/workflow/lib/store/helpers';
 import { clearActiveRunSnapshot, saveLocalDraft } from '@/features/workflow/lib/store/persistence';
 import { formatLogDetails, gid, sanitizeLogMessage } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowEditorSnapshot, WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
@@ -88,11 +90,14 @@ export function createWorkflowEditorSessionActions(
 
     applyEditorSnapshot: (snapshot: WorkflowEditorSnapshot, markDirty = true) => {
       clearActiveRunSnapshot();
+      const rawNodes = normalizeNodes(snapshot.nodes);
+      const edges = normalizeEdges(snapshot.edges, new Set(rawNodes.map((node) => node.id)));
+      const nodes = normalizeEditorNodes(rawNodes, edges);
       set({
         workflowId: snapshot.workflowId,
         workflowName: snapshot.workflowName,
-        nodes: snapshot.nodes,
-        edges: snapshot.edges,
+        nodes,
+        edges,
         selectedNodeId: snapshot.selectedNodeId,
         hasUnsavedChanges: markDirty,
         isExecuting: false,

@@ -8,16 +8,79 @@ import {
   constrainChildNodeSizeToGroupContent,
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
+  getCollapsedGroupNodeSize,
+  getEffectiveNodeSize,
   pushRootNodeOutsideGroupAreas,
 } from '@/features/workflow/lib/groupLayout';
+import {
+  buildGroupHandleId,
+  getGroupPorts,
+  pruneGroupPortEdges,
+  updateGroupPortList,
+  type GroupPort,
+} from '@/features/workflow/lib/groupPorts';
 import { getDefaultData, gid } from '@/features/workflow/lib/store/helpers';
 import {
   autoArrangeNodes,
   expandNodeActionIds,
   isNodeLockedWithAncestors,
-  normalizeMergeNodeSizes,
+  normalizeEditorNodes,
 } from '@/features/workflow/lib/store/editorShared';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
+
+function clearGroupPortBindingsFromRemovedEdges(nodes: Node[], removedEdges: Edge[]) {
+  let changed = false;
+
+  const updatedNodes = nodes.map((node) => {
+    if (node.type !== 'group') return node;
+
+    let nextData = (node.data || {}) as Record<string, unknown>;
+    let nodeChanged = false;
+
+    for (const side of ['input', 'output'] as const) {
+      const ports = getGroupPorts(nextData, side);
+      const nextPorts = ports.map((port) => {
+        if (!port.binding) return port;
+
+        const bindingWasRemoved = removedEdges.some((edge) => (
+          side === 'input'
+            ? edge.source === node.id
+              && edge.sourceHandle === buildGroupHandleId('input', port.id, 'internal')
+              && edge.target === port.binding?.nodeId
+              && edge.targetHandle === port.binding?.handleId
+            : edge.source === port.binding?.nodeId
+              && edge.sourceHandle === port.binding?.handleId
+              && edge.target === node.id
+              && edge.targetHandle === buildGroupHandleId('output', port.id, 'internal')
+        ));
+
+        if (!bindingWasRemoved) return port;
+        nodeChanged = true;
+        changed = true;
+        return {
+          ...port,
+          binding: null,
+          type: null,
+        } satisfies GroupPort;
+      });
+
+      if (nodeChanged) {
+        nextData = {
+          ...nextData,
+          ...updateGroupPortList(nextData, side, () => nextPorts),
+        };
+      }
+    }
+
+    if (!nodeChanged) return node;
+    return {
+      ...node,
+      data: nextData,
+    };
+  });
+
+  return changed ? updatedNodes : nodes;
+}
 
 type WorkflowStoreGraphEditorActions = Pick<
   WorkflowState,
@@ -26,6 +89,8 @@ type WorkflowStoreGraphEditorActions = Pick<
   | 'duplicateNode'
   | 'autoArrangeWorkflow'
   | 'updateNodeData'
+  | 'toggleGroupCollapsed'
+  | 'updateGroupPort'
   | 'setNodeSize'
   | 'resetNodeSize'
   | 'removeNode'
@@ -58,7 +123,7 @@ export function createWorkflowGraphEditorActions(
       };
 
       set((state) => ({
-        nodes: [...state.nodes, newNode],
+        nodes: normalizeEditorNodes([...state.nodes, newNode], state.edges),
         selectedNodeId: nodeId,
         nodeWarnings: {},
         workflowWarningMessage: null,
@@ -84,7 +149,7 @@ export function createWorkflowGraphEditorActions(
       };
 
       set((state) => ({
-        nodes: [...state.nodes, duplicatedNode],
+        nodes: normalizeEditorNodes([...state.nodes, duplicatedNode], state.edges),
         selectedNodeId: duplicatedNodeId,
         hasUnsavedChanges: true,
       }));
@@ -94,7 +159,7 @@ export function createWorkflowGraphEditorActions(
 
     autoArrangeWorkflow: () => {
       set((state) => ({
-        nodes: normalizeMergeNodeSizes(
+        nodes: normalizeEditorNodes(
           autoArrangeNodes(
             state.nodes,
             state.edges,
@@ -108,13 +173,125 @@ export function createWorkflowGraphEditorActions(
 
     updateNodeData: (nodeId, data) => {
       set((state) => ({
-        nodes: state.nodes.map((node) => (
+        nodes: normalizeEditorNodes(state.nodes.map((node) => (
           node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
-        )),
+        )), state.edges),
         nodeWarnings: {},
         workflowWarningMessage: null,
         hasUnsavedChanges: true,
       }));
+    },
+
+    toggleGroupCollapsed: (groupId, collapsed) => {
+      set((state) => ({
+        nodes: normalizeEditorNodes(enforceGroupLayout(state.nodes.map((node) => {
+          if (node.id !== groupId || node.type !== 'group') return node;
+
+          const nextCollapsed = typeof collapsed === 'boolean'
+            ? collapsed
+            : !Boolean(node.data?.collapsed);
+
+          if (nextCollapsed) {
+            const currentSize = getEffectiveNodeSize(node);
+            const collapsedSize = getCollapsedGroupNodeSize(node);
+            return {
+              ...node,
+              width: collapsedSize.width,
+              height: collapsedSize.height,
+              data: {
+                ...node.data,
+                collapsed: true,
+                expandedWidth: currentSize.width,
+                expandedHeight: currentSize.height,
+              },
+            };
+          }
+
+          const restoredWidth = typeof node.data?.expandedWidth === 'number'
+            ? node.data.expandedWidth
+            : getEffectiveNodeSize(node).width;
+          const restoredHeight = typeof node.data?.expandedHeight === 'number'
+            ? node.data.expandedHeight
+            : getEffectiveNodeSize(node).height;
+
+          return {
+            ...node,
+            width: restoredWidth,
+            height: restoredHeight,
+            data: {
+              ...node.data,
+              collapsed: false,
+            },
+          };
+        })), state.edges),
+        hasUnsavedChanges: true,
+      }));
+    },
+
+    updateGroupPort: (groupId, side, portId, patch) => {
+      set((state) => {
+        let didChange = false;
+        let previousBinding: GroupPort['binding'] | undefined;
+        let nextBinding: GroupPort['binding'] | undefined;
+        const updatedNodes = state.nodes.map((node) => {
+          if (node.id !== groupId || node.type !== 'group') return node;
+
+          const currentData = (node.data || {}) as Record<string, unknown>;
+          const nextData = {
+            ...node.data,
+            ...updateGroupPortList(
+              currentData,
+              side,
+              (ports) => ports.map((port) => {
+                if (port.id !== portId) return port;
+                didChange = true;
+                previousBinding = port.binding;
+                nextBinding = patch.binding === undefined ? port.binding : patch.binding;
+                return {
+                  ...port,
+                  ...patch,
+                  binding: nextBinding,
+                } satisfies GroupPort;
+              }),
+            ),
+          };
+
+          return {
+            ...node,
+            data: nextData,
+          };
+        });
+
+        if (!didChange) return {};
+
+        const bindingChanged = previousBinding?.nodeId !== nextBinding?.nodeId
+          || previousBinding?.handleId !== nextBinding?.handleId;
+        const externalHandleId = buildGroupHandleId(side, portId, 'external');
+        const internalHandleId = buildGroupHandleId(side, portId, 'internal');
+        const nextEdges = bindingChanged
+          ? pruneGroupPortEdges(
+              updatedNodes,
+              state.edges.filter((edge) => {
+                if (side === 'input') {
+                  return !(
+                    (edge.target === groupId && edge.targetHandle === externalHandleId)
+                    || (edge.source === groupId && edge.sourceHandle === internalHandleId)
+                  );
+                }
+                return !(
+                  (edge.source === groupId && edge.sourceHandle === externalHandleId)
+                  || (edge.target === groupId && edge.targetHandle === internalHandleId)
+                );
+              }),
+            )
+          : state.edges;
+
+        return {
+          nodes: normalizeEditorNodes(updatedNodes, nextEdges),
+          edges: nextEdges,
+          hasUnsavedChanges: true,
+        };
+      });
     },
 
     setNodeSize: (nodeId, size) => {
@@ -122,7 +299,7 @@ export function createWorkflowGraphEditorActions(
       set((state) => {
         const nodeMap = new Map(state.nodes.map((node) => [node.id, node]));
         return {
-          nodes: enforceGroupLayout(state.nodes.map((node) => {
+          nodes: normalizeEditorNodes(enforceGroupLayout(state.nodes.map((node) => {
             if (node.id !== nodeId) return node;
             const resizedNode = {
               ...node,
@@ -140,7 +317,7 @@ export function createWorkflowGraphEditorActions(
               }
             }
             return pushRootNodeOutsideGroupAreas(resizedNode, state.nodes);
-          })),
+          })), state.edges),
           nodeWarnings: {},
           workflowWarningMessage: null,
           hasUnsavedChanges: true,
@@ -151,11 +328,11 @@ export function createWorkflowGraphEditorActions(
     resetNodeSize: (nodeId) => {
       if (isNodeLockedWithAncestors(nodeId, get().nodes)) return;
       set((state) => ({
-        nodes: state.nodes.map((node) => (
+        nodes: normalizeEditorNodes(state.nodes.map((node) => (
           node.id === nodeId
             ? { ...node, width: undefined, height: undefined }
             : node
-        )),
+        )), state.edges),
         nodeWarnings: {},
         workflowWarningMessage: null,
         hasUnsavedChanges: true,
@@ -187,9 +364,14 @@ export function createWorkflowGraphEditorActions(
           delete nodeOutputs[id];
         }
 
+        const edges = state.edges.filter((edge) => !removedSet.has(edge.source) && !removedSet.has(edge.target));
+
         return {
-          nodes: state.nodes.filter((node) => !removedSet.has(node.id)),
-          edges: state.edges.filter((edge) => !removedSet.has(edge.source) && !removedSet.has(edge.target)),
+          nodes: normalizeEditorNodes(
+            state.nodes.filter((node) => !removedSet.has(node.id)),
+            edges,
+          ),
+          edges,
           selectedNodeId: removedSet.has(state.selectedNodeId ?? '') ? null : state.selectedNodeId,
           nodeExecStatus,
           nodeExecutionTime,
@@ -232,7 +414,7 @@ export function createWorkflowGraphEditorActions(
 
       set((state) => ({
         edges: nextEdges,
-        nodes: normalizeMergeNodeSizes(state.nodes, nextEdges),
+        nodes: normalizeEditorNodes(state.nodes, nextEdges),
         nodeWarnings: {},
         workflowWarningMessage: null,
         hasUnsavedChanges: true,
@@ -241,10 +423,15 @@ export function createWorkflowGraphEditorActions(
 
     removeEdge: (edgeId) => {
       set((state) => {
-        const edges = state.edges.filter((edge) => edge.id !== edgeId);
+        const removedEdges = state.edges.filter((edge) => edge.id === edgeId);
+        const nodes = clearGroupPortBindingsFromRemovedEdges(state.nodes, removedEdges);
+        const edges = pruneGroupPortEdges(
+          nodes,
+          state.edges.filter((edge) => edge.id !== edgeId),
+        );
         return {
           edges,
-          nodes: normalizeMergeNodeSizes(state.nodes, edges),
+          nodes: normalizeEditorNodes(nodes, edges),
           nodeWarnings: {},
           workflowWarningMessage: null,
           hasUnsavedChanges: true,
@@ -295,7 +482,7 @@ export function createWorkflowGraphEditorActions(
 
         if (removedIds.length === 0) {
           return {
-            nodes: normalizeMergeNodeSizes(nodes, state.edges),
+            nodes: normalizeEditorNodes(nodes, state.edges),
             hasUnsavedChanges: true,
           };
         }
@@ -322,7 +509,7 @@ export function createWorkflowGraphEditorActions(
         ));
 
         return {
-          nodes: normalizeMergeNodeSizes(nodes, edges),
+          nodes: normalizeEditorNodes(nodes, edges),
           edges,
           selectedNodeId: removedSet.has(state.selectedNodeId ?? '') ? null : state.selectedNodeId,
           nodeExecStatus,
@@ -339,10 +526,16 @@ export function createWorkflowGraphEditorActions(
 
     onEdgesChange: (changes) => {
       set((state) => {
-        const edges = applyEdgeChanges(changes, state.edges);
+        const removedIds = new Set(changes.filter((change) => change.type === 'remove').map((change) => change.id));
+        const removedEdges = state.edges.filter((edge) => removedIds.has(edge.id));
+        const nodes = clearGroupPortBindingsFromRemovedEdges(state.nodes, removedEdges);
+        const edges = pruneGroupPortEdges(
+          nodes,
+          applyEdgeChanges(changes, state.edges),
+        );
         return {
           edges,
-          nodes: normalizeMergeNodeSizes(state.nodes, edges),
+          nodes: normalizeEditorNodes(nodes, edges),
           nodeWarnings: {},
           workflowWarningMessage: null,
           hasUnsavedChanges: true,

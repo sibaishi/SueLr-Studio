@@ -9,6 +9,7 @@ import {
   expandNodeActionIds,
   FORCE_DISABLED_NODE_TYPES,
   getAbsolutePosition,
+  normalizeEditorNodes,
   ungroupGroupNodes,
 } from '@/features/workflow/lib/store/editorShared';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
@@ -38,10 +39,13 @@ export function createWorkflowGroupEditorActions(
 
       const duplicatedIds = duplicatedNodes.map((node) => node.id);
       set((state) => ({
-        nodes: [
-          ...state.nodes.map((node) => ({ ...node, selected: false })),
-          ...duplicatedNodes,
-        ],
+        nodes: normalizeEditorNodes(
+          [
+            ...state.nodes.map((node) => ({ ...node, selected: false })),
+            ...duplicatedNodes,
+          ],
+          [...state.edges, ...duplicatedEdges],
+        ),
         edges: [...state.edges, ...duplicatedEdges],
         selectedNodeId: duplicatedIds[0] || null,
         nodeWarnings: {},
@@ -53,11 +57,12 @@ export function createWorkflowGroupEditorActions(
     },
 
     createNodeGroup: (nodeIds) => {
-      const result = buildGroupForNodes(get().nodes, nodeIds);
+      const result = buildGroupForNodes(get().nodes, get().edges, nodeIds);
       if (!result) return null;
 
       set(() => ({
-        nodes: enforceGroupLayout(result.nodes),
+        nodes: normalizeEditorNodes(enforceGroupLayout(result.nodes), result.edges),
+        edges: result.edges,
         selectedNodeId: result.groupNode.id,
         nodeWarnings: {},
         workflowWarningMessage: null,
@@ -68,7 +73,7 @@ export function createWorkflowGroupEditorActions(
     },
 
     ungroupNodes: (groupIds) => {
-      const nextNodes = ungroupGroupNodes(get().nodes, groupIds);
+      const nextNodes = normalizeEditorNodes(ungroupGroupNodes(get().nodes, groupIds), get().edges);
       if (nextNodes === get().nodes) return;
 
       set(() => ({
@@ -100,7 +105,7 @@ export function createWorkflowGroupEditorActions(
       });
 
       set(() => ({
-        nodes: enforceGroupLayout(releasedNodes),
+        nodes: normalizeEditorNodes(enforceGroupLayout(releasedNodes), get().edges),
         nodeWarnings: {},
         workflowWarningMessage: null,
         hasUnsavedChanges: true,

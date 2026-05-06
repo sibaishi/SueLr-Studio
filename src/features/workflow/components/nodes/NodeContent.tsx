@@ -48,7 +48,7 @@ export function NodeContent({
 
   switch (type) {
     case 'group':
-      return <GroupContent outerStyle={outerStyle} />;
+      return <GroupNodeContent outerStyle={outerStyle} collapsed={Boolean(data.collapsed)} />;
     case 'textInput':
       return <TextInputContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outerStyle={outerStyle} />;
     case 'imageInput':
@@ -90,6 +90,24 @@ export function NodeContent({
   }
 }
 
+function GroupNodeContent({ outerStyle, collapsed }: { outerStyle: CSSProperties; collapsed: boolean }) {
+  if (collapsed) return null;
+
+  return (
+    <div
+      className="node-content-shell node-content-shell--group"
+      style={{
+        ...outerStyle,
+        padding: GROUP_SAFE_MARGIN,
+      }}
+    >
+      <div className="node-group-content">
+        Nodes inside the group stay together and can be moved, copied, disabled, deleted, or ungrouped as a unit.
+      </div>
+    </div>
+  );
+}
+
 function GroupContent({ outerStyle }: { outerStyle: CSSProperties }) {
   return (
     <div
@@ -105,6 +123,8 @@ function GroupContent({ outerStyle }: { outerStyle: CSSProperties }) {
     </div>
   );
 }
+
+void GroupContent;
 
 function TextInputContent({
   data,

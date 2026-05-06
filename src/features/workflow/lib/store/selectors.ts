@@ -59,9 +59,11 @@ export function useWorkflowCanvasStore() {
     removeNodes: state.removeNodes,
     resetNodeSize: state.resetNodeSize,
     selectNode: state.selectNode,
+    toggleGroupCollapsed: state.toggleGroupCollapsed,
     toggleNodesLocked: state.toggleNodesLocked,
     toggleNodesDisabled: state.toggleNodesDisabled,
     ungroupNodes: state.ungroupNodes,
+    updateGroupPort: state.updateGroupPort,
     updateNodeData: state.updateNodeData,
   })));
 }

@@ -1,10 +1,12 @@
 import { memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Lock, Unlock } from 'lucide-react';
+import { ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
 import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
 import { getNodeDefaultSize, getNodeDef, GRID_SIZE } from '@/features/workflow/lib/constants';
+import { getGroupPorts } from '@/features/workflow/lib/groupPorts';
 import {
+  GROUP_CONTENT_INSET_BOTTOM,
+  GROUP_CONTENT_INSET_X,
   GROUP_HEADER_HEIGHT,
-  GROUP_SAFE_MARGIN,
   enforceGroupLayout,
   getEffectiveNodeSize,
 } from '@/features/workflow/lib/groupLayout';
@@ -13,7 +15,7 @@ import { isNodeLockedWithAncestors } from '@/features/workflow/lib/store/editorS
 import type { PortDef } from '@/features/workflow/lib/types';
 import { formatDurationSeconds } from '@/features/workflow/lib/executionFormat';
 import { NodeContent } from './NodeContent';
-import { InputPort, OutputPort } from './NodePorts';
+import { GroupPortRow, InputPort, OutputPort } from './NodePorts';
 import { NODE_ICONS, STATUS_BADGE } from './nodeConstants';
 import { useBufferedStringField } from './useBufferedStringField';
 import './node.css';
@@ -37,15 +39,18 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
+  const updateGroupPort = useWorkflowStore((s) => s.updateGroupPort);
+  const toggleGroupCollapsed = useWorkflowStore((s) => s.toggleGroupCollapsed);
   const setNodeSize = useWorkflowStore((s) => s.setNodeSize);
   const snapToGridEnabled = useWorkflowStore((s) => s.snapToGridEnabled);
   const toggleNodesLocked = useWorkflowStore((s) => s.toggleNodesLocked);
   const updateNodeInternals = useUpdateNodeInternals();
 
-  if (!def) return <div className="p-3 text-xs">未知节点类型: {type}</div>;
+  if (!def) return <div className="p-3 text-xs">Unknown node type: {type}</div>;
 
   const isMergeNode = def.maxInputs !== undefined;
   const isGroupNode = type === 'group';
+  const isCollapsed = isGroupNode && Boolean(data.collapsed);
   const inputCount = isMergeNode ? ((data.inputCount as number) || 1) : 0;
   const minSize = getNodeDefaultSize(type, inputCount);
   const Icon = NODE_ICONS[def.icon] || NODE_ICONS.eye;
@@ -66,19 +71,19 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const resizeMaxWidth = parentGroupSize && currentNode
     ? Math.max(
         minSize.w,
-        Math.round((parentGroupSize.width - GROUP_SAFE_MARGIN - currentNode.position.x) / GRID_SIZE) * GRID_SIZE,
+        Math.round((parentGroupSize.width - GROUP_CONTENT_INSET_X - currentNode.position.x) / GRID_SIZE) * GRID_SIZE,
       )
     : undefined;
   const resizeMaxHeight = parentGroupSize && currentNode
     ? Math.max(
         minSize.h,
-        Math.round((parentGroupSize.height - GROUP_SAFE_MARGIN - currentNode.position.y) / GRID_SIZE) * GRID_SIZE,
+        Math.round((parentGroupSize.height - GROUP_CONTENT_INSET_BOTTOM - currentNode.position.y) / GRID_SIZE) * GRID_SIZE,
       )
     : undefined;
 
   useEffect(() => {
     updateNodeInternals(id);
-  }, [id, inputCount, updateNodeInternals]);
+  }, [data, id, inputCount, isCollapsed, updateNodeInternals]);
 
   useEffect(() => {
     if (!isRunning) return;
@@ -110,10 +115,22 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
     if (edge.target === id && edge.targetHandle) connectedInputs.add(edge.targetHandle);
   }
 
+  const groupInputs = isGroupNode ? getGroupPorts(data, 'input') : [];
+  const groupOutputs = isGroupNode ? getGroupPorts(data, 'output') : [];
+  const occupiedGroupInputCount = groupInputs.filter((port) => port.binding).length;
+  const occupiedGroupOutputCount = groupOutputs.filter((port) => port.binding).length;
+  const groupPortRows = isGroupNode
+    ? Array.from({ length: Math.max(groupInputs.length, groupOutputs.length, 1) }, (_, index) => ({
+        input: groupInputs[index] || null,
+        output: groupOutputs[index] || null,
+      }))
+    : [];
+
   const className = [
     'flow-node',
     selected ? 'flow-node--selected' : '',
     isGroupNode ? 'flow-node--group' : '',
+    isCollapsed ? 'flow-node--collapsed' : '',
     isError ? 'flow-node--error' : '',
     hasWarning ? 'flow-node--warning' : '',
     isRunning ? 'flow-node--running' : '',
@@ -123,7 +140,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const nodeStyle = {
     '--node-color': def.color,
   } as CSSProperties;
-  const groupTitleField = useBufferedStringField(String((data.title as string) || '节点组'), (nextValue) => {
+  const groupTitleField = useBufferedStringField(String((data.title as string) || 'Group'), (nextValue) => {
     updateNodeData(id, { title: nextValue });
   });
 
@@ -134,8 +151,8 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
         ...nodeStyle,
         width: '100%',
         height: '100%',
-        minWidth: minSize.w,
-        minHeight: minSize.h,
+        minWidth: isCollapsed ? GRID_SIZE * 10 : minSize.w,
+        minHeight: isCollapsed ? GRID_SIZE * 6 : minSize.h,
         animation: isRunning ? 'pulse-border 1.5s ease-in-out infinite' : undefined,
         display: 'flex',
         flexDirection: 'column',
@@ -144,7 +161,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
       }}
     >
       <NodeResizer
-        isVisible={selected && !isLocked}
+        isVisible={selected && !isLocked && !isCollapsed}
         minWidth={minSize.w}
         minHeight={minSize.h}
         maxWidth={resizeMaxWidth}
@@ -185,9 +202,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
             className="flow-node__header"
             style={{ minHeight: isGroupNode ? GROUP_HEADER_HEIGHT : undefined }}
           >
-            <span
-              className="flow-node__icon"
-            >
+            <span className="flow-node__icon">
               <Icon size={15} strokeWidth={2.1} />
             </span>
             {isGroupNode ? (
@@ -195,7 +210,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                 value={groupTitleField.value}
                 onChange={(event) => groupTitleField.onChange(event.target.value)}
                 className="flow-node__title-input"
-                placeholder="节点组"
+                placeholder="Group"
                 onFocus={() => groupTitleField.onFocus()}
                 onBlur={(event) => groupTitleField.onBlur(event.target.value)}
                 onCompositionStart={() => groupTitleField.onCompositionStart()}
@@ -209,6 +224,21 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                 {def.label}
               </span>
             )}
+            {isGroupNode && (
+              <button
+                type="button"
+                className="flow-node__collapse-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleGroupCollapsed(id);
+                }}
+                onMouseDown={(event) => event.stopPropagation()}
+                title={isCollapsed ? 'Expand group' : 'Collapse group'}
+                aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
+              >
+                {isCollapsed ? <ChevronRight size={14} strokeWidth={2.2} /> : <ChevronDown size={14} strokeWidth={2.2} />}
+              </button>
+            )}
             <button
               type="button"
               className={`flow-node__lock-button ${isLocked ? 'flow-node__lock-button--active' : ''}`}
@@ -217,14 +247,14 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                 toggleNodesLocked([id], !isDirectlyLocked);
               }}
               onMouseDown={(event) => event.stopPropagation()}
-              title={isLocked ? '解锁节点' : '锁定节点'}
-              aria-label={isLocked ? '解锁节点' : '锁定节点'}
+              title={isLocked ? 'Unlock node' : 'Lock node'}
+              aria-label={isLocked ? 'Unlock node' : 'Lock node'}
             >
               {isLocked ? <Lock size={13} strokeWidth={2.2} /> : <Unlock size={13} strokeWidth={2.2} />}
             </button>
             {isDisabled && (
               <span className="flow-node__state-chip">
-                已禁用
+                Disabled
               </span>
             )}
             {hasGeneratedMask && (
@@ -234,7 +264,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
             )}
             {hasWarning && (
               <span className="flow-node__status-icon flow-node__status-icon--warning" title={warningMessage}>
-                ⚠
+                !
               </span>
             )}
             {execStatus !== 'idle' && statusText && (
@@ -248,31 +278,75 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
             )}
           </div>
 
-          {effectiveInputs.length > 0 && (
-            <div
-              className="flow-node__ports flow-node__ports--inputs"
-            >
+          {isGroupNode && (
+            <div className="flow-node__group-ports">
+              <div className="flow-node__ports flow-node__ports--group flow-node__ports--group-band">
+                {groupPortRows.map((row, index) => (
+                  <div key={`group-row-${index}`} className="flow-node__group-port-row">
+                    {row.input ? (
+                      <GroupPortRow
+                        side="input"
+                        port={row.input}
+                        color={def.color}
+                        isConnectable={isConnectable}
+                        editable
+                        onLabelChange={(value) => updateGroupPort(id, 'input', row.input!.id, { label: value })}
+                      />
+                    ) : (
+                      <div className="node-port node-port--group-spacer" aria-hidden="true" />
+                    )}
+                    {row.output ? (
+                      <GroupPortRow
+                        side="output"
+                        port={row.output}
+                        color={def.color}
+                        isConnectable={isConnectable}
+                        editable
+                        onLabelChange={(value) => updateGroupPort(id, 'output', row.output!.id, { label: value })}
+                      />
+                    ) : (
+                      <div className="node-port node-port--group-spacer" aria-hidden="true" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isGroupNode && effectiveInputs.length > 0 && (
+            <div className="flow-node__ports flow-node__ports--inputs">
               {effectiveInputs.map((input) => (
                 <InputPort key={input.id} input={input} connected={connectedInputs.has(input.id)} isConnectable={isConnectable} color={def.color} />
               ))}
             </div>
           )}
 
-          <NodeContent
-            type={type}
-            data={data}
-            nodeId={id}
-            def={def}
-            updateNodeData={updateNodeData}
-            outputs={nodeOutputs}
-            showBottomBorder={hasOutputs}
-            connectedInputCount={connectedInputs.size}
-          />
+          {!(isGroupNode && isCollapsed) && (
+            <NodeContent
+              type={type}
+              data={data}
+              nodeId={id}
+              def={def}
+              updateNodeData={updateNodeData}
+              outputs={nodeOutputs}
+              showBottomBorder={hasOutputs}
+              connectedInputCount={connectedInputs.size}
+            />
+          )}
 
-          {hasOutputs && (
-            <div
-              className="flow-node__ports flow-node__ports--outputs"
-            >
+          {isGroupNode && isCollapsed && (
+            <div className="flow-node__group-collapsed-meta">
+              <span className="flow-node__group-collapsed-chip">
+                IN {occupiedGroupInputCount}
+              </span>
+              <span className="flow-node__group-collapsed-chip">
+                OUT {occupiedGroupOutputCount}
+              </span>
+            </div>
+          )}
+
+          {!isGroupNode && hasOutputs && (
+            <div className="flow-node__ports flow-node__ports--outputs">
               {def.outputs.map((output) => (
                 <OutputPort key={output.id} output={output} isConnectable={isConnectable} color={def.color} />
               ))}

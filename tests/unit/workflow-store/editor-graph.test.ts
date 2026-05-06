@@ -35,6 +35,65 @@ describe('workflow store graph editor actions', () => {
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
+  it('keeps exactly one trailing empty group input slot after edge mutations', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'group',
+          type: 'group',
+          position: { x: 0, y: 0 },
+          data: {
+            groupInputs: [
+              {
+                id: 'port_a',
+                label: 'Input 1',
+                type: 'string',
+                binding: { nodeId: 'child', handleId: 'prompt' },
+              },
+              {
+                id: 'port_b',
+                label: 'Input 2',
+                type: 'any',
+                binding: null,
+              },
+              {
+                id: 'port_c',
+                label: 'Input 3',
+                type: 'any',
+                binding: null,
+              },
+            ],
+          },
+        },
+        {
+          id: 'child',
+          type: 'aiChat',
+          position: { x: 56, y: 84 },
+          parentId: 'group',
+          extent: 'parent',
+          data: {},
+        },
+      ],
+      edges: [],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.onEdgesChange([]);
+
+    const state = harness.getState();
+    const groupNode = state.nodes.find((node) => node.id === 'group');
+    const inputs = Array.isArray(groupNode?.data?.groupInputs) ? groupNode.data.groupInputs : [];
+
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0]).toMatchObject({
+      binding: { nodeId: 'child', handleId: 'prompt' },
+      type: 'string',
+    });
+    expect(inputs[1]).toMatchObject({ binding: null, type: null });
+  });
+
   it('removes descendant nodes, connected edges, and execution residue together', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
@@ -155,7 +214,7 @@ describe('workflow store graph editor actions', () => {
     const lockedChild = state.nodes.find((node) => node.id === 'lockedChild');
     const freeChild = state.nodes.find((node) => node.id === 'freeChild');
 
-    expect(lockedChild?.position).toEqual({ x: 56, y: 84 });
+    expect(lockedChild?.position).toEqual({ x: 56, y: 140 });
     expect((freeChild?.position.x ?? 1) % 28).toBe(0);
     expect((freeChild?.position.y ?? 1) % 28).toBe(0);
     expect(group?.width).toBeGreaterThanOrEqual(280);
@@ -238,5 +297,123 @@ describe('workflow store graph editor actions', () => {
     const rightBottom = state.nodes.find((node) => node.id === 'rightBottom');
 
     expect((rightTop?.position.y ?? 0)).toBeLessThan(rightBottom?.position.y ?? 0);
+  });
+
+  it('keeps child node positions stable when collapsing and expanding a group', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'group',
+          type: 'group',
+          position: { x: 0, y: 0 },
+          width: 840,
+          height: 560,
+          data: {},
+        },
+        {
+          id: 'childA',
+          type: 'textInput',
+          position: { x: 84, y: 112 },
+          parentId: 'group',
+          extent: 'parent',
+          data: {},
+        },
+        {
+          id: 'childB',
+          type: 'output',
+          position: { x: 420, y: 224 },
+          parentId: 'group',
+          extent: 'parent',
+          data: {},
+        },
+      ],
+      edges: [],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.toggleGroupCollapsed('group', true);
+    let state = harness.getState();
+    expect(state.nodes.find((node) => node.id === 'childA')?.position).toEqual({ x: 84, y: 112 });
+    expect(state.nodes.find((node) => node.id === 'childB')?.position).toEqual({ x: 420, y: 224 });
+
+    actions.toggleGroupCollapsed('group', false);
+    state = harness.getState();
+    expect(state.nodes.find((node) => node.id === 'childA')?.position).toEqual({ x: 84, y: 140 });
+    expect(state.nodes.find((node) => node.id === 'childB')?.position).toEqual({ x: 420, y: 224 });
+    expect(state.nodes.find((node) => node.id === 'group')?.width).toBe(840);
+    expect(state.nodes.find((node) => node.id === 'group')?.height).toBe(560);
+  });
+
+  it('removes external group edges when a mapped group port is unbound', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'group',
+          type: 'group',
+          position: { x: 0, y: 0 },
+          data: {
+            groupInputs: [
+              {
+                id: 'port_in',
+                label: 'Input 1',
+                type: 'string',
+                binding: { nodeId: 'child', handleId: 'prompt' },
+              },
+              {
+                id: 'port_empty',
+                label: 'Input 2',
+                type: null,
+                binding: null,
+              },
+            ],
+          },
+        },
+        {
+          id: 'source',
+          type: 'textInput',
+          position: { x: 0, y: 0 },
+          data: {},
+        },
+        {
+          id: 'child',
+          type: 'aiChat',
+          position: { x: 56, y: 84 },
+          parentId: 'group',
+          extent: 'parent',
+          data: {},
+        },
+      ],
+      edges: [
+        {
+          id: 'edge_external',
+          source: 'source',
+          sourceHandle: 'text',
+          target: 'group',
+          targetHandle: 'group-port:input:external:port_in',
+        },
+        {
+          id: 'edge_internal',
+          source: 'group',
+          sourceHandle: 'group-port:input:internal:port_in',
+          target: 'child',
+          targetHandle: 'prompt',
+        },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.updateGroupPort('group', 'input', 'port_in', { binding: null, type: null });
+
+    const state = harness.getState();
+    const groupNode = state.nodes.find((node) => node.id === 'group');
+    const inputs = Array.isArray(groupNode?.data?.groupInputs) ? groupNode.data.groupInputs : [];
+
+    expect(state.edges).toEqual([]);
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).toMatchObject({ binding: null, type: null });
   });
 });

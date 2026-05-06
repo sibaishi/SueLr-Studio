@@ -3,6 +3,7 @@ import * as api from '@/features/workflow/lib/api';
 import type { Workflow } from '@/features/workflow/lib/types';
 import type { WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
 import { clearActiveRunSnapshot, loadLocalDraft } from '@/features/workflow/lib/store/persistence';
+import { normalizeEditorNodes } from '@/features/workflow/lib/store/editorShared';
 import { buildWorkflowPayload, gid, normalizeEdges, normalizeNodes } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowImportResult, WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
 
@@ -78,8 +79,9 @@ export function createWorkflowDocumentActions(
       if (!result.success || !result.data) return false;
 
       const workflow = result.data as Workflow;
-      const nodes = normalizeNodes(workflow.nodes);
-      const edges = normalizeEdges(workflow.edges, new Set(nodes.map((node) => node.id)));
+      const rawNodes = normalizeNodes(workflow.nodes);
+      const edges = normalizeEdges(workflow.edges, new Set(rawNodes.map((node) => node.id)));
+      const nodes = normalizeEditorNodes(rawNodes, edges);
 
       set({
         workflowId: id,
@@ -202,8 +204,9 @@ export function createWorkflowDocumentActions(
       }
 
       const record = importResult.data as Workflow;
-      const nodes = normalizeNodes(record.nodes);
-      const edges = normalizeEdges(record.edges, new Set(nodes.map((node) => node.id)));
+      const rawNodes = normalizeNodes(record.nodes);
+      const edges = normalizeEdges(record.edges, new Set(rawNodes.map((node) => node.id)));
+      const nodes = normalizeEditorNodes(rawNodes, edges);
       const importedName = typeof record.name === 'string'
         ? record.name
         : fallbackName || DEFAULT_WORKFLOW_NAME;

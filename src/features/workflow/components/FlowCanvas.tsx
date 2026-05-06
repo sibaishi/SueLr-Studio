@@ -1,6 +1,7 @@
 ﻿import {
   Background,
   BackgroundVariant,
+  ConnectionMode,
   Controls,
   MiniMap,
   ReactFlow,
@@ -32,7 +33,19 @@ import {
   PORT_COMPATIBILITY,
 } from '@/features/workflow/lib/constants';
 import { uploadFile } from '@/features/workflow/lib/api';
-import { constrainChildNodeToGroupContent, enforceGroupLayout, pushRootNodeOutsideGroupAreas } from '@/features/workflow/lib/groupLayout';
+import {
+  buildGroupHandleId,
+  collectDescendantNodeIds,
+  findGroupPort,
+  getGroupPorts,
+  parseGroupHandleId,
+} from '@/features/workflow/lib/groupPorts';
+import {
+  constrainChildNodeToGroupContent,
+  enforceGroupLayout,
+  getCollapsedGroupNodeSize,
+  pushRootNodeOutsideGroupAreas,
+} from '@/features/workflow/lib/groupLayout';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/features/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/features/workflow/lib/store/selectors';
@@ -95,6 +108,16 @@ const CATEGORY_ORDER = ['input', 'api', 'merge', 'ai', 'output', 'group'] as con
 const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
 const FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
 const DISABLED_NODE_REASON = '暂时停用，无法新建';
+const DEFAULT_WORKFLOW_EDGE_STYLE = {
+  stroke: 'var(--color-text-tertiary)',
+  strokeWidth: 2,
+} as const;
+const GROUP_INTERNAL_EDGE_STYLE = {
+  ...DEFAULT_WORKFLOW_EDGE_STYLE,
+} as const;
+const GROUP_EXTERNAL_EDGE_STYLE = {
+  ...DEFAULT_WORKFLOW_EDGE_STYLE,
+} as const;
 
 function formatCanvasUploadError(message?: string | null) {
   const detail = String(message || '').trim();
@@ -126,12 +149,14 @@ type ClipboardSnapshot = {
 
 type PendingConnection =
   | {
+      allowCreateNode: boolean;
       handleType: 'source';
       sourceId: string;
       sourceHandle: string;
       sourceType: string;
     }
   | {
+      allowCreateNode: boolean;
       handleType: 'target';
       targetId: string;
       targetHandle: string;
@@ -271,6 +296,107 @@ function getDescendantIds(nodes: FlowNodeType[], rootIds: string[]) {
 function expandSelectionIds(nodes: FlowNodeType[], nodeIds: string[]) {
   const uniqueIds = [...new Set(nodeIds)];
   return [...new Set([...uniqueIds, ...getDescendantIds(nodes, uniqueIds)])];
+}
+
+function getParentId(node: FlowNodeType | undefined) {
+  return (node as FlowNodeType & { parentId?: string } | undefined)?.parentId;
+}
+
+function getGroupPortType(node: FlowNodeType | undefined, handleId: string | null | undefined) {
+  if (!node || node.type !== 'group') return null;
+  const descriptor = parseGroupHandleId(handleId);
+  if (!descriptor) return null;
+  return findGroupPort((node.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId)?.type || null;
+}
+
+function getOutputType(node: FlowNodeType | undefined, handleId: string | null | undefined) {
+  if (!node || !handleId) return null;
+  if (node.type === 'group') return getGroupPortType(node, handleId);
+
+  const def = getNodeDef(node.type || '');
+  return def?.outputs.find((port) => port.id === handleId)?.type || null;
+}
+
+function getInputType(node: FlowNodeType | undefined, handleId: string | null | undefined) {
+  if (!node || !handleId) return null;
+  if (node.type === 'group') return getGroupPortType(node, handleId);
+
+  const def = getNodeDef(node.type || '');
+  if (!def) return null;
+  if (def.maxInputs) return def.inputs[0]?.type || null;
+  return def.inputs.find((port) => port.id === handleId)?.type || null;
+}
+
+function isGroupHandleExternallyConnectable(node: FlowNodeType | undefined, handleId: string | null | undefined) {
+  if (!node || node.type !== 'group' || !handleId) return false;
+  const descriptor = parseGroupHandleId(handleId);
+  if (!descriptor) return false;
+  const port = findGroupPort((node.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId);
+  return Boolean(port?.binding);
+}
+
+function getVisibleCollapsedAncestorId(
+  nodeId: string,
+  nodeMap: Map<string, FlowNodeType>,
+  collapsedGroupIds: Set<string>,
+) {
+  let current = nodeMap.get(nodeId);
+  let visibleCollapsedId: string | null = null;
+
+  while (current) {
+    if (collapsedGroupIds.has(current.id)) {
+      visibleCollapsedId = current.id;
+    }
+    const parentId = getParentId(current);
+    current = parentId ? nodeMap.get(parentId) : undefined;
+  }
+
+  return visibleCollapsedId;
+}
+
+function getNearestGroupAncestorId(nodeId: string, nodeMap: Map<string, FlowNodeType>) {
+  let current = nodeMap.get(nodeId);
+  while (current) {
+    const parentId = getParentId(current);
+    if (!parentId) return null;
+    const parentNode = nodeMap.get(parentId);
+    if (!parentNode) return null;
+    if (parentNode.type === 'group') return parentNode.id;
+    current = parentNode;
+  }
+
+  return null;
+}
+
+function getDecoratedGroupEdge(
+  edge: Edge,
+  sourceDescriptor: ReturnType<typeof parseGroupHandleId>,
+  targetDescriptor: ReturnType<typeof parseGroupHandleId>,
+): Edge {
+  const isInternal = sourceDescriptor?.role === 'internal' || targetDescriptor?.role === 'internal' || edge.id.startsWith('group-binding:');
+  const isExternal = sourceDescriptor?.role === 'external' || targetDescriptor?.role === 'external' || edge.id.startsWith('virtual:');
+
+  if (isInternal) {
+    return {
+      ...edge,
+      style: {
+        ...(edge.style || {}),
+        ...GROUP_INTERNAL_EDGE_STYLE,
+      },
+    };
+  }
+
+  if (isExternal) {
+    return {
+      ...edge,
+      style: {
+        ...(edge.style || {}),
+        ...GROUP_EXTERNAL_EDGE_STYLE,
+      },
+    };
+  }
+
+  return edge;
 }
 
 function buildClipboardSnapshot(nodes: FlowNodeType[], edges: Edge[], nodeIds: string[]): ClipboardSnapshot | null {
@@ -456,36 +582,335 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     };
   }, [wasContextMenuJustOpened]);
 
-  const renderNodes = useMemo(() => {
-    return store.nodes.map((node) => {
-      const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
-      const size = getNodeDefaultSize(node.type || '', inputCount);
-      const width = typeof node.width === 'number' ? Math.max(node.width, size.w) : size.w;
-      const height = typeof node.height === 'number' ? Math.max(node.height, size.h) : size.h;
+  const renderModel = useMemo(() => {
+    const collapsedGroups = store.nodes.filter((node) => node.type === 'group' && node.data?.collapsed);
+    const collapsedGroupIds = new Set(collapsedGroups.map((node) => node.id));
+    const collapsedDescendantIds = new Set<string>();
+
+    for (const group of collapsedGroups) {
+      for (const nodeId of collectDescendantNodeIds(store.nodes, group.id)) {
+        collapsedDescendantIds.add(nodeId);
+      }
+    }
+
+    const nodeMap = new Map(store.nodes.map((node) => [node.id, node as FlowNodeType]));
+    const visibleNodes = store.nodes
+      .filter((node) => !collapsedDescendantIds.has(node.id))
+      .map((node) => {
+        const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
+        const size = getNodeDefaultSize(node.type || '', inputCount);
+        const collapsedSize = node.type === 'group' && node.data?.collapsed
+          ? getCollapsedGroupNodeSize(node as FlowNodeType)
+          : null;
+        const width = collapsedSize
+          ? collapsedSize.width
+          : typeof node.width === 'number' ? Math.max(node.width, size.w) : size.w;
+        const height = collapsedSize
+          ? collapsedSize.height
+          : typeof node.height === 'number' ? Math.max(node.height, size.h) : size.h;
+
+        return {
+          ...node,
+          zIndex: node.type === 'group' ? 0 : 1,
+          style: {
+            ...(node.style || {}),
+            width,
+            height,
+            minWidth: size.w,
+            minHeight: size.h,
+          },
+        } as FlowNodeType;
+      })
+      .sort((a, b) => {
+        const aParent = Boolean((a as FlowNodeType & { parentId?: string }).parentId);
+        const bParent = Boolean((b as FlowNodeType & { parentId?: string }).parentId);
+        if (aParent !== bParent) return aParent ? 1 : -1;
+        if ((a.type === 'group') !== (b.type === 'group')) return a.type === 'group' ? -1 : 1;
+        return 0;
+      });
+
+    const visibleEdges: Edge[] = [];
+    const virtualEdges: Edge[] = [];
+    const internalPortEdges: Edge[] = [];
+    const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+
+    for (const node of visibleNodes) {
+      if (node.type !== 'group' || collapsedGroupIds.has(node.id)) continue;
+
+      const nodeData = (node.data || {}) as Record<string, unknown>;
+      for (const port of getGroupPorts(nodeData, 'input')) {
+        if (!port.binding || !visibleNodeIds.has(port.binding.nodeId)) continue;
+        internalPortEdges.push({
+          id: `group-binding:${node.id}:input:${port.id}`,
+          source: node.id,
+          sourceHandle: buildGroupHandleId('input', port.id, 'internal'),
+          target: port.binding.nodeId,
+          targetHandle: port.binding.handleId,
+          type: 'default',
+          animated: false,
+          style: { ...GROUP_INTERNAL_EDGE_STYLE },
+        });
+      }
+
+      for (const port of getGroupPorts(nodeData, 'output')) {
+        if (!port.binding || !visibleNodeIds.has(port.binding.nodeId)) continue;
+        internalPortEdges.push({
+          id: `group-binding:${node.id}:output:${port.id}`,
+          source: port.binding.nodeId,
+          sourceHandle: port.binding.handleId,
+          target: node.id,
+          targetHandle: buildGroupHandleId('output', port.id, 'internal'),
+          type: 'default',
+          animated: false,
+          style: { ...GROUP_INTERNAL_EDGE_STYLE },
+        });
+      }
+    }
+
+    for (const edge of store.edges) {
+      const sourceDescriptor = parseGroupHandleId(edge.sourceHandle);
+      const targetDescriptor = parseGroupHandleId(edge.targetHandle);
+      const sourceNodeForEdge = nodeMap.get(edge.source);
+      const targetNodeForEdge = nodeMap.get(edge.target);
+
+      if (
+        sourceDescriptor
+        && sourceNodeForEdge?.type === 'group'
+        && sourceDescriptor.side === 'input'
+        && sourceDescriptor.role === 'internal'
+      ) {
+        const port = findGroupPort(
+          (sourceNodeForEdge.data || {}) as Record<string, unknown>,
+          'input',
+          sourceDescriptor.portId,
+        );
+        if (port?.binding?.nodeId === edge.target && port.binding.handleId === edge.targetHandle) {
+          continue;
+        }
+      }
+
+      if (
+        targetDescriptor
+        && targetNodeForEdge?.type === 'group'
+        && targetDescriptor.side === 'output'
+        && targetDescriptor.role === 'internal'
+      ) {
+        const port = findGroupPort(
+          (targetNodeForEdge.data || {}) as Record<string, unknown>,
+          'output',
+          targetDescriptor.portId,
+        );
+        if (port?.binding?.nodeId === edge.source && port.binding.handleId === edge.sourceHandle) {
+          continue;
+        }
+      }
+
+      const sourceGroupId = getNearestGroupAncestorId(edge.source, nodeMap);
+      const targetGroupId = getNearestGroupAncestorId(edge.target, nodeMap);
+      const sourceCollapsedGroupId = getVisibleCollapsedAncestorId(edge.source, nodeMap, collapsedGroupIds);
+      const targetCollapsedGroupId = getVisibleCollapsedAncestorId(edge.target, nodeMap, collapsedGroupIds);
+      const visibleSourceGroupId = sourceCollapsedGroupId || sourceGroupId;
+      const visibleTargetGroupId = targetCollapsedGroupId || targetGroupId;
+
+      if (!visibleSourceGroupId && !visibleTargetGroupId) {
+        visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
+        continue;
+      }
+
+      if (visibleSourceGroupId && visibleTargetGroupId && visibleSourceGroupId === visibleTargetGroupId) {
+        if (!sourceCollapsedGroupId && !targetCollapsedGroupId) {
+          visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
+        }
+        continue;
+      }
+
+      if (!visibleSourceGroupId && visibleTargetGroupId) {
+        const groupNode = nodeMap.get(visibleTargetGroupId);
+        const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'input') : [];
+        const port = ports.find((item) => item.binding?.nodeId === edge.target && item.binding?.handleId === edge.targetHandle);
+        if (!port) continue;
+        virtualEdges.push({
+          id: `virtual:${edge.id}`,
+          source: edge.source,
+          sourceHandle: edge.sourceHandle,
+          target: visibleTargetGroupId,
+          targetHandle: buildGroupHandleId('input', port.id, 'external'),
+          type: 'default',
+          animated: false,
+          style: { ...GROUP_EXTERNAL_EDGE_STYLE },
+        });
+        continue;
+      }
+
+      if (visibleSourceGroupId && !visibleTargetGroupId) {
+        const groupNode = nodeMap.get(visibleSourceGroupId);
+        const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'output') : [];
+        const port = ports.find((item) => item.binding?.nodeId === edge.source && item.binding?.handleId === edge.sourceHandle);
+        if (!port) continue;
+        virtualEdges.push({
+          id: `virtual:${edge.id}`,
+          source: visibleSourceGroupId,
+          sourceHandle: buildGroupHandleId('output', port.id, 'external'),
+          target: edge.target,
+          targetHandle: edge.targetHandle,
+          type: 'default',
+          animated: false,
+          style: { ...GROUP_EXTERNAL_EDGE_STYLE },
+        });
+        continue;
+      }
+
+      if (visibleSourceGroupId && visibleTargetGroupId) {
+        const sourceGroupNode = nodeMap.get(visibleSourceGroupId);
+        const targetGroupNode = nodeMap.get(visibleTargetGroupId);
+        const sourcePorts = sourceGroupNode ? getGroupPorts((sourceGroupNode.data || {}) as Record<string, unknown>, 'output') : [];
+        const targetPorts = targetGroupNode ? getGroupPorts((targetGroupNode.data || {}) as Record<string, unknown>, 'input') : [];
+        const sourcePort = sourcePorts.find((item) => item.binding?.nodeId === edge.source && item.binding?.handleId === edge.sourceHandle);
+        const targetPort = targetPorts.find((item) => item.binding?.nodeId === edge.target && item.binding?.handleId === edge.targetHandle);
+        if (!sourcePort || !targetPort) continue;
+        virtualEdges.push({
+          id: `virtual:${edge.id}`,
+          source: visibleSourceGroupId,
+          sourceHandle: buildGroupHandleId('output', sourcePort.id, 'external'),
+          target: visibleTargetGroupId,
+          targetHandle: buildGroupHandleId('input', targetPort.id, 'external'),
+          type: 'default',
+          animated: false,
+          style: { ...GROUP_EXTERNAL_EDGE_STYLE },
+        });
+      }
+    }
+
+    return {
+      nodes: visibleNodes,
+      edges: [...visibleEdges, ...virtualEdges, ...internalPortEdges],
+      collapsedGroupIds,
+      nodeMap,
+    };
+  }, [store.edges, store.nodes]);
+
+  const renderNodes = renderModel.nodes;
+  const renderEdges = renderModel.edges;
+
+  const attachNodeToGroup = useCallback((nodeId: string, groupId: string) => {
+    useWorkflowStore.setState((state) => {
+      const nodeMap = new Map(state.nodes.map((node) => [node.id, node as FlowNodeType]));
+      const node = nodeMap.get(nodeId);
+      const groupNode = nodeMap.get(groupId);
+      if (!node || !groupNode || groupNode.type !== 'group') return {};
+
+      const groupPosition = getAbsoluteNodePosition(groupId, nodeMap);
+      const nextNode = constrainChildNodeToGroupContent({
+        ...node,
+        parentId: groupId,
+        extent: 'parent',
+        position: {
+          x: node.position.x - groupPosition.x,
+          y: node.position.y - groupPosition.y,
+        },
+      }, groupNode);
 
       return {
-        ...node,
-        zIndex: node.type === 'group' ? 0 : 1,
-        style: {
-          ...(node.style || {}),
-          width,
-          height,
-          minWidth: size.w,
-          minHeight: size.h,
-        },
-      } as FlowNodeType;
-    }).sort((a, b) => {
-      const aParent = Boolean((a as FlowNodeType & { parentId?: string }).parentId);
-      const bParent = Boolean((b as FlowNodeType & { parentId?: string }).parentId);
-      if (aParent !== bParent) return aParent ? 1 : -1;
-      if ((a.type === 'group') !== (b.type === 'group')) return a.type === 'group' ? -1 : 1;
-      return 0;
+        nodes: enforceGroupLayout(state.nodes.map((item) => (
+          item.id === nodeId ? nextNode : item
+        ))),
+        hasUnsavedChanges: true,
+      };
     });
-  }, [store.nodes]);
+  }, []);
 
-  const renderEdges = useMemo(() => {
-    return store.edges.map((edge) => ({ ...edge, type: 'default' }));
-  }, [store.edges]);
+  const commitConnection = useCallback((connection: Connection) => {
+    if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) return;
+
+    const currentStore = useWorkflowStore.getState();
+    const nodeMap = new Map(currentStore.nodes.map((node) => [node.id, node as FlowNodeType]));
+    const sourceNode = nodeMap.get(connection.source);
+    const targetNode = nodeMap.get(connection.target);
+    if (!sourceNode || !targetNode) return;
+
+    const sourceGroupHandle = parseGroupHandleId(connection.sourceHandle);
+    const targetGroupHandle = parseGroupHandleId(connection.targetHandle);
+
+    if (!sourceGroupHandle && !targetGroupHandle) {
+      currentStore.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
+      return;
+    }
+
+    if (
+      targetGroupHandle
+      && targetNode.type === 'group'
+      && targetGroupHandle.side === 'output'
+      && targetGroupHandle.role === 'internal'
+    ) {
+      const port = findGroupPort((targetNode.data || {}) as Record<string, unknown>, 'output', targetGroupHandle.portId);
+      if (port?.binding) return;
+
+      currentStore.updateGroupPort(targetNode.id, 'output', targetGroupHandle.portId, {
+        binding: {
+          nodeId: connection.source,
+          handleId: connection.sourceHandle,
+        },
+        type: getOutputType(sourceNode, connection.sourceHandle),
+      });
+      currentStore.addEdge(
+        connection.source,
+        connection.sourceHandle,
+        connection.target,
+        connection.targetHandle,
+      );
+      return;
+    }
+
+    if (
+      sourceGroupHandle
+      && sourceNode.type === 'group'
+      && sourceGroupHandle.side === 'input'
+      && sourceGroupHandle.role === 'internal'
+    ) {
+      const port = findGroupPort((sourceNode.data || {}) as Record<string, unknown>, 'input', sourceGroupHandle.portId);
+      if (port?.binding) return;
+
+      currentStore.updateGroupPort(sourceNode.id, 'input', sourceGroupHandle.portId, {
+        binding: {
+          nodeId: connection.target,
+          handleId: connection.targetHandle,
+        },
+        type: getInputType(targetNode, connection.targetHandle),
+      });
+      currentStore.addEdge(
+        connection.source,
+        connection.sourceHandle,
+        connection.target,
+        connection.targetHandle,
+      );
+      return;
+    }
+
+    if (
+      sourceGroupHandle
+      && sourceNode.type === 'group'
+      && sourceGroupHandle.side === 'output'
+      && sourceGroupHandle.role === 'external'
+    ) {
+      const sourcePort = findGroupPort((sourceNode.data || {}) as Record<string, unknown>, 'output', sourceGroupHandle.portId);
+      if (sourcePort?.binding) {
+        currentStore.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
+      }
+      return;
+    }
+
+    if (
+      targetGroupHandle
+      && targetNode.type === 'group'
+      && targetGroupHandle.side === 'input'
+      && targetGroupHandle.role === 'external'
+    ) {
+      const targetPort = findGroupPort((targetNode.data || {}) as Record<string, unknown>, 'input', targetGroupHandle.portId);
+      if (targetPort?.binding) {
+        currentStore.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
+      }
+    }
+  }, []);
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
@@ -530,13 +955,21 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const onEdgeDoubleClick = useCallback<EdgeMouseHandler>((event, edge) => {
     event.preventDefault();
     event.stopPropagation();
+
+    if (edge.id.startsWith('group-binding:')) {
+      const [, groupId, side, portId] = edge.id.split(':');
+      if ((side === 'input' || side === 'output') && groupId && portId) {
+        store.updateGroupPort(groupId, side, portId, { binding: null, type: null });
+        return;
+      }
+    }
+
     store.removeEdge(edge.id);
   }, [store]);
 
   const onConnect = useCallback((connection: Connection) => {
-    if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) return;
-    store.addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
-  }, [store]);
+    commitConnection(connection);
+  }, [commitConnection]);
 
   const isValidConnection = useCallback((connection: {
     source: string | null;
@@ -547,26 +980,64 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     if (!connection.source || !connection.target) return false;
     if (connection.source === connection.target) return false;
 
-    const sourceNode = store.nodes.find((node) => node.id === connection.source);
-    const targetNode = store.nodes.find((node) => node.id === connection.target);
+    const sourceNode = renderModel.nodeMap.get(connection.source);
+    const targetNode = renderModel.nodeMap.get(connection.target);
     if (!sourceNode || !targetNode) return false;
 
-    const sourceDef = getNodeDef(sourceNode.type || '');
-    const targetDef = getNodeDef(targetNode.type || '');
-    if (!sourceDef || !targetDef) return false;
+    const sourceDescriptor = parseGroupHandleId(connection.sourceHandle);
+    const targetDescriptor = parseGroupHandleId(connection.targetHandle);
 
-    const sourcePort = sourceDef.outputs.find((port) => port.id === connection.sourceHandle);
-    const targetPort = targetDef.maxInputs
-      ? targetDef.inputs[0]
-        ? { ...targetDef.inputs[0], id: connection.targetHandle }
-        : undefined
-      : targetDef.inputs.find((port) => port.id === connection.targetHandle);
+    if (
+      sourceDescriptor
+      && sourceNode.type === 'group'
+      && sourceDescriptor.side === 'input'
+      && sourceDescriptor.role === 'internal'
+    ) {
+      const sourcePort = findGroupPort(
+        (sourceNode.data || {}) as Record<string, unknown>,
+        'input',
+        sourceDescriptor.portId,
+      );
+      if (!sourcePort?.binding) {
+        return sourceNode.id === getParentId(targetNode) && Boolean(connection.targetHandle);
+      }
+      return false;
+    }
 
-    if (!sourcePort || !targetPort) return false;
+    if (
+      targetDescriptor
+      && targetNode.type === 'group'
+      && targetDescriptor.side === 'output'
+      && targetDescriptor.role === 'internal'
+    ) {
+      const targetPort = findGroupPort(
+        (targetNode.data || {}) as Record<string, unknown>,
+        'output',
+        targetDescriptor.portId,
+      );
+      if (!targetPort?.binding) {
+        return targetNode.id === getParentId(sourceNode) && Boolean(connection.sourceHandle);
+      }
+      return false;
+    }
 
-    const compatibleTargets = PORT_COMPATIBILITY[sourcePort.type];
-    return compatibleTargets?.includes(targetPort.type) ?? false;
-  }, [store.nodes]);
+    const sourceType = getOutputType(sourceNode, connection.sourceHandle);
+    const targetType = getInputType(targetNode, connection.targetHandle);
+    if (!sourceType || !targetType) return false;
+
+    if (sourceDescriptor) {
+      if (sourceDescriptor.side !== 'output' || sourceDescriptor.role !== 'external') return false;
+      if (!isGroupHandleExternallyConnectable(sourceNode, connection.sourceHandle)) return false;
+    }
+
+    if (targetDescriptor) {
+      if (targetDescriptor.side !== 'input' || targetDescriptor.role !== 'external') return false;
+      if (!isGroupHandleExternallyConnectable(targetNode, connection.targetHandle)) return false;
+    }
+
+    const compatibleTargets = PORT_COMPATIBILITY[sourceType];
+    return compatibleTargets?.includes(targetType) ?? false;
+  }, [renderModel.nodeMap]);
 
   const onNodeClick = useCallback((event: ReactMouseEvent, node: { id: string }) => {
     if (!event.metaKey && !event.ctrlKey && !event.shiftKey) {
@@ -736,8 +1207,55 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     }
 
     const node = store.nodes.find((item) => item.id === params.nodeId);
-    const def = getNodeDef(node?.type || '');
-    if (!node || !def) {
+    if (!node) {
+      pendingConnectionRef.current = null;
+      return;
+    }
+
+    const def = getNodeDef(node.type || '');
+    const groupDescriptor = parseGroupHandleId(params.handleId);
+    if (groupDescriptor && node.type === 'group') {
+      const port = findGroupPort(
+        (node.data || {}) as Record<string, unknown>,
+        groupDescriptor.side,
+        groupDescriptor.portId,
+      );
+      if (!port) {
+        pendingConnectionRef.current = null;
+        return;
+      }
+
+      if (params.handleType === 'source') {
+        if (groupDescriptor.side === 'output' && groupDescriptor.role === 'external' && !port.binding) {
+          pendingConnectionRef.current = null;
+          return;
+        }
+        pendingConnectionRef.current = {
+          allowCreateNode: groupDescriptor.side === 'output' && groupDescriptor.role === 'external' && Boolean(port.binding),
+          handleType: 'source',
+          sourceId: params.nodeId,
+          sourceHandle: params.handleId,
+          sourceType: port.type || 'any',
+        };
+        return;
+      }
+
+      if (groupDescriptor.side === 'input' && groupDescriptor.role === 'external' && !port.binding) {
+        pendingConnectionRef.current = null;
+        return;
+      }
+
+      pendingConnectionRef.current = {
+        allowCreateNode: groupDescriptor.side === 'input' && groupDescriptor.role === 'external' && Boolean(port.binding),
+        handleType: 'target',
+        targetId: params.nodeId,
+        targetHandle: params.handleId,
+        targetType: port.type || 'any',
+      };
+      return;
+    }
+
+    if (!def) {
       pendingConnectionRef.current = null;
       return;
     }
@@ -750,6 +1268,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       }
 
       pendingConnectionRef.current = {
+        allowCreateNode: true,
         handleType: 'source',
         sourceId: params.nodeId,
         sourceHandle: params.handleId,
@@ -765,6 +1284,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     }
 
     pendingConnectionRef.current = {
+      allowCreateNode: true,
       handleType: 'target',
       targetId: params.nodeId,
       targetHandle: params.handleId,
@@ -776,7 +1296,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     const pending = pendingConnectionRef.current;
     pendingConnectionRef.current = null;
 
-    if (!pending || state.isValid) return;
+    if (!pending || state.isValid || !pending.allowCreateNode) return;
     openContextMenuAtPoint('connect', event, { sourceConnection: pending });
   }, [openContextMenuAtPoint]);
 
@@ -1081,31 +1601,43 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     const newNodeId = store.addNode(nodeType, position, buildDefaultData(nodeType));
 
     if (contextMenu.kind === 'connect' && contextMenu.sourceConnection) {
-      if (contextMenu.sourceConnection.handleType === 'source') {
-        const targetHandle = resolveTargetHandle(nodeType, contextMenu.sourceConnection.sourceType);
+      const pending = contextMenu.sourceConnection;
+
+      if (pending.handleType === 'source') {
+        const sourceDescriptor = parseGroupHandleId(pending.sourceHandle);
+        if (sourceDescriptor?.side === 'input' && sourceDescriptor.role === 'internal') {
+          attachNodeToGroup(newNodeId, pending.sourceId);
+        }
+
+        const targetHandle = resolveTargetHandle(nodeType, pending.sourceType);
         if (targetHandle) {
-          store.addEdge(
-            contextMenu.sourceConnection.sourceId,
-            contextMenu.sourceConnection.sourceHandle,
-            newNodeId,
+          commitConnection({
+            source: pending.sourceId,
+            sourceHandle: pending.sourceHandle,
+            target: newNodeId,
             targetHandle,
-          );
+          });
         }
       } else {
-        const sourceHandle = resolveSourceHandle(nodeType, contextMenu.sourceConnection.targetType);
+        const targetDescriptor = parseGroupHandleId(pending.targetHandle);
+        if (targetDescriptor?.side === 'output' && targetDescriptor.role === 'internal') {
+          attachNodeToGroup(newNodeId, pending.targetId);
+        }
+
+        const sourceHandle = resolveSourceHandle(nodeType, pending.targetType);
         if (sourceHandle) {
-          store.addEdge(
-            newNodeId,
+          commitConnection({
+            source: newNodeId,
             sourceHandle,
-            contextMenu.sourceConnection.targetId,
-            contextMenu.sourceConnection.targetHandle,
-          );
+            target: pending.targetId,
+            targetHandle: pending.targetHandle,
+          });
         }
       }
     }
 
     closeContextMenu();
-  }, [closeContextMenu, contextMenu, resolveSourceHandle, resolveTargetHandle, store]);
+  }, [attachNodeToGroup, closeContextMenu, commitConnection, contextMenu, resolveSourceHandle, resolveTargetHandle, store]);
 
   const availableNodeDefs = useMemo(() => {
     if (!contextMenu) return [];
@@ -1161,6 +1693,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       <ReactFlow
         nodes={renderNodes}
         edges={renderEdges}
+        connectionMode={ConnectionMode.Strict}
         onInit={reportViewportCenter}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -1180,7 +1713,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         isValidConnection={isValidConnection}
         defaultEdgeOptions={{
           type: 'default',
-          style: { stroke: 'var(--color-text-tertiary)', strokeWidth: 2 },
+          style: DEFAULT_WORKFLOW_EDGE_STYLE,
         }}
         connectionLineStyle={{
           stroke: 'var(--color-accent)',

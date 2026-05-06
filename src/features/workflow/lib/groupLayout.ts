@@ -1,8 +1,14 @@
 import type { Node } from '@xyflow/react';
 import { getNodeDefaultSize, GRID_SIZE } from '@/features/workflow/lib/constants';
+import { getGroupPorts } from '@/features/workflow/lib/groupPorts';
 
 export const GROUP_SAFE_MARGIN = GRID_SIZE;
 export const GROUP_HEADER_HEIGHT = GRID_SIZE * 2;
+export const GROUP_PORT_ROW_HEIGHT = 36;
+export const GROUP_PORT_ROW_GAP = 6;
+export const GROUP_PORT_SECTION_PADDING = 8;
+export const GROUP_CONTENT_INSET_X = 12;
+export const GROUP_CONTENT_INSET_BOTTOM = 12;
 const GROUP_EXCLUSION_MARGIN = GROUP_SAFE_MARGIN;
 
 function snapValue(value: number) {
@@ -25,21 +31,53 @@ export function getEffectiveNodeSize(node: Node) {
 export function getGroupContentBounds(groupNode: Node, childNode?: Node) {
   const groupSize = getEffectiveNodeSize(groupNode);
   const childSize = childNode ? getEffectiveNodeSize(childNode) : { width: 0, height: 0 };
-  const minX = GROUP_SAFE_MARGIN;
-  const minY = GROUP_HEADER_HEIGHT + GROUP_SAFE_MARGIN;
-  const maxX = Math.max(minX, groupSize.width - GROUP_SAFE_MARGIN - childSize.width);
-  const maxY = Math.max(minY, groupSize.height - GROUP_SAFE_MARGIN - childSize.height);
+  const minX = GROUP_CONTENT_INSET_X;
+  const minY = getGroupTopInset(groupNode);
+  const maxX = Math.max(minX, groupSize.width - GROUP_CONTENT_INSET_X - childSize.width);
+  const maxY = Math.max(minY, groupSize.height - GROUP_CONTENT_INSET_BOTTOM - childSize.height);
   return { minX, minY, maxX, maxY };
 }
 
-export function getGroupTopInset() {
-  return GROUP_HEADER_HEIGHT + GROUP_SAFE_MARGIN;
+function getGroupVisiblePortRowCount(groupNode?: Pick<Node, 'data'>) {
+  const data = (groupNode?.data || {}) as Record<string, unknown>;
+  const inputCount = getGroupPorts(data, 'input').length || 1;
+  const outputCount = getGroupPorts(data, 'output').length || 1;
+  return Math.max(inputCount, outputCount, 1);
+}
+
+function getGroupPortSectionHeight(groupNode?: Pick<Node, 'data'>) {
+  const rowCount = getGroupVisiblePortRowCount(groupNode);
+  return GROUP_PORT_SECTION_PADDING * 2 + rowCount * GROUP_PORT_ROW_HEIGHT + Math.max(0, rowCount - 1) * GROUP_PORT_ROW_GAP;
+}
+
+export function getGroupTopInset(groupNode?: Pick<Node, 'data'>) {
+  if (!groupNode) {
+    return GROUP_HEADER_HEIGHT + GROUP_SAFE_MARGIN;
+  }
+  return snapValue(GROUP_HEADER_HEIGHT + getGroupPortSectionHeight(groupNode) + GROUP_SAFE_MARGIN);
+}
+
+export function getCollapsedGroupNodeSize(node: Pick<Node, 'data'>) {
+  const visibleRows = getGroupVisiblePortRowCount(node);
+
+  return {
+    width: GRID_SIZE * 12,
+    height: Math.max(
+      GRID_SIZE * 6,
+      GRID_SIZE * 2 + visibleRows * GRID_SIZE + GRID_SIZE * 2,
+    ),
+  };
 }
 
 export function constrainChildNodeSizeToGroupContent<T extends Node>(node: T, groupNode: Node): T {
+  if (groupNode.data?.collapsed) return node;
+
   const groupSize = getEffectiveNodeSize(groupNode);
-  const maxWidth = Math.max(GRID_SIZE * 2, groupSize.width - GROUP_SAFE_MARGIN * 2);
-  const maxHeight = Math.max(GRID_SIZE * 2, groupSize.height - GROUP_HEADER_HEIGHT - GROUP_SAFE_MARGIN * 2);
+  const maxWidth = Math.max(GRID_SIZE * 2, groupSize.width - GROUP_CONTENT_INSET_X * 2);
+  const maxHeight = Math.max(
+    GRID_SIZE * 2,
+    groupSize.height - getGroupTopInset(groupNode) - GROUP_CONTENT_INSET_BOTTOM,
+  );
   const currentSize = getEffectiveNodeSize(node);
 
   return {
@@ -50,6 +88,14 @@ export function constrainChildNodeSizeToGroupContent<T extends Node>(node: T, gr
 }
 
 export function constrainChildNodeToGroupContent<T extends Node>(node: T, groupNode: Node): T {
+  if (groupNode.data?.collapsed) {
+    if ((node as Node & { extent?: unknown }).extent === 'parent') return node;
+    return {
+      ...node,
+      extent: 'parent',
+    } as T;
+  }
+
   const sizedNode = constrainChildNodeSizeToGroupContent(node, groupNode);
   const bounds = getGroupContentBounds(groupNode, sizedNode);
   const nextPosition = {

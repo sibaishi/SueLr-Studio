@@ -1,11 +1,19 @@
 import { Handle, Position } from '@xyflow/react';
 import type { CSSProperties } from 'react';
+import {
+  buildGroupHandleId,
+  type GroupPort,
+} from '@/features/workflow/lib/groupPorts';
 import type { PortDef } from '@/features/workflow/lib/types';
 import {
   NODE_PORT_GUTTER,
   PORT_TYPE_COLORS,
   PORT_TYPE_LABELS,
 } from './nodeConstants';
+
+function getPortColor(type: string, fallback: string) {
+  return PORT_TYPE_COLORS[type] || fallback || '#8E8E93';
+}
 
 export function InputPort({
   input,
@@ -18,12 +26,12 @@ export function InputPort({
   isConnectable: boolean;
   color: string;
 }) {
-  const portColor = PORT_TYPE_COLORS[input.type] || color || '#8E8E93';
+  const portColor = getPortColor(input.type, color);
 
   return (
     <div
       className={['node-port', 'node-port--input', connected ? 'node-port--connected' : ''].filter(Boolean).join(' ')}
-      title={connected ? '已连接' : undefined}
+      title={connected ? 'Connected' : undefined}
       style={{ '--port-color': portColor } as CSSProperties}
     >
       <Handle
@@ -49,8 +57,16 @@ export function InputPort({
   );
 }
 
-export function OutputPort({ output, isConnectable, color }: { output: PortDef; isConnectable: boolean; color: string }) {
-  const portColor = PORT_TYPE_COLORS[output.type] || color || '#8E8E93';
+export function OutputPort({
+  output,
+  isConnectable,
+  color,
+}: {
+  output: PortDef;
+  isConnectable: boolean;
+  color: string;
+}) {
+  const portColor = getPortColor(output.type, color);
 
   return (
     <div
@@ -75,6 +91,187 @@ export function OutputPort({ output, isConnectable, color }: { output: PortDef; 
           transform: 'translateY(-50%)',
         }}
       />
+    </div>
+  );
+}
+
+function GroupHandle({
+  side,
+  role,
+  portId,
+  handleType,
+  position,
+  anchorPosition,
+  connectable,
+  color,
+  className,
+}: {
+  side: 'input' | 'output';
+  role: 'external' | 'internal';
+  portId: string;
+  handleType: 'source' | 'target';
+  position: Position;
+  anchorPosition?: Position;
+  connectable: boolean;
+  color: string;
+  className: string;
+}) {
+  const visualPosition = anchorPosition || position;
+  const sideStyle = visualPosition === Position.Left
+    ? {
+        left: NODE_PORT_GUTTER,
+        right: 'auto',
+        top: '50%',
+        transform: 'translateY(-50%)',
+      }
+    : {
+        left: 'auto',
+        right: NODE_PORT_GUTTER,
+        top: '50%',
+        transform: 'translateY(-50%)',
+      };
+
+  return (
+    <Handle
+      type={handleType}
+      position={position}
+      id={buildGroupHandleId(side, portId, role)}
+      isConnectable={connectable}
+      className={className}
+      style={{
+        background: color,
+        ...sideStyle,
+      }}
+    />
+  );
+}
+
+export function GroupPortRow({
+  side,
+  port,
+  color,
+  isConnectable,
+  editable,
+  onLabelChange,
+}: {
+  side: 'input' | 'output';
+  port: GroupPort;
+  color: string;
+  isConnectable: boolean;
+  editable: boolean;
+  onLabelChange: (value: string) => void;
+}) {
+  const portType = port.type || 'any';
+  const portColor = getPortColor(portType, color);
+  const isEmpty = !port.binding;
+
+  return (
+    <div
+      className={[
+        'node-port',
+        'node-port--group',
+        side === 'input' ? 'node-port--group-input' : 'node-port--group-output',
+        isEmpty ? 'node-port--group-empty' : '',
+      ].filter(Boolean).join(' ')}
+      style={{ '--port-color': portColor } as CSSProperties}
+    >
+      {side === 'input' ? (
+        <>
+          <GroupHandle
+            side="input"
+            role="external"
+            portId={port.id}
+            handleType="target"
+            position={Position.Left}
+            connectable={Boolean(port.binding) && isConnectable}
+            color={portColor}
+            className="node-port__handle node-port__handle--shared"
+          />
+          <GroupHandle
+            side="input"
+            role="internal"
+            portId={port.id}
+            handleType="source"
+            position={Position.Right}
+            anchorPosition={Position.Left}
+            connectable={!port.binding && isConnectable}
+            color={portColor}
+            className="node-port__handle node-port__handle--shared node-port__handle--overlay"
+          />
+          <div className="node-port__group-main">
+            {editable ? (
+              <input
+                value={port.label}
+                onChange={(event) => onLabelChange(event.target.value)}
+                className="node-port__group-input-field nodrag"
+                placeholder="Input"
+                onClick={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+              />
+            ) : (
+              <span className="node-port__label">{port.label}</span>
+            )}
+            {isEmpty ? (
+              <span className="node-port__placeholder">
+                Empty
+              </span>
+            ) : (
+              <span className="node-port__type">
+                {PORT_TYPE_LABELS[portType] || portType}
+              </span>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="node-port__group-main">
+            {isEmpty ? (
+              <span className="node-port__placeholder">
+                Empty
+              </span>
+            ) : (
+              <span className="node-port__type">
+                {PORT_TYPE_LABELS[portType] || portType}
+              </span>
+            )}
+            {editable ? (
+              <input
+                value={port.label}
+                onChange={(event) => onLabelChange(event.target.value)}
+                className="node-port__group-input-field nodrag"
+                placeholder="Output"
+                onClick={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+              />
+            ) : (
+              <span className="node-port__label">{port.label}</span>
+            )}
+          </div>
+          <GroupHandle
+            side="output"
+            role="external"
+            portId={port.id}
+            handleType="source"
+            position={Position.Right}
+            connectable={Boolean(port.binding) && isConnectable}
+            color={portColor}
+            className="node-port__handle node-port__handle--shared"
+          />
+          <GroupHandle
+            side="output"
+            role="internal"
+            portId={port.id}
+            handleType="target"
+            position={Position.Left}
+            anchorPosition={Position.Right}
+            connectable={!port.binding && isConnectable}
+            color={portColor}
+            className="node-port__handle node-port__handle--shared node-port__handle--overlay"
+          />
+        </>
+      )}
     </div>
   );
 }

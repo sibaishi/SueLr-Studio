@@ -5,14 +5,33 @@ import {
   enforceGroupLayout,
   getEffectiveNodeSize,
   getGroupContentBounds,
+  GROUP_CONTENT_INSET_BOTTOM,
+  GROUP_CONTENT_INSET_X,
   getGroupTopInset,
   GROUP_SAFE_MARGIN,
   pushRootNodeOutsideGroupAreas,
 } from '@/features/workflow/lib/groupLayout';
+import {
+  buildGroupPortsFromBoundaryEdges,
+  buildGroupHandleId,
+  findGroupPortByBinding,
+  normalizeGroupPortNodes,
+  pruneGroupPortEdges,
+  updateGroupPortList,
+  type GroupPortSide,
+} from '@/features/workflow/lib/groupPorts';
 import { gid, snapValue } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowState } from '@/features/workflow/lib/store/types';
 
 export const FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+
+function snapDownToGrid(value: number) {
+  return Math.floor(value / GRID_SIZE) * GRID_SIZE;
+}
+
+function snapUpToGrid(value: number) {
+  return Math.ceil(value / GRID_SIZE) * GRID_SIZE;
+}
 
 export type WorkflowStoreEditorActions = Pick<
   WorkflowState,
@@ -30,6 +49,8 @@ export type WorkflowStoreEditorActions = Pick<
   | 'selectNode'
   | 'duplicateNodes'
   | 'createNodeGroup'
+  | 'toggleGroupCollapsed'
+  | 'updateGroupPort'
   | 'ungroupNodes'
   | 'releaseNodesFromGroup'
   | 'toggleNodesLocked'
@@ -98,6 +119,10 @@ export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
       },
     };
   });
+}
+
+export function normalizeEditorNodes(nodes: Node[], edges: Edge[]) {
+  return normalizeGroupPortNodes(normalizeMergeNodeSizes(nodes, edges), edges);
 }
 
 export function getAbsolutePosition(
@@ -190,6 +215,30 @@ export function duplicateNodesWithGroups(nodes: Node[], edges: Edge[], nodeIds: 
     idMap.set(nodeId, `node_${gid()}`);
   }
 
+  const remapGroupData = (data: Record<string, unknown> | undefined) => {
+    if (!data) return data;
+
+    let nextData = { ...data };
+    for (const side of ['input', 'output'] as GroupPortSide[]) {
+      nextData = {
+        ...nextData,
+        ...updateGroupPortList(nextData, side, (ports) => ports.map((port) => (
+          port.binding && idMap.has(port.binding.nodeId)
+            ? {
+                ...port,
+                binding: {
+                  ...port.binding,
+                  nodeId: idMap.get(port.binding.nodeId) || port.binding.nodeId,
+                },
+              }
+            : port
+        ))),
+      };
+    }
+
+    return nextData;
+  };
+
   const duplicatedNodes = nodes
     .filter((node) => selectedSet.has(node.id))
     .map((node) => {
@@ -208,6 +257,9 @@ export function duplicateNodesWithGroups(nodes: Node[], edges: Edge[], nodeIds: 
             },
         parentId: nextParentId,
         extent: nextParentId ? 'parent' : undefined,
+        data: node.type === 'group'
+          ? (remapGroupData(node.data as Record<string, unknown> | undefined) || {})
+          : ((node.data as Record<string, unknown> | undefined) || {}),
         selected: true,
       } satisfies Node;
     });
@@ -221,19 +273,19 @@ export function duplicateNodesWithGroups(nodes: Node[], edges: Edge[], nodeIds: 
       target: idMap.get(edge.target) || edge.target,
     }));
 
-  return { nodes: duplicatedNodes, edges: duplicatedEdges };
+  return { nodes: normalizeEditorNodes(duplicatedNodes, duplicatedEdges), edges: duplicatedEdges };
 }
 
-export function buildGroupForNodes(nodes: Node[], nodeIds: string[]) {
+export function buildGroupForNodes(nodes: Node[], edges: Edge[], nodeIds: string[]) {
   const targetIds = [...new Set(nodeIds)];
   const selectedNodes = nodes.filter((node) => targetIds.includes(node.id) && node.type !== 'group');
   if (selectedNodes.length < 2) return null;
 
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const positionMemo = new Map<string, { x: number; y: number }>();
-  const contentPaddingX = GROUP_SAFE_MARGIN;
+  const contentPaddingX = GROUP_CONTENT_INSET_X;
   const contentPaddingTop = getGroupTopInset();
-  const contentPaddingBottom = GROUP_SAFE_MARGIN;
+  const contentPaddingBottom = GROUP_CONTENT_INSET_BOTTOM;
 
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -254,22 +306,67 @@ export function buildGroupForNodes(nodes: Node[], nodeIds: string[]) {
   const minSize = getNodeDefaultSize('group');
   const groupId = `node_${gid()}`;
   const groupPosition = {
-    x: snapValue(minX - contentPaddingX),
-    y: snapValue(minY - contentPaddingTop),
+    x: snapDownToGrid(minX - contentPaddingX),
+    y: snapDownToGrid(minY - contentPaddingTop),
   };
-  const groupWidth = Math.max(minSize.w, snapValue(maxX - minX + contentPaddingX * 2));
-  const groupHeight = Math.max(minSize.h, snapValue(maxY - minY + contentPaddingTop + contentPaddingBottom));
+  const groupWidth = Math.max(minSize.w, snapUpToGrid(maxX - minX + contentPaddingX * 2));
+  const groupHeight = Math.max(minSize.h, snapUpToGrid(maxY - minY + contentPaddingTop + contentPaddingBottom));
 
   const selectedSet = new Set(selectedNodes.map((node) => node.id));
+  const portData = buildGroupPortsFromBoundaryEdges(nodes, edges, [...selectedSet]);
   const groupNode: Node = {
     id: groupId,
     type: 'group',
     position: groupPosition,
     width: groupWidth,
     height: groupHeight,
-    data: { title: `节点组${selectedNodes.length}` },
+    data: {
+      title: `Group ${selectedNodes.length}`,
+      collapsed: false,
+      ...portData,
+    },
     selected: true,
   };
+
+  const rewrittenEdges = pruneGroupPortEdges(
+    [groupNode, ...nodes],
+    edges.map((edge) => {
+      const sourceInside = selectedSet.has(edge.source);
+      const targetInside = selectedSet.has(edge.target);
+
+      if (!sourceInside && targetInside && edge.targetHandle) {
+        const port = findGroupPortByBinding(
+          groupNode.data as Record<string, unknown>,
+          'input',
+          { nodeId: edge.target, handleId: edge.targetHandle },
+        );
+        if (port?.binding) {
+          return {
+            ...edge,
+            target: groupId,
+            targetHandle: buildGroupHandleId('input', port.id, 'external'),
+          };
+        }
+      }
+
+      if (sourceInside && !targetInside && edge.sourceHandle) {
+        const port = findGroupPortByBinding(
+          groupNode.data as Record<string, unknown>,
+          'output',
+          { nodeId: edge.source, handleId: edge.sourceHandle },
+        );
+        if (port?.binding) {
+          return {
+            ...edge,
+            source: groupId,
+            sourceHandle: buildGroupHandleId('output', port.id, 'external'),
+          };
+        }
+      }
+
+      return edge;
+    }),
+  );
 
   const updatedNodes = nodes.map((node) => {
     if (!selectedSet.has(node.id)) {
@@ -293,7 +390,8 @@ export function buildGroupForNodes(nodes: Node[], nodeIds: string[]) {
 
   return {
     groupNode,
-    nodes: enforceGroupLayout([groupNode, ...updatedNodes]),
+    nodes: normalizeEditorNodes(enforceGroupLayout([groupNode, ...updatedNodes]), rewrittenEdges),
+    edges: rewrittenEdges,
   };
 }
 
@@ -469,13 +567,12 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
       : directChildren;
     if (targetChildren.length === 0) return;
 
-    const layerMap = buildChildLayerMap(
-      targetChildren,
-      edges.filter((edge) => (
-        targetChildren.some((node) => node.id === edge.source)
-        && targetChildren.some((node) => node.id === edge.target)
-      )),
-    );
+    const scopedEdges = edges.filter((edge) => (
+      targetChildren.some((node) => node.id === edge.source)
+      && targetChildren.some((node) => node.id === edge.target)
+    ));
+
+    const layerMap = buildChildLayerMap(targetChildren, scopedEdges);
 
     const groupedByLayer = new Map<number, Node[]>();
     for (const child of targetChildren) {
@@ -493,14 +590,12 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
         sortLayerNodesByFlow(
           groupedByLayer.get(layer) || [],
           groupedByLayer,
-          edges.filter((edge) => (
-            targetChildren.some((node) => node.id === edge.source)
-            && targetChildren.some((node) => node.id === edge.target)
-          )),
+          scopedEdges,
           layerMap,
         ),
       );
     }
+
     const selectedBounds = targetChildren.reduce((acc, node) => {
       const size = getEffectiveNodeSize(node);
       return {
@@ -515,6 +610,7 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
       maxX: Number.NEGATIVE_INFINITY,
       maxY: Number.NEGATIVE_INFINITY,
     });
+
     const baseX = Number.isFinite(selectedBounds.minX)
       ? selectedBounds.minX
       : parentId ? GROUP_SAFE_MARGIN : rootStart;
@@ -551,7 +647,7 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
     if (!groupNode || groupNode.type !== 'group') return;
 
     const minSize = getNodeDefaultSize('group');
-    let maxX = GROUP_SAFE_MARGIN;
+    let maxX = GROUP_CONTENT_INSET_X;
     let maxY = getGroupTopInset();
 
     for (const child of directChildren) {
@@ -561,8 +657,8 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
     }
 
     if (!isNodeLocked(groupNode)) {
-      groupNode.width = Math.max(minSize.w, snapValue(maxX + GROUP_SAFE_MARGIN));
-      groupNode.height = Math.max(minSize.h, snapValue(maxY + GROUP_SAFE_MARGIN));
+      groupNode.width = Math.max(minSize.w, snapUpToGrid(maxX + GROUP_CONTENT_INSET_X));
+      groupNode.height = Math.max(minSize.h, snapUpToGrid(maxY + GROUP_CONTENT_INSET_BOTTOM));
     }
   };
 

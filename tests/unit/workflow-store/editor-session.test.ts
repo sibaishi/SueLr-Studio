@@ -1,0 +1,56 @@
+import { describe, expect, it } from 'vitest';
+import { createWorkflowEditorSessionActions } from '@/features/workflow/lib/store/editorSession';
+import { createWorkflowStoreHarness } from './testHarness';
+
+describe('workflow store editor session actions', () => {
+  it('normalizes group facade ports when applying an editor snapshot', () => {
+    const harness = createWorkflowStoreHarness({
+      workflowId: 'wf_before',
+      workflowName: 'Before',
+      nodes: [{ id: 'stale', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+      edges: [],
+      nodeExecStatus: { stale: 'running' },
+      executionLogs: [{ id: 'log_stale', timestamp: 1, level: 'info', message: 'stale' }],
+      workflowWarningMessage: 'stale warning',
+    });
+
+    const actions = createWorkflowEditorSessionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.applyEditorSnapshot({
+      workflowId: 'wf_snapshot',
+      workflowName: 'Snapshot',
+      selectedNodeId: 'group',
+      nodes: [
+        { id: 'outside', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'group', type: 'group', position: { x: 196, y: 0 }, data: {} },
+        { id: 'inner', type: 'aiChat', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
+      ],
+      edges: [
+        { id: 'edge_in', source: 'outside', sourceHandle: 'text', target: 'inner', targetHandle: 'prompt' },
+        { id: 'edge_out', source: 'inner', sourceHandle: 'response', target: 'outside', targetHandle: 'text' },
+      ],
+    });
+
+    const state = harness.getState();
+    const groupData = (state.nodes.find((node) => node.id === 'group')?.data || {}) as {
+      groupInputs?: unknown[];
+      groupOutputs?: unknown[];
+    };
+
+    expect(state.workflowId).toBe('wf_snapshot');
+    expect(state.workflowName).toBe('Snapshot');
+    expect(state.edges).toHaveLength(2);
+    expect(groupData.groupInputs?.[0]).toMatchObject({
+      type: 'string',
+      binding: { nodeId: 'inner', handleId: 'prompt' },
+    });
+    expect(groupData.groupOutputs?.[0]).toMatchObject({
+      type: 'string',
+      binding: { nodeId: 'inner', handleId: 'response' },
+    });
+    expect(state.nodeExecStatus).toEqual({});
+    expect(state.executionLogs).toEqual([]);
+    expect(state.workflowWarningMessage).toBeNull();
+  });
+});

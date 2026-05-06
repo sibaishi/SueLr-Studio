@@ -1,4 +1,5 @@
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
+import type { GroupPortSide } from '@/features/workflow/lib/groupPorts';
 
 function createNoopAsync<T>(result: T) {
   return async () => result;
@@ -52,6 +53,8 @@ export function createBaseWorkflowState(overrides: Partial<WorkflowState> = {}):
     duplicateNodes: () => [],
     autoArrangeWorkflow: () => undefined,
     createNodeGroup: () => null,
+    toggleGroupCollapsed: () => undefined,
+    updateGroupPort: (_groupId: string, _side: GroupPortSide, _portId: string) => undefined,
     ungroupNodes: () => undefined,
     releaseNodesFromGroup: () => undefined,
     toggleNodesLocked: () => undefined,

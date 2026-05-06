@@ -60,10 +60,14 @@ describe('workflow store document actions', () => {
         name: 'Loaded Workflow',
         updatedAt: 3456,
         nodes: [
-          { id: 'node_a', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+          { id: 'outside', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+          { id: 'group', type: 'group', position: { x: 196, y: 0 }, data: {} },
+          { id: 'inner', type: 'aiChat', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
         ],
         edges: [
-          { id: 'edge_invalid', source: 'node_a', target: 'missing_node' },
+          { id: 'edge_in', source: 'outside', sourceHandle: 'text', target: 'inner', targetHandle: 'prompt' },
+          { id: 'edge_out', source: 'inner', sourceHandle: 'response', target: 'outside', targetHandle: 'text' },
+          { id: 'edge_invalid', source: 'outside', target: 'missing_node' },
         ],
       }),
     });
@@ -104,8 +108,20 @@ describe('workflow store document actions', () => {
     expect(clearActiveRunSnapshot).toHaveBeenCalledTimes(1);
     expect(state.workflowId).toBe('wf_loaded');
     expect(state.workflowName).toBe('Loaded Workflow');
-    expect(state.nodes).toHaveLength(1);
-    expect(state.edges).toEqual([]);
+    expect(state.nodes).toHaveLength(3);
+    expect(state.edges).toHaveLength(2);
+    const groupData = (state.nodes.find((node) => node.id === 'group')?.data || {}) as {
+      groupInputs?: unknown[];
+      groupOutputs?: unknown[];
+    };
+    expect(groupData.groupInputs?.[0]).toMatchObject({
+      type: 'string',
+      binding: { nodeId: 'inner', handleId: 'prompt' },
+    });
+    expect(groupData.groupOutputs?.[0]).toMatchObject({
+      type: 'string',
+      binding: { nodeId: 'inner', handleId: 'response' },
+    });
     expect(state.isExecuting).toBe(false);
     expect(state.currentRunId).toBeNull();
     expect(state.nodeExecStatus).toEqual({});
@@ -153,7 +169,14 @@ describe('workflow store document actions', () => {
       data: createPersistedWorkflow({
         id: 'wf_imported',
         name: 'Imported Flow',
-        nodes: [{ id: 'node_a', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+        nodes: [
+          { id: 'outside', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+          { id: 'group', type: 'group', position: { x: 196, y: 0 }, data: {} },
+          { id: 'inner', type: 'aiChat', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
+        ],
+        edges: [
+          { id: 'edge_in', source: 'outside', sourceHandle: 'text', target: 'inner', targetHandle: 'prompt' },
+        ],
       }),
       report: createWorkflowImportReport(),
     });
@@ -176,6 +199,13 @@ describe('workflow store document actions', () => {
     expect(clearActiveRunSnapshot).toHaveBeenCalledTimes(1);
     expect(state.workflowId).toBe('wf_imported');
     expect(state.workflowName).toBe('Imported Flow');
+    const groupData = (state.nodes.find((node) => node.id === 'group')?.data || {}) as {
+      groupInputs?: unknown[];
+    };
+    expect(groupData.groupInputs?.[0]).toMatchObject({
+      type: 'string',
+      binding: { nodeId: 'inner', handleId: 'prompt' },
+    });
     expect(state.isExecuting).toBe(false);
     expect(state.currentRunId).toBeNull();
     expect(state.nodeExecStatus).toEqual({});
