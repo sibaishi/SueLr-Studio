@@ -290,11 +290,13 @@ Only these public markdown docs belong under `docs/`:
 
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
+- `docs/release-sop.md`
 
 Rules for future work:
 
 - every structural or behavior change that affects user flows must update `docs/user-guide.md`
 - every structural or ownership change that affects developer navigation must update `docs/developer-guide.md`
+- every desktop release workflow change must update `docs/release-sop.md`
 - do not add planning notes, weekly execution files, or private working docs under `docs/`
 - keep this guide aligned with the actual file layout so maintainers can jump directly to the right module instead of re-scanning the repo
 

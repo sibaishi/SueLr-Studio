@@ -17,12 +17,17 @@ const checks = [
       '## Public Documentation Policy',
     ],
   },
+  {
+    path: 'docs/release-sop.md',
+    sections: ['## Branching', '## Standard Release Flow', '## Versioning Guidance', '## Notes'],
+  },
 ];
 
 const failures = [];
 const allowedMarkdownDocs = new Set([
   'docs/user-guide.md',
   'docs/developer-guide.md',
+  'docs/release-sop.md',
 ]);
 
 function collectMarkdownFiles(dir, bucket = []) {
