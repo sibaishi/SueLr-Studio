@@ -24,6 +24,8 @@ import {
   useState,
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type CSSProperties,
 } from 'react';
 import {
   getNodeDef,
@@ -96,6 +98,20 @@ const NODE_COLORS: Record<string, string> = {
   saveFile: '#34C759',
   output: '#8E8E93',
 };
+const PORT_TYPE_COLORS: Record<string, string> = {
+  string: '#007AFF',
+  'string[]': '#007AFF',
+  image: '#FF9500',
+  'image[]': '#FF9500',
+  mask: '#7C4DFF',
+  video: '#AF52DE',
+  'video[]': '#AF52DE',
+  audio: '#FF375F',
+  'audio[]': '#FF375F',
+  apiKey: '#5856D6',
+  any: '#64D2FF',
+  'any[]': '#64D2FF',
+};
 
 const CATEGORY_LABELS = {
   group: '节点组',
@@ -120,6 +136,7 @@ const GROUP_INTERNAL_EDGE_STYLE = {
 const GROUP_EXTERNAL_EDGE_STYLE = {
   ...DEFAULT_WORKFLOW_EDGE_STYLE,
 } as const;
+const EDGE_CUT_DISTANCE = 14;
 
 function formatCanvasUploadError(message?: string | null) {
   const detail = String(message || '').trim();
@@ -167,6 +184,10 @@ type PendingConnection =
 
 type ContextMenuKind = 'pane' | 'paneActions' | 'node' | 'connect';
 type MenuHorizontalDirection = 'left' | 'right';
+type EdgeInsertionCandidate = {
+  edgeId: string;
+  node: FlowNodeType;
+};
 
 type ContextMenuState = {
   kind: ContextMenuKind;
@@ -581,6 +602,93 @@ function pointToSegmentDistance(
   return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
 }
 
+function getOrientation(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+) {
+  return (b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y);
+}
+
+function isPointOnSegment(
+  point: { x: number; y: number },
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+) {
+  return (
+    point.x <= Math.max(start.x, end.x)
+    && point.x >= Math.min(start.x, end.x)
+    && point.y <= Math.max(start.y, end.y)
+    && point.y >= Math.min(start.y, end.y)
+  );
+}
+
+function doSegmentsIntersect(
+  a1: { x: number; y: number },
+  a2: { x: number; y: number },
+  b1: { x: number; y: number },
+  b2: { x: number; y: number },
+) {
+  const o1 = getOrientation(a1, a2, b1);
+  const o2 = getOrientation(a1, a2, b2);
+  const o3 = getOrientation(b1, b2, a1);
+  const o4 = getOrientation(b1, b2, a2);
+
+  if ((o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0)) return true;
+  if (o1 === 0 && isPointOnSegment(b1, a1, a2)) return true;
+  if (o2 === 0 && isPointOnSegment(b2, a1, a2)) return true;
+  if (o3 === 0 && isPointOnSegment(a1, b1, b2)) return true;
+  if (o4 === 0 && isPointOnSegment(a2, b1, b2)) return true;
+  return false;
+}
+
+function segmentToSegmentDistance(
+  a1: { x: number; y: number },
+  a2: { x: number; y: number },
+  b1: { x: number; y: number },
+  b2: { x: number; y: number },
+) {
+  if (doSegmentsIntersect(a1, a2, b1, b2)) return 0;
+  return Math.min(
+    pointToSegmentDistance(a1, b1, b2),
+    pointToSegmentDistance(a2, b1, b2),
+    pointToSegmentDistance(b1, a1, a2),
+    pointToSegmentDistance(b2, a1, a2),
+  );
+}
+
+function getEdgeApproximateSegment(
+  edge: Edge,
+  nodeMap: Map<string, FlowNodeType>,
+) {
+  const sourceNode = nodeMap.get(edge.source);
+  const targetNode = nodeMap.get(edge.target);
+  if (!sourceNode || !targetNode) return null;
+
+  const sourceRect = getNodeRenderRect(sourceNode, nodeMap);
+  const targetRect = getNodeRenderRect(targetNode, nodeMap);
+
+  return {
+    start: { x: sourceRect.x + sourceRect.width, y: sourceRect.y + sourceRect.height / 2 },
+    end: { x: targetRect.x, y: targetRect.y + targetRect.height / 2 },
+  };
+}
+
+function findCuttableEdgesAlongSegment(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  nodes: FlowNodeType[],
+  edges: Edge[],
+) {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  return edges.filter((edge) => {
+    const segment = getEdgeApproximateSegment(edge, nodeMap);
+    if (!segment) return false;
+
+    return segmentToSegmentDistance(start, end, segment.start, segment.end) <= EDGE_CUT_DISTANCE;
+  });
+}
+
 function getInputHandleCandidatesForNode(node: FlowNodeType) {
   const def = getNodeDef(node.type || '');
   if (!def) return [];
@@ -588,30 +696,30 @@ function getInputHandleCandidatesForNode(node: FlowNodeType) {
   return def.inputs.map((input) => input.id);
 }
 
-function canNodeBridgeEdge(
+function resolveNodeBridgeHandles(
   node: FlowNodeType,
   edge: Edge,
   nodeMap: Map<string, FlowNodeType>,
   edges: Edge[],
 ) {
-  if (node.type === 'group') return false;
-  if (edge.source === node.id || edge.target === node.id) return false;
-  if (!edge.sourceHandle || !edge.targetHandle) return false;
-  if (parseGroupHandleId(edge.sourceHandle) || parseGroupHandleId(edge.targetHandle)) return false;
+  if (node.type === 'group') return null;
+  if (edge.source === node.id || edge.target === node.id) return null;
+  if (!edge.sourceHandle || !edge.targetHandle) return null;
+  if (parseGroupHandleId(edge.sourceHandle) || parseGroupHandleId(edge.targetHandle)) return null;
 
   const sourceNode = nodeMap.get(edge.source);
   const targetNode = nodeMap.get(edge.target);
   const sourceType = getOutputType(sourceNode, edge.sourceHandle);
   const targetType = getInputType(targetNode, edge.targetHandle);
   const def = getNodeDef(node.type || '');
-  if (!sourceType || !targetType || !def) return false;
+  if (!sourceType || !targetType || !def) return null;
 
   const occupiedTargetHandles = new Set(
     edges
       .filter((item) => item.id !== edge.id && item.targetHandle)
       .map((item) => `${item.target}:${item.targetHandle}`),
   );
-  const hasInput = getInputHandleCandidatesForNode(node).some((handleId) => {
+  const inputHandle = getInputHandleCandidatesForNode(node).find((handleId) => {
     const inputType = def.maxInputs
       ? def.inputs[0]?.type
       : def.inputs.find((input) => input.id === handleId)?.type;
@@ -621,11 +729,26 @@ function canNodeBridgeEdge(
       && PORT_COMPATIBILITY[sourceType]?.includes(inputType),
     );
   });
-  const hasOutput = def.outputs.some((output) => (
+  const outputHandle = def.outputs.find((output) => (
     PORT_COMPATIBILITY[output.type]?.includes(targetType) ?? false
-  ));
+  ))?.id;
 
-  return hasInput && hasOutput;
+  return inputHandle && outputHandle ? { inputHandle, outputHandle } : null;
+}
+
+function canNodeBridgeEdge(
+  node: FlowNodeType,
+  edge: Edge,
+  nodeMap: Map<string, FlowNodeType>,
+  edges: Edge[],
+) {
+  return Boolean(resolveNodeBridgeHandles(node, edge, nodeMap, edges));
+}
+
+function getEdgeDataTypeColor(edge: Edge, nodeMap: Map<string, FlowNodeType>) {
+  const sourceType = getOutputType(nodeMap.get(edge.source), edge.sourceHandle);
+  const targetType = getInputType(nodeMap.get(edge.target), edge.targetHandle);
+  return PORT_TYPE_COLORS[sourceType || ''] || PORT_TYPE_COLORS[targetType || ''] || 'var(--color-accent)';
 }
 
 function findEdgeInsertionCandidate(
@@ -655,11 +778,9 @@ function findEdgeInsertionCandidate(
     const targetNode = nodeMap.get(edge.target);
     if (!sourceNode || !targetNode) continue;
 
-    const sourceRect = getNodeRenderRect(sourceNode, nodeMap);
-    const targetRect = getNodeRenderRect(targetNode, nodeMap);
-    const sourcePoint = { x: sourceRect.x + sourceRect.width, y: sourceRect.y + sourceRect.height / 2 };
-    const targetPoint = { x: targetRect.x, y: targetRect.y + targetRect.height / 2 };
-    const distance = pointToSegmentDistance(draggedCenter, sourcePoint, targetPoint);
+    const segment = getEdgeApproximateSegment(edge, nodeMap);
+    if (!segment) continue;
+    const distance = pointToSegmentDistance(draggedCenter, segment.start, segment.end);
     if (distance < threshold && distance < bestDistance) {
       bestEdge = edge;
       bestDistance = distance;
@@ -667,6 +788,56 @@ function findEdgeInsertionCandidate(
   }
 
   return bestEdge;
+}
+
+function buildEdgeInsertionPreviewEdges(
+  candidate: EdgeInsertionCandidate | null,
+  nodes: FlowNodeType[],
+  edges: Edge[],
+) {
+  if (!candidate) return [];
+
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  nodeMap.set(candidate.node.id, candidate.node);
+  const sourceEdge = edges.find((edge) => edge.id === candidate.edgeId);
+  if (!sourceEdge) return [];
+
+  const handles = resolveNodeBridgeHandles(candidate.node, sourceEdge, nodeMap, edges);
+  if (!handles || !sourceEdge.sourceHandle || !sourceEdge.targetHandle) return [];
+  const typeColor = getEdgeDataTypeColor(sourceEdge, nodeMap);
+
+  const common = {
+    type: 'default',
+    animated: false,
+    selectable: false,
+    deletable: false,
+    focusable: false,
+    className: 'workflow-edge-insertion-preview',
+    style: {
+      stroke: typeColor,
+      strokeWidth: 5,
+      '--workflow-edge-preview-color': typeColor,
+    } as CSSProperties,
+  } satisfies Partial<Edge>;
+
+  return [
+    {
+      ...common,
+      id: `insertion-preview:${sourceEdge.id}:in`,
+      source: sourceEdge.source,
+      sourceHandle: sourceEdge.sourceHandle,
+      target: candidate.node.id,
+      targetHandle: handles.inputHandle,
+    },
+    {
+      ...common,
+      id: `insertion-preview:${sourceEdge.id}:out`,
+      source: candidate.node.id,
+      sourceHandle: handles.outputHandle,
+      target: sourceEdge.target,
+      targetHandle: sourceEdge.targetHandle,
+    },
+  ] as Edge[];
 }
 
 function getLocalPoint(
@@ -715,10 +886,13 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const [activeCategory, setActiveCategory] = useState<(typeof CATEGORY_ORDER)[number] | null>(null);
   const [clipboardNode, setClipboardNode] = useState<ClipboardSnapshot | null>(null);
   const [canvasEditorNodeId, setCanvasEditorNodeId] = useState<string | null>(null);
-  const [edgeInsertionCandidateId, setEdgeInsertionCandidateId] = useState<string | null>(null);
+  const [edgeInsertionCandidate, setEdgeInsertionCandidate] = useState<EdgeInsertionCandidate | null>(null);
+  const [edgeCuttingActive, setEdgeCuttingActive] = useState(false);
   const pendingConnectionRef = useRef<PendingConnection | null>(null);
   const contextMenuOpenedAtRef = useRef(0);
   const lastPointerFlowPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const edgeCutPreviousPointRef = useRef<{ x: number; y: number } | null>(null);
+  const edgeCutRemovedIdsRef = useRef<Set<string>>(new Set());
 
   const wasContextMenuJustOpened = useCallback(() => Date.now() - contextMenuOpenedAtRef.current < 150, []);
 
@@ -1010,21 +1184,27 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   }, [store.edges, store.nodes]);
 
   const renderNodes = renderModel.nodes;
-  const renderEdges = useMemo(() => (
-    renderModel.edges.map((edge) => (
-      edge.id !== edgeInsertionCandidateId
-        ? edge
-        : {
-            ...edge,
-            animated: true,
-            style: {
-              ...(edge.style || {}),
-              stroke: 'var(--color-accent)',
-              strokeWidth: 4,
-            },
-          }
-    ))
-  ), [edgeInsertionCandidateId, renderModel.edges]);
+  const renderEdges = useMemo(() => {
+    const previewEdges = buildEdgeInsertionPreviewEdges(edgeInsertionCandidate, renderNodes, renderModel.edges);
+    const renderNodeMap = new Map(renderNodes.map((node) => [node.id, node]));
+    return [
+      ...renderModel.edges.map((edge) => (
+        edge.id !== edgeInsertionCandidate?.edgeId
+          ? edge
+          : {
+              ...edge,
+              animated: false,
+              className: [edge.className, 'workflow-edge-insertion-target'].filter(Boolean).join(' '),
+              style: {
+                ...(edge.style || {}),
+                stroke: getEdgeDataTypeColor(edge, renderNodeMap),
+                strokeWidth: 2,
+              },
+            }
+      )),
+      ...previewEdges,
+    ];
+  }, [edgeInsertionCandidate, renderModel.edges, renderNodes]);
 
   const attachNodeToGroup = useCallback((nodeId: string, groupId: string) => {
     useWorkflowStore.setState((state) => {
@@ -1149,18 +1329,99 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     setActiveCategory(null);
   }, []);
 
+  const resolveRenderableEdgeId = useCallback((edge: Edge) => {
+    if (edge.id.startsWith('virtual:')) {
+      return edge.id.slice('virtual:'.length);
+    }
+
+    if (edge.id.startsWith('group-binding:')) {
+      return store.edges.find((candidate) => (
+        candidate.source === edge.source
+        && candidate.sourceHandle === edge.sourceHandle
+        && candidate.target === edge.target
+        && candidate.targetHandle === edge.targetHandle
+      ))?.id || null;
+    }
+
+    return edge.id;
+  }, [store.edges]);
+
+  const endEdgeCutting = useCallback(() => {
+    edgeCutPreviousPointRef.current = null;
+    edgeCutRemovedIdsRef.current.clear();
+    setEdgeCuttingActive(false);
+  }, []);
+
+  const cutEdgesAlongPointerSegment = useCallback((
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+  ) => {
+    const cuttableEdges = findCuttableEdgesAlongSegment(start, end, renderNodes, renderModel.edges);
+
+    for (const edge of cuttableEdges) {
+      const edgeId = resolveRenderableEdgeId(edge);
+      if (!edgeId || edgeCutRemovedIdsRef.current.has(edgeId)) continue;
+      edgeCutRemovedIdsRef.current.add(edgeId);
+      store.removeEdge(edgeId);
+    }
+  }, [renderModel.edges, renderNodes, resolveRenderableEdgeId, store]);
+
+  const getPointerFlowPosition = useCallback((event: ReactPointerEvent<HTMLDivElement>) => (
+    reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+  ), [reactFlow]);
+
+  const onCanvasPointerDownCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!event.altKey || event.button !== 0 || isEditableElement(event.target)) return;
+
+    const position = getPointerFlowPosition(event);
+    edgeCutPreviousPointRef.current = position;
+    edgeCutRemovedIdsRef.current.clear();
+    setEdgeCuttingActive(true);
+    closeContextMenu();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  }, [closeContextMenu, getPointerFlowPosition]);
+
+  const onCanvasPointerMoveCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!edgeCuttingActive) return;
+
+    if (!event.altKey || (event.buttons & 1) !== 1) {
+      endEdgeCutting();
+      return;
+    }
+
+    const current = getPointerFlowPosition(event);
+    const previous = edgeCutPreviousPointRef.current || current;
+    cutEdgesAlongPointerSegment(previous, current);
+    edgeCutPreviousPointRef.current = current;
+    event.preventDefault();
+    event.stopPropagation();
+  }, [cutEdgesAlongPointerSegment, edgeCuttingActive, endEdgeCutting, getPointerFlowPosition]);
+
+  const onCanvasPointerUpCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!edgeCuttingActive) return;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    endEdgeCutting();
+    event.preventDefault();
+    event.stopPropagation();
+  }, [edgeCuttingActive, endEdgeCutting]);
+
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     store.onNodesChange(changes);
   }, [store]);
 
   const onNodeDrag = useCallback<NodeMouseHandler>((_, node) => {
     if (isNodeLockedWithAncestors(node.id, store.nodes)) {
-      setEdgeInsertionCandidateId(null);
+      setEdgeInsertionCandidate(null);
       return;
     }
 
     const candidate = findEdgeInsertionCandidate(node as FlowNodeType, renderNodes, renderModel.edges);
-    setEdgeInsertionCandidateId(candidate?.id || null);
+    setEdgeInsertionCandidate(candidate ? { edgeId: candidate.id, node: node as FlowNodeType } : null);
   }, [renderModel.edges, renderNodes, store.nodes]);
 
   const onNodeDragStop = useCallback<NodeMouseHandler>((_, node) => {
@@ -1189,12 +1450,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       }));
 
     const candidate = findEdgeInsertionCandidate(snapped as FlowNodeType, renderNodes, renderModel.edges);
-    const edgeId = candidate?.id || edgeInsertionCandidateId;
-    setEdgeInsertionCandidateId(null);
+    const edgeId = candidate?.id || edgeInsertionCandidate?.edgeId;
+    setEdgeInsertionCandidate(null);
     if (edgeId) {
       store.insertNodeOnEdge(node.id, edgeId);
     }
-  }, [edgeInsertionCandidateId, renderModel.edges, renderNodes, store]);
+  }, [edgeInsertionCandidate?.edgeId, renderModel.edges, renderNodes, store]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     store.onEdgesChange(changes);
@@ -2063,6 +2324,10 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       className="relative h-full w-full"
       onDoubleClick={onPaneDoubleClickOpenMenu}
       onMouseMove={updateLastPointerFlowPosition}
+      onPointerDownCapture={onCanvasPointerDownCapture}
+      onPointerMoveCapture={onCanvasPointerMoveCapture}
+      onPointerUpCapture={onCanvasPointerUpCapture}
+      onPointerCancelCapture={onCanvasPointerUpCapture}
     >
       <ReactFlow
         nodes={renderNodes}
@@ -2110,15 +2375,15 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         proOptions={{ hideAttribution: true }}
         style={{
           background: 'var(--color-bg-canvas)',
-          cursor: spaceHeld ? 'grab' : undefined,
+          cursor: edgeCuttingActive ? 'crosshair' : spaceHeld ? 'grab' : undefined,
         }}
-        panOnDrag={spaceHeld ? [0, 1] : [1]}
+        panOnDrag={edgeCuttingActive ? false : spaceHeld ? [0, 1] : [1]}
         panOnScroll={false}
         zoomOnScroll
         zoomOnPinch
         zoomOnDoubleClick={false}
-        selectionOnDrag={!spaceHeld}
-        selectNodesOnDrag={!spaceHeld}
+        selectionOnDrag={!spaceHeld && !edgeCuttingActive}
+        selectNodesOnDrag={!spaceHeld && !edgeCuttingActive}
       >
         <Background
           variant={BackgroundVariant.Dots}
