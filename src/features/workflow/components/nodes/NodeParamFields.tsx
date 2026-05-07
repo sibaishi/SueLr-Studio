@@ -1,8 +1,9 @@
-import { useEffect, type FocusEvent } from 'react';
+import { useEffect, useRef, useState, type FocusEvent } from 'react';
 import { selectDirectory } from '@/shared/api';
 import { getNodeDef } from '@/features/workflow/lib/constants';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
 import type { ParamDef } from '@/features/workflow/lib/types';
+import { LongTextEditorModal } from './LongTextEditorModal';
 import { useBufferedStringField } from './useBufferedStringField';
 
 function roundToNearest16(value: unknown) {
@@ -78,13 +79,17 @@ export function NodeParamFields({
         const rowClassName = [
           'node-param-row',
           nodeType === 'aiChat' && row.some((item) => item.group === 'aiChatTop') ? 'node-param-row--ai-chat-top' : '',
+          row.some((item) => item.type === 'textarea') ? 'node-param-row--textarea' : '',
         ].filter(Boolean).join(' ');
         const gridClassName = row.length > 1
           ? [
               'node-param-grid',
               nodeType === 'aiChat' && row.some((item) => item.group === 'aiChatTop') ? 'node-param-grid--ai-chat-top' : '',
             ].filter(Boolean).join(' ')
-          : undefined;
+          : [
+              'node-param-single',
+              row.some((item) => item.type === 'textarea') ? 'node-param-single--textarea' : '',
+            ].filter(Boolean).join(' ');
         return (
           <div key={`${row.map((item) => item.id).join('_')}_${index}`} className={rowClassName}>
             <div className={gridClassName}>
@@ -157,6 +162,36 @@ function ParamEditor({
   const textField = useBufferedStringField(String((value as string) ?? (param.default as string) ?? ''), (nextValue) => {
     onChange(nextValue);
   });
+  const [isTextareaEditing, setIsTextareaEditing] = useState(false);
+  const [isFullscreenTextEditing, setIsFullscreenTextEditing] = useState(false);
+  const previewClickTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewClickTimerRef.current !== null) {
+        window.clearTimeout(previewClickTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleTextareaPreviewClick = () => {
+    if (previewClickTimerRef.current !== null) {
+      window.clearTimeout(previewClickTimerRef.current);
+    }
+    previewClickTimerRef.current = window.setTimeout(() => {
+      previewClickTimerRef.current = null;
+      setIsTextareaEditing(true);
+    }, 180);
+  };
+
+  const handleTextareaPreviewDoubleClick = () => {
+    if (previewClickTimerRef.current !== null) {
+      window.clearTimeout(previewClickTimerRef.current);
+      previewClickTimerRef.current = null;
+    }
+    setIsFullscreenTextEditing(true);
+  };
+
   const handlePickDirectory = async () => {
     try {
       const selectedPath = await selectDirectory();
@@ -171,25 +206,57 @@ function ParamEditor({
 
   switch (param.type) {
     case 'textarea':
+      const lineCount = textField.value ? textField.value.split(/\r\n|\r|\n/).length : 0;
+      const showLongTextHint = textField.value.length > 1000;
+
       return (
-        <div className="node-param">
+        <div className="node-param node-param--textarea">
           <label className="node-param__label">{param.label}</label>
-          <textarea
-            value={textField.value}
-            onChange={(event) => textField.onChange(event.target.value)}
-            rows={3}
-            className="node-field node-field--textarea"
-            onFocus={(event) => {
-              textField.onFocus();
-              handleFocus(event);
-            }}
-            onBlur={(event) => {
-              textField.onBlur(event.target.value);
-              handleBlur(event);
-            }}
-            onCompositionStart={() => textField.onCompositionStart()}
-            onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
-          />
+          {isTextareaEditing ? (
+            <textarea
+              value={textField.value}
+              onChange={(event) => textField.onChange(event.target.value)}
+              className="node-text-editor node-param-text-editor"
+              placeholder="粘贴/输入文本..."
+              autoFocus
+              onDoubleClick={() => setIsFullscreenTextEditing(true)}
+              onFocus={(event) => {
+                textField.onFocus();
+                handleFocus(event);
+              }}
+              onBlur={(event) => {
+                textField.onBlur(event.target.value);
+                handleBlur(event);
+                setIsTextareaEditing(false);
+              }}
+              onCompositionStart={() => textField.onCompositionStart()}
+              onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
+            />
+          ) : (
+            <div
+              onClick={handleTextareaPreviewClick}
+              onDoubleClick={handleTextareaPreviewDoubleClick}
+              className={`node-text-preview node-param-text-preview${textField.value ? '' : ' node-text-preview--empty'}`}
+              title={showLongTextHint ? '单击编辑文本，双击全屏编辑' : '单击编辑文本'}
+            >
+              {textField.value || '粘贴/输入文本...'}
+            </div>
+          )}
+          <div className="node-text-meta">
+            <span>
+              {showLongTextHint ? `${lineCount} 行 · ${textField.value.length} 字符 · 双击可全屏编辑` : `${lineCount} 行 · ${textField.value.length} 字符`}
+            </span>
+          </div>
+          {isFullscreenTextEditing && (
+            <LongTextEditorModal
+              title={`编辑 ${param.label}`}
+              value={textField.value}
+              onChange={(nextValue) => textField.onChange(nextValue)}
+              onClose={() => setIsFullscreenTextEditing(false)}
+              onCompositionStart={() => textField.onCompositionStart()}
+              onCompositionEnd={(nextValue) => textField.onCompositionEnd(nextValue)}
+            />
+          )}
         </div>
       );
 

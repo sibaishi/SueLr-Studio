@@ -5,6 +5,7 @@ import { getNodeDef } from '@/features/workflow/lib/constants';
 import { MediaCard, MediaPreview, TextCard, isMediaUrl } from './NodeMedia';
 import { NodeParamFields } from './NodeParamFields';
 import { NODE_API_PROVIDER_CONFIG } from './nodeConstants';
+import { LongTextEditorModal } from './LongTextEditorModal';
 import { useBufferedStringField } from './useBufferedStringField';
 
 type NodeDef = ReturnType<typeof getNodeDef>;
@@ -138,9 +139,38 @@ function TextInputContent({
   outerStyle: CSSProperties;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isFullscreenEditing, setIsFullscreenEditing] = useState(false);
+  const previewClickTimerRef = useRef<number | null>(null);
   const text = (data.text as string) || '';
   const lineCount = text ? text.split(/\r\n|\r|\n/).length : 0;
+  const showLongTextHint = text.length > 1000;
   const editor = useBufferedStringField(text, (nextValue) => updateNodeData(nodeId, { text: nextValue }));
+
+  useEffect(() => {
+    return () => {
+      if (previewClickTimerRef.current !== null) {
+        window.clearTimeout(previewClickTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handlePreviewClick = () => {
+    if (previewClickTimerRef.current !== null) {
+      window.clearTimeout(previewClickTimerRef.current);
+    }
+    previewClickTimerRef.current = window.setTimeout(() => {
+      previewClickTimerRef.current = null;
+      setIsEditing(true);
+    }, 180);
+  };
+
+  const handlePreviewDoubleClick = () => {
+    if (previewClickTimerRef.current !== null) {
+      window.clearTimeout(previewClickTimerRef.current);
+      previewClickTimerRef.current = null;
+    }
+    setIsFullscreenEditing(true);
+  };
 
   return (
     <div className="node-content-shell node-content-shell--text" style={outerStyle}>
@@ -158,24 +188,36 @@ function TextInputContent({
           onCompositionEnd={(event) => editor.onCompositionEnd(event.currentTarget.value)}
           className="node-text-editor"
           placeholder="粘贴/输入文本..."
+          onDoubleClick={() => setIsFullscreenEditing(true)}
           onClick={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         />
       ) : (
         <div
-          onClick={() => setIsEditing(true)}
+          onClick={handlePreviewClick}
+          onDoubleClick={handlePreviewDoubleClick}
           className={`node-text-preview${text ? '' : ' node-text-preview--empty'}`}
-          title="单击编辑文本"
+          title={showLongTextHint ? '单击编辑文本，双击全屏编辑' : '单击编辑文本'}
         >
           {text || '粘贴/输入文本...'}
         </div>
       )}
       <div className="node-text-meta">
         <span>
-          {lineCount} 行 · {text.length} 字符
+          {showLongTextHint ? `${lineCount} 行 · ${text.length} 字符 · 双击可全屏编辑` : `${lineCount} 行 · ${text.length} 字符`}
         </span>
       </div>
+      {isFullscreenEditing && (
+        <LongTextEditorModal
+          title="编辑文本输入"
+          value={editor.value}
+          onChange={(nextValue) => editor.onChange(nextValue)}
+          onClose={() => setIsFullscreenEditing(false)}
+          onCompositionStart={() => editor.onCompositionStart()}
+          onCompositionEnd={(nextValue) => editor.onCompositionEnd(nextValue)}
+        />
+      )}
     </div>
   );
 }
