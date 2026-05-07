@@ -180,15 +180,23 @@ export function normalizeNodes(input: unknown): Node[] {
 export function normalizeEdges(input: unknown, validNodeIds: Set<string>): Edge[] {
   if (!Array.isArray(input)) return [];
 
+  const seenIds = new Set<string>();
   return input.flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
 
     const record = item as Record<string, unknown>;
     if (typeof record.source !== 'string' || typeof record.target !== 'string') return [];
     if (!validNodeIds.has(record.source) || !validNodeIds.has(record.target)) return [];
+    let id = typeof record.id === 'string' && record.id ? record.id : `edge_${gid()}`;
+    if (seenIds.has(id)) {
+      do {
+        id = `edge_${gid()}`;
+      } while (seenIds.has(id));
+    }
+    seenIds.add(id);
 
     return [{
-      id: typeof record.id === 'string' ? record.id : `edge_${gid()}`,
+      id,
       source: record.source,
       sourceHandle: typeof record.sourceHandle === 'string' ? record.sourceHandle : null,
       target: record.target,
@@ -206,6 +214,25 @@ export function buildWorkflowPayload(
   nodes: Node[],
   edges: Edge[],
 ): PersistedWorkflow {
+  const seenEdgeIds = new Set<string>();
+  const persistedEdges = edges.map((edge) => {
+    let id = edge.id || `edge_${gid()}`;
+    if (seenEdgeIds.has(id)) {
+      do {
+        id = `edge_${gid()}`;
+      } while (seenEdgeIds.has(id));
+    }
+    seenEdgeIds.add(id);
+
+    return {
+      id,
+      source: edge.source,
+      ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
+      target: edge.target,
+      ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
+    };
+  });
+
   return {
     id: workflowId,
     name: workflowName,
@@ -225,13 +252,7 @@ export function buildWorkflowPayload(
         ...(typeof (node as Node & { extent?: unknown }).extent === 'string' ? { extent: (node as Node & { extent?: string }).extent } : {}),
       },
     })),
-    edges: edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
-      target: edge.target,
-      ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
-    })),
+    edges: persistedEdges,
     settings: {},
   };
 }

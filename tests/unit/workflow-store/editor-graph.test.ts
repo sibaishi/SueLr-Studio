@@ -164,6 +164,64 @@ describe('workflow store graph editor actions', () => {
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
+  it('removes stale group port links when deleting connected child nodes', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'group',
+          type: 'group',
+          position: { x: 0, y: 0 },
+          data: {
+            groupInputs: [
+              {
+                id: 'port_in',
+                label: 'Input 1',
+                type: 'string',
+                insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
+                outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
+              },
+            ],
+          },
+        },
+        { id: 'source', type: 'textInput', position: { x: -240, y: 0 }, data: {} },
+        { id: 'child', type: 'aiChat', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
+      ],
+      edges: [
+        {
+          id: 'outside-to-group',
+          source: 'source',
+          sourceHandle: 'text',
+          target: 'group',
+          targetHandle: 'group-port:input:external:port_in',
+        },
+        {
+          id: 'group-to-child',
+          source: 'group',
+          sourceHandle: 'group-port:input:internal:port_in',
+          target: 'child',
+          targetHandle: 'prompt',
+        },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.removeNodes(['child']);
+
+    const state = harness.getState();
+    const groupNode = state.nodes.find((node) => node.id === 'group');
+    const inputs = Array.isArray(groupNode?.data?.groupInputs) ? groupNode.data.groupInputs : [];
+
+    expect(state.edges).toEqual([]);
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).toMatchObject({
+      type: null,
+      insideLinks: [],
+      outsideLinks: [],
+    });
+  });
+
   it('locks selected nodes and blocks subsequent graph changes', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
@@ -186,6 +244,29 @@ describe('workflow store graph editor actions', () => {
 
     const state = harness.getState();
     expect(state.nodes[0]?.data.locked).toBe(true);
+    expect(state.nodes[0]?.position).toEqual({ x: 0, y: 0 });
+  });
+
+  it('allows internal dimensions updates for locked nodes so restored edges can remeasure handles', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'lockedNode', type: 'textInput', position: { x: 0, y: 0 }, data: { locked: true } },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.onNodesChange([
+      {
+        id: 'lockedNode',
+        type: 'dimensions',
+        dimensions: { width: 260, height: 180 },
+      },
+    ]);
+
+    const state = harness.getState();
+    expect(state.nodes[0]?.measured).toEqual({ width: 260, height: 180 });
     expect(state.nodes[0]?.position).toEqual({ x: 0, y: 0 });
   });
 

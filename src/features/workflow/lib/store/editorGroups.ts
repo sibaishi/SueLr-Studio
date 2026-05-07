@@ -17,6 +17,7 @@ import {
   normalizeEditorNodes,
   ungroupGroupNodes,
 } from '@/features/workflow/lib/store/editorShared';
+import { gid } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
 
 type WorkflowStoreGroupEditorActions = Pick<
@@ -36,6 +37,7 @@ function rebuildEdgesForUngroupedGroups(nodes: Node[], edges: Edge[], groupIds: 
 
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const seenEdgeKeys = new Set<string>();
+  const seenEdgeIds = new Set<string>();
   const nextEdges: Edge[] = [];
 
   for (const edge of edges) {
@@ -128,7 +130,14 @@ function rebuildEdgesForUngroupedGroups(nodes: Node[], edges: Edge[], groupIds: 
       if (seenEdgeKeys.has(edgeKey)) continue;
 
       seenEdgeKeys.add(edgeKey);
-      nextEdges.push(nextEdge);
+      let nextEdgeId = nextEdge.id;
+      if (!nextEdgeId || seenEdgeIds.has(nextEdgeId)) {
+        do {
+          nextEdgeId = `edge_${gid()}`;
+        } while (seenEdgeIds.has(nextEdgeId));
+      }
+      seenEdgeIds.add(nextEdgeId);
+      nextEdges.push(nextEdgeId === nextEdge.id ? nextEdge : { ...nextEdge, id: nextEdgeId });
     }
   }
 

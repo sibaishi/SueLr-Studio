@@ -82,7 +82,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
 
   useEffect(() => {
     updateNodeInternals(id);
-  }, [data, id, inputCount, isCollapsed, updateNodeInternals]);
+  }, [currentNode?.height, currentNode?.width, data, id, inputCount, isCollapsed, isLocked, parentId, updateNodeInternals]);
 
   useEffect(() => {
     if (!isRunning) return;

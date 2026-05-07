@@ -202,6 +202,40 @@ function removeGroupPortLinksFromNodes(nodes: Node[], removedEdges: Edge[]) {
   });
 }
 
+function removeGroupPortLinksReferencingNodes(nodes: Node[], removedNodeIds: Set<string>) {
+  if (removedNodeIds.size === 0) return nodes;
+
+  return nodes.map((node) => {
+    if (node.type !== 'group') return node;
+
+    let nextData = (node.data || {}) as Record<string, unknown>;
+    let didChange = false;
+
+    for (const side of ['input', 'output'] as const) {
+      nextData = {
+        ...nextData,
+        ...updateGroupPortList(nextData, side, (ports) => ports.map((port) => {
+          const insideLinks = port.insideLinks.filter((link) => !removedNodeIds.has(link.nodeId));
+          const outsideLinks = insideLinks.length === 0
+            ? []
+            : port.outsideLinks.filter((link) => !removedNodeIds.has(link.nodeId));
+          if (insideLinks.length === port.insideLinks.length && outsideLinks.length === port.outsideLinks.length) {
+            return port;
+          }
+          didChange = true;
+          return {
+            ...port,
+            insideLinks,
+            outsideLinks,
+          };
+        })),
+      };
+    }
+
+    return didChange ? { ...node, data: nextData } : node;
+  });
+}
+
 type WorkflowStoreGraphEditorActions = Pick<
   WorkflowState,
   | 'setWorkflowName'
@@ -486,13 +520,16 @@ export function createWorkflowGraphEditorActions(
         }
 
         const edges = state.edges.filter((edge) => !removedSet.has(edge.source) && !removedSet.has(edge.target));
+        const updatedNodes = removeGroupPortLinksReferencingNodes(state.nodes, removedSet);
+        const remainingNodes = updatedNodes.filter((node) => !removedSet.has(node.id));
+        const nextEdges = pruneGroupPortEdges(remainingNodes, edges);
 
         return {
           nodes: normalizeEditorNodes(
-            state.nodes.filter((node) => !removedSet.has(node.id)),
-            edges,
+            remainingNodes,
+            nextEdges,
           ),
-          edges,
+          edges: nextEdges,
           selectedNodeId: removedSet.has(state.selectedNodeId ?? '') ? null : state.selectedNodeId,
           nodeExecStatus,
           nodeExecutionTime,
@@ -597,7 +634,7 @@ export function createWorkflowGraphEditorActions(
           ? changes.filter((change) => !(change.type === 'remove' && removedIds.includes(change.id)))
           : changes)
           .filter((change) => {
-            if (change.type === 'remove' || change.type === 'select') return true;
+            if (change.type === 'remove' || change.type === 'select' || change.type === 'dimensions') return true;
             if (!('id' in change)) return true;
             return !isNodeLockedWithAncestors(change.id, state.nodes);
           });
@@ -630,10 +667,12 @@ export function createWorkflowGraphEditorActions(
         const edges = state.edges.filter((edge) => (
           !removedSet.has(edge.source) && !removedSet.has(edge.target)
         ));
+        const updatedNodes = removeGroupPortLinksReferencingNodes(nodes, removedSet);
+        const nextEdges = pruneGroupPortEdges(updatedNodes, edges);
 
         return {
-          nodes: normalizeEditorNodes(nodes, edges),
-          edges,
+          nodes: normalizeEditorNodes(updatedNodes, nextEdges),
+          edges: nextEdges,
           selectedNodeId: removedSet.has(state.selectedNodeId ?? '') ? null : state.selectedNodeId,
           nodeExecStatus,
           nodeExecutionTime,

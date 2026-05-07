@@ -140,4 +140,80 @@ describe('workflow store group editor actions', () => {
     expect(state.selectedNodeId).toBeNull();
     expect(state.hasUnsavedChanges).toBe(true);
   });
+
+  it('restores fan-out group input edges with unique ids when ungrouping', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'source', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+        {
+          id: 'group',
+          type: 'group',
+          position: { x: 220, y: 0 },
+          data: {
+            groupInputs: [
+              {
+                id: 'port_in',
+                label: 'Input 1',
+                type: 'string',
+                insideLinks: [
+                  { nodeId: 'innerA', handleId: 'prompt' },
+                  { nodeId: 'innerB', handleId: 'prompt' },
+                ],
+                outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
+              },
+            ],
+          },
+        },
+        { id: 'innerA', type: 'aiChat', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'innerB', type: 'aiChat', position: { x: 56, y: 252 }, parentId: 'group', extent: 'parent', data: {} },
+      ],
+      edges: [
+        {
+          id: 'edge_outside_group',
+          source: 'source',
+          sourceHandle: 'text',
+          target: 'group',
+          targetHandle: 'group-port:input:external:port_in',
+        },
+        {
+          id: 'edge_group_inner_a',
+          source: 'group',
+          sourceHandle: 'group-port:input:internal:port_in',
+          target: 'innerA',
+          targetHandle: 'prompt',
+        },
+        {
+          id: 'edge_group_inner_b',
+          source: 'group',
+          sourceHandle: 'group-port:input:internal:port_in',
+          target: 'innerB',
+          targetHandle: 'prompt',
+        },
+      ],
+    });
+
+    const actions = createWorkflowGroupEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.ungroupNodes(['group']);
+
+    const state = harness.getState();
+    const edgeIds = state.edges.map((edge) => edge.id);
+    expect(new Set(edgeIds).size).toBe(edgeIds.length);
+    expect(state.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: 'source',
+        sourceHandle: 'text',
+        target: 'innerA',
+        targetHandle: 'prompt',
+      }),
+      expect.objectContaining({
+        source: 'source',
+        sourceHandle: 'text',
+        target: 'innerB',
+        targetHandle: 'prompt',
+      }),
+    ]));
+    expect(state.edges).toHaveLength(2);
+  });
 });
