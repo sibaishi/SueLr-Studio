@@ -101,6 +101,23 @@ body {
 .workflow-page {
   background: transparent;
   color: var(--color-text-primary);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.workflow-page img,
+.workflow-page svg {
+  -webkit-user-drag: none;
+}
+
+.workflow-page input,
+.workflow-page textarea,
+.workflow-page select,
+.workflow-page [contenteditable="true"],
+.long-text-editor-modal,
+.long-text-editor-modal textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .workflow-shell {

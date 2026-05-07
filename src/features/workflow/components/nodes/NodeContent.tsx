@@ -186,10 +186,11 @@ function TextInputContent({
           onFocus={() => editor.onFocus()}
           onCompositionStart={() => editor.onCompositionStart()}
           onCompositionEnd={(event) => editor.onCompositionEnd(event.currentTarget.value)}
-          className="node-text-editor"
+          className="node-text-editor nodrag"
           placeholder="粘贴/输入文本..."
           onDoubleClick={() => setIsFullscreenEditing(true)}
           onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         />

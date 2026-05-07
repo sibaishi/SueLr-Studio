@@ -216,7 +216,7 @@ function ParamEditor({
             <textarea
               value={textField.value}
               onChange={(event) => textField.onChange(event.target.value)}
-              className="node-text-editor node-param-text-editor"
+              className="node-text-editor node-param-text-editor nodrag"
               placeholder="粘贴/输入文本..."
               autoFocus
               onDoubleClick={() => setIsFullscreenTextEditing(true)}
@@ -231,6 +231,10 @@ function ParamEditor({
               }}
               onCompositionStart={() => textField.onCompositionStart()}
               onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
             />
           ) : (
             <div
@@ -270,7 +274,7 @@ function ParamEditor({
                 type={param.id === 'apiKey' ? 'password' : 'text'}
                 value={textField.value}
                 onChange={(event) => textField.onChange(event.target.value)}
-                className="node-field"
+                className="node-field nodrag"
                 onFocus={(event) => {
                   textField.onFocus();
                   handleFocus(event);
@@ -281,6 +285,10 @@ function ParamEditor({
                 }}
                 onCompositionStart={() => textField.onCompositionStart()}
                 onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
+                onClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
               />
               <button type="button" className="node-secondary-button node-param__picker-button" onClick={() => { void handlePickDirectory(); }}>
                 选择文件夹
@@ -291,7 +299,7 @@ function ParamEditor({
               type={param.id === 'apiKey' ? 'password' : 'text'}
               value={textField.value}
               onChange={(event) => textField.onChange(event.target.value)}
-              className="node-field"
+              className="node-field nodrag"
               onFocus={(event) => {
                 textField.onFocus();
                 handleFocus(event);
@@ -302,6 +310,10 @@ function ParamEditor({
               }}
               onCompositionStart={() => textField.onCompositionStart()}
               onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
             />
           )}
         </div>
