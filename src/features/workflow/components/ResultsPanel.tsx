@@ -1,9 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clipboard, Clock3, ImageIcon, PlayCircle, TerminalSquare, Video } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clipboard,
+  Clock3,
+  FileText,
+  ImageIcon,
+  Loader2,
+  PlayCircle,
+  TerminalSquare,
+  Video,
+  X,
+} from 'lucide-react';
 import { getNodeDef } from '@/features/workflow/lib/constants';
 import { NODE_ICONS } from '@/features/workflow/components/nodes/nodeConstants';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
-import { ImagePreviewModal } from '@/features/workflow/components/ImagePreviewModal';
+import { ImagePreviewModal, type PreviewImageItem } from '@/features/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/features/workflow/components/ImageSizeLabel';
 import { formatDurationSeconds, getExecutionStatusLabel } from '@/features/workflow/lib/executionFormat';
 import { fetchGeneratedOutputs, type GeneratedOutputFile } from '@/features/workflow/lib/api';
@@ -12,7 +25,13 @@ type PanelTab = 'results' | 'logs';
 const LOG_MESSAGE_PREVIEW_LIMIT = 600;
 const LOG_DETAILS_PREVIEW_LIMIT = 4000;
 
-export default function ResultsPanel() {
+export default function ResultsPanel({
+  onBackfillImage,
+  onBackfillText,
+}: {
+  onBackfillImage?: (image: PreviewImageItem) => void;
+  onBackfillText?: (text: string) => void;
+}) {
   const [tab, setTab] = useState<PanelTab>('results');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [generatedOutputs, setGeneratedOutputs] = useState<GeneratedOutputFile[]>([]);
@@ -81,6 +100,18 @@ export default function ResultsPanel() {
     };
   }, [nodes, selectedNodeId]);
 
+  const imageGallery = useMemo<PreviewImageItem[]>(() => {
+    return generatedOutputs
+      .filter((file) => file.type === 'image')
+      .map((file) => ({
+        src: file.url,
+        name: file.name,
+      }));
+  }, [generatedOutputs]);
+  const previewImageIndex = previewImage
+    ? imageGallery.findIndex((item) => item.src === previewImage)
+    : -1;
+
   return (
     <aside className="workflow-panel workflow-results glass">
       <div className="workflow-panel__header">
@@ -145,13 +176,25 @@ export default function ResultsPanel() {
             isLoading={isLoadingOutputs}
             error={outputsError}
             onPreviewImage={setPreviewImage}
+            onBackfillText={onBackfillText}
           />
         ) : (
           <LogsList logs={executionLogs} onClear={clearExecutionLogs} />
         )}
       </div>
 
-      {previewImage && <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />}
+      {previewImage && (
+        <ImagePreviewModal
+          src={previewImage}
+          images={previewImageIndex >= 0 ? imageGallery : [{ src: previewImage }]}
+          initialIndex={previewImageIndex >= 0 ? previewImageIndex : 0}
+          onClose={() => setPreviewImage(null)}
+          onBackfillImage={(image) => {
+            onBackfillImage?.(image);
+            setPreviewImage(null);
+          }}
+        />
+      )}
     </aside>
   );
 }
@@ -196,12 +239,14 @@ function ResultsList({
   isLoading,
   error,
   onPreviewImage,
+  onBackfillText,
 }: {
   files: GeneratedOutputFile[];
   selectedMaskInfo: { label: string; src: string; hasMask: boolean } | null;
   isLoading: boolean;
   error: string | null;
   onPreviewImage: (src: string) => void;
+  onBackfillText?: (text: string) => void;
 }) {
   const resultItems = files.map((file) => ({
     id: file.id,
@@ -209,7 +254,7 @@ function ResultsList({
     label: file.name,
     color: file.type === 'video' ? '#AF52DE' : '#FF9500',
     outputLabels: { content: file.relativePath },
-    outputs: { content: { url: file.url, type: file.type, name: file.name } },
+    outputs: { content: { url: file.url, type: file.type, name: file.name, mimeType: file.mimeType } },
   }));
 
   if (error) {
@@ -247,7 +292,12 @@ function ResultsList({
               {item.label}
             </span>
           </div>
-          <AiOutputGroup outputs={item.outputs} outputLabels={item.outputLabels} onPreviewImage={onPreviewImage} />
+          <AiOutputGroup
+            outputs={item.outputs}
+            outputLabels={item.outputLabels}
+            onPreviewImage={onPreviewImage}
+            onBackfillText={onBackfillText}
+          />
         </div>
       ))}
     </div>
@@ -264,10 +314,12 @@ function AiOutputGroup({
   outputs,
   outputLabels,
   onPreviewImage,
+  onBackfillText,
 }: {
   outputs: Record<string, unknown>;
   outputLabels: Record<string, string>;
   onPreviewImage: (src: string) => void;
+  onBackfillText?: (text: string) => void;
 }) {
   const entries = Object.entries(outputs)
     .filter(([key]) => key !== 'savedFiles' && key !== 'savedPaths')
@@ -277,7 +329,7 @@ function AiOutputGroup({
   if (entries.length === 0) return <TextResult text="" />;
 
   if (entries.length === 1) {
-    return <AiOutputValue value={entries[0][1]} onPreviewImage={onPreviewImage} />;
+    return <AiOutputValue value={entries[0][1]} onPreviewImage={onPreviewImage} onBackfillText={onBackfillText} />;
   }
 
   return (
@@ -285,18 +337,29 @@ function AiOutputGroup({
       {entries.map(([key, value]) => (
         <div key={key}>
           <div className="workflow-results__group-label">{outputLabels[key] || key}</div>
-          <AiOutputValue value={value} onPreviewImage={onPreviewImage} />
+          <AiOutputValue value={value} onPreviewImage={onPreviewImage} onBackfillText={onBackfillText} />
         </div>
       ))}
     </div>
   );
 }
 
-function AiOutputValue({ value, onPreviewImage }: { value: unknown; onPreviewImage: (src: string) => void }) {
+function AiOutputValue({
+  value,
+  onPreviewImage,
+  onBackfillText,
+}: {
+  value: unknown;
+  onPreviewImage: (src: string) => void;
+  onBackfillText?: (text: string) => void;
+}) {
   if (isGeneratedOutputValue(value)) {
     if (value.type === 'image') return <ImageResult src={value.url} onPreviewImage={onPreviewImage} />;
     if (value.type === 'video') return <VideoResult src={value.url} />;
     if (value.type === 'audio') return <audio src={value.url} controls className="w-full" />;
+    if (isPreviewableTextOutput(value)) {
+      return <TextFileResult url={value.url} name={value.name || value.url} onBackfillText={onBackfillText} />;
+    }
     return (
       <a href={value.url} target="_blank" rel="noreferrer" className="workflow-results__text">
         {value.name || value.url}
@@ -335,7 +398,13 @@ function AiOutputValue({ value, onPreviewImage }: { value: unknown; onPreviewIma
   return <TextResult text={JSON.stringify(value, null, 2)} mono />;
 }
 
-function TextResult({ text, mono = false }: { text: string; mono?: boolean }) {
+function TextResult({
+  text,
+  mono = false,
+}: {
+  text: string;
+  mono?: boolean;
+}) {
   return (
     <div>
       <div className="mb-1 flex justify-end">
@@ -426,6 +495,145 @@ function LogsList({
   );
 }
 
+function TextFileResult({
+  url,
+  name,
+  onBackfillText,
+}: {
+  url: string;
+  name: string;
+  onBackfillText?: (text: string) => void;
+}) {
+  const [text, setText] = useState('');
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const openPreview = async () => {
+    setIsPreviewOpen(true);
+    if (text || isLoading) return;
+
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setText(await response.text());
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : String(previewError));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <button type="button" onClick={() => void openPreview()} className="workflow-results__file-preview">
+        <span className="workflow-results__file-icon">
+          <FileText size={15} />
+        </span>
+        <span className="workflow-results__file-main">
+          <span className="workflow-results__file-name">{name}</span>
+          <span className="workflow-results__file-meta">点击查看文本内容</span>
+        </span>
+      </button>
+      {isPreviewOpen && (
+        <TextPreviewModal
+          title={name}
+          text={text}
+          isLoading={isLoading}
+          error={error}
+          onClose={() => setIsPreviewOpen(false)}
+          onBackfillText={onBackfillText}
+        />
+      )}
+    </div>
+  );
+}
+
+function TextPreviewModal({
+  title,
+  text,
+  isLoading,
+  error,
+  onClose,
+  onBackfillText,
+}: {
+  title: string;
+  text: string;
+  isLoading: boolean;
+  error: string;
+  onClose: () => void;
+  onBackfillText?: (text: string) => void;
+}) {
+  return createPortal(
+    <div
+      className="workflow-text-preview-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="workflow-text-preview-modal__dialog" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="workflow-text-preview-modal__header">
+          <div className="min-w-0">
+            <div className="workflow-text-preview-modal__title">{title}</div>
+            <div className="workflow-text-preview-modal__meta">
+              {isLoading ? '读取中' : error ? '读取失败' : `${text ? text.split(/\r\n|\r|\n/).length : 0} 行 · ${text.length} 字符`}
+            </div>
+          </div>
+          <div className="workflow-text-preview-modal__actions">
+            <button
+              type="button"
+              onClick={() => void navigator.clipboard?.writeText(text)}
+              disabled={!text || isLoading}
+              className="workflow-results__mini-action"
+            >
+              <Clipboard size={11} />
+              复制
+            </button>
+            {onBackfillText && (
+              <button
+                type="button"
+                onClick={() => {
+                  onBackfillText(text);
+                  onClose();
+                }}
+                disabled={!text || isLoading || Boolean(error)}
+                className="workflow-results__mini-action"
+              >
+                回填到画布
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="workflow-text-preview-modal__close" aria-label="关闭文本预览">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="workflow-text-preview-modal__body">
+          {isLoading && (
+            <div className="workflow-text-preview-modal__state">
+              <Loader2 size={18} className="workflow-text-preview-modal__spinner" />
+              正在读取文本内容...
+            </div>
+          )}
+          {!isLoading && error && (
+            <div className="workflow-text-preview-modal__state workflow-text-preview-modal__state--error">
+              {error}
+            </div>
+          )}
+          {!isLoading && !error && (
+            <pre className="workflow-text-preview-modal__text">{text || '(空内容)'}</pre>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function buildLogPreview(value: string, limit: number) {
   if (value.length <= limit) return value;
   const head = value.slice(0, Math.floor(limit * 0.75));
@@ -460,20 +668,32 @@ function unwrapOutputValue(value: unknown): unknown {
     const url = record.url;
     const type = record.type;
     if (typeof url === 'string' && typeof type === 'string') {
-      return { url, type, name: typeof record.name === 'string' ? record.name : '' };
+      return {
+        url,
+        type,
+        name: typeof record.name === 'string' ? record.name : '',
+        mimeType: typeof record.mimeType === 'string' ? record.mimeType : '',
+      };
     }
     if (typeof record.url === 'string') return record.url;
   }
   return value;
 }
 
-function isGeneratedOutputValue(value: unknown): value is { url: string; type: string; name: string } {
+function isGeneratedOutputValue(value: unknown): value is { url: string; type: string; name: string; mimeType?: string } {
   return Boolean(
     value
     && typeof value === 'object'
     && typeof (value as Record<string, unknown>).url === 'string'
     && typeof (value as Record<string, unknown>).type === 'string',
   );
+}
+
+function isPreviewableTextOutput(value: { type: string; name?: string; mimeType?: string }) {
+  if (value.type === 'text' || value.type === 'data') return true;
+  const mimeType = String(value.mimeType || '').toLowerCase();
+  if (/^(text\/|application\/(json|xml|x-ndjson))/.test(mimeType)) return true;
+  return /\.(txt|md|markdown|json|jsonl|csv|log|xml|yaml|yml)(\?.*)?$/i.test(String(value.name || ''));
 }
 
 function isImageUrl(value: string) {
