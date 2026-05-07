@@ -222,6 +222,154 @@ describe('workflow store graph editor actions', () => {
     });
   });
 
+  it('detaches a middle node and reconnects compatible upstream and downstream nodes', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'input', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'chat', type: 'aiChat', position: { x: 240, y: 0 }, data: {} },
+        { id: 'output', type: 'output', position: { x: 520, y: 0 }, data: {} },
+      ],
+      edges: [
+        { id: 'edge_in', source: 'input', sourceHandle: 'text', target: 'chat', targetHandle: 'prompt' },
+        { id: 'edge_out', source: 'chat', sourceHandle: 'response', target: 'output', targetHandle: 'content' },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.detachNodeFromChain('chat');
+
+    const state = harness.getState();
+    expect(state.nodes.map((node) => node.id)).toEqual(['input', 'chat', 'output']);
+    expect(state.edges).toHaveLength(1);
+    expect(state.edges[0]).toMatchObject({
+      source: 'input',
+      sourceHandle: 'text',
+      target: 'output',
+      targetHandle: 'content',
+    });
+    expect(state.hasUnsavedChanges).toBe(true);
+  });
+
+  it('reconnects compatible upstream and downstream nodes when deleting a single middle node', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'input', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'chat', type: 'aiChat', position: { x: 240, y: 0 }, data: {} },
+        { id: 'output', type: 'output', position: { x: 520, y: 0 }, data: {} },
+      ],
+      edges: [
+        { id: 'edge_in', source: 'input', sourceHandle: 'text', target: 'chat', targetHandle: 'prompt' },
+        { id: 'edge_out', source: 'chat', sourceHandle: 'response', target: 'output', targetHandle: 'content' },
+      ],
+      selectedNodeId: 'chat',
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.removeNode('chat');
+
+    const state = harness.getState();
+    expect(state.nodes.map((node) => node.id)).toEqual(['input', 'output']);
+    expect(state.edges).toHaveLength(1);
+    expect(state.edges[0]).toMatchObject({
+      source: 'input',
+      sourceHandle: 'text',
+      target: 'output',
+      targetHandle: 'content',
+    });
+    expect(state.selectedNodeId).toBeNull();
+    expect(state.hasUnsavedChanges).toBe(true);
+  });
+
+  it('does not detach a middle node when no compatible bypass connection exists', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'imageInput', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'resize', type: 'imageResize', position: { x: 240, y: 0 }, data: {} },
+        { id: 'chat', type: 'aiChat', position: { x: 520, y: 0 }, data: {} },
+      ],
+      edges: [
+        { id: 'edge_in', source: 'imageInput', sourceHandle: 'image', target: 'resize', targetHandle: 'image' },
+        { id: 'edge_out', source: 'resize', sourceHandle: 'image', target: 'chat', targetHandle: 'prompt' },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.detachNodeFromChain('resize');
+
+    const state = harness.getState();
+    expect(state.edges).toEqual([
+      { id: 'edge_in', source: 'imageInput', sourceHandle: 'image', target: 'resize', targetHandle: 'image' },
+      { id: 'edge_out', source: 'resize', sourceHandle: 'image', target: 'chat', targetHandle: 'prompt' },
+    ]);
+    expect(state.hasUnsavedChanges).toBe(false);
+  });
+
+  it('inserts a node onto an existing compatible edge', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'imageInput', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'resize', type: 'imageResize', position: { x: 240, y: 0 }, data: {} },
+        { id: 'merge', type: 'imageMerge', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
+      ],
+      edges: [
+        { id: 'edge_original', source: 'imageInput', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.insertNodeOnEdge('resize', 'edge_original');
+
+    const state = harness.getState();
+    expect(state.edges).toHaveLength(2);
+    expect(state.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: 'imageInput',
+        sourceHandle: 'image',
+        target: 'resize',
+        targetHandle: 'image',
+      }),
+      expect.objectContaining({
+        source: 'resize',
+        sourceHandle: 'image',
+        target: 'merge',
+        targetHandle: 'item1',
+      }),
+    ]));
+    expect(state.hasUnsavedChanges).toBe(true);
+  });
+
+  it('does not insert a node when it cannot bridge the edge types', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'imageInput', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'chat', type: 'aiChat', position: { x: 240, y: 0 }, data: {} },
+        { id: 'merge', type: 'imageMerge', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
+      ],
+      edges: [
+        { id: 'edge_original', source: 'imageInput', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.insertNodeOnEdge('chat', 'edge_original');
+
+    const state = harness.getState();
+    expect(state.edges).toEqual([
+      { id: 'edge_original', source: 'imageInput', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
+    ]);
+    expect(state.hasUnsavedChanges).toBe(false);
+  });
+
   it('locks selected nodes and blocks subsequent graph changes', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [

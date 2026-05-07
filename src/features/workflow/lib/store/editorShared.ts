@@ -45,6 +45,8 @@ export type WorkflowStoreEditorActions = Pick<
   | 'resetNodeSize'
   | 'removeNode'
   | 'removeNodes'
+  | 'detachNodeFromChain'
+  | 'insertNodeOnEdge'
   | 'addEdge'
   | 'removeEdge'
   | 'selectNode'

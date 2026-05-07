@@ -90,6 +90,8 @@ export interface WorkflowState {
   resetNodeSize: (nodeId: string) => void;
   removeNode: (nodeId: string) => void;
   removeNodes: (nodeIds: string[]) => void;
+  detachNodeFromChain: (nodeId: string) => void;
+  insertNodeOnEdge: (nodeId: string, edgeId: string) => void;
   addEdge: (source: string, sourceHandle: string, target: string, targetHandle: string) => void;
   removeEdge: (edgeId: string) => void;
   selectNode: (nodeId: string | null) => void;

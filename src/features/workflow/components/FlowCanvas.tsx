@@ -548,6 +548,127 @@ function snapNodeBox(node: FlowNodeType): FlowNodeType {
   };
 }
 
+function getNodeRenderRect(node: FlowNodeType, nodeMap: Map<string, FlowNodeType>) {
+  const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
+  const fallbackSize = getNodeDefaultSize(node.type || '', inputCount);
+  const style = (node.style || {}) as Record<string, unknown>;
+  const width = typeof node.width === 'number'
+    ? node.width
+    : typeof style.width === 'number' ? style.width : fallbackSize.w;
+  const height = typeof node.height === 'number'
+    ? node.height
+    : typeof style.height === 'number' ? style.height : fallbackSize.h;
+  const position = getAbsoluteNodePosition(node.id, nodeMap);
+
+  return {
+    x: position.x,
+    y: position.y,
+    width,
+    height,
+  };
+}
+
+function pointToSegmentDistance(
+  point: { x: number; y: number },
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) return Math.hypot(point.x - start.x, point.y - start.y);
+
+  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
+}
+
+function getInputHandleCandidatesForNode(node: FlowNodeType) {
+  const def = getNodeDef(node.type || '');
+  if (!def) return [];
+  if (def.maxInputs) return Array.from({ length: def.maxInputs }, (_, index) => `item${index + 1}`);
+  return def.inputs.map((input) => input.id);
+}
+
+function canNodeBridgeEdge(
+  node: FlowNodeType,
+  edge: Edge,
+  nodeMap: Map<string, FlowNodeType>,
+  edges: Edge[],
+) {
+  if (node.type === 'group') return false;
+  if (edge.source === node.id || edge.target === node.id) return false;
+  if (!edge.sourceHandle || !edge.targetHandle) return false;
+  if (parseGroupHandleId(edge.sourceHandle) || parseGroupHandleId(edge.targetHandle)) return false;
+
+  const sourceNode = nodeMap.get(edge.source);
+  const targetNode = nodeMap.get(edge.target);
+  const sourceType = getOutputType(sourceNode, edge.sourceHandle);
+  const targetType = getInputType(targetNode, edge.targetHandle);
+  const def = getNodeDef(node.type || '');
+  if (!sourceType || !targetType || !def) return false;
+
+  const occupiedTargetHandles = new Set(
+    edges
+      .filter((item) => item.id !== edge.id && item.targetHandle)
+      .map((item) => `${item.target}:${item.targetHandle}`),
+  );
+  const hasInput = getInputHandleCandidatesForNode(node).some((handleId) => {
+    const inputType = def.maxInputs
+      ? def.inputs[0]?.type
+      : def.inputs.find((input) => input.id === handleId)?.type;
+    return Boolean(
+      inputType
+      && !occupiedTargetHandles.has(`${node.id}:${handleId}`)
+      && PORT_COMPATIBILITY[sourceType]?.includes(inputType),
+    );
+  });
+  const hasOutput = def.outputs.some((output) => (
+    PORT_COMPATIBILITY[output.type]?.includes(targetType) ?? false
+  ));
+
+  return hasInput && hasOutput;
+}
+
+function findEdgeInsertionCandidate(
+  draggedNode: FlowNodeType,
+  nodes: FlowNodeType[],
+  edges: Edge[],
+) {
+  if (draggedNode.type === 'group' || getParentId(draggedNode)) return null;
+
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  nodeMap.set(draggedNode.id, draggedNode);
+  const draggedRect = getNodeRenderRect(draggedNode, nodeMap);
+  const draggedCenter = {
+    x: draggedRect.x + draggedRect.width / 2,
+    y: draggedRect.y + draggedRect.height / 2,
+  };
+  const threshold = Math.max(36, Math.min(draggedRect.width, draggedRect.height) * 0.45);
+
+  let bestEdge: Edge | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const edge of edges) {
+    if (edge.id.startsWith('virtual:') || edge.id.startsWith('group-binding:')) continue;
+    if (!canNodeBridgeEdge(draggedNode, edge, nodeMap, edges)) continue;
+
+    const sourceNode = nodeMap.get(edge.source);
+    const targetNode = nodeMap.get(edge.target);
+    if (!sourceNode || !targetNode) continue;
+
+    const sourceRect = getNodeRenderRect(sourceNode, nodeMap);
+    const targetRect = getNodeRenderRect(targetNode, nodeMap);
+    const sourcePoint = { x: sourceRect.x + sourceRect.width, y: sourceRect.y + sourceRect.height / 2 };
+    const targetPoint = { x: targetRect.x, y: targetRect.y + targetRect.height / 2 };
+    const distance = pointToSegmentDistance(draggedCenter, sourcePoint, targetPoint);
+    if (distance < threshold && distance < bestDistance) {
+      bestEdge = edge;
+      bestDistance = distance;
+    }
+  }
+
+  return bestEdge;
+}
+
 function getLocalPoint(
   event: MouseEvent | TouchEvent | ReactMouseEvent,
   container: HTMLDivElement | null,
@@ -594,6 +715,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const [activeCategory, setActiveCategory] = useState<(typeof CATEGORY_ORDER)[number] | null>(null);
   const [clipboardNode, setClipboardNode] = useState<ClipboardSnapshot | null>(null);
   const [canvasEditorNodeId, setCanvasEditorNodeId] = useState<string | null>(null);
+  const [edgeInsertionCandidateId, setEdgeInsertionCandidateId] = useState<string | null>(null);
   const pendingConnectionRef = useRef<PendingConnection | null>(null);
   const contextMenuOpenedAtRef = useRef(0);
   const lastPointerFlowPositionRef = useRef<{ x: number; y: number } | null>(null);
@@ -888,7 +1010,21 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   }, [store.edges, store.nodes]);
 
   const renderNodes = renderModel.nodes;
-  const renderEdges = renderModel.edges;
+  const renderEdges = useMemo(() => (
+    renderModel.edges.map((edge) => (
+      edge.id !== edgeInsertionCandidateId
+        ? edge
+        : {
+            ...edge,
+            animated: true,
+            style: {
+              ...(edge.style || {}),
+              stroke: 'var(--color-accent)',
+              strokeWidth: 4,
+            },
+          }
+    ))
+  ), [edgeInsertionCandidateId, renderModel.edges]);
 
   const attachNodeToGroup = useCallback((nodeId: string, groupId: string) => {
     useWorkflowStore.setState((state) => {
@@ -1017,6 +1153,16 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     store.onNodesChange(changes);
   }, [store]);
 
+  const onNodeDrag = useCallback<NodeMouseHandler>((_, node) => {
+    if (isNodeLockedWithAncestors(node.id, store.nodes)) {
+      setEdgeInsertionCandidateId(null);
+      return;
+    }
+
+    const candidate = findEdgeInsertionCandidate(node as FlowNodeType, renderNodes, renderModel.edges);
+    setEdgeInsertionCandidateId(candidate?.id || null);
+  }, [renderModel.edges, renderNodes, store.nodes]);
+
   const onNodeDragStop = useCallback<NodeMouseHandler>((_, node) => {
     if (isNodeLockedWithAncestors(node.id, store.nodes)) return;
     const corrected = pushRootNodeOutsideGroupAreas(node as FlowNodeType, renderNodes);
@@ -1039,9 +1185,16 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
             }
           : item
       ))),
-      hasUnsavedChanges: true,
-    }));
-  }, [renderNodes, store.nodes, store.snapToGridEnabled]);
+        hasUnsavedChanges: true,
+      }));
+
+    const candidate = findEdgeInsertionCandidate(snapped as FlowNodeType, renderNodes, renderModel.edges);
+    const edgeId = candidate?.id || edgeInsertionCandidateId;
+    setEdgeInsertionCandidateId(null);
+    if (edgeId) {
+      store.insertNodeOnEdge(node.id, edgeId);
+    }
+  }, [edgeInsertionCandidateId, renderModel.edges, renderNodes, store]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     store.onEdgesChange(changes);
@@ -1468,6 +1621,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const hasSingleGroupContextNode = contextNodes.length === 1 && contextNodes[0]?.type === 'group';
   const hasSingleChildContextNode = contextNodes.length === 1 && Boolean((contextNodes[0] as FlowNodeType & { parentId?: string })?.parentId);
   const hasSingleImageInputContextNode = contextNodes.length === 1 && contextNodes[0]?.type === 'imageInput';
+  const canDetachSingleContextNode = contextNodes.length === 1 && contextNodes[0]?.type !== 'group';
   const canCreateGroup = hasMultipleContextNodes && contextNodes.every((node) => node?.type !== 'group');
   const allContextNodesDisabled = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.disabled));
   const allContextNodesLocked = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.locked));
@@ -1613,6 +1767,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const deleteContextNode = useCallback(() => {
     if (!contextMenu?.nodeId) return;
     store.removeNode(contextMenu.nodeId);
+    closeContextMenu();
+  }, [closeContextMenu, contextMenu?.nodeId, store]);
+
+  const detachContextNodeFromChain = useCallback(() => {
+    if (!contextMenu?.nodeId) return;
+    store.detachNodeFromChain(contextMenu.nodeId);
     closeContextMenu();
   }, [closeContextMenu, contextMenu?.nodeId, store]);
 
@@ -1916,6 +2076,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
         onNodeClick={onNodeClick}
+        onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
         onPaneClick={onPaneClick}
         onNodeContextMenu={onNodeContextMenu}
@@ -2040,6 +2201,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
                 )}
                 {hasSingleGroupContextNode && <ContextMenuButton label="解组" onClick={ungroupContextNodes} />}
                 {hasSingleChildContextNode && <ContextMenuButton label="从组释放" onClick={releaseContextNodesFromGroup} />}
+                {canDetachSingleContextNode && <ContextMenuButton label="摘除并重接" onClick={detachContextNodeFromChain} />}
                 <ContextMenuButton label="恢复默认尺寸" onClick={resetContextNodeSize} />
                 <ContextMenuButton label={hasSingleGroupContextNode ? '删除组' : '删除节点'} onClick={deleteContextNode} danger />
               </>

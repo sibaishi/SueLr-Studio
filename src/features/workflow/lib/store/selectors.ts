@@ -54,6 +54,8 @@ export function useWorkflowCanvasStore() {
     onEdgesChange: state.onEdgesChange,
     onNodesChange: state.onNodesChange,
     releaseNodesFromGroup: state.releaseNodesFromGroup,
+    detachNodeFromChain: state.detachNodeFromChain,
+    insertNodeOnEdge: state.insertNodeOnEdge,
     removeEdge: state.removeEdge,
     removeNode: state.removeNode,
     removeNodes: state.removeNodes,
