@@ -42,6 +42,7 @@ if (failures.length === 0) {
 
   for (const scriptName of [
     'install:all',
+    'start',
     'dev',
     'dev:frontend',
     'dev:backend',
@@ -83,8 +84,8 @@ if (failures.length === 0) {
   }
 
   for (const [file, source] of [['start.bat', windowsLauncher], ['start.sh', unixLauncher]]) {
-    if (!source.includes('npm run dev')) {
-      failures.push(`${file} must continue to launch the combined dev command.`);
+    if (!source.includes('npm start')) {
+      failures.push(`${file} must continue to launch the one-click start command.`);
     }
   }
 

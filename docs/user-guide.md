@@ -50,7 +50,24 @@ cmd /c npm run install:all
 
 ## Start The App
 
-Start both frontend and backend together:
+Start the app with the one-click launcher:
+
+```bash
+npm start
+```
+
+On Windows, double-click `start.bat` or run it from Command Prompt. On macOS or Linux, run `./start.sh`.
+
+What the launcher does:
+
+- checks Node.js `>= 22.12.0`
+- installs missing root and backend dependencies
+- starts backend first, then frontend
+- picks the next available port if the default port is already occupied
+- writes logs to `.run-logs/`
+- opens the frontend in your default browser
+
+For manual development, start both frontend and backend together:
 
 ```bash
 npm run dev
@@ -234,9 +251,10 @@ Safety rule:
 
 Check:
 
-- `npm run dev` is still running
-- frontend is on `5173`
-- backend is on `3001`
+- the terminal running `npm start`, `start.bat`, or `start.sh` is still open
+- the frontend URL printed by the launcher
+- the backend health URL printed by the launcher
+- the latest `.run-logs/frontend-dev-*.log` and `.run-logs/backend-dev-*.log`
 
 ### Settings saved but external path did not take effect
 

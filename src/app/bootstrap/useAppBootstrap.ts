@@ -1,7 +1,7 @@
 import type { DependencyList, MutableRefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/lib/types';
-import type { StreamMode, StudioSettingsPayload } from '@/features/settings';
+import type { OutboundProxySettingsPayload, StreamMode, StudioSettingsPayload } from '@/features/settings';
 import type { StudioSettingsState } from '@/features/settings';
 import { checkSettingsServer, loadStudioSettings, saveStudioSettings, testSettingsConnection } from '@/features/settings';
 import { debouncedSaveJSON } from '@/lib/utils';
@@ -31,6 +31,7 @@ function buildStudioSettingsPayload(params: {
   tab: Tab;
   tavilyApiKey: string;
   tavilyApiKeySet: boolean;
+  outboundProxy: OutboundProxySettingsPayload;
   themeMode: ThemeMode;
   videoStreamingMode: StreamMode;
 }): StudioSettingsPayload {
@@ -49,6 +50,7 @@ function buildStudioSettingsPayload(params: {
       activeConfigId: params.activeConfigId,
       ...(params.tavilyApiKey ? { tavilyApiKey: params.tavilyApiKey } : {}),
       tavilyApiKeySet: params.tavilyApiKeySet,
+      outboundProxy: params.outboundProxy,
     },
   };
 }
@@ -67,6 +69,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     settings.customRoles,
     settings.tavilyApiKey,
     settings.tavilyApiKeySet,
+    settings.outboundProxy,
     params.tab,
     params.sidebarCollapsed,
     settings.chatStreamingMode,
@@ -87,6 +90,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       tab: params.tab,
       tavilyApiKey: settings.tavilyApiKey,
       tavilyApiKeySet: settings.tavilyApiKeySet,
+      outboundProxy: settings.outboundProxy,
       themeMode: params.themeMode,
       videoStreamingMode: settings.videoStreamingMode,
     });
@@ -121,6 +125,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     params.setTab,
     settings.setTavilyApiKey,
     settings.setTavilyApiKeySet,
+    settings.setOutboundProxy,
     params.setThemeMode,
     settings.setVideoStreamingMode,
   ];
@@ -150,6 +155,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
           if (loadedSettings.ui?.customRoles?.length) params.settings.setCustomRoles(loadedSettings.ui.customRoles);
           params.settings.setTavilyApiKey(loadedSettings.runtime?.tavilyApiKey || '');
           params.settings.setTavilyApiKeySet(Boolean(loadedSettings.runtime?.tavilyApiKeySet || loadedSettings.runtime?.tavilyApiKey));
+          if (loadedSettings.runtime?.outboundProxy) params.settings.setOutboundProxy(loadedSettings.runtime.outboundProxy);
           if (loadedSettings.ui?.lastTab) params.setTab(loadedSettings.ui.lastTab as Tab);
           if (typeof loadedSettings.ui?.sidebarCollapsed === 'boolean') params.setSidebarCollapsed(loadedSettings.ui.sidebarCollapsed);
           if (loadedSettings.ui?.chatStreamingMode) params.settings.setChatStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.chatStreamingMode));

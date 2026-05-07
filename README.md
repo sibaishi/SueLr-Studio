@@ -37,13 +37,13 @@ npm run install:all
 ### Start
 
 ```bash
-npm run dev
+npm start
 ```
 
 Windows PowerShell may block `npm.ps1` depending on local execution policy. If that happens, use:
 
 ```bash
-cmd /c npm run dev
+start.bat
 ```
 
 Default local addresses:
@@ -75,6 +75,7 @@ Set `APP_CONFIG_DIR` if you want to pin runtime data to a custom absolute path.
 ## Common Commands
 
 ```bash
+npm start
 npm run dev
 npm run dev:frontend
 npm run dev:backend
@@ -85,7 +86,9 @@ npm run test:e2e
 npm run test:e2e:install
 ```
 
-`start.bat` and `start.sh` are convenience launchers that install missing dependencies and then call `npm run dev`.
+`start.bat` and `start.sh` are convenience launchers for `npm start`. The one-click launcher checks the Node.js version, installs missing root and backend dependencies, finds available frontend/backend ports, writes timestamped logs under `.run-logs/`, opens the browser, and stops both processes on `Ctrl+C`.
+
+`npm run dev` remains available for maintainers who want the simpler combined development command without launcher orchestration.
 
 ## Repository Layout
 

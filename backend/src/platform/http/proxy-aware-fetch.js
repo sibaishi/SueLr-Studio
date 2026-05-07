@@ -10,6 +10,12 @@ const logger = createLogger({ module: 'proxy-aware-fetch' });
 let cachedWindowsInternetSettings = null;
 let cachedStrategyKey = '';
 const dispatcherCache = new Map();
+let appProxyConfig = {
+  mode: 'system',
+  httpProxy: '',
+  httpsProxy: '',
+  noProxy: '',
+};
 
 function trimToString(value) {
   return value === undefined || value === null ? '' : String(value).trim();
@@ -90,6 +96,42 @@ function getEnvProxyForProtocol(env, protocol) {
   return normalizeProxyUrl(candidates.find((value) => trimToString(value)));
 }
 
+function normalizeAppProxyConfig(value = {}) {
+  const mode = ['system', 'direct', 'custom'].includes(value?.mode) ? value.mode : 'system';
+  return {
+    mode,
+    httpProxy: normalizeProxyUrl(value?.httpProxy),
+    httpsProxy: normalizeProxyUrl(value?.httpsProxy),
+    noProxy: trimToString(value?.noProxy),
+  };
+}
+
+export function configureOutboundProxy(value = {}) {
+  appProxyConfig = normalizeAppProxyConfig(value);
+  cachedStrategyKey = '';
+}
+
+function wildcardToRegExp(pattern) {
+  return new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`, 'i');
+}
+
+function matchesNoProxy(hostname, noProxy) {
+  const host = trimToString(hostname).toLowerCase();
+  if (!host) return false;
+
+  return trimToString(noProxy)
+    .split(/[;,]/)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)
+    .some((pattern) => {
+      if (pattern === '*') return true;
+      if (pattern === '<local>') return !host.includes('.');
+      if (pattern.startsWith('.')) return host === pattern.slice(1) || host.endsWith(pattern);
+      if (pattern.includes('*')) return wildcardToRegExp(pattern).test(host);
+      return host === pattern || host.endsWith(`.${pattern}`);
+    });
+}
+
 export function selectWindowsProxyServer(proxyServer, protocol = 'https:') {
   const raw = trimToString(proxyServer);
   if (!raw) return '';
@@ -122,7 +164,37 @@ export function selectWindowsProxyServer(proxyServer, protocol = 'https:') {
 }
 
 export function resolveProxyStrategy(targetUrl, env = process.env, platform = process.platform) {
-  const protocol = new URL(targetUrl).protocol;
+  const parsedTarget = new URL(targetUrl);
+  const protocol = parsedTarget.protocol;
+  const configuredProxy = normalizeAppProxyConfig(appProxyConfig);
+
+  if (configuredProxy.mode === 'direct') {
+    return {
+      mode: 'direct',
+      proxyUrl: '',
+      proxySource: 'app-direct',
+    };
+  }
+
+  if (configuredProxy.mode === 'custom') {
+    if (matchesNoProxy(parsedTarget.hostname, configuredProxy.noProxy)) {
+      return {
+        mode: 'direct',
+        proxyUrl: '',
+        proxySource: 'app-no-proxy',
+      };
+    }
+
+    const proxyUrl = protocol === 'https:'
+      ? configuredProxy.httpsProxy || configuredProxy.httpProxy
+      : configuredProxy.httpProxy || configuredProxy.httpsProxy;
+    return {
+      mode: proxyUrl ? 'app-custom' : 'direct',
+      proxyUrl,
+      proxySource: proxyUrl ? 'app-settings' : 'app-custom-empty',
+    };
+  }
+
   const envProxyUrl = getEnvProxyForProtocol(env, protocol);
   if (envProxyUrl) {
     return {

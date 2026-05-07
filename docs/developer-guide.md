@@ -35,6 +35,7 @@ Important entry points:
 - frontend shell: `src/app/App.tsx`
 - backend entry: `backend/server.js`
 - backend app factory: `backend/src/app/create-app.js`
+- one-click local launcher: `scripts/start-dev.mjs`
 - public docs gate: `scripts/check-release-docs.mjs`
 
 Current cleanup and ownership notes:
@@ -233,7 +234,7 @@ Current cleanup and ownership notes:
 - `backend/src/platform/ai/video-service.js`
   - upstream video request handling
 - `backend/src/platform/http/proxy-aware-fetch.js`
-  - shared fetch wrapper with proxy awareness
+  - shared fetch wrapper with proxy awareness; supports app-level outbound proxy settings, environment proxy variables, and Windows system proxy fallback
 - `backend/src/platform/storage/index.js`
   - storage exports used by modules and engine
 - `backend/src/platform/storage/storage-root.js`
@@ -344,3 +345,9 @@ For an unpacked desktop inspection build:
 - `npm run electron:pack`
 
 Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.
+
+## Local Launching
+
+Use `npm start`, `start.bat`, or `start.sh` for normal local startup. The launcher owns dependency bootstrapping, Node version validation, port selection, backend health gating, frontend proxy wiring, log files, browser opening, and shutdown coordination.
+
+Use `npm run dev` when you explicitly want the raw concurrently-based command. Use `npm run dev:frontend` and `npm run dev:backend` only when debugging one side of the app in isolation.

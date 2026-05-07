@@ -30,6 +30,12 @@ test('settings service reads and updates studio settings', async () => {
 
   assert.equal(updated.ui.theme, 'light');
   assert.equal(updated.runtime.tavilyApiKey, 'demo-key');
+  assert.deepEqual(updated.runtime.outboundProxy, {
+    mode: 'system',
+    httpProxy: '',
+    httpsProxy: '',
+    noProxy: '',
+  });
 });
 
 test('settings response does not expose secrets in plaintext', async () => {
@@ -52,8 +58,48 @@ test('settings response does not expose secrets in plaintext', async () => {
   assert.equal(response.apiKey, undefined);
   assert.equal(response.tavilyApiKey, undefined);
   assert.equal(response.tavilyApiKeySet, true);
+  assert.deepEqual(response.runtime.outboundProxy, {
+    mode: 'system',
+    httpProxySet: false,
+    httpsProxySet: false,
+    noProxy: '',
+  });
   assert.equal(response.activeConfig.apiKey, '');
   assert.equal(response.activeConfig.apiKeySet, true);
+});
+
+test('settings service persists outbound proxy settings without exposing proxy URLs publicly', async () => {
+  const root = createStorageDir('settings-outbound-proxy');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { settingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
+  const updated = settingsService.updateStudioSettings({
+    runtime: {
+      outboundProxy: {
+        mode: 'custom',
+        httpProxy: '127.0.0.1:7890',
+        httpsProxy: 'http://127.0.0.1:7897',
+        noProxy: 'localhost,*.internal',
+      },
+    },
+  });
+
+  assert.deepEqual(updated.runtime.outboundProxy, {
+    mode: 'custom',
+    httpProxy: '127.0.0.1:7890',
+    httpsProxy: 'http://127.0.0.1:7897',
+    noProxy: 'localhost,*.internal',
+  });
+
+  const response = settingsService.getSettingsResponse();
+  assert.deepEqual(response.runtime.outboundProxy, {
+    mode: 'custom',
+    httpProxySet: true,
+    httpsProxySet: true,
+    noProxy: 'localhost,*.internal',
+  });
 });
 
 test('settings module sanitizes provider config without legacy route dependency', async () => {

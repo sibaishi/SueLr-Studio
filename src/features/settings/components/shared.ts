@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ThemeMode } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/types';
-import type { StorageSettingsPayload } from '@/features/settings';
+import type { OutboundProxySettingsPayload, StorageSettingsPayload } from '@/features/settings';
 import type { LucideIcon } from 'lucide-react';
 
 export const ROLE_ICONS = ['bot', 'palette', 'clapperboard', 'code', 'search', 'zap', 'brain', 'lightbulb', 'folder', 'star'];
@@ -51,6 +51,7 @@ export type SettingsActions = {
   setBase: (value: string) => void;
   setApiKey: (value: string) => void;
   setModels: (models: ModelInfo[]) => void;
+  setOutboundProxy: (value: OutboundProxySettingsPayload) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   setCustomRoles: Dispatch<SetStateAction<AgentRole[]>>;
   testConnection: () => Promise<void>;
@@ -78,6 +79,7 @@ export type SettingsViewModel = {
   memories: Memory[];
   memoryQuery: string;
   models: ModelInfo[];
+  outboundProxy: OutboundProxySettingsPayload;
   providerConfig: ProviderConfig;
   projectModelSearch: string;
   projectModels: ProjectModel[];

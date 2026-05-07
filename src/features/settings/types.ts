@@ -18,7 +18,24 @@ export type StudioSettingsPayload = {
     activeConfigId: string;
     tavilyApiKey?: string;
     tavilyApiKeySet?: boolean;
+    outboundProxy?: OutboundProxySettingsPayload;
   };
+};
+
+export type OutboundProxyMode = 'system' | 'direct' | 'custom';
+
+export type OutboundProxySettingsPayload = {
+  mode: OutboundProxyMode;
+  httpProxy: string;
+  httpsProxy: string;
+  noProxy: string;
+};
+
+export type PublicOutboundProxySettingsPayload = {
+  mode: OutboundProxyMode;
+  httpProxySet: boolean;
+  httpsProxySet: boolean;
+  noProxy: string;
 };
 
 export type StorageSettingsPayload = {
@@ -72,5 +89,7 @@ export type SettingsPanelProps = {
   tavilyApiKeySet: boolean;
   setTavilyApiKey: (value: string) => void;
   setTavilyApiKeySet: (value: boolean) => void;
+  outboundProxy: OutboundProxySettingsPayload;
+  setOutboundProxy: (value: OutboundProxySettingsPayload) => void;
   projectBusy: boolean;
 };

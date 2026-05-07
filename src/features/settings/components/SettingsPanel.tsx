@@ -50,6 +50,8 @@ export function SettingsPanel({
   tavilyApiKeySet,
   setTavilyApiKey,
   setTavilyApiKeySet,
+  outboundProxy,
+  setOutboundProxy,
   projectBusy,
 }: SettingsPanelProps) {
   const T = useT();
@@ -332,6 +334,7 @@ export function SettingsPanel({
     memories,
     memoryQuery,
     models,
+    outboundProxy,
     providerConfig,
     projectModelSearch,
     projectModels,
@@ -373,6 +376,7 @@ export function SettingsPanel({
     setEditingRole,
     setMemoryQuery,
     setModels,
+    setOutboundProxy,
     setProjectModelSearch,
     setProviderAuthType,
     setProviderCustomHeaderName,

@@ -12,6 +12,7 @@
   },
   "scripts": {
     "install:all": "npm install --prefix backend",
+    "start": "node scripts/start-dev.mjs",
     "dev": "concurrently -n frontend,backend -c blue,green \"vite\" \"npm run dev --prefix backend\"",
     "dev:frontend": "vite",
     "dev:backend": "npm run dev --prefix backend",

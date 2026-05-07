@@ -18,7 +18,7 @@ import {
   writeJsonFile,
 } from '../../platform/storage/index.js';
 import { getProviderAdapter } from '../../platform/providers/index.js';
-import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
+import { configureOutboundProxy, proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
 import { parseProviderErrorResponse, toProviderError } from '../../platform/providers/provider-http.js';
 import { assertSafeProviderBaseUrl } from '../../platform/security/network-guards.js';
 import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.js';
@@ -42,6 +42,12 @@ const DEFAULT_SETTINGS = {
   runtime: {
     activeConfigId: '',
     tavilyApiKey: '',
+    outboundProxy: {
+      mode: 'system',
+      httpProxy: '',
+      httpsProxy: '',
+      noProxy: '',
+    },
     configs: [],
   },
   workflow: {
@@ -178,6 +184,30 @@ function sanitizeApiConfigList(value) {
   return Array.from(deduped.values());
 }
 
+function sanitizeOutboundProxy(value) {
+  if (!isPlainObject(value)) {
+    return { ...DEFAULT_SETTINGS.runtime.outboundProxy };
+  }
+
+  const mode = ['system', 'direct', 'custom'].includes(value.mode) ? value.mode : 'system';
+  return {
+    mode,
+    httpProxy: cleanOptionalString(value.httpProxy, 2000),
+    httpsProxy: cleanOptionalString(value.httpsProxy, 2000),
+    noProxy: cleanOptionalString(value.noProxy, 4000),
+  };
+}
+
+function summarizeOutboundProxy(value) {
+  const proxy = sanitizeOutboundProxy(value);
+  return {
+    mode: proxy.mode,
+    httpProxySet: Boolean(proxy.httpProxy),
+    httpsProxySet: Boolean(proxy.httpsProxy),
+    noProxy: proxy.noProxy,
+  };
+}
+
 function buildRuntimeSectionFromLegacyAssistant(settings) {
   if (!settings) return {};
   const activeConfig = getActiveLegacyConfig(settings);
@@ -225,13 +255,14 @@ function buildRuntimeSectionFromLegacyBackend(settings) {
 }
 
 function mergeRuntimeSections(...sections) {
-  const merged = { activeConfigId: '', tavilyApiKey: '', configs: [] };
+  const merged = { activeConfigId: '', tavilyApiKey: '', outboundProxy: { ...DEFAULT_SETTINGS.runtime.outboundProxy }, configs: [] };
   const byId = new Map();
 
   for (const section of sections) {
     if (!section) continue;
     if (section.activeConfigId) merged.activeConfigId = section.activeConfigId;
     if (section.tavilyApiKey) merged.tavilyApiKey = section.tavilyApiKey;
+    if (isPlainObject(section.outboundProxy)) merged.outboundProxy = sanitizeOutboundProxy(section.outboundProxy);
     for (const config of section.configs || []) {
       byId.set(config.id, config);
     }
@@ -267,6 +298,7 @@ function sanitizeSettingsShape(input) {
   settings.runtime = mergeRuntimeSections({
     activeConfigId: cleanOptionalString(value.runtime?.activeConfigId, 120),
     tavilyApiKey: cleanOptionalString(value.runtime?.tavilyApiKey, 4000),
+    outboundProxy: sanitizeOutboundProxy(value.runtime?.outboundProxy),
     configs: sanitizeApiConfigList(value.runtime?.configs),
   });
   settings.workflow = {
@@ -319,6 +351,7 @@ function getActiveRuntimeConfig(settings = readSettingsInternal()) {
 
 function buildRuntimeApiConfigInternal(overrides = {}) {
   const settings = readSettingsInternal();
+  configureOutboundProxy(settings.runtime.outboundProxy);
   const active = getActiveRuntimeConfig(settings);
   const providerConfig = sanitizeProviderConfig({
     ...DEFAULT_PROVIDER_CONFIG,
@@ -330,6 +363,7 @@ function buildRuntimeApiConfigInternal(overrides = {}) {
   return {
     apiKey: cleanOptionalString(overrides.apiKey, 4000) || active?.apiKey || '',
     tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || settings.runtime.tavilyApiKey || '',
+    outboundProxy: settings.runtime.outboundProxy,
     baseUrl: cleanOptionalString(overrides.baseUrl, 2000) || active?.base || 'https://api.openai.com/v1',
     projectModels,
     providerConfig,
@@ -404,6 +438,7 @@ export class SettingsRepository {
       },
     };
     const sanitized = sanitizeSettingsShape(next);
+    configureOutboundProxy(sanitized.runtime.outboundProxy);
     writeJsonFile(STORAGE_PATHS.settingsFile, sanitized);
     return sanitized;
   }
@@ -466,6 +501,7 @@ export class SettingsRepository {
       runtime: {
         ...currentSettings.runtime,
         tavilyApiKey: undefined,
+        outboundProxy: summarizeOutboundProxy(currentSettings.runtime.outboundProxy),
         configs: currentSettings.runtime.configs.map((config) => ({
           ...config,
           apiKey: undefined,

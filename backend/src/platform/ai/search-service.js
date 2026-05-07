@@ -1,3 +1,5 @@
+import { proxyAwareFetch } from '../http/proxy-aware-fetch.js';
+
 export async function runWebSearch({
   tavilyApiKey,
   query,
@@ -14,7 +16,7 @@ export async function runWebSearch({
   if (!cleanQuery) throw new Error('未提供搜索词');
   if (!tavilyApiKey) throw new Error('未配置 Tavily API Key');
 
-  const response = await fetch('https://api.tavily.com/search', {
+  const response = await proxyAwareFetch('https://api.tavily.com/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal,

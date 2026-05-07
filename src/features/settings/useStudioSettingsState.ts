@@ -4,7 +4,7 @@ import type { AgentRole, ApiConfig, LogEntry, ModelInfo } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/providers';
 import { ftime, gid, loadJSON } from '@/lib/utils';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
-import type { StreamMode } from './types';
+import type { OutboundProxySettingsPayload, StreamMode } from './types';
 
 export const mapLegacyStreamingMode = (value: unknown): StreamMode => (
   value === 'real' || value === 'stream' ? 'stream' : 'non-stream'
@@ -20,6 +20,12 @@ export function useStudioSettingsState() {
   const [customRoles, setCustomRoles] = useState<AgentRole[]>(loadJSON('ai_custom_roles', []));
   const [tavilyApiKey, setTavilyApiKey] = useState('');
   const [tavilyApiKeySet, setTavilyApiKeySet] = useState(false);
+  const [outboundProxy, setOutboundProxy] = useState<OutboundProxySettingsPayload>({
+    mode: 'system',
+    httpProxy: '',
+    httpsProxy: '',
+    noProxy: '',
+  });
   const [chatStreamingMode, setChatStreamingMode] = useState<StreamMode>(() => mapLegacyStreamingMode(loadJSON('ai_chat_streaming_mode', loadJSON('ai_streaming_mode', 'non-stream'))));
   const [imageStreamingMode, setImageStreamingMode] = useState<StreamMode>(() => mapLegacyStreamingMode(loadJSON('ai_image_streaming_mode', 'stream')));
   const [videoStreamingMode, setVideoStreamingMode] = useState<StreamMode>(() => mapLegacyStreamingMode(loadJSON('ai_video_streaming_mode', 'stream')));
@@ -87,6 +93,7 @@ export function useStudioSettingsState() {
     imageStreamingMode,
     logs,
     models,
+    outboundProxy,
     providerConfig,
     roles,
     setActiveConfigId,
@@ -97,6 +104,7 @@ export function useStudioSettingsState() {
     setCustomRoles,
     setImageStreamingMode,
     setModels,
+    setOutboundProxy,
     setTavilyApiKey,
     setTavilyApiKeySet,
     setVideoStreamingMode,

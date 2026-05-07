@@ -1,3 +1,4 @@
+import type { OutboundProxyMode } from '@/features/settings';
 import type { ThemeMode } from '@/lib/types';
 import { IOSButton, IOSInput, IOSLabel, IOSSegmentedControl } from '@/shared/ui/ios';
 import { SectionCard, eyebrowStyle, mutedPanelStyle } from './styles';
@@ -8,6 +9,12 @@ type Props = {
   view: SettingsViewModel;
 };
 
+const proxyModeOptions = [
+  { l: '跟随系统', v: 'system' },
+  { l: '直连', v: 'direct' },
+  { l: '自定义', v: 'custom' },
+];
+
 export function DefaultsSection({ actions, view }: Props) {
   const storageSourceLabel = {
     env: '环境变量覆盖',
@@ -15,6 +22,10 @@ export function DefaultsSection({ actions, view }: Props) {
     legacy: '旧版部署路径',
     default: '系统默认',
   }[view.storageSettings?.source || 'default'];
+
+  const updateProxy = (patch: Partial<typeof view.outboundProxy>) => {
+    actions.setOutboundProxy({ ...view.outboundProxy, ...patch });
+  };
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
@@ -133,31 +144,61 @@ export function DefaultsSection({ actions, view }: Props) {
       </SectionCard>
 
       <SectionCard
-        title="能力映射"
-        description="这里总结各能力域当前实际可用的模型数量，方便快速核验系统可生产性。"
+        title="代理设置"
+        description="控制后端访问模型服务和搜索服务时使用的出站代理。改动会随设置自动保存。"
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-          <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-            <div style={eyebrowStyle()}>Chat</div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-              {view.projectModels.filter((model) => model.type === 'chat' && model.enabled).length}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>对话模型</div>
+        <div className="flex-col" style={{ gap: 14 }}>
+          <div>
+            <IOSLabel>代理模式</IOSLabel>
+            <IOSSegmentedControl
+              options={proxyModeOptions}
+              value={view.outboundProxy.mode}
+              onChange={(value) => updateProxy({ mode: value as OutboundProxyMode })}
+            />
           </div>
+
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-            <div style={eyebrowStyle()}>Image</div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-              {view.projectModels.filter((model) => model.type === 'image' && model.enabled).length}
+            <div style={eyebrowStyle()}>当前策略</div>
+            <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+              {view.outboundProxy.mode === 'system' && '优先使用 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY 环境变量；Windows 下未设置环境变量时读取系统代理。'}
+              {view.outboundProxy.mode === 'direct' && '后端出站请求将直连，不使用环境变量代理或 Windows 系统代理。'}
+              {view.outboundProxy.mode === 'custom' && '后端出站请求优先使用下方自定义代理，并按绕过列表直连匹配目标。'}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>图像模型</div>
           </div>
-          <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-            <div style={eyebrowStyle()}>Video</div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-              {view.projectModels.filter((model) => model.type === 'video' && model.enabled).length}
+
+          {view.outboundProxy.mode === 'custom' && (
+            <div className="flex-col" style={{ gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+                <div>
+                  <IOSLabel>HTTP 代理</IOSLabel>
+                  <IOSInput
+                    value={view.outboundProxy.httpProxy}
+                    onChange={(value) => updateProxy({ httpProxy: value })}
+                    placeholder="http://127.0.0.1:7890"
+                  />
+                </div>
+                <div>
+                  <IOSLabel>HTTPS 代理</IOSLabel>
+                  <IOSInput
+                    value={view.outboundProxy.httpsProxy}
+                    onChange={(value) => updateProxy({ httpsProxy: value })}
+                    placeholder="http://127.0.0.1:7897"
+                  />
+                </div>
+              </div>
+              <div>
+                <IOSLabel>绕过列表</IOSLabel>
+                <IOSInput
+                  value={view.outboundProxy.noProxy}
+                  onChange={(value) => updateProxy({ noProxy: value })}
+                  placeholder="localhost,127.0.0.1,*.internal,<local>"
+                />
+                <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                  支持逗号或分号分隔、通配符、域名后缀和 &lt;local&gt;。
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>视频模型</div>
-          </div>
+          )}
         </div>
       </SectionCard>
     </div>
