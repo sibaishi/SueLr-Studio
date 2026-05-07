@@ -1,5 +1,12 @@
 import type { Edge, Node } from '@xyflow/react';
-import { DEFAULT_WORKFLOW_NAME, getNodeDefaultSize, GRID_SIZE, NODE_REGISTRY } from '@/features/workflow/lib/constants';
+import {
+  DEFAULT_WORKFLOW_NAME,
+  getNodeAutoExpandedSize,
+  getNodeDefaultSize,
+  getNodeOutputCount,
+  GRID_SIZE,
+  NODE_REGISTRY,
+} from '@/features/workflow/lib/constants';
 import {
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
@@ -45,6 +52,8 @@ export type WorkflowStoreEditorActions = Pick<
   | 'resetNodeSize'
   | 'removeNode'
   | 'removeNodes'
+  | 'removeNodeWithoutReconnect'
+  | 'removeNodesWithoutReconnect'
   | 'detachNodeFromChain'
   | 'insertNodeOnEdge'
   | 'addEdge'
@@ -96,19 +105,32 @@ function getMergeInputCount(node: Node, edges: Edge[]) {
 
 export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
   return nodes.map((node) => {
+    if (node.type === 'textSplit') {
+      const minSize = getNodeDefaultSize(node.type || '');
+      const nextWidth = typeof node.width === 'number' ? Math.max(minSize.w, node.width) : minSize.w;
+      const nextHeight = minSize.h;
+
+      if (nextWidth === node.width && nextHeight === node.height) {
+        return node;
+      }
+
+      return {
+        ...node,
+        width: nextWidth,
+        height: nextHeight,
+      };
+    }
+
     const nextInputCount = getMergeInputCount(node, edges);
     if (nextInputCount === null) return node;
 
-    const minSize = getNodeDefaultSize(node.type || '', nextInputCount);
+    const resolvedInputCount = nextInputCount ?? 1;
+    const minSize = getNodeAutoExpandedSize(node.type || '', resolvedInputCount, 1);
     const currentInputCount = (node.data.inputCount as number) || 1;
-    const nextWidth = typeof node.width === 'number' ? Math.max(node.width, minSize.w) : node.width;
-    const nextHeight = typeof node.height === 'number' ? Math.max(node.height, minSize.h) : node.height;
+    const nextWidth = typeof node.width === 'number' ? Math.max(node.width, minSize.w) : minSize.w;
+    const nextHeight = typeof node.height === 'number' ? Math.max(node.height, minSize.h) : minSize.h;
 
-    if (
-      currentInputCount === nextInputCount &&
-      nextWidth === node.width &&
-      nextHeight === node.height
-    ) {
+    if (currentInputCount === resolvedInputCount && nextWidth === node.width && nextHeight === node.height) {
       return node;
     }
 
@@ -118,7 +140,7 @@ export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
       height: nextHeight,
       data: {
         ...node.data,
-        inputCount: nextInputCount,
+        inputCount: resolvedInputCount,
       },
     };
   });
