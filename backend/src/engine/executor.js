@@ -7,6 +7,7 @@ import { execute as executeImageResize } from './nodes/imageResize.js';
 import { execute as executeVideoInput } from './nodes/videoInput.js';
 import { execute as executeAudioInput } from './nodes/audioInput.js';
 import { execute as executeApiKeyInput } from './nodes/apiKeyInput.js';
+import { execute as executeTextSplit } from './nodes/textSplit.js';
 import { execute as executeTextMerge } from './nodes/textMerge.js';
 import { execute as executeImageMerge } from './nodes/imageMerge.js';
 import { execute as executeVideoMerge } from './nodes/videoMerge.js';
@@ -26,6 +27,7 @@ const NODE_EXECUTORS = {
   videoInput: executeVideoInput,
   audioInput: executeAudioInput,
   apiKeyInput: executeApiKeyInput,
+  textSplit: executeTextSplit,
   textMerge: executeTextMerge,
   imageMerge: executeImageMerge,
   videoMerge: executeVideoMerge,

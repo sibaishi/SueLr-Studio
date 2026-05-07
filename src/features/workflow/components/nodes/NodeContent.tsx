@@ -61,6 +61,7 @@ export function NodeContent({
     case 'imageGen':
     case 'videoGen':
     case 'saveFile':
+    case 'textSplit':
       return (
         <NodeSettingsContent
           params={def?.params || []}

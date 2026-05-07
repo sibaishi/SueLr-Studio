@@ -17,6 +17,7 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   imageMerge: { w: 11, h: 8 },
   videoMerge: { w: 11, h: 8 },
   audioMerge: { w: 11, h: 8 },
+  universalMerge: { w: 11, h: 8 },
   aiChat: { w: 14, h: 20 },
   imageGen: { w: 14, h: 20 },
   videoGen: { w: 14, h: 23 },
@@ -25,7 +26,7 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
 };
 
 function getVariablePortCount(type: string, inputCount: number) {
-  if (['textMerge', 'imageMerge', 'videoMerge', 'audioMerge'].includes(type)) return inputCount;
+  if (['textMerge', 'imageMerge', 'videoMerge', 'audioMerge', 'universalMerge'].includes(type)) return inputCount;
   return 1;
 }
 
@@ -62,14 +63,17 @@ export function getExpandedNodeOutputs(type: string, data?: Record<string, unkno
   return Array.from({ length: getNodeOutputCount(type, data) }, (_, index) => ({
     ...template,
     id: `part${index + 1}`,
+    label: `片段${index + 1}`,
   }));
 }
 
-export function getNodeDefaultSize(type: string) {
+export function getNodeDefaultSize(type: string, inputCount = 1) {
   const units = NODE_SIZE_UNITS[type] || { w: 10, h: 6 };
+  const variablePortCount = getVariablePortCount(type, inputCount);
+  const heightUnits = variablePortCount > 1 ? Math.max(units.h, 7 + variablePortCount) : units.h;
   return {
     w: units.w * GRID_SIZE,
-    h: units.h * GRID_SIZE,
+    h: heightUnits * GRID_SIZE,
   };
 }
 
@@ -78,6 +82,7 @@ export function getNodeAutoExpandedSize(
   inputCount = getNodeInputCount(type),
   outputCount = getNodeOutputCount(type),
 ) {
+  void outputCount;
   const units = NODE_SIZE_UNITS[type] || { w: 10, h: 6 };
   const variablePortCount = getVariablePortCount(type, inputCount);
   const heightUnits = variablePortCount > 1 ? Math.max(units.h, 7 + variablePortCount) : units.h;
@@ -93,7 +98,7 @@ export const NODE_REGISTRY: NodeTypeDef[] = WORKFLOW_NODE_REGISTRY;
 export const NODE_CATEGORIES = [
   { id: 'input', label: '输入' },
   { id: 'api', label: 'API' },
-  { id: 'tool', label: '工具' },
+  { id: 'merge', label: '工具' },
   { id: 'ai', label: 'AI 能力' },
   { id: 'output', label: '输出' },
 ] as const;

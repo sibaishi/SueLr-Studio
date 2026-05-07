@@ -99,7 +99,7 @@ export const WORKFLOW_NODE_REGISTRY = [
     label: '图像缩放',
     icon: 'resize',
     color: '#FF9F0A',
-    category: 'input',
+    category: 'merge',
     inputs: [{ id: 'image', label: '原图', type: 'image', required: true }],
     outputs: [{ id: 'image', label: '缩放后图像', type: 'image' }],
     params: [
@@ -108,7 +108,7 @@ export const WORKFLOW_NODE_REGISTRY = [
         label: '缩放模式',
         type: 'select',
         default: 'percent',
-      options: [
+        options: [
           { label: '按百分比', value: 'percent' },
           { label: '按尺寸', value: 'dimensions' },
         ],
@@ -159,6 +159,22 @@ export const WORKFLOW_NODE_REGISTRY = [
       { id: 'endpoint', label: '接口路径', type: 'text', default: '' },
     ],
     supportsDisabledPassthrough: false,
+  },
+  {
+    type: 'textSplit',
+    version: 1,
+    label: '文本拆分',
+    icon: 'split',
+    color: '#0A84FF',
+    category: 'merge',
+    inputs: [{ id: 'text', label: '文本', type: 'string', required: true }],
+    outputs: [{ id: 'part1', label: '片段1', type: 'string' }],
+    params: [
+      { id: 'separator', label: '分隔符', type: 'text', default: '\n' },
+      { id: 'outputCount', label: '输出数量', type: 'number', min: 2, max: 8, default: 2 },
+    ],
+    maxOutputs: 8,
+    supportsDisabledPassthrough: true,
   },
   {
     type: 'textMerge',

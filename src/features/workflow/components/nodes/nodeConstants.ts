@@ -12,6 +12,7 @@ import {
   PenTool,
   ScanLine,
   Search,
+  SplitSquareVertical,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { ProviderConfig } from '@/lib/providers';
@@ -28,6 +29,7 @@ export const NODE_ICONS: Record<string, NodeIconComponent> = {
   music: Music2,
   key: KeyRound,
   merge: Merge,
+  split: SplitSquareVertical,
   bot: Bot,
   palette: FileImage,
   clapperboard: Clapperboard,

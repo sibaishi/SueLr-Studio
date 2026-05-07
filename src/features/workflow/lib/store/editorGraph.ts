@@ -437,6 +437,8 @@ type WorkflowStoreGraphEditorActions = Pick<
   | 'resetNodeSize'
   | 'removeNode'
   | 'removeNodes'
+  | 'removeNodeWithoutReconnect'
+  | 'removeNodesWithoutReconnect'
   | 'detachNodeFromChain'
   | 'insertNodeOnEdge'
   | 'addEdge'
@@ -722,6 +724,56 @@ export function createWorkflowGraphEditorActions(
             remainingNodes,
             nextEdges,
           ),
+          edges: nextEdges,
+          selectedNodeId: removedSet.has(state.selectedNodeId ?? '') ? null : state.selectedNodeId,
+          nodeExecStatus,
+          nodeExecutionTime,
+          nodeExecutionStartedAt,
+          nodeErrors,
+          nodeWarnings,
+          nodeOutputs,
+          workflowWarningMessage: null,
+          hasUnsavedChanges: true,
+        };
+      });
+    },
+
+    removeNodeWithoutReconnect: (nodeId) => {
+      get().removeNodesWithoutReconnect([nodeId]);
+    },
+
+    removeNodesWithoutReconnect: (nodeIds) => {
+      const removedSet = new Set(expandNodeActionIds(get().nodes, nodeIds));
+      if (removedSet.size === 0) return;
+
+      set((state) => {
+        const nodeExecStatus = { ...state.nodeExecStatus };
+        const nodeExecutionTime = { ...state.nodeExecutionTime };
+        const nodeExecutionStartedAt = { ...state.nodeExecutionStartedAt };
+        const nodeErrors = { ...state.nodeErrors };
+        const nodeWarnings = { ...state.nodeWarnings };
+        const nodeOutputs = { ...state.nodeOutputs };
+
+        for (const id of removedSet) {
+          delete nodeExecStatus[id];
+          delete nodeExecutionTime[id];
+          delete nodeExecutionStartedAt[id];
+          delete nodeErrors[id];
+          delete nodeWarnings[id];
+          delete nodeOutputs[id];
+        }
+
+        const remainingNodes = removeGroupPortLinksReferencingNodes(
+          state.nodes.filter((node) => !removedSet.has(node.id)),
+          removedSet,
+        );
+        const nextEdges = pruneGroupPortEdges(
+          remainingNodes,
+          state.edges.filter((edge) => !removedSet.has(edge.source) && !removedSet.has(edge.target)),
+        );
+
+        return {
+          nodes: normalizeEditorNodes(remainingNodes, nextEdges),
           edges: nextEdges,
           selectedNodeId: removedSet.has(state.selectedNodeId ?? '') ? null : state.selectedNodeId,
           nodeExecStatus,

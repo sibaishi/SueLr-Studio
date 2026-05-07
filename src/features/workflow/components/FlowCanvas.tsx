@@ -66,6 +66,7 @@ const nodeTypes = {
   videoInput: FlowNode,
   audioInput: FlowNode,
   apiKeyInput: FlowNode,
+  textSplit: FlowNode,
   textMerge: FlowNode,
   imageMerge: FlowNode,
   videoMerge: FlowNode,
@@ -87,6 +88,7 @@ const NODE_COLORS: Record<string, string> = {
   videoInput: '#AF52DE',
   audioInput: '#FF375F',
   apiKeyInput: '#5856D6',
+  textSplit: '#0A84FF',
   textMerge: '#007AFF',
   imageMerge: '#FF9500',
   videoMerge: '#AF52DE',
@@ -117,13 +119,13 @@ const CATEGORY_LABELS = {
   group: '节点组',
   input: '输入',
   api: 'API',
-  merge: '合并',
+  merge: '工具',
   ai: 'AI 能力',
   output: '输出',
 } as const;
 
 const CATEGORY_ORDER = ['input', 'api', 'merge', 'ai', 'output', 'group'] as const;
-const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge', 'universalMerge']);
 const FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
 const DISABLED_NODE_REASON = '暂时停用，无法新建';
 const DEFAULT_WORKFLOW_EDGE_STYLE = {
@@ -881,7 +883,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const reactFlow = useReactFlow();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
-  const [editableFocused, setEditableFocused] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [activeCategory, setActiveCategory] = useState<(typeof CATEGORY_ORDER)[number] | null>(null);
   const [clipboardNode, setClipboardNode] = useState<ClipboardSnapshot | null>(null);
@@ -915,6 +916,17 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableElement(event.target)) return;
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        const selectedNodeIds = store.nodes.filter((node) => node.selected).map((node) => node.id);
+        if (selectedNodeIds.length > 0) {
+          event.preventDefault();
+          event.stopPropagation();
+          store.removeNodes(selectedNodeIds);
+          return;
+        }
+      }
+
       if (event.code === 'Space' && !event.repeat) {
         event.preventDefault();
         setSpaceHeld(true);
@@ -927,15 +939,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
     const handleBlur = () => setSpaceHeld(false);
 
-    const handleFocusIn = (event: FocusEvent) => {
-      setEditableFocused(isEditableElement(event.target));
-    };
-
-    const handleFocusOut = () => {
-      const active = typeof document !== 'undefined' ? document.activeElement : null;
-      setEditableFocused(isEditableElement(active));
-    };
-
     const closeMenuOnWindowClick = () => {
       if (wasContextMenuJustOpened()) return;
       setContextMenu(null);
@@ -946,18 +949,14 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
     window.addEventListener('click', closeMenuOnWindowClick);
-    document.addEventListener('focusin', handleFocusIn);
-    document.addEventListener('focusout', handleFocusOut);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('click', closeMenuOnWindowClick);
-      document.removeEventListener('focusin', handleFocusIn);
-      document.removeEventListener('focusout', handleFocusOut);
     };
-  }, [wasContextMenuJustOpened]);
+  }, [store, wasContextMenuJustOpened]);
 
   const renderModel = useMemo(() => {
     const collapsedGroups = store.nodes.filter((node) => node.type === 'group' && node.data?.collapsed);
@@ -2369,7 +2368,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         snapToGrid={store.snapToGridEnabled}
         snapGrid={[GRID_SIZE, GRID_SIZE]}
         multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
-        deleteKeyCode={editableFocused ? null : ['Backspace', 'Delete']}
+        deleteKeyCode={null}
         minZoom={0.1}
         maxZoom={4}
         proOptions={{ hideAttribution: true }}

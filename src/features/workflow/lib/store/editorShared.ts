@@ -106,9 +106,13 @@ function getMergeInputCount(node: Node, edges: Edge[]) {
 export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
   return nodes.map((node) => {
     if (node.type === 'textSplit') {
-      const minSize = getNodeDefaultSize(node.type || '');
+      const minSize = getNodeAutoExpandedSize(
+        node.type || '',
+        1,
+        getNodeOutputCount(node.type || '', node.data as Record<string, unknown> | undefined),
+      );
       const nextWidth = typeof node.width === 'number' ? Math.max(minSize.w, node.width) : minSize.w;
-      const nextHeight = minSize.h;
+      const nextHeight = typeof node.height === 'number' ? Math.max(minSize.h, node.height) : minSize.h;
 
       if (nextWidth === node.width && nextHeight === node.height) {
         return node;

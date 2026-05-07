@@ -68,13 +68,7 @@ export function NodeParamFields({
   });
 
   return (
-    <div
-      className="node-param-list nodrag"
-      onClick={(event) => event.stopPropagation()}
-      onMouseDown={(event) => event.stopPropagation()}
-      onPointerDown={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
-    >
+    <div className="node-param-list nodrag">
       {rows.map((row, index) => {
         const rowClassName = [
           'node-param-row',

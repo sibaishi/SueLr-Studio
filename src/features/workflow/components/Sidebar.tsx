@@ -4,7 +4,7 @@ import { NODE_ICONS } from '@/features/workflow/components/nodes/nodeConstants';
 import { NODE_CATEGORIES, NODE_REGISTRY } from '@/features/workflow/lib/constants';
 import type { NodeTypeDef } from '@/features/workflow/lib/types';
 
-const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge', 'universalMerge']);
 const DISABLED_NODE_REASON = '暂时停用，无法新建';
 
 const CATEGORY_ACCENTS: Record<string, string> = {
@@ -59,7 +59,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
 
       <div className="workflow-panel__body workflow-sidebar__body">
         {NODE_CATEGORIES.map((category) => {
-          const nodes = filteredRegistry.filter((node) => node.category === category.id);
+          const nodes = filteredRegistry.filter((node) => node.category === category.id && node.type !== 'universalMerge');
           if (nodes.length === 0) return null;
 
           const collapsed = Boolean(collapsedGroups[category.id]);

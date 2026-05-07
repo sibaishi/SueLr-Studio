@@ -1,7 +1,14 @@
 import { memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
 import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
-import { getNodeDefaultSize, getNodeDef, GRID_SIZE } from '@/features/workflow/lib/constants';
+import {
+  getExpandedNodeOutputs,
+  getNodeAutoExpandedSize,
+  getNodeDefaultSize,
+  getNodeDef,
+  getNodeOutputCount,
+  GRID_SIZE,
+} from '@/features/workflow/lib/constants';
 import { getGroupPorts, isGroupPortEmpty } from '@/features/workflow/lib/groupPorts';
 import {
   GROUP_CONTENT_INSET_BOTTOM,
@@ -51,9 +58,13 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const isGroupNode = type === 'group';
   const isCollapsed = isGroupNode && Boolean(data.collapsed);
   const inputCount = isMergeNode ? ((data.inputCount as number) || 1) : 0;
-  const minSize = getNodeDefaultSize(type, inputCount);
+  const outputCount = def.maxOutputs ? getNodeOutputCount(type, data) : 1;
+  const minSize = def.maxOutputs
+    ? getNodeAutoExpandedSize(type, inputCount, outputCount)
+    : getNodeDefaultSize(type, inputCount);
   const Icon = NODE_ICONS[def.icon] || NODE_ICONS.eye;
-  const hasOutputs = def.outputs.length > 0;
+  const effectiveOutputs: PortDef[] = def.maxOutputs ? getExpandedNodeOutputs(type, data) : def.outputs;
+  const hasOutputs = effectiveOutputs.length > 0;
   const isDisabled = Boolean(data.disabled);
   const isLocked = isNodeLockedWithAncestors(id, nodes);
   const isDirectlyLocked = Boolean(data.locked);
@@ -342,7 +353,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
 
           {!isGroupNode && hasOutputs && (
             <div className="flow-node__ports flow-node__ports--outputs">
-              {def.outputs.map((output) => (
+              {effectiveOutputs.map((output) => (
                 <OutputPort key={output.id} output={output} isConnectable={isConnectable} color={def.color} />
               ))}
             </div>

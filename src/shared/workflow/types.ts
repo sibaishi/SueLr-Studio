@@ -47,6 +47,7 @@ export interface NodeTypeDef {
   outputs: PortDef[];
   params: ParamDef[];
   maxInputs?: number;
+  maxOutputs?: number;
   supportsDisabledPassthrough?: boolean;
   executable?: boolean;
 }
