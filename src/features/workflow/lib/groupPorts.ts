@@ -1,5 +1,5 @@
 import type { Edge, Node } from '@xyflow/react';
-import { getNodeDef } from '@/features/workflow/lib/constants';
+import { getExpandedNodeOutputs, getNodeDef } from '@/features/workflow/lib/constants';
 import { gid } from '@/features/workflow/lib/store/helpers';
 import type { PortDataType } from '@/shared/workflow/types';
 
@@ -277,7 +277,8 @@ export function getNodeHandleType(
     return def.inputs.find((port) => port.id === handleId)?.type || null;
   }
 
-  return def.outputs.find((port) => port.id === handleId)?.type || null;
+  const outputs = def.maxOutputs ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>) : def.outputs;
+  return outputs.find((port) => port.id === handleId)?.type || null;
 }
 
 function createEmptyGroupPort(side: GroupPortSide, index: number): GroupPort {

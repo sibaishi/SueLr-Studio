@@ -28,6 +28,7 @@ import {
   type CSSProperties,
 } from 'react';
 import {
+  getExpandedNodeOutputs,
   getNodeDef,
   getNodeDefaultSize,
   GRID_SIZE,
@@ -339,7 +340,8 @@ function getOutputType(node: FlowNodeType | undefined, handleId: string | null |
   if (node.type === 'group') return getGroupPortType(node, handleId);
 
   const def = getNodeDef(node.type || '');
-  return def?.outputs.find((port) => port.id === handleId)?.type || null;
+  const outputs = def?.maxOutputs ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>) : def?.outputs;
+  return outputs?.find((port) => port.id === handleId)?.type || null;
 }
 
 function getInputType(node: FlowNodeType | undefined, handleId: string | null | undefined) {
@@ -731,7 +733,8 @@ function resolveNodeBridgeHandles(
       && PORT_COMPATIBILITY[sourceType]?.includes(inputType),
     );
   });
-  const outputHandle = def.outputs.find((output) => (
+  const outputs = def.maxOutputs ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>) : def.outputs;
+  const outputHandle = outputs.find((output) => (
     PORT_COMPATIBILITY[output.type]?.includes(targetType) ?? false
   ))?.id;
 
@@ -1821,7 +1824,9 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     }
 
     if (params.handleType === 'source') {
-      const port = def.outputs.find((output) => output.id === params.handleId);
+      const currentNode = store.nodes.find((item) => item.id === params.nodeId);
+      const outputs = def.maxOutputs ? getExpandedNodeOutputs(currentNode?.type || '', (currentNode?.data || {}) as Record<string, unknown>) : def.outputs;
+      const port = outputs.find((output) => output.id === params.handleId);
       if (!port) {
         pendingConnectionRef.current = null;
         return;
@@ -2209,10 +2214,11 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const resolveSourceHandle = useCallback((nodeType: string, targetType?: string) => {
     const def = getNodeDef(nodeType);
     if (!def) return null;
+    const outputs = def.maxOutputs ? getExpandedNodeOutputs(nodeType, buildDefaultData(nodeType)) : def.outputs;
 
-    if (!targetType) return def.outputs[0]?.id || null;
+    if (!targetType) return outputs[0]?.id || null;
 
-    const matchingOutput = def.outputs.find((output) => {
+    const matchingOutput = outputs.find((output) => {
       const compatibleTargets = PORT_COMPATIBILITY[output.type];
       return compatibleTargets?.includes(targetType) ?? false;
     });
@@ -2292,8 +2298,9 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         return compatibleTargets?.includes(sampleInput.type) ?? false;
       }
 
-      if (nodeDef.outputs.length === 0) return false;
-      return nodeDef.outputs.some((output) => {
+      const outputs = nodeDef.maxOutputs ? getExpandedNodeOutputs(nodeDef.type, buildDefaultData(nodeDef.type)) : nodeDef.outputs;
+      if (outputs.length === 0) return false;
+      return outputs.some((output) => {
         const compatibleTargets = PORT_COMPATIBILITY[output.type];
         return compatibleTargets?.includes(pending.targetType) ?? false;
       });

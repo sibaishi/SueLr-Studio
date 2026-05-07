@@ -15,7 +15,12 @@ export async function execute(node, inputs, apiConfig, onProgress) {
 
   const result = {};
   for (let index = 0; index < outputCount; index += 1) {
-    result[`part${index + 1}`] = segments[index];
+    if (index < outputCount - 1) {
+      result[`part${index + 1}`] = segments[index];
+      continue;
+    }
+
+    result[`part${index + 1}`] = segments.slice(index).join(separator);
   }
 
   return result;
