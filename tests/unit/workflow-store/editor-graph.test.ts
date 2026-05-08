@@ -59,6 +59,62 @@ describe('workflow store graph editor actions', () => {
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
+  it('compacts iterate-run input handles after disconnecting a middle input', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'sourceA', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'sourceB', type: 'textInput', position: { x: 0, y: 80 }, data: {} },
+        { id: 'sourceC', type: 'textInput', position: { x: 0, y: 160 }, data: {} },
+        { id: 'iterate', type: 'iterateRun', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
+      ],
+      edges: [
+        { id: 'edge_a', source: 'sourceA', sourceHandle: 'text', target: 'iterate', targetHandle: 'item1' },
+        { id: 'edge_b', source: 'sourceB', sourceHandle: 'text', target: 'iterate', targetHandle: 'item2' },
+        { id: 'edge_c', source: 'sourceC', sourceHandle: 'text', target: 'iterate', targetHandle: 'item3' },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.removeEdge('edge_b');
+
+    const state = harness.getState();
+    expect(state.edges).toEqual([
+      expect.objectContaining({ id: 'edge_a', target: 'iterate', targetHandle: 'item1' }),
+      expect.objectContaining({ id: 'edge_c', target: 'iterate', targetHandle: 'item2' }),
+    ]);
+    expect(state.nodes.find((node) => node.id === 'iterate')?.data.inputCount).toBe(3);
+  });
+
+  it('compacts merge input handles after deleting a connected source node', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'sourceA', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'sourceB', type: 'textInput', position: { x: 0, y: 80 }, data: {} },
+        { id: 'sourceC', type: 'textInput', position: { x: 0, y: 160 }, data: {} },
+        { id: 'merge', type: 'textMerge', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
+      ],
+      edges: [
+        { id: 'edge_a', source: 'sourceA', sourceHandle: 'text', target: 'merge', targetHandle: 'item1' },
+        { id: 'edge_b', source: 'sourceB', sourceHandle: 'text', target: 'merge', targetHandle: 'item2' },
+        { id: 'edge_c', source: 'sourceC', sourceHandle: 'text', target: 'merge', targetHandle: 'item3' },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.removeNodeWithoutReconnect('sourceB');
+
+    const state = harness.getState();
+    expect(state.edges).toEqual([
+      expect.objectContaining({ id: 'edge_a', target: 'merge', targetHandle: 'item1' }),
+      expect.objectContaining({ id: 'edge_c', target: 'merge', targetHandle: 'item2' }),
+    ]);
+    expect(state.nodes.find((node) => node.id === 'merge')?.data.inputCount).toBe(3);
+  });
+
   it('keeps exactly one trailing empty group input slot after edge mutations', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [

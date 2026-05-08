@@ -32,6 +32,7 @@ import {
 import { getDefaultData, gid } from '@/features/workflow/lib/store/helpers';
 import {
   autoArrangeNodes,
+  compactDynamicInputEdges,
   expandNodeActionIds,
   isNodeLockedWithAncestors,
   normalizeEditorNodes,
@@ -424,7 +425,10 @@ export function createWorkflowGraphEditorActions(
         const updatedNodes = removeGroupPortLinksFromNodes(state.nodes, allRemovedEdges);
         const edges = pruneGroupPortEdges(
           updatedNodes,
-          state.edges.filter((edge) => edge.id !== edgeId && !cascadeRemovedEdgeIds.has(edge.id)),
+          compactDynamicInputEdges(
+            updatedNodes,
+            state.edges.filter((edge) => edge.id !== edgeId && !cascadeRemovedEdgeIds.has(edge.id)),
+          ),
         );
         return {
           edges,
@@ -498,7 +502,10 @@ export function createWorkflowGraphEditorActions(
         const updatedNodes = removeGroupPortLinksFromNodes(state.nodes, allRemovedEdges);
         const edges = pruneGroupPortEdges(
           updatedNodes,
-          applyEdgeChanges(changes, state.edges).filter((edge) => !cascadeRemovedEdgeIds.has(edge.id)),
+          compactDynamicInputEdges(
+            updatedNodes,
+            applyEdgeChanges(changes, state.edges).filter((edge) => !cascadeRemovedEdgeIds.has(edge.id)),
+          ),
         );
         return {
           edges,

@@ -3,7 +3,7 @@ import { pruneGroupPortEdges } from '@/features/workflow/lib/groupPorts';
 import { buildBypassEdgesForNode } from '@/features/workflow/lib/store/editorGraphEdgeBuilders';
 import { removeGroupPortLinksReferencingNodes } from '@/features/workflow/lib/store/editorGraphGroupEdges';
 import { clearRemovedNodeRuntimeState } from '@/features/workflow/lib/store/editorGraphRuntimeState';
-import { normalizeEditorNodes } from '@/features/workflow/lib/store/editorShared';
+import { compactDynamicInputEdges, normalizeEditorNodes } from '@/features/workflow/lib/store/editorShared';
 import type { WorkflowState } from '@/features/workflow/lib/store/types';
 
 type GraphRemovalState = Pick<
@@ -33,7 +33,7 @@ export function buildRemovedNodesGraphState(
     ? buildBypassEdgesForNode(state.nodes, state.edges, [...removedSet][0], edges)
     : [];
   const updatedNodes = removeGroupPortLinksReferencingNodes(remainingNodes, removedSet);
-  const nextEdges = pruneGroupPortEdges(updatedNodes, [...edges, ...bypassEdges]);
+  const nextEdges = pruneGroupPortEdges(updatedNodes, compactDynamicInputEdges(updatedNodes, [...edges, ...bypassEdges]));
 
   return {
     nodes: normalizeEditorNodes(updatedNodes, nextEdges),

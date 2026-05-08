@@ -103,6 +103,57 @@ function getMergeInputCount(node: Node, edges: Edge[]) {
   return Math.min(nodeDef.maxInputs, Math.max(1, maxConnectedIdx + 1));
 }
 
+function getDynamicInputIndex(handleId: string | null | undefined) {
+  const match = String(handleId || '').match(/^item(\d+)$/);
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 10);
+  return Number.isFinite(value) ? value : null;
+}
+
+export function compactDynamicInputEdges(nodes: Node[], edges: Edge[]) {
+  const dynamicNodeIds = new Set(
+    nodes
+      .filter((node) => {
+        const nodeDef = NODE_REGISTRY.find((item) => item.type === node.type);
+        return Boolean(nodeDef?.maxInputs);
+      })
+      .map((node) => node.id),
+  );
+  if (dynamicNodeIds.size === 0) return edges;
+
+  const incomingByTarget = new Map<string, Edge[]>();
+  for (const edge of edges) {
+    if (!dynamicNodeIds.has(edge.target) || getDynamicInputIndex(edge.targetHandle) === null) continue;
+    incomingByTarget.set(edge.target, [...(incomingByTarget.get(edge.target) || []), edge]);
+  }
+  if (incomingByTarget.size === 0) return edges;
+
+  const nextHandleByEdgeId = new Map<string, string>();
+  for (const incomingEdges of incomingByTarget.values()) {
+    incomingEdges
+      .sort((edgeA, edgeB) => (
+        (getDynamicInputIndex(edgeA.targetHandle) ?? Number.MAX_SAFE_INTEGER)
+        - (getDynamicInputIndex(edgeB.targetHandle) ?? Number.MAX_SAFE_INTEGER)
+      ))
+      .forEach((edge, index) => {
+        nextHandleByEdgeId.set(edge.id, `item${index + 1}`);
+      });
+  }
+
+  let didChange = false;
+  const compactedEdges = edges.map((edge) => {
+    const nextHandle = nextHandleByEdgeId.get(edge.id);
+    if (!nextHandle || edge.targetHandle === nextHandle) return edge;
+    didChange = true;
+    return {
+      ...edge,
+      targetHandle: nextHandle,
+    };
+  });
+
+  return didChange ? compactedEdges : edges;
+}
+
 export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
   return nodes.map((node) => {
     if (node.type === 'textSplit') {
