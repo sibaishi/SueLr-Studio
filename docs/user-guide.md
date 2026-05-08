@@ -185,6 +185,13 @@ Text cleanup:
 - the default range is `<think>` through `</think>`, which is useful for stripping explicit thinking blocks from upstream responses
 - if the end keyword is missing, the node leaves that unmatched section unchanged instead of guessing what to remove
 
+Itemized runs:
+
+- use `逐项运行` when several text inputs should drive the same downstream chain one by one
+- the node uses dynamic text inputs like merge nodes: it starts with one input and adds the next input as connections are made
+- each run exposes only the current text to downstream nodes; downstream nodes stay ordinary single-input nodes
+- execution is sequential, empty text inputs are skipped, and the first failed item stops later items while preserving earlier completed outputs
+
 Workflow node organization notes:
 
 - image generation and video generation are both standard AI nodes in the workflow canvas

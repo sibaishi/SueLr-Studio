@@ -12,8 +12,8 @@ export const TEXT_SPLIT_NODE = {
   outputs: [{ id: 'part1', label: '片段1', type: 'string' }],
   params: [
     { id: 'separator', label: '分隔符', type: 'text', default: '\n' },
-    { id: 'outputCount', label: '输出数量', type: 'number', min: 2, max: 8, default: 2 },
+    { id: 'outputCount', label: '输出数量', type: 'number', min: 2, max: 9, default: 2 },
   ],
-  maxOutputs: 8,
+  maxOutputs: 9,
   supportsDisabledPassthrough: true,
 };

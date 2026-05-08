@@ -9,6 +9,49 @@ import {
 import { NODE_EXECUTORS } from './nodes/index.js';
 import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.js';
 
+const ITERATE_RUN_NODE_TYPE = 'iterateRun';
+
+function getReachableNodeIds(sourceId, edges) {
+  const reachable = new Set();
+  const queue = edges
+    .filter((edge) => edge.source === sourceId)
+    .map((edge) => edge.target);
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || reachable.has(nodeId)) continue;
+    reachable.add(nodeId);
+    for (const edge of edges) {
+      if (edge.source === nodeId) queue.push(edge.target);
+    }
+  }
+
+  return reachable;
+}
+
+function getIterateInputIndex(handleId) {
+  const match = String(handleId || '').match(/^item(\d+)$/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function collectIterationItems(iterateNode, edges, outputs) {
+  return edges
+    .filter((edge) => edge.target === iterateNode.id)
+    .sort((edgeA, edgeB) => getIterateInputIndex(edgeA.targetHandle) - getIterateInputIndex(edgeB.targetHandle))
+    .flatMap((edge) => {
+      const sourceOutput = outputs[edge.source];
+      const value = sourceOutput?.[edge.sourceHandle];
+      const text = String(value ?? '').trim();
+      if (!text) return [];
+      return [{
+        text,
+        inputHandle: edge.targetHandle || '',
+        sourceNodeId: edge.source,
+        sourceHandle: edge.sourceHandle || '',
+      }];
+    });
+}
+
 export async function executeWorkflow(workflow, apiConfig, sendSSE, executionContext = {}) {
   const { nodes, edges } = workflow;
   const abortSignal = apiConfig?.abortSignal;
@@ -42,18 +85,23 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
     return;
   }
 
+  const iterateNodes = executableNodes.filter((node) => node.type === ITERATE_RUN_NODE_TYPE);
+  if (iterateNodes.length > 1) {
+    sendSSE(WORKFLOW_SSE_EVENTS.VALIDATION_FAILED, { error: '当前版本仅支持一个逐项运行节点' });
+    return;
+  }
+
   const outputs = {};
   const failedNodeErrors = {};
   const startTime = Date.now();
   let successCount = 0;
   let failCount = 0;
 
-  for (let index = 0; index < sorted.length; index += 1) {
+  const runNode = async (node, index, total, scopedOutputs, iteration = null) => {
     if (abortSignal?.aborted) {
       throw new Error('工作流已手动停止');
     }
 
-    const node = sorted[index];
     const executor = NODE_EXECUTORS[node.type];
     const nodeLabel = getNodeDisplayName(node, executableNodes);
     const nodeStartTime = Date.now();
@@ -62,11 +110,11 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
       failCount += 1;
       failedNodeErrors[node.id] = `${nodeLabel} 暂未实现`;
       failWorkflowAtNode({
-          node,
-          nodes: executableNodes,
-          index,
-          total: sorted.length,
-          error: `${nodeLabel} 暂未实现`,
+        node,
+        nodes: executableNodes,
+        index,
+        total,
+        error: `${nodeLabel} 暂未实现`,
         sendSSE,
       });
     }
@@ -75,11 +123,12 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
       nodeId: node.id,
       nodeType: node.type,
       index,
-      total: sorted.length,
+      total,
+      ...(iteration ? { iteration } : {}),
     });
 
     try {
-      const inputs = collectInputs(node, executableEdges, outputs);
+      const inputs = collectInputs(node, executableEdges, scopedOutputs);
       const failedDependencies = executableEdges
         .filter((edge) => edge.target === node.id && failedNodeErrors[edge.source])
         .map((edge) => ({
@@ -98,7 +147,7 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
           node,
           nodes: executableNodes,
           index,
-          total: sorted.length,
+          total,
           error: `上游节点执行失败，${nodeLabel} 已中断。失败节点：${sourceLabel}${firstFailed.targetHandle ? ` -> ${firstFailed.targetHandle}` : ''}；原因：${firstFailed.error}`,
           sendSSE,
         });
@@ -115,9 +164,9 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
         failedNodeErrors[node.id] = `${nodeLabel} 缺少必填输入: ${missingInputs.join(', ')}`;
         failWorkflowAtNode({
           node,
-          nodes,
+          nodes: executableNodes,
           index,
-          total: sorted.length,
+          total,
           error: `${nodeLabel} 缺少必填输入: ${missingInputs.join(', ')}`,
           sendSSE,
         });
@@ -128,10 +177,11 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
           nodeId: node.id,
           progress: -1,
           message,
+          ...(iteration ? { iteration } : {}),
         });
       });
 
-      outputs[node.id] = result;
+      scopedOutputs[node.id] = result;
       successCount += 1;
 
       sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
@@ -145,7 +195,10 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
             })
           : result,
         duration: Date.now() - nodeStartTime,
+        ...(iteration ? { iteration } : {}),
       });
+
+      return result;
     } catch (error) {
       const message = error.message || `${nodeLabel} 执行失败`;
       if (!error.workflowTerminated) {
@@ -156,9 +209,80 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
         sendSSE(WORKFLOW_SSE_EVENTS.NODE_FAILED, {
           nodeId: node.id,
           error: message,
+          ...(iteration ? { iteration } : {}),
         });
       }
       throw error;
+    }
+  };
+
+  if (iterateNodes.length === 0) {
+    for (let index = 0; index < sorted.length; index += 1) {
+      await runNode(sorted[index], index, sorted.length, outputs);
+    }
+  } else {
+    const iterateNode = iterateNodes[0];
+    const downstreamIds = getReachableNodeIds(iterateNode.id, executableEdges);
+    const preIterationNodes = sorted.filter((node) => node.id !== iterateNode.id && !downstreamIds.has(node.id));
+    const downstreamNodes = sorted.filter((node) => downstreamIds.has(node.id));
+    const totalSteps = preIterationNodes.length + 1 + downstreamNodes.length;
+
+    for (let index = 0; index < preIterationNodes.length; index += 1) {
+      await runNode(preIterationNodes[index], index, totalSteps, outputs);
+    }
+
+    const iterationItems = collectIterationItems(iterateNode, executableEdges, outputs);
+    if (iterationItems.length === 0) {
+      failCount += 1;
+      failWorkflowAtNode({
+        node: iterateNode,
+        nodes: executableNodes,
+        index: preIterationNodes.length,
+        total: totalSteps,
+        error: '逐项运行没有可用的文本输入',
+        sendSSE,
+      });
+    }
+
+    for (let iterationIndex = 0; iterationIndex < iterationItems.length; iterationIndex += 1) {
+      const item = iterationItems[iterationIndex];
+      const iteration = {
+        sourceNodeId: iterateNode.id,
+        index: iterationIndex + 1,
+        total: iterationItems.length,
+        inputHandle: item.inputHandle,
+        sourceInputNodeId: item.sourceNodeId,
+        sourceHandle: item.sourceHandle,
+      };
+      const scopedOutputs = {
+        ...outputs,
+        [iterateNode.id]: { text: item.text },
+      };
+
+      sendSSE(WORKFLOW_SSE_EVENTS.NODE_STARTED, {
+        nodeId: iterateNode.id,
+        nodeType: iterateNode.type,
+        index: preIterationNodes.length,
+        total: totalSteps,
+        iteration,
+      });
+      sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
+        nodeId: iterateNode.id,
+        outputs: { text: item.text },
+        logOutputs: { text: item.text },
+        duration: 0,
+        iteration,
+      });
+
+      for (let nodeIndex = 0; nodeIndex < downstreamNodes.length; nodeIndex += 1) {
+        await runNode(
+          downstreamNodes[nodeIndex],
+          preIterationNodes.length + 1 + nodeIndex,
+          totalSteps,
+          scopedOutputs,
+          iteration,
+        );
+      }
     }
   }
 

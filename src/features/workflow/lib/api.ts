@@ -104,16 +104,26 @@ export async function importWorkflow(data: Record<string, unknown>, mode: Workfl
   };
 }
 
+export interface WorkflowIterationContext {
+  sourceNodeId: string;
+  index: number;
+  total: number;
+  inputHandle?: string;
+  sourceInputNodeId?: string;
+  sourceHandle?: string;
+}
+
 export interface SSECallbacks {
-  onNodeStart?: (data: { nodeId: string; nodeType: string; index: number; total: number }) => void;
-  onNodeProgress?: (data: { nodeId: string; progress: number; message: string }) => void;
+  onNodeStart?: (data: { nodeId: string; nodeType: string; index: number; total: number; iteration?: WorkflowIterationContext }) => void;
+  onNodeProgress?: (data: { nodeId: string; progress: number; message: string; iteration?: WorkflowIterationContext }) => void;
   onNodeComplete?: (data: {
     nodeId: string;
     outputs: Record<string, unknown>;
     logOutputs?: Record<string, unknown>;
     duration: number;
+    iteration?: WorkflowIterationContext;
   }) => void;
-  onNodeError?: (data: { nodeId: string; error: string }) => void;
+  onNodeError?: (data: { nodeId: string; error: string; iteration?: WorkflowIterationContext }) => void;
   onWorkflowLog?: (data: Record<string, unknown>) => void;
   onSnapshotBuilt?: (data: Record<string, unknown>) => void;
   onRunStarted?: (data: { runId: string; workflowId: string; workflowVersion: number; snapshotVersion: number; source: 'persisted' | 'draft' }) => void;

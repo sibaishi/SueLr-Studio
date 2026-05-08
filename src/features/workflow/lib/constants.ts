@@ -2,7 +2,7 @@ import type { NodeTypeDef } from './types';
 import { NODE_REGISTRY as WORKFLOW_NODE_DEFS, getNodeDef as getSharedNodeDef } from '@/features/workflow/nodes/registry';
 
 export const GRID_SIZE = 28;
-const VARIABLE_INPUT_MERGE_TYPES = new Set(['textMerge', 'imageMerge', 'videoMerge', 'audioMerge', 'universalMerge']);
+const VARIABLE_INPUT_MERGE_TYPES = new Set(['iterateRun', 'textMerge', 'imageMerge', 'videoMerge', 'audioMerge', 'universalMerge']);
 const DEFAULT_NODE_SIZE_UNITS = { w: 10, h: 6 };
 
 export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
@@ -14,8 +14,9 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   videoInput: { w: 13, h: 11 },
   audioInput: { w: 13, h: 9 },
   apiKeyInput: { w: 14, h: 21 },
+  iterateRun: { w: 11, h: 8 },
   textClean: { w: 12, h: 11 },
-  textSplit: { w: 12, h: 19 },
+  textSplit: { w: 12, h: 20 },
   textMerge: { w: 11, h: 8 },
   imageMerge: { w: 11, h: 8 },
   videoMerge: { w: 11, h: 8 },

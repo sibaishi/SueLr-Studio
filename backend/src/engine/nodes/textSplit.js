@@ -6,7 +6,7 @@ export async function execute(node, inputs, apiConfig, onProgress) {
   const rawSeparator = node?.data?.separator;
   const separator = typeof rawSeparator === 'string' && rawSeparator.length > 0 ? rawSeparator : '\n';
   const requestedOutputCount = Number(node?.data?.outputCount ?? 2);
-  const outputCount = Math.max(1, Math.min(8, Number.isFinite(requestedOutputCount) ? Math.trunc(requestedOutputCount) : 2));
+  const outputCount = Math.max(1, Math.min(9, Number.isFinite(requestedOutputCount) ? Math.trunc(requestedOutputCount) : 2));
 
   const segments = sourceText
     .split(separator)

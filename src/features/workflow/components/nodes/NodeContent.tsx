@@ -86,6 +86,8 @@ export function NodeContent({
     case 'audioMerge':
     case 'universalMerge':
       return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} />;
+    case 'iterateRun':
+      return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} note="按端口顺序逐项运行" />;
     case 'output':
       return <OutputContent outputs={outputs} outerStyle={outerStyle} isLastSection={!showBottomBorder} />;
     default:
@@ -635,7 +637,17 @@ function loadImage(src: string) {
   });
 }
 
-function MergeContent({ connectedCount, maxInputs, outerStyle }: { connectedCount: number; maxInputs: number; outerStyle: CSSProperties }) {
+function MergeContent({
+  connectedCount,
+  maxInputs,
+  outerStyle,
+  note,
+}: {
+  connectedCount: number;
+  maxInputs: number;
+  outerStyle: CSSProperties;
+  note?: string;
+}) {
   return (
     <div
       className="node-content-shell node-merge-content"
@@ -648,7 +660,7 @@ function MergeContent({ connectedCount, maxInputs, outerStyle }: { connectedCoun
         已连接 {connectedCount} / {maxInputs}
       </span>
       <span className="node-merge-note">
-        按端口顺序收集
+        {note || '按端口顺序收集'}
       </span>
     </div>
   );

@@ -18,6 +18,26 @@ type WorkflowStoreExecutionActions = Pick<
 
 const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
 
+function mergeRepeatedOutputValue(existing: unknown, next: unknown) {
+  if (existing === undefined) return next;
+  if (Array.isArray(existing) && Array.isArray(next)) return [...existing, ...next];
+  if (Array.isArray(existing)) return [...existing, next];
+  if (Array.isArray(next)) return [existing, ...next];
+  return [existing, next];
+}
+
+function appendRepeatedNodeOutputs(
+  existing: Record<string, unknown> | undefined,
+  next: Record<string, unknown>,
+) {
+  if (!existing) return next;
+  const merged = { ...existing };
+  for (const [key, value] of Object.entries(next)) {
+    merged[key] = mergeRepeatedOutputValue(merged[key], value);
+  }
+  return merged;
+}
+
 function buildSyncedExecutionSummary(status: {
   totalDuration?: number;
   successCount?: number;
@@ -214,12 +234,16 @@ export function createWorkflowExecutionActions(
             },
             nodeOutputs: {
               ...currentState.nodeOutputs,
-              [data.nodeId]: data.outputs,
+              [data.nodeId]: data.iteration
+                ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
+                : data.outputs,
             },
             aiResultOutputs: AI_RESULT_NODE_TYPES.has(currentState.nodes.find((node) => node.id === data.nodeId)?.type || '')
               ? {
                   ...currentState.aiResultOutputs,
-                  [data.nodeId]: data.outputs,
+                  [data.nodeId]: data.iteration
+                    ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
+                    : data.outputs,
                 }
               : currentState.aiResultOutputs,
           }));
