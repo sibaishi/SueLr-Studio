@@ -101,6 +101,19 @@ scripts/        repository quality-gate scripts
 workflows/      example workflow files
 ```
 
+Workflow node definitions now follow an isolated folder layout under `src/shared/workflow/node-definitions/`:
+
+```text
+node-definitions/
+  <group>/
+    index.js
+    <node>/
+      index.js
+      node.js
+```
+
+This keeps each node's public entry stable while isolating its actual definition for safer future edits.
+
 ## Contributing
 
 External collaboration is welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, validation commands, and repository conventions.

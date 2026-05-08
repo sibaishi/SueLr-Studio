@@ -125,6 +125,8 @@ Current cleanup and ownership notes:
   - node catalog and canvas insertion entry
 - `src/features/workflow/components/FlowCanvas.tsx`
   - canvas graph rendering, context menus, centered node-picker panel, keyboard shortcuts, grouping, connection, drag/drop, and editor interactions
+- `src/features/workflow/components/flowCanvas*.ts*`
+  - extracted canvas helpers for render-model building, clipboard behavior, geometry, connection rules, UI helpers, text handling, and catalog UI
 - `src/features/workflow/components/nodes/FlowNode.tsx`
   - workflow node frame rendering, node chrome, group collapse controls, and node-level actions
 - `src/features/workflow/components/nodes/NodePorts.tsx`
@@ -149,6 +151,14 @@ Current cleanup and ownership notes:
   - composed canvas editing operations
 - `src/features/workflow/lib/store/editorGraph.ts`
   - node and edge editing, connection changes, and graph mutation helpers
+- `src/features/workflow/lib/store/editorGraphEdgeBuilders.ts`
+  - bypass-edge and insertion-edge construction helpers
+- `src/features/workflow/lib/store/editorGraphGroupEdges.ts`
+  - group-edge and group-port cleanup helpers
+- `src/features/workflow/lib/store/editorGraphNodeRemoval.ts`
+  - shared node-removal graph rebuild helper
+- `src/features/workflow/lib/store/editorGraphRuntimeState.ts`
+  - runtime-state cleanup for removed nodes
 - `src/features/workflow/lib/store/editorGroups.ts`
   - group creation, ungrouping, collapse state, and group membership operations
 - `src/features/workflow/lib/store/editorSession.ts`
@@ -182,6 +192,10 @@ Current cleanup and ownership notes:
   - reusable asset preview and reuse surface
 - `src/shared/workflow/node-registry.js`
   - frontend node registry used by workflow editor
+- `src/shared/workflow/node-registry-helpers.js`
+  - helper composition for registry assembly and compatibility surfaces
+- `src/shared/workflow/node-definitions/`
+  - compatibility-first node-definition tree grouped by category, with one folder per node and `node.js` owning the actual definition
 
 ## Backend Structure
 
@@ -225,8 +239,12 @@ Current cleanup and ownership notes:
 
 - `backend/src/engine/executor.js`
   - workflow runtime coordinator
+- `backend/src/engine/executor-helpers.js`
+  - executor-side helper extraction for shared runtime behavior
 - `backend/src/engine/contracts/node-registry.js`
   - backend node contract registry
+- `backend/src/engine/nodes/index.js`
+  - backend node module aggregation
 - `backend/src/engine/nodes/imageGen.js`
   - image generation node behavior
 - `backend/src/engine/nodes/saveFile.js`
@@ -316,6 +334,8 @@ High-value regression areas:
 - directional group-port connection behavior from `FlowCanvas.tsx` through `NodePorts.tsx`
 - centered node-picker panel, blank-canvas double-click open, and blank-canvas right-click paste menu
 - workflow keyboard shortcuts for copy and paste placement
+- workflow node registry compatibility after node-definition moves
+- per-node folder compatibility exports under `src/shared/workflow/node-definitions/`
 - editable grouped graph to executable flat graph projection
 - workflow execution state transitions
 - image generation response normalization
@@ -343,6 +363,7 @@ Rules for future work:
 Before opening or merging a maintenance change, run the repo quality gate:
 
 - `npm run check`
+- `npm run check:encoding` when the change touches user-visible text, persisted content, upload names, or file-path transport
 
 For browser-facing changes, install and run the E2E smoke suite:
 

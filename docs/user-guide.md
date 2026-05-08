@@ -179,6 +179,12 @@ Common node groups:
 - output nodes
 - group nodes
 
+Workflow node organization notes:
+
+- image generation and video generation are both standard AI nodes in the workflow canvas
+- each workflow node is maintained as an isolated definition internally, which helps future fixes land without changing the canvas behavior you already see
+- this internal organization does not change existing workflow JSON shape, node types, or normal editor usage
+
 Workflow groups:
 
 - group selected nodes when a canvas area becomes too crowded
@@ -275,3 +281,13 @@ You must:
 1. discover models in `Settings -> Connection`
 2. import them in `Settings -> Models`
 3. mark capability type correctly
+
+### Chinese text or file names look garbled
+
+The project now includes an explicit encoding check for common regressions.
+
+If you are validating a local build or reviewing a text-handling change, run:
+
+```bash
+npm run check:encoding
+```

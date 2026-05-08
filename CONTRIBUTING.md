@@ -93,6 +93,8 @@ Please keep changes aligned with the existing architecture:
 - keep validation close to route contracts and reuse shared validation middleware
 - prefer narrowly scoped changes over broad refactors unless a larger refactor is necessary to finish safely
 - add or update tests when behavior, contracts, or shared workflow logic changes
+- when touching workflow nodes, keep each node isolated in its own folder under `src/shared/workflow/node-definitions/<group>/<node>/`
+- preserve compatibility entry files and registry surfaces unless the change explicitly includes a coordinated registry migration
 
 ## Documentation Policy
 

@@ -22,6 +22,7 @@ This document defines the standard desktop release process for SueLr Studio.
    ```powershell
    npm.cmd run typecheck
    npm.cmd run test --prefix backend
+   npm.cmd run check:encoding
    npm.cmd run check:repo-hygiene
    ```
 
