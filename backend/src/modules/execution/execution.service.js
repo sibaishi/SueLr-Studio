@@ -12,6 +12,21 @@ import { createExecutionSnapshot } from './execution-snapshot.js';
 const logger = createLogger({ module: 'execution-service' });
 const RECENT_RUN_TTL_MS = 5 * 60 * 1000;
 
+function buildRunLogData(event, data) {
+  if (
+    event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+    && data
+    && typeof data === 'object'
+    && data.logOutputs !== undefined
+  ) {
+    return {
+      ...data,
+      outputs: data.logOutputs,
+    };
+  }
+  return data;
+}
+
 export class ExecutionService {
   constructor(repository = workflowsRepository) {
     this.repository = repository;
@@ -125,7 +140,7 @@ export class ExecutionService {
     let terminalStatus = null;
 
     const sendSSE = (event, data) => {
-      runLogger.log(event, data);
+      runLogger.log(event, buildRunLogData(event, data));
       logger.info('workflow event', { runId: runLogger.runId, workflowId, event });
       if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
         terminalStatus = {
