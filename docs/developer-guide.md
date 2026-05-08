@@ -245,6 +245,8 @@ Current cleanup and ownership notes:
   - backend node contract registry
 - `backend/src/engine/nodes/index.js`
   - backend node module aggregation
+- `backend/src/engine/nodes/textClean.js`
+  - deterministic removal of text ranges between user-configured start and end tokens
 - `backend/src/engine/nodes/imageGen.js`
   - image generation node behavior
 - `backend/src/engine/nodes/saveFile.js`
@@ -262,16 +264,30 @@ Current cleanup and ownership notes:
   - upstream image provider calling and response adaptation
 - `backend/src/platform/ai/chat-service.js`
   - upstream chat request handling
+- `backend/src/platform/ai/search-service.js`
+  - upstream web-search request handling
 - `backend/src/platform/ai/video-service.js`
   - upstream video request handling
 - `backend/src/platform/http/proxy-aware-fetch.js`
   - shared fetch wrapper with proxy awareness; supports app-level outbound proxy settings, environment proxy variables, and Windows system proxy fallback
+- `backend/src/platform/providers/`
+  - provider adapter contracts, registry wiring, compatible provider support, and shared provider HTTP behavior
+- `backend/src/platform/security/network-guards.js`
+  - outbound network allow/block checks used before provider requests
 - `backend/src/platform/storage/index.js`
   - storage exports used by modules and engine
 - `backend/src/platform/storage/storage-root.js`
   - active storage root resolution
 - `backend/src/platform/storage/storage-bootstrap.js`
-  - app-data root initialization
+  - app-data root bootstrap, environment override handling, and custom root persistence
+- `backend/src/platform/storage/storage-paths.js`
+  - canonical directories and files under the active app data root
+- `backend/src/platform/storage/file-store.js`
+  - binary and generated-file storage helpers
+- `backend/src/platform/storage/json-store.js`
+  - JSON read/write helpers for persisted settings and records
+- `backend/src/platform/storage/safe-path.js`
+  - storage-root-relative path validation
 - `backend/src/platform/storage/legacy-storage.js`
   - migration and compatibility helpers for older storage layouts
 - `backend/src/platform/system/select-directory.js`

@@ -1292,6 +1292,33 @@
   gap: 10px;
 }
 
+.node-param-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  justify-items: stretch;
+}
+
+.node-param-grid--three .node-param--toggle {
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  text-align: center;
+}
+
+.node-param-grid--three .node-param--toggle .node-param__label {
+  flex: 0 1 auto;
+  min-width: 0;
+  line-height: 1.25;
+  white-space: normal;
+  text-align: center;
+}
+
+.node-param-grid--three .node-param--toggle .node-toggle {
+  flex: 0 0 auto;
+}
+
 .node-param-grid--ai-chat-top {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;

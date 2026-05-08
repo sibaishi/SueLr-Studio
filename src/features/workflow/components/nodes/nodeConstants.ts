@@ -1,6 +1,7 @@
 import {
   Bot,
   Clapperboard,
+  Eraser,
   Eye,
   FileImage,
   Film,
@@ -28,6 +29,7 @@ export const NODE_ICONS: Record<string, NodeIconComponent> = {
   film: Film,
   music: Music2,
   key: KeyRound,
+  eraser: Eraser,
   merge: Merge,
   split: SplitSquareVertical,
   bot: Bot,

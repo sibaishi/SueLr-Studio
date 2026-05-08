@@ -179,6 +179,12 @@ Common node groups:
 - output nodes
 - group nodes
 
+Text cleanup:
+
+- use `文本清理` to remove content between custom start and end keywords before passing model output to the next AI node
+- the default range is `<think>` through `</think>`, which is useful for stripping explicit thinking blocks from upstream responses
+- if the end keyword is missing, the node leaves that unmatched section unchanged instead of guessing what to remove
+
 Workflow node organization notes:
 
 - image generation and video generation are both standard AI nodes in the workflow canvas

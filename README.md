@@ -19,6 +19,7 @@ Current public documentation is intentionally small:
 
 - [User Guide](docs/user-guide.md)
 - [Developer Guide](docs/developer-guide.md)
+- [Release SOP](docs/release-sop.md)
 
 ## Quick Start
 

@@ -78,6 +78,7 @@ export function NodeParamFields({
         const gridClassName = row.length > 1
           ? [
               'node-param-grid',
+              row.length === 3 ? 'node-param-grid--three' : '',
               nodeType === 'aiChat' && row.some((item) => item.group === 'aiChatTop') ? 'node-param-grid--ai-chat-top' : '',
             ].filter(Boolean).join(' ')
           : [

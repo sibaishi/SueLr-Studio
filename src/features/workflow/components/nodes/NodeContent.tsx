@@ -61,6 +61,7 @@ export function NodeContent({
     case 'imageGen':
     case 'videoGen':
     case 'saveFile':
+    case 'textClean':
     case 'textSplit':
       return (
         <NodeSettingsContent

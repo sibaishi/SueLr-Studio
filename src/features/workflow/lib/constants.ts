@@ -14,6 +14,7 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   videoInput: { w: 13, h: 11 },
   audioInput: { w: 13, h: 9 },
   apiKeyInput: { w: 14, h: 21 },
+  textClean: { w: 12, h: 11 },
   textSplit: { w: 12, h: 19 },
   textMerge: { w: 11, h: 8 },
   imageMerge: { w: 11, h: 8 },

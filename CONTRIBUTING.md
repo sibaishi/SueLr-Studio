@@ -18,10 +18,10 @@ npm install
 npm run install:all
 ```
 
-Start frontend and backend together:
+Start the normal local launcher:
 
 ```bash
-npm run dev
+npm start
 ```
 
 Default local addresses:
@@ -32,7 +32,7 @@ Default local addresses:
 If Windows PowerShell blocks `npm.ps1`, run commands through:
 
 ```bash
-cmd /c npm run dev
+cmd /c npm start
 ```
 
 Convenience launchers are also available at the repo root:
@@ -42,12 +42,14 @@ Convenience launchers are also available at the repo root:
 
 They install missing dependencies and then start the combined dev flow.
 
+`npm run dev` remains available for maintainers who explicitly want the raw concurrently-based frontend/backend development command.
+
 ## First Local Pass
 
 For a clean newcomer sanity check:
 
 1. Install dependencies with `npm install` and `npm run install:all`.
-2. Start the app with `npm run dev`.
+2. Start the app with `npm start`.
 3. Open `http://localhost:5173` and confirm the shell loads while the backend responds on `http://127.0.0.1:3001`.
 4. Install Playwright once on the machine before the first local browser run:
 
