@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Check, Database, Search, UploadCloud, X } from 'lucide-react';
 import type { ModelInfo, ProjectModel } from '@/lib/types';
+import { inferEndpointCategory } from '@/features/workflow/lib/projectModels';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';
@@ -203,7 +204,13 @@ export function ModelsSection({ T, actions, view }: Props) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
                     <div>
                       <IOSLabel>模型类型</IOSLabel>
-                      <IOSSelect value={model.type} onChange={(value) => actions.updateProjectModel(model.modelId, { type: value as ProjectModel['type'], endpointCategory: value as ProjectModel['endpointCategory'] })}>
+                      <IOSSelect value={model.type} onChange={(value) => {
+                        const type = value as ProjectModel['type'];
+                        actions.updateProjectModel(model.modelId, {
+                          type,
+                          endpointCategory: inferEndpointCategory(type),
+                        });
+                      }}>
                         <option value="">未设置</option>
                         <option value="chat">对话</option>
                         <option value="image">图像</option>
@@ -225,6 +232,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                           <option value="chat">chat</option>
                           <option value="image">image</option>
                           <option value="image-edit">image-edit</option>
+                          <option value="gemini-generate-content">Gemini generateContent</option>
                           <option value="video">video</option>
                         </IOSSelect>
                       </div>

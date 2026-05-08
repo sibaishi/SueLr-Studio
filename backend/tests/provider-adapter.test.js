@@ -21,6 +21,20 @@ test('provider adapter builds compatible endpoint and headers', () => {
   assert.equal(request.options.body, JSON.stringify({ hello: 'world' }));
 });
 
+test('provider adapter replaces base API version when endpoint uses beta version segment', () => {
+  const adapter = getProviderAdapter();
+
+  const request = adapter.buildJsonRequest({
+    apiKey: 'demo-key',
+    providerConfig: { authType: 'bearer' },
+    baseUrl: 'https://www.6789api.top/v1',
+    endpoint: '/v1beta/models/gemini-2.5-flash-image:generateContent',
+    body: { contents: [] },
+  });
+
+  assert.equal(request.url, 'https://www.6789api.top/v1beta/models/gemini-2.5-flash-image:generateContent');
+});
+
 test('provider base URL allows local targets while the app listens on loopback', async () => {
   delete process.env.APP_HOST;
   const parsed = await assertSafeProviderBaseUrl('http://127.0.0.1:3000/v1');

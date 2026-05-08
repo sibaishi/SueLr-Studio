@@ -4,8 +4,9 @@ export class BaseProviderAdapter {
   buildEndpoint(baseUrl, endpoint) {
     const base = String(baseUrl || '').replace(/\/+$/, '');
     if (!endpoint) return base;
-    if (/\/v\d+$/.test(base) && /^\/v\d+\//.test(endpoint)) {
-      return base + endpoint.replace(/^\/v\d+/, '');
+    const baseVersion = base.match(/\/v\d+[a-z0-9-]*$/i);
+    if (baseVersion && /^\/v\d+[a-z0-9-]*(?=\/)/i.test(endpoint)) {
+      return base.slice(0, -baseVersion[0].length) + endpoint;
     }
     return base + endpoint;
   }

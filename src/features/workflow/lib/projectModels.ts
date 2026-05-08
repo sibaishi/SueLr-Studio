@@ -1,6 +1,6 @@
 export type ProjectModelType = 'chat' | 'image' | 'video' | '';
 export type ProjectModelEndpointMode = 'category' | 'custom';
-export type ProjectModelEndpointCategory = 'chat' | 'image' | 'image-edit' | 'video' | '';
+export type ProjectModelEndpointCategory = 'chat' | 'image' | 'image-edit' | 'gemini-generate-content' | 'video' | '';
 
 export type ProjectModel = {
   id: string;
@@ -27,7 +27,7 @@ function cleanText(value: unknown) {
   return String(value || '').trim();
 }
 
-function inferEndpointCategory(type: ProjectModelType): ProjectModelEndpointCategory {
+export function inferEndpointCategory(type: ProjectModelType): ProjectModelEndpointCategory {
   if (type === 'chat') return 'chat';
   if (type === 'image') return 'image';
   if (type === 'video') return 'video';
@@ -55,6 +55,7 @@ export function normalizeProjectModel(value: unknown): ProjectModel | null {
     record.endpointCategory === 'chat' ||
     record.endpointCategory === 'image' ||
     record.endpointCategory === 'image-edit' ||
+    record.endpointCategory === 'gemini-generate-content' ||
     record.endpointCategory === 'video'
       ? record.endpointCategory
       : inferEndpointCategory(type);

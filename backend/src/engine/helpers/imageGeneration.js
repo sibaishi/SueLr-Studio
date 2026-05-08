@@ -19,6 +19,15 @@ const SIZE_BY_RATIO = {
   '2:3': '1024x1536',
 };
 
+const SUPPORTED_RATIOS = new Set(Object.keys(SIZE_BY_RATIO));
+const PROMPT_RATIO_REGEX = /(^|[^\d])((?:1:1|16:9|9:16|4:3|3:4|3:2|2:3))(?![\d])/;
+const PROMPT_DIMENSIONS_REGEX = /(^|[\s,，;；:：([{（【])(?:图片尺寸|画布尺寸|输出尺寸|分辨率|尺寸|大小|画布|宽高)?\s*(\d{2,5})\s*(?:px)?\s*(?:x|X|×|\*|by)\s*(\d{2,5})\s*(?:px)?(?=$|[\s,，.;；:：。！？!?、)\]}）】])/i;
+const PROMPT_VERTICAL_REGEX = /(竖版|竖图|纵向|手机壁纸|手机海报|portrait|vertical|story|reels?|shorts?)/i;
+const PROMPT_HORIZONTAL_REGEX = /(横版|横图|横向|宽屏|横幅|banner|landscape|widescreen|wide)/i;
+const PROMPT_SQUARE_REGEX = /(方图|方形|头像|正方形|square|avatar)/i;
+const URL_RESPONSE_FORMAT = 'url';
+const CHAT_URL_RESPONSE_FORMAT = { type: 'url' };
+
 const ALLOWED_QUALITY = new Set(['low', 'medium', 'high', 'auto']);
 const ALLOWED_FORMAT = new Set(['png', 'jpeg', 'webp']);
 const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 30_000;
@@ -81,6 +90,44 @@ function buildChatImageContent(prompt, images, payload = {}) {
   return parts.length === 1 && parts[0].type === 'text' ? parts[0].text : parts;
 }
 
+function buildGeminiImagePromptText(prompt, payload = {}) {
+  const lines = [];
+  if (cleanText(prompt)) {
+    lines.push('Generate an image from this prompt:');
+    lines.push(cleanText(prompt));
+  }
+  if (payload.size) lines.push(`Size: ${payload.size}`);
+  if (payload.aspect_ratio) lines.push(`Aspect ratio: ${payload.aspect_ratio}`);
+  if (payload.quality) lines.push(`Quality: ${payload.quality}`);
+  if (payload.output_format) lines.push(`Output format: ${payload.output_format}`);
+  return lines.join('\n');
+}
+
+function dataUrlToGeminiInlineData(dataUrl) {
+  const match = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return null;
+  return {
+    mimeType: match[1] || 'application/octet-stream',
+    data: match[2],
+  };
+}
+
+function buildGeminiImageParts(prompt, images, payload = {}) {
+  const parts = [];
+  const promptText = buildGeminiImagePromptText(prompt, payload);
+  if (promptText) parts.push({ text: promptText });
+  for (const image of images || []) {
+    if (!image) continue;
+    const inlineData = dataUrlToGeminiInlineData(image);
+    if (inlineData) {
+      parts.push({ inlineData });
+    } else if (String(image).startsWith('http://') || String(image).startsWith('https://')) {
+      parts.push({ fileData: { mimeType: 'image/png', fileUri: image } });
+    }
+  }
+  return parts;
+}
+
 function getImageTimeoutMs(providerConfig) {
   const timeout = Number(providerConfig?.imageTimeoutMs);
   return Number.isFinite(timeout) && timeout > 0 ? Math.round(timeout) : 300000;
@@ -93,6 +140,73 @@ function getSizeFromRatio(ratio) {
 function parseInteger(value) {
   const parsed = Number(value);
   return Number.isInteger(parsed) ? parsed : null;
+}
+
+function normalizePromptAfterRemovingSizing(text) {
+  return text
+    .replace(PROMPT_DIMENSIONS_REGEX, '$1')
+    .replace(PROMPT_RATIO_REGEX, '$1')
+    .replace(/(?:图片尺寸|画布尺寸|输出尺寸|分辨率|尺寸|大小|画布|宽高)\s*[:：]\s*([。！？!?、,，.;；])?/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s*([,，;；])\s*/g, '$1')
+    .replace(/\s*([。！？!?、])\s*/g, '$1')
+    .replace(/([,，;；])([。！？!?、])/g, '$2')
+    .replace(/^[,，;；。！？!?、\s]+|[,，;；。！？!?、\s]+$/g, '')
+    .trim();
+}
+
+export function parsePromptImageSizing(prompt) {
+  const normalizedPrompt = normalizeTextInput(prompt);
+  if (!normalizedPrompt) {
+    return {
+      prompt: '',
+      ratio: undefined,
+      width: undefined,
+      height: undefined,
+    };
+  }
+
+  const dimensionsMatch = normalizedPrompt.match(PROMPT_DIMENSIONS_REGEX);
+  if (dimensionsMatch) {
+    const width = roundToNearest16(dimensionsMatch[2]);
+    const height = roundToNearest16(dimensionsMatch[3]);
+    if (width && height) {
+      const promptWithoutSizing = normalizePromptAfterRemovingSizing(normalizedPrompt);
+      return {
+        prompt: promptWithoutSizing || normalizedPrompt,
+        ratio: undefined,
+        width,
+        height,
+      };
+    }
+  }
+
+  const ratioMatch = normalizedPrompt.match(PROMPT_RATIO_REGEX);
+  if (ratioMatch && SUPPORTED_RATIOS.has(ratioMatch[2])) {
+    const promptWithoutSizing = normalizePromptAfterRemovingSizing(normalizedPrompt);
+    return {
+      prompt: promptWithoutSizing || normalizedPrompt,
+      ratio: ratioMatch[2],
+      width: undefined,
+      height: undefined,
+    };
+  }
+
+  let ratio;
+  if (PROMPT_SQUARE_REGEX.test(normalizedPrompt)) {
+    ratio = '1:1';
+  } else if (PROMPT_VERTICAL_REGEX.test(normalizedPrompt) && !PROMPT_HORIZONTAL_REGEX.test(normalizedPrompt)) {
+    ratio = '9:16';
+  } else if (PROMPT_HORIZONTAL_REGEX.test(normalizedPrompt) && !PROMPT_VERTICAL_REGEX.test(normalizedPrompt)) {
+    ratio = '16:9';
+  }
+
+  return {
+    prompt: normalizedPrompt,
+    ratio,
+    width: undefined,
+    height: undefined,
+  };
 }
 
 function validateSize(size) {
@@ -140,19 +254,27 @@ function getSizing({ ratio, roundedWidth, roundedHeight }) {
     };
   }
 
+  const size = getSizeFromRatio(ratio);
   return {
-    size: getSizeFromRatio(ratio),
-    aspect_ratio: aspectRatio,
+    size,
+    aspect_ratio: size ? undefined : aspectRatio,
     sizeSource: aspectRatio ? 'ratio' : 'auto',
   };
 }
 
 export function normalizeImageGenerationRequest(request = {}) {
-  const prompt = normalizeTextInput(request.prompt);
+  const rawPrompt = normalizeTextInput(request.prompt);
   const model = cleanText(request.model);
-  const ratio = cleanText(request.ratio || 'auto') || 'auto';
-  const roundedWidth = roundToNearest16(request.width);
-  const roundedHeight = roundToNearest16(request.height);
+  const requestedRatio = cleanText(request.ratio || 'auto') || 'auto';
+  const requestedWidth = roundToNearest16(request.width);
+  const requestedHeight = roundToNearest16(request.height);
+  const hasRequestedSize = Boolean(requestedWidth && requestedHeight);
+  const canUsePromptSizing = !hasRequestedSize && requestedRatio === 'auto';
+  const promptSizing = canUsePromptSizing ? parsePromptImageSizing(rawPrompt) : { prompt: rawPrompt };
+  const prompt = promptSizing.prompt || rawPrompt;
+  const ratio = canUsePromptSizing && promptSizing.ratio ? promptSizing.ratio : requestedRatio;
+  const roundedWidth = hasRequestedSize ? requestedWidth : promptSizing.width;
+  const roundedHeight = hasRequestedSize ? requestedHeight : promptSizing.height;
   const sizing = getSizing({ ratio, roundedWidth, roundedHeight });
   const size = sizing.size;
   const quality = cleanText(request.quality);
@@ -271,6 +393,33 @@ function isChatCompletionsEndpoint(endpoint) {
   return String(endpoint || '').toLowerCase().includes('/chat/completions');
 }
 
+function isGeminiGenerateContentEndpoint(endpoint) {
+  return String(endpoint || '').toLowerCase().includes(':generatecontent');
+}
+
+function buildGeminiGenerateContentUrl(adapter, baseUrl, endpoint, apiKey) {
+  const rawUrl = adapter.buildEndpoint(baseUrl, endpoint);
+  const key = String(apiKey || '').replace(/[^\x20-\x7E]/g, '').trim();
+  if (!key) return rawUrl;
+
+  try {
+    const url = new URL(rawUrl);
+    if (!url.searchParams.has('key')) {
+      url.searchParams.set('key', key);
+    }
+    return url.toString();
+  } catch {
+    const separator = String(rawUrl).includes('?') ? '&' : '?';
+    return String(rawUrl).includes('key=') ? rawUrl : `${rawUrl}${separator}key=${encodeURIComponent(key)}`;
+  }
+}
+
+function shouldRetryWithoutResponseFormat(error) {
+  const message = String(error?.message || error || '');
+  return /response_format/i.test(message)
+    && /(unsupported|not supported|unknown|unrecognized|invalid|extra|cannot unmarshal|type|required|requ|不支持|未知|无效)/i.test(message);
+}
+
 async function fetchWithImageTimeout(url, options, timeoutMs, externalSignal, sendProgress) {
   const signal = externalSignal
     ? AbortSignal.any([externalSignal, AbortSignal.timeout(timeoutMs)])
@@ -364,6 +513,11 @@ function extractImagesFromResponse(data) {
         if (mimeType.startsWith('image/') && base64) {
           images.push(`data:${mimeType};base64,${base64}`);
         }
+        const snakeMimeType = cleanText(part?.inline_data?.mime_type);
+        const snakeBase64 = cleanText(part?.inline_data?.data);
+        if (snakeMimeType.startsWith('image/') && snakeBase64) {
+          images.push(`data:${snakeMimeType};base64,${snakeBase64}`);
+        }
       }
     }
   }
@@ -393,15 +547,22 @@ function extractImagesFromResponse(data) {
   return images;
 }
 
-async function parseImageApiResponse(response, context) {
+async function parseImageApiResponse(response, context, sendProgress) {
   const contentType = response.headers.get('content-type') || 'unknown';
+  const contentLength = response.headers.get('content-length') || 'unknown';
+  const readStart = Date.now();
   let responseText = '';
+
+  sendProgress?.(`${context}响应头已收到: status=${response.status}; contentType=${contentType}; contentLength=${contentLength}`);
 
   try {
     responseText = await response.text();
   } catch (error) {
+    sendProgress?.(`${context}响应体读取失败: elapsedMs=${Date.now() - readStart}; ${describeFetchError(error)}`);
     throw new Error(`${context}响应读取失败: contentType=${contentType}; ${describeFetchError(error)}`);
   }
+
+  sendProgress?.(`${context}响应体读取完成: bytes=${responseText.length}; elapsedMs=${Date.now() - readStart}`);
 
   if (!responseText.trim()) {
     throw new Error(`${context}响应为空: contentType=${contentType}`);
@@ -495,7 +656,7 @@ async function callImageGenerationApi(url, headers, payload, timeoutMs, sendProg
     const errorMessage = await parseApiError(response);
     throw new Error(`图像生成 API 调用失败 (${response.status}): ${errorMessage}`);
   }
-  return parseImageApiResponse(response, '图像生成');
+  return parseImageApiResponse(response, '图像生成', sendProgress);
 }
 
 async function callImageGenerationApiWithAdapter(adapter, request, payload, timeoutMs, sendProgress, externalSignal) {
@@ -525,7 +686,7 @@ async function callImageGenerationApiWithAdapter(adapter, request, payload, time
     throw new Error(`图像生成 API 调用失败 (${response.status}): ${errorMessage}`);
   }
 
-  return parseImageApiResponse(response, '图像生成');
+  return parseImageApiResponse(response, '图像生成', sendProgress);
 }
 
 async function callImageGenerationViaChatApiWithAdapter(adapter, request, payload, timeoutMs, sendProgress, externalSignal) {
@@ -553,7 +714,43 @@ async function callImageGenerationViaChatApiWithAdapter(adapter, request, payloa
     const errorMessage = await parseApiError(response);
     throw new Error(`对话生图 API 调用失败 (${response.status}): ${errorMessage}`);
   }
-  return parseImageApiResponse(response, '对话生图');
+  return parseImageApiResponse(response, '对话生图', sendProgress);
+}
+
+async function callGeminiGenerateContentApi(adapter, baseUrl, endpoint, apiKey, payload, timeoutMs, sendProgress, externalSignal) {
+  const url = buildGeminiGenerateContentUrl(adapter, baseUrl, endpoint, apiKey);
+  const safeUrl = url.replace(/([?&]key=)[^&]+/i, '$1***');
+  sendProgress?.(`正在通过 Gemini generateContent 接口生成图片: ${safeUrl}`);
+  logOutgoingRequest(sendProgress, {
+    type: 'gemini-generate-content',
+    url: safeUrl,
+    method: 'POST',
+    body: payload,
+  });
+
+  let response;
+  try {
+    response = await fetchWithImageTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+      timeoutMs,
+      externalSignal,
+      sendProgress,
+    );
+  } catch (error) {
+    throw new Error(`Gemini 生图请求失败: timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
+  }
+
+  if (!response.ok) {
+    const errorMessage = await parseApiError(response);
+    throw new Error(`Gemini 生图 API 调用失败 (${response.status}): ${errorMessage}`);
+  }
+
+  return parseImageApiResponse(response, 'Gemini 生图', sendProgress);
 }
 
 async function callImageEditApiWithAdapter(adapter, request, payload, timeoutMs, sendProgress, externalSignal) {
@@ -581,13 +778,14 @@ async function callImageEditApiWithAdapter(adapter, request, payload, timeoutMs,
     const errorMessage = await parseApiError(response);
     throw new Error(`图像编辑 API 调用失败 (${response.status}): ${errorMessage}`);
   }
-  return parseImageApiResponse(response, '图像编辑');
+  return parseImageApiResponse(response, '图像编辑', sendProgress);
 }
 
 async function callImageGenerationViaChatApi(url, headers, payload, timeoutMs, sendProgress, externalSignal) {
   sendProgress?.(`正在通过对话接口生成图片: ${url}`);
   const body = {
     model: payload.model,
+    stream: false,
     messages: [
       {
         role: 'user',
@@ -622,7 +820,7 @@ async function callImageGenerationViaChatApi(url, headers, payload, timeoutMs, s
     const errorMessage = await parseApiError(response);
     throw new Error(`对话生图 API 调用失败 (${response.status}): ${errorMessage}`);
   }
-  return parseImageApiResponse(response, '对话生图');
+  return parseImageApiResponse(response, '对话生图', sendProgress);
 }
 
 async function callImageEditApi(url, headers, payload, timeoutMs, sendProgress, externalSignal) {
@@ -673,7 +871,7 @@ async function callImageEditApi(url, headers, payload, timeoutMs, sendProgress, 
     const errorMessage = await parseApiError(response);
     throw new Error(`图像编辑 API 调用失败 (${response.status}): ${errorMessage}`);
   }
-  return parseImageApiResponse(response, '图像编辑');
+  return parseImageApiResponse(response, '图像编辑', sendProgress);
 }
 
 export async function generateImages(request, runtimeConfig, sendProgress) {
@@ -718,8 +916,9 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
       expectedType: 'image',
       purpose: 'image',
     });
+    const usesGeminiGenerateContent = isGeminiGenerateContentEndpoint(imageEndpoint);
     const usesChatPayload = isChatCompletionsEndpoint(imageEndpoint);
-    const shouldUseEditEndpoint = (payload.image.length > 0 || payload.mask) && !usesChatPayload;
+    const shouldUseEditEndpoint = (payload.image.length > 0 || payload.mask) && !usesChatPayload && !usesGeminiGenerateContent;
 
     const attemptData = shouldUseEditEndpoint
       ? await (() => {
@@ -783,12 +982,34 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
             );
           })();
         })()
-      : await (() => {
+      : await (async () => {
           const endpoint = imageEndpoint;
 
-          if (usesChatPayload) {
+          if (usesGeminiGenerateContent) {
             const requestBody = {
+              contents: [
+                {
+                  parts: buildGeminiImageParts(payload.prompt, payload.image, payload),
+                },
+              ],
+            };
+            return callGeminiGenerateContentApi(
+              adapter,
+              baseUrl,
+              endpoint,
+              apiKey,
+              requestBody,
+              timeoutMs,
+              sendProgress,
+              abortSignal,
+            );
+          }
+
+          if (usesChatPayload) {
+            const buildRequestBody = (includeResponseFormat = true) => ({
               model: payload.model,
+              stream: false,
+              ...(includeResponseFormat ? { response_format: CHAT_URL_RESPONSE_FORMAT } : {}),
               ...(payload.size ? { size: payload.size } : {}),
               ...(payload.aspect_ratio ? { aspect_ratio: payload.aspect_ratio } : {}),
               ...(payload.quality ? { quality: payload.quality } : {}),
@@ -800,7 +1021,57 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
                   content: buildChatImageContent(payload.prompt, payload.image, payload),
                 },
               ],
+            });
+            const callWithRequestBody = (requestBody) => {
+              const requestConfig = adapter.buildJsonRequest({
+                apiKey,
+                providerConfig,
+                baseUrl,
+                endpoint,
+                method: 'POST',
+                body: requestBody,
+              });
+              return callImageGenerationViaChatApiWithAdapter(
+                adapter,
+                requestConfig,
+                {
+                  model: payload.model,
+                  prompt: payload.prompt,
+                  image: payload.image,
+                  size: payload.size,
+                  aspect_ratio: payload.aspect_ratio,
+                  quality: payload.quality,
+                  output_format: payload.output_format,
+                  response_format: requestBody.response_format,
+                },
+                timeoutMs,
+                sendProgress,
+                abortSignal,
+              );
             };
+
+            try {
+              return await callWithRequestBody(buildRequestBody(true));
+            } catch (error) {
+              if (!shouldRetryWithoutResponseFormat(error)) {
+                throw error;
+              }
+              sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
+              return callWithRequestBody(buildRequestBody(false));
+            }
+          }
+
+          const buildRequestBody = (includeResponseFormat = true) => ({
+            model: payload.model,
+            prompt: payload.prompt,
+            ...(includeResponseFormat ? { response_format: URL_RESPONSE_FORMAT } : {}),
+            ...(payload.size ? { size: payload.size } : {}),
+            ...(payload.aspect_ratio ? { aspect_ratio: payload.aspect_ratio } : {}),
+            ...(payload.quality ? { quality: payload.quality } : {}),
+            ...(payload.output_format ? { output_format: payload.output_format } : {}),
+            n: 1,
+          });
+          const callWithRequestBody = (requestBody) => {
             const requestConfig = adapter.buildJsonRequest({
               apiKey,
               providerConfig,
@@ -809,49 +1080,25 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
               method: 'POST',
               body: requestBody,
             });
-            return callImageGenerationViaChatApiWithAdapter(
+            return callImageGenerationApiWithAdapter(
               adapter,
               requestConfig,
-              {
-                model: payload.model,
-                prompt: payload.prompt,
-                image: payload.image,
-                size: payload.size,
-                aspect_ratio: payload.aspect_ratio,
-                quality: payload.quality,
-                output_format: payload.output_format,
-              },
+              requestBody,
               timeoutMs,
               sendProgress,
               abortSignal,
             );
-          }
-
-          const requestBody = {
-            model: payload.model,
-            prompt: payload.prompt,
-            ...(payload.size ? { size: payload.size } : {}),
-            ...(payload.aspect_ratio ? { aspect_ratio: payload.aspect_ratio } : {}),
-            ...(payload.quality ? { quality: payload.quality } : {}),
-            ...(payload.output_format ? { output_format: payload.output_format } : {}),
-            n: 1,
           };
-          const requestConfig = adapter.buildJsonRequest({
-            apiKey,
-            providerConfig,
-            baseUrl,
-            endpoint,
-            method: 'POST',
-            body: requestBody,
-          });
-          return callImageGenerationApiWithAdapter(
-            adapter,
-            requestConfig,
-            requestBody,
-            timeoutMs,
-            sendProgress,
-            abortSignal,
-          );
+
+          try {
+            return await callWithRequestBody(buildRequestBody(true));
+          } catch (error) {
+            if (!shouldRetryWithoutResponseFormat(error)) {
+              throw error;
+            }
+            sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
+            return callWithRequestBody(buildRequestBody(false));
+          }
         })();
 
     rawData.push(attemptData);

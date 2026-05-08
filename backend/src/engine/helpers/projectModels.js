@@ -1,11 +1,12 @@
 const MODEL_TYPES = new Set(['chat', 'image', 'video']);
 const ENDPOINT_MODES = new Set(['category', 'custom']);
-const ENDPOINT_CATEGORIES = new Set(['chat', 'image', 'image-edit', 'video']);
+const ENDPOINT_CATEGORIES = new Set(['chat', 'image', 'image-edit', 'gemini-generate-content', 'video']);
 
 export const DEFAULT_ENDPOINTS = {
   chat: '/v1/chat/completions',
   image: '/v1/images/generations',
   'image-edit': '/v1/images/edits',
+  'gemini-generate-content': null,
   video: '/v1/video/generations',
 };
 
@@ -161,6 +162,9 @@ export function resolveProjectModelRuntime({ projectModels, modelId, expectedTyp
       : (model.endpointCategory || purpose || inferEndpointCategory(model.type));
 
   const endpoint = DEFAULT_ENDPOINTS[resolvedCategory];
+  if (resolvedCategory === 'gemini-generate-content') {
+    return { model, endpoint: `/v1beta/models/${encodeURIComponent(model.modelId)}:generateContent` };
+  }
   if (!endpoint) {
     throw new Error(`模型缺少可用接口配置：${modelId}`);
   }
