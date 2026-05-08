@@ -3,7 +3,7 @@
  * 非流式 chat/image/video 已走 shared capability layer。
  */
 import type { AIProvider, ProviderConfig, ChatCompletionParams, ChatCompletionResult, VideoSubmitParams, VideoSubmitResult, GenerateImageParams, GenerateImageResult } from './types';
-import type { ModelInfo } from '../types';
+import type { ChatCompletionResponse, ModelInfo } from '../types';
 import { DEFAULT_PROVIDER_CONFIG } from './types';
 import { cleanKey, catModel } from '../utils';
 import { capabilityChatCompletion, capabilityChatCompletionStream, capabilityGenerateImage, capabilitySubmitVideoGeneration } from '@/shared/api/capabilities';
@@ -12,12 +12,20 @@ type ModelsResponse = {
   data?: Array<{ id?: string }>;
 };
 
-type ChatResponse = {
-  choices?: Array<{
-    message?: { content?: string; tool_calls?: any[] };
-    finish_reason?: string;
-  }>;
-};
+function getChatMessageContent(message?: { content?: string | unknown[] }): string {
+  return typeof message?.content === 'string' ? message.content : '';
+}
+
+function buildChatResult(data: ChatCompletionResponse): ChatCompletionResult {
+  const choice = data.choices?.[0];
+  const message = choice?.message;
+
+  return {
+    content: getChatMessageContent(message),
+    toolCalls: message?.tool_calls || null,
+    finishReason: choice?.finish_reason || 'stop',
+  };
+}
 
 function emitChatCompletionResult(result: ChatCompletionResult, callbacks: import('./types').StreamCallbacks, aborted: boolean) {
   if (result.content && !aborted) {
@@ -61,12 +69,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
         providerConfig: cfg,
       },
     });
-    const msg = data.choices?.[0]?.message;
-    return {
-      content: typeof msg?.content === 'string' ? msg.content : '',
-      toolCalls: msg?.tool_calls || null,
-      finishReason: data.choices?.[0]?.finish_reason || 'stop',
-    };
+    return buildChatResult(data);
   }
 
   // ====== Video Generation ======
@@ -81,10 +84,10 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
       signal: params.signal,
     });
     if (data.mode === 'sync' && data.videoUrl) {
-      throw new Error('视频接口返回了同步结果，当前前端仅支持任务轮询模式');
+      throw new Error('视频接口返回了同步结果，当前前端仅支持任务轮询模式。');
     }
     if (!data.taskId) {
-      throw new Error('未获得任务ID');
+      throw new Error('未获取到任务ID');
     }
     return { taskId: data.taskId };
   }
@@ -121,18 +124,13 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
         });
         const contentType = res.headers.get('content-type') || '';
         if (!res.body || contentType.includes('application/json')) {
-          const data = await res.json() as ChatResponse;
-          const msg = data.choices?.[0]?.message;
-          emitChatCompletionResult({
-            content: typeof msg?.content === 'string' ? msg.content : '',
-            toolCalls: msg?.tool_calls || null,
-            finishReason: data.choices?.[0]?.finish_reason || 'stop',
-          }, callbacks, aborted);
+          const data = await res.json() as ChatCompletionResponse;
+          emitChatCompletionResult(buildChatResult(data), callbacks, aborted);
           return;
         }
 
         const reader = res.body.getReader();
-        const decoder = new TextDecoder();
+        const decoder = new TextDecoder('utf-8');
         let buffer = '';
         let fullContent = '';
         let toolCalls: any[] | null = null;

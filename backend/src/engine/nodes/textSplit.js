@@ -13,14 +13,15 @@ export async function execute(node, inputs, apiConfig, onProgress) {
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
+  const buildOutputValue = (index) => (
+    index < outputCount - 1
+      ? segments[index]
+      : segments.slice(index).join(separator)
+  );
+
   const result = {};
   for (let index = 0; index < outputCount; index += 1) {
-    if (index < outputCount - 1) {
-      result[`part${index + 1}`] = segments[index];
-      continue;
-    }
-
-    result[`part${index + 1}`] = segments.slice(index).join(separator);
+    result[`part${index + 1}`] = buildOutputValue(index);
   }
 
   return result;

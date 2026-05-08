@@ -6,9 +6,22 @@ import { ftime, gid, loadJSON } from '@/lib/utils';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
 import type { OutboundProxySettingsPayload, StreamMode } from './types';
 
+const MAX_LOGS = 500;
+
 export const mapLegacyStreamingMode = (value: unknown): StreamMode => (
   value === 'real' || value === 'stream' ? 'stream' : 'non-stream'
 );
+
+function buildConfiguredProjectModels(config?: ApiConfig) {
+  const projectModels = normalizeProjectModels(config?.projectModels || []);
+  const grouped = groupConfiguredProjectModels(projectModels);
+
+  return [
+    ...grouped.chat.map((id) => ({ id, cat: 'chat' as const })),
+    ...grouped.image.map((id) => ({ id, cat: 'image' as const })),
+    ...grouped.video.map((id) => ({ id, cat: 'video' as const })),
+  ];
+}
 
 export function useStudioSettingsState() {
   const [apiConfigs, setApiConfigs] = useState<ApiConfig[]>(loadJSON('ai_configs', []));
@@ -36,15 +49,7 @@ export function useStudioSettingsState() {
 
   const providerConfig = useMemo<ProviderConfig | undefined>(() => activeConfig?.providerConfig, [activeConfig?.providerConfig]);
 
-  const configuredProjectModels = useMemo(() => {
-    const projectModels = normalizeProjectModels(activeConfig?.projectModels || []);
-    const grouped = groupConfiguredProjectModels(projectModels);
-    return [
-      ...grouped.chat.map((id) => ({ id, cat: 'chat' as const })),
-      ...grouped.image.map((id) => ({ id, cat: 'image' as const })),
-      ...grouped.video.map((id) => ({ id, cat: 'video' as const })),
-    ];
-  }, [activeConfig?.projectModels]);
+  const configuredProjectModels = useMemo(() => buildConfiguredProjectModels(activeConfig), [activeConfig]);
 
   const applyConfig = useCallback((id: string) => {
     const config = apiConfigs.find((item) => item.id === id);
@@ -64,14 +69,15 @@ export function useStudioSettingsState() {
   const deleteConfig = useCallback((id: string) => {
     setApiConfigs((prev) => {
       const next = prev.filter((config) => config.id !== id);
-      if (id === activeConfigId && next.length > 0) setTimeout(() => applyConfig(next[0].id), 0);
+      const nextActiveId = id === activeConfigId ? next[0]?.id : null;
+      if (nextActiveId) setTimeout(() => applyConfig(nextActiveId), 0);
       return next;
     });
   }, [activeConfigId, applyConfig]);
 
   const addLog = useCallback((level: string, msg: string) => {
     const time = ftime(Date.now());
-    setLogs((prev) => [{ time, level, msg }, ...prev].slice(0, 500));
+    setLogs((prev) => [{ time, level, msg }, ...prev].slice(0, MAX_LOGS));
   }, []);
 
   const clearLogs = useCallback(() => setLogs([]), []);

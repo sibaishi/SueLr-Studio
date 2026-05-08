@@ -43,7 +43,7 @@ export class WorkflowsRepository {
 
   save(id, workflow) {
     const filePath = this.getFilePath(id);
-    fs.writeFileSync(filePath, JSON.stringify(workflow, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(workflow, null, 2), 'utf8');
     return workflow;
   }
 

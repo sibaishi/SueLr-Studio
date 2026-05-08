@@ -7,7 +7,7 @@ export function writeFileWithin(baseDir, relativePath, content) {
   const filePath = safeResolveWithin(baseDir, relativePath);
   if (!filePath) return null;
   ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, content);
+  fs.writeFileSync(filePath, content, 'utf8');
   return filePath;
 }
 

@@ -31,7 +31,7 @@ type BoundaryPortBuildOptions = {
 const GROUP_HANDLE_PREFIX = 'group-port';
 
 function getDefaultGroupPortLabel(side: GroupPortSide, index: number) {
-  return side === 'input' ? `杈撳叆 ${index}` : `杈撳嚭 ${index}`;
+  return side === 'input' ? `输入 ${index}` : `输出 ${index}`;
 }
 
 function getLinkKey(link: GroupPortLink | null | undefined) {
@@ -88,16 +88,22 @@ function takeLimitedLinks(links: GroupPortLink[], limit: number) {
   return limit === Number.POSITIVE_INFINITY ? links : links.slice(0, limit);
 }
 
+function getPortTypeKey(type: PortDataType | null) {
+  return type || 'any';
+}
+
 function getGroupPortChannelKey(side: GroupPortSide, port: GroupPort) {
   if (side === 'input') {
     const outsideKey = getLinkKey(port.outsideLinks[0]);
-    if (outsideKey) return `outside:${outsideKey}:${port.type || 'any'}`;
-    return `inside:${port.insideLinks.map((link) => getLinkKey(link)).join(',')}:${port.type || 'any'}`;
+    const typeKey = getPortTypeKey(port.type);
+    if (outsideKey) return `outside:${outsideKey}:${typeKey}`;
+    return `inside:${port.insideLinks.map((link) => getLinkKey(link)).join(',')}:${typeKey}`;
   }
 
   const insideKey = getLinkKey(port.insideLinks[0]);
-  if (insideKey) return `inside:${insideKey}:${port.type || 'any'}`;
-  return `outside:${port.outsideLinks.map((link) => getLinkKey(link)).join(',')}:${port.type || 'any'}`;
+  const typeKey = getPortTypeKey(port.type);
+  if (insideKey) return `inside:${insideKey}:${typeKey}`;
+  return `outside:${port.outsideLinks.map((link) => getLinkKey(link)).join(',')}:${typeKey}`;
 }
 
 function getInsideLinkLimit(side: GroupPortSide) {

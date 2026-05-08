@@ -17,7 +17,7 @@ async function selectDirectoryOnWindows() {
   const { stdout } = await execFileAsync(
     'powershell.exe',
     ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-Command', script],
-    { windowsHide: true },
+    { windowsHide: true, encoding: 'utf8', maxBuffer: 1024 * 1024 },
   );
 
   return stdout.trim();

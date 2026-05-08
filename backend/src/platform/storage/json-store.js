@@ -5,7 +5,7 @@ import { ensureDir } from './ensure-dir.js';
 export function ensureJsonFile(filePath, fallback) {
   ensureDir(path.dirname(filePath));
   if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, JSON.stringify(fallback, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(fallback, null, 2), 'utf8');
   }
 }
 
@@ -20,5 +20,5 @@ export function readJsonFile(filePath, fallback) {
 
 export function writeJsonFile(filePath, value) {
   ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf8');
 }

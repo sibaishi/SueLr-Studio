@@ -19,6 +19,19 @@ The current architecture goal is clear ownership:
 
 This document is the first place a maintainer should look before searching the whole repo.
 
+## Encoding Baseline
+
+Repository text files should remain `UTF-8` without BOM.
+
+When changing text transport or persistence paths:
+
+- keep frontend and backend text flows explicitly UTF-8
+- preserve Chinese text correctly in user-visible UI, logs, workflow output, and saved files
+- avoid ad hoc encoding conversions unless they are isolated compatibility shims with a clear reason
+- run `npm run check:encoding` before shipping encoding-related changes
+
+If a new regression test covers text handling, prefer asserting against the actual Chinese string that should survive the round trip.
+
 ## Repository Layout
 
 Top-level layout:

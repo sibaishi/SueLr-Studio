@@ -1,5 +1,7 @@
 import { capabilityPollVideoTask } from '@/shared/api/capabilities';
 
+type VideoPollResponse = Awaited<ReturnType<typeof capabilityPollVideoTask>>;
+
 interface PollOptions {
   /** Platform task ID to poll */
   taskId: string;
@@ -21,6 +23,18 @@ interface PollOptions {
   onPollError: (error: string) => void;
 }
 
+function getTaskStatus(result: VideoPollResponse): string | undefined {
+  return result.status || result.data?.status;
+}
+
+function getVideoUrl(result: VideoPollResponse): string | undefined {
+  return result.video_url || result.output?.video_url || result.data?.video_url || result.data?.output?.video_url;
+}
+
+function getTaskError(result: VideoPollResponse, fallback: string): string {
+  return String(result.error || result.data?.error || fallback);
+}
+
 /** Start polling a video generation task. Returns a cancel function. */
 export function startVideoPoll(opts: PollOptions): () => void {
   const { taskId, pollKey, pollRefs, onSuccess, onNoUrl, onFailure, onPollError } = opts;
@@ -33,16 +47,20 @@ export function startVideoPoll(opts: PollOptions): () => void {
 
   pollRefs.current[pollKey] = setInterval(async () => {
     try {
-      const pd = await capabilityPollVideoTask(taskId);
-      const st = pd.status || pd.data?.status;
-      if (st === 'succeeded' || st === 'complete' || st === 'completed') {
+      const result = await capabilityPollVideoTask(taskId);
+      const status = getTaskStatus(result);
+
+      if (status === 'succeeded' || status === 'complete' || status === 'completed') {
         cleanup();
-        const url = pd.video_url || pd.output?.video_url || pd.data?.video_url || pd.data?.output?.video_url;
-        if (url) { onSuccess(url); } else { onNoUrl(); }
-      } else if (st === 'failed' || st === 'error') {
+        const url = getVideoUrl(result);
+        if (url) {
+          onSuccess(url);
+        } else {
+          onNoUrl();
+        }
+      } else if (status === 'failed' || status === 'error') {
         cleanup();
-        const err = String(pd.error || pd.data?.error || '生成失败');
-        onFailure(err);
+        onFailure(getTaskError(result, '鐢熸垚澶辫触'));
       }
     } catch (err: any) {
       onPollError(err.message);
@@ -56,25 +74,28 @@ export async function waitForVideoCompletion(opts: Omit<PollOptions, 'pollRefs' 
   const { taskId, onSuccess, onNoUrl, onFailure, onPollError, intervalMs = 5000 } = opts;
   while (true) {
     try {
-      const pd = await capabilityPollVideoTask(taskId);
-      const st = pd.status || pd.data?.status;
-      if (st === 'succeeded' || st === 'complete' || st === 'completed') {
-        const url = pd.video_url || pd.output?.video_url || pd.data?.video_url || pd.data?.output?.video_url;
+      const result = await capabilityPollVideoTask(taskId);
+      const status = getTaskStatus(result);
+
+      if (status === 'succeeded' || status === 'complete' || status === 'completed') {
+        const url = getVideoUrl(result);
         if (url) {
           onSuccess(url);
           return url;
         }
         onNoUrl();
-        throw new Error('未获得视频 URL');
+        throw new Error('鏈幏寰楄棰?URL');
       }
-      if (st === 'failed' || st === 'error') {
-        const err = String(pd.error || pd.data?.error || '视频生成失败');
-        onFailure(err);
-        throw new Error(err);
+
+      if (status === 'failed' || status === 'error') {
+        const error = getTaskError(result, '瑙嗛鐢熸垚澶辫触');
+        onFailure(error);
+        throw new Error(error);
       }
     } catch (err: any) {
       onPollError(err.message);
     }
-    await new Promise(resolve => setTimeout(resolve, intervalMs));
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }

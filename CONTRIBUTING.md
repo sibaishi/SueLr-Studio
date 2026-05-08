@@ -75,6 +75,16 @@ If this is the first E2E run on the machine, install the Playwright browser firs
 npm run test:e2e:install
 ```
 
+## Encoding Expectations
+
+Keep user-visible text, docs, logs, and persisted content in UTF-8 without BOM.
+
+If your change touches text transport, file paths, or saved data:
+
+- preserve Chinese text end to end
+- prefer explicit UTF-8 handling over ad hoc conversions
+- run `npm run check:encoding` before submission
+
 ## Contribution Expectations
 
 Please keep changes aligned with the existing architecture:
@@ -92,6 +102,7 @@ At this stage, the maintained project docs are:
 
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
+- `docs/release-sop.md`
 
 Weekly execution notes, scratch plans, private rollout checklists, and similar process artifacts should stay outside the public documentation surface shipped with the repository.
 

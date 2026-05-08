@@ -106,6 +106,8 @@ workflows/      example workflow files
 External collaboration is welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, validation commands, and repository conventions.
 For a first contributor pass, run the app locally once, then use `npm run check`, and install Playwright with `npm run test:e2e:install` before your first local `npm run test:e2e`.
 
+When editing Chinese user-facing text, file names, or persisted content, keep the changes UTF-8 and run `npm run check:encoding` as part of the review loop.
+
 ## License Status
 
 This repository does not currently declare an open-source license file.

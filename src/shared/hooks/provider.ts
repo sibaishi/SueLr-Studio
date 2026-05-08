@@ -17,10 +17,7 @@ export function useApiRefs(base: string, apiKey: string) {
 export function useProvider(base: string, apiKey: string, providerConfig?: Partial<ProviderConfig>) {
   const { baseR, keyR } = useApiRefs(base, apiKey);
   const configR = useLiveRef(providerConfig);
-  const getProvider = useCallback(
-    () => createProvider(baseR.current, keyR.current, configR.current),
-    [baseR, keyR, configR],
-  );
+  const getProvider = useCallback(() => createProvider(baseR.current, keyR.current, configR.current), [baseR, keyR, configR]);
 
   return { baseR, keyR, getProvider };
 }

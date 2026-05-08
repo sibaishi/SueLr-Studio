@@ -1,7 +1,9 @@
 import type { NodeTypeDef } from './types';
-import { WORKFLOW_NODE_REGISTRY, getNodeDef as getSharedNodeDef } from '@/shared/workflow/node-registry';
+import { NODE_REGISTRY as WORKFLOW_NODE_DEFS, getNodeDef as getSharedNodeDef } from '@/features/workflow/nodes/registry';
 
 export const GRID_SIZE = 28;
+const VARIABLE_INPUT_MERGE_TYPES = new Set(['textMerge', 'imageMerge', 'videoMerge', 'audioMerge', 'universalMerge']);
+const DEFAULT_NODE_SIZE_UNITS = { w: 10, h: 6 };
 
 export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   group: { w: 14, h: 10 },
@@ -26,8 +28,12 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
 };
 
 function getVariablePortCount(type: string, inputCount: number) {
-  if (['textMerge', 'imageMerge', 'videoMerge', 'audioMerge', 'universalMerge'].includes(type)) return inputCount;
+  if (VARIABLE_INPUT_MERGE_TYPES.has(type)) return inputCount;
   return 1;
+}
+
+function getNodeSizeUnits(type: string) {
+  return NODE_SIZE_UNITS[type] || DEFAULT_NODE_SIZE_UNITS;
 }
 
 export function getNodeDef(type: string): NodeTypeDef | undefined {
@@ -68,7 +74,7 @@ export function getExpandedNodeOutputs(type: string, data?: Record<string, unkno
 }
 
 export function getNodeDefaultSize(type: string, inputCount = 1) {
-  const units = NODE_SIZE_UNITS[type] || { w: 10, h: 6 };
+  const units = getNodeSizeUnits(type);
   const variablePortCount = getVariablePortCount(type, inputCount);
   const heightUnits = variablePortCount > 1 ? Math.max(units.h, 7 + variablePortCount) : units.h;
   return {
@@ -83,7 +89,7 @@ export function getNodeAutoExpandedSize(
   outputCount = getNodeOutputCount(type),
 ) {
   void outputCount;
-  const units = NODE_SIZE_UNITS[type] || { w: 10, h: 6 };
+  const units = getNodeSizeUnits(type);
   const variablePortCount = getVariablePortCount(type, inputCount);
   const heightUnits = variablePortCount > 1 ? Math.max(units.h, 7 + variablePortCount) : units.h;
 
@@ -93,7 +99,7 @@ export function getNodeAutoExpandedSize(
   };
 }
 
-export const NODE_REGISTRY: NodeTypeDef[] = WORKFLOW_NODE_REGISTRY;
+export const NODE_REGISTRY: NodeTypeDef[] = WORKFLOW_NODE_DEFS;
 
 export const NODE_CATEGORIES = [
   { id: 'input', label: '输入' },

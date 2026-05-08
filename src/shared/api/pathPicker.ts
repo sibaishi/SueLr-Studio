@@ -16,5 +16,5 @@ export async function selectDirectory(): Promise<string | null> {
     throw new Error(result.error || '选择目录失败');
   }
 
-  return result.data?.path || null;
+  return result.data?.path ?? null;
 }

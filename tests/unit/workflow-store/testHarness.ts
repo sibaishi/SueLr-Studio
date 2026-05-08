@@ -1,6 +1,17 @@
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
 import type { GroupPortSide } from '@/features/workflow/lib/groupPorts';
 
+const EXPORT_WORKFLOW_RESULT = {
+  id: 'wf_local',
+  name: 'Test Workflow',
+  version: 1,
+  createdAt: 0,
+  updatedAt: 0,
+  nodes: [],
+  edges: [],
+  settings: {},
+};
+
 function createNoopAsync<T>(result: T) {
   return async () => result;
 }
@@ -86,16 +97,7 @@ export function createBaseWorkflowState(overrides: Partial<WorkflowState> = {}):
     syncExecutionRunStatus: createNoopAsync(undefined),
     duplicateCurrentWorkflow: createNoopAsync(false),
     deleteCurrentWorkflow: createNoopAsync(false),
-    exportCurrentWorkflow: () => ({
-      id: 'wf_local',
-      name: 'Test Workflow',
-      version: 1,
-      createdAt: 0,
-      updatedAt: 0,
-      nodes: [],
-      edges: [],
-      settings: {},
-    }),
+    exportCurrentWorkflow: () => EXPORT_WORKFLOW_RESULT,
     importWorkflowData: createNoopAsync({ success: false, report: null }),
     importWorkflowDataWithMode: createNoopAsync({ success: false, report: null }),
     fetchModels: createNoopAsync({ success: true, count: 0 }),

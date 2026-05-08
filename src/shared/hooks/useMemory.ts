@@ -4,6 +4,45 @@ import { gid, loadJSON, debouncedSaveJSON, cleanKey } from '@/lib/utils';
 import { MEMORY_PROMPT } from '@/lib/constants';
 import { capabilityChatCompletion } from '@/shared/api/capabilities';
 
+const MAX_MEMORIES = 200;
+const MAX_MEMORY_CONTEXT_ITEMS = 30;
+const MAX_MEMORY_SEARCH_FALLBACK_ITEMS = 5;
+const MAX_EXTRACTION_MESSAGES = 8;
+const MAX_EXTRACTION_MESSAGE_LENGTH = 200;
+const MAX_EXTRACTED_MEMORY_LENGTH = 100;
+const EXTRACTION_DELAY_MS = 3000;
+const MEMORY_CONTEXT_LABEL = '[鐢ㄦ埛璁板繂]';
+const MEMORY_CONTEXT_PREFIX = '浠ヤ笅鏄叧浜庣敤鎴风殑涓€浜涘凡鐭ヤ俊鎭紝璇峰湪鍥炲鏃跺弬鑰冿細';
+const USER_ROLE_LABEL = '鐢ㄦ埛';
+const EMPTY_MEMORY_RESULT = '鏆傛棤鍏充簬鐢ㄦ埛鐨勮蹇嗐€?';
+const NO_DIRECT_MATCH_PREFIX = '鏈壘鍒颁笌"';
+const NO_DIRECT_MATCH_MIDDLE = '"鐩存帴鐩稿叧鐨勮蹇嗐€備互涓嬫槸鏈€杩戠殑璁板繂锛歕n';
+const FOUND_MATCH_PREFIX = '鎵惧埌 ';
+const FOUND_MATCH_MIDDLE = ' 鏉＄浉鍏宠蹇嗭細\n';
+
+function buildMemoryContext(memories: Memory[]): string {
+  if (memories.length === 0) return '';
+  const recent = memories.slice(0, MAX_MEMORY_CONTEXT_ITEMS);
+  return `\n\n${MEMORY_CONTEXT_LABEL}\n${MEMORY_CONTEXT_PREFIX}\n${recent.map((memory) => `- ${memory.content}`).join('\n')}`;
+}
+
+function buildExtractionText(messages: { role: string; content: string }[]): string {
+  return messages
+    .slice(-MAX_EXTRACTION_MESSAGES)
+    .map((message) => `${message.role === 'user' ? USER_ROLE_LABEL : 'AI'}: ${message.content.slice(0, MAX_EXTRACTION_MESSAGE_LENGTH)}`)
+    .join('\n');
+}
+
+function parseExtractedMemories(reply: string): string[] {
+  const match = reply.match(/\[[\s\S]*\]/);
+  if (!match) return [];
+
+  const items: unknown = JSON.parse(match[0]);
+  if (!Array.isArray(items)) return [];
+
+  return items.filter((item): item is string => typeof item === 'string' && item.length > 0 && item.length < MAX_EXTRACTED_MEMORY_LENGTH);
+}
+
 export function useMemory() {
   const [memories, setMemories] = useState<Memory[]>(loadJSON('ai_memories', []));
   const extractTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -30,7 +69,7 @@ export function useMemory() {
         convId,
         ts: Date.now(),
       }));
-      return [...newMemories, ...prev].slice(0, 200);
+      return [...newMemories, ...prev].slice(0, MAX_MEMORIES);
     });
   }, []);
 
@@ -42,11 +81,7 @@ export function useMemory() {
     setMemories([]);
   }, []);
 
-  const getMemoryContext = useCallback(() => {
-    if (memories.length === 0) return '';
-    const recent = memories.slice(0, 30);
-    return `\n\n[鐢ㄦ埛璁板繂]\n浠ヤ笅鏄叧浜庣敤鎴风殑涓€浜涘凡鐭ヤ俊鎭紝璇峰湪鍥炲鏃跺弬鑰冿細\n${recent.map((memory) => `- ${memory.content}`).join('\n')}`;
-  }, [memories]);
+  const getMemoryContext = useCallback(() => buildMemoryContext(memories), [memories]);
 
   const scheduleExtraction = useCallback(
     (
@@ -60,10 +95,7 @@ export function useMemory() {
       if (extractTimer.current) clearTimeout(extractTimer.current);
       extractTimer.current = setTimeout(async () => {
         try {
-          const text = messages
-            .slice(-8)
-            .map((message) => `${message.role === 'user' ? '鐢ㄦ埛' : 'AI'}: ${message.content.slice(0, 200)}`)
-            .join('\n');
+          const text = buildExtractionText(messages);
           const data = await capabilityChatCompletion({
             model,
             messages: [
@@ -77,20 +109,14 @@ export function useMemory() {
           });
           const content = data.choices?.[0]?.message?.content;
           const reply = typeof content === 'string' ? content : '[]';
-          const match = reply.match(/\[[\s\S]*\]/);
-          if (match) {
-            const items: string[] = JSON.parse(match[0]);
-            if (Array.isArray(items)) {
-              addMemories(
-                items.filter((item: any) => typeof item === 'string' && item.length > 0 && item.length < 100),
-                convId,
-              );
-            }
+          const items = parseExtractedMemories(reply);
+          if (items.length > 0) {
+            addMemories(items, convId);
           }
         } catch (error) {
           console.warn('[Memory] extraction failed:', error);
         }
-      }, 3000);
+      }, EXTRACTION_DELAY_MS);
     },
     [addMemories],
   );
@@ -108,7 +134,7 @@ export function useMemory() {
 
   const searchMemories = useCallback(
     (query: string): string => {
-      if (memories.length === 0) return '鏆傛棤鍏充簬鐢ㄦ埛鐨勮蹇嗐€?';
+      if (memories.length === 0) return EMPTY_MEMORY_RESULT;
       const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
       const scored = memories
         .map((memory) => {
@@ -130,11 +156,11 @@ export function useMemory() {
         .slice(0, 10);
 
       if (scored.length === 0) {
-        const recent = memories.slice(0, 5);
-        return `鏈壘鍒颁笌"${query}"鐩存帴鐩稿叧鐨勮蹇嗐€備互涓嬫槸鏈€杩戠殑璁板繂锛歕n${recent.map((memory) => `- ${memory.content}`).join('\n')}`;
+        const recent = memories.slice(0, MAX_MEMORY_SEARCH_FALLBACK_ITEMS);
+        return `${NO_DIRECT_MATCH_PREFIX}${query}${NO_DIRECT_MATCH_MIDDLE}${recent.map((memory) => `- ${memory.content}`).join('\n')}`;
       }
 
-      return `鎵惧埌 ${scored.length} 鏉＄浉鍏宠蹇嗭細\n${scored.map((item) => `- ${item.memory.content}`).join('\n')}`;
+      return `${FOUND_MATCH_PREFIX}${scored.length}${FOUND_MATCH_MIDDLE}${scored.map((item) => `- ${item.memory.content}`).join('\n')}`;
     },
     [memories],
   );

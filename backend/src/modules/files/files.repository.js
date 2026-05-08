@@ -29,6 +29,19 @@ function toOutputUrl(relativePath) {
   return `/api/outputs/${relativePath.split(path.sep).map(encodeURIComponent).join('/')}`;
 }
 
+function decodeMojibakeText(value) {
+  const text = String(value || '');
+  if (!text) return '';
+  try {
+    const decoded = Buffer.from(text, 'latin1').toString('utf8');
+    if (!decoded || decoded === text) return text;
+    if (decoded.includes('\uFFFD')) return text;
+    return decoded;
+  } catch {
+    return text;
+  }
+}
+
 export class FilesRepository {
   constructor() {
     ensureStorageDirectories();
@@ -45,11 +58,7 @@ export class FilesRepository {
   }
 
   decodeOriginalName(name) {
-    try {
-      return Buffer.from(name, 'latin1').toString('utf8');
-    } catch {
-      return name;
-    }
+    return decodeMojibakeText(name);
   }
 
   resolveUploadFile(filename) {

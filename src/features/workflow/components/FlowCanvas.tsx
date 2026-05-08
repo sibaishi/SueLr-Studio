@@ -1,4 +1,4 @@
-﻿import {
+import {
   Background,
   BackgroundVariant,
   ConnectionMode,
@@ -25,860 +25,82 @@ import {
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  type CSSProperties,
 } from 'react';
 import {
   getExpandedNodeOutputs,
   getNodeDef,
-  getNodeDefaultSize,
   GRID_SIZE,
   NODE_REGISTRY,
   PORT_COMPATIBILITY,
 } from '@/features/workflow/lib/constants';
 import { uploadFile } from '@/features/workflow/lib/api';
 import {
-  buildGroupHandleId,
-  collectDescendantNodeIds,
   findGroupPort,
-  getGroupPorts,
   isGroupPortExternallyConnectable,
   parseGroupHandleId,
 } from '@/features/workflow/lib/groupPorts';
 import {
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
-  getCollapsedGroupNodeSize,
   pushRootNodeOutsideGroupAreas,
 } from '@/features/workflow/lib/groupLayout';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/features/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/features/workflow/lib/store/selectors';
 import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
+import {
+  FLOW_CATEGORY_LABELS,
+  FLOW_CATEGORY_ORDER,
+  FLOW_DISABLED_NEW_NODE_TYPES,
+  FLOW_DISABLED_NODE_REASON,
+  FLOW_FORCE_DISABLED_NODE_TYPES,
+  FLOW_NODE_COLORS,
+  FLOW_NODE_TYPES,
+} from './flowCanvasConfig';
+import {
+  buildDefaultData,
+  getCenteredPosition,
+  getDroppedFileNodeType,
+} from './flowCanvasHelpers';
+import {
+  canConnectToGroupHandleExternally,
+  getInputType,
+  getOutputType,
+  getParentId,
+  resolveDirectionalGroupConnection,
+} from './flowCanvasConnections';
+import {
+  buildClipboardSnapshot,
+  getAbsoluteNodePosition,
+  getDropNodePosition,
+  snapNodeBox,
+  snapValue,
+} from './flowCanvasClipboard';
+import { findCuttableEdgesAlongSegment } from './flowCanvasGeometry';
+import {
+  buildEdgeInsertionPreviewEdges,
+  findEdgeInsertionCandidate,
+  getContextMenuLayout,
+  getEdgeDataTypeColor,
+  getLocalPoint,
+  getNearestGroupAncestorId,
+  isPaneBackgroundTarget,
+  DEFAULT_WORKFLOW_EDGE_STYLE,
+} from './flowCanvasUiHelpers';
+import { buildFlowCanvasRenderModel } from './flowCanvasRenderModel';
+import { formatCanvasUploadError, isEditableElement } from './flowCanvasText';
+import type {
+  ClipboardSnapshot,
+  ContextMenuKind,
+  ContextMenuState,
+  EdgeInsertionCandidate,
+  PendingConnection,
+} from './flowCanvasTypes';
 import { NODE_ICONS } from './nodes/nodeConstants';
-import FlowNode from './nodes/FlowNode';
 import './contextMenu.css';
-
-const nodeTypes = {
-  group: FlowNode,
-  textInput: FlowNode,
-  imageInput: FlowNode,
-  maskInput: FlowNode,
-  imageResize: FlowNode,
-  videoInput: FlowNode,
-  audioInput: FlowNode,
-  apiKeyInput: FlowNode,
-  textSplit: FlowNode,
-  textMerge: FlowNode,
-  imageMerge: FlowNode,
-  videoMerge: FlowNode,
-  audioMerge: FlowNode,
-  universalMerge: FlowNode,
-  aiChat: FlowNode,
-  imageGen: FlowNode,
-  videoGen: FlowNode,
-  saveFile: FlowNode,
-  output: FlowNode,
-};
-
-const NODE_COLORS: Record<string, string> = {
-  group: '#8E8E93',
-  textInput: '#007AFF',
-  imageInput: '#FF9500',
-  maskInput: '#7C4DFF',
-  imageResize: '#FF9F0A',
-  videoInput: '#AF52DE',
-  audioInput: '#FF375F',
-  apiKeyInput: '#5856D6',
-  textSplit: '#0A84FF',
-  textMerge: '#007AFF',
-  imageMerge: '#FF9500',
-  videoMerge: '#AF52DE',
-  audioMerge: '#FF375F',
-  universalMerge: '#64D2FF',
-  aiChat: '#30D158',
-  imageGen: '#FF9500',
-  videoGen: '#AF52DE',
-  saveFile: '#34C759',
-  output: '#8E8E93',
-};
-const PORT_TYPE_COLORS: Record<string, string> = {
-  string: '#007AFF',
-  'string[]': '#007AFF',
-  image: '#FF9500',
-  'image[]': '#FF9500',
-  mask: '#7C4DFF',
-  video: '#AF52DE',
-  'video[]': '#AF52DE',
-  audio: '#FF375F',
-  'audio[]': '#FF375F',
-  apiKey: '#5856D6',
-  any: '#64D2FF',
-  'any[]': '#64D2FF',
-};
-
-const CATEGORY_LABELS = {
-  group: '节点组',
-  input: '输入',
-  api: 'API',
-  merge: '工具',
-  ai: 'AI 能力',
-  output: '输出',
-} as const;
-
-const CATEGORY_ORDER = ['input', 'api', 'merge', 'ai', 'output', 'group'] as const;
-const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge', 'universalMerge']);
-const FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
-const DISABLED_NODE_REASON = '暂时停用，无法新建';
-const DEFAULT_WORKFLOW_EDGE_STYLE = {
-  stroke: 'var(--color-text-tertiary)',
-  strokeWidth: 2,
-} as const;
-const GROUP_INTERNAL_EDGE_STYLE = {
-  ...DEFAULT_WORKFLOW_EDGE_STYLE,
-} as const;
-const GROUP_EXTERNAL_EDGE_STYLE = {
-  ...DEFAULT_WORKFLOW_EDGE_STYLE,
-} as const;
-const EDGE_CUT_DISTANCE = 14;
-
-function formatCanvasUploadError(message?: string | null) {
-  const detail = String(message || '').trim();
-  return detail
-    ? `上传没有完成，请检查文件格式、大小或稍后重试。${detail}`
-    : '上传没有完成，请检查文件格式、大小或稍后重试。';
-}
-
-function isEditableElement(target: EventTarget | null) {
-  const element = target as HTMLElement | null;
-  if (!element) return false;
-  const tagName = element.tagName;
-  return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || element.isContentEditable;
-}
-
-type ClipboardSnapshot = {
-  nodes: FlowNodeType[];
-  edges: {
-    source: string;
-    sourceHandle: string | null;
-    target: string;
-    targetHandle: string | null;
-  }[];
-  bounds: {
-    minX: number;
-    minY: number;
-  };
-};
-
-type PendingConnection =
-  | {
-      allowCreateNode: boolean;
-      handleType: 'source';
-      sourceId: string;
-      sourceHandle: string;
-      sourceType: string;
-    }
-  | {
-      allowCreateNode: boolean;
-      handleType: 'target';
-      targetId: string;
-      targetHandle: string;
-      targetType: string;
-    };
-
-type ContextMenuKind = 'pane' | 'paneActions' | 'node' | 'connect';
-type MenuHorizontalDirection = 'left' | 'right';
-type EdgeInsertionCandidate = {
-  edgeId: string;
-  node: FlowNodeType;
-};
-
-type ContextMenuState = {
-  kind: ContextMenuKind;
-  x: number;
-  y: number;
-  flowPosition: { x: number; y: number };
-  horizontalDirection: MenuHorizontalDirection;
-  nodeId?: string;
-  selectedNodeIds?: string[];
-  sourceConnection?: PendingConnection;
-};
 
 interface FlowCanvasProps {
   onViewportCenterChange?: (position: { x: number; y: number }) => void;
-}
-
-function buildDefaultData(nodeType: string) {
-  const def = getNodeDef(nodeType);
-  if (!def) return {};
-
-  const defaultData: Record<string, unknown> = {};
-  for (const param of def.params) {
-    if (param.default !== undefined) {
-      defaultData[param.id] = param.default;
-    }
-  }
-  if (def.maxInputs) {
-    defaultData.inputCount = 1;
-  }
-  return defaultData;
-}
-
-function getDefaultNodeSize(nodeType: string) {
-  return getNodeDefaultSize(nodeType);
-}
-
-function getCenteredPosition(nodeType: string, flowPosition: { x: number; y: number }) {
-  const size = getDefaultNodeSize(nodeType);
-  return {
-    x: flowPosition.x - size.w / 2,
-    y: flowPosition.y - size.h / 2,
-  };
-}
-
-function getDroppedFileNodeType(file: File) {
-  const mime = file.type.toLowerCase();
-  const name = file.name.toLowerCase();
-
-  if (mime.startsWith('image/')) return 'imageInput';
-  if (mime.startsWith('video/')) return 'videoInput';
-  if (mime.startsWith('audio/')) return 'audioInput';
-  if (
-    mime.startsWith('text/') ||
-    mime === 'application/json' ||
-    /\.(txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml)$/i.test(name)
-  ) {
-    return 'textInput';
-  }
-
-  return null;
-}
-
-function getDropNodePosition(
-  nodeType: string,
-  flowPosition: { x: number; y: number },
-  index: number,
-) {
-  const base = getCenteredPosition(nodeType, flowPosition);
-  return {
-    x: base.x + index * 28,
-    y: base.y + index * 28,
-  };
-}
-
-function snapValue(value: number) {
-  return Math.round(value / GRID_SIZE) * GRID_SIZE;
-}
-
-function getAbsoluteNodePosition(nodeId: string, nodeMap: Map<string, FlowNodeType>, memo = new Map<string, { x: number; y: number }>()) {
-  const cached = memo.get(nodeId);
-  if (cached) return cached;
-
-  const node = nodeMap.get(nodeId);
-  if (!node) {
-    const fallback = { x: 0, y: 0 };
-    memo.set(nodeId, fallback);
-    return fallback;
-  }
-
-  let position = { x: node.position.x, y: node.position.y };
-  const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-  if (parentId && nodeMap.has(parentId)) {
-    const parentPosition = getAbsoluteNodePosition(parentId, nodeMap, memo);
-    position = {
-      x: parentPosition.x + node.position.x,
-      y: parentPosition.y + node.position.y,
-    };
-  }
-
-  memo.set(nodeId, position);
-  return position;
-}
-
-function getDescendantIds(nodes: FlowNodeType[], rootIds: string[]) {
-  const byParent = new Map<string, string[]>();
-  for (const node of nodes) {
-    const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-    if (!parentId) continue;
-    const current = byParent.get(parentId) || [];
-    current.push(node.id);
-    byParent.set(parentId, current);
-  }
-
-  const visited = new Set<string>();
-  const queue = [...rootIds];
-  while (queue.length > 0) {
-    const currentId = queue.shift();
-    if (!currentId) continue;
-    for (const childId of byParent.get(currentId) || []) {
-      if (visited.has(childId)) continue;
-      visited.add(childId);
-      queue.push(childId);
-    }
-  }
-
-  return [...visited];
-}
-
-function expandSelectionIds(nodes: FlowNodeType[], nodeIds: string[]) {
-  const uniqueIds = [...new Set(nodeIds)];
-  return [...new Set([...uniqueIds, ...getDescendantIds(nodes, uniqueIds)])];
-}
-
-function getParentId(node: FlowNodeType | undefined) {
-  return (node as FlowNodeType & { parentId?: string } | undefined)?.parentId;
-}
-
-function getGroupPortType(node: FlowNodeType | undefined, handleId: string | null | undefined) {
-  if (!node || node.type !== 'group') return null;
-  const descriptor = parseGroupHandleId(handleId);
-  if (!descriptor) return null;
-  return findGroupPort((node.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId)?.type || null;
-}
-
-function getOutputType(node: FlowNodeType | undefined, handleId: string | null | undefined) {
-  if (!node || !handleId) return null;
-  if (node.type === 'group') return getGroupPortType(node, handleId);
-
-  const def = getNodeDef(node.type || '');
-  const outputs = def?.maxOutputs ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>) : def?.outputs;
-  return outputs?.find((port) => port.id === handleId)?.type || null;
-}
-
-function getInputType(node: FlowNodeType | undefined, handleId: string | null | undefined) {
-  if (!node || !handleId) return null;
-  if (node.type === 'group') return getGroupPortType(node, handleId);
-
-  const def = getNodeDef(node.type || '');
-  if (!def) return null;
-  if (def.maxInputs) return def.inputs[0]?.type || null;
-  return def.inputs.find((port) => port.id === handleId)?.type || null;
-}
-
-function canConnectToGroupHandleExternally(node: FlowNodeType | undefined, handleId: string | null | undefined) {
-  if (!node || node.type !== 'group' || !handleId) return false;
-  const descriptor = parseGroupHandleId(handleId);
-  if (!descriptor) return false;
-  const port = findGroupPort((node.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId);
-  return port ? isGroupPortExternallyConnectable(port) : false;
-}
-
-function isNodeInsideGroup(node: FlowNodeType | undefined, groupId: string, nodeMap: Map<string, FlowNodeType>) {
-  let current = node;
-  while (current) {
-    const parentId = getParentId(current);
-    if (!parentId) return false;
-    if (parentId === groupId) return true;
-    current = nodeMap.get(parentId);
-  }
-
-  return false;
-}
-
-function resolveDirectionalGroupConnection(
-  connection: {
-    source: string | null;
-    target: string | null;
-    sourceHandle?: string | null;
-    targetHandle?: string | null;
-  },
-  nodeMap: Map<string, FlowNodeType>,
-) {
-  if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) return null;
-
-  const sourceNode = nodeMap.get(connection.source);
-  const targetNode = nodeMap.get(connection.target);
-  if (!sourceNode || !targetNode) return null;
-
-  const sourceDescriptor = parseGroupHandleId(connection.sourceHandle);
-  const targetDescriptor = parseGroupHandleId(connection.targetHandle);
-  let sourceHandle = connection.sourceHandle;
-  let targetHandle = connection.targetHandle;
-
-  if (sourceDescriptor) {
-    if (sourceNode.type !== 'group') return null;
-    const targetIsInsideSourceGroup = isNodeInsideGroup(targetNode, sourceNode.id, nodeMap);
-    const nextRole = targetIsInsideSourceGroup ? 'internal' : 'external';
-
-    if (targetIsInsideSourceGroup) {
-      if (sourceDescriptor.side !== 'input') return null;
-    } else if (sourceDescriptor.side !== 'output') {
-      return null;
-    }
-
-    sourceHandle = buildGroupHandleId(sourceDescriptor.side, sourceDescriptor.portId, nextRole);
-  }
-
-  if (targetDescriptor) {
-    if (targetNode.type !== 'group') return null;
-    const sourceIsInsideTargetGroup = isNodeInsideGroup(sourceNode, targetNode.id, nodeMap);
-    const nextRole = sourceIsInsideTargetGroup ? 'internal' : 'external';
-
-    if (sourceIsInsideTargetGroup) {
-      if (targetDescriptor.side !== 'output') return null;
-    } else if (targetDescriptor.side !== 'input') {
-      return null;
-    }
-
-    targetHandle = buildGroupHandleId(targetDescriptor.side, targetDescriptor.portId, nextRole);
-  }
-
-  return {
-    source: connection.source,
-    sourceHandle,
-    target: connection.target,
-    targetHandle,
-  };
-}
-
-function getVisibleCollapsedAncestorId(
-  nodeId: string,
-  nodeMap: Map<string, FlowNodeType>,
-  collapsedGroupIds: Set<string>,
-) {
-  let current = nodeMap.get(nodeId);
-  let visibleCollapsedId: string | null = null;
-
-  while (current) {
-    if (collapsedGroupIds.has(current.id)) {
-      visibleCollapsedId = current.id;
-    }
-    const parentId = getParentId(current);
-    current = parentId ? nodeMap.get(parentId) : undefined;
-  }
-
-  return visibleCollapsedId;
-}
-
-function isPaneBackgroundTarget(target: EventTarget | null) {
-  const element = target instanceof Element ? target : null;
-  if (!element) return false;
-  return Boolean(
-    element.closest('.react-flow__pane')
-    && !element.closest('.react-flow__node')
-    && !element.closest('.react-flow__edge')
-    && !element.closest('.react-flow__selection')
-    && !element.closest('.workflow-context-menu'),
-  );
-}
-
-function getNearestGroupAncestorId(nodeId: string, nodeMap: Map<string, FlowNodeType>) {
-  let current = nodeMap.get(nodeId);
-  while (current) {
-    const parentId = getParentId(current);
-    if (!parentId) return null;
-    const parentNode = nodeMap.get(parentId);
-    if (!parentNode) return null;
-    if (parentNode.type === 'group') return parentNode.id;
-    current = parentNode;
-  }
-
-  return null;
-}
-
-function getDecoratedGroupEdge(
-  edge: Edge,
-  sourceDescriptor: ReturnType<typeof parseGroupHandleId>,
-  targetDescriptor: ReturnType<typeof parseGroupHandleId>,
-): Edge {
-  const isInternal = sourceDescriptor?.role === 'internal' || targetDescriptor?.role === 'internal' || edge.id.startsWith('group-binding:');
-  const isExternal = sourceDescriptor?.role === 'external' || targetDescriptor?.role === 'external' || edge.id.startsWith('virtual:');
-
-  if (isInternal) {
-    return {
-      ...edge,
-      style: {
-        ...(edge.style || {}),
-        ...GROUP_INTERNAL_EDGE_STYLE,
-      },
-    };
-  }
-
-  if (isExternal) {
-    return {
-      ...edge,
-      style: {
-        ...(edge.style || {}),
-        ...GROUP_EXTERNAL_EDGE_STYLE,
-      },
-    };
-  }
-
-  return edge;
-}
-
-function buildClipboardSnapshot(nodes: FlowNodeType[], edges: Edge[], nodeIds: string[]): ClipboardSnapshot | null {
-  const expandedIds = expandSelectionIds(nodes, nodeIds);
-  if (expandedIds.length === 0) return null;
-
-  const selectedSet = new Set(expandedIds);
-  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  const positionMemo = new Map<string, { x: number; y: number }>();
-
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-
-  const snapshotNodes = nodes
-    .filter((node) => selectedSet.has(node.id))
-    .map((node) => {
-      const absolutePosition = getAbsoluteNodePosition(node.id, nodeMap, positionMemo);
-      const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-      const nextPosition = parentId && selectedSet.has(parentId)
-        ? { ...node.position }
-        : absolutePosition;
-      minX = Math.min(minX, absolutePosition.x);
-      minY = Math.min(minY, absolutePosition.y);
-      return {
-        ...node,
-        position: nextPosition,
-        parentId,
-      } as FlowNodeType;
-    });
-
-  if (snapshotNodes.length === 0) return null;
-
-  return {
-    nodes: snapshotNodes,
-    edges: edges
-      .filter((edge) => selectedSet.has(edge.source) && selectedSet.has(edge.target))
-      .map((edge) => ({
-        source: edge.source,
-        sourceHandle: edge.sourceHandle ?? null,
-        target: edge.target,
-        targetHandle: edge.targetHandle ?? null,
-      })),
-    bounds: {
-      minX: Number.isFinite(minX) ? minX : 0,
-      minY: Number.isFinite(minY) ? minY : 0,
-    },
-  };
-}
-
-function snapNodeBox(node: FlowNodeType): FlowNodeType {
-  const nodeType = node.type || '';
-  const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
-  const minSize = getNodeDefaultSize(nodeType, inputCount);
-  const currentWidth = typeof node.width === 'number' ? node.width : minSize.w;
-  const currentHeight = typeof node.height === 'number' ? node.height : minSize.h;
-  const width = Math.max(minSize.w, snapValue(currentWidth));
-  const height = Math.max(minSize.h, snapValue(currentHeight));
-
-  return {
-    ...node,
-    position: {
-      x: snapValue(node.position.x),
-      y: snapValue(node.position.y),
-    },
-    width,
-    height,
-  };
-}
-
-function getNodeRenderRect(node: FlowNodeType, nodeMap: Map<string, FlowNodeType>) {
-  const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
-  const fallbackSize = getNodeDefaultSize(node.type || '', inputCount);
-  const style = (node.style || {}) as Record<string, unknown>;
-  const width = typeof node.width === 'number'
-    ? node.width
-    : typeof style.width === 'number' ? style.width : fallbackSize.w;
-  const height = typeof node.height === 'number'
-    ? node.height
-    : typeof style.height === 'number' ? style.height : fallbackSize.h;
-  const position = getAbsoluteNodePosition(node.id, nodeMap);
-
-  return {
-    x: position.x,
-    y: position.y,
-    width,
-    height,
-  };
-}
-
-function pointToSegmentDistance(
-  point: { x: number; y: number },
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-) {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  if (dx === 0 && dy === 0) return Math.hypot(point.x - start.x, point.y - start.y);
-
-  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
-  return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
-}
-
-function getOrientation(
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-  c: { x: number; y: number },
-) {
-  return (b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y);
-}
-
-function isPointOnSegment(
-  point: { x: number; y: number },
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-) {
-  return (
-    point.x <= Math.max(start.x, end.x)
-    && point.x >= Math.min(start.x, end.x)
-    && point.y <= Math.max(start.y, end.y)
-    && point.y >= Math.min(start.y, end.y)
-  );
-}
-
-function doSegmentsIntersect(
-  a1: { x: number; y: number },
-  a2: { x: number; y: number },
-  b1: { x: number; y: number },
-  b2: { x: number; y: number },
-) {
-  const o1 = getOrientation(a1, a2, b1);
-  const o2 = getOrientation(a1, a2, b2);
-  const o3 = getOrientation(b1, b2, a1);
-  const o4 = getOrientation(b1, b2, a2);
-
-  if ((o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0)) return true;
-  if (o1 === 0 && isPointOnSegment(b1, a1, a2)) return true;
-  if (o2 === 0 && isPointOnSegment(b2, a1, a2)) return true;
-  if (o3 === 0 && isPointOnSegment(a1, b1, b2)) return true;
-  if (o4 === 0 && isPointOnSegment(a2, b1, b2)) return true;
-  return false;
-}
-
-function segmentToSegmentDistance(
-  a1: { x: number; y: number },
-  a2: { x: number; y: number },
-  b1: { x: number; y: number },
-  b2: { x: number; y: number },
-) {
-  if (doSegmentsIntersect(a1, a2, b1, b2)) return 0;
-  return Math.min(
-    pointToSegmentDistance(a1, b1, b2),
-    pointToSegmentDistance(a2, b1, b2),
-    pointToSegmentDistance(b1, a1, a2),
-    pointToSegmentDistance(b2, a1, a2),
-  );
-}
-
-function getEdgeApproximateSegment(
-  edge: Edge,
-  nodeMap: Map<string, FlowNodeType>,
-) {
-  const sourceNode = nodeMap.get(edge.source);
-  const targetNode = nodeMap.get(edge.target);
-  if (!sourceNode || !targetNode) return null;
-
-  const sourceRect = getNodeRenderRect(sourceNode, nodeMap);
-  const targetRect = getNodeRenderRect(targetNode, nodeMap);
-
-  return {
-    start: { x: sourceRect.x + sourceRect.width, y: sourceRect.y + sourceRect.height / 2 },
-    end: { x: targetRect.x, y: targetRect.y + targetRect.height / 2 },
-  };
-}
-
-function findCuttableEdgesAlongSegment(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  nodes: FlowNodeType[],
-  edges: Edge[],
-) {
-  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  return edges.filter((edge) => {
-    const segment = getEdgeApproximateSegment(edge, nodeMap);
-    if (!segment) return false;
-
-    return segmentToSegmentDistance(start, end, segment.start, segment.end) <= EDGE_CUT_DISTANCE;
-  });
-}
-
-function getInputHandleCandidatesForNode(node: FlowNodeType) {
-  const def = getNodeDef(node.type || '');
-  if (!def) return [];
-  if (def.maxInputs) return Array.from({ length: def.maxInputs }, (_, index) => `item${index + 1}`);
-  return def.inputs.map((input) => input.id);
-}
-
-function resolveNodeBridgeHandles(
-  node: FlowNodeType,
-  edge: Edge,
-  nodeMap: Map<string, FlowNodeType>,
-  edges: Edge[],
-) {
-  if (node.type === 'group') return null;
-  if (edge.source === node.id || edge.target === node.id) return null;
-  if (!edge.sourceHandle || !edge.targetHandle) return null;
-  if (parseGroupHandleId(edge.sourceHandle) || parseGroupHandleId(edge.targetHandle)) return null;
-
-  const sourceNode = nodeMap.get(edge.source);
-  const targetNode = nodeMap.get(edge.target);
-  const sourceType = getOutputType(sourceNode, edge.sourceHandle);
-  const targetType = getInputType(targetNode, edge.targetHandle);
-  const def = getNodeDef(node.type || '');
-  if (!sourceType || !targetType || !def) return null;
-
-  const occupiedTargetHandles = new Set(
-    edges
-      .filter((item) => item.id !== edge.id && item.targetHandle)
-      .map((item) => `${item.target}:${item.targetHandle}`),
-  );
-  const inputHandle = getInputHandleCandidatesForNode(node).find((handleId) => {
-    const inputType = def.maxInputs
-      ? def.inputs[0]?.type
-      : def.inputs.find((input) => input.id === handleId)?.type;
-    return Boolean(
-      inputType
-      && !occupiedTargetHandles.has(`${node.id}:${handleId}`)
-      && PORT_COMPATIBILITY[sourceType]?.includes(inputType),
-    );
-  });
-  const outputs = def.maxOutputs ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>) : def.outputs;
-  const outputHandle = outputs.find((output) => (
-    PORT_COMPATIBILITY[output.type]?.includes(targetType) ?? false
-  ))?.id;
-
-  return inputHandle && outputHandle ? { inputHandle, outputHandle } : null;
-}
-
-function canNodeBridgeEdge(
-  node: FlowNodeType,
-  edge: Edge,
-  nodeMap: Map<string, FlowNodeType>,
-  edges: Edge[],
-) {
-  return Boolean(resolveNodeBridgeHandles(node, edge, nodeMap, edges));
-}
-
-function getEdgeDataTypeColor(edge: Edge, nodeMap: Map<string, FlowNodeType>) {
-  const sourceType = getOutputType(nodeMap.get(edge.source), edge.sourceHandle);
-  const targetType = getInputType(nodeMap.get(edge.target), edge.targetHandle);
-  return PORT_TYPE_COLORS[sourceType || ''] || PORT_TYPE_COLORS[targetType || ''] || 'var(--color-accent)';
-}
-
-function findEdgeInsertionCandidate(
-  draggedNode: FlowNodeType,
-  nodes: FlowNodeType[],
-  edges: Edge[],
-) {
-  if (draggedNode.type === 'group' || getParentId(draggedNode)) return null;
-
-  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  nodeMap.set(draggedNode.id, draggedNode);
-  const draggedRect = getNodeRenderRect(draggedNode, nodeMap);
-  const draggedCenter = {
-    x: draggedRect.x + draggedRect.width / 2,
-    y: draggedRect.y + draggedRect.height / 2,
-  };
-  const threshold = Math.max(36, Math.min(draggedRect.width, draggedRect.height) * 0.45);
-
-  let bestEdge: Edge | null = null;
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (const edge of edges) {
-    if (edge.id.startsWith('virtual:') || edge.id.startsWith('group-binding:')) continue;
-    if (!canNodeBridgeEdge(draggedNode, edge, nodeMap, edges)) continue;
-
-    const sourceNode = nodeMap.get(edge.source);
-    const targetNode = nodeMap.get(edge.target);
-    if (!sourceNode || !targetNode) continue;
-
-    const segment = getEdgeApproximateSegment(edge, nodeMap);
-    if (!segment) continue;
-    const distance = pointToSegmentDistance(draggedCenter, segment.start, segment.end);
-    if (distance < threshold && distance < bestDistance) {
-      bestEdge = edge;
-      bestDistance = distance;
-    }
-  }
-
-  return bestEdge;
-}
-
-function buildEdgeInsertionPreviewEdges(
-  candidate: EdgeInsertionCandidate | null,
-  nodes: FlowNodeType[],
-  edges: Edge[],
-) {
-  if (!candidate) return [];
-
-  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  nodeMap.set(candidate.node.id, candidate.node);
-  const sourceEdge = edges.find((edge) => edge.id === candidate.edgeId);
-  if (!sourceEdge) return [];
-
-  const handles = resolveNodeBridgeHandles(candidate.node, sourceEdge, nodeMap, edges);
-  if (!handles || !sourceEdge.sourceHandle || !sourceEdge.targetHandle) return [];
-  const typeColor = getEdgeDataTypeColor(sourceEdge, nodeMap);
-
-  const common = {
-    type: 'default',
-    animated: false,
-    selectable: false,
-    deletable: false,
-    focusable: false,
-    className: 'workflow-edge-insertion-preview',
-    style: {
-      stroke: typeColor,
-      strokeWidth: 5,
-      '--workflow-edge-preview-color': typeColor,
-    } as CSSProperties,
-  } satisfies Partial<Edge>;
-
-  return [
-    {
-      ...common,
-      id: `insertion-preview:${sourceEdge.id}:in`,
-      source: sourceEdge.source,
-      sourceHandle: sourceEdge.sourceHandle,
-      target: candidate.node.id,
-      targetHandle: handles.inputHandle,
-    },
-    {
-      ...common,
-      id: `insertion-preview:${sourceEdge.id}:out`,
-      source: candidate.node.id,
-      sourceHandle: handles.outputHandle,
-      target: sourceEdge.target,
-      targetHandle: sourceEdge.targetHandle,
-    },
-  ] as Edge[];
-}
-
-function getLocalPoint(
-  event: MouseEvent | TouchEvent | ReactMouseEvent,
-  container: HTMLDivElement | null,
-) {
-  const rect = container?.getBoundingClientRect();
-  const touch = 'touches' in event ? event.touches[0] || event.changedTouches[0] : null;
-  const clientX = touch ? touch.clientX : ('clientX' in event ? event.clientX : 0);
-  const clientY = touch ? touch.clientY : ('clientY' in event ? event.clientY : 0);
-
-  return {
-    clientX,
-    clientY,
-    localX: rect ? clientX - rect.left + 6 : clientX,
-    localY: rect ? clientY - rect.top + 6 : clientY,
-  };
-}
-
-function getContextMenuLayout(
-  kind: ContextMenuKind,
-  container: HTMLDivElement | null,
-  localX: number,
-  localY: number,
-): { x: number; y: number; horizontalDirection: MenuHorizontalDirection } {
-  const rect = container?.getBoundingClientRect();
-  const menuWidth = kind === 'node' ? 220 : 328;
-  const menuHeight = kind === 'node' ? 288 : 360;
-  const maxX = rect ? Math.max(8, rect.width - menuWidth - 8) : localX;
-  const maxY = rect ? Math.max(8, rect.height - menuHeight - 8) : localY;
-
-  return {
-    x: Math.min(Math.max(8, localX), maxX),
-    y: Math.min(Math.max(8, localY), maxY),
-    horizontalDirection: rect && localX > rect.width / 2 ? 'left' : 'right',
-  };
 }
 
 function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
@@ -887,7 +109,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [activeCategory, setActiveCategory] = useState<(typeof CATEGORY_ORDER)[number] | null>(null);
+  const [activeCategory, setActiveCategory] = useState<(typeof FLOW_CATEGORY_ORDER)[number] | null>(null);
   const [clipboardNode, setClipboardNode] = useState<ClipboardSnapshot | null>(null);
   const [canvasEditorNodeId, setCanvasEditorNodeId] = useState<string | null>(null);
   const [edgeInsertionCandidate, setEdgeInsertionCandidate] = useState<EdgeInsertionCandidate | null>(null);
@@ -961,229 +183,10 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     };
   }, [store, wasContextMenuJustOpened]);
 
-  const renderModel = useMemo(() => {
-    const collapsedGroups = store.nodes.filter((node) => node.type === 'group' && node.data?.collapsed);
-    const collapsedGroupIds = new Set(collapsedGroups.map((node) => node.id));
-    const collapsedDescendantIds = new Set<string>();
-
-    for (const group of collapsedGroups) {
-      for (const nodeId of collectDescendantNodeIds(store.nodes, group.id)) {
-        collapsedDescendantIds.add(nodeId);
-      }
-    }
-
-    const nodeMap = new Map(store.nodes.map((node) => [node.id, node as FlowNodeType]));
-    const visibleNodes = store.nodes
-      .filter((node) => !collapsedDescendantIds.has(node.id))
-      .map((node) => {
-        const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
-        const size = getNodeDefaultSize(node.type || '', inputCount);
-        const collapsedSize = node.type === 'group' && node.data?.collapsed
-          ? getCollapsedGroupNodeSize(node as FlowNodeType)
-          : null;
-        const width = collapsedSize
-          ? collapsedSize.width
-          : typeof node.width === 'number' ? Math.max(node.width, size.w) : size.w;
-        const height = collapsedSize
-          ? collapsedSize.height
-          : typeof node.height === 'number' ? Math.max(node.height, size.h) : size.h;
-
-        return {
-          ...node,
-          zIndex: node.type === 'group' ? 0 : 1,
-          style: {
-            ...(node.style || {}),
-            width,
-            height,
-            minWidth: size.w,
-            minHeight: size.h,
-          },
-        } as FlowNodeType;
-      })
-      .sort((a, b) => {
-        const aParent = Boolean((a as FlowNodeType & { parentId?: string }).parentId);
-        const bParent = Boolean((b as FlowNodeType & { parentId?: string }).parentId);
-        if (aParent !== bParent) return aParent ? 1 : -1;
-        if ((a.type === 'group') !== (b.type === 'group')) return a.type === 'group' ? -1 : 1;
-        return 0;
-      });
-
-    const visibleEdges: Edge[] = [];
-    const virtualEdges: Edge[] = [];
-    const internalPortEdges: Edge[] = [];
-    const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
-
-    for (const node of visibleNodes) {
-      if (node.type !== 'group' || collapsedGroupIds.has(node.id)) continue;
-
-      const nodeData = (node.data || {}) as Record<string, unknown>;
-      for (const port of getGroupPorts(nodeData, 'input')) {
-        for (const insideLink of port.insideLinks) {
-          if (!visibleNodeIds.has(insideLink.nodeId)) continue;
-          internalPortEdges.push({
-            id: `group-binding:${node.id}:input:${port.id}:${insideLink.nodeId}:${insideLink.handleId}`,
-            source: node.id,
-            sourceHandle: buildGroupHandleId('input', port.id, 'internal'),
-            target: insideLink.nodeId,
-            targetHandle: insideLink.handleId,
-            type: 'default',
-            animated: false,
-            style: { ...GROUP_INTERNAL_EDGE_STYLE },
-          });
-        }
-      }
-
-      for (const port of getGroupPorts(nodeData, 'output')) {
-        for (const insideLink of port.insideLinks) {
-          if (!visibleNodeIds.has(insideLink.nodeId)) continue;
-          internalPortEdges.push({
-            id: `group-binding:${node.id}:output:${port.id}:${insideLink.nodeId}:${insideLink.handleId}`,
-            source: insideLink.nodeId,
-            sourceHandle: insideLink.handleId,
-            target: node.id,
-            targetHandle: buildGroupHandleId('output', port.id, 'internal'),
-            type: 'default',
-            animated: false,
-            style: { ...GROUP_INTERNAL_EDGE_STYLE },
-          });
-        }
-      }
-    }
-
-    for (const edge of store.edges) {
-      const sourceDescriptor = parseGroupHandleId(edge.sourceHandle);
-      const targetDescriptor = parseGroupHandleId(edge.targetHandle);
-      const sourceNodeForEdge = nodeMap.get(edge.source);
-      const targetNodeForEdge = nodeMap.get(edge.target);
-      const sourceIsCollapsedGroupExternal =
-        sourceNodeForEdge?.type === 'group'
-        && collapsedGroupIds.has(edge.source)
-        && sourceDescriptor?.role === 'external';
-      const targetIsCollapsedGroupExternal =
-        targetNodeForEdge?.type === 'group'
-        && collapsedGroupIds.has(edge.target)
-        && targetDescriptor?.role === 'external';
-
-      if (
-        sourceDescriptor
-        && sourceNodeForEdge?.type === 'group'
-        && sourceDescriptor.side === 'input'
-        && sourceDescriptor.role === 'internal'
-      ) {
-        const port = findGroupPort(
-          (sourceNodeForEdge.data || {}) as Record<string, unknown>,
-          'input',
-          sourceDescriptor.portId,
-        );
-        if (port?.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle)) {
-          continue;
-        }
-      }
-
-      if (
-        targetDescriptor
-        && targetNodeForEdge?.type === 'group'
-        && targetDescriptor.side === 'output'
-        && targetDescriptor.role === 'internal'
-      ) {
-        const port = findGroupPort(
-          (targetNodeForEdge.data || {}) as Record<string, unknown>,
-          'output',
-          targetDescriptor.portId,
-        );
-        if (port?.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle)) {
-          continue;
-        }
-      }
-
-      if (sourceIsCollapsedGroupExternal || targetIsCollapsedGroupExternal) {
-        visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
-        continue;
-      }
-
-      const sourceGroupId = getNearestGroupAncestorId(edge.source, nodeMap);
-      const targetGroupId = getNearestGroupAncestorId(edge.target, nodeMap);
-      const sourceCollapsedGroupId = getVisibleCollapsedAncestorId(edge.source, nodeMap, collapsedGroupIds);
-      const targetCollapsedGroupId = getVisibleCollapsedAncestorId(edge.target, nodeMap, collapsedGroupIds);
-      const visibleSourceGroupId = sourceCollapsedGroupId || sourceGroupId;
-      const visibleTargetGroupId = targetCollapsedGroupId || targetGroupId;
-
-      if (!visibleSourceGroupId && !visibleTargetGroupId) {
-        visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
-        continue;
-      }
-
-      if (visibleSourceGroupId && visibleTargetGroupId && visibleSourceGroupId === visibleTargetGroupId) {
-        if (!sourceCollapsedGroupId && !targetCollapsedGroupId) {
-          visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
-        }
-        continue;
-      }
-
-      if (!visibleSourceGroupId && visibleTargetGroupId) {
-        const groupNode = nodeMap.get(visibleTargetGroupId);
-        const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'input') : [];
-        const port = ports.find((item) => item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle));
-        if (!port) continue;
-        virtualEdges.push({
-          id: `virtual:${edge.id}`,
-          source: edge.source,
-          sourceHandle: edge.sourceHandle,
-          target: visibleTargetGroupId,
-          targetHandle: buildGroupHandleId('input', port.id, 'external'),
-          type: 'default',
-          animated: false,
-          style: { ...GROUP_EXTERNAL_EDGE_STYLE },
-        });
-        continue;
-      }
-
-      if (visibleSourceGroupId && !visibleTargetGroupId) {
-        const groupNode = nodeMap.get(visibleSourceGroupId);
-        const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'output') : [];
-        const port = ports.find((item) => item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle));
-        if (!port) continue;
-        virtualEdges.push({
-          id: `virtual:${edge.id}`,
-          source: visibleSourceGroupId,
-          sourceHandle: buildGroupHandleId('output', port.id, 'external'),
-          target: edge.target,
-          targetHandle: edge.targetHandle,
-          type: 'default',
-          animated: false,
-          style: { ...GROUP_EXTERNAL_EDGE_STYLE },
-        });
-        continue;
-      }
-
-      if (visibleSourceGroupId && visibleTargetGroupId) {
-        const sourceGroupNode = nodeMap.get(visibleSourceGroupId);
-        const targetGroupNode = nodeMap.get(visibleTargetGroupId);
-        const sourcePorts = sourceGroupNode ? getGroupPorts((sourceGroupNode.data || {}) as Record<string, unknown>, 'output') : [];
-        const targetPorts = targetGroupNode ? getGroupPorts((targetGroupNode.data || {}) as Record<string, unknown>, 'input') : [];
-        const sourcePort = sourcePorts.find((item) => item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle));
-        const targetPort = targetPorts.find((item) => item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle));
-        if (!sourcePort || !targetPort) continue;
-        virtualEdges.push({
-          id: `virtual:${edge.id}`,
-          source: visibleSourceGroupId,
-          sourceHandle: buildGroupHandleId('output', sourcePort.id, 'external'),
-          target: visibleTargetGroupId,
-          targetHandle: buildGroupHandleId('input', targetPort.id, 'external'),
-          type: 'default',
-          animated: false,
-          style: { ...GROUP_EXTERNAL_EDGE_STYLE },
-        });
-      }
-    }
-
-    return {
-      nodes: visibleNodes,
-      edges: [...visibleEdges, ...virtualEdges, ...internalPortEdges],
-      collapsedGroupIds,
-      nodeMap,
-    };
-  }, [store.edges, store.nodes]);
+  const renderModel = useMemo(() => buildFlowCanvasRenderModel({
+    nodes: store.nodes as FlowNodeType[],
+    edges: store.edges,
+  }), [store.edges, store.nodes]);
 
   const renderNodes = renderModel.nodes;
   const renderEdges = useMemo(() => {
@@ -1358,7 +361,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     start: { x: number; y: number },
     end: { x: number; y: number },
   ) => {
-    const cuttableEdges = findCuttableEdgesAlongSegment(start, end, renderNodes, renderModel.edges);
+    const cuttableEdges = findCuttableEdgesAlongSegment(start, end, renderNodes, renderModel.edges, 14);
 
     for (const edge of cuttableEdges) {
       const edgeId = resolveRenderableEdgeId(edge);
@@ -1674,12 +677,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       y: event.clientY,
     });
 
-    if (nodeType && !DISABLED_NEW_NODE_TYPES.has(nodeType)) {
+    if (nodeType && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
       store.addNode(nodeType, position, buildDefaultData(nodeType));
       return;
     }
 
-    if (nodeType && DISABLED_NEW_NODE_TYPES.has(nodeType)) {
+    if (nodeType && FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
       closeContextMenu();
       return;
     }
@@ -1689,7 +692,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
     files.forEach((file, index) => {
       const droppedNodeType = getDroppedFileNodeType(file);
-      if (!droppedNodeType || DISABLED_NEW_NODE_TYPES.has(droppedNodeType)) return;
+      if (!droppedNodeType || FLOW_DISABLED_NEW_NODE_TYPES.has(droppedNodeType)) return;
 
       const nodeId = store.addNode(
         droppedNodeType,
@@ -1974,7 +977,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
           extent = [[...coordinateExtent[0]], [...coordinateExtent[1]]] as CoordinateExtent;
         }
 
-        const nextData = FORCE_DISABLED_NODE_TYPES.has(node.type || '')
+        const nextData = FLOW_FORCE_DISABLED_NODE_TYPES.has(node.type || '')
           ? { ...node.data, disabled: true }
           : node.data;
 
@@ -2228,7 +1231,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
   const addNodeFromMenu = useCallback((nodeType: string) => {
     if (!contextMenu) return;
-    if (DISABLED_NEW_NODE_TYPES.has(nodeType)) return;
+    if (FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) return;
 
     const position = getCenteredPosition(nodeType, contextMenu.flowPosition);
     const newNodeId = store.addNode(nodeType, position, buildDefaultData(nodeType));
@@ -2276,12 +1279,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     if (!contextMenu) return [];
 
     if (contextMenu.kind !== 'connect' || !contextMenu.sourceConnection) {
-      return NODE_REGISTRY.filter((nodeDef) => nodeDef.type !== 'group' && !DISABLED_NEW_NODE_TYPES.has(nodeDef.type));
+      return NODE_REGISTRY.filter((nodeDef) => nodeDef.type !== 'group' && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeDef.type));
     }
 
     const pending = contextMenu.sourceConnection;
 
-    return NODE_REGISTRY.filter((nodeDef) => nodeDef.type !== 'group' && !DISABLED_NEW_NODE_TYPES.has(nodeDef.type)).filter((nodeDef) => {
+    return NODE_REGISTRY.filter((nodeDef) => nodeDef.type !== 'group' && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeDef.type)).filter((nodeDef) => {
       if (pending.handleType === 'source') {
         if (nodeDef.inputs.length === 0) return false;
 
@@ -2308,15 +1311,15 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   }, [contextMenu]);
 
   const groupedNodeDefs = useMemo(() => {
-    return CATEGORY_ORDER.map((category) => ({
+    return FLOW_CATEGORY_ORDER.map((category) => ({
       category,
-      label: CATEGORY_LABELS[category],
+      label: FLOW_CATEGORY_LABELS[category],
       items: availableNodeDefs.filter((nodeDef) => nodeDef.category === category),
     })).filter((group) => group.items.length > 0);
   }, [availableNodeDefs]);
 
   const miniMapNodeColor = useCallback((node: { type?: string | null }) => {
-    return NODE_COLORS[node.type || ''] || '#8E8E93';
+    return FLOW_NODE_COLORS[node.type || ''] || '#8E8E93';
   }, []);
 
   const currentNodeCategory = groupedNodeDefs.some((group) => group.category === activeCategory)
@@ -2355,7 +1358,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         onMoveEnd={reportViewportCenter}
         onDragOver={onDragOver}
         onDrop={onDrop}
-        nodeTypes={nodeTypes}
+        nodeTypes={FLOW_NODE_TYPES}
         isValidConnection={isValidConnection}
         defaultEdgeOptions={{
           type: 'default',
@@ -2582,7 +1585,7 @@ function ContextMenuButton({
       onMouseEnter={() => {
         if (!disabled) onHover?.();
       }}
-      title={title || (disabled ? DISABLED_NODE_REASON : label)}
+      title={title || (disabled ? FLOW_DISABLED_NODE_REASON : label)}
     >
       {label}
     </button>

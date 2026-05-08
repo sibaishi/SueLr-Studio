@@ -3,6 +3,10 @@ import type { Conv, GalleryItem } from '@/lib/types';
 
 const API = '/api/assistant';
 
+function getResultData<T>(result: { success: boolean; data?: T }): T | null {
+  return result.success && result.data ? result.data : null;
+}
+
 function normalizeGalleryItems(items: unknown[]): GalleryItem[] {
   if (!Array.isArray(items)) return [];
   return items
@@ -25,7 +29,7 @@ function normalizeGalleryItems(items: unknown[]): GalleryItem[] {
 export async function loadConversations(): Promise<Conv[]> {
   if (!isBackendAvailable()) return [];
   const result = await apiRequest<Conv[]>(`${API}/conversations`);
-  return result.success && result.data ? result.data : [];
+  return getResultData(result) ?? [];
 }
 
 export async function saveConversations(convs: Conv[]): Promise<void> {
@@ -47,13 +51,13 @@ export async function saveImage(item: { id: string; data?: string; url?: string;
     method: 'POST',
     body: JSON.stringify(item),
   });
-  return result.success ? result.data?.localUrl || null : null;
+  return getResultData(result)?.localUrl ?? null;
 }
 
 export async function loadGallery(): Promise<GalleryItem[]> {
   if (!isBackendAvailable()) return [];
   const result = await apiRequest<unknown[]>(`${API}/images`);
-  return result.success && result.data ? normalizeGalleryItems(result.data) : [];
+  return normalizeGalleryItems(getResultData(result) ?? []);
 }
 
 export async function clearGallery(): Promise<void> {
@@ -72,7 +76,7 @@ export async function saveVideo(item: { id: string; url: string; prompt: string;
 export async function loadVideos(): Promise<GalleryItem[]> {
   if (!isBackendAvailable()) return [];
   const result = await apiRequest<GalleryItem[]>(`${API}/videos`);
-  return result.success && result.data ? result.data : [];
+  return getResultData(result) ?? [];
 }
 
 export async function clearVideos(): Promise<void> {

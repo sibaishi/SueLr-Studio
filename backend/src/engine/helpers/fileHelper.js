@@ -10,6 +10,22 @@ import { STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.j
 const UPLOADS_DIR = STORAGE_PATHS.uploadsDir;
 const OUTPUTS_DIR = STORAGE_PATHS.generatedDir;
 
+function decodeUrlPathSegment(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+function resolveUrlPath(baseDir, filename) {
+  const resolvedName = String(filename || '')
+    .split('/')
+    .map(decodeUrlPathSegment)
+    .join(path.sep);
+  return safeResolveWithin(baseDir, resolvedName);
+}
+
 /**
  * 将服务器 URL 转换为本地文件路径
  * @param {string} url - 如 "/api/files/xxx.jpg" 或 "/api/outputs/xxx.png"
@@ -21,7 +37,7 @@ export function urlToLocalPath(url) {
   // 服务器 URL
   if (url.startsWith('/api/files/')) {
     const filename = url.replace('/api/files/', '');
-    const filePath = safeResolveWithin(UPLOADS_DIR, filename);
+    const filePath = resolveUrlPath(UPLOADS_DIR, filename);
     // 安全检查
     if (filePath && fs.existsSync(filePath)) {
       return filePath;
@@ -29,7 +45,7 @@ export function urlToLocalPath(url) {
   }
   if (url.startsWith('/api/outputs/')) {
     const filename = url.replace('/api/outputs/', '');
-    const filePath = safeResolveWithin(OUTPUTS_DIR, filename);
+    const filePath = resolveUrlPath(OUTPUTS_DIR, filename);
     if (filePath && fs.existsSync(filePath)) {
       return filePath;
     }

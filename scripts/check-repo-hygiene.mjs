@@ -18,6 +18,7 @@ const requiredFiles = [
   '.github/workflows/ci.yml',
   'package.json',
   'backend/package.json',
+  'scripts/check-encoding.mjs',
 ];
 
 for (const file of requiredFiles) {
@@ -51,6 +52,7 @@ if (failures.length === 0) {
     'test:e2e',
     'test:e2e:install',
     'check:repo-hygiene',
+    'check:encoding',
   ]) {
     if (!rootScripts[scriptName]) {
       failures.push(`package.json is missing required root script: ${scriptName}`);
@@ -66,7 +68,7 @@ if (failures.length === 0) {
   const documentChecks = [
     { file: 'README.md', source: readme, snippets: ['npm run install:all', 'npm run dev', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'CONTRIBUTING.md'] },
     { file: 'CONTRIBUTING.md', source: contributing, snippets: ['npm run install:all', 'npm run dev', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'http://localhost:5173', 'http://127.0.0.1:3001'] },
-    { file: 'docs/developer-guide.md', source: developerGuide, snippets: ['## Maintenance Workflow', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', '.private-docs/'] },
+    { file: 'docs/developer-guide.md', source: developerGuide, snippets: ['## Maintenance Workflow', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', '.private-docs/', 'UTF-8'] },
   ];
 
   for (const documentCheck of documentChecks) {

@@ -3,6 +3,16 @@ const { pathToFileURL } = require('node:url');
 const net = require('node:net');
 const path = require('node:path');
 
+const APP_HOST = '127.0.0.1';
+const WINDOW_OPTIONS = {
+  width: 1280,
+  height: 820,
+  minWidth: 1024,
+  minHeight: 680,
+  title: 'SueLr Studio',
+  backgroundColor: '#0f172a',
+};
+
 let mainWindow = null;
 let backendServer = null;
 let relaunching = false;
@@ -27,15 +37,14 @@ function resolveAppPath(...segments) {
 }
 
 async function startBackend() {
-  const host = '127.0.0.1';
-  const port = await findFreePort(host);
+  const port = await findFreePort(APP_HOST);
   const frontendDist = resolveAppPath('dist');
   const backendEntry = resolveAppPath('backend', 'server.js');
 
-  process.env.APP_HOST = host;
+  process.env.APP_HOST = APP_HOST;
   process.env.APP_PORT = String(port);
   process.env.APP_FRONTEND_DIST = frontendDist;
-  process.env.APP_ALLOWED_ORIGINS = `http://${host}:${port}`;
+  process.env.APP_ALLOWED_ORIGINS = `http://${APP_HOST}:${port}`;
   process.env.APP_EMBEDDED_BACKEND = '1';
   process.env.APP_DESKTOP_RELAUNCH = '1';
   process.env.APP_DESKTOP_RELAUNCH_HOOK = '1';
@@ -47,19 +56,14 @@ async function startBackend() {
   };
 
   const { startServer } = await import(pathToFileURL(backendEntry).href);
-  backendServer = startServer(port, host);
-  return `http://${host}:${port}`;
+  backendServer = startServer(port, APP_HOST);
+  return `http://${APP_HOST}:${port}`;
 }
 
 function createWindow(url) {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 1024,
-    minHeight: 680,
-    title: 'SueLr Studio',
+    ...WINDOW_OPTIONS,
     icon: resolveAppPath('build', 'icon.ico'),
-    backgroundColor: '#0f172a',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

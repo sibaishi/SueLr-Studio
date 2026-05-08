@@ -16,16 +16,30 @@ export type ImageCapabilityResult = {
   request: Record<string, unknown>;
 };
 
+type CapabilityRequestOptions = {
+  signal?: AbortSignal;
+};
+
+function createJsonRequestInit(body: unknown, options: CapabilityRequestOptions = {}): RequestInit {
+  return {
+    method: 'POST',
+    body: JSON.stringify(body),
+    signal: options.signal,
+  };
+}
+
+function omitSignal<T extends { signal?: AbortSignal }>(params: T): Omit<T, 'signal'> {
+  const { signal: _signal, ...rest } = params;
+  return rest;
+}
+
 export async function capabilityChatCompletion(params: {
   model: string;
   messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: any[] }>;
   tools?: ToolDefinition[];
   apiConfig?: ApiConfigPayload;
 }) {
-  return apiRequestOrThrow<ChatCompletionResponse>('/api/capabilities/chat', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
+  return apiRequestOrThrow<ChatCompletionResponse>('/api/capabilities/chat', createJsonRequestInit(params));
 }
 
 export async function capabilityChatCompletionStream(params: {
@@ -35,13 +49,12 @@ export async function capabilityChatCompletionStream(params: {
   apiConfig?: ApiConfigPayload;
   signal?: AbortSignal;
 }) {
+  const body = { ...omitSignal(params), stream: true };
   const response = await fetch('/api/capabilities/chat?stream=true', {
-    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ...params, stream: true, signal: undefined }),
-    signal: params.signal,
+    ...createJsonRequestInit(body, { signal: params.signal }),
   });
 
   if (!response.ok) {
@@ -66,10 +79,7 @@ export async function capabilityWebSearch(params: {
   includeAnswer?: boolean;
   apiConfig?: ApiConfigPayload;
 }) {
-  return apiRequestOrThrow<{ raw: any; content: string }>('/api/capabilities/search', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
+  return apiRequestOrThrow<{ raw: any; content: string }>('/api/capabilities/search', createJsonRequestInit(params));
 }
 
 export async function capabilityGenerateImage(params: {
@@ -87,11 +97,10 @@ export async function capabilityGenerateImage(params: {
   apiConfig?: ApiConfigPayload;
   signal?: AbortSignal;
 }) {
-  return apiRequestOrThrow<ImageCapabilityResult>('/api/capabilities/image', {
-    method: 'POST',
-    body: JSON.stringify({ ...params, signal: undefined }),
-    signal: params.signal,
-  });
+  return apiRequestOrThrow<ImageCapabilityResult>(
+    '/api/capabilities/image',
+    createJsonRequestInit(omitSignal(params), { signal: params.signal }),
+  );
 }
 
 export async function capabilitySubmitVideoGeneration(params: {
@@ -110,11 +119,10 @@ export async function capabilitySubmitVideoGeneration(params: {
   apiConfig?: ApiConfigPayload;
   signal?: AbortSignal;
 }) {
-  return apiRequestOrThrow<{ mode: 'poll' | 'sync'; taskId?: string; videoUrl?: string; raw?: unknown }>('/api/capabilities/video', {
-    method: 'POST',
-    body: JSON.stringify({ ...params, signal: undefined }),
-    signal: params.signal,
-  });
+  return apiRequestOrThrow<{ mode: 'poll' | 'sync'; taskId?: string; videoUrl?: string; raw?: unknown }>(
+    '/api/capabilities/video',
+    createJsonRequestInit(omitSignal(params), { signal: params.signal }),
+  );
 }
 
 export async function capabilityPollVideoTask(taskId: string) {
