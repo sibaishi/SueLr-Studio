@@ -569,7 +569,17 @@ async function parseImageApiResponse(response, context, sendProgress) {
   }
 
   try {
-    return JSON.parse(responseText);
+    const parsed = JSON.parse(responseText);
+    const extractedImages = extractImagesFromResponse(parsed);
+    const remoteUrls = extractedImages.filter((image) => /^https?:\/\//i.test(String(image)));
+    if (remoteUrls.length > 0) {
+      remoteUrls.forEach((url, index) => {
+        sendProgress?.(`${context}返回图片URL[${index + 1}]: ${url}`);
+      });
+    } else if (extractedImages.some((image) => String(image).startsWith('data:'))) {
+      sendProgress?.(`${context}返回了内联图片数据(data URL)，未展开完整内容到日志`);
+    }
+    return parsed;
   } catch {
     const preview = responseText.replace(/\s+/g, ' ').slice(0, 300);
     throw new Error(`${context}响应解析失败: contentType=${contentType}; preview=${preview}`);
@@ -1115,7 +1125,12 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
     if (String(image).startsWith('data:')) {
       outputImages.push(image);
     } else if (String(image).startsWith('http')) {
-      outputImages.push(await downloadRemoteImage(image, sendProgress, abortSignal));
+      try {
+        outputImages.push(await downloadRemoteImage(image, sendProgress, abortSignal));
+      } catch (error) {
+        sendProgress?.(`下载远程图片失败，已保留原始URL继续流程: ${String(image)}; ${error?.message || error}`);
+        outputImages.push(String(image));
+      }
     } else {
       throw new Error(`无法识别的图片返回格式: ${String(image).slice(0, 120)}`);
     }

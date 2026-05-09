@@ -368,16 +368,16 @@ function AiOutputValue({
   }
 
   if (typeof value === 'string') {
-    if (isVisualAssetUrl(value)) return <ImageResult src={value} onPreviewImage={onPreviewImage} />;
-    if (isVideoUrl(value)) return <VideoResult src={value} />;
-    if (isAudioUrl(value)) return <audio src={value} controls className="w-full" />;
+    if (isRenderableOutputImageUrl(value)) return <ImageResult src={value} onPreviewImage={onPreviewImage} />;
+    if (isRenderableOutputVideoUrl(value)) return <VideoResult src={value} />;
+    if (isRenderableOutputAudioUrl(value)) return <audio src={value} controls className="w-full" />;
     return <TextResult text={value} />;
   }
 
   if (Array.isArray(value)) {
     const normalized = value.map(unwrapOutputValue);
     const values = normalized.filter((item): item is string => typeof item === 'string');
-    if (values.length === normalized.length && values.every(isVisualAssetUrl)) {
+    if (values.length === normalized.length && values.every(isRenderableOutputImageUrl)) {
       return (
         <div className="grid grid-cols-2 gap-2">
           {values.map((src, index) => (
@@ -386,10 +386,10 @@ function AiOutputValue({
         </div>
       );
     }
-    if (values.length === normalized.length && values.every(isVideoUrl)) {
+    if (values.length === normalized.length && values.every(isRenderableOutputVideoUrl)) {
       return <div className="space-y-2">{values.map((src) => <VideoResult key={src} src={src} compact />)}</div>;
     }
-    if (values.length === normalized.length && values.every(isAudioUrl)) {
+    if (values.length === normalized.length && values.every(isRenderableOutputAudioUrl)) {
       return <div className="space-y-2">{values.map((src) => <audio key={src} src={src} controls className="w-full" />)}</div>;
     }
     return <TextResult text={JSON.stringify(normalized, null, 2)} mono />;
@@ -441,8 +441,8 @@ function ImageResult({
   );
 }
 
-function isVisualAssetUrl(value: string) {
-  return isImageUrl(value) || isMaskLikeUrl(value);
+function isRenderableOutputImageUrl(value: string) {
+  return isLocalOrInlineMediaUrl(value) && isImageUrl(value);
 }
 
 function VideoResult({ src, compact = false }: { src: string; compact?: boolean }) {
@@ -700,8 +700,16 @@ function isImageUrl(value: string) {
   return /^data:image\//.test(value) || /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(value);
 }
 
-function isMaskLikeUrl(value: string) {
-  return value.startsWith('blob:') || /^https?:\/\//i.test(value) || value.startsWith('/');
+function isRenderableOutputVideoUrl(value: string) {
+  return isLocalOrInlineMediaUrl(value) && isVideoUrl(value);
+}
+
+function isRenderableOutputAudioUrl(value: string) {
+  return isLocalOrInlineMediaUrl(value) && isAudioUrl(value);
+}
+
+function isLocalOrInlineMediaUrl(value: string) {
+  return value.startsWith('data:') || value.startsWith('blob:') || value.startsWith('/api/files/') || value.startsWith('/api/outputs/');
 }
 
 function isVideoUrl(value: string) {

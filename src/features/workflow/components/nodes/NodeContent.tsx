@@ -887,12 +887,12 @@ function OutputContent({
 
 function InteractiveValue({ value }: { value: unknown }) {
   if (typeof value === 'string') {
-    if (isMediaUrl(value)) return <MediaCard value={value} fill />;
+    if (isRenderableOutputMediaUrl(value)) return <MediaCard value={value} fill />;
     return <TextCard text={value} />;
   }
 
   if (Array.isArray(value)) {
-    const mediaValues = value.filter((item): item is string => typeof item === 'string' && isMediaUrl(item));
+    const mediaValues = value.filter((item): item is string => typeof item === 'string' && isRenderableOutputMediaUrl(item));
     if (mediaValues.length === value.length && mediaValues.length > 0) {
       return (
         <div className="node-media-grid">
@@ -906,4 +906,10 @@ function InteractiveValue({ value }: { value: unknown }) {
   }
 
   return <TextCard text={JSON.stringify(value, null, 2)} mono />;
+}
+
+function isRenderableOutputMediaUrl(value: string) {
+  if (value.startsWith('data:') || value.startsWith('blob:')) return isMediaUrl(value);
+  if (value.startsWith('/api/files/') || value.startsWith('/api/outputs/')) return isMediaUrl(value);
+  return false;
 }

@@ -102,17 +102,7 @@ async function saveString(value, options) {
     return { type, path: filePath };
   }
 
-  if (/^https?:\/\//i.test(value) && detectUrlType(value) !== 'text') {
-    const response = await fetch(value);
-    if (!response.ok) throw new Error(`下载远程文件失败: HTTP ${response.status}`);
-    const contentType = response.headers.get('content-type') || '';
-    const type = detectUrlType(value);
-    const ext = MIME_EXT[contentType] || path.extname(new URL(value).pathname).replace('.', '') || 'bin';
-    const filePath = targetPath(type, options, ext);
-    fs.writeFileSync(filePath, Buffer.from(await response.arrayBuffer()));
-    return { type, path: filePath };
-  }
-
+  // Keep remote URLs as text artifacts instead of fetching them again.
   const filePath = targetPath('text', options, 'txt');
   fs.writeFileSync(filePath, value, 'utf-8');
   return { type: 'text', path: filePath };

@@ -197,6 +197,51 @@ test('generateImages retries connect timeout for image generation requests', asy
   }
 });
 
+test('generateImages keeps remote URL output when download times out', async () => {
+  const originalFetch = globalThis.fetch;
+  const progress = [];
+  let requestCount = 0;
+  const remoteUrl = 'http://127.0.0.1/generated-image.png';
+
+  globalThis.fetch = async (url, options = {}) => {
+    requestCount += 1;
+    if (options.method === 'POST') {
+      return new Response(JSON.stringify({
+        data: [
+          { url: remoteUrl },
+        ],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    assert.equal(String(url), remoteUrl);
+    const error = new Error('fetch failed');
+    error.cause = {
+      code: 'UND_ERR_CONNECT_TIMEOUT',
+      message: 'Connect Timeout Error',
+    };
+    throw error;
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig(), (message) => {
+      progress.push(message);
+    });
+
+    assert.deepEqual(result.images, [remoteUrl]);
+    assert.equal(requestCount, 2);
+    assert.match(progress.join('\n'), /返回图片URL\[1\]: http:\/\/127\.0\.0\.1\/generated-image\.png/);
+    assert.match(progress.join('\n'), /下载远程图片失败，已保留原始URL继续流程/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateImages sends resolved size without duplicate aspect_ratio for ratio sizing', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;
