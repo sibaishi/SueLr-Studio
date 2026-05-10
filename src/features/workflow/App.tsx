@@ -15,6 +15,7 @@ import {
   parseWorkflowImport,
   serializeWorkflowExport,
 } from '@/features/workflow/lib/importExport';
+import { resolveWorkflowShortcutAction } from '@/features/workflow/lib/hotkeys';
 import { useWorkflowStore, type WorkflowEditorSnapshot } from '@/features/workflow/lib/store';
 import { useWorkflowPageStore } from '@/features/workflow/lib/store/selectors';
 import type { NodeTypeDef } from '@/features/workflow/lib/types';
@@ -186,31 +187,6 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     syncHistoryState();
   }, [applyHistorySnapshot, store, syncHistoryState]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const tagName = target?.tagName;
-      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target?.isContentEditable) return;
-
-      const isModifierPressed = event.ctrlKey || event.metaKey;
-      if (!isModifierPressed) return;
-
-      if (event.key.toLowerCase() === 'z' && !event.shiftKey) {
-        event.preventDefault();
-        handleUndo();
-        return;
-      }
-
-      if ((event.key.toLowerCase() === 'z' && event.shiftKey) || event.key.toLowerCase() === 'y') {
-        event.preventDefault();
-        handleRedo();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleRedo, handleUndo]);
-
   const confirmDiscardChanges = useCallback(
     (actionLabel: string) => {
       if (!store.hasUnsavedChanges) return true;
@@ -280,6 +256,47 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
   const handleExecute = useCallback(async () => {
     await store.executeWorkflow();
   }, [store]);
+
+  const handleCreateSelectedNodeGroup = useCallback(() => {
+    const selectedNodeIds = store.nodes.filter((node) => node.selected).map((node) => node.id);
+    if (selectedNodeIds.length < 2) return;
+    store.createNodeGroup(selectedNodeIds);
+  }, [store]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target?.isContentEditable) return;
+
+      const action = resolveWorkflowShortcutAction(event);
+      if (!action) return;
+
+      event.preventDefault();
+
+      if (action === 'group') {
+        handleCreateSelectedNodeGroup();
+        return;
+      }
+
+      if (action === 'run') {
+        void handleExecute();
+        return;
+      }
+
+      if (action === 'undo') {
+        handleUndo();
+        return;
+      }
+
+      if (action === 'redo') {
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleCreateSelectedNodeGroup, handleExecute, handleRedo, handleUndo]);
 
   const handleCancelExecution = useCallback(async () => {
     await store.cancelWorkflowExecution();

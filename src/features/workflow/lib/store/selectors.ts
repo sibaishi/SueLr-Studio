@@ -28,6 +28,7 @@ export function useWorkflowPageStore() {
     autoArrangeWorkflow: state.autoArrangeWorkflow,
     applyEditorSnapshot: state.applyEditorSnapshot,
     cancelWorkflowExecution: state.cancelWorkflowExecution,
+    createNodeGroup: state.createNodeGroup,
     deleteCurrentWorkflow: state.deleteCurrentWorkflow,
     duplicateCurrentWorkflow: state.duplicateCurrentWorkflow,
     executeWorkflow: state.executeWorkflow,
