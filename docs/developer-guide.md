@@ -171,6 +171,8 @@ Current cleanup and ownership notes:
   - workflow API bridge to backend execution and persistence routes
 - `src/features/workflow/lib/importExport.ts`
   - workflow import/export serialization helpers
+- `src/features/workflow/lib/hotkeys.ts`
+  - workflow workspace shortcut resolution for undo, redo, grouping, and execution
 
 ### Shared frontend infrastructure
 
@@ -351,7 +353,7 @@ High-value regression areas:
 - group input/output port routing across group boundaries
 - directional group-port connection behavior from `FlowCanvas.tsx` through `NodePorts.tsx`
 - centered node-picker panel, blank-canvas double-click open, and blank-canvas right-click paste menu
-- workflow keyboard shortcuts for copy and paste placement
+- workflow keyboard shortcuts for copy, paste, grouping, execution, undo, and redo
 - workflow node registry compatibility after node-definition moves
 - per-node folder compatibility exports under `src/shared/workflow/node-definitions/`
 - editable grouped graph to executable flat graph projection
@@ -403,3 +405,5 @@ Keep private planning, audit notes, and non-release working documents in `.priva
 Use `npm start`, `start.bat`, or `start.sh` for normal local startup. The launcher owns dependency bootstrapping, Node version validation, port selection, backend health gating, frontend proxy wiring, log files, browser opening, and shutdown coordination.
 
 Use `npm run dev` when you explicitly want the raw concurrently-based command. Use `npm run dev:frontend` and `npm run dev:backend` only when debugging one side of the app in isolation.
+
+When isolating the frontend, remember that workflow, settings, and other local app requests still use the Vite `/api` proxy. If the backend is running on a non-default port, set `VITE_DEV_PROXY_TARGET` so the frontend talks to the intended backend instance.

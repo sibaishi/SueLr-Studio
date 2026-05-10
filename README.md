@@ -1,69 +1,75 @@
 # SueLr Studio
 
-SueLr Studio is a local-first multimodal studio for chat, image, video, and workflow-based AI tasks.
+SueLr Studio 是一个本地优先的多模态工作台，用于对话、图像、视频和基于工作流的 AI 任务。
 
-It is built for people who want a desktop-style AI workspace on their own machine: configure providers, run multimodal tasks, assemble workflows on canvas, and keep runtime data under local control.
+它面向希望在自己机器上使用桌面式 AI 工作空间的人：配置模型服务、运行多模态任务、在画布上搭建工作流，并让运行时数据保持本地可控。
 
-## What This Repository Ships
+## 仓库内容
 
-- a Vite + React frontend for chat, image, video, and workflow editing
-- an Express-based local backend for provider access, workflow runtime, files, and settings
-- a local-first runtime model that stores app data outside the repository by default
-- repository quality gates for docs, runtime boundaries, workflow store structure, tests, and builds
+- 基于 Vite + React 的前端，用于对话、图像、视频和工作流编辑
+- 基于 Express 的本地后端，用于模型服务接入、工作流运行、文件处理和设置管理
+- 本地优先的运行时模型，默认将应用数据存放在仓库外部
+- 覆盖文档、运行时边界、工作流状态结构、测试与构建的仓库质量门禁
 
-## Project Status
+## 项目状态
 
-This repository is actively maintained as a local application project, not a hosted multi-user SaaS.
+这个仓库当前作为本地应用项目持续维护，并不是一个托管式多用户 SaaS。
 
-Current public documentation is intentionally small:
+当前公开文档保持精简：
 
 - [User Guide](docs/user-guide.md)
 - [Developer Guide](docs/developer-guide.md)
 - [Release SOP](docs/release-sop.md)
 
-## Quick Start
+## 快速开始
 
-### Requirements
+### 环境要求
 
 - Node.js `>=22.12.0`
 - npm
 
-### Install
+### 安装
 
 ```bash
 npm install
 npm run install:all
 ```
 
-### Start
+### 启动
 
 ```bash
 npm start
 ```
 
-Windows PowerShell may block `npm.ps1` depending on local execution policy. If that happens, use:
+Windows PowerShell 可能会因为本地执行策略拦截 `npm.ps1`。如果遇到这个问题，请使用：
 
 ```bash
 start.bat
 ```
 
-Default local addresses:
+默认本地地址：
 
-- frontend: `http://localhost:5173`
-- backend: `http://127.0.0.1:3001`
+- 前端：`http://localhost:5173`
+- 后端：`http://127.0.0.1:3001`
 
-## Typical Use
+## 典型使用方式
 
-SueLr Studio is organized around four everyday flows:
+SueLr Studio 主要围绕四类日常使用流程组织：
 
-1. Configure providers and model access from settings.
-2. Run direct chat, image, and video tasks.
-3. Build and execute workflows on the canvas, including centered node picking, grouped nodes, and keyboard copy-paste.
-4. Review outputs, logs, generated files, and workflow run details locally.
+1. 在设置中配置模型服务和模型访问方式。
+2. 直接运行对话、图像和视频任务。
+3. 在画布上搭建并执行工作流，包括居中节点选择、节点分组和键盘复制粘贴。
+4. 在本地查看输出、日志、生成文件和工作流运行详情。
 
-## Runtime Data
+工作流快捷键包括：
 
-Runtime data is stored in the system config directory by default instead of the repository `storage/` folder:
+- `Alt+G`：将当前选中的画布节点创建为节点组
+- `Ctrl+Shift+Enter`：在工作流页面直接启动一次工作流运行
+- `Ctrl+C` 和 `Ctrl+V`：在画布中复制和粘贴节点
+
+## 运行时数据
+
+运行时数据默认存放在系统配置目录，而不是仓库内的 `storage/` 目录：
 
 ```text
 Windows: %APPDATA%\SueLr-Studio
@@ -71,9 +77,9 @@ macOS:   ~/Library/Application Support/SueLr-Studio
 Linux:   ${XDG_CONFIG_HOME:-~/.config}/SueLr-Studio
 ```
 
-Set `APP_CONFIG_DIR` if you want to pin runtime data to a custom absolute path.
+如果你希望把运行时数据固定到自定义绝对路径，可以设置 `APP_CONFIG_DIR`。
 
-## Common Commands
+## 常用命令
 
 ```bash
 npm start
@@ -87,22 +93,24 @@ npm run test:e2e
 npm run test:e2e:install
 ```
 
-`start.bat` and `start.sh` are convenience launchers for `npm start`. The one-click launcher checks the Node.js version, installs missing root and backend dependencies, finds available frontend/backend ports, writes timestamped logs under `.run-logs/`, opens the browser, and stops both processes on `Ctrl+C`.
+`start.bat` 和 `start.sh` 是 `npm start` 的便捷启动器。一键启动器会检查 Node.js 版本、安装缺失的根目录与后端依赖、寻找可用的前后端端口、把带时间戳的日志写到 `.run-logs/`、自动打开浏览器，并在 `Ctrl+C` 时同时停止前后端进程。
 
-`npm run dev` remains available for maintainers who want the simpler combined development command without launcher orchestration.
+对于希望使用更直接的组合开发命令、而不依赖启动器编排的维护者，`npm run dev` 仍然可用。
 
-## Repository Layout
+当你只运行前端 `npm run dev:frontend` 时，工作流和设置等 API 请求仍然依赖 Vite 的 `/api` 代理。如果你的后端并没有运行在默认的 `http://localhost:3001`，请确保 `VITE_DEV_PROXY_TARGET` 指向实际后端地址。
+
+## 仓库结构
 
 ```text
-src/            frontend application code
-backend/        backend server and feature modules
-tests/          frontend unit and end-to-end verification
-docs/           public project documentation
-scripts/        repository quality-gate scripts
-workflows/      example workflow files
+src/            前端应用代码
+backend/        后端服务与功能模块
+tests/          前端单元测试与端到端验证
+docs/           公开项目文档
+scripts/        仓库质量门禁脚本
+workflows/      示例工作流文件
 ```
 
-Workflow node definitions now follow an isolated folder layout under `src/shared/workflow/node-definitions/`:
+工作流节点定义现在采用 `src/shared/workflow/node-definitions/` 下的隔离目录结构：
 
 ```text
 node-definitions/
@@ -113,16 +121,16 @@ node-definitions/
       node.js
 ```
 
-This keeps each node's public entry stable while isolating its actual definition for safer future edits.
+这种方式可以让每个节点的公开入口保持稳定，同时把真实定义隔离开，方便后续更安全地修改。
 
-## Contributing
+## 参与贡献
 
-External collaboration is welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, validation commands, and repository conventions.
-For a first contributor pass, run the app locally once, then use `npm run check`, and install Playwright with `npm run test:e2e:install` before your first local `npm run test:e2e`.
+欢迎外部协作。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，了解本地环境搭建、校验命令和仓库约定。
+如果你是第一次参与，建议先在本地把应用跑起来一次，然后执行 `npm run check`，并在第一次本地运行 `npm run test:e2e` 之前先通过 `npm run test:e2e:install` 安装 Playwright。
 
-When editing Chinese user-facing text, file names, or persisted content, keep the changes UTF-8 and run `npm run check:encoding` as part of the review loop.
+当你修改中文用户可见文案、文件名或持久化内容时，请保持 UTF-8 编码，并把 `npm run check:encoding` 纳入你的检查流程。
 
-## License Status
+## 许可状态
 
-This repository does not currently declare an open-source license file.
-If you plan to publish it for broader reuse, the license choice should be made explicitly before treating it as an open-source distribution.
+这个仓库当前还没有声明开源许可证文件。
+如果你计划将它公开发布并供更广泛复用，在将其视为开源分发之前，应该先明确许可证选择。

@@ -79,6 +79,8 @@ Start only the frontend:
 npm run dev:frontend
 ```
 
+If you start only the frontend, make sure the Vite `/api` proxy still points to the backend you actually have running. When the backend is not on the default `http://localhost:3001`, set `VITE_DEV_PROXY_TARGET` before starting the frontend.
+
 Start only the backend:
 
 ```bash
@@ -213,6 +215,8 @@ Canvas interaction notes:
 - double-click blank canvas space to open the centered `New Node` panel
 - right-click blank canvas space to open the lightweight action menu, including `Paste Node`
 - right-click selected nodes to open node or multi-node actions
+- use `Alt+G` to create a group from the current node selection
+- use `Ctrl+Shift+Enter` to start workflow execution from the keyboard
 - use `Ctrl+C` to copy selected nodes or groups
 - use `Ctrl+V` to paste near the current mouse position on the canvas
 
