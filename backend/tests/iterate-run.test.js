@@ -69,17 +69,75 @@ test('iterateRun skips empty text inputs', async () => {
   assert.deepEqual(cleanCompletions[0].data.outputs, { text: 'alpha' });
 });
 
-test('iterateRun validates single control node limit', async () => {
+test('iterateRun supports multiple independent control nodes', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'iterateA', type: 'iterateRun', data: {} },
-      { id: 'iterateB', type: 'iterateRun', data: {} },
+      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
+      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+      { id: 'promptC', type: 'textInput', data: { text: 'gamma' } },
+      { id: 'promptD', type: 'textInput', data: { text: 'delta' } },
+      { id: 'iterateA', type: 'iterateRun', data: { inputCount: 2 } },
+      { id: 'iterateB', type: 'iterateRun', data: { inputCount: 2 } },
+      { id: 'cleanA', type: 'textClean', data: {} },
+      { id: 'cleanB', type: 'textClean', data: {} },
     ],
-    edges: [],
+    edges: [
+      edge('a-iterate-a', 'promptA', 'text', 'iterateA', 'item1'),
+      edge('b-iterate-a', 'promptB', 'text', 'iterateA', 'item2'),
+      edge('iterate-a-clean-a', 'iterateA', 'text', 'cleanA', 'text'),
+      edge('c-iterate-b', 'promptC', 'text', 'iterateB', 'item1'),
+      edge('d-iterate-b', 'promptD', 'text', 'iterateB', 'item2'),
+      edge('iterate-b-clean-b', 'iterateB', 'text', 'cleanB', 'text'),
+    ],
   });
 
-  assert.deepEqual(events, [{
-    event: WORKFLOW_SSE_EVENTS.VALIDATION_FAILED,
-    data: { error: '当前版本仅支持一个逐项运行节点' },
-  }]);
+  const cleanACompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'cleanA',
+  );
+  const cleanBCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'cleanB',
+  );
+
+  assert.deepEqual(cleanACompletions.map((item) => item.data.outputs), [
+    { text: 'alpha' },
+    { text: 'beta' },
+  ]);
+  assert.deepEqual(cleanBCompletions.map((item) => item.data.outputs), [
+    { text: 'gamma' },
+    { text: 'delta' },
+  ]);
+
+  const completed = events.find((item) => item.event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED);
+  assert.equal(completed.data.failCount, 0);
+});
+
+test('iterateRun supports nested control nodes', async () => {
+  const events = await runWorkflow({
+    nodes: [
+      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
+      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+      { id: 'outer', type: 'iterateRun', data: { inputCount: 2 } },
+      { id: 'inner', type: 'iterateRun', data: { inputCount: 1 } },
+      { id: 'clean', type: 'textClean', data: {} },
+    ],
+    edges: [
+      edge('a-outer', 'promptA', 'text', 'outer', 'item1'),
+      edge('b-outer', 'promptB', 'text', 'outer', 'item2'),
+      edge('outer-inner', 'outer', 'text', 'inner', 'item1'),
+      edge('inner-clean', 'inner', 'text', 'clean', 'text'),
+    ],
+  });
+
+  const cleanCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'clean',
+  );
+
+  assert.deepEqual(cleanCompletions.map((item) => item.data.outputs), [
+    { text: 'alpha' },
+    { text: 'beta' },
+  ]);
+  assert.deepEqual(cleanCompletions.map((item) => item.data.iteration.parent.index), [1, 2]);
+
+  const completed = events.find((item) => item.event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED);
+  assert.equal(completed.data.failCount, 0);
 });

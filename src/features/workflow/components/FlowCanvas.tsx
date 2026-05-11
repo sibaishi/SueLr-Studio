@@ -669,27 +669,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files') ? 'copy' : 'move';
   }, []);
 
-  const onDrop = useCallback((event: DragEvent) => {
-    event.preventDefault();
-    const nodeType = event.dataTransfer.getData('application/reactflow');
-    const position = reactFlow.screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
-
-    if (nodeType && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
-      store.addNode(nodeType, position, buildDefaultData(nodeType));
-      return;
-    }
-
-    if (nodeType && FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
-      closeContextMenu();
-      return;
-    }
-
-    const files = Array.from(event.dataTransfer.files || []);
-    if (files.length === 0) return;
-
+  const addFilesToCanvas = useCallback((files: File[], position: { x: number; y: number }) => {
     files.forEach((file, index) => {
       const droppedNodeType = getDroppedFileNodeType(file);
       if (!droppedNodeType || FLOW_DISABLED_NEW_NODE_TYPES.has(droppedNodeType)) return;
@@ -760,7 +740,31 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
           });
         });
     });
-  }, [reactFlow, store]);
+  }, [store]);
+
+  const onDrop = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    const nodeType = event.dataTransfer.getData('application/reactflow');
+    const position = reactFlow.screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    if (nodeType && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
+      store.addNode(nodeType, position, buildDefaultData(nodeType));
+      return;
+    }
+
+    if (nodeType && FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
+      closeContextMenu();
+      return;
+    }
+
+    const files = Array.from(event.dataTransfer.files || []);
+    if (files.length === 0) return;
+
+    addFilesToCanvas(files, position);
+  }, [addFilesToCanvas, closeContextMenu, reactFlow, store]);
 
   const onConnectStart = useCallback((_: unknown, params: {
     nodeId?: string | null;
@@ -1064,27 +1068,54 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         closeContextMenu();
         return;
       }
-
-      if (key === 'v') {
-        if (!clipboardNode) return;
-        const pastePosition = lastPointerFlowPositionRef.current
-          || (contextMenu && contextMenu.kind !== 'node' ? contextMenu.flowPosition : null)
-          || getViewportCenterFlowPosition();
-        if (!pasteClipboardAtPosition(pastePosition)) return;
-        event.preventDefault();
-      }
     };
 
     window.addEventListener('keydown', handleClipboardHotkeys);
     return () => window.removeEventListener('keydown', handleClipboardHotkeys);
   }, [
+    closeContextMenu,
+    copyNodesToClipboard,
+    selectedNodeIds,
+  ]);
+
+  useEffect(() => {
+    const handleClipboardPaste = (event: ClipboardEvent) => {
+      if (isEditableElement(event.target)) return;
+
+      const pastedImageFiles = Array.from(event.clipboardData?.files || [])
+        .filter((file) => file.type.startsWith('image/'));
+      if (pastedImageFiles.length === 0) {
+        Array.from(event.clipboardData?.items || []).forEach((item) => {
+          if (item.kind !== 'file' || !item.type.startsWith('image/')) return;
+          const file = item.getAsFile();
+          if (file) pastedImageFiles.push(file);
+        });
+      }
+      const pastePosition = lastPointerFlowPositionRef.current
+        || (contextMenu && contextMenu.kind !== 'node' ? contextMenu.flowPosition : null)
+        || getViewportCenterFlowPosition();
+
+      if (pastedImageFiles.length > 0) {
+        event.preventDefault();
+        closeContextMenu();
+        addFilesToCanvas(pastedImageFiles, pastePosition);
+        return;
+      }
+
+      if (!clipboardNode) return;
+      if (!pasteClipboardAtPosition(pastePosition)) return;
+      event.preventDefault();
+    };
+
+    window.addEventListener('paste', handleClipboardPaste);
+    return () => window.removeEventListener('paste', handleClipboardPaste);
+  }, [
+    addFilesToCanvas,
     clipboardNode,
     closeContextMenu,
     contextMenu,
-    copyNodesToClipboard,
     getViewportCenterFlowPosition,
     pasteClipboardAtPosition,
-    selectedNodeIds,
   ]);
 
   const ungroupContextNodes = useCallback(() => {

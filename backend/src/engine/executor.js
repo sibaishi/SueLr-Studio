@@ -86,10 +86,6 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
   }
 
   const iterateNodes = executableNodes.filter((node) => node.type === ITERATE_RUN_NODE_TYPE);
-  if (iterateNodes.length > 1) {
-    sendSSE(WORKFLOW_SSE_EVENTS.VALIDATION_FAILED, { error: '当前版本仅支持一个逐项运行节点' });
-    return;
-  }
 
   const outputs = {};
   const failedNodeErrors = {};
@@ -216,76 +212,82 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
     }
   };
 
+  const runSegment = async (segmentNodes, scopedOutputs, parentIteration = null) => {
+    const segmentNodeIds = new Set(segmentNodes.map((node) => node.id));
+    const handledNodeIds = new Set();
+
+    for (let index = 0; index < segmentNodes.length; index += 1) {
+      const node = segmentNodes[index];
+      if (handledNodeIds.has(node.id)) continue;
+
+      if (node.type !== ITERATE_RUN_NODE_TYPE) {
+        await runNode(node, index, sorted.length, scopedOutputs, parentIteration);
+        continue;
+      }
+
+      const downstreamIds = getReachableNodeIds(node.id, executableEdges);
+      const controlledDownstreamIds = new Set(
+        [...downstreamIds].filter((nodeId) => segmentNodeIds.has(nodeId)),
+      );
+      const downstreamNodes = segmentNodes.filter((item) => controlledDownstreamIds.has(item.id));
+      controlledDownstreamIds.forEach((nodeId) => handledNodeIds.add(nodeId));
+
+      const iterationItems = collectIterationItems(node, executableEdges, scopedOutputs);
+      if (iterationItems.length === 0) {
+        failCount += 1;
+        failWorkflowAtNode({
+          node,
+          nodes: executableNodes,
+          index,
+          total: sorted.length,
+          error: '逐项运行没有可用的文本输入',
+          sendSSE,
+        });
+      }
+
+      for (let iterationIndex = 0; iterationIndex < iterationItems.length; iterationIndex += 1) {
+        const item = iterationItems[iterationIndex];
+        const iteration = {
+          sourceNodeId: node.id,
+          index: iterationIndex + 1,
+          total: iterationItems.length,
+          inputHandle: item.inputHandle,
+          sourceInputNodeId: item.sourceNodeId,
+          sourceHandle: item.sourceHandle,
+          ...(parentIteration ? { parent: parentIteration } : {}),
+        };
+        const iterationOutputs = {
+          ...scopedOutputs,
+          [node.id]: { text: item.text },
+        };
+
+        sendSSE(WORKFLOW_SSE_EVENTS.NODE_STARTED, {
+          nodeId: node.id,
+          nodeType: node.type,
+          index,
+          total: sorted.length,
+          iteration,
+        });
+        sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
+          nodeId: node.id,
+          outputs: { text: item.text },
+          logOutputs: { text: item.text },
+          duration: 0,
+          iteration,
+        });
+
+        await runSegment(downstreamNodes, iterationOutputs, iteration);
+      }
+    }
+  };
+
   if (iterateNodes.length === 0) {
     for (let index = 0; index < sorted.length; index += 1) {
       await runNode(sorted[index], index, sorted.length, outputs);
     }
   } else {
-    const iterateNode = iterateNodes[0];
-    const downstreamIds = getReachableNodeIds(iterateNode.id, executableEdges);
-    const preIterationNodes = sorted.filter((node) => node.id !== iterateNode.id && !downstreamIds.has(node.id));
-    const downstreamNodes = sorted.filter((node) => downstreamIds.has(node.id));
-    const totalSteps = preIterationNodes.length + 1 + downstreamNodes.length;
-
-    for (let index = 0; index < preIterationNodes.length; index += 1) {
-      await runNode(preIterationNodes[index], index, totalSteps, outputs);
-    }
-
-    const iterationItems = collectIterationItems(iterateNode, executableEdges, outputs);
-    if (iterationItems.length === 0) {
-      failCount += 1;
-      failWorkflowAtNode({
-        node: iterateNode,
-        nodes: executableNodes,
-        index: preIterationNodes.length,
-        total: totalSteps,
-        error: '逐项运行没有可用的文本输入',
-        sendSSE,
-      });
-    }
-
-    for (let iterationIndex = 0; iterationIndex < iterationItems.length; iterationIndex += 1) {
-      const item = iterationItems[iterationIndex];
-      const iteration = {
-        sourceNodeId: iterateNode.id,
-        index: iterationIndex + 1,
-        total: iterationItems.length,
-        inputHandle: item.inputHandle,
-        sourceInputNodeId: item.sourceNodeId,
-        sourceHandle: item.sourceHandle,
-      };
-      const scopedOutputs = {
-        ...outputs,
-        [iterateNode.id]: { text: item.text },
-      };
-
-      sendSSE(WORKFLOW_SSE_EVENTS.NODE_STARTED, {
-        nodeId: iterateNode.id,
-        nodeType: iterateNode.type,
-        index: preIterationNodes.length,
-        total: totalSteps,
-        iteration,
-      });
-      sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
-        nodeId: iterateNode.id,
-        outputs: { text: item.text },
-        logOutputs: { text: item.text },
-        duration: 0,
-        iteration,
-      });
-
-      for (let nodeIndex = 0; nodeIndex < downstreamNodes.length; nodeIndex += 1) {
-        await runNode(
-          downstreamNodes[nodeIndex],
-          preIterationNodes.length + 1 + nodeIndex,
-          totalSteps,
-          scopedOutputs,
-          iteration,
-        );
-      }
-    }
+    await runSegment(sorted, outputs);
   }
-
   sendSSE(WORKFLOW_SSE_EVENTS.RUN_COMPLETED, {
     totalDuration: Date.now() - startTime,
     successCount,

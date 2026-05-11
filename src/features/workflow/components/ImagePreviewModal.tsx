@@ -61,21 +61,17 @@ export function ImagePreviewModal({
     setCopyStatus('');
     try {
       if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
-        await navigator.clipboard?.writeText(activeImage.src);
-        setCopyStatus('已复制链接');
+        setCopyStatus('当前环境不支持复制图片');
         return;
       }
 
-      const response = await fetch(activeImage.src);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
+      const blob = await buildClipboardImageBlob(activeImage.src);
       await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type || 'image/png']: blob }),
+        new ClipboardItem({ 'image/png': blob }),
       ]);
       setCopyStatus('已复制图片');
     } catch {
-      await navigator.clipboard?.writeText(activeImage.src);
-      setCopyStatus('已复制链接');
+      setCopyStatus('复制图片失败');
     }
     window.setTimeout(() => setCopyStatus(''), 1600);
   };
@@ -201,4 +197,55 @@ function imageNameFromUrl(src: string) {
   } catch {
     return 'image';
   }
+}
+
+async function buildClipboardImageBlob(src: string) {
+  try {
+    const response = await fetch(src);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const sourceBlob = await response.blob();
+    return await imageBlobToPng(sourceBlob);
+  } catch {
+    return await imageElementToPng(src);
+  }
+}
+
+async function imageBlobToPng(blob: Blob) {
+  const bitmap = await createImageBitmap(blob);
+  try {
+    return await drawImageToPng(bitmap, bitmap.width, bitmap.height);
+  } finally {
+    bitmap.close();
+  }
+}
+
+async function imageElementToPng(src: string) {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const nextImage = new Image();
+    nextImage.crossOrigin = 'anonymous';
+    nextImage.onload = () => resolve(nextImage);
+    nextImage.onerror = () => reject(new Error('image load failed'));
+    nextImage.src = src;
+  });
+
+  return drawImageToPng(image, image.naturalWidth || image.width, image.naturalHeight || image.height);
+}
+
+function drawImageToPng(image: CanvasImageSource, width: number, height: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      reject(new Error('canvas unavailable'));
+      return;
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('png conversion failed'));
+    }, 'image/png');
+  });
 }
