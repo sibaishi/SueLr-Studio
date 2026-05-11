@@ -99,6 +99,8 @@ import type {
 import { NODE_ICONS } from './nodes/nodeConstants';
 import './contextMenu.css';
 
+const WORKFLOW_NODE_CLIPBOARD_MARKER = 'suelr-studio/workflow-node-clipboard';
+
 interface FlowCanvasProps {
   onViewportCenterChange?: (position: { x: number; y: number }) => void;
 }
@@ -929,6 +931,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     const snapshot = buildClipboardSnapshot(renderNodes, store.edges, nodeIds);
     if (!snapshot) return;
     setClipboardNode(snapshot);
+    void navigator.clipboard?.writeText(WORKFLOW_NODE_CLIPBOARD_MARKER).catch(() => undefined);
     if (shouldCloseMenu) closeContextMenu();
     return true;
   }, [closeContextMenu, renderNodes, store.edges]);
@@ -1082,6 +1085,17 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     const handleClipboardPaste = (event: ClipboardEvent) => {
       if (isEditableElement(event.target)) return;
 
+      const clipboardText = event.clipboardData?.getData('text/plain') || '';
+      const pastePosition = lastPointerFlowPositionRef.current
+        || (contextMenu && contextMenu.kind !== 'node' ? contextMenu.flowPosition : null)
+        || getViewportCenterFlowPosition();
+
+      if (clipboardNode && clipboardText === WORKFLOW_NODE_CLIPBOARD_MARKER) {
+        if (!pasteClipboardAtPosition(pastePosition)) return;
+        event.preventDefault();
+        return;
+      }
+
       const pastedImageFiles = Array.from(event.clipboardData?.files || [])
         .filter((file) => file.type.startsWith('image/'));
       if (pastedImageFiles.length === 0) {
@@ -1091,9 +1105,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
           if (file) pastedImageFiles.push(file);
         });
       }
-      const pastePosition = lastPointerFlowPositionRef.current
-        || (contextMenu && contextMenu.kind !== 'node' ? contextMenu.flowPosition : null)
-        || getViewportCenterFlowPosition();
 
       if (pastedImageFiles.length > 0) {
         event.preventDefault();
