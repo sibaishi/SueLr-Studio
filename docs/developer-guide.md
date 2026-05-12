@@ -248,9 +248,9 @@ Current cleanup and ownership notes:
 - `backend/src/engine/nodes/index.js`
   - backend node module aggregation
 - `backend/src/engine/nodes/iterateRun.js`
-  - fallback executor contract for the `逐项运行` control node; the main repeated-downstream behavior lives in `executor.js`
+  - fallback executor contract for the `文本逐项` control node; the main repeated-downstream behavior lives in `executor.js`
 - `backend/src/engine/nodes/iterateImageRun.js`
-  - fallback executor contract for the `图像逐项运行` control node; repeated downstream execution also lives in `executor.js`
+  - fallback executor contract for the `图像逐项` control node; repeated downstream execution also lives in `executor.js`
 - `backend/src/engine/nodes/textClean.js`
   - deterministic removal of text ranges between user-configured start and end tokens
 - `backend/src/engine/nodes/imageGen.js`
@@ -328,7 +328,7 @@ Current cleanup and ownership notes:
 
 1. frontend workflow store submits an execution request
 2. backend execution service starts a run
-3. engine executor traverses nodes; with a control node such as `逐项运行` or `图像逐项运行`, it executes upstream once and then sequentially replays the downstream subgraph once per non-empty item
+3. engine executor traverses nodes; with a control node such as `文本逐项` or `图像逐项`, it executes upstream once and then sequentially replays the downstream subgraph once per non-empty item
 4. `imageGen.js` calls platform image service
 5. result is normalized and written into node outputs
 6. workflow run logger stores sanitized logs and artifacts

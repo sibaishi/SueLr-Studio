@@ -7,7 +7,7 @@ export const TEXT_SPLIT_NODE = {
   label: '文本拆分',
   icon: 'split',
   color: '#0A84FF',
-  category: 'merge',
+  category: 'tool',
   inputs: [{ id: 'text', label: '文本', type: 'string', required: true }],
   outputs: [{ id: 'part1', label: '片段1', type: 'string' }],
   params: [

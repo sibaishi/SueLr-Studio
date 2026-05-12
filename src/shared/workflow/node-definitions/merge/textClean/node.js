@@ -7,7 +7,7 @@ export const TEXT_CLEAN_NODE = {
   label: '文本清理',
   icon: 'eraser',
   color: '#007AFF',
-  category: 'merge',
+  category: 'tool',
   inputs: [{ id: 'text', label: '文本', type: 'string', required: true }],
   outputs: [{ id: 'text', label: '清理后文本', type: 'string' }],
   params: [

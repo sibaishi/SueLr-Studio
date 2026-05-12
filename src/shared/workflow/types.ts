@@ -42,7 +42,7 @@ export interface NodeTypeDef {
   label: string;
   icon: string;
   color: string;
-  category: 'input' | 'api' | 'merge' | 'ai' | 'output' | 'group';
+  category: 'input' | 'api' | 'merge' | 'iterate' | 'tool' | 'ai' | 'output' | 'group';
   inputs: PortDef[];
   outputs: PortDef[];
   params: ParamDef[];

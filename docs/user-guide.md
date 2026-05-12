@@ -189,11 +189,11 @@ Text cleanup:
 
 Itemized runs:
 
-- use `逐项运行` when several text inputs should drive the same downstream chain one by one
+- use `文本逐项` when several text inputs should drive the same downstream chain one by one
 - the node uses dynamic text inputs like merge nodes: it starts with one input and adds the next input as connections are made
 - each run exposes only the current text to downstream nodes; downstream nodes stay ordinary single-input nodes
 - execution is sequential, empty text inputs are skipped, and the first failed item stops later items while preserving earlier completed outputs
-- use `图像逐项运行` when several image inputs should drive the same downstream chain one by one
+- use `图像逐项` when several image inputs should drive the same downstream chain one by one
 - the image variant follows the same sequential replay model, but exposes only the current image to downstream nodes on each pass
 
 Workflow node organization notes:

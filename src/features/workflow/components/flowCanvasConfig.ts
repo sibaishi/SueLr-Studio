@@ -52,12 +52,14 @@ export const FLOW_CATEGORY_LABELS = {
   group: '节点组',
   input: '输入',
   api: 'API',
-  merge: '工具',
+  merge: '合并',
+  iterate: '逐项运行',
+  tool: '工具',
   ai: 'AI 能力',
   output: '输出',
 } as const;
 
-export const FLOW_CATEGORY_ORDER = ['input', 'api', 'merge', 'ai', 'output', 'group'] as const;
+export const FLOW_CATEGORY_ORDER = ['input', 'api', 'merge', 'iterate', 'tool', 'ai', 'output', 'group'] as const;
 export const FLOW_DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
 export const FLOW_FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
 export const FLOW_DISABLED_NODE_REASON = '暂时停用，无法新建';

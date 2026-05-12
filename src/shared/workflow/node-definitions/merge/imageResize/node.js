@@ -7,7 +7,7 @@ export const IMAGE_RESIZE_NODE = {
   label: '图像缩放',
   icon: 'resize',
   color: '#FF9F0A',
-  category: 'merge',
+  category: 'tool',
   inputs: [{ id: 'image', label: '原图', type: 'image', required: true }],
   outputs: [{ id: 'image', label: '缩放后图像', type: 'image' }],
   params: [

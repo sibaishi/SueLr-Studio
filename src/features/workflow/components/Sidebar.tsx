@@ -10,7 +10,9 @@ const DISABLED_NODE_REASON = '暂时停用，无法新建';
 const CATEGORY_ACCENTS: Record<string, string> = {
   input: '#0A84FF',
   api: '#5856D6',
-  merge: '#8E8E93',
+  merge: '#64D2FF',
+  iterate: '#0A84FF',
+  tool: '#8E8E93',
   ai: '#BF5AF2',
   output: '#30D158',
 };
@@ -108,7 +110,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
         })}
       </div>
 
-      <div className="workflow-panel__footer">点击可快速添加，拖拽可精确放到指定位置。</div>
+      <div className="workflow-panel__footer">点击可快速添加，拖拽可精准放到指定位置。</div>
     </aside>
   );
 }

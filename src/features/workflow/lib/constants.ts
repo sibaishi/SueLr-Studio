@@ -106,7 +106,9 @@ export const NODE_REGISTRY: NodeTypeDef[] = WORKFLOW_NODE_DEFS;
 export const NODE_CATEGORIES = [
   { id: 'input', label: '输入' },
   { id: 'api', label: 'API' },
-  { id: 'merge', label: '工具' },
+  { id: 'merge', label: '合并' },
+  { id: 'iterate', label: '逐项运行' },
+  { id: 'tool', label: '工具' },
   { id: 'ai', label: 'AI 能力' },
   { id: 'output', label: '输出' },
 ] as const;
