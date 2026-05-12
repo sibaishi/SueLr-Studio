@@ -87,6 +87,34 @@ describe('workflow store graph editor actions', () => {
     expect(state.nodes.find((node) => node.id === 'iterate')?.data.inputCount).toBe(3);
   });
 
+  it('compacts iterate-image-run input handles after disconnecting a middle input', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'sourceA', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'sourceB', type: 'imageInput', position: { x: 0, y: 80 }, data: {} },
+        { id: 'sourceC', type: 'imageInput', position: { x: 0, y: 160 }, data: {} },
+        { id: 'iterateImage', type: 'iterateImageRun', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
+      ],
+      edges: [
+        { id: 'edge_a', source: 'sourceA', sourceHandle: 'image', target: 'iterateImage', targetHandle: 'item1' },
+        { id: 'edge_b', source: 'sourceB', sourceHandle: 'image', target: 'iterateImage', targetHandle: 'item2' },
+        { id: 'edge_c', source: 'sourceC', sourceHandle: 'image', target: 'iterateImage', targetHandle: 'item3' },
+      ],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.removeEdge('edge_b');
+
+    const state = harness.getState();
+    expect(state.edges).toEqual([
+      expect.objectContaining({ id: 'edge_a', target: 'iterateImage', targetHandle: 'item1' }),
+      expect.objectContaining({ id: 'edge_c', target: 'iterateImage', targetHandle: 'item2' }),
+    ]);
+    expect(state.nodes.find((node) => node.id === 'iterateImage')?.data.inputCount).toBe(3);
+  });
+
   it('compacts merge input handles after deleting a connected source node', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [

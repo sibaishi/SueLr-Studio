@@ -141,3 +141,61 @@ test('iterateRun supports nested control nodes', async () => {
   const completed = events.find((item) => item.event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED);
   assert.equal(completed.data.failCount, 0);
 });
+
+test('iterateImageRun executes downstream once per connected image input', async () => {
+  const events = await runWorkflow({
+    nodes: [
+      { id: 'imageA', type: 'imageInput', data: { fileUrl: '/api/files/a.png' } },
+      { id: 'imageB', type: 'imageInput', data: { fileUrl: '/api/files/b.png' } },
+      { id: 'iterateImage', type: 'iterateImageRun', data: { inputCount: 3 } },
+      { id: 'output', type: 'output', data: {} },
+    ],
+    edges: [
+      edge('a-iterate-image', 'imageA', 'image', 'iterateImage', 'item1'),
+      edge('b-iterate-image', 'imageB', 'image', 'iterateImage', 'item2'),
+      edge('iterate-image-output', 'iterateImage', 'image', 'output', 'content'),
+    ],
+  });
+
+  const outputCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
+  );
+
+  assert.equal(outputCompletions.length, 2);
+  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.content), [
+    '/api/files/a.png',
+    '/api/files/b.png',
+  ]);
+  assert.deepEqual(outputCompletions.map((item) => item.data.iteration.index), [1, 2]);
+
+  const completed = events.find((item) => item.event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED);
+  assert.equal(completed.data.failCount, 0);
+});
+
+test('iterateImageRun expands image array inputs into sequential item runs', async () => {
+  const events = await runWorkflow({
+    nodes: [
+      { id: 'imageA', type: 'imageInput', data: { fileUrl: '/api/files/a.png' } },
+      { id: 'imageB', type: 'imageInput', data: { fileUrl: '/api/files/b.png' } },
+      { id: 'merge', type: 'imageMerge', data: { inputCount: 2 } },
+      { id: 'iterateImage', type: 'iterateImageRun', data: { inputCount: 2 } },
+      { id: 'output', type: 'output', data: {} },
+    ],
+    edges: [
+      edge('a-merge', 'imageA', 'image', 'merge', 'item1'),
+      edge('b-merge', 'imageB', 'image', 'merge', 'item2'),
+      edge('merged-to-iterate-image', 'merge', 'merged', 'iterateImage', 'item1'),
+      edge('iterate-image-output', 'iterateImage', 'image', 'output', 'content'),
+    ],
+  });
+
+  const outputCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
+  );
+  assert.equal(outputCompletions.length, 2);
+  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.content), [
+    '/api/files/a.png',
+    '/api/files/b.png',
+  ]);
+  assert.deepEqual(outputCompletions.map((item) => item.data.iteration.index), [1, 2]);
+});

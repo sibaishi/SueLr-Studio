@@ -7,6 +7,7 @@ import { execute as executeImageResize } from './imageResize.js';
 import { execute as executeVideoInput } from './videoInput.js';
 import { execute as executeAudioInput } from './audioInput.js';
 import { execute as executeApiKeyInput } from './apiKeyInput.js';
+import { execute as executeIterateImageRun } from './iterateImageRun.js';
 import { execute as executeIterateRun } from './iterateRun.js';
 import { execute as executeTextClean } from './textClean.js';
 import { execute as executeTextSplit } from './textSplit.js';
@@ -27,6 +28,7 @@ export const NODE_EXECUTORS = {
   videoInput: executeVideoInput,
   audioInput: executeAudioInput,
   apiKeyInput: executeApiKeyInput,
+  iterateImageRun: executeIterateImageRun,
   iterateRun: executeIterateRun,
   textClean: executeTextClean,
   textSplit: executeTextSplit,

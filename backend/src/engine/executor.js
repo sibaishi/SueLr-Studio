@@ -10,6 +10,17 @@ import { NODE_EXECUTORS } from './nodes/index.js';
 import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.js';
 
 const ITERATE_RUN_NODE_TYPE = 'iterateRun';
+const ITERATE_IMAGE_RUN_NODE_TYPE = 'iterateImageRun';
+
+function isIterateControlNodeType(type) {
+  return type === ITERATE_RUN_NODE_TYPE || type === ITERATE_IMAGE_RUN_NODE_TYPE;
+}
+
+function getIterateMissingInputError(type) {
+  return type === ITERATE_IMAGE_RUN_NODE_TYPE
+    ? '图像逐项运行没有可用的图片输入'
+    : '逐项运行没有可用的文本输入';
+}
 
 function getReachableNodeIds(sourceId, edges) {
   const reachable = new Set();
@@ -34,6 +45,23 @@ function getIterateInputIndex(handleId) {
   return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
 }
 
+function normalizeIterationItems(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeIterationItems(item))
+      .flat();
+  }
+
+  if (value === undefined || value === null) return [];
+
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return text ? [text] : [];
+  }
+
+  return [value];
+}
+
 function collectIterationItems(iterateNode, edges, outputs) {
   return edges
     .filter((edge) => edge.target === iterateNode.id)
@@ -41,14 +69,13 @@ function collectIterationItems(iterateNode, edges, outputs) {
     .flatMap((edge) => {
       const sourceOutput = outputs[edge.source];
       const value = sourceOutput?.[edge.sourceHandle];
-      const text = String(value ?? '').trim();
-      if (!text) return [];
-      return [{
-        text,
+      return normalizeIterationItems(value).map((item) => ({
+        value: item,
+        outputKey: iterateNode.type === ITERATE_IMAGE_RUN_NODE_TYPE ? 'image' : 'text',
         inputHandle: edge.targetHandle || '',
         sourceNodeId: edge.source,
         sourceHandle: edge.sourceHandle || '',
-      }];
+      }));
     });
 }
 
@@ -85,7 +112,7 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
     return;
   }
 
-  const iterateNodes = executableNodes.filter((node) => node.type === ITERATE_RUN_NODE_TYPE);
+  const iterateNodes = executableNodes.filter((node) => isIterateControlNodeType(node.type));
 
   const outputs = {};
   const failedNodeErrors = {};
@@ -220,7 +247,7 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
       const node = segmentNodes[index];
       if (handledNodeIds.has(node.id)) continue;
 
-      if (node.type !== ITERATE_RUN_NODE_TYPE) {
+      if (!isIterateControlNodeType(node.type)) {
         await runNode(node, index, sorted.length, scopedOutputs, parentIteration);
         continue;
       }
@@ -240,7 +267,7 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
           nodes: executableNodes,
           index,
           total: sorted.length,
-          error: '逐项运行没有可用的文本输入',
+          error: getIterateMissingInputError(node.type),
           sendSSE,
         });
       }
@@ -258,7 +285,7 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
         };
         const iterationOutputs = {
           ...scopedOutputs,
-          [node.id]: { text: item.text },
+          [node.id]: { [item.outputKey]: item.value },
         };
 
         sendSSE(WORKFLOW_SSE_EVENTS.NODE_STARTED, {
@@ -270,8 +297,8 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
         });
         sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
           nodeId: node.id,
-          outputs: { text: item.text },
-          logOutputs: { text: item.text },
+          outputs: { [item.outputKey]: item.value },
+          logOutputs: { [item.outputKey]: item.value },
           duration: 0,
           iteration,
         });

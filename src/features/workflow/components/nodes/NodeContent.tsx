@@ -88,6 +88,8 @@ export function NodeContent({
       return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} />;
     case 'iterateRun':
       return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} note="按端口顺序逐项运行" />;
+    case 'iterateImageRun':
+      return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} note="按端口顺序逐张运行" />;
     case 'output':
       return <OutputContent outputs={outputs} outerStyle={outerStyle} isLastSection={!showBottomBorder} />;
     default:
