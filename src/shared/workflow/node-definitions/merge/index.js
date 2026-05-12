@@ -6,7 +6,6 @@ import { ITERATE_RUN_NODE } from './iterateRun/index.js';
 import { TEXT_CLEAN_NODE } from './textClean/index.js';
 import { TEXT_MERGE_NODE } from './textMerge/index.js';
 import { TEXT_SPLIT_NODE } from './textSplit/index.js';
-import { UNIVERSAL_MERGE_NODE } from './universalMerge/index.js';
 import { VIDEO_MERGE_NODE } from './videoMerge/index.js';
 
 export {
@@ -18,7 +17,6 @@ export {
   TEXT_CLEAN_NODE,
   TEXT_MERGE_NODE,
   TEXT_SPLIT_NODE,
-  UNIVERSAL_MERGE_NODE,
   VIDEO_MERGE_NODE,
 };
 
@@ -32,5 +30,4 @@ export const MERGE_NODES = [
   IMAGE_MERGE_NODE,
   VIDEO_MERGE_NODE,
   AUDIO_MERGE_NODE,
-  UNIVERSAL_MERGE_NODE,
 ];

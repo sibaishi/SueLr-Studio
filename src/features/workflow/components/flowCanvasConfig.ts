@@ -17,7 +17,6 @@ export const FLOW_NODE_TYPES = {
   imageMerge: FlowNode,
   videoMerge: FlowNode,
   audioMerge: FlowNode,
-  universalMerge: FlowNode,
   aiChat: FlowNode,
   imageGen: FlowNode,
   videoGen: FlowNode,
@@ -42,7 +41,6 @@ export const FLOW_NODE_COLORS: Record<string, string> = {
   imageMerge: '#FF9500',
   videoMerge: '#AF52DE',
   audioMerge: '#FF375F',
-  universalMerge: '#64D2FF',
   aiChat: '#30D158',
   imageGen: '#FF9500',
   videoGen: '#AF52DE',
@@ -60,6 +58,6 @@ export const FLOW_CATEGORY_LABELS = {
 } as const;
 
 export const FLOW_CATEGORY_ORDER = ['input', 'api', 'merge', 'ai', 'output', 'group'] as const;
-export const FLOW_DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge', 'universalMerge']);
+export const FLOW_DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
 export const FLOW_FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
 export const FLOW_DISABLED_NODE_REASON = '暂时停用，无法新建';

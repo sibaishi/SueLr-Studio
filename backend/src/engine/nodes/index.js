@@ -15,7 +15,6 @@ import { execute as executeTextMerge } from './textMerge.js';
 import { execute as executeImageMerge } from './imageMerge.js';
 import { execute as executeVideoMerge } from './videoMerge.js';
 import { execute as executeAudioMerge } from './audioMerge.js';
-import { execute as executeUniversalMerge } from './universalMerge.js';
 import { execute as executeImageGen } from './imageGen.js';
 import { execute as executeVideoGen } from './videoGen.js';
 import { execute as executeSaveFile } from './saveFile.js';
@@ -36,7 +35,6 @@ export const NODE_EXECUTORS = {
   imageMerge: executeImageMerge,
   videoMerge: executeVideoMerge,
   audioMerge: executeAudioMerge,
-  universalMerge: executeUniversalMerge,
   aiChat: executeAiChat,
   imageGen: executeImageGen,
   videoGen: executeVideoGen,

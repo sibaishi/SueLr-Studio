@@ -84,7 +84,6 @@ export function NodeContent({
     case 'imageMerge':
     case 'videoMerge':
     case 'audioMerge':
-    case 'universalMerge':
       return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} />;
     case 'iterateRun':
       return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} note="按端口顺序逐项运行" />;
