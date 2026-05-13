@@ -1,4 +1,4 @@
-import { getNodeContract, getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.js';
+import { getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.js';
 import {
   collectInputs,
   failWorkflowAtNode,
@@ -16,36 +16,28 @@ function isIterateControlNodeType(type) {
   return type === ITERATE_RUN_NODE_TYPE || type === ITERATE_IMAGE_RUN_NODE_TYPE;
 }
 
-function isMergeAggregationNodeType(type) {
-  return getNodeContract(type)?.category === 'merge';
-}
-
 function getIterateMissingInputError(type) {
   return type === ITERATE_IMAGE_RUN_NODE_TYPE
     ? '图像逐项运行没有可用的图片输入'
     : '逐项运行没有可用的文本输入';
 }
 
-function getControlledIterationNodeIds(sourceId, edges, segmentNodeIds, nodeLookup) {
-  const controlled = new Set();
+function getReachableNodeIds(sourceId, edges) {
+  const reachable = new Set();
   const queue = edges
     .filter((edge) => edge.source === sourceId)
     .map((edge) => edge.target);
 
   while (queue.length > 0) {
     const nodeId = queue.shift();
-    if (!nodeId || controlled.has(nodeId) || !segmentNodeIds.has(nodeId)) continue;
-
-    const node = nodeLookup.get(nodeId);
-    if (!node || isMergeAggregationNodeType(node.type)) continue;
-
-    controlled.add(nodeId);
+    if (!nodeId || reachable.has(nodeId)) continue;
+    reachable.add(nodeId);
     for (const edge of edges) {
       if (edge.source === nodeId) queue.push(edge.target);
     }
   }
 
-  return controlled;
+  return reachable;
 }
 
 function getIterateInputIndex(handleId) {
@@ -87,25 +79,6 @@ function collectIterationItems(iterateNode, edges, outputs) {
     });
 }
 
-function mergeRepeatedOutputValue(existing, next) {
-  if (existing === undefined) return next;
-  if (Array.isArray(existing) && Array.isArray(next)) return [...existing, ...next];
-  if (Array.isArray(existing)) return [...existing, next];
-  if (Array.isArray(next)) return [existing, ...next];
-  return [existing, next];
-}
-
-function appendRepeatedNodeOutputs(existing, next) {
-  if (!next) return existing;
-  if (!existing) return next;
-
-  const merged = { ...existing };
-  for (const [key, value] of Object.entries(next)) {
-    merged[key] = mergeRepeatedOutputValue(merged[key], value);
-  }
-  return merged;
-}
-
 export async function executeWorkflow(workflow, apiConfig, sendSSE, executionContext = {}) {
   const { nodes, edges } = workflow;
   const abortSignal = apiConfig?.abortSignal;
@@ -140,7 +113,6 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
   }
 
   const iterateNodes = executableNodes.filter((node) => isIterateControlNodeType(node.type));
-  const executableNodeLookup = new Map(executableNodes.map((node) => [node.id, node]));
 
   const outputs = {};
   const failedNodeErrors = {};
@@ -280,11 +252,9 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
         continue;
       }
 
-      const controlledDownstreamIds = getControlledIterationNodeIds(
-        node.id,
-        executableEdges,
-        segmentNodeIds,
-        executableNodeLookup,
+      const downstreamIds = getReachableNodeIds(node.id, executableEdges);
+      const controlledDownstreamIds = new Set(
+        [...downstreamIds].filter((nodeId) => segmentNodeIds.has(nodeId)),
       );
       const downstreamNodes = segmentNodes.filter((item) => controlledDownstreamIds.has(item.id));
       controlledDownstreamIds.forEach((nodeId) => handledNodeIds.add(nodeId));
@@ -333,18 +303,7 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
           iteration,
         });
 
-        scopedOutputs[node.id] = appendRepeatedNodeOutputs(scopedOutputs[node.id], {
-          [item.outputKey]: item.value,
-        });
         await runSegment(downstreamNodes, iterationOutputs, iteration);
-
-        for (const repeatedNodeId of controlledDownstreamIds) {
-          if (!iterationOutputs[repeatedNodeId]) continue;
-          scopedOutputs[repeatedNodeId] = appendRepeatedNodeOutputs(
-            scopedOutputs[repeatedNodeId],
-            iterationOutputs[repeatedNodeId],
-          );
-        }
       }
     }
   };

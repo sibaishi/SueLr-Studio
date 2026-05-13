@@ -258,7 +258,7 @@ test('merge nodes flatten grouped inputs from other merge nodes', async () => {
   assert.deepEqual(outputCompletion?.data.outputs.content, ['alpha', 'beta', 'gamma']);
 });
 
-test('iterateRun aggregates into merge nodes without replaying downstream nodes', async () => {
+test('iterateRun preserves per-item execution through merge nodes', async () => {
   const events = await runWorkflow({
     nodes: [
       { id: 'static', type: 'textInput', data: { text: 'alpha' } },
@@ -266,34 +266,72 @@ test('iterateRun aggregates into merge nodes without replaying downstream nodes'
       { id: 'itemB', type: 'textInput', data: { text: 'gamma' } },
       { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
       { id: 'merge', type: 'textMerge', data: { inputCount: 2 } },
-      { id: 'clean', type: 'textClean', data: {} },
+      { id: 'output', type: 'output', data: {} },
     ],
     edges: [
       edge('static-merge', 'static', 'text', 'merge', 'item1'),
       edge('a-iterate', 'itemA', 'text', 'iterate', 'item1'),
       edge('b-iterate', 'itemB', 'text', 'iterate', 'item2'),
       edge('iterate-merge', 'iterate', 'text', 'merge', 'item2'),
-      edge('merge-clean', 'merge', 'merged', 'clean', 'text'),
+      edge('merge-output', 'merge', 'merged', 'output', 'content'),
     ],
   });
 
-  const mergeStarts = events.filter(
-    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_STARTED && item.data.nodeId === 'merge',
-  );
   const mergeCompletions = events.filter(
     (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'merge',
   );
-  const cleanStarts = events.filter(
-    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_STARTED && item.data.nodeId === 'clean',
-  );
-  const cleanCompletions = events.filter(
-    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'clean',
+  const outputCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
   );
 
-  assert.equal(mergeStarts.length, 1);
-  assert.equal(mergeCompletions.length, 1);
-  assert.equal(cleanStarts.length, 1);
-  assert.equal(cleanCompletions.length, 1);
-  assert.deepEqual(mergeCompletions[0].data.outputs, { merged: ['alpha', 'beta', 'gamma'] });
-  assert.deepEqual(cleanCompletions[0].data.outputs, { text: 'alpha,beta,gamma' });
+  assert.equal(mergeCompletions.length, 2);
+  assert.equal(outputCompletions.length, 2);
+  assert.deepEqual(mergeCompletions.map((item) => item.data.outputs), [
+    { merged: ['alpha', 'beta'] },
+    { merged: ['alpha', 'gamma'] },
+  ]);
+  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.content), [
+    ['alpha', 'beta'],
+    ['alpha', 'gamma'],
+  ]);
+  assert.deepEqual(outputCompletions.map((item) => item.data.iteration.index), [1, 2]);
+});
+
+test('iterateImageRun preserves per-item execution through merge nodes', async () => {
+  const events = await runWorkflow({
+    nodes: [
+      { id: 'static', type: 'imageInput', data: { fileUrl: '/api/files/static.png' } },
+      { id: 'itemA', type: 'imageInput', data: { fileUrl: '/api/files/a.png' } },
+      { id: 'itemB', type: 'imageInput', data: { fileUrl: '/api/files/b.png' } },
+      { id: 'iterate', type: 'iterateImageRun', data: { inputCount: 2 } },
+      { id: 'merge', type: 'imageMerge', data: { inputCount: 2 } },
+      { id: 'output', type: 'output', data: {} },
+    ],
+    edges: [
+      edge('static-merge', 'static', 'image', 'merge', 'item1'),
+      edge('a-iterate', 'itemA', 'image', 'iterate', 'item1'),
+      edge('b-iterate', 'itemB', 'image', 'iterate', 'item2'),
+      edge('iterate-merge', 'iterate', 'image', 'merge', 'item2'),
+      edge('merge-output', 'merge', 'merged', 'output', 'content'),
+    ],
+  });
+
+  const mergeCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'merge',
+  );
+  const outputCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
+  );
+
+  assert.equal(mergeCompletions.length, 2);
+  assert.equal(outputCompletions.length, 2);
+  assert.deepEqual(mergeCompletions.map((item) => item.data.outputs), [
+    { merged: ['/api/files/static.png', '/api/files/a.png'] },
+    { merged: ['/api/files/static.png', '/api/files/b.png'] },
+  ]);
+  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.content), [
+    ['/api/files/static.png', '/api/files/a.png'],
+    ['/api/files/static.png', '/api/files/b.png'],
+  ]);
+  assert.deepEqual(outputCompletions.map((item) => item.data.iteration.index), [1, 2]);
 });
