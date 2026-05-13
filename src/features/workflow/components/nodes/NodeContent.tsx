@@ -661,7 +661,7 @@ function MergeContent({
         已连接 {connectedCount} / {maxInputs}
       </span>
       <span className="node-merge-note">
-        {note || '按端口顺序收集'}
+        {note || '按端口顺序合并为一组'}
       </span>
     </div>
   );

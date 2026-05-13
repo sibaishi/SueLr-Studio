@@ -199,3 +199,101 @@ test('iterateImageRun expands image array inputs into sequential item runs', asy
   ]);
   assert.deepEqual(outputCompletions.map((item) => item.data.iteration.index), [1, 2]);
 });
+
+test('merge nodes pass one grouped payload downstream', async () => {
+  const events = await runWorkflow({
+    nodes: [
+      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
+      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+      { id: 'merge', type: 'textMerge', data: { inputCount: 2 } },
+      { id: 'output', type: 'output', data: {} },
+    ],
+    edges: [
+      edge('a-merge', 'promptA', 'text', 'merge', 'item1'),
+      edge('b-merge', 'promptB', 'text', 'merge', 'item2'),
+      edge('merge-output', 'merge', 'merged', 'output', 'content'),
+    ],
+  });
+
+  const mergeCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'merge',
+  );
+  const outputCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
+  );
+
+  assert.equal(mergeCompletions.length, 1);
+  assert.equal(outputCompletions.length, 1);
+  assert.deepEqual(mergeCompletions[0].data.outputs, { merged: ['alpha', 'beta'] });
+  assert.deepEqual(outputCompletions[0].data.outputs.content, ['alpha', 'beta']);
+});
+
+test('merge nodes flatten grouped inputs from other merge nodes', async () => {
+  const events = await runWorkflow({
+    nodes: [
+      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
+      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+      { id: 'promptC', type: 'textInput', data: { text: 'gamma' } },
+      { id: 'mergeA', type: 'textMerge', data: { inputCount: 2 } },
+      { id: 'mergeB', type: 'textMerge', data: { inputCount: 2 } },
+      { id: 'output', type: 'output', data: {} },
+    ],
+    edges: [
+      edge('a-merge-a', 'promptA', 'text', 'mergeA', 'item1'),
+      edge('b-merge-a', 'promptB', 'text', 'mergeA', 'item2'),
+      edge('merge-a-merge-b', 'mergeA', 'merged', 'mergeB', 'item1'),
+      edge('c-merge-b', 'promptC', 'text', 'mergeB', 'item2'),
+      edge('merge-b-output', 'mergeB', 'merged', 'output', 'content'),
+    ],
+  });
+
+  const mergeBCompletion = events.find(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'mergeB',
+  );
+  const outputCompletion = events.find(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
+  );
+
+  assert.deepEqual(mergeBCompletion?.data.outputs, { merged: ['alpha', 'beta', 'gamma'] });
+  assert.deepEqual(outputCompletion?.data.outputs.content, ['alpha', 'beta', 'gamma']);
+});
+
+test('iterateRun aggregates into merge nodes without replaying downstream nodes', async () => {
+  const events = await runWorkflow({
+    nodes: [
+      { id: 'static', type: 'textInput', data: { text: 'alpha' } },
+      { id: 'itemA', type: 'textInput', data: { text: 'beta' } },
+      { id: 'itemB', type: 'textInput', data: { text: 'gamma' } },
+      { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
+      { id: 'merge', type: 'textMerge', data: { inputCount: 2 } },
+      { id: 'clean', type: 'textClean', data: {} },
+    ],
+    edges: [
+      edge('static-merge', 'static', 'text', 'merge', 'item1'),
+      edge('a-iterate', 'itemA', 'text', 'iterate', 'item1'),
+      edge('b-iterate', 'itemB', 'text', 'iterate', 'item2'),
+      edge('iterate-merge', 'iterate', 'text', 'merge', 'item2'),
+      edge('merge-clean', 'merge', 'merged', 'clean', 'text'),
+    ],
+  });
+
+  const mergeStarts = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_STARTED && item.data.nodeId === 'merge',
+  );
+  const mergeCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'merge',
+  );
+  const cleanStarts = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_STARTED && item.data.nodeId === 'clean',
+  );
+  const cleanCompletions = events.filter(
+    (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'clean',
+  );
+
+  assert.equal(mergeStarts.length, 1);
+  assert.equal(mergeCompletions.length, 1);
+  assert.equal(cleanStarts.length, 1);
+  assert.equal(cleanCompletions.length, 1);
+  assert.deepEqual(mergeCompletions[0].data.outputs, { merged: ['alpha', 'beta', 'gamma'] });
+  assert.deepEqual(cleanCompletions[0].data.outputs, { text: 'alpha,beta,gamma' });
+});

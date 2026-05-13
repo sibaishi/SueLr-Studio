@@ -976,12 +976,6 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
               body: form,
             });
             delete requestConfig.options.headers['Content-Type'];
-            logOutgoingRequest(sendProgress, {
-              type: 'form-data',
-              url: requestConfig.url,
-              method: 'POST',
-              body: formSummary,
-            });
             return callImageEditApiWithAdapter(
               adapter,
               requestConfig,

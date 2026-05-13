@@ -530,6 +530,48 @@ test('generateImages does not retry non-retryable image request errors', async (
   }
 });
 
+test('generateImages logs one ImageRequest entry for a single image edit request', async () => {
+  const originalFetch = globalThis.fetch;
+  const progress = [];
+  const requests = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({
+      url: String(url),
+      method: options.method,
+      body: options.body,
+    });
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'turn this into a render',
+      image: ['data:image/png;base64,QUJD'],
+    }, createRuntimeConfig(), (message) => progress.push(message));
+
+    const imageRequestLogs = progress.filter((message) => message.includes('[ImageRequest]'));
+
+    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, 'https://example.com/v1/images/edits');
+    assert.equal(requests[0].method, 'POST');
+    assert.equal(requests[0].body instanceof FormData, true);
+    assert.equal(imageRequestLogs.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateImages uses chat payload instead of form-data when chat endpoint has reference images', async () => {
   const originalFetch = globalThis.fetch;
   const requests = [];
