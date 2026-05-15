@@ -1,10 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { fileToBase64 } from './fileHelper.js';
 import { resolveModelRuntime } from './apiConfig.js';
+import { findProjectModel, normalizeProjectModels } from './projectModels.js';
 import { getProviderAdapter } from '../../platform/providers/index.js';
 import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.js';
+import { STORAGE_PATHS } from '../../platform/storage/index.js';
+import { ValidationError } from '../../app/errors/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +49,12 @@ function roundToNearest16(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
   return Math.max(16, Math.round(numeric / 16) * 16);
+}
+
+function ceilToMultiple(value, multiple = 16) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return Math.max(multiple, Math.ceil(numeric / multiple) * multiple);
 }
 
 function normalizeTextInput(value) {
@@ -88,6 +98,55 @@ function buildChatImageContent(prompt, images, payload = {}) {
     parts.push({ type: 'image_url', image_url: { url: image } });
   }
   return parts.length === 1 && parts[0].type === 'text' ? parts[0].text : parts;
+}
+
+function isVolcengineArkRuntime(baseUrl) {
+  const normalized = cleanText(baseUrl).toLowerCase();
+  return normalized.includes('ark.cn-beijing.volces.com/api/v3');
+}
+
+function getArkSeedreamMinimumPixels(modelId) {
+  const normalized = cleanText(modelId).toLowerCase();
+  if (!normalized.includes('seedream')) return null;
+  if (/seedream-3-0|seedream-3\.0/.test(normalized)) return 512 * 512;
+  if (/seedream-4-0|seedream-4\.0/.test(normalized)) return 1280 * 720;
+  if (/seedream-(?:4-5|4\.5|5-0|5\.0)/.test(normalized)) return 2560 * 1440;
+  return null;
+}
+
+function parsePixelSize(size) {
+  const match = cleanText(size).toLowerCase().match(/^(\d+)x(\d+)$/);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  return { width, height, pixels: width * height };
+}
+
+function upscaleSizeToMinimumPixels(size, minimumPixels) {
+  const parsed = parsePixelSize(size);
+  if (!parsed || !minimumPixels || parsed.pixels >= minimumPixels) return null;
+  const scale = Math.sqrt(minimumPixels / parsed.pixels);
+  const width = ceilToMultiple(parsed.width * scale);
+  const height = ceilToMultiple(parsed.height * scale);
+  if (!width || !height) return null;
+  return `${width}x${height}`;
+}
+
+function normalizeProviderImageSizing(payload, runtimeConfig) {
+  if (!isVolcengineArkRuntime(runtimeConfig?.baseUrl)) return payload;
+  const minimumPixels = getArkSeedreamMinimumPixels(payload.model);
+  if (!minimumPixels || !payload.size) return payload;
+  const nextSize = upscaleSizeToMinimumPixels(payload.size, minimumPixels);
+  if (!nextSize) return payload;
+  const [width, height] = nextSize.split('x').map((item) => Number(item));
+  return {
+    ...payload,
+    size: nextSize,
+    width,
+    height,
+    sizeSource: `${payload.sizeSource || 'auto'}:provider-minimum`,
+  };
 }
 
 function buildGeminiImagePromptText(prompt, payload = {}) {
@@ -281,7 +340,6 @@ export function normalizeImageGenerationRequest(request = {}) {
   const outputFormat = cleanText(request.output_format || request.outputFormat);
   const n = request.n === undefined || request.n === null || request.n === '' ? 1 : parseInteger(request.n);
 
-  if (!model) throw new Error('缺少图像模型 model');
   if (!prompt) throw new Error('缺少提示词 prompt');
   if (quality && !ALLOWED_QUALITY.has(quality)) throw new Error('quality 仅支持 low、medium、high、auto');
   if (outputFormat && !ALLOWED_FORMAT.has(outputFormat)) throw new Error('output_format 仅支持 png、jpeg、webp');
@@ -303,6 +361,69 @@ export function normalizeImageGenerationRequest(request = {}) {
     image: normalizeImageArray(request.image || request.referenceImages || request.reference),
     mask: cleanText(request.mask),
   };
+}
+
+function getImageOperation(request) {
+  return request.image?.length || request.mask ? 'edit' : 'generate';
+}
+
+function endpointSupportsImageOperation(model, operation) {
+  if (operation === 'generate') return true;
+  if (model.endpointMode === 'custom') {
+    const endpoint = cleanText(model.customEndpoint).toLowerCase();
+    return endpoint.includes('/chat/completions')
+      || endpoint.includes('/images/edits')
+      || endpoint.includes(':generatecontent');
+  }
+  return model.endpointCategory === 'image'
+    || model.endpointCategory === 'image-edit'
+    || model.endpointCategory === 'chat'
+    || model.endpointCategory === 'gemini-generate-content';
+}
+
+export function resolveImageGenerationModel(request, runtimeConfig = {}) {
+  const requestedModel = cleanText(request.model);
+  if (requestedModel) {
+    const configuredModel = findProjectModel(runtimeConfig.projectModels || [], requestedModel);
+    if (configuredModel?.configured && configuredModel.type === 'image') {
+      return configuredModel.modelId;
+    }
+    return requestedModel;
+  }
+
+  const operation = getImageOperation(request);
+  const candidates = normalizeProjectModels(runtimeConfig.projectModels || [])
+    .filter((model) => model.configured && model.enabled !== false && model.type === 'image')
+    .filter((model) => endpointSupportsImageOperation(model, operation));
+
+  if (candidates.length === 1) {
+    return candidates[0].modelId;
+  }
+
+  if (candidates.length === 0) {
+    throw new ValidationError(
+      'IMAGE_MODEL_UNAVAILABLE',
+      `No configured image model is available for ${operation === 'edit' ? 'image editing' : 'image generation'}.`,
+      { operation, candidates: [] },
+    );
+  }
+
+  const candidateSummary = candidates
+    .map((model) => model.modelId)
+    .join(', ');
+  throw new ValidationError(
+    'IMAGE_MODEL_AMBIGUOUS',
+    `Multiple image models are available for ${operation === 'edit' ? 'image editing' : 'image generation'}; please specify one: ${candidateSummary}`,
+    {
+      operation,
+      candidates: candidates.map((model) => ({
+        model: model.modelId,
+        endpointMode: model.endpointMode,
+        endpointCategory: model.endpointCategory,
+        customEndpoint: model.customEndpoint,
+      })),
+    },
+  );
 }
 
 function describeFetchError(error) {
@@ -420,6 +541,12 @@ function shouldRetryWithoutResponseFormat(error) {
     && /(unsupported|not supported|unknown|unrecognized|invalid|extra|cannot unmarshal|type|required|requ|不支持|未知|无效)/i.test(message);
 }
 
+function shouldRetryWithoutOutputFormat(error) {
+  const message = String(error?.message || error || '');
+  return /output_format/i.test(message)
+    && /(unsupported|not supported|unknown|unrecognized|invalid|extra|cannot unmarshal|type|required|requ|不支持|未知|无效)/i.test(message);
+}
+
 async function fetchWithImageTimeout(url, options, timeoutMs, externalSignal, sendProgress) {
   const signal = externalSignal
     ? AbortSignal.any([externalSignal, AbortSignal.timeout(timeoutMs)])
@@ -488,19 +615,60 @@ async function downloadRemoteImage(url, sendProgress, externalSignal) {
 function extractImagesFromResponse(data) {
   const images = [];
   const payload = data?.data && !Array.isArray(data.data) ? data.data : data;
+  const pushImage = (value, mimeType = 'image/png', allowBareBase64 = false) => {
+    const source = cleanText(value);
+    if (!source) return;
+    if (/^data:image\//i.test(source) || /^https?:\/\//i.test(source)) {
+      images.push(source);
+      return;
+    }
+    if (allowBareBase64 && /^[A-Za-z0-9+/=\s]+$/.test(source)) {
+      images.push(`data:${mimeType || 'image/png'};base64,${source.replace(/\s+/g, '')}`);
+    }
+  };
+  const collectNestedImages = (value, key = '') => {
+    if (value === undefined || value === null) return;
+    const normalizedKey = cleanText(key).toLowerCase();
+    const isImageKey = /^(url|image|images|image_url|imageurl|output|outputs|output_url|outputurl|artifact|artifacts)$/.test(normalizedKey);
+    const isBase64Key = /^(b64_json|base64|image_base64|imagebase64)$/.test(normalizedKey);
+
+    if (typeof value === 'string') {
+      if (/^data:image\//i.test(value) || isImageKey) pushImage(value);
+      if (isBase64Key) pushImage(value, 'image/png', true);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => collectNestedImages(item, key));
+      return;
+    }
+
+    if (typeof value !== 'object') return;
+
+    const inlineData = value.inlineData || value.inline_data;
+    const inlineMime = cleanText(inlineData?.mimeType || inlineData?.mime_type);
+    const inlineBase64 = cleanText(inlineData?.data);
+    if (inlineMime.startsWith('image/') && inlineBase64) {
+      pushImage(inlineBase64, inlineMime, true);
+    }
+
+    for (const [nestedKey, nestedValue] of Object.entries(value)) {
+      collectNestedImages(nestedValue, nestedKey);
+    }
+  };
 
   if (Array.isArray(data?.data)) {
     for (const item of data.data) {
-      if (item?.url) images.push(item.url);
-      if (item?.b64_json) images.push(`data:image/png;base64,${item.b64_json}`);
+      if (item?.url) pushImage(item.url);
+      if (item?.b64_json) pushImage(item.b64_json, 'image/png', true);
     }
   }
 
   if (Array.isArray(payload?.outputs)) {
     for (const output of payload.outputs) {
-      if (typeof output === 'string') images.push(output);
-      if (output?.url) images.push(output.url);
-      if (output?.b64_json) images.push(`data:image/png;base64,${output.b64_json}`);
+      if (typeof output === 'string') pushImage(output);
+      if (output?.url) pushImage(output.url);
+      if (output?.b64_json) pushImage(output.b64_json, 'image/png', true);
     }
   }
 
@@ -511,12 +679,12 @@ function extractImagesFromResponse(data) {
         const mimeType = cleanText(part?.inlineData?.mimeType);
         const base64 = cleanText(part?.inlineData?.data);
         if (mimeType.startsWith('image/') && base64) {
-          images.push(`data:${mimeType};base64,${base64}`);
+          pushImage(base64, mimeType, true);
         }
         const snakeMimeType = cleanText(part?.inline_data?.mime_type);
         const snakeBase64 = cleanText(part?.inline_data?.data);
         if (snakeMimeType.startsWith('image/') && snakeBase64) {
-          images.push(`data:${snakeMimeType};base64,${snakeBase64}`);
+          pushImage(snakeBase64, snakeMimeType, true);
         }
       }
     }
@@ -527,24 +695,26 @@ function extractImagesFromResponse(data) {
     const markdownImageRegex = /!\[.*?\]\((data:image\/[^)]+|https?:\/\/[^)]+)\)/g;
     let match;
     while ((match = markdownImageRegex.exec(content)) !== null) {
-      images.push(match[1]);
+      pushImage(match[1]);
     }
 
     const base64Regex = /(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/g;
     while ((match = base64Regex.exec(content)) !== null) {
       if (!images.includes(match[1])) {
-        images.push(match[1]);
+        pushImage(match[1]);
       }
     }
   } else if (Array.isArray(content)) {
     for (const part of content) {
       if (part?.type === 'image_url' && part?.image_url?.url) {
-        images.push(part.image_url.url);
+        pushImage(part.image_url.url);
       }
     }
   }
 
-  return images;
+  collectNestedImages(data);
+
+  return [...new Set(images)];
 }
 
 async function parseImageApiResponse(response, context, sendProgress) {
@@ -893,6 +1063,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
   }
 
   const normalized = normalizeImageGenerationRequest(request);
+  normalized.model = resolveImageGenerationModel(normalized, runtimeConfig);
   const timeoutMs = getImageTimeoutMs(providerConfig);
 
   const referenceImages = [];
@@ -901,11 +1072,11 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
   }
   const mask = normalized.mask ? await fileToBase64(normalized.mask) : '';
 
-  const payload = {
+  const payload = normalizeProviderImageSizing({
     ...normalized,
     image: referenceImages,
     mask,
-  };
+  }, runtimeConfig);
 
   const requestCount = payload.n || 1;
 
@@ -928,7 +1099,11 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
     });
     const usesGeminiGenerateContent = isGeminiGenerateContentEndpoint(imageEndpoint);
     const usesChatPayload = isChatCompletionsEndpoint(imageEndpoint);
-    const shouldUseEditEndpoint = (payload.image.length > 0 || payload.mask) && !usesChatPayload && !usesGeminiGenerateContent;
+    const usesArkImageGenerationPayload = isVolcengineArkRuntime(baseUrl) && !usesChatPayload && !usesGeminiGenerateContent;
+    const shouldUseEditEndpoint = (payload.image.length > 0 || payload.mask)
+      && !usesArkImageGenerationPayload
+      && !usesChatPayload
+      && !usesGeminiGenerateContent;
 
     const attemptData = shouldUseEditEndpoint
       ? await (() => {
@@ -1010,14 +1185,14 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
           }
 
           if (usesChatPayload) {
-            const buildRequestBody = (includeResponseFormat = true) => ({
+            const buildRequestBody = (includeResponseFormat = true, includeOutputFormat = true) => ({
               model: payload.model,
               stream: false,
               ...(includeResponseFormat ? { response_format: CHAT_URL_RESPONSE_FORMAT } : {}),
               ...(payload.size ? { size: payload.size } : {}),
               ...(payload.aspect_ratio ? { aspect_ratio: payload.aspect_ratio } : {}),
               ...(payload.quality ? { quality: payload.quality } : {}),
-              ...(payload.output_format ? { output_format: payload.output_format } : {}),
+              ...(includeOutputFormat && payload.output_format ? { output_format: payload.output_format } : {}),
               n: 1,
               messages: [
                 {
@@ -1055,24 +1230,29 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
             };
 
             try {
-              return await callWithRequestBody(buildRequestBody(true));
+              return await callWithRequestBody(buildRequestBody(true, true));
             } catch (error) {
+              if (shouldRetryWithoutOutputFormat(error)) {
+                sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
+                return callWithRequestBody(buildRequestBody(true, false));
+              }
               if (!shouldRetryWithoutResponseFormat(error)) {
                 throw error;
               }
               sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
-              return callWithRequestBody(buildRequestBody(false));
+              return callWithRequestBody(buildRequestBody(false, true));
             }
           }
 
-          const buildRequestBody = (includeResponseFormat = true) => ({
+          const buildRequestBody = (includeResponseFormat = true, includeOutputFormat = true) => ({
             model: payload.model,
             prompt: payload.prompt,
             ...(includeResponseFormat ? { response_format: URL_RESPONSE_FORMAT } : {}),
             ...(payload.size ? { size: payload.size } : {}),
             ...(payload.aspect_ratio ? { aspect_ratio: payload.aspect_ratio } : {}),
             ...(payload.quality ? { quality: payload.quality } : {}),
-            ...(payload.output_format ? { output_format: payload.output_format } : {}),
+            ...(includeOutputFormat && payload.output_format ? { output_format: payload.output_format } : {}),
+            ...(usesArkImageGenerationPayload && payload.image.length > 0 ? { image: payload.image } : {}),
             n: 1,
           });
           const callWithRequestBody = (requestBody) => {
@@ -1095,13 +1275,17 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
           };
 
           try {
-            return await callWithRequestBody(buildRequestBody(true));
+            return await callWithRequestBody(buildRequestBody(true, true));
           } catch (error) {
+            if (shouldRetryWithoutOutputFormat(error)) {
+              sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
+              return callWithRequestBody(buildRequestBody(true, false));
+            }
             if (!shouldRetryWithoutResponseFormat(error)) {
               throw error;
             }
             sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
-            return callWithRequestBody(buildRequestBody(false));
+            return callWithRequestBody(buildRequestBody(false, true));
           }
         })();
 
@@ -1116,11 +1300,37 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
   const outputImages = [];
   for (let index = 0; index < rawImages.length; index += 1) {
     const image = rawImages[index];
-    if (String(image).startsWith('data:')) {
-      outputImages.push(image);
-    } else if (String(image).startsWith('http')) {
+    const imageStr = String(image);
+    if (imageStr.startsWith('data:')) {
       try {
-        outputImages.push(await downloadRemoteImage(image, sendProgress, abortSignal));
+        const match = imageStr.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          const ext = (match[1] || 'image/png').split('/').pop() || 'png';
+          const fileName = `${randomUUID()}.${ext}`;
+          const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
+          fs.mkdirSync(STORAGE_PATHS.generatedDir, { recursive: true });
+          fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+          outputImages.push(`/api/outputs/${fileName}`);
+        }
+      } catch {
+        outputImages.push(imageStr);
+      }
+    } else if (imageStr.startsWith('http://') || imageStr.startsWith('https://')) {
+      try {
+        const downloaded = await downloadRemoteImage(image, sendProgress, abortSignal);
+        try {
+          const match = downloaded.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            const ext = (match[1] || 'image/png').split('/').pop() || 'png';
+            const fileName = `${randomUUID()}.${ext}`;
+            const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
+            fs.mkdirSync(STORAGE_PATHS.generatedDir, { recursive: true });
+            fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+            outputImages.push(`/api/outputs/${fileName}`);
+          }
+        } catch {
+          outputImages.push(downloaded);
+        }
       } catch (error) {
         sendProgress?.(`下载远程图片失败，已保留原始URL继续流程: ${String(image)}; ${error?.message || error}`);
         outputImages.push(String(image));

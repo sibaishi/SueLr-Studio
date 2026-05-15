@@ -105,23 +105,39 @@ export function groupConfiguredProjectModels(projectModels: ProjectModel[]): Cat
   return groups;
 }
 
-export function createImportedProjectModels(modelIds: string[], existing: ProjectModel[]) {
+type ImportableModel = string | { id?: string; modelId?: string; cat?: ProjectModelType; type?: ProjectModelType };
+
+function getImportModelId(value: ImportableModel) {
+  return typeof value === 'string' ? cleanText(value) : cleanText(value.modelId || value.id);
+}
+
+function getImportModelType(value: ImportableModel): ProjectModelType {
+  if (typeof value === 'string') return '';
+  return value.cat === 'chat' || value.cat === 'image' || value.cat === 'video'
+    ? value.cat
+    : value.type === 'chat' || value.type === 'image' || value.type === 'video'
+      ? value.type
+      : '';
+}
+
+export function createImportedProjectModels(models: ImportableModel[], existing: ProjectModel[]) {
   const now = Date.now();
   const byId = new Map(existing.map((model) => [model.modelId, model]));
 
-  for (const rawModelId of modelIds) {
-    const modelId = cleanText(rawModelId);
+  for (const model of models) {
+    const modelId = getImportModelId(model);
     if (!modelId || byId.has(modelId)) continue;
+    const type = getImportModelType(model);
     byId.set(modelId, {
       id: modelId,
       modelId,
       enabled: true,
-      type: '',
+      type,
       endpointMode: 'category',
-      endpointCategory: '',
+      endpointCategory: inferEndpointCategory(type),
       customEndpoint: '',
       source: 'imported',
-      configured: false,
+      configured: Boolean(type),
       createdAt: now,
       updatedAt: now,
     });

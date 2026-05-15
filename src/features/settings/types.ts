@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/lib/types';
+import type { AgentProfile } from '@/shared/api/agent';
 
 export type StreamMode = 'stream' | 'non-stream';
 
@@ -78,9 +79,10 @@ export type SettingsPanelProps = {
   onClearLogs: () => void;
   themeMode: ThemeMode;
   setThemeMode: (theme: ThemeMode) => void;
-  roles: AgentRole[];
-  customRoles: AgentRole[];
-  setCustomRoles: Dispatch<SetStateAction<AgentRole[]>>;
+  agentProfiles: AgentProfile[];
+  customAgentProfiles: AgentProfile[];
+  upsertAgentProfile: (profile: AgentProfile) => Promise<void>;
+  deleteAgentProfile: (profileId: string) => Promise<void>;
   memories: Memory[];
   onDeleteMemory: (id: string) => void;
   onClearMemories: () => void;

@@ -31,11 +31,19 @@ export class AssistantRepository {
     writeJsonFile(DATA_FILE_MAP[type], data);
   }
 
-  writeAssistantImage(filename, content) {
-    const dir = path.join(STORAGE_PATHS.generatedDir, 'assistant-images');
+  writeAssistantFile(directoryName, filename, content) {
+    const dir = path.join(STORAGE_PATHS.generatedDir, directoryName);
     const filePath = path.join(dir, filename);
     fs.writeFileSync(filePath, content);
     return filePath;
+  }
+
+  writeAssistantImage(filename, content) {
+    return this.writeAssistantFile('assistant-images', filename, content);
+  }
+
+  writeAssistantVideo(filename, content) {
+    return this.writeAssistantFile('assistant-videos', filename, content);
   }
 
   deleteGeneratedFile(relativePath) {

@@ -9,10 +9,14 @@ import { clearVideos, loadVideos, saveVideo } from '@/shared/api/assistant';
 import { startVideoPoll, waitForVideoCompletion } from '@/lib/videoPoll';
 
 function formatVideoGenerationError(error: string) {
-  const detail = String(error || '未知错误').trim().slice(0, 80);
+  const detail = String(error || '未知错误').trim().slice(0, 160);
   return detail
-    ? `视频生成失败，请检查模型配置、网络连接或稍后重试。${detail}`
+    ? `视频生成失败：${detail}`
     : '视频生成失败，请检查模型配置、网络连接或稍后重试。';
+}
+
+function touchTask(task: VTask, patch: Partial<VTask>): VTask {
+  return { ...task, ...patch, updatedAt: Date.now() };
 }
 
 export function useVideoGen(
@@ -55,7 +59,9 @@ export function useVideoGen(
     setCompletedVideos(prev => [item, ...prev]);
   }, []);
 
-  useEffect(() => { bridgeRef.current.addToVideoGallery = addToCompleted; }, [addToCompleted, bridgeRef]);
+  useEffect(() => {
+    bridgeRef.current.addToVideoGallery = addToCompleted;
+  }, [addToCompleted, bridgeRef]);
 
   useEffect(() => {
     loadVideos().then(items => {
@@ -86,8 +92,19 @@ export function useVideoGen(
 
   const submit = useCallback(async () => {
     if (!prompt.trim() || !model) return;
+
     const id = gid();
-    const task: VTask = { id, taskId: '', status: '提交中', prompt: prompt.trim(), model, params: `${resolution} ${vidRatio} ${duration}s` };
+    const now = Date.now();
+    const task: VTask = {
+      id,
+      taskId: '',
+      status: '提交中',
+      prompt: prompt.trim(),
+      model,
+      params: `${resolution} ${vidRatio} ${duration}s`,
+      ts: now,
+      updatedAt: now,
+    };
     setTasks(prev => [task, ...prev]);
     vlog(`提交任务: ${prompt.slice(0, 30)}...`);
 
@@ -101,56 +118,173 @@ export function useVideoGen(
         duration,
         aspect_ratio: vidRatio,
         resolution,
+        image_url: mode === 'image' ? refImages[0] : undefined,
+        input_audio: audioFile?.data,
         signal: ac.signal,
       });
 
       vlog(`任务已提交，ID: ${tid}`);
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, taskId: tid, status: '处理中' } : t));
+      setTasks(prev => prev.map(t => t.id === id ? touchTask(t, { taskId: tid || '', status: '处理中' }) : t));
 
       const onSuccess = (url: string) => {
         vlog('视频生成完成');
         toast('视频生成完成', 'success');
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: '已完成', videoUrl: url } : t));
+        setTasks(prev => prev.map(t => t.id === id ? touchTask(t, { status: '已完成', videoUrl: url, error: undefined }) : t));
         const vidItem = { id, url, prompt: task.prompt, model, ts: Date.now() };
         setCompletedVideos(prev => [vidItem, ...prev]);
-        void saveVideo(vidItem);
+        void saveVideo(vidItem).then((persistedUrl) => {
+          if (!persistedUrl) return;
+          setCompletedVideos(prev => prev.map((item) => item.id === id ? { ...item, url: persistedUrl } : item));
+          setTasks(prev => prev.map((item) => item.id === id ? touchTask(item, { videoUrl: persistedUrl }) : item));
+        });
       };
+
       const onNoUrl = () => {
-        vlog('任务完成但未获取到视频 URL');
-        toast('视频任务已结束，但还没有拿到可播放地址，请稍后重试或查看日志。', 'error');
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: '失败', error: '未获取到视频 URL' } : t));
+        const error = '任务已完成，但没有返回可播放的视频地址';
+        vlog(error);
+        toast(error, 'error');
+        setTasks(prev => prev.map(t => t.id === id ? touchTask(t, { status: '失败', error }) : t));
       };
+
       const onFailure = (err: string) => {
         vlog(`失败: ${err}`);
         toast(formatVideoGenerationError(err), 'error');
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: '失败', error: err } : t));
+        setTasks(prev => prev.map(t => t.id === id ? touchTask(t, { status: '失败', error: err }) : t));
       };
+
       const onPollError = (errMsg: string) => {
         vlog(`轮询错误: ${errMsg}`);
       };
 
       if (videoStreamingMode === 'stream') {
-        startVideoPoll({ taskId: tid, pollKey: id, pollRefs, baseR, keyR, onSuccess, onNoUrl, onFailure, onPollError });
+        startVideoPoll({ taskId: tid || '', pollKey: id, pollRefs, baseR, keyR, onSuccess, onNoUrl, onFailure, onPollError });
       } else {
-        await waitForVideoCompletion({ taskId: tid, baseR, keyR, onSuccess, onNoUrl, onFailure, onPollError });
+        await waitForVideoCompletion({ taskId: tid || '', baseR, keyR, onSuccess, onNoUrl, onFailure, onPollError });
       }
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        vlog(`提交失败: ${err.message}`);
-        addLog('error', `[Video] 提交失败: ${err.message}`);
+      if (err?.name !== 'AbortError') {
+        const message = err instanceof Error ? err.message : String(err);
+        vlog(`提交失败: ${message}`);
+        addLog('error', `[Video] 提交失败: ${message}`);
+        toast(formatVideoGenerationError(message), 'error');
+        setTasks(prev => prev.map(t => t.id === id ? touchTask(t, { status: '失败', error: message }) : t));
       }
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: '失败', error: err.message } : t));
     } finally {
       delete abortMap.current[id];
     }
-  }, [prompt, model, resolution, vidRatio, duration, vlog, toast, addLog, baseR, keyR, getProvider, videoStreamingMode]);
+  }, [prompt, model, resolution, vidRatio, duration, mode, refImages, audioFile, vlog, toast, addLog, baseR, keyR, getProvider, videoStreamingMode]);
+
+  const resumeTaskPolling = useCallback(async (taskId: string) => {
+    const normalizedTaskId = String(taskId || '').trim();
+    if (!normalizedTaskId) {
+      throw new Error('taskId 不能为空');
+    }
+
+    const existingTask = tasks.find((task) => task.taskId === normalizedTaskId);
+    const pollKey = existingTask?.id || gid();
+    const now = Date.now();
+    const taskRecord: VTask = existingTask || {
+      id: pollKey,
+      taskId: normalizedTaskId,
+      status: '处理中',
+      prompt: `手动继续轮询: ${normalizedTaskId}`,
+      model: 'manual',
+      params: 'resume by taskId',
+      ts: now,
+      updatedAt: now,
+    };
+
+    if (!existingTask) {
+      setTasks((prev) => [taskRecord, ...prev]);
+    } else {
+      setTasks((prev) => prev.map((task) => (
+        task.id === existingTask.id ? touchTask(task, { status: '处理中', error: undefined }) : task
+      )));
+    }
+
+    vlog(`继续轮询视频任务: ${normalizedTaskId}`);
+
+    const onSuccess = (url: string) => {
+      vlog(`手动轮询完成: ${normalizedTaskId}`);
+      toast('视频生成完成', 'success');
+      setTasks((prev) => prev.map((task) => (
+        task.id === pollKey ? touchTask(task, { status: '已完成', videoUrl: url, error: undefined }) : task
+      )));
+      const vidItem = {
+        id: gid(),
+        url,
+        prompt: taskRecord.prompt,
+        model: taskRecord.model,
+        ts: Date.now(),
+      };
+      setCompletedVideos((prev) => [vidItem, ...prev]);
+      void saveVideo(vidItem).then((persistedUrl) => {
+        if (!persistedUrl) return;
+        setCompletedVideos((prev) => prev.map((item) => item.id === vidItem.id ? { ...item, url: persistedUrl } : item));
+        setTasks((prev) => prev.map((item) => item.id === pollKey ? touchTask(item, { videoUrl: persistedUrl }) : item));
+      });
+    };
+
+    const onNoUrl = () => {
+      const error = '任务已完成，但没有返回可播放的视频地址';
+      vlog(`手动轮询完成但无 URL: ${normalizedTaskId}`);
+      toast(error, 'error');
+      setTasks((prev) => prev.map((task) => (
+        task.id === pollKey ? touchTask(task, { status: '失败', error }) : task
+      )));
+    };
+
+    const onFailure = (error: string) => {
+      vlog(`手动轮询失败: ${normalizedTaskId}; ${error}`);
+      toast(formatVideoGenerationError(error), 'error');
+      setTasks((prev) => prev.map((task) => (
+        task.id === pollKey ? touchTask(task, { status: '失败', error }) : task
+      )));
+    };
+
+    const onPollError = (error: string) => {
+      vlog(`手动轮询请求异常: ${normalizedTaskId}; ${error}`);
+    };
+
+    if (videoStreamingMode === 'stream') {
+      startVideoPoll({
+        taskId: normalizedTaskId,
+        pollKey,
+        pollRefs,
+        baseR,
+        keyR,
+        onSuccess,
+        onNoUrl,
+        onFailure,
+        onPollError,
+      });
+      return;
+    }
+
+    await waitForVideoCompletion({
+      taskId: normalizedTaskId,
+      baseR,
+      keyR,
+      onSuccess,
+      onNoUrl,
+      onFailure,
+      onPollError,
+    });
+  }, [tasks, vlog, toast, videoStreamingMode, baseR, keyR]);
 
   const cancelTask = useCallback((tid: string) => {
-    if (abortMap.current[tid]) { abortMap.current[tid].abort(); delete abortMap.current[tid]; }
-    if (pollRefs.current[tid]) { clearInterval(pollRefs.current[tid]); delete pollRefs.current[tid]; }
+    if (abortMap.current[tid]) {
+      abortMap.current[tid].abort();
+      delete abortMap.current[tid];
+    }
+    if (pollRefs.current[tid]) {
+      clearInterval(pollRefs.current[tid]);
+      delete pollRefs.current[tid];
+    }
     setTasks(prev => prev.map(t =>
       t.id === tid && (t.status === '提交中' || t.status === '处理中')
-        ? { ...t, status: '已取消' } : t
+        ? touchTask(t, { status: '已取消' })
+        : t,
     ));
   }, []);
 
@@ -169,6 +303,6 @@ export function useVideoGen(
     duration, setDuration, resolution, setResolution, vidRatio, setVidRatio,
     refImages, setRefImages, audioFile, setAudioFile, previewUrl, setPreviewUrl,
     vidModels, activeCount,
-    handleFileUpload, submit, cancelTask, cancelAll, clearCompleted,
+    handleFileUpload, submit, resumeTaskPolling, cancelTask, cancelAll, clearCompleted,
   };
 }

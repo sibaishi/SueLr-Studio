@@ -17,7 +17,7 @@ export function serializeWorkflowExport(workflow: PersistedWorkflow) {
 export function parseWorkflowImport(content: string): Record<string, unknown> {
   const parsed = JSON.parse(content) as unknown;
   if (!isPlainObject(parsed)) {
-    throw new Error('瀵煎叆澶辫触锛氭枃浠跺唴瀹瑰繀椤讳负瀵硅薄銆?');
+    throw new Error('导入失败：文件内容必须为对象。');
   }
   return parsed;
 }
@@ -33,19 +33,19 @@ export function buildImportReportSections(report?: WorkflowImportReport | null) 
 
   const sections = [
     {
-      title: '鐗堟湰',
-      lines: [`婧愮増鏈細v${report.sourceVersion}`, `鐩爣鐗堟湰锛歷${report.targetVersion}`, `缁撴灉锛?{report.result}`],
+      title: '导入摘要',
+      lines: [`源版本：v${report.sourceVersion}`, `目标版本：v${report.targetVersion}`, `结果：${report.result}`],
     },
   ];
 
   if (report.appliedMigrations.length > 0) {
-    sections.push({ title: '杩佺Щ', lines: report.appliedMigrations });
+    sections.push({ title: '已应用迁移', lines: report.appliedMigrations });
   }
   if (report.warnings.length > 0) {
-    sections.push({ title: '鎻愮ず', lines: report.warnings });
+    sections.push({ title: '提示', lines: report.warnings });
   }
   if (report.rejectedFields.length > 0) {
-    sections.push({ title: '蹇界暐瀛楁', lines: report.rejectedFields });
+    sections.push({ title: '已忽略字段', lines: report.rejectedFields });
   }
 
   return sections;
@@ -54,11 +54,11 @@ export function buildImportReportSections(report?: WorkflowImportReport | null) 
 export function getImportModeLabel(mode: WorkflowImportMode) {
   switch (mode) {
     case 'overwrite':
-      return '瑕嗙洊鐜版湁宸ヤ綔娴?';
+      return '覆盖现有工作流';
     case 'preserve_id':
-      return '淇濈暀鍘?ID';
+      return '保留原 ID';
     default:
-      return '鐢熸垚鏂?ID';
+      return '生成新 ID';
   }
 }
 

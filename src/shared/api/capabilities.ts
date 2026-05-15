@@ -79,7 +79,10 @@ export async function capabilityWebSearch(params: {
   includeAnswer?: boolean;
   apiConfig?: ApiConfigPayload;
 }) {
-  return apiRequestOrThrow<{ raw: any; content: string }>('/api/capabilities/search', createJsonRequestInit(params));
+  return apiRequestOrThrow<{ raw: any; content: string; structured?: any }>(
+    '/api/capabilities/search',
+    createJsonRequestInit(params),
+  );
 }
 
 export async function capabilityGenerateImage(params: {
@@ -130,11 +133,13 @@ export async function capabilityPollVideoTask(taskId: string) {
     status?: string;
     video_url?: string;
     output?: { video_url?: string };
+    content?: { video_url?: string };
     error?: unknown;
     data?: {
       status?: string;
       video_url?: string;
       output?: { video_url?: string };
+      content?: { video_url?: string };
       error?: unknown;
     };
   }>(`/api/capabilities/video/${encodeURIComponent(taskId)}`);

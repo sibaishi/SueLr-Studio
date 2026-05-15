@@ -1,7 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-import { generateImages, normalizeImageGenerationRequest } from '../src/engine/helpers/imageGeneration.js';
+import { generateImages, normalizeImageGenerationRequest, resolveImageGenerationModel } from '../src/engine/helpers/imageGeneration.js';
+import { ensureStorageDirectories, STORAGE_PATHS } from '../src/platform/storage/index.js';
+
+function withTempStorage() {
+  const previous = process.env.APP_CONFIG_DIR;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'suelr-image-generation-'));
+  process.env.APP_CONFIG_DIR = root;
+  ensureStorageDirectories();
+  return () => {
+    if (previous === undefined) {
+      delete process.env.APP_CONFIG_DIR;
+    } else {
+      process.env.APP_CONFIG_DIR = previous;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  };
+}
 
 function createRuntimeConfig(overrides = {}) {
   return {
@@ -25,6 +44,11 @@ function createRuntimeConfig(overrides = {}) {
     ],
     ...overrides,
   };
+}
+
+function assertGeneratedPngOutput(result) {
+  assert.equal(result.images.length, 1);
+  assert.match(result.images[0], /^\/api\/outputs\/.+\.png$/);
 }
 
 test('normalizeImageGenerationRequest extracts dimensions from prompt when sizing is auto', () => {
@@ -146,6 +170,136 @@ test('normalizeImageGenerationRequest keeps explicit node sizing above prompt si
   assert.equal(explicitDimensions.size, '2048x1024');
 });
 
+test('resolveImageGenerationModel auto-selects the only configured image model', () => {
+  const normalized = normalizeImageGenerationRequest({
+    prompt: 'draw a mountain',
+  });
+
+  assert.equal(resolveImageGenerationModel(normalized, createRuntimeConfig()), 'demo-image-model');
+});
+
+test('resolveImageGenerationModel asks for a model when multiple image candidates match', () => {
+  const normalized = normalizeImageGenerationRequest({
+    prompt: 'draw a mountain',
+  });
+
+  assert.throws(
+    () => resolveImageGenerationModel(normalized, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'image-a',
+          modelId: 'image-a',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+        {
+          id: 'image-b',
+          modelId: 'image-b',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    })),
+    /Multiple image models.*image-a, image-b/,
+  );
+});
+
+test('resolveImageGenerationModel treats chat-endpoint image models as edit candidates', () => {
+  const normalized = normalizeImageGenerationRequest({
+    prompt: 'edit this image',
+    image: ['data:image/png;base64,YWJj'],
+  });
+
+  assert.equal(resolveImageGenerationModel(normalized, createRuntimeConfig({
+    projectModels: [
+      {
+        id: 'chat-image-model',
+        modelId: 'chat-image-model',
+        type: 'image',
+        enabled: true,
+        endpointMode: 'category',
+        endpointCategory: 'chat',
+      },
+    ],
+  })), 'chat-image-model');
+});
+
+test('generateImages uses auto-selected image model when request omits model', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig());
+
+    assertGeneratedPngOutput(result);
+    assert.equal(result.request.model, 'demo-image-model');
+    assert.equal(requestBody.model, 'demo-image-model');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages resolves model ids when chat tool calls add spaces around hyphens', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'doubao - seedream - 4 - 5 - 251128',
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'doubao-seedream-4-5-251128',
+          modelId: 'doubao-seedream-4-5-251128',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(result.request.model, 'doubao-seedream-4-5-251128');
+    assert.equal(requestBody.model, 'doubao-seedream-4-5-251128');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateImages retries connect timeout for image generation requests', async () => {
   const originalFetch = globalThis.fetch;
   const originalSetTimeout = globalThis.setTimeout;
@@ -187,10 +341,10 @@ test('generateImages retries connect timeout for image generation requests', asy
       progress.push(message);
     });
 
-    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    assertGeneratedPngOutput(result);
     assert.equal(attempts, 3);
-    assert.match(progress.join('\n'), /重试第 2\/3 次/);
-    assert.match(progress.join('\n'), /重试第 3\/3 次/);
+    assert.ok(progress.join('\n').includes('2/3'));
+    assert.ok(progress.join('\n').includes('3/3'));
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;
@@ -266,10 +420,70 @@ test('generateImages sends resolved size without duplicate aspect_ratio for rati
       ratio: '16:9',
     }, createRuntimeConfig());
 
-    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    assertGeneratedPngOutput(result);
     assert.equal(requestBody.size, '1792x1024');
     assert.equal(requestBody.aspect_ratio, undefined);
     assert.equal(requestBody.response_format, 'url');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages upscales Ark Seedream 4.5 ratio sizes without changing other providers', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestBodies = [];
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBodies.push(JSON.parse(String(options.body)));
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    await generateImages({
+      model: 'doubao-seedream-4-5-251128',
+      prompt: 'draw a square icon',
+      ratio: '1:1',
+    }, createRuntimeConfig({
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      projectModels: [
+        {
+          id: 'doubao-seedream-4-5-251128',
+          modelId: 'doubao-seedream-4-5-251128',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    }));
+
+    await generateImages({
+      model: 'doubao-seedream-4-5-251128',
+      prompt: 'draw a square icon',
+      ratio: '1:1',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'doubao-seedream-4-5-251128',
+          modelId: 'doubao-seedream-4-5-251128',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    }));
+
+    assert.equal(requestBodies[0].size, '1920x1920');
+    assert.equal(requestBodies[1].size, '1024x1024');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -309,11 +523,57 @@ test('generateImages falls back when url response format is unsupported', async 
       prompt: 'draw a mountain',
     }, createRuntimeConfig(), (message) => progress.push(message));
 
-    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    assertGeneratedPngOutput(result);
     assert.equal(requestBodies.length, 2);
     assert.equal(requestBodies[0].response_format, 'url');
     assert.equal(requestBodies[1].response_format, undefined);
     assert.match(progress.join('\n'), /response_format=url/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages falls back when output format is unsupported', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestBodies = [];
+  const progress = [];
+
+  globalThis.fetch = async (_url, options = {}) => {
+    const requestBody = JSON.parse(String(options.body));
+    requestBodies.push(requestBody);
+
+    if (requestBodies.length === 1) {
+      return new Response(JSON.stringify({
+        error: { message: 'The parameter `output_format` is not supported by this model' },
+      }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'draw a cat',
+      output_format: 'png',
+    }, createRuntimeConfig(), (message) => progress.push(message));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requestBodies.length, 2);
+    assert.equal(requestBodies[0].output_format, 'png');
+    assert.equal(requestBodies[1].output_format, undefined);
+    assert.equal(requestBodies[1].response_format, 'url');
+    assert.match(progress.join('\n'), /output_format/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -369,7 +629,7 @@ test('generateImages supports Gemini generateContent image endpoints without cha
       ],
     }));
 
-    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    assertGeneratedPngOutput(result);
     assert.equal(requestUrl, 'https://example.com/v1beta/models/gemini-3-pro-image-preview-4k:generateContent?key=demo-key');
     assert.equal(requestHeaders.Authorization, undefined);
     assert.equal(requestHeaders['Content-Type'], 'application/json');
@@ -492,7 +752,7 @@ test('generateImages falls back for chat response format type errors', async () 
       ],
     }), (message) => progress.push(message));
 
-    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    assertGeneratedPngOutput(result);
     assert.equal(requestBodies.length, 2);
     assert.deepEqual(requestBodies[0].response_format, { type: 'url' });
     assert.equal(requestBodies[1].response_format, undefined);
@@ -561,12 +821,71 @@ test('generateImages logs one ImageRequest entry for a single image edit request
 
     const imageRequestLogs = progress.filter((message) => message.includes('[ImageRequest]'));
 
-    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    assertGeneratedPngOutput(result);
     assert.equal(requests.length, 1);
     assert.equal(requests[0].url, 'https://example.com/v1/images/edits');
     assert.equal(requests[0].method, 'POST');
     assert.equal(requests[0].body instanceof FormData, true);
     assert.equal(imageRequestLogs.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages resolves local API image URLs before sending edit requests upstream', async () => {
+  const cleanup = withTempStorage();
+  const originalFetch = globalThis.fetch;
+  let uploadedBlob = null;
+
+  try {
+    fs.writeFileSync(path.join(STORAGE_PATHS.uploadsDir, 'source.png'), Buffer.from('ABC'));
+
+    globalThis.fetch = async (_url, options = {}) => {
+      uploadedBlob = options.body.get('image');
+      return new Response(JSON.stringify({
+        data: [
+          { b64_json: 'YWJj' },
+        ],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'turn this into a render',
+      image: ['http://127.0.0.1:3001/api/files/source.png'],
+    }, createRuntimeConfig());
+
+    assertGeneratedPngOutput(result);
+    assert.equal(uploadedBlob?.type, 'image/png');
+    assert.equal(uploadedBlob?.size, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanup();
+  }
+});
+
+test('generateImages extracts nested image URLs from varied upstream response bodies', async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    result: {
+      output_url: 'data:image/png;base64,YWJj',
+    },
+  }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  try {
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig());
+
+    assertGeneratedPngOutput(result);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -624,7 +943,7 @@ test('generateImages uses chat payload instead of form-data when chat endpoint h
       ],
     }));
 
-    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    assertGeneratedPngOutput(result);
     assert.equal(requests.length, 1);
     assert.equal(requests[0].url, 'https://example.com/v1/chat/completions');
     assert.equal(requests[0].method, 'POST');
@@ -639,7 +958,7 @@ test('generateImages uses chat payload instead of form-data when chat endpoint h
     assert.equal(payload.messages?.[0]?.role, 'user');
     assert.ok(Array.isArray(payload.messages?.[0]?.content));
     assert.equal(payload.messages[0].content[0].type, 'text');
-    assert.match(payload.messages[0].content[0].text, /请以以下提示词帮我生成图片/);
+    assert.match(payload.messages[0].content[0].text, /turn this into a render/);
     assert.equal(payload.messages[0].content[1].type, 'image_url');
     assert.equal(payload.messages[0].content[1].image_url.url, 'data:image/png;base64,QUJD');
   } finally {

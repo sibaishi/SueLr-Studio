@@ -166,3 +166,224 @@ test('ExecutionService stores sanitized node outputs in workflow run logs', asyn
   ));
   assert.equal(sseCompletedEvent.data.outputs.text, inlineImage);
 });
+
+test('ExecutionService.executeForAgent resolves saved workflows by name and returns key outputs', async () => {
+  const workflow = {
+    id: 'wf_agent_summary',
+    name: 'Agent Summary Workflow',
+    version: 1,
+    nodes: [
+      {
+        id: 'text-1',
+        type: 'textInput',
+        position: { x: 0, y: 0 },
+        data: { text: 'workflow output text' },
+      },
+      {
+        id: 'output-1',
+        type: 'output',
+        position: { x: 100, y: 0 },
+        data: {},
+      },
+    ],
+    edges: [
+      {
+        id: 'edge-1',
+        source: 'text-1',
+        sourceHandle: 'text',
+        target: 'output-1',
+        targetHandle: 'content',
+      },
+    ],
+    settings: {},
+  };
+  const service = new ExecutionService({
+    read(id) {
+      assert.equal(id, 'wf_agent_summary');
+      return { workflow };
+    },
+    list() {
+      return [workflow];
+    },
+  });
+
+  const result = await service.executeForAgent({
+    workflowName: 'Agent Summary Workflow',
+    apiConfig: {},
+  });
+
+  assert.equal(result.workflowId, 'wf_agent_summary');
+  assert.equal(result.workflowName, 'Agent Summary Workflow');
+  assert.equal(result.status, 'completed');
+  assert.equal(typeof result.runId, 'string');
+  assert.equal(Array.isArray(result.keyOutputs), true);
+  assert.equal(result.keyOutputs.length > 0, true);
+  assert.match(result.summary, /Agent Summary Workflow/);
+  assert.match(result.summary, /runId:/);
+});
+
+test('ExecutionService.executeForAgent applies input overrides as a draft run and emits run metadata', async () => {
+  const workflow = {
+    id: 'wf_agent_inputs',
+    name: 'Agent Input Workflow',
+    version: 1,
+    nodes: [
+      {
+        id: 'node_prompt',
+        type: 'textInput',
+        position: { x: 0, y: 0 },
+        data: { text: 'original prompt' },
+      },
+      {
+        id: 'output-1',
+        type: 'output',
+        position: { x: 100, y: 0 },
+        data: {},
+      },
+    ],
+    edges: [
+      {
+        id: 'edge-1',
+        source: 'node_prompt',
+        sourceHandle: 'text',
+        target: 'output-1',
+        targetHandle: 'content',
+      },
+    ],
+    settings: {},
+  };
+  const service = new ExecutionService({
+    read(id) {
+      assert.equal(id, 'wf_agent_inputs');
+      return { workflow };
+    },
+    list() {
+      return [workflow];
+    },
+  });
+
+  let runStarted = null;
+  const result = await service.executeForAgent({
+    workflowId: 'wf_agent_inputs',
+    inputs: {
+      node_prompt: 'updated by agent',
+    },
+    apiConfig: {},
+    onRunStarted(payload) {
+      runStarted = payload;
+    },
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.source, 'draft');
+  assert.deepEqual(result.appliedInputs, [
+    {
+      nodeId: 'node_prompt',
+      nodeType: 'textInput',
+      field: 'text',
+      matchedBy: 'node_prompt',
+    },
+  ]);
+  assert.match(result.summary, /appliedInputs: node_prompt/);
+  assert.equal(runStarted?.workflowId, 'wf_agent_inputs');
+  assert.equal(runStarted?.source, 'draft');
+  assert.equal(Array.isArray(runStarted?.appliedInputs), true);
+  assert.equal(runStarted?.appliedInputs?.[0]?.nodeId, 'node_prompt');
+});
+
+test('ExecutionService.executeForAgent matches human-friendly input aliases like 文本输入1', async () => {
+  const workflow = {
+    id: 'wf_agent_alias',
+    name: 'Agent Alias Workflow',
+    version: 1,
+    nodes: [
+      {
+        id: 'first_prompt',
+        type: 'textInput',
+        position: { x: 0, y: 0 },
+        data: { text: 'original first' },
+      },
+      {
+        id: 'second_prompt',
+        type: 'textInput',
+        position: { x: 0, y: 80 },
+        data: { text: 'original second' },
+      },
+      {
+        id: 'output-1',
+        type: 'output',
+        position: { x: 100, y: 0 },
+        data: {},
+      },
+    ],
+    edges: [
+      {
+        id: 'edge-1',
+        source: 'first_prompt',
+        sourceHandle: 'text',
+        target: 'output-1',
+        targetHandle: 'content',
+      },
+    ],
+    settings: {},
+  };
+  const service = new ExecutionService({
+    read() {
+      return { workflow };
+    },
+    list() {
+      return [workflow];
+    },
+  });
+
+  const result = await service.executeForAgent({
+    workflowId: 'wf_agent_alias',
+    inputs: {
+      文本输入1: '兄弟你好香啊',
+    },
+    apiConfig: {},
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.source, 'draft');
+  assert.equal(result.appliedInputs[0]?.nodeId, 'first_prompt');
+  assert.equal(result.appliedInputs[0]?.matchedBy, '文本输入1');
+  assert.match(result.summary, /appliedInputs: first_prompt/);
+});
+
+test('ExecutionService.executeForAgent throws when no requested input keys match any input node', async () => {
+  const workflow = {
+    id: 'wf_agent_unmatched',
+    name: 'Agent Unmatched Workflow',
+    version: 1,
+    nodes: [
+      {
+        id: 'question',
+        type: 'textInput',
+        position: { x: 0, y: 0 },
+        data: { text: 'original' },
+      },
+    ],
+    edges: [],
+    settings: {},
+  };
+  const service = new ExecutionService({
+    read() {
+      return { workflow };
+    },
+    list() {
+      return [workflow];
+    },
+  });
+
+  await assert.rejects(
+    () => service.executeForAgent({
+      workflowId: 'wf_agent_unmatched',
+      inputs: {
+        不存在的节点: 'new value',
+      },
+      apiConfig: {},
+    }),
+    /did not match any input nodes/,
+  );
+});

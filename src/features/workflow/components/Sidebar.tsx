@@ -4,7 +4,7 @@ import { NODE_ICONS } from '@/features/workflow/components/nodes/nodeConstants';
 import { NODE_CATEGORIES, NODE_REGISTRY } from '@/features/workflow/lib/constants';
 import type { NodeTypeDef } from '@/features/workflow/lib/types';
 
-const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+const DISABLED_NEW_NODE_TYPES = new Set<string>();
 const DISABLED_NODE_REASON = '暂时停用，无法新建';
 
 const CATEGORY_ACCENTS: Record<string, string> = {

@@ -26,9 +26,13 @@ export class AssistantController {
     res.json(successEnvelope(assistantService.getImages()));
   }
 
-  saveImage(req, res) {
-    const data = assistantService.saveImage(req.body);
-    res.json(successEnvelope(data));
+  async saveImage(req, res, next) {
+    try {
+      const data = await assistantService.saveImage(req.body);
+      res.json(successEnvelope(data));
+    } catch (error) {
+      next(error);
+    }
   }
 
   clearImages(_req, res) {
@@ -45,9 +49,13 @@ export class AssistantController {
     res.json(successEnvelope(assistantService.getVideos()));
   }
 
-  saveVideo(req, res) {
-    assistantService.saveVideo(req.body);
-    res.json(successEnvelope(null));
+  async saveVideo(req, res, next) {
+    try {
+      const data = await assistantService.saveVideo(req.body);
+      res.json(successEnvelope(data));
+    } catch (error) {
+      next(error);
+    }
   }
 
   clearVideos(_req, res) {

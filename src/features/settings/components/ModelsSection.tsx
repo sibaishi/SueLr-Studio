@@ -31,14 +31,13 @@ function isSelected(id: string, selected: string[]) {
 }
 
 export function ModelsSection({ T, actions, view }: Props) {
-  const discoveredById = useMemo(() => new Map(view.models.map((model) => [model.id, model])), [view.models]);
   const filteredImportableModels = useMemo(() => {
     const query = view.projectModelSearch.trim().toLowerCase();
     if (!query) return view.importableModels;
-    return view.importableModels.filter((id) => id.toLowerCase().includes(query));
+    return view.importableModels.filter((model) => model.id.toLowerCase().includes(query));
   }, [view.importableModels, view.projectModelSearch]);
-  const allVisibleSelected = filteredImportableModels.length > 0 && filteredImportableModels.every((id) => isSelected(id, view.selectedImports));
-  const selectedVisibleCount = filteredImportableModels.filter((id) => isSelected(id, view.selectedImports)).length;
+  const allVisibleSelected = filteredImportableModels.length > 0 && filteredImportableModels.every((model) => isSelected(model.id, view.selectedImports));
+  const selectedVisibleCount = filteredImportableModels.filter((model) => isSelected(model.id, view.selectedImports)).length;
 
   const toggleImport = (id: string) => {
     actions.setSelectedImports(
@@ -50,11 +49,11 @@ export function ModelsSection({ T, actions, view }: Props) {
 
   const toggleVisibleImports = () => {
     if (allVisibleSelected) {
-      const visible = new Set(filteredImportableModels);
+      const visible = new Set(filteredImportableModels.map((model) => model.id));
       actions.setSelectedImports(view.selectedImports.filter((id) => !visible.has(id)));
       return;
     }
-    actions.setSelectedImports([...new Set([...view.selectedImports, ...filteredImportableModels])]);
+    actions.setSelectedImports([...new Set([...view.selectedImports, ...filteredImportableModels.map((model) => model.id)])]);
   };
 
   return (
@@ -109,10 +108,10 @@ export function ModelsSection({ T, actions, view }: Props) {
               </div>
 
               <div style={{ maxHeight: 260, overflow: 'auto', padding: 10, display: 'grid', gap: 8 }}>
-                {filteredImportableModels.map((id) => {
+                {filteredImportableModels.map((model) => {
+                  const id = model.id;
                   const selected = isSelected(id, view.selectedImports);
-                  const discovered = discoveredById.get(id);
-                  const type = discovered?.cat || 'chat';
+                  const type = model.cat || 'chat';
                   return (
                     <button
                       key={id}

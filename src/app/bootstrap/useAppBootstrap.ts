@@ -152,7 +152,9 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
             params.settings.setActiveConfigId(activeId);
           }
           if (loadedSettings.ui?.theme) params.setThemeMode(loadedSettings.ui.theme);
-          if (loadedSettings.ui?.customRoles?.length) params.settings.setCustomRoles(loadedSettings.ui.customRoles);
+          if (Array.isArray(loadedSettings.ui?.customRoles) && loadedSettings.ui.customRoles.length > 0) {
+            params.settings.setCustomRoles(loadedSettings.ui.customRoles);
+          }
           params.settings.setTavilyApiKey(loadedSettings.runtime?.tavilyApiKey || '');
           params.settings.setTavilyApiKeySet(Boolean(loadedSettings.runtime?.tavilyApiKeySet || loadedSettings.runtime?.tavilyApiKey));
           if (loadedSettings.runtime?.outboundProxy) params.settings.setOutboundProxy(loadedSettings.runtime.outboundProxy);

@@ -420,6 +420,7 @@ export function FirstRunOnboarding({
           <button
             type="button"
             onClick={onComplete}
+            data-testid="onboarding-skip"
             style={{
               border: 'none',
               background: 'transparent',

@@ -26,6 +26,9 @@ export function ensureStorageDirectories() {
     storagePaths.configDir,
     storagePaths.workflowsDir,
     storagePaths.assistantDir,
+    storagePaths.agentDir,
+    storagePaths.agentSessionsDir,
+    storagePaths.agentLogsDir,
     storagePaths.filesDir,
     storagePaths.uploadsDir,
     storagePaths.generatedDir,
@@ -33,5 +36,6 @@ export function ensureStorageDirectories() {
     storagePaths.appLogsDir,
     storagePaths.workflowRunsDir,
     path.join(storagePaths.generatedDir, 'assistant-images'),
+    path.join(storagePaths.generatedDir, 'assistant-videos'),
   ].forEach(ensureDir);
 }

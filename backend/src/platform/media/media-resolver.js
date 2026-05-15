@@ -1,0 +1,115 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { STORAGE_PATHS, safeResolveWithin } from '../storage/index.js';
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
+
+const MIME_BY_EXT = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.avi': 'video/avi',
+  '.mov': 'video/quicktime',
+  '.mkv': 'video/x-matroska',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
+  '.aac': 'audio/aac',
+  '.m4a': 'audio/mp4',
+  '.json': 'application/json',
+  '.txt': 'text/plain',
+};
+
+function decodeUrlPathSegment(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+function resolveUrlPath(baseDir, relativePath) {
+  const resolvedName = String(relativePath || '')
+    .split('/')
+    .map(decodeUrlPathSegment)
+    .join(path.sep);
+  return safeResolveWithin(baseDir, resolvedName);
+}
+
+export function getMimeType(filePath) {
+  return MIME_BY_EXT[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+}
+
+export function getLocalApiPath(source) {
+  const value = String(source || '').trim();
+  if (!value || value.startsWith('data:')) return '';
+  if (value.startsWith('/api/')) return value;
+
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const url = new URL(value);
+      return LOOPBACK_HOSTS.has(url.hostname) && url.pathname.startsWith('/api/')
+        ? url.pathname
+        : '';
+    } catch {
+      return '';
+    }
+  }
+
+  return '';
+}
+
+export function localApiPathToFilePath(apiPath) {
+  const value = String(apiPath || '').trim();
+  if (value.startsWith('/api/files/')) {
+    return resolveUrlPath(STORAGE_PATHS.uploadsDir, value.slice('/api/files/'.length));
+  }
+  if (value.startsWith('/api/outputs/')) {
+    return resolveUrlPath(STORAGE_PATHS.generatedDir, value.slice('/api/outputs/'.length));
+  }
+  if (value.startsWith('/api/assistant/files/')) {
+    return resolveUrlPath(STORAGE_PATHS.generatedDir, value.slice('/api/assistant/files/'.length));
+  }
+  return null;
+}
+
+export function localUrlToFilePath(source) {
+  const apiPath = getLocalApiPath(source);
+  if (!apiPath) return null;
+  const filePath = localApiPathToFilePath(apiPath);
+  if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null;
+  return filePath;
+}
+
+export function localUrlToDataUrl(source) {
+  const filePath = localUrlToFilePath(source);
+  if (!filePath) return String(source || '');
+  return `data:${getMimeType(filePath)};base64,${fs.readFileSync(filePath).toString('base64')}`;
+}
+
+export async function mediaSourceToDataUrl(source) {
+  const value = String(source || '').trim();
+  if (!value) return null;
+  if (value.startsWith('data:')) return value;
+  if (value.startsWith('blob:')) {
+    throw new Error('检测到浏览器本地预览文件，后端无法直接读取。请等待文件上传完成后再执行。');
+  }
+  if (/^https?:\/\//i.test(value)) {
+    const localDataUrl = localUrlToDataUrl(value);
+    return localDataUrl === value ? value : localDataUrl;
+  }
+
+  const localDataUrl = localUrlToDataUrl(value);
+  return localDataUrl || value;
+}
+
+export function isLocalApiMediaUrl(source) {
+  return Boolean(getLocalApiPath(source));
+}

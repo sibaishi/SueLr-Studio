@@ -214,6 +214,8 @@ Current cleanup and ownership notes:
   - assistant conversation routes, service, schema, and persistence
 - `backend/src/modules/capabilities/`
   - feature capability reporting used by frontend bootstrap and diagnostics
+- `backend/src/modules/agent/`
+  - agent profiles, chat runtime, tool registry, sessions, and long-term memory governance
 - `backend/src/modules/execution/execution.routes.js`
   - workflow execution endpoints
 - `backend/src/modules/execution/execution.service.js`
@@ -236,6 +238,17 @@ Current cleanup and ownership notes:
   - path resolution, file listing, and storage-facing operations
 - `backend/src/modules/workflows/`
   - workflow persistence, import/export, and migration chain
+
+### Agent memory governance
+
+Agent memory is allowed to improve conversational continuity, but it is not a source of truth. Current repository state, current settings, and explicit user input always win.
+
+- `search_memory` returns a structured `memory_search_result` with governance metadata. Callers should treat results as hints that require verification.
+- Malformed memories, object-like fragments, empty values, and duplicate semantic entries are filtered before list/search results are returned.
+- Automatic memory writes are limited to stable long-term user preferences or facts. Temporary run data, debug output, errors, guesses, and workflow execution details should not be stored as memory.
+- When `workflow_execute` is available, `AgentRuntime` does not inject memory context into the model prompt.
+- Workflow execution must be grounded in the current user request. The workflow ID/name and any input override strings must come from the current request, not from memory, prior conversation context, or retrieved hints.
+- Future `memory_write` tools must preserve the same policy: explicit, limited writes only, and no memory content may select workflow targets or supply workflow inputs.
 
 ### Workflow engine
 

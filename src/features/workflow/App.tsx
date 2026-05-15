@@ -21,7 +21,7 @@ import { useWorkflowPageStore } from '@/features/workflow/lib/store/selectors';
 import type { NodeTypeDef } from '@/features/workflow/lib/types';
 import type { WorkflowImportError, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
 
-const DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+const DISABLED_NEW_NODE_TYPES = new Set<string>();
 
 interface WorkflowPageProps {
   onOpenStudioSettings?: () => void;

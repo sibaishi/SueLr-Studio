@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import executeRoutes from '../modules/execution/execution.routes.js';
 import workflowRoutes from '../modules/workflows/workflows.routes.js';
 import assistantRoutes from '../modules/assistant/assistant.routes.js';
+import agentRoutes from '../modules/agent/agent.routes.js';
 import imageRoutes from '../modules/images/images.routes.js';
 import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.js';
 import settingsRoutes from '../modules/settings/settings.routes.js';
@@ -15,6 +16,7 @@ import { requestContextMiddleware } from './middleware/request-context.js';
 import { requestLoggerMiddleware } from './middleware/request-logger.js';
 import { STORAGE_PATHS, ensureStorageDirectories, migrateLegacyStorageIfNeeded } from '../platform/storage/index.js';
 import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js';
+import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.js';
 import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
 
 function buildAllowedOrigins() {
@@ -39,6 +41,7 @@ export function createApp() {
   ensureStorageDirectories();
   migrateLegacyStorageIfNeeded();
   ensureLogDirectories();
+  ensureAgentLogDirectories();
 
   const app = express();
   const allowedOrigins = buildAllowedOrigins();
@@ -65,6 +68,7 @@ export function createApp() {
   app.use('/api/workflows', workflowRoutes);
   app.use('/api/execute', executeRoutes);
   app.use('/api/assistant', assistantRoutes);
+  app.use('/api/agent', agentRoutes);
   app.use('/api/images', imageRoutes);
   app.use('/api/capabilities', capabilitiesRoutes);
   app.use('/api/settings', settingsRoutes);

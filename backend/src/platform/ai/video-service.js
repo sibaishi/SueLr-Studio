@@ -6,6 +6,7 @@ import { assertSafeRemoteDownloadUrl } from '../security/network-guards.js';
 
 const REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+const ARK_VIDEO_TASKS_ENDPOINT = '/contents/generations/tasks';
 
 function normalizeTextInput(value) {
   if (Array.isArray(value)) {
@@ -22,10 +23,116 @@ function normalizeMediaArray(value) {
   return [value];
 }
 
+function normalizeDuration(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const duration = Number(value);
+  if (!Number.isFinite(duration) || !Number.isInteger(duration)) {
+    throw new Error('视频时长 duration 必须为 -1 或 4 到 15 的整数秒');
+  }
+  if (duration === -1) return duration;
+  if (duration < 4 || duration > 15) {
+    throw new Error('视频时长 duration 必须为 -1 或 4 到 15 的整数秒');
+  }
+  return duration;
+}
+
 function toInputAudioPart(base64) {
   const mimeMatch = String(base64).match(/^data:(audio\/[^;]+);/);
   const format = mimeMatch ? mimeMatch[1].split('/')[1] : 'mp3';
   return { type: 'input_audio', input_audio: { data: String(base64).split(',')[1], format } };
+}
+
+function isVolcengineArkRuntime(baseUrl) {
+  return String(baseUrl || '').toLowerCase().includes('ark.cn-beijing.volces.com/api/v3');
+}
+
+function isArkVideoTasksEndpoint(endpoint) {
+  return String(endpoint || '').toLowerCase().includes('/contents/generations/tasks');
+}
+
+function resolveVideoTasksEndpoint(baseUrl, providerConfig, endpoint) {
+  if (isArkVideoTasksEndpoint(endpoint)) return endpoint;
+  if (isVolcengineArkRuntime(baseUrl)) return ARK_VIDEO_TASKS_ENDPOINT;
+  return endpoint || providerConfig?.videoEndpoint || '/v1/video/generations';
+}
+
+function firstStringByKeys(value, keys) {
+  if (!value || typeof value !== 'object') return '';
+  const keySet = new Set(keys);
+  const queue = [value];
+  const seen = new Set();
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (!item || typeof item !== 'object' || seen.has(item)) continue;
+    seen.add(item);
+    for (const [key, nested] of Object.entries(item)) {
+      if (keySet.has(key) && typeof nested === 'string' && nested.trim()) {
+        return nested.trim();
+      }
+      if (nested && typeof nested === 'object') queue.push(nested);
+    }
+  }
+  return '';
+}
+
+function extractVideoTaskId(data) {
+  return data?.id || data?.task_id || data?.data?.id || data?.data?.task_id || firstStringByKeys(data, ['id', 'task_id']);
+}
+
+function extractVideoUrl(data) {
+  return data?.video_url
+    || data?.output?.video_url
+    || data?.data?.video_url
+    || data?.data?.output?.video_url
+    || firstStringByKeys(data, ['video_url', 'url']);
+}
+
+function shouldUseReferenceImageRole(model, imageCount) {
+  const normalized = String(model || '').toLowerCase();
+  return imageCount > 1 || normalized.includes('seedance-2-');
+}
+
+function buildArkVideoContent({ model, prompt, image_url, image_urls, video_url, video_urls, input_audio, input_audios, messages }) {
+  if (Array.isArray(messages) && messages.length > 0) {
+    const content = messages.flatMap((message) => {
+      if (Array.isArray(message?.content)) return message.content;
+      if (typeof message?.content === 'string' && message.content.trim()) {
+        return [{ type: 'text', text: message.content.trim() }];
+      }
+      return [];
+    });
+    if (content.length > 0) return content;
+  }
+
+  const content = [];
+  const text = normalizeTextInput(prompt);
+  if (text) content.push({ type: 'text', text });
+
+  const images = normalizeMediaArray(image_urls?.length ? image_urls : image_url);
+  const imageRole = shouldUseReferenceImageRole(model, images.length) ? 'reference_image' : '';
+  for (const image of images) {
+    content.push({
+      type: 'image_url',
+      image_url: { url: image },
+      ...(imageRole ? { role: imageRole } : {}),
+    });
+  }
+  for (const video of normalizeMediaArray(video_urls?.length ? video_urls : video_url)) {
+    content.push({ type: 'video_url', video_url: { url: video }, role: 'reference_video' });
+  }
+  for (const audio of normalizeMediaArray(input_audios?.length ? input_audios : input_audio)) {
+    if (audio?.data && audio?.format) {
+      content.push({
+        type: 'audio_url',
+        audio_url: { url: `data:audio/${audio.format};base64,${audio.data}` },
+        role: 'reference_audio',
+      });
+    } else {
+      content.push({ type: 'audio_url', audio_url: { url: audio }, role: 'reference_audio' });
+    }
+  }
+
+  return content;
 }
 
 async function buildVideoGenerationPayload(prompt, inputs, sendProgress) {
@@ -107,6 +214,7 @@ export async function submitVideoGeneration({
   input_audios,
   messages,
   signal,
+  sendProgress,
 }) {
   if (!apiKey) {
     throw new Error('未配置 API Key，请先在设置页或 API Key 节点中填写。');
@@ -120,7 +228,44 @@ export async function submitVideoGeneration({
 
   const runtimeConfig = { apiKey, baseUrl, providerConfig, projectModels };
   const adapter = getProviderAdapter(providerConfig);
-  const { endpoint } = resolveModelRuntime(runtimeConfig, model, { expectedType: 'video', purpose: 'video' });
+  const resolved = resolveModelRuntime(runtimeConfig, model, { expectedType: 'video', purpose: 'video' });
+  const resolvedModelId = resolved.model?.modelId || model;
+  const endpoint = resolveVideoTasksEndpoint(baseUrl, providerConfig, resolved.endpoint);
+  const usesArkVideoTasks = isArkVideoTasksEndpoint(endpoint);
+  const normalizedDuration = normalizeDuration(duration);
+  const body = usesArkVideoTasks
+    ? {
+        model: resolvedModelId,
+        content: buildArkVideoContent({
+          model: resolvedModelId,
+          prompt,
+          image_url,
+          image_urls,
+          video_url,
+          video_urls,
+          input_audio,
+          input_audios,
+          messages,
+        }),
+        ...(normalizedDuration !== undefined ? { duration: normalizedDuration } : {}),
+        ...(aspect_ratio && aspect_ratio !== 'auto' ? { ratio: aspect_ratio } : {}),
+        ...(resolution ? { resolution } : {}),
+      }
+    : {
+        model: resolvedModelId,
+        ...(prompt ? { prompt } : {}),
+        ...(normalizedDuration !== undefined ? { duration: normalizedDuration } : {}),
+        ...(aspect_ratio && aspect_ratio !== 'auto' ? { aspect_ratio } : {}),
+        ...(resolution ? { resolution } : {}),
+        ...(image_url ? { image_url } : {}),
+        ...(image_urls?.length ? { image_urls } : {}),
+        ...(video_url ? { video_url } : {}),
+        ...(video_urls?.length ? { video_urls } : {}),
+        ...(input_audio ? { input_audio } : {}),
+        ...(input_audios?.length ? { input_audios } : {}),
+        ...(messages?.length ? { messages } : {}),
+      };
+  sendProgress?.(`调用视频生成接口: ${endpoint}; model=${resolvedModelId}`);
   const response = await adapter.jsonRequest({
     apiKey,
     providerConfig,
@@ -129,31 +274,19 @@ export async function submitVideoGeneration({
     method: 'POST',
     signal,
     errorCode: 'VIDEO_SUBMIT_FAILED',
-    body: {
-      model,
-      ...(prompt ? { prompt } : {}),
-      ...(duration ? { duration } : {}),
-      ...(aspect_ratio && aspect_ratio !== 'auto' ? { aspect_ratio } : {}),
-      ...(resolution ? { resolution } : {}),
-      ...(image_url ? { image_url } : {}),
-      ...(image_urls?.length ? { image_urls } : {}),
-      ...(video_url ? { video_url } : {}),
-      ...(video_urls?.length ? { video_urls } : {}),
-      ...(input_audio ? { input_audio } : {}),
-      ...(input_audios?.length ? { input_audios } : {}),
-      ...(messages?.length ? { messages } : {}),
-    },
+    body,
   });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new ProviderError('VIDEO_SUBMIT_FAILED', data.error?.message || data.message || '视频生成失败');
 
-  const taskId = data.id || data.task_id || data.data?.id;
+  const taskId = extractVideoTaskId(data);
   if (taskId) {
-    return { mode: 'poll', taskId, raw: data };
+    sendProgress?.(`视频生成任务已提交: taskId=${taskId}; endpoint=${endpoint}`);
+    return { mode: 'poll', taskId, endpoint, raw: data };
   }
 
-  const videoUrl = data.video_url || data.output?.video_url || data.data?.video_url || data.data?.output?.video_url;
+  const videoUrl = extractVideoUrl(data);
   if (videoUrl) {
     return { mode: 'sync', videoUrl, raw: data };
   }
@@ -161,8 +294,8 @@ export async function submitVideoGeneration({
   throw new Error(`未获得任务 ID，也未返回视频结果: ${JSON.stringify(data).slice(0, 200)}`);
 }
 
-export async function pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, signal }) {
-  const endpoint = providerConfig?.videoEndpoint || '/v1/video/generations';
+export async function pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint: taskEndpoint, signal }) {
+  const endpoint = resolveVideoTasksEndpoint(baseUrl, providerConfig, taskEndpoint || providerConfig?.videoEndpoint);
   const adapter = getProviderAdapter(providerConfig);
   const response = await adapter.rawRequest({
     apiKey,
@@ -179,7 +312,7 @@ export async function pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, s
   return data;
 }
 
-export async function waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId, signal, sendProgress }) {
+export async function waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint, signal, sendProgress }) {
   const maxAttempts = 120;
   const intervalMs = 5000;
   let lastProgress = 0;
@@ -191,11 +324,11 @@ export async function waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId
     sendProgress?.(`正在等待视频生成... (${attempt * 5}s)`);
 
     try {
-      const data = await pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, signal });
+      const data = await pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint, signal });
       const status = data.status || data.data?.status;
 
       if (['succeeded', 'complete', 'completed', 'done'].includes(status)) {
-        return data.video_url || data.output?.video_url || data.data?.video_url || data.data?.output?.video_url;
+        return extractVideoUrl(data);
       }
 
       if (['failed', 'error'].includes(status)) {
@@ -258,11 +391,20 @@ export async function executeVideoGeneration(request, runtimeConfig, sendProgres
       ? [{ role: 'user', content: payload.parts.length === 1 && payload.parts[0].type === 'text' ? payload.parts[0].text : payload.parts }]
       : [],
     signal: abortSignal,
+    sendProgress,
   });
 
   const videoUrl = task.mode === 'sync'
     ? task.videoUrl
-    : await waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId: task.taskId, signal: abortSignal, sendProgress });
+    : await waitForVideoTask({
+        baseUrl,
+        apiKey,
+        providerConfig,
+        taskId: task.taskId,
+        endpoint: task.endpoint,
+        signal: abortSignal,
+        sendProgress,
+      });
 
   if (!videoUrl) {
     throw new Error('视频生成完成但未返回可用地址');

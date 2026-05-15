@@ -12,8 +12,19 @@ export const RATIO_OPTIONS = [
 ];
 
 export const VIDEO_DURATION_OPTIONS = [
+  { label: '自动', value: -1 },
+  { label: '4秒', value: 4 },
   { label: '5秒', value: 5 },
+  { label: '6秒', value: 6 },
+  { label: '7秒', value: 7 },
+  { label: '8秒', value: 8 },
+  { label: '9秒', value: 9 },
   { label: '10秒', value: 10 },
+  { label: '11秒', value: 11 },
+  { label: '12秒', value: 12 },
+  { label: '13秒', value: 13 },
+  { label: '14秒', value: 14 },
+  { label: '15秒', value: 15 },
 ];
 
 export const VIDEO_RESOLUTION_OPTIONS = [

@@ -3,8 +3,8 @@ import { ProviderError, ValidationError } from '../../app/errors/index.js';
 import { settingsService } from '../settings/settings.service.js';
 import { imagesService } from '../images/images.service.js';
 import { runChatCompletion } from '../../platform/ai/chat-service.js';
-import { formatWebSearchResult, runWebSearch } from '../../platform/ai/search-service.js';
-import { pollVideoTask, submitVideoGeneration } from '../../platform/ai/video-service.js';
+import { formatWebSearchResult, normalizeWebSearchResult, runWebSearch } from '../../platform/ai/search-service.js';
+import { executeVideoGeneration, pollVideoTask, submitVideoGeneration } from '../../platform/ai/video-service.js';
 
 const logger = createLogger({ module: 'capabilities-service' });
 
@@ -30,7 +30,7 @@ export class CapabilitiesService {
         messages: body.messages || [],
         tools: body.tools,
         stream: false,
-        signal: undefined,
+        signal: body.signal,
       });
       return response.json();
     } catch (error) {
@@ -51,7 +51,7 @@ export class CapabilitiesService {
         messages: body.messages || [],
         tools: body.tools,
         stream: true,
-        signal: undefined,
+        signal: body.signal,
       });
     } catch (error) {
       logger.error('chat stream capability failed', { code: error?.code, message: error?.message });
@@ -69,7 +69,8 @@ export class CapabilitiesService {
         includeAnswer: body.includeAnswer !== false,
         signal: undefined,
       });
-      return { raw: data, content: formatWebSearchResult(data) };
+      const structured = normalizeWebSearchResult(data, { query: body.query });
+      return { raw: data, content: formatWebSearchResult(structured), structured };
     } catch (error) {
       throw error?.status ? error : new ProviderError('SEARCH_FAILED', error instanceof Error ? error.message : 'Search failed');
     }
@@ -103,6 +104,27 @@ export class CapabilitiesService {
       });
     } catch (error) {
       throw error?.status ? error : new ProviderError('VIDEO_SUBMIT_FAILED', error instanceof Error ? error.message : 'Video submit failed');
+    }
+  }
+
+  async video(body) {
+    try {
+      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
+      return await executeVideoGeneration({
+        model: body.model,
+        prompt: body.prompt,
+        duration: body.duration,
+        aspect_ratio: body.aspect_ratio,
+        resolution: body.resolution,
+        reference: body.image_urls?.length ? body.image_urls : body.image_url,
+        video: body.video_urls?.length ? body.video_urls : body.video_url,
+        audio: body.input_audios?.length ? body.input_audios : body.input_audio,
+      }, {
+        ...runtimeConfig,
+        abortSignal: body.signal,
+      });
+    } catch (error) {
+      throw error?.status ? error : new ProviderError('VIDEO_GENERATE_FAILED', error instanceof Error ? error.message : 'Video generation failed');
     }
   }
 

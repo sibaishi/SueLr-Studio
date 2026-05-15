@@ -39,6 +39,11 @@ export interface VideoSubmitParams {
   aspect_ratio?: string;
   resolution?: string;
   image_url?: string;
+  image_urls?: string[];
+  video_url?: string;
+  video_urls?: string[];
+  input_audio?: string;
+  input_audios?: string[];
   signal?: AbortSignal;
 }
 

@@ -10,10 +10,43 @@ const MIME_MAP = {
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
   '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
   '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.m4v': 'video/mp4',
+};
+
+const IMAGE_MIME_EXT = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/svg+xml': 'svg',
+};
+
+const VIDEO_MIME_EXT = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/quicktime': 'mov',
+  'video/x-m4v': 'm4v',
 };
 
 const logger = createLogger({ module: 'assistant-service' });
+
+function parseDataUrl(value) {
+  const match = String(value || '').match(/^data:([^;]+);base64,([a-zA-Z0-9+/=\s]+)$/);
+  if (!match) return null;
+  return {
+    mimeType: match[1].toLowerCase(),
+    buffer: Buffer.from(match[2], 'base64'),
+  };
+}
+
+function buildAssistantLocalUrl(directoryName, filename) {
+  return `/api/assistant/files/${directoryName}/${filename}`;
+}
 
 export class AssistantService {
   constructor(repository = assistantRepository) {
@@ -43,27 +76,57 @@ export class AssistantService {
     return this.repository.load('gallery');
   }
 
-  saveImage(body) {
-    const gallery = this.repository.load('gallery');
-    if (body.data) {
-      const match = body.data.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
-      if (match) {
-        const extMap = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
-        const ext = extMap[match[1]] || 'png';
-        const filename = `${body.id}.${ext}`;
-        this.repository.writeAssistantImage(filename, Buffer.from(match[2], 'base64'));
-        body.localUrl = `/api/assistant/files/assistant-images/${filename}`;
+  materializeAssistantAsset({ id, url, data, kind }) {
+    const isImage = kind === 'image';
+    const directoryName = isImage ? 'assistant-images' : 'assistant-videos';
+    const mimeExtMap = isImage ? IMAGE_MIME_EXT : VIDEO_MIME_EXT;
+    const writeFile = isImage
+      ? this.repository.writeAssistantImage.bind(this.repository)
+      : this.repository.writeAssistantVideo.bind(this.repository);
+
+    if (data) {
+      const parsed = parseDataUrl(data);
+      if (parsed) {
+        const ext = mimeExtMap[parsed.mimeType] || (isImage ? 'png' : 'mp4');
+        const filename = `${id}.${ext}`;
+        writeFile(filename, parsed.buffer);
+        return buildAssistantLocalUrl(directoryName, filename);
       }
-      delete body.data;
-    } else {
-      body.localUrl = body.url || body.localUrl || null;
     }
 
-    body.storedAt = Date.now();
-    gallery.push(body);
+    const normalizedUrl = String(url || '').trim();
+    if (/^https?:\/\//i.test(normalizedUrl)) {
+      return normalizedUrl;
+    }
+
+    if (normalizedUrl.startsWith('/api/assistant/files/')) {
+      return normalizedUrl;
+    }
+
+    return normalizedUrl || '';
+  }
+
+  saveImage(body) {
+    const gallery = this.repository.load('gallery');
+    const localUrl = this.materializeAssistantAsset({
+      id: body.id,
+      url: body.url || body.localUrl,
+      data: body.data,
+      kind: 'image',
+    });
+
+    const record = {
+      ...body,
+      url: body.url || '',
+      localUrl: localUrl || body.url || body.localUrl || null,
+      storedAt: Date.now(),
+    };
+    delete record.data;
+
+    gallery.push(record);
     this.repository.save('gallery', gallery);
-    logger.info('assistant image stored', { imageId: body.id });
-    return { localUrl: body.localUrl };
+    logger.info('assistant image stored', { imageId: body.id, localUrl: record.localUrl });
+    return { localUrl: record.localUrl };
   }
 
   clearImages() {
@@ -87,9 +150,25 @@ export class AssistantService {
 
   saveVideo(video) {
     const videos = this.repository.load('videos');
-    videos.push({ ...video, storedAt: Date.now() });
+    const localUrl = this.materializeAssistantAsset({
+      id: video.id,
+      url: video.url || video.localUrl,
+      data: video.data,
+      kind: 'video',
+    });
+
+    const record = {
+      ...video,
+      url: video.url || '',
+      localUrl: localUrl || video.url || video.localUrl || null,
+      storedAt: Date.now(),
+    };
+    delete record.data;
+
+    videos.push(record);
     this.repository.save('videos', videos);
-    logger.info('assistant video stored', { videoId: video.id });
+    logger.info('assistant video stored', { videoId: video.id, localUrl: record.localUrl });
+    return { localUrl: record.localUrl };
   }
 
   clearVideos() {
@@ -97,7 +176,13 @@ export class AssistantService {
   }
 
   deleteVideo(id) {
-    this.repository.save('videos', this.repository.load('videos').filter((video) => video.id !== id));
+    const videos = this.repository.load('videos');
+    const item = videos.find((video) => video.id === id);
+    if (item?.localUrl?.startsWith('/api/assistant/files/')) {
+      const rel = item.localUrl.replace('/api/assistant/files/', '');
+      this.repository.deleteGeneratedFile(rel);
+    }
+    this.repository.save('videos', videos.filter((video) => video.id !== id));
     logger.info('assistant video deleted', { videoId: id });
   }
 

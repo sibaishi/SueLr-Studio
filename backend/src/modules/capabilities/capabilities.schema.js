@@ -57,6 +57,13 @@ function validateBoundedNumber(value, fieldName, { min, max, integer = false } =
   return parsed;
 }
 
+function validateVideoDuration(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = validateBoundedNumber(value, 'duration', { integer: true });
+  if (parsed === -1 || (parsed >= 4 && parsed <= 15)) return parsed;
+  throw new ValidationError('VALIDATION_ERROR', 'duration 必须为 -1 或 4 到 15 的整数');
+}
+
 function validateEnum(value, fieldName, allowedValues) {
   const normalized = cleanOptionalString(value, 80);
   if (!normalized) return undefined;
@@ -137,7 +144,7 @@ export function validateImageBody(payload) {
   const body = ensureObject(payload, '请求体必须为对象');
   return {
     apiConfig: normalizeApiConfig(body.apiConfig),
-    model: validateRequiredString(body.model, 'model', 200),
+    model: cleanOptionalString(body.model, 200),
     prompt: validateRequiredString(body.prompt, 'prompt', 12000),
     imageMode: validateEnum(body.imageMode, 'imageMode', ['standalone', 'chat']),
     ratio: validateEnum(body.ratio, 'ratio', ['auto', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3']),
@@ -157,7 +164,7 @@ export function validateVideoBody(payload) {
     apiConfig: normalizeApiConfig(body.apiConfig),
     model: validateRequiredString(body.model, 'model', 200),
     prompt: cleanOptionalString(body.prompt, 12000),
-    duration: validateBoundedNumber(body.duration, 'duration', { min: 1, max: 60 }),
+    duration: validateVideoDuration(body.duration),
     aspect_ratio: cleanOptionalString(body.aspect_ratio, 40),
     resolution: cleanOptionalString(body.resolution, 40),
     image_url: validateUrlOrEmpty(body.image_url, 'image_url', ['image/']),

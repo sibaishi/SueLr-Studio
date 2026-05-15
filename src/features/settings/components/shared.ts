@@ -1,13 +1,29 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ThemeMode } from '@/lib/types';
+import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ThemeMode } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/types';
 import type { OutboundProxySettingsPayload, StorageSettingsPayload } from '@/features/settings';
+import type { AgentProfile } from '@/shared/api/agent';
 import type { LucideIcon } from 'lucide-react';
 
 export const ROLE_ICONS = ['bot', 'palette', 'clapperboard', 'code', 'search', 'zap', 'brain', 'lightbulb', 'folder', 'star'];
 
+export const AGENT_TOOL_OPTIONS = [
+  'web_search',
+  'search_memory',
+  'memory_write',
+  'get_current_time',
+  'generate_image',
+  'video_generate',
+  'workflow_execute',
+] as const;
+
+export const MEMORY_MODE_OPTIONS = [
+  { l: '自动', v: 'auto' },
+  { l: '关闭', v: 'off' },
+] as const;
+
 export type SettingsModuleMeta = {
-  id: 'connection' | 'models' | 'defaults' | 'roles' | 'memory' | 'diagnostics';
+  id: 'connection' | 'models' | 'defaults' | 'agent_persona' | 'agent_memory' | 'diagnostics';
   label: string;
   desc: string;
   icon: LucideIcon;
@@ -26,12 +42,13 @@ export type SettingsActions = {
   onClearMemories: () => void;
   onDeleteMemory: (id: string) => void;
   removeProjectModel: (modelId: string) => void;
-  saveCustomRole: (role: AgentRole) => void;
+  deleteAgentProfile: (profileId: string) => Promise<void>;
+  saveAgentProfile: (profile: AgentProfile) => Promise<void>;
   setActiveConfigName: (value: string) => void;
-  setActiveModule: (id: 'connection' | 'models' | 'defaults' | 'roles' | 'memory' | 'diagnostics') => void;
+  setActiveModule: (id: SettingsModuleMeta['id']) => void;
   setConnectionApiKey: (value: string) => void;
   setConnectionBase: (value: string) => void;
-  setEditingRole: (role: AgentRole | null) => void;
+  setEditingProfile: (profile: AgentProfile | null) => void;
   setMemoryQuery: (value: string) => void;
   setProjectModelSearch: (value: string) => void;
   setProviderAuthType: (value: ProviderConfig['authType']) => void;
@@ -53,7 +70,6 @@ export type SettingsActions = {
   setModels: (models: ModelInfo[]) => void;
   setOutboundProxy: (value: OutboundProxySettingsPayload) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
-  setCustomRoles: Dispatch<SetStateAction<AgentRole[]>>;
   testConnection: () => Promise<void>;
   testSearch: () => Promise<void>;
   updateConfig: (patch: Partial<ApiConfig>) => void;
@@ -64,16 +80,17 @@ export type SettingsActions = {
 export type SettingsViewModel = {
   activeConfig?: ApiConfig;
   activeConfigId: string;
-  activeModule: 'connection' | 'models' | 'defaults' | 'roles' | 'memory' | 'diagnostics';
+  activeModule: SettingsModuleMeta['id'];
+  agentProfiles: AgentProfile[];
   apiConfigs: ApiConfig[];
   apiKey: string;
   base: string;
-  customRoles: AgentRole[];
-  discoveredModels: string[];
-  editingRole: AgentRole | null;
+  customAgentProfiles: AgentProfile[];
+  discoveredModels: ModelInfo[];
+  editingProfile: AgentProfile | null;
   filteredMemories: Memory[];
   filteredProjectModels: ProjectModel[];
-  importableModels: string[];
+  importableModels: ModelInfo[];
   logSummary: LogEntry[];
   logs: LogEntry[];
   memories: Memory[];
@@ -83,7 +100,6 @@ export type SettingsViewModel = {
   providerConfig: ProviderConfig;
   projectModelSearch: string;
   projectModels: ProjectModel[];
-  roles: AgentRole[];
   selectedImports: string[];
   storagePathDraft: string;
   storageSettings: StorageSettingsPayload | null;

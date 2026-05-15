@@ -1,9 +1,35 @@
 import { resolveModelRuntime } from '../../engine/helpers/apiConfig.js';
 import { getProviderAdapter } from '../providers/index.js';
 import { ProviderError } from '../../app/errors/index.js';
+import { localUrlToDataUrl } from '../media/media-resolver.js';
 
 function cleanText(value) {
   return String(value || '').trim();
+}
+
+function normalizeContentPart(part) {
+  if (!part || typeof part !== 'object' || part.type !== 'image_url') return part;
+  const url = part.image_url?.url;
+  if (typeof url !== 'string') return part;
+  return {
+    ...part,
+    image_url: {
+      ...part.image_url,
+      url: localUrlToDataUrl(url),
+    },
+  };
+}
+
+export function normalizeChatMessagesForUpstream(messages = []) {
+  return (Array.isArray(messages) ? messages : []).map((message) => {
+    if (!message || typeof message !== 'object' || !Array.isArray(message.content)) {
+      return message;
+    }
+    return {
+      ...message,
+      content: message.content.map(normalizeContentPart),
+    };
+  });
 }
 
 export async function runChatCompletion({
@@ -40,7 +66,7 @@ export async function runChatCompletion({
     errorCode: 'CHAT_FAILED',
     body: {
       model,
-      messages,
+      messages: normalizeChatMessagesForUpstream(messages),
       ...(typeof temperature === 'number' ? { temperature } : {}),
       ...(typeof maxTokens === 'number' ? { max_tokens: maxTokens } : {}),
       ...(tools?.length ? { tools } : {}),

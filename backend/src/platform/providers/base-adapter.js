@@ -4,11 +4,19 @@ export class BaseProviderAdapter {
   buildEndpoint(baseUrl, endpoint) {
     const base = String(baseUrl || '').replace(/\/+$/, '');
     if (!endpoint) return base;
-    const baseVersion = base.match(/\/v\d+[a-z0-9-]*$/i);
-    if (baseVersion && /^\/v\d+[a-z0-9-]*(?=\/)/i.test(endpoint)) {
-      return base.slice(0, -baseVersion[0].length) + endpoint;
+    if (/^https?:\/\//i.test(endpoint)) return endpoint;
+
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const baseApiVersion = base.match(/\/api\/v\d+[a-z0-9-]*$/i);
+    if (baseApiVersion && /^\/v\d+[a-z0-9-]*(?=\/)/i.test(normalizedEndpoint)) {
+      return base + normalizedEndpoint.replace(/^\/v\d+[a-z0-9-]*/i, '');
     }
-    return base + endpoint;
+
+    const baseVersion = base.match(/\/v\d+[a-z0-9-]*$/i);
+    if (baseVersion && /^\/v\d+[a-z0-9-]*(?=\/)/i.test(normalizedEndpoint)) {
+      return base.slice(0, -baseVersion[0].length) + normalizedEndpoint;
+    }
+    return base + normalizedEndpoint;
   }
 
   buildHeaders(apiKey, providerConfig = {}) {

@@ -42,9 +42,8 @@ export function formatProviderFetchError(error, url) {
 }
 
 export async function parseProviderErrorResponse(response, fallbackPrefix) {
-  const text = await response.text().catch(() => '');
-  const sanitized = text.trim().replace(/\s+/g, ' ').slice(0, 120);
-  return sanitized ? `${fallbackPrefix} (${response.status})` : `${fallbackPrefix} (${response.status})`;
+  await response.text().catch(() => '');
+  return `${fallbackPrefix} (${response.status})`;
 }
 
 export function toProviderError(error, code, url = '') {

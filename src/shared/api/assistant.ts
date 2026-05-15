@@ -65,18 +65,19 @@ export async function clearGallery(): Promise<void> {
   await apiRequest(`${API}/images`, { method: 'DELETE' });
 }
 
-export async function saveVideo(item: { id: string; url: string; prompt: string; model: string; ts: number }): Promise<void> {
-  if (!isBackendAvailable()) return;
-  await apiRequest(`${API}/videos`, {
+export async function saveVideo(item: { id: string; url?: string; localUrl?: string; data?: string; prompt: string; model: string; ts: number }): Promise<string | null> {
+  if (!isBackendAvailable()) return null;
+  const result = await apiRequest<{ localUrl?: string }>(`${API}/videos`, {
     method: 'POST',
     body: JSON.stringify(item),
   });
+  return getResultData(result)?.localUrl ?? null;
 }
 
 export async function loadVideos(): Promise<GalleryItem[]> {
   if (!isBackendAvailable()) return [];
-  const result = await apiRequest<GalleryItem[]>(`${API}/videos`);
-  return getResultData(result) ?? [];
+  const result = await apiRequest<unknown[]>(`${API}/videos`);
+  return normalizeGalleryItems(getResultData(result) ?? []);
 }
 
 export async function clearVideos(): Promise<void> {

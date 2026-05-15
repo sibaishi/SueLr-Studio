@@ -60,6 +60,6 @@ export const FLOW_CATEGORY_LABELS = {
 } as const;
 
 export const FLOW_CATEGORY_ORDER = ['input', 'api', 'merge', 'iterate', 'tool', 'ai', 'output', 'group'] as const;
-export const FLOW_DISABLED_NEW_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
-export const FLOW_FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+export const FLOW_DISABLED_NEW_NODE_TYPES = new Set<string>();
+export const FLOW_FORCE_DISABLED_NODE_TYPES = new Set<string>();
 export const FLOW_DISABLED_NODE_REASON = '暂时停用，无法新建';

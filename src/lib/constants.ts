@@ -1,6 +1,6 @@
 import type { Colors, ThemeMode, Tab, ToolDefinition } from './types';
 
-export const VIDEO_GENERATION_ENABLED = false;
+export const VIDEO_GENERATION_ENABLED = true;
 
 export const DARK: Colors = {
   bg: '#000000',
@@ -58,7 +58,21 @@ export const RATIOS = [
 ];
 
 export const VID_RES = [{ l: '480p', v: '480p' }, { l: '720p', v: '720p' }, { l: '1080p', v: '1080p' }];
-export const VID_DUR = [{ l: '5秒', v: 5 }, { l: '10秒', v: 10 }];
+export const VID_DUR = [
+  { l: '自动', v: -1 },
+  { l: '4秒', v: 4 },
+  { l: '5秒', v: 5 },
+  { l: '6秒', v: 6 },
+  { l: '7秒', v: 7 },
+  { l: '8秒', v: 8 },
+  { l: '9秒', v: 9 },
+  { l: '10秒', v: 10 },
+  { l: '11秒', v: 11 },
+  { l: '12秒', v: 12 },
+  { l: '13秒', v: 13 },
+  { l: '14秒', v: 14 },
+  { l: '15秒', v: 15 },
+];
 export const VID_RATIO = [{ l: '16:9', v: '16:9' }, { l: '9:16', v: '9:16' }, { l: '1:1', v: '1:1' }, { l: '4:3', v: '4:3' }, { l: '3:4', v: '3:4' }];
 
 export const THEME_LABELS: Record<ThemeMode, string> = { dark: '深色', light: '浅色', system: '系统' };
@@ -88,7 +102,7 @@ const CAPABILITY_SUFFIX = `
 你具备以下能力：
 - 可以生成全新的图片。
 - 可以基于已有图片进行修改，调用 generate_image 时传入 reference_image_url。
-- 可以将图片生成视频，调用 generate_video 时传入 image_url。
+- 可以将图片生成视频，调用 video_generate 时传入 image_url。
 - 可以搜索互联网获取实时信息，调用 web_search。
 当用户要求修改已有图片时，不要说无法编辑，而是用参考图重新生成。`;
 
@@ -153,7 +167,7 @@ export function buildTools(hasImage: boolean, hasVideo: boolean, hasSearch: bool
     tools.push({
       type: 'function',
       function: {
-        name: 'generate_video',
+        name: 'video_generate',
         description: 'Submit a video generation task.',
         parameters: {
           type: 'object',

@@ -352,6 +352,63 @@ test('HTTP contract: assistant conversation endpoints stay on envelope-only resp
   }
 });
 
+test('HTTP contract: agent status route returns envelope-only payloads', async () => {
+  const { server, baseUrl } = await createTestServer('agent-status');
+  try {
+    const status = await requestJson(baseUrl, '/api/agent/status');
+    assert.equal(status.status, 200);
+    assertEnvelopeShape(status.body);
+    assert.equal(status.body.data.ok, true);
+    assert.equal(status.body.data.version, '1.0.0');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: agent chat route validates body and wraps success payloads', async () => {
+  const { server, baseUrl } = await createTestServer('agent-chat');
+  try {
+    const { agentService } = await import('../src/modules/agent/agent.service.js');
+    const originalChat = agentService.chat;
+    agentService.chat = async () => ({
+      sessionId: 'agent-session-contract',
+      assistantMessage: {
+        role: 'assistant',
+        content: 'agent ok',
+      },
+      toolTrace: [],
+      memoryWrites: [],
+    });
+
+    try {
+      const success = await requestJson(baseUrl, '/api/agent/chat', {
+        method: 'POST',
+        body: JSON.stringify({
+          model: 'demo-chat-model',
+          messages: [{ role: 'user', content: 'ping' }],
+          options: { allowWebSearch: false },
+        }),
+      });
+      assert.equal(success.status, 200);
+      assertEnvelopeShape(success.body);
+      assert.equal(success.body.data.sessionId, 'agent-session-contract');
+      assert.equal(success.body.data.assistantMessage.content, 'agent ok');
+
+      const invalid = await requestJson(baseUrl, '/api/agent/chat', {
+        method: 'POST',
+        body: JSON.stringify([]),
+      });
+      assert.equal(invalid.status, 400);
+      assertEnvelopeShape(invalid.body);
+      assert.equal(invalid.body.error.code, 'VALIDATION_ERROR');
+    } finally {
+      agentService.chat = originalChat;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: assistant generated file route rejects invalid relative paths', async () => {
   const { server, baseUrl } = await createTestServer('assistant-files-validation');
   try {
@@ -778,6 +835,11 @@ test('HTTP contract: capabilities video route rejects invalid request bodies', a
         name: 'invalid duration',
         body: { model: 'demo-video-model', prompt: 'phase 2 video', duration: 'slow' },
         message: 'duration 必须为数字',
+      },
+      {
+        name: 'unsupported duration',
+        body: { model: 'demo-video-model', prompt: 'phase 2 video', duration: 2 },
+        message: 'duration 必须为 -1 或 4 到 15 的整数',
       },
     ];
 

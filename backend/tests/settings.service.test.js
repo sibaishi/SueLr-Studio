@@ -127,6 +127,52 @@ test('settings module sanitizes provider config without legacy route dependency'
   assert.equal(updated.activeConfig.providerConfig.imageEndpoint, '/v1/images/generations');
 });
 
+test('settings repository filters unavailable provider models from discovery', async () => {
+  const root = createStorageDir('settings-model-discovery');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return {
+        data: [
+          { id: 'doubao-vision-pro-32k-241028', status: 'Shutdown', domain: 'VLM' },
+          { id: 'doubao-seed-1-6-250615', domain: 'LLM' },
+          { id: 'doubao-seedream-4-0-250828', domain: 'ImageGeneration' },
+          { id: 'doubao-seedance-2-0-260128', domain: 'VideoGeneration' },
+          { id: 'doubao-embedding-large-text-250515', domain: 'Embedding' },
+          { id: 'hyper3d-gen2-260112', domain: '3DGeneration' },
+        ],
+      };
+    },
+  });
+
+  try {
+    const { settingsRepository } = await import(`../src/modules/settings/settings.repository.js?test=${Date.now()}`);
+    const models = await settingsRepository.fetchModelsFromProvider({
+      apiKey: 'demo-key',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      providerConfig: {
+        authType: 'bearer',
+        modelsEndpoint: '/v1/models',
+        modelOverrides: {},
+      },
+    });
+
+    assert.equal(models.all.includes('doubao-vision-pro-32k-241028'), false);
+    assert.equal(models.all.includes('doubao-embedding-large-text-250515'), false);
+    assert.equal(models.all.includes('hyper3d-gen2-260112'), false);
+    assert.equal(models.chat.includes('doubao-seed-1-6-250615'), true);
+    assert.equal(models.image.includes('doubao-seedream-4-0-250828'), true);
+    assert.equal(models.video.includes('doubao-seedance-2-0-260128'), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('settings service blocks backend restart while project is busy', async () => {
   const root = createStorageDir('settings-restart-busy');
   process.env.APP_CONFIG_DIR = root;

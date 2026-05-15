@@ -132,7 +132,7 @@ function sanitizeRole(value) {
   const icon = cleanOptionalString(value.icon, 40);
   const systemPrompt = cleanOptionalString(value.systemPrompt, 20000);
   const tools = Array.isArray(value.tools)
-    ? value.tools.filter((tool) => ['generate_image', 'generate_video', 'web_search'].includes(tool))
+    ? value.tools.filter((tool) => ['generate_image', 'generate_video', 'video_generate', 'web_search'].includes(tool))
     : [];
   if (!id || !name || !systemPrompt) return null;
   return { id, name, icon, systemPrompt, tools, isCustom: true };
@@ -370,13 +370,48 @@ function buildRuntimeApiConfigInternal(overrides = {}) {
   };
 }
 
-function classifyModels(allModels, providerConfig) {
+function getProviderModelId(model) {
+  if (typeof model === 'string') return model;
+  return cleanOptionalString(model?.id, 200);
+}
+
+function isProviderModelAvailable(model) {
+  if (typeof model === 'string') return true;
+  const status = cleanOptionalString(model?.status, 80).toLowerCase();
+  return !['shutdown', 'stopped', 'offline'].includes(status);
+}
+
+function inferProviderModelType(model) {
+  const modelId = getProviderModelId(model);
+  if (!modelId) return '';
+  if (typeof model !== 'string') {
+    const domain = cleanOptionalString(model?.domain, 80).toLowerCase();
+    if (domain === 'imagegeneration') return 'image';
+    if (domain === 'videogeneration') return 'video';
+    if (domain === 'llm' || domain === 'vlm' || domain === 'router') return 'chat';
+    if (domain === 'embedding' || domain === '3dgeneration') return '';
+  }
+
+  const lower = modelId.toLowerCase();
+  if (/embedding|rerank|seed3d|hyper3d|hitem3d|3d/i.test(lower)) return '';
+  return categorizeLegacyModel(modelId);
+}
+
+function classifyModels(providerModels, providerConfig) {
   const overrides = normalizeModelOverrides(providerConfig.modelOverrides);
-  const all = [...new Set([...allModels, ...Object.keys(overrides)])];
+  const discoveredModels = (Array.isArray(providerModels) ? providerModels : [])
+    .filter(isProviderModelAvailable)
+    .map((model) => ({
+      id: getProviderModelId(model),
+      type: inferProviderModelType(model),
+    }))
+    .filter((model) => model.id && model.type);
+  const all = [...new Set([...discoveredModels.map((model) => model.id), ...Object.keys(overrides)])];
   const groups = { all, chat: [], image: [], video: [] };
+  const discoveredTypes = new Map(discoveredModels.map((model) => [model.id, model.type]));
 
   for (const modelId of all) {
-    const type = overrides[modelId]?.type || categorizeLegacyModel(modelId);
+    const type = overrides[modelId]?.type || discoveredTypes.get(modelId) || categorizeLegacyModel(modelId);
     if (type === 'image') groups.image.push(modelId);
     else if (type === 'video') groups.video.push(modelId);
     else groups.chat.push(modelId);
@@ -556,9 +591,8 @@ export class SettingsRepository {
 
     const data = await response.json();
     const allModels = (data.data || [])
-      .map((model) => model.id)
-      .filter(Boolean)
-      .sort((left, right) => String(left).localeCompare(String(right)));
+      .filter((model) => getProviderModelId(model))
+      .sort((left, right) => String(getProviderModelId(left)).localeCompare(String(getProviderModelId(right))));
 
     return classifyModels(allModels, providerConfig);
   }

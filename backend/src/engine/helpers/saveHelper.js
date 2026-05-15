@@ -2,10 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.js';
 
-const DEFAULT_OUTPUTS_DIR = STORAGE_PATHS.generatedDir;
-const BACKEND_OUTPUTS_DIR = STORAGE_PATHS.generatedDir;
-const BACKEND_UPLOADS_DIR = STORAGE_PATHS.uploadsDir;
-
 const TYPE_DIRS = {
   image: 'images',
   video: 'videos',
@@ -34,8 +30,6 @@ function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-ensureDir(DEFAULT_OUTPUTS_DIR);
-
 function safeSegment(value, fallback) {
   return String(value || fallback)
     .replace(/[\\/:*?"<>|]/g, '-')
@@ -45,7 +39,7 @@ function safeSegment(value, fallback) {
 }
 
 function resolveBaseDir(customPath) {
-  if (!customPath) return DEFAULT_OUTPUTS_DIR;
+  if (!customPath) return STORAGE_PATHS.generatedDir;
   return path.isAbsolute(customPath)
     ? customPath
     : path.join(PROJECT_ROOT, customPath);
@@ -61,7 +55,7 @@ function targetPath(type, options = {}, ext = 'txt') {
 }
 
 function toApiOutputUrl(filePath) {
-  const normalizedDefaultDir = path.resolve(DEFAULT_OUTPUTS_DIR);
+  const normalizedDefaultDir = path.resolve(STORAGE_PATHS.generatedDir);
   const normalizedFilePath = path.resolve(filePath);
   const relativePath = path.relative(normalizedDefaultDir, normalizedFilePath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) return null;
@@ -76,8 +70,9 @@ function detectUrlType(value) {
 }
 
 function resolveLocalApiPath(value) {
-  if (value.startsWith('/api/outputs/')) return safeResolveWithin(BACKEND_OUTPUTS_DIR, value.replace('/api/outputs/', ''));
-  if (value.startsWith('/api/files/')) return safeResolveWithin(BACKEND_UPLOADS_DIR, value.replace('/api/files/', ''));
+  if (value.startsWith('/api/outputs/')) return safeResolveWithin(STORAGE_PATHS.generatedDir, value.replace('/api/outputs/', ''));
+  if (value.startsWith('/api/files/')) return safeResolveWithin(STORAGE_PATHS.uploadsDir, value.replace('/api/files/', ''));
+  if (value.startsWith('/api/assistant/files/')) return safeResolveWithin(STORAGE_PATHS.generatedDir, value.replace('/api/assistant/files/', ''));
   return null;
 }
 
@@ -149,4 +144,4 @@ export async function materializeContentForOutput(content, options = {}) {
   return { content, savedFiles, savedPaths };
 }
 
-export { DEFAULT_OUTPUTS_DIR };
+export const DEFAULT_OUTPUTS_DIR = STORAGE_PATHS.generatedDir;

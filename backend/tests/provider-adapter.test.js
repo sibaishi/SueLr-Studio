@@ -35,6 +35,34 @@ test('provider adapter replaces base API version when endpoint uses beta version
   assert.equal(request.url, 'https://www.6789api.top/v1beta/models/gemini-2.5-flash-image:generateContent');
 });
 
+test('provider adapter keeps API gateway prefix when base URL already includes api version', () => {
+  const adapter = getProviderAdapter();
+
+  const request = adapter.buildJsonRequest({
+    apiKey: 'demo-key',
+    providerConfig: { authType: 'bearer' },
+    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    endpoint: '/v1/chat/completions',
+    body: { model: 'ep-demo' },
+  });
+
+  assert.equal(request.url, 'https://ark.cn-beijing.volces.com/api/v3/chat/completions');
+});
+
+test('provider adapter accepts endpoint paths without a leading slash', () => {
+  const adapter = getProviderAdapter();
+
+  const request = adapter.buildJsonRequest({
+    apiKey: 'demo-key',
+    providerConfig: { authType: 'bearer' },
+    baseUrl: 'https://api.openai.com/v1',
+    endpoint: 'chat/completions',
+    body: { model: 'demo' },
+  });
+
+  assert.equal(request.url, 'https://api.openai.com/v1/chat/completions');
+});
+
 test('provider base URL allows local targets while the app listens on loopback', async () => {
   delete process.env.APP_HOST;
   const parsed = await assertSafeProviderBaseUrl('http://127.0.0.1:3000/v1');

@@ -31,7 +31,7 @@ import { projectWorkflowToExecutionGraph } from '@/features/workflow/lib/executi
 import { gid, snapValue } from '@/features/workflow/lib/store/helpers';
 import type { WorkflowState } from '@/features/workflow/lib/store/types';
 
-export const FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+export const FORCE_DISABLED_NODE_TYPES = new Set<string>();
 
 function snapDownToGrid(value: number) {
   return Math.floor(value / GRID_SIZE) * GRID_SIZE;

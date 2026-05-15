@@ -21,7 +21,7 @@ function cleanOptionalString(value, maxLength = 5000) {
 }
 
 function validateUrlOrEmpty(value, fieldName) {
-  const normalized = cleanOptionalString(value, 2000);
+  const normalized = cleanOptionalString(value, 4000);
   if (!normalized) return '';
   const isHttp = /^https?:\/\//i.test(normalized);
   const isApiPath = normalized.startsWith('/api/');
@@ -35,8 +35,17 @@ function validateUrlOrEmpty(value, fieldName) {
 function validateDataUrlImage(value, fieldName) {
   const normalized = cleanOptionalString(value, 10 * 1024 * 1024);
   if (!normalized) return '';
-  if (!/^data:image\/(png|jpeg|jpg|webp|gif);base64,[a-zA-Z0-9+/=\s]+$/.test(normalized)) {
+  if (!/^data:image\/(png|jpeg|jpg|webp|gif|svg\+xml);base64,[a-zA-Z0-9+/=\s]+$/.test(normalized)) {
     throw new ValidationError('VALIDATION_ERROR', `${fieldName} 不是允许的图片 data URL`);
+  }
+  return normalized;
+}
+
+function validateDataUrlVideo(value, fieldName) {
+  const normalized = cleanOptionalString(value, 300 * 1024 * 1024);
+  if (!normalized) return '';
+  if (!/^data:video\/([a-zA-Z0-9.+-]+);base64,[a-zA-Z0-9+/=\s]+$/.test(normalized)) {
+    throw new ValidationError('VALIDATION_ERROR', `${fieldName} 不是允许的视频 data URL`);
   }
   return normalized;
 }
@@ -110,6 +119,8 @@ export function validateVideoItem(payload) {
     ...record,
     id: validateId(record.id, 'video.id'),
     url: validateUrlOrEmpty(record.url, 'video.url'),
+    localUrl: validateUrlOrEmpty(record.localUrl, 'video.localUrl'),
+    data: validateDataUrlVideo(record.data, 'video.data'),
     prompt: cleanOptionalString(record.prompt, 8000),
     model: cleanOptionalString(record.model, 200),
     ts: Number(record.ts) || Date.now(),

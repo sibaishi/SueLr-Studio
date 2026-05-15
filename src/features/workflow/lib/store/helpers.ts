@@ -4,7 +4,7 @@ import type { PersistedWorkflow } from '@/features/workflow/lib/persistenceTypes
 
 const AI_TYPES = ['aiChat', 'imageGen', 'videoGen'];
 const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile']);
-const FORCE_DISABLED_NODE_TYPES = new Set(['videoGen', 'videoInput', 'audioInput', 'videoMerge', 'audioMerge']);
+const FORCE_DISABLED_NODE_TYPES = new Set<string>();
 const LOG_DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
 const LOG_DATA_URL_PREVIEW_LENGTH = 48;
 const LOG_MAX_STRING_LENGTH = 6000;

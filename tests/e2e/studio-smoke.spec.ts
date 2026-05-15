@@ -6,8 +6,15 @@ async function clearLocalState(page: import('@playwright/test').Page) {
   await page.evaluate(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
+    window.localStorage.setItem('suelr_onboarding_dismissed', 'true');
   });
   await page.reload();
+
+  const settingsTab = page.getByTestId('nav-tab-settings');
+  if (await settingsTab.isVisible({ timeout: 10_000 }).catch(() => false)) {
+    await settingsTab.click();
+  }
+
   await expect(page.getByTestId('settings-page')).toBeVisible();
 }
 

@@ -1,11 +1,15 @@
-import { useEffect } from 'react';
-import type { AgentRole, BridgeRef, ModelInfo } from '@/lib/types';
+import { useEffect, useMemo } from 'react';
+import type { AgentRole, BridgeRef, Colors, ModelInfo } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/providers';
 import { useChat } from '../hooks/useChat';
 import { useT } from '@/contexts/ThemeContext';
 import { MarkdownRenderer } from '@/shared/ui/content/Markdown';
 import { AutoTextarea, CustomDropdown, FullscreenViewer, RoleSelector, TypingIndicator } from '@/shared/ui/ios';
-import { Bot, CheckCircle, Circle, Copy, FileText, MessageSquare, Paperclip, RefreshCw, Search, Trash2, X, XCircle } from 'lucide-react';
+import { Bot, CheckCircle, Circle, Copy, FileText, Gauge, ImageIcon, Layers, MessageSquare, Paperclip, RefreshCw, Search, Sparkles, Trash2, X, XCircle } from 'lucide-react';
+
+const DEFAULT_CONTEXT_WINDOW = 128000;
+const CHARS_PER_TOKEN = 3.5;
+const PENDING_IMAGE_TOKEN_ESTIMATE = 768;
 
 const WELCOME_SUGGESTIONS = [
   '帮我写一篇文章',
@@ -59,6 +63,111 @@ function eyebrowStyle(): React.CSSProperties {
   };
 }
 
+function estimateTokensFromText(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return Math.max(1, Math.round(trimmed.length / CHARS_PER_TOKEN));
+}
+
+function getContextStatus(usagePct: number, T: Colors) {
+  if (usagePct >= 85) {
+    return { label: '接近上限', color: T.red, hint: '建议先总结或开启新会话，避免重要内容被模型遗忘。' };
+  }
+  if (usagePct >= 60) {
+    return { label: '偏高', color: T.orange, hint: '上下文仍可用，但长附件和多轮追问会明显增加压力。' };
+  }
+  return { label: '健康', color: T.green, hint: '当前上下文余量充足，可以继续正常对话。' };
+}
+
+function ContextUsagePanel({
+  stats,
+  T,
+}: {
+  stats: {
+    contextWindow: number;
+    totalTokens: number;
+    remainingTokens: number;
+    usagePct: number;
+    totalChars: number;
+    messageCount: number;
+    compressed: boolean;
+    status: ReturnType<typeof getContextStatus>;
+    source: 'provider' | 'estimate';
+    breakdown: Array<{ label: string; value: number; meta: string; color: string; icon: React.ReactNode }>;
+  };
+  T: Colors;
+}) {
+  return (
+    <div style={{ ...mutedPanelStyle(), padding: 14, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>上下文用量</div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
+            {stats.source === 'provider' ? '来自上游 usage，明细为本地估算' : '后端估算，含角色提示与待发内容'}
+          </div>
+        </div>
+        <span style={{ ...chipStyle(stats.status.color), padding: '6px 9px' }}>{stats.status.label}</span>
+      </div>
+
+      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '92px minmax(0, 1fr)', gap: 14, alignItems: 'center' }}>
+        <div
+          style={{
+            width: 92,
+            height: 92,
+            borderRadius: '50%',
+            background: `conic-gradient(${stats.status.color} ${stats.usagePct}%, var(--color-bg-secondary) 0)`,
+            padding: 7,
+            boxShadow: `0 12px 30px ${stats.status.color}18`,
+          }}
+        >
+          <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--glass-bg)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <Gauge size={18} color={stats.status.color} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginTop: 4 }}>{stats.usagePct}%</div>
+            <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)' }}>已使用</div>
+          </div>
+        </div>
+
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 23, fontWeight: 800, color: stats.status.color }}>{stats.totalTokens.toLocaleString()}</span>
+            <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>/ {stats.contextWindow.toLocaleString()} tokens 阈值</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 5 }}>
+            预计还可容纳 {stats.remainingTokens.toLocaleString()} tokens
+          </div>
+          <div style={{ height: 7, borderRadius: 999, background: 'var(--color-bg-secondary)', overflow: 'hidden', marginTop: 10 }}>
+            <div style={{ height: '100%', width: `${stats.usagePct}%`, borderRadius: 999, background: `linear-gradient(90deg, ${T.green}, ${stats.status.color})`, transition: 'width 0.3s ease' }} />
+          </div>
+          <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--color-text-tertiary)', marginTop: 8 }}>{stats.status.hint}</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>
+        {stats.breakdown.map((item) => (
+          <div key={item.label} style={{ borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--glass-bg)', padding: 10, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: item.color, fontSize: 11, fontWeight: 700 }}>
+              {item.icon}
+              <span>{item.label}</span>
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-text-primary)', marginTop: 6 }}>{item.value.toLocaleString()}</div>
+            <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.meta}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: 'var(--color-text-tertiary)', fontSize: 11 }}>
+        <span>{stats.messageCount} 条消息 · {stats.totalChars.toLocaleString()} 字符</span>
+        {stats.compressed && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: T.purple, fontWeight: 700 }}>
+            <Sparkles size={10} />
+            已压缩
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function InlineHint({ title, body }: { title: string; body: string }) {
   return (
     <div style={{ ...mutedPanelStyle(), padding: 14 }}>
@@ -76,6 +185,7 @@ export function ChatPanel({
   bridgeRef,
   roles,
   getMemoryContext,
+  refreshMemories,
   scheduleExtraction,
   tavilyApiKey,
   providerConfig,
@@ -85,6 +195,7 @@ export function ChatPanel({
   activeTab,
   searchMemories,
   onBusyChange,
+  onOpenWorkflowRun,
 }: {
   base: string;
   apiKey: string;
@@ -93,6 +204,7 @@ export function ChatPanel({
   bridgeRef: React.MutableRefObject<BridgeRef>;
   roles: AgentRole[];
   getMemoryContext: () => string;
+  refreshMemories: () => Promise<void>;
   scheduleExtraction: (msgs: { role: string; content: string }[], cid: string, model: string, base: string, key: string) => void;
   tavilyApiKey: string;
   providerConfig?: ProviderConfig;
@@ -102,9 +214,10 @@ export function ChatPanel({
   activeTab?: string;
   searchMemories?: (query: string) => string;
   onBusyChange?: (busy: boolean) => void;
+  onOpenWorkflowRun?: (payload: { runId: string; workflowId?: string; source?: 'persisted' | 'draft' }) => void;
 }) {
   const T = useT();
-  const chat = useChat(base, apiKey, models, addLog, bridgeRef, roles, getMemoryContext, scheduleExtraction, tavilyApiKey, providerConfig, chatStreamingMode, videoStreamingMode, activeTab, searchMemories);
+  const chat = useChat(base, apiKey, models, addLog, bridgeRef, roles, getMemoryContext, refreshMemories, scheduleExtraction, tavilyApiKey, providerConfig, chatStreamingMode, videoStreamingMode, activeTab, searchMemories);
   const chatBusy = chat.sendings.size > 0;
 
   useEffect(() => {
@@ -118,8 +231,69 @@ export function ChatPanel({
   const currentModelLabel = modelOptions.find((option) => option.value === chat.currentModel)?.label || '未选择';
   const activeRole = roles.find((role) => role.id === chat.currentRole.id);
   const activeConversation = chat.conv;
-  const lastAssistantMessage = [...activeConversation.msgs].reverse().find((msg) => msg.role === 'assistant');
+  const contextUsage = useMemo(() => {
+    const totalChars = activeConversation.msgs.reduce((sum, msg) => sum + (typeof msg.content === 'string' ? msg.content.length : 0), 0);
+    const messageTokens = estimateTokensFromText(activeConversation.msgs.map((msg) => msg.content).join('\n\n'));
+    const roleTokens = estimateTokensFromText(activeRole?.systemPrompt || chat.currentRole.systemPrompt || '');
+    const pendingFileChars = chat.pendingFiles.reduce((sum, file) => sum + file.name.length + file.content.length, 0);
+    const pendingFileTokens = estimateTokensFromText(chat.pendingFiles.map((file) => `${file.name}\n${file.content}`).join('\n\n'));
+    const pendingImageTokens = chat.pendingImages.length * PENDING_IMAGE_TOKEN_ESTIMATE;
+    const estimatedTotalTokens = messageTokens + roleTokens + pendingFileTokens + pendingImageTokens;
+    const serverUsage = chat.tokenUsage;
+    const contextWindow = serverUsage?.compressionThreshold || DEFAULT_CONTEXT_WINDOW;
+    const totalTokens = serverUsage?.totalTokens ?? estimatedTotalTokens;
+    const usagePct = Math.min(100, serverUsage?.usagePct ?? Math.round((totalTokens / contextWindow) * 100));
+    const remainingTokens = Math.max(0, serverUsage?.remainingTokens ?? (contextWindow - totalTokens));
+    const status = getContextStatus(usagePct, T);
+    const compressed = activeConversation.msgs.some((msg) =>
+      msg.role === 'assistant' && (
+        msg.toolCall?.name === 'conversation_summarize' ||
+        (typeof msg.content === 'string' && msg.content.includes('[Previous conversation summary]'))
+      )
+    );
 
+    return {
+      contextWindow,
+      totalTokens,
+      remainingTokens,
+      usagePct,
+      totalChars,
+      messageCount: activeConversation.msgs.length,
+      compressed,
+      status,
+      source: serverUsage?.source || 'estimate' as const,
+      breakdown: [
+        {
+          label: '历史消息',
+          value: messageTokens,
+          meta: `${activeConversation.msgs.length} 条`,
+          color: T.blue,
+          icon: <MessageSquare size={12} />,
+        },
+        {
+          label: '角色提示',
+          value: roleTokens,
+          meta: activeRole?.name || chat.currentRole.name || '默认角色',
+          color: T.purple,
+          icon: <Layers size={12} />,
+        },
+        {
+          label: '待发文件',
+          value: pendingFileTokens,
+          meta: `${chat.pendingFiles.length} 个 · ${pendingFileChars.toLocaleString()} 字符`,
+          color: chat.pendingFiles.length > 0 ? T.orange : 'var(--color-text-tertiary)',
+          icon: <FileText size={12} />,
+        },
+        {
+          label: '待发图片',
+          value: pendingImageTokens,
+          meta: `${chat.pendingImages.length} 张 · 视觉估算`,
+          color: chat.pendingImages.length > 0 ? T.green : 'var(--color-text-tertiary)',
+          icon: <ImageIcon size={12} />,
+        },
+      ],
+    };
+  }, [T, activeConversation.msgs, activeRole?.name, activeRole?.systemPrompt, chat.currentRole.name, chat.currentRole.systemPrompt, chat.pendingFiles, chat.pendingImages.length, chat.tokenUsage]);
   const conversations = (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
       <div style={{ padding: 16, borderBottom: '1px solid var(--color-border)' }}>
@@ -188,7 +362,15 @@ export function ChatPanel({
 
   return (
     <div className="workflow-page" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, overflow: 'hidden' }}>
-      <FullscreenViewer url={chat.previewUrl} onClose={() => chat.setPreviewUrl(null)} />
+      <FullscreenViewer
+        url={chat.previewUrl}
+        onClose={() => chat.setPreviewUrl(null)}
+        actionLabel="添加到对话"
+        onAction={(url) => {
+          chat.addPendingImages([url]);
+          addLog('info', '已将图片添加到 Chat 待发送队列');
+        }}
+      />
 
       <div className="workflow-toolbar glass" style={{ marginBottom: 0 }}>
         <div className="workflow-toolbar__frame" style={{ alignItems: 'stretch', flexWrap: 'wrap', rowGap: 12 }}>
@@ -241,6 +423,31 @@ export function ChatPanel({
                 title="添加附件"
               >
                 <Paperclip size={16} />
+              </button>
+              <button
+                onClick={() => {
+                  if (chatBusy || activeConversation.msgs.length === 0) return;
+                  chat.setInput('请总结当前对话的关键内容');
+                  setTimeout(() => chat.send(), 0);
+                }}
+                disabled={chatBusy || activeConversation.msgs.length === 0}
+                title={activeConversation.msgs.length === 0 ? '暂无对话可总结' : '总结当前对话'}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  border: `1px solid ${activeConversation.msgs.length > 0 && !chatBusy ? `${T.purple}44` : 'var(--color-border)'}`,
+                  background: activeConversation.msgs.length > 0 && !chatBusy ? `${T.purple}14` : 'var(--color-bg-secondary)',
+                  color: activeConversation.msgs.length > 0 && !chatBusy ? T.purple : 'var(--color-text-tertiary)',
+                  cursor: activeConversation.msgs.length > 0 && !chatBusy ? 'pointer' : 'not-allowed',
+                  opacity: activeConversation.msgs.length > 0 && !chatBusy ? 1 : 0.55,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
+                }}
+              >
+                <Sparkles size={16} />
               </button>
               <button
                 onClick={() => chat.canUseWebSearch && chat.setWebSearchEnabled(!chat.webSearchEnabled)}
@@ -323,9 +530,110 @@ export function ChatPanel({
                   )}
 
                   {msg.toolCall && (
-                    <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 12, fontSize: 12, border: '1px solid var(--color-border)', color: msg.toolCall.status === 'failed' ? T.red : msg.toolCall.status === 'done' ? T.green : T.blue, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      {msg.toolCall.status === 'processing' ? <Circle size={8} fill="currentColor" /> : msg.toolCall.status === 'failed' ? <XCircle size={12} /> : <CheckCircle size={12} />}
-                      {msg.toolCall.label}
+                    <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 12, fontSize: 12, border: '1px solid var(--color-border)', color: msg.toolCall.status === 'failed' ? T.red : msg.toolCall.status === 'done' ? T.green : msg.toolCall.status === 'cancelled' ? T.orange : T.blue, display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {msg.toolCall.status === 'processing'
+                          ? <Circle size={8} fill="currentColor" />
+                          : msg.toolCall.status === 'failed'
+                            ? <XCircle size={12} />
+                            : msg.toolCall.status === 'cancelled'
+                              ? <XCircle size={12} />
+                              : <CheckCircle size={12} />}
+                        {msg.toolCall.label}
+                      </span>
+                      {(msg.toolCall.runId || msg.toolCall.detail || msg.toolCall.error) && (
+                        <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--color-text-secondary)' }}>
+                          {msg.toolCall.error || msg.toolCall.detail || (msg.toolCall.runId ? `runId: ${msg.toolCall.runId}` : '')}
+                        </span>
+                      )}
+                      {msg.toolCall.type === 'workflow' && msg.toolCall.runId && (
+                        <button
+                          onClick={() => onOpenWorkflowRun?.({
+                            runId: msg.toolCall?.runId || '',
+                            workflowId: msg.toolCall?.workflowId,
+                            source: msg.toolCall?.source,
+                          })}
+                          style={{
+                            marginTop: 2,
+                            border: 'none',
+                            background: 'transparent',
+                            color: T.blue,
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          在 Workflow 页面中查看运行
+                        </button>
+                      )}
+                      {Array.isArray(msg.toolCall.artifacts) && msg.toolCall.artifacts.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4, width: '100%' }}>
+                          <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{msg.toolCall.type === 'workflow' ? '工作流输出' : '工具输出'}</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {msg.toolCall.artifacts.map((artifact, index) => {
+                              if (artifact.type === 'image') {
+                                return (
+                                  <img
+                                    key={`${artifact.url}-${index}`}
+                                    src={artifact.url}
+                                    onClick={() => chat.setPreviewUrl(artifact.url)}
+                                    style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 12, cursor: 'pointer', border: '1px solid var(--color-border)' }}
+                                  />
+                                );
+                              }
+
+                              if (artifact.type === 'video') {
+                                return (
+                                  <video
+                                    key={`${artifact.url}-${index}`}
+                                    src={artifact.url}
+                                    controls
+                                    style={{ width: 180, maxHeight: 120, borderRadius: 12, border: '1px solid var(--color-border)', background: '#000' }}
+                                  />
+                                );
+                              }
+
+                              if (artifact.type === 'audio') {
+                                return (
+                                  <audio
+                                    key={`${artifact.url}-${index}`}
+                                    src={artifact.url}
+                                    controls
+                                    style={{ width: 220 }}
+                                  />
+                                );
+                              }
+
+                              return (
+                                <a
+                                  key={`${artifact.url}-${index}`}
+                                  href={artifact.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '6px 8px',
+                                    borderRadius: 10,
+                                    border: '1px solid var(--color-border)',
+                                    color: 'var(--color-text-primary)',
+                                    textDecoration: 'none',
+                                    maxWidth: 220,
+                                  }}
+                                >
+                                  <FileText size={12} />
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {artifact.name || artifact.url}
+                                  </span>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -407,26 +715,7 @@ export function ChatPanel({
                 <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>{activeRole?.name || '默认角色'}</div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>角色会影响系统提示词与可用工具。</div>
               </div>
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>会话统计</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                  <span style={chipStyle(T.blue)}>{activeConversation.msgs.length} 条消息</span>
-                  <span style={chipStyle(chat.pendingFiles.length > 0 ? T.orange : undefined)}>{chat.pendingFiles.length} 个待发文件</span>
-                  <span style={chipStyle(chat.pendingImages.length > 0 ? T.green : undefined)}>{chat.pendingImages.length} 张待发图片</span>
-                </div>
-              </div>
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>最新回复摘要</div>
-                {lastAssistantMessage ? (
-                  <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-primary)', marginTop: 10 }}>
-                    {lastAssistantMessage.content.slice(0, 180)}
-                  </div>
-                ) : (
-                  <div style={{ marginTop: 10 }}>
-                    <InlineHint title="还没有 AI 回复" body="先选择一个可用模型并发送消息，生成后的最新回复会显示在这里。" />
-                  </div>
-                )}
-              </div>
+              <ContextUsagePanel stats={contextUsage} T={T} />
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>能力状态</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>

@@ -14,6 +14,10 @@ function cleanText(value) {
   return String(value || '').trim();
 }
 
+function canonicalModelKey(value) {
+  return cleanText(value).replace(/\s*-\s*/g, '-').toLowerCase();
+}
+
 function cleanTimestamp(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : Date.now();
@@ -140,7 +144,10 @@ export function groupConfiguredProjectModels(projectModels) {
 export function findProjectModel(projectModels, modelId) {
   const id = cleanText(modelId);
   if (!id) return null;
-  return normalizeProjectModels(projectModels).find((item) => item.modelId === id) || null;
+  const canonicalId = canonicalModelKey(id);
+  return normalizeProjectModels(projectModels)
+    .find((item) => item.modelId === id || canonicalModelKey(item.modelId) === canonicalId)
+    || null;
 }
 
 export function resolveProjectModelRuntime({ projectModels, modelId, expectedType, purpose }) {
