@@ -65,7 +65,7 @@ export async function clearGallery(): Promise<void> {
   await apiRequest(`${API}/images`, { method: 'DELETE' });
 }
 
-export async function saveVideo(item: { id: string; url?: string; localUrl?: string; data?: string; prompt: string; model: string; ts: number }): Promise<string | null> {
+export async function saveVideo(item: { id: string; url?: string; localUrl?: string; data?: string; candidateUrls?: string[]; prompt: string; model: string; ts: number }): Promise<string | null> {
   if (!isBackendAvailable()) return null;
   const result = await apiRequest<{ localUrl?: string }>(`${API}/videos`, {
     method: 'POST',

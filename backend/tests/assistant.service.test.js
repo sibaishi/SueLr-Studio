@@ -24,7 +24,7 @@ test('assistant service persists records through repository layer', async () => 
   service.saveConversations([{ id: 'conv-1', title: 'Hello', model: 'gpt-4o', msgs: [], ts: Date.now() }]);
   assert.equal(service.getConversations().length, 1);
 
-  service.saveVideo({ id: 'video-1', url: 'https://example.com/video.mp4', prompt: 'demo', model: 'video-model', ts: Date.now() });
+  await service.saveVideo({ id: 'video-1', url: 'https://example.com/video.mp4', prompt: 'demo', model: 'video-model', ts: Date.now() });
   assert.equal(service.getVideos().length, 1);
 
   const image = service.saveImage({
@@ -47,4 +47,53 @@ test('assistant service persists records through repository layer', async () => 
   assert.equal(service.getConversations().length, 0);
   assert.equal(service.getVideos().length, 0);
   assert.equal(service.getImages().length, 0);
+});
+
+test('assistant service downloads the first playable candidate video url', async () => {
+  const root = createStorageDir('assistant-video-candidates');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (String(url) === 'https://example.com/result') {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(url) === 'https://cdn.example.com/final.mp4') {
+      return new Response(Buffer.from('VIDEO'), {
+        status: 200,
+        headers: { 'content-type': 'video/mp4' },
+      });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  try {
+    const { AssistantRepository } = await import(`../src/modules/assistant/assistant.repository.js?test=${Date.now()}`);
+    const { AssistantService } = await import(`../src/modules/assistant/assistant.service.js?test=${Date.now()}`);
+
+    const repository = new AssistantRepository();
+    const service = new AssistantService(repository);
+
+    const saved = await service.saveVideo({
+      id: 'video-candidates',
+      url: 'https://example.com/result',
+      candidateUrls: [
+        'https://example.com/result',
+        'https://cdn.example.com/final.mp4',
+      ],
+      prompt: 'demo',
+      model: 'video-model',
+      ts: Date.now(),
+    });
+
+    assert.match(saved.localUrl, /^\/api\/assistant\/files\/assistant-videos\/video-candidates\.mp4$/);
+    assert.equal(service.getVideos().length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

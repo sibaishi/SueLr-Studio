@@ -45,7 +45,10 @@ describe('waitForVideoCompletion', () => {
     });
 
     expect(url).toBe('https://example.com/video.mp4');
-    expect(onSuccess).toHaveBeenCalledWith('https://example.com/video.mp4');
+    expect(onSuccess).toHaveBeenCalledWith(
+      'https://example.com/video.mp4',
+      ['https://example.com/video.mp4'],
+    );
     expect(capabilityPollVideoTask).toHaveBeenCalledTimes(2);
   });
 
@@ -66,7 +69,44 @@ describe('waitForVideoCompletion', () => {
     });
 
     expect(url).toBe('https://example.com/final.mp4');
-    expect(onSuccess).toHaveBeenCalledWith('https://example.com/final.mp4');
+    expect(onSuccess).toHaveBeenCalledWith(
+      'https://example.com/final.mp4',
+      ['https://example.com/final.mp4'],
+    );
+  });
+
+  it('prefers a playable media URL over provider result_url endpoints', async () => {
+    capabilityPollVideoTask.mockResolvedValue({
+      data: {
+        status: 'SUCCESS',
+        result_url: 'https://example.com/task/result',
+        data: {
+          status: 'completed',
+          metadata: {
+            url: 'https://cdn.example.com/final.mp4',
+          },
+        },
+      },
+    });
+
+    const onSuccess = vi.fn();
+
+    const url = await waitForVideoCompletion({
+      taskId: 'task_provider_shape',
+      baseR: { current: '' },
+      keyR: { current: '' },
+      onSuccess,
+      onNoUrl: vi.fn(),
+      onFailure: vi.fn(),
+      onPollError: vi.fn(),
+      intervalMs: 1,
+    });
+
+    expect(url).toBe('https://cdn.example.com/final.mp4');
+    expect(onSuccess).toHaveBeenCalledWith(
+      'https://cdn.example.com/final.mp4',
+      ['https://cdn.example.com/final.mp4', 'https://example.com/task/result'],
+    );
   });
 
   it('extracts nested failure messages from provider payloads', async () => {

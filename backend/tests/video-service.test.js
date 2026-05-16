@@ -132,6 +132,82 @@ test('pollVideoTask uses Ark task status endpoint even when provider config has 
   }
 });
 
+test('executeVideoGeneration prefers playable media url over provider result_url status endpoints', async () => {
+  const cleanupStorage = withTempStorage();
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push(String(url));
+
+    if (String(url).includes('/v1/video/generations')) {
+      if ((options.method || 'GET') === 'POST') {
+        return new Response(JSON.stringify({ id: 'task-provider-shape' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        data: {
+          status: 'SUCCESS',
+          result_url: 'https://example.com/task/result',
+          data: {
+            status: 'completed',
+            metadata: {
+              url: 'https://cdn.example.com/final.mp4',
+            },
+          },
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (String(url) === 'https://cdn.example.com/final.mp4') {
+      return new Response(Buffer.from('VIDEO'), {
+        status: 200,
+        headers: { 'content-type': 'video/mp4' },
+      });
+    }
+
+    if (String(url) === 'https://example.com/task/result') {
+      return new Response(JSON.stringify({ error: 'should not be used' }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    throw new Error(`Unexpected fetch URL: ${url}`);
+  };
+
+  try {
+    const runtime = createRuntime({
+      baseUrl: 'https://example.com',
+      providerConfig: {
+        authType: 'bearer',
+        videoEndpoint: '/v1/video/generations',
+      },
+    });
+
+    const result = await executeVideoGeneration({
+      model: 'doubao-seedance-2-0-260128',
+      prompt: 'a cinematic sunrise',
+      duration: 5,
+      aspect_ratio: '16:9',
+      resolution: '720p',
+    }, runtime);
+
+    assert.match(result.video, /^\/api\/outputs\/videos\/.+\.mp4$/);
+    assert.equal(requests.includes('https://cdn.example.com/final.mp4'), true);
+    assert.equal(requests.includes('https://example.com/task/result'), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanupStorage();
+  }
+});
+
 test('submitVideoGeneration omits image role for Seedance 1.0 first-frame i2v', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;

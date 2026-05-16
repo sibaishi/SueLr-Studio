@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
 import { createLogger } from '../../platform/logging/logger.js';
+import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.js';
 import { assistantRepository } from './assistant.repository.js';
 
 const MIME_MAP = {
@@ -32,6 +33,8 @@ const VIDEO_MIME_EXT = {
   'video/quicktime': 'mov',
   'video/x-m4v': 'm4v',
 };
+const REMOTE_VIDEO_TIMEOUT_MS = 30_000;
+const REMOTE_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 
 const logger = createLogger({ module: 'assistant-service' });
 
@@ -46,6 +49,35 @@ function parseDataUrl(value) {
 
 function buildAssistantLocalUrl(directoryName, filename) {
   return `/api/assistant/files/${directoryName}/${filename}`;
+}
+
+async function downloadRemoteVideoCandidate(url) {
+  await assertSafeRemoteDownloadUrl(url, '视频下载地址');
+
+  const response = await fetch(url, {
+    redirect: 'follow',
+    signal: AbortSignal.timeout(REMOTE_VIDEO_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.startsWith('video/')) {
+    throw new Error(`Unexpected content-type: ${contentType || 'unknown'}`);
+  }
+
+  const contentLength = Number(response.headers.get('content-length') || '0');
+  if (contentLength > REMOTE_VIDEO_MAX_BYTES) {
+    throw new Error('Video exceeds size limit');
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.byteLength > REMOTE_VIDEO_MAX_BYTES) {
+    throw new Error('Video exceeds size limit');
+  }
+
+  return { buffer, contentType };
 }
 
 export class AssistantService {
@@ -74,6 +106,35 @@ export class AssistantService {
 
   getImages() {
     return this.repository.load('gallery');
+  }
+
+  async materializeRemoteVideoCandidates({ id, candidateUrls = [] }) {
+    const candidates = candidateUrls
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+
+    const seen = new Set();
+    for (const candidate of candidates) {
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+
+      try {
+        const { buffer, contentType } = await downloadRemoteVideoCandidate(candidate);
+        const ext = VIDEO_MIME_EXT[contentType] || 'mp4';
+        const filename = `${id}.${ext}`;
+        this.repository.writeAssistantVideo(filename, buffer);
+        logger.info('assistant video downloaded from remote candidate', { videoId: id, sourceUrl: candidate, contentType });
+        return buildAssistantLocalUrl('assistant-videos', filename);
+      } catch (error) {
+        logger.warn('assistant video candidate rejected', {
+          videoId: id,
+          sourceUrl: candidate,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return '';
   }
 
   materializeAssistantAsset({ id, url, data, kind }) {
@@ -149,14 +210,25 @@ export class AssistantService {
     return this.repository.load('videos');
   }
 
-  saveVideo(video) {
+  async saveVideo(video) {
     const videos = this.repository.load('videos');
-    const localUrl = this.materializeAssistantAsset({
-      id: video.id,
-      url: video.url || video.localUrl,
-      data: video.data,
-      kind: 'video',
-    });
+    let localUrl = '';
+
+    if (Array.isArray(video.candidateUrls) && video.candidateUrls.length > 0) {
+      localUrl = await this.materializeRemoteVideoCandidates({
+        id: video.id,
+        candidateUrls: video.candidateUrls,
+      });
+    }
+
+    if (!localUrl) {
+      localUrl = this.materializeAssistantAsset({
+        id: video.id,
+        url: video.url || video.localUrl,
+        data: video.data,
+        kind: 'video',
+      });
+    }
 
     const record = {
       ...video,

@@ -3,6 +3,10 @@ import type { ApiConfigPayload } from '@/shared/api/capabilities';
 
 type VideoPollResponse = Awaited<ReturnType<typeof capabilityPollVideoTask>>;
 type NormalizedVideoTaskStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+type VideoPollResponseWithResultUrl = VideoPollResponse & {
+  result_url?: string;
+  data?: VideoPollResponse['data'] & { result_url?: string; data?: { metadata?: { url?: string } } };
+};
 
 interface PollOptions {
   taskId: string;
@@ -12,7 +16,7 @@ interface PollOptions {
   keyR: React.MutableRefObject<string>;
   apiConfig?: ApiConfigPayload;
   apiConfigCandidates?: ApiConfigPayload[];
-  onSuccess: (url: string) => void;
+  onSuccess: (url: string, urls?: string[]) => void;
   onNoUrl: () => void;
   onFailure: (error: string) => void;
   onPollError: (error: string) => void;
@@ -45,19 +49,40 @@ function findFirstStringByKeys(value: unknown, keys: string[]): string | undefin
   return undefined;
 }
 
-function getVideoUrl(result: VideoPollResponse): string | undefined {
-  return findFirstStringByKeys(result, [
+function getVideoUrls(result: VideoPollResponse): string[] {
+  const extended = result as VideoPollResponseWithResultUrl;
+  const directCandidates = [
+    result.content?.video_url,
+    result.output?.video_url,
+    result.data?.content?.video_url,
+    result.data?.output?.video_url,
+    extended.data?.data?.metadata?.url,
+  ];
+  const discovered = findFirstStringByKeys(result, [
     'video_url',
     'videoUrl',
-    'result_url',
-    'resultUrl',
     'file_url',
     'fileUrl',
     'media_url',
     'mediaUrl',
     'download_url',
     'downloadUrl',
+    'url',
   ]);
+  const fallbackCandidates = [
+    discovered,
+    extended.result_url,
+    extended.data?.result_url,
+  ];
+
+  const seen = new Set<string>();
+  return [...directCandidates, ...fallbackCandidates]
+    .map((value) => String(value || '').trim())
+    .filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
 }
 
 function getTaskError(result: VideoPollResponse, fallback: string): string {
@@ -90,9 +115,10 @@ export function normalizeVideoTaskStatus(rawStatus: string | undefined, hasVideo
   return undefined;
 }
 
-async function pollTask(taskId: string, apiConfig?: ApiConfigPayload): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; error?: string }> {
+async function pollTask(taskId: string, apiConfig?: ApiConfigPayload): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; urls?: string[]; error?: string }> {
   const result = await capabilityPollVideoTask(taskId, apiConfig);
-  const url = getVideoUrl(result);
+  const urls = getVideoUrls(result);
+  const url = urls[0];
   const error = getTaskError(result, 'Video generation failed');
   const rawStatus = readRawTaskStatus(result);
 
@@ -100,6 +126,7 @@ async function pollTask(taskId: string, apiConfig?: ApiConfigPayload): Promise<{
     status: normalizeVideoTaskStatus(rawStatus, Boolean(url), Boolean(result.error ?? result.data?.error)),
     rawStatus,
     url,
+    urls,
     error,
   };
 }
@@ -108,7 +135,7 @@ async function pollTaskWithCandidates(
   taskId: string,
   apiConfig?: ApiConfigPayload,
   apiConfigCandidates?: ApiConfigPayload[],
-): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; error?: string }> {
+): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; urls?: string[]; error?: string }> {
   const candidates = apiConfigCandidates?.length ? apiConfigCandidates : (apiConfig ? [apiConfig] : []);
   if (candidates.length === 0) return pollTask(taskId);
 
@@ -146,7 +173,7 @@ export function startVideoPoll(opts: PollOptions): () => void {
 
       if (result.status === 'completed') {
         cleanup();
-        if (result.url) onSuccess(result.url);
+        if (result.url) onSuccess(result.url, result.urls);
         else onNoUrl();
         return;
       }
@@ -187,7 +214,7 @@ export async function waitForVideoCompletion(
 
       if (result.status === 'completed') {
         if (result.url) {
-          onSuccess(result.url);
+          onSuccess(result.url, result.urls);
           return result.url;
         }
         onNoUrl();

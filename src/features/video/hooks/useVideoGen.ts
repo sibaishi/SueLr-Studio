@@ -163,16 +163,18 @@ export function useVideoGen(
       vlog(`任务已提交，ID: ${tid}`);
       setTasks(prev => prev.map(t => t.id === id ? touchTask(t, { taskId: tid || '', status: '处理中' }) : t));
 
-      const onSuccess = (url: string) => {
+      const onSuccess = (url: string, candidateUrls?: string[]) => {
         vlog('视频生成完成');
         toast('视频生成完成', 'success');
         setTasks(prev => prev.map(t => t.id === id ? touchTask(t, { status: '已完成', videoUrl: url, error: undefined }) : t));
-        const vidItem = { id, url, prompt: task.prompt, model: providerModel, ts: Date.now() };
-        setCompletedVideos(prev => [vidItem, ...prev]);
+        const vidItem = { id, url, candidateUrls, prompt: task.prompt, model: providerModel, ts: Date.now() };
         void saveVideo(vidItem).then((persistedUrl) => {
+          const finalUrl = persistedUrl || url;
+          setCompletedVideos(prev => [{ id, url: finalUrl, prompt: task.prompt, model: providerModel, ts: vidItem.ts }, ...prev]);
           if (!persistedUrl) return;
-          setCompletedVideos(prev => prev.map((item) => item.id === id ? { ...item, url: persistedUrl } : item));
           setTasks(prev => prev.map((item) => item.id === id ? touchTask(item, { videoUrl: persistedUrl }) : item));
+        }).catch(() => {
+          setCompletedVideos(prev => [{ id, url, prompt: task.prompt, model: providerModel, ts: vidItem.ts }, ...prev]);
         });
       };
 
@@ -250,24 +252,28 @@ export function useVideoGen(
 
     vlog(`继续轮询视频任务: ${normalizedTaskId}`);
 
-    const onSuccess = (url: string) => {
+    const onSuccess = (url: string, candidateUrls?: string[]) => {
       vlog(`手动轮询完成: ${normalizedTaskId}`);
       toast('视频生成完成', 'success');
       setTasks((prev) => prev.map((task) => (
         task.id === pollKey ? touchTask(task, { status: '已完成', videoUrl: url, error: undefined }) : task
       )));
-      const vidItem = {
-        id: gid(),
+      const vidItemId = gid();
+      const vidTs = Date.now();
+      void saveVideo({
+        id: vidItemId,
         url,
+        candidateUrls,
         prompt: taskRecord.prompt,
         model: taskRecord.model,
-        ts: Date.now(),
-      };
-      setCompletedVideos((prev) => [vidItem, ...prev]);
-      void saveVideo(vidItem).then((persistedUrl) => {
+        ts: vidTs,
+      }).then((persistedUrl) => {
+        const finalUrl = persistedUrl || url;
+        setCompletedVideos((prev) => [{ id: vidItemId, url: finalUrl, prompt: taskRecord.prompt, model: taskRecord.model, ts: vidTs }, ...prev]);
         if (!persistedUrl) return;
-        setCompletedVideos((prev) => prev.map((item) => item.id === vidItem.id ? { ...item, url: persistedUrl } : item));
         setTasks((prev) => prev.map((item) => item.id === pollKey ? touchTask(item, { videoUrl: persistedUrl }) : item));
+      }).catch(() => {
+        setCompletedVideos((prev) => [{ id: vidItemId, url, prompt: taskRecord.prompt, model: taskRecord.model, ts: vidTs }, ...prev]);
       });
     };
 

@@ -32,6 +32,16 @@ function validateUrlOrEmpty(value, fieldName) {
   return normalized;
 }
 
+function validateUrlArray(value, fieldName) {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    throw new ValidationError('VALIDATION_ERROR', `${fieldName} 必须为数组`);
+  }
+  return value
+    .map((item, index) => validateUrlOrEmpty(item, `${fieldName}[${index}]`))
+    .filter(Boolean);
+}
+
 function validateDataUrlImage(value, fieldName) {
   const normalized = cleanOptionalString(value, 10 * 1024 * 1024);
   if (!normalized) return '';
@@ -120,6 +130,7 @@ export function validateVideoItem(payload) {
     id: validateId(record.id, 'video.id'),
     url: validateUrlOrEmpty(record.url, 'video.url'),
     localUrl: validateUrlOrEmpty(record.localUrl, 'video.localUrl'),
+    candidateUrls: validateUrlArray(record.candidateUrls, 'video.candidateUrls'),
     data: validateDataUrlVideo(record.data, 'video.data'),
     prompt: cleanOptionalString(record.prompt, 8000),
     model: cleanOptionalString(record.model, 200),

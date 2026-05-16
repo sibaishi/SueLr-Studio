@@ -121,9 +121,41 @@ function extractVideoTaskId(data) {
 function extractVideoUrl(data) {
   return data?.video_url
     || data?.output?.video_url
+    || data?.content?.video_url
     || data?.data?.video_url
     || data?.data?.output?.video_url
-    || firstStringByKeys(data, ['video_url', 'url']);
+    || data?.data?.content?.video_url
+    || data?.data?.data?.metadata?.url
+    || firstStringByKeys(data, ['video_url', 'file_url', 'media_url', 'download_url', 'url'])
+    || data?.result_url
+    || data?.data?.result_url;
+}
+
+function extractVideoTaskStatus(data) {
+  return firstStringByKeys(data, ['status', 'state', 'phase']);
+}
+
+function normalizeVideoTaskStatus(status, hasVideoUrl = false, hasError = false) {
+  const normalized = String(status || '').trim().toLowerCase();
+
+  if (['queued', 'pending', 'submitted', 'created'].includes(normalized)) return 'queued';
+  if (['processing', 'running', 'in_progress', 'in-progress', 'progressing'].includes(normalized)) return 'processing';
+  if (['succeeded', 'success', 'complete', 'completed', 'done', 'finished'].includes(normalized)) return 'completed';
+  if (['failed', 'error', 'errored'].includes(normalized)) return 'failed';
+  if (['cancelled', 'canceled', 'aborted'].includes(normalized)) return 'cancelled';
+  if (hasVideoUrl) return 'completed';
+  if (hasError) return 'failed';
+  return '';
+}
+
+function extractVideoTaskError(data) {
+  const direct = data?.error || data?.data?.error;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  if (direct && typeof direct === 'object') {
+    const nested = firstStringByKeys(direct, ['message', 'detail', 'reason', 'error', 'code']);
+    if (nested) return nested;
+  }
+  return firstStringByKeys(data, ['error', 'message', 'detail', 'reason']);
 }
 
 function shouldUseReferenceImageRole(model, imageCount) {
@@ -392,13 +424,17 @@ export async function waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId
 
     try {
       const data = await pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint, signal });
-      const status = data.status || data.data?.status;
+      const videoUrl = extractVideoUrl(data);
+      const rawStatus = extractVideoTaskStatus(data);
+      const status = normalizeVideoTaskStatus(rawStatus, Boolean(videoUrl), Boolean(data?.error || data?.data?.error));
 
-      if (['succeeded', 'complete', 'completed', 'done'].includes(status)) {
-        return extractVideoUrl(data);
+      if (status === 'completed') {
+        return videoUrl;
       }
 
-      if (['failed', 'error'].includes(status)) {
+      if (status === 'failed' || status === 'cancelled') {
+        const normalizedError = extractVideoTaskError(data) || '瑙嗛鐢熸垚澶辫触';
+        throw new Error(`瑙嗛鐢熸垚澶辫触: ${normalizedError}`);
         const error = data.error || data.data?.error || '视频生成失败';
         throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
       }
