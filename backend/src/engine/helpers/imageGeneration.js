@@ -1306,9 +1306,9 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
         const match = imageStr.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
           const ext = (match[1] || 'image/png').split('/').pop() || 'png';
-          const fileName = `${randomUUID()}.${ext}`;
+          const fileName = `images/${randomUUID()}.${ext}`;
           const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
-          fs.mkdirSync(STORAGE_PATHS.generatedDir, { recursive: true });
+          fs.mkdirSync(path.dirname(filePath), { recursive: true });
           fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
           outputImages.push(`/api/outputs/${fileName}`);
         }
@@ -1322,9 +1322,9 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
           const match = downloaded.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
             const ext = (match[1] || 'image/png').split('/').pop() || 'png';
-            const fileName = `${randomUUID()}.${ext}`;
+            const fileName = `images/${randomUUID()}.${ext}`;
             const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
-            fs.mkdirSync(STORAGE_PATHS.generatedDir, { recursive: true });
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
             fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
             outputImages.push(`/api/outputs/${fileName}`);
           }

@@ -1,7 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-import { pollVideoTask, submitVideoGeneration } from '../src/platform/ai/video-service.js';
+import { executeVideoGeneration, pollVideoTask, submitVideoGeneration } from '../src/platform/ai/video-service.js';
+import { ensureStorageDirectories, STORAGE_PATHS } from '../src/platform/storage/index.js';
+
+function withTempStorage() {
+  const previous = process.env.APP_CONFIG_DIR;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'suelr-video-service-'));
+  process.env.APP_CONFIG_DIR = root;
+  ensureStorageDirectories();
+  return () => {
+    if (previous === undefined) {
+      delete process.env.APP_CONFIG_DIR;
+    } else {
+      process.env.APP_CONFIG_DIR = previous;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  };
+}
 
 function createRuntime(overrides = {}) {
   return {
@@ -183,5 +202,42 @@ test('submitVideoGeneration preserves automatic Seedance duration sentinel', asy
     assert.equal(typeof requestBody.duration, 'number');
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test('executeVideoGeneration stores synchronous video results under generated videos directory', async () => {
+  const cleanupStorage = withTempStorage();
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    video_url: 'data:video/mp4;base64,QUJD',
+  }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  try {
+    const runtime = createRuntime({
+      baseUrl: 'https://example.com',
+      providerConfig: {
+        authType: 'bearer',
+        videoEndpoint: '/v1/video/generations',
+      },
+    });
+
+    const result = await executeVideoGeneration({
+      model: 'doubao-seedance-2-0-260128',
+      prompt: 'a cinematic sunrise',
+      duration: 5,
+      aspect_ratio: '16:9',
+      resolution: '720p',
+    }, runtime);
+
+    assert.match(result.video, /^\/api\/outputs\/videos\/.+\.mp4$/);
+    const relativePath = result.video.replace('/api/outputs/', '');
+    assert.equal(fs.readFileSync(path.join(STORAGE_PATHS.generatedDir, relativePath), 'utf8'), 'ABC');
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanupStorage();
   }
 });

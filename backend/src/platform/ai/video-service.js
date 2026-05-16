@@ -1,12 +1,23 @@
+import fs from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
 import { fileToBase64 } from '../../engine/helpers/fileHelper.js';
 import { resolveModelRuntime } from '../../engine/helpers/apiConfig.js';
 import { getProviderAdapter } from '../providers/index.js';
 import { ProviderError } from '../../app/errors/index.js';
 import { assertSafeRemoteDownloadUrl } from '../security/network-guards.js';
+import { STORAGE_PATHS } from '../storage/index.js';
 
 const REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 const ARK_VIDEO_TASKS_ENDPOINT = '/contents/generations/tasks';
+
+const VIDEO_MIME_EXT = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/quicktime': 'mov',
+  'video/x-m4v': 'm4v',
+};
 
 function normalizeTextInput(value) {
   if (Array.isArray(value)) {
@@ -194,6 +205,18 @@ async function downloadRemoteVideo(url) {
     throw new Error('下载视频失败: 文件超过大小限制');
   }
   return `data:${contentType};base64,${buffer.toString('base64')}`;
+}
+
+function saveGeneratedVideoDataUrl(value) {
+  const match = String(value || '').match(/^data:([^;]+);base64,([a-zA-Z0-9+/=\s]+)$/);
+  if (!match) return null;
+  const mimeType = match[1].toLowerCase();
+  const ext = VIDEO_MIME_EXT[mimeType] || 'mp4';
+  const fileName = `videos/${randomUUID()}.${ext}`;
+  const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+  return `/api/outputs/${fileName}`;
 }
 
 export async function submitVideoGeneration({
@@ -413,11 +436,12 @@ export async function executeVideoGeneration(request, runtimeConfig, sendProgres
   sendProgress?.('正在下载并保存视频...');
 
   if (String(videoUrl).startsWith('data:')) {
-    return { video: videoUrl };
+    return { video: saveGeneratedVideoDataUrl(videoUrl) || videoUrl };
   }
 
   if (String(videoUrl).startsWith('http')) {
-    return { video: await downloadRemoteVideo(videoUrl) };
+    const downloaded = await downloadRemoteVideo(videoUrl);
+    return { video: saveGeneratedVideoDataUrl(downloaded) || downloaded };
   }
 
   return { video: videoUrl };

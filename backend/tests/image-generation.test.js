@@ -48,7 +48,7 @@ function createRuntimeConfig(overrides = {}) {
 
 function assertGeneratedPngOutput(result) {
   assert.equal(result.images.length, 1);
-  assert.match(result.images[0], /^\/api\/outputs\/.+\.png$/);
+  assert.match(result.images[0], /^\/api\/outputs\/images\/.+\.png$/);
 }
 
 test('normalizeImageGenerationRequest extracts dimensions from prompt when sizing is auto', () => {

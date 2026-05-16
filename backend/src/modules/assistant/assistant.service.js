@@ -84,8 +84,9 @@ export class AssistantService {
       ? this.repository.writeAssistantImage.bind(this.repository)
       : this.repository.writeAssistantVideo.bind(this.repository);
 
-    if (data) {
-      const parsed = parseDataUrl(data);
+    const inlineData = data || (/^data:(image|video)\//i.test(String(url || '')) ? url : '');
+    if (inlineData) {
+      const parsed = parseDataUrl(inlineData);
       if (parsed) {
         const ext = mimeExtMap[parsed.mimeType] || (isImage ? 'png' : 'mp4');
         const filename = `${id}.${ext}`;
