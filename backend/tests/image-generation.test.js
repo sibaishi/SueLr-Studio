@@ -258,6 +258,33 @@ test('generateImages uses auto-selected image model when request omits model', a
   }
 });
 
+test('generateImages can leave generated image data unpersisted for workflow output nodes', async () => {
+  const cleanupStorage = withTempStorage();
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    data: [
+      { b64_json: 'YWJj' },
+    ],
+  }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  try {
+    const result = await generateImages({
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig({ persistGeneratedOutputs: false }));
+
+    assert.deepEqual(result.images, ['data:image/png;base64,YWJj']);
+    const imagesDir = path.join(STORAGE_PATHS.generatedDir, 'images');
+    assert.equal(fs.existsSync(imagesDir) ? fs.readdirSync(imagesDir).length : 0, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanupStorage();
+  }
+});
+
 test('generateImages resolves model ids when chat tool calls add spaces around hyphens', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;

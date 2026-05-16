@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Download, Image as ImageIcon, MessageSquare, XCircle } from 'lucide-react';
 import { useT } from '@/contexts/ThemeContext';
-import type { ModelInfo, BridgeRef } from '@/lib/types';
+import type { ApiConfig, ModelInfo, BridgeRef } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/providers';
+import { getModelDisplayName, getModelGroupName } from '@/lib/model-routing';
 import { CHAT_COLOR, RATIOS, QUICK_PROMPTS } from '@/lib/constants';
 import { taskStatusColor, taskStatusLabel } from '@/lib/utils';
 import { useImageGen } from '../hooks/useImageGen';
@@ -39,9 +40,9 @@ function EmptyPanelState({
   );
 }
 
-export function ImagePanel({ base, apiKey, models, addLog, bridgeRef, onAddToChat, providerConfig, imageStreamingMode: _imageStreamingMode, onBusyChange }: { base: string; apiKey: string; models: ModelInfo[]; addLog: (l: string, m: string) => void; bridgeRef: React.MutableRefObject<BridgeRef>; onAddToChat: (urls: string[]) => void; providerConfig?: ProviderConfig; imageStreamingMode: 'stream' | 'non-stream'; onBusyChange?: (busy: boolean) => void }) {
+export function ImagePanel({ base, apiKey, apiConfigs, models, addLog, bridgeRef, onAddToChat, providerConfig, imageStreamingMode: _imageStreamingMode, onBusyChange }: { base: string; apiKey: string; apiConfigs: ApiConfig[]; models: ModelInfo[]; addLog: (l: string, m: string) => void; bridgeRef: React.MutableRefObject<BridgeRef>; onAddToChat: (urls: string[]) => void; providerConfig?: ProviderConfig; imageStreamingMode: 'stream' | 'non-stream'; onBusyChange?: (busy: boolean) => void }) {
   const T = useT();
-  const img = useImageGen(base, apiKey, models, addLog, bridgeRef, providerConfig);
+  const img = useImageGen(base, apiKey, apiConfigs, models, addLog, bridgeRef, providerConfig);
   const [detailTask, setDetailTask] = useState<typeof img.tasks[0] | null>(null);
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export function ImagePanel({ base, apiKey, models, addLog, bridgeRef, onAddToCha
 
           {sectionCard('模型与提示词', '决定本轮生成所用模型和主要描述。', (
             <div className="flex-col" style={{ gap: 12 }}>
-              <div><IOSLabel>模型</IOSLabel><IOSSelect value={img.model} onChange={img.setModel}><option value="">选择模型</option>{img.imgModels.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}</IOSSelect></div>
+              <div><IOSLabel>模型</IOSLabel><IOSSelect value={img.model} onChange={img.setModel}><option value="">选择模型</option>{Object.entries(img.imgModels.reduce<Record<string, ModelInfo[]>>((groups, model) => { const group = getModelGroupName(model); groups[group] = groups[group] || []; groups[group].push(model); return groups; }, {})).map(([group, groupModels]) => <optgroup key={group} label={group}>{groupModels.map(m => <option key={m.id} value={m.id}>{getModelDisplayName(m)}</option>)}</optgroup>)}</IOSSelect></div>
               <div><IOSLabel>提示词</IOSLabel><AutoTextarea value={img.prompt} onChange={img.setPrompt} placeholder="描述你想要的图片..." maxH={200} /></div>
             </div>
           ))}

@@ -14,15 +14,29 @@ export const mapLegacyStreamingMode = (value: unknown): StreamMode => (
   value === 'real' || value === 'stream' ? 'stream' : 'non-stream'
 );
 
-function buildConfiguredProjectModels(config?: ApiConfig) {
-  const projectModels = normalizeProjectModels(config?.projectModels || []);
-  const grouped = groupConfiguredProjectModels(projectModels);
+function getConfigLabel(config: ApiConfig, index: number) {
+  return config.name?.trim() || config.base?.trim() || `API 配置 ${index + 1}`;
+}
 
-  return [
-    ...grouped.chat.map((id) => ({ id, cat: 'chat' as const })),
-    ...grouped.image.map((id) => ({ id, cat: 'image' as const })),
-    ...grouped.video.map((id) => ({ id, cat: 'video' as const })),
-  ];
+function buildConfiguredProjectModels(configs: ApiConfig[]): ModelInfo[] {
+  return configs.flatMap((config, index) => {
+    const projectModels = normalizeProjectModels(config.projectModels || []);
+    const grouped = groupConfiguredProjectModels(projectModels);
+    const configName = getConfigLabel(config, index);
+    const decorate = (cat: ModelInfo['cat']) => (option: { modelId: string }) => ({
+      id: `${config.id}::${option.modelId}`,
+      modelId: option.modelId,
+      cat,
+      configId: config.id,
+      configName,
+    });
+
+    return [
+      ...grouped.chat.map(decorate('chat')),
+      ...grouped.image.map(decorate('image')),
+      ...grouped.video.map(decorate('video')),
+    ];
+  });
 }
 
 function defaultAgentProfiles() {
@@ -113,7 +127,7 @@ export function useStudioSettingsState() {
 
   const providerConfig = useMemo<ProviderConfig | undefined>(() => activeConfig?.providerConfig, [activeConfig?.providerConfig]);
 
-  const configuredProjectModels = useMemo(() => buildConfiguredProjectModels(activeConfig), [activeConfig]);
+  const configuredProjectModels = useMemo(() => buildConfiguredProjectModels(apiConfigs), [apiConfigs]);
 
   const applyConfig = useCallback((id: string) => {
     const config = apiConfigs.find((item) => item.id === id);

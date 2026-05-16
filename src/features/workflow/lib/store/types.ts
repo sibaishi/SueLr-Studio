@@ -2,7 +2,8 @@ import type { Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
 import type { WorkflowListItem } from '@/features/workflow/lib/api';
 import type { GroupPort, GroupPortSide } from '@/features/workflow/lib/groupPorts';
 import type { PersistedWorkflow, WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
-import type { ProjectModel } from '@/features/workflow/lib/projectModels';
+import type { ModelOption, ProjectModel } from '@/features/workflow/lib/projectModels';
+import type { ApiConfig } from '@/lib/types';
 
 export type WorkflowDraftSnapshot = {
   workflowId: string;
@@ -73,11 +74,12 @@ export interface WorkflowState {
   executionLogs: ExecutionLogEntry[];
   workflowWarningMessage: string | null;
   availableModels: {
-    all: string[];
-    chat: string[];
-    image: string[];
-    video: string[];
+    all: ModelOption[];
+    chat: ModelOption[];
+    image: ModelOption[];
+    video: ModelOption[];
   };
+  workflowRuntimeConfigs: ApiConfig[];
   projectModels: ProjectModel[];
   showDebugSizes: boolean;
   snapToGridEnabled: boolean;
@@ -134,7 +136,7 @@ export interface WorkflowState {
   importWorkflowData: (payload: unknown, fallbackName?: string) => Promise<WorkflowImportResult>;
   importWorkflowDataWithMode: (payload: unknown, mode: WorkflowImportMode, fallbackName?: string) => Promise<WorkflowImportResult>;
   fetchModels: () => Promise<{ success: boolean; error?: string; count: number }>;
-  setAvailableModels: (models: { all: string[]; chat: string[]; image: string[]; video: string[] }) => void;
+  setAvailableModels: (models: { all: ModelOption[]; chat: ModelOption[]; image: ModelOption[]; video: ModelOption[] }) => void;
   setProjectModels: (models: ProjectModel[]) => void;
   persistLocalDraft: () => void;
 }

@@ -128,7 +128,23 @@ export async function capabilitySubmitVideoGeneration(params: {
   );
 }
 
-export async function capabilityPollVideoTask(taskId: string) {
+export async function capabilityPollVideoTask(taskId: string, apiConfig?: ApiConfigPayload) {
+  if (apiConfig) {
+    return apiRequestOrThrow<{
+      status?: string;
+      video_url?: string;
+      output?: { video_url?: string };
+      content?: { video_url?: string };
+      error?: unknown;
+      data?: {
+        status?: string;
+        video_url?: string;
+        output?: { video_url?: string };
+        content?: { video_url?: string };
+        error?: unknown;
+      };
+    }>(`/api/capabilities/video/${encodeURIComponent(taskId)}/status`, createJsonRequestInit({ apiConfig }));
+  }
   return apiRequestOrThrow<{
     status?: string;
     video_url?: string;

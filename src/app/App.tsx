@@ -9,6 +9,7 @@ import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { TCtx } from '@/contexts/ThemeContext';
 import type { BridgeRef } from '@/lib/types';
+import { getModelDisplayName, getModelGroupName } from '@/lib/model-routing';
 import { useMemory } from '@/shared/hooks/useMemory';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
 import { saveActiveRunSnapshot } from '@/features/workflow/lib/store/persistence';
@@ -58,9 +59,21 @@ export default function App() {
   const settingsPanelStyle = panelDisplayStyle(tab === 'settings');
 
   useEffect(() => {
-    if (tab !== 'workflow') return;
-    void useWorkflowStore.getState().fetchModels();
-  }, [tab, settings.activeConfigId, settings.models.length]);
+    const grouped = { all: [] as any[], chat: [] as any[], image: [] as any[], video: [] as any[] };
+    for (const model of settings.configuredProjectModels) {
+      const option = {
+        label: getModelDisplayName(model),
+        value: model.id,
+        modelId: getModelDisplayName(model),
+        configId: model.configId,
+        group: getModelGroupName(model),
+      };
+      grouped.all.push(option);
+      grouped[model.cat].push(option);
+    }
+    useWorkflowStore.getState().setAvailableModels(grouped);
+    useWorkflowStore.setState({ workflowRuntimeConfigs: settings.apiConfigs });
+  }, [settings.apiConfigs, settings.configuredProjectModels]);
 
   const handleOpenWorkflowRun = async (payload: { runId: string; workflowId?: string; source?: 'persisted' | 'draft' }) => {
     if (!payload.runId) return;
@@ -119,9 +132,9 @@ export default function App() {
         {!showOnboarding && <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif', background: 'transparent', color: colors.text, minWidth: 1280 }}>
           <DesktopSidebar tab={tab} setTab={setTab} modelCount={settings.configuredProjectModels.length} themeMode={themeMode} setThemeMode={setThemeMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)} />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-            <div style={chatPanelStyle}><ErrorBoundary><ChatPanel base={settings.base} apiKey={settings.apiKey} models={settings.configuredProjectModels} addLog={settings.addLog} bridgeRef={bridgeRef} roles={settings.roles} getMemoryContext={memory.getMemoryContext} refreshMemories={memory.refreshMemories} scheduleExtraction={memory.scheduleExtraction} tavilyApiKey={settings.tavilyApiKey} providerConfig={settings.providerConfig} chatStreamingMode={settings.chatStreamingMode} imageStreamingMode={settings.imageStreamingMode} videoStreamingMode={settings.videoStreamingMode} activeTab={tab} searchMemories={memory.searchMemories} onBusyChange={setChatBusy} onOpenWorkflowRun={handleOpenWorkflowRun} /></ErrorBoundary></div>
-            <div style={imagePanelStyle}><ErrorBoundary><ImagePanel base={settings.base} apiKey={settings.apiKey} models={settings.configuredProjectModels} addLog={settings.addLog} bridgeRef={bridgeRef} onAddToChat={(urls: string[]) => { bridgeRef.current.addToChatPending(urls); setTab('chat'); }} providerConfig={settings.providerConfig} imageStreamingMode={settings.imageStreamingMode} onBusyChange={setImageBusy} /></ErrorBoundary></div>
-            <div style={videoPanelStyle}><ErrorBoundary><VideoPanel base={settings.base} apiKey={settings.apiKey} models={settings.configuredProjectModels} addLog={settings.addLog} bridgeRef={bridgeRef} onAddToChat={(_prompt: string, videoUrl?: string) => { if (videoUrl) bridgeRef.current.addToChatPending([videoUrl]); setTab('chat'); }} providerConfig={settings.providerConfig} videoStreamingMode={settings.videoStreamingMode} onBusyChange={setVideoBusy} /></ErrorBoundary></div>
+            <div style={chatPanelStyle}><ErrorBoundary><ChatPanel base={settings.base} apiKey={settings.apiKey} apiConfigs={settings.apiConfigs} models={settings.configuredProjectModels} addLog={settings.addLog} bridgeRef={bridgeRef} roles={settings.roles} getMemoryContext={memory.getMemoryContext} refreshMemories={memory.refreshMemories} scheduleExtraction={memory.scheduleExtraction} tavilyApiKey={settings.tavilyApiKey} providerConfig={settings.providerConfig} chatStreamingMode={settings.chatStreamingMode} imageStreamingMode={settings.imageStreamingMode} videoStreamingMode={settings.videoStreamingMode} activeTab={tab} searchMemories={memory.searchMemories} onBusyChange={setChatBusy} onOpenWorkflowRun={handleOpenWorkflowRun} /></ErrorBoundary></div>
+            <div style={imagePanelStyle}><ErrorBoundary><ImagePanel base={settings.base} apiKey={settings.apiKey} apiConfigs={settings.apiConfigs} models={settings.configuredProjectModels} addLog={settings.addLog} bridgeRef={bridgeRef} onAddToChat={(urls: string[]) => { bridgeRef.current.addToChatPending(urls); setTab('chat'); }} providerConfig={settings.providerConfig} imageStreamingMode={settings.imageStreamingMode} onBusyChange={setImageBusy} /></ErrorBoundary></div>
+            <div style={videoPanelStyle}><ErrorBoundary><VideoPanel base={settings.base} apiKey={settings.apiKey} apiConfigs={settings.apiConfigs} models={settings.configuredProjectModels} addLog={settings.addLog} bridgeRef={bridgeRef} onAddToChat={(_prompt: string, videoUrl?: string) => { if (videoUrl) bridgeRef.current.addToChatPending([videoUrl]); setTab('chat'); }} providerConfig={settings.providerConfig} videoStreamingMode={settings.videoStreamingMode} onBusyChange={setVideoBusy} /></ErrorBoundary></div>
             <div style={workflowPanelStyle}><ErrorBoundary><WorkflowPage onOpenStudioSettings={() => setTab('settings')} /></ErrorBoundary></div>
             <div style={settingsPanelStyle}><ErrorBoundary><SettingsPanel apiConfigs={settings.apiConfigs} setApiConfigs={settings.setApiConfigs} activeConfigId={settings.activeConfigId} setActiveConfigId={settings.setActiveConfigId} applyConfig={settings.applyConfig} addNewConfig={settings.addNewConfig} deleteConfig={settings.deleteConfig} base={settings.base} apiKey={settings.apiKey} setBase={settings.setBase} setApiKey={settings.setApiKey} models={settings.models} setModels={settings.setModels} addLog={settings.addLog} logs={settings.logs} onClearLogs={settings.clearLogs} themeMode={themeMode} setThemeMode={setThemeMode} agentProfiles={settings.agentProfiles} customAgentProfiles={settings.customAgentProfiles} upsertAgentProfile={settings.upsertAgentProfile} deleteAgentProfile={settings.deleteAgentProfile} memories={memory.memories} onDeleteMemory={memory.deleteMemory} onClearMemories={memory.clearMemories} exportMemories={memory.exportMemories} tavilyApiKey={settings.tavilyApiKey} tavilyApiKeySet={settings.tavilyApiKeySet} setTavilyApiKey={settings.setTavilyApiKey} setTavilyApiKeySet={settings.setTavilyApiKeySet} outboundProxy={settings.outboundProxy} setOutboundProxy={settings.setOutboundProxy} projectBusy={projectBusy} /></ErrorBoundary></div>
           </div>

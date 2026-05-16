@@ -2,7 +2,7 @@ import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
 import { runImageGeneration } from '../../platform/ai/image-service.js';
 
 export async function execute(node, inputs, apiConfig, sendProgress) {
-  const runtimeConfig = resolveRuntimeApiConfig(inputs, apiConfig);
+  const runtimeConfig = resolveRuntimeApiConfig(inputs, apiConfig, node.data?.model);
   if (inputs.mask && !inputs.reference) {
     throw new Error('Image generation requires a reference image when mask is provided');
   }
@@ -23,6 +23,7 @@ export async function execute(node, inputs, apiConfig, sendProgress) {
   const imageRuntimeConfig = {
     ...runtimeConfig,
     abortSignal: apiConfig?.abortSignal,
+    persistGeneratedOutputs: false,
   };
 
   const result = await runImageGeneration(request, imageRuntimeConfig, sendProgress);

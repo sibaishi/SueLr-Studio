@@ -2,7 +2,7 @@ import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
 import { executeVideoGeneration } from '../../platform/ai/video-service.js';
 
 export async function execute(node, inputs, apiConfig, sendProgress) {
-  const runtimeConfig = resolveRuntimeApiConfig(inputs, apiConfig);
+  const runtimeConfig = resolveRuntimeApiConfig(inputs, apiConfig, node.data?.model);
   const { apiKey } = runtimeConfig;
 
   if (!apiKey) {
@@ -21,5 +21,6 @@ export async function execute(node, inputs, apiConfig, sendProgress) {
   }, {
     ...runtimeConfig,
     abortSignal: apiConfig.abortSignal,
+    persistGeneratedOutputs: false,
   }, sendProgress);
 }

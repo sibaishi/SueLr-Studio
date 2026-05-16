@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Clapperboard, Copy, Download, MessageSquare, XCircle } from 'lucide-react';
 import { useT } from '@/contexts/ThemeContext';
-import type { ModelInfo, BridgeRef, VTask } from '@/lib/types';
+import type { ApiConfig, ModelInfo, BridgeRef, VTask } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/providers';
+import { getModelDisplayName, getModelGroupName } from '@/lib/model-routing';
 import { CHAT_COLOR, VID_RES, VID_DUR, VID_RATIO } from '@/lib/constants';
 import { ftime, taskStatusColor } from '@/lib/utils';
 import { fileToB64 } from '@/lib/image';
@@ -66,9 +67,9 @@ function TaskTimer({ task, now }: { task: VTask; now: number }) {
   );
 }
 
-export function VideoPanel({ base, apiKey, models, addLog, bridgeRef, onAddToChat, providerConfig, videoStreamingMode, onBusyChange }: { base: string; apiKey: string; models: ModelInfo[]; addLog: (l: string, m: string) => void; bridgeRef: React.MutableRefObject<BridgeRef>; onAddToChat: (prompt: string, videoUrl?: string) => void; providerConfig?: ProviderConfig; videoStreamingMode: 'stream' | 'non-stream'; onBusyChange?: (busy: boolean) => void }) {
+export function VideoPanel({ base, apiKey, apiConfigs, models, addLog, bridgeRef, onAddToChat, providerConfig, videoStreamingMode, onBusyChange }: { base: string; apiKey: string; apiConfigs: ApiConfig[]; models: ModelInfo[]; addLog: (l: string, m: string) => void; bridgeRef: React.MutableRefObject<BridgeRef>; onAddToChat: (prompt: string, videoUrl?: string) => void; providerConfig?: ProviderConfig; videoStreamingMode: 'stream' | 'non-stream'; onBusyChange?: (busy: boolean) => void }) {
   const T = useT();
-  const vid = useVideoGen(base, apiKey, models, addLog, bridgeRef, providerConfig, videoStreamingMode);
+  const vid = useVideoGen(base, apiKey, apiConfigs, models, addLog, bridgeRef, providerConfig, videoStreamingMode);
   const [detailTask, setDetailTask] = useState<typeof vid.tasks[0] | null>(null);
   const [resumeTaskId, setResumeTaskId] = useState('');
   const [now, setNow] = useState(() => Date.now());
@@ -144,7 +145,7 @@ export function VideoPanel({ base, apiKey, models, addLog, bridgeRef, onAddToCha
           {sectionCard('生成模式与模型', '支持文生视频与图生视频两种模式。', (
             <div className="flex-col" style={{ gap: 12 }}>
               <IOSSegmentedControl options={[{ l: '文生视频', v: 'text' }, { l: '图生视频', v: 'image' }]} value={vid.mode} onChange={v => vid.setMode(v as 'text' | 'image')} />
-              <div><IOSLabel>模型</IOSLabel><IOSSelect value={vid.model} onChange={vid.setModel} disabled={videoGenerationDisabled}><option value="">选择模型</option>{vid.vidModels.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}</IOSSelect></div>
+              <div><IOSLabel>模型</IOSLabel><IOSSelect value={vid.model} onChange={vid.setModel} disabled={videoGenerationDisabled}><option value="">选择模型</option>{Object.entries(vid.vidModels.reduce<Record<string, ModelInfo[]>>((groups, model) => { const group = getModelGroupName(model); groups[group] = groups[group] || []; groups[group].push(model); return groups; }, {})).map(([group, groupModels]) => <optgroup key={group} label={group}>{groupModels.map(m => <option key={m.id} value={m.id}>{getModelDisplayName(m)}</option>)}</optgroup>)}</IOSSelect></div>
               <div><IOSLabel>提示词</IOSLabel><AutoTextarea value={vid.prompt} onChange={vid.setPrompt} placeholder="描述你想要的视频..." maxH={200} disabled={videoGenerationDisabled} /></div>
             </div>
           ))}

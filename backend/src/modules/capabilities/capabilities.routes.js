@@ -7,6 +7,7 @@ import {
   validateSearchBody,
   validateTaskId,
   validateVideoBody,
+  validateVideoStatusBody,
 } from './capabilities.schema.js';
 
 const router = Router();
@@ -16,5 +17,6 @@ router.post('/search', validateBody(validateSearchBody), capabilitiesController.
 router.post('/image', validateBody(validateImageBody), capabilitiesController.image.bind(capabilitiesController));
 router.post('/video', validateBody(validateVideoBody), capabilitiesController.submitVideo.bind(capabilitiesController));
 router.get('/video/:taskId', validateParam('taskId', validateTaskId), capabilitiesController.getVideoStatus.bind(capabilitiesController));
+router.post('/video/:taskId/status', validateParam('taskId', validateTaskId), validateBody(validateVideoStatusBody), capabilitiesController.getVideoStatus.bind(capabilitiesController));
 
 export default router;

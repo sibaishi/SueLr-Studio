@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type MutableRefObject } from 'react';
-import type { ModelInfo, ImgTask, GalleryItem, BridgeRef } from '@/lib/types';
+import type { ApiConfig, ModelInfo, ImgTask, GalleryItem, BridgeRef } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/providers';
 import { gid } from '@/lib/utils';
 import { compressImage } from '@/lib/image';
-import { useProvider } from '@/shared/hooks/provider';
+import { createProvider } from '@/lib/providers';
+import { resolveModelConfig, resolveProviderModelId, resolveSelectedModel } from '@/lib/model-routing';
 import { clearGallery as clearStoredGallery, loadGallery, saveImage } from '@/shared/api/assistant';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -59,6 +60,7 @@ function toErrorMessage(error: unknown) {
 export function useImageGen(
   base: string,
   apiKey: string,
+  apiConfigs: ApiConfig[],
   models: ModelInfo[],
   addLog: (level: string, message: string) => void,
   bridgeRef: MutableRefObject<BridgeRef>,
@@ -84,7 +86,6 @@ export function useImageGen(
   const tasksRef = useRef(tasks);
   const addLogRef = useRef(addLog);
   const abortMap = useRef<Record<string, AbortController>>({});
-  const { getProvider } = useProvider(base, apiKey, providerConfig);
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -147,9 +148,13 @@ export function useImageGen(
     abortMap.current[nextTaskId] = controller;
     addLogRef.current('info', `[Image] 开始生成: ${task.prompt.slice(0, 30)}... (${task.model})`);
 
-    getProvider()
+    const taskModelInfo = resolveSelectedModel(imgModels, task.model);
+    const taskConfig = resolveModelConfig(apiConfigs, taskModelInfo);
+    const provider = createProvider(taskConfig?.base || base, taskConfig?.apiKey || apiKey, taskConfig?.providerConfig || providerConfig);
+
+    provider
       .generateImage({
-        model: task.model,
+        model: resolveProviderModelId(imgModels, task.model),
         prompt: task.prompt,
         ratio: task.ratio,
         width: task.width,
@@ -217,16 +222,18 @@ export function useImageGen(
         delete abortMap.current[nextTaskId];
         setTimeout(() => processNext(), 100);
       });
-  }, [getProvider, toast]);
+  }, [apiConfigs, apiKey, base, imgModels, providerConfig, toast]);
 
   const handleGenerate = useCallback(() => {
     if (!prompt.trim() || !model) return;
 
     const sizing = resolveSizing(ratio, width, height);
+    const selectedModel = resolveSelectedModel(imgModels, model);
     const task: ImgTask = {
       id: gid(),
       prompt: prompt.trim(),
       model,
+      configId: selectedModel?.configId,
       ratio,
       width: sizing.width,
       height: sizing.height,
@@ -245,7 +252,7 @@ export function useImageGen(
     queueRef.current.push(task.id);
     addLog('info', `[Image] 任务已提交: ${task.prompt.slice(0, 30)}...`);
     setTimeout(() => processNext(), 0);
-  }, [prompt, model, ratio, width, height, quality, count, outputFormat, mode, refImages, addLog, processNext]);
+  }, [prompt, model, ratio, width, height, quality, count, outputFormat, mode, refImages, addLog, processNext, imgModels]);
 
   const cancelTask = useCallback((id: string) => {
     queueRef.current = queueRef.current.filter((queuedId) => queuedId !== id);

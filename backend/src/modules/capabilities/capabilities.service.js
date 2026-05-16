@@ -128,10 +128,10 @@ export class CapabilitiesService {
     }
   }
 
-  async getVideoStatus(taskId) {
+  async getVideoStatus(taskId, apiConfig = {}) {
     if (!taskId) throw new ValidationError('VALIDATION_ERROR', 'taskId 不能为空');
     try {
-      const runtimeConfig = this.buildRuntimeConfig();
+      const runtimeConfig = this.buildRuntimeConfig(apiConfig || {});
       return await pollVideoTask({
         baseUrl: runtimeConfig.baseUrl,
         apiKey: runtimeConfig.apiKey,

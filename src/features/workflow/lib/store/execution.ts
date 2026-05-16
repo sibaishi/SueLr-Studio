@@ -174,7 +174,11 @@ export function createWorkflowExecutionActions(
         return;
       }
 
-      await api.executeWorkflow(state.workflowId, { nodes: payload.nodes, edges: payload.edges }, {
+      const runtimeApiConfig = state.workflowRuntimeConfigs.length > 0
+        ? { configs: state.workflowRuntimeConfigs }
+        : undefined;
+
+      const callbacks: api.SSECallbacks = {
         onNodeStart: (data) => {
           const nodeLabel = getNodeDisplayNameById(data.nodeId, get().nodes);
           get().addExecutionLog({
@@ -349,7 +353,12 @@ export function createWorkflowExecutionActions(
             lastExecutionSummary: null,
           });
         },
-      });
+      };
+      if (runtimeApiConfig) {
+        await api.executeWorkflow(state.workflowId, { nodes: payload.nodes, edges: payload.edges }, callbacks, runtimeApiConfig);
+      } else {
+        await api.executeWorkflow(state.workflowId, { nodes: payload.nodes, edges: payload.edges }, callbacks);
+      }
     },
 
     cancelWorkflowExecution: async () => {

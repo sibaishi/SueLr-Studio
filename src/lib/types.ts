@@ -8,7 +8,13 @@ export type ThemeMode = 'dark' | 'light' | 'system';
 export type TaskStatus = 'queued' | 'processing' | 'done' | 'failed' | 'cancelled';
 export type VideoStatus = '提交中' | '处理中' | '已完成' | '失败' | '已取消';
 
-export interface ModelInfo { id: string; cat: 'chat' | 'image' | 'video'; }
+export interface ModelInfo {
+  id: string;
+  cat: 'chat' | 'image' | 'video';
+  modelId?: string;
+  configId?: string;
+  configName?: string;
+}
 export interface ToolCallState {
   type: 'image' | 'video' | 'workflow' | 'tool';
   status: 'processing' | 'done' | 'failed' | 'cancelled';
@@ -46,9 +52,9 @@ export interface ImageGenerateParams {
   effectiveSize?: string;
   sizeSource?: 'auto' | 'ratio' | 'dimensions';
 }
-export interface ImgTask extends ImageGenerateParams { id: string; refImages: string[]; status: TaskStatus; images: string[]; error?: string; ts: number; }
+export interface ImgTask extends ImageGenerateParams { id: string; refImages: string[]; status: TaskStatus; images: string[]; error?: string; ts: number; configId?: string; }
 export interface GalleryItem { id: string; url: string; prompt: string; model: string; ts: number; }
-export interface VTask { id: string; taskId: string; status: VideoStatus; prompt: string; model: string; params: string; videoUrl?: string; error?: string; ts: number; updatedAt?: number; }
+export interface VTask { id: string; taskId: string; status: VideoStatus; prompt: string; model: string; params: string; videoUrl?: string; error?: string; ts: number; updatedAt?: number; configId?: string; }
 export interface LogEntry { time: string; level: string; msg: string; }
 export interface Colors { bg: string; card: string; card2: string; menuBg: string; border: string; text: string; text2: string; text3: string; blue: string; green: string; red: string; orange: string; purple: string; neutral: string; }
 export interface ApiConfig { id: string; name: string; base: string; apiKey: string; models: ModelInfo[]; providerConfig?: ProviderConfig; projectModels?: ProjectModel[]; }

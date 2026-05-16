@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentRole, BridgeRef, ChatMsg, Conv, ModelInfo, ToolCallState } from '@/lib/types';
+import type { AgentRole, ApiConfig, BridgeRef, ChatMsg, Conv, ModelInfo, ToolCallState } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/providers';
+import { createProvider } from '@/lib/providers';
 import { gid, loadJSON, debouncedSaveJSON } from '@/lib/utils';
 import { cancelAgentSession, sendAgentChat, sendAgentChatStream, type AgentChatResult } from '@/shared/api/agent';
 import { deleteConversation, loadConversations, saveConversations, saveImage, saveVideo } from '@/shared/api/assistant';
 import { capabilityWebSearch, isBackendAvailable } from '@/shared/api';
 import { uploadFile } from '@/shared/api/files';
 import { cancelExecution } from '@/features/workflow/lib/api';
-import { useProvider } from '@/shared/hooks/provider';
+import { buildApiConfigPayload, resolveModelConfig, resolveProviderModelId, resolveSelectedModel } from '@/lib/model-routing';
 import { buildTools } from '@/lib/constants';
 
 type PendingFile = {
@@ -274,6 +275,7 @@ function updateAssistantToolCallState(
 export function useChat(
   base: string,
   apiKey: string,
+  apiConfigs: ApiConfig[],
   models: ModelInfo[],
   addLog: (level: string, message: string) => void,
   bridgeRef: React.MutableRefObject<BridgeRef>,
@@ -306,14 +308,16 @@ export function useChat(
   const abortControllers = useRef<Record<string, AbortController>>({});
   const backendSessionIds = useRef<Record<string, string>>({});
   const backendConversationsLoadedRef = useRef(false);
-  const { getProvider } = useProvider(base, apiKey, providerConfig);
   const backendAvailable = isBackendAvailable();
   const useAgentStreaming = backendAvailable;
 
   const activeIdResolved = activeId && convs.some((conv) => conv.id === activeId) ? activeId : convs[0]?.id || '';
   const conv = convs.find((item) => item.id === activeIdResolved) || convs[0] || createConversation(defaultModel, roles[0]?.id);
-  const savedModelIsChat = chatModels.some((model) => model.id === conv.model);
+  const savedModelIsChat = chatModels.some((model) => model.id === conv.model || model.modelId === conv.model);
   const currentModel = savedModelIsChat ? conv.model : defaultModel;
+  const currentModelInfo = resolveSelectedModel(chatModels, currentModel);
+  const providerModel = resolveProviderModelId(chatModels, currentModel);
+  const currentModelConfig = resolveModelConfig(apiConfigs, currentModelInfo);
   const currentRole = roles.find((role) => role.id === conv.roleId) || roles[0] || { id: 'default', name: 'Default', icon: 'bot', systemPrompt: '', tools: [] };
   const currentModelDisabledReason = currentModel ? '' : 'Please configure a chat model in settings first.';
   const canUseWebSearch = Boolean(tavilyApiKey);
@@ -379,7 +383,7 @@ export function useChat(
   }, [activeIdResolved, defaultModel, roles]);
 
   const setConvModel = useCallback((model: string, id = activeIdResolved) => {
-    if (!chatModels.some((item) => item.id === model)) return;
+    if (!chatModels.some((item) => item.id === model || item.modelId === model)) return;
     updateConversation(id, (item) => ({ ...item, model }));
   }, [activeIdResolved, chatModels, updateConversation]);
 
@@ -578,7 +582,7 @@ export function useChat(
         const requestPayload = {
           conversationId: activeIdResolved,
           profileId: currentRole.id,
-          model: currentModel,
+          model: providerModel,
           messages: sourceMessages,
           attachments: pendingFiles.map((file) => ({
             id: file.id,
@@ -589,6 +593,7 @@ export function useChat(
             stream: useAgentStreaming,
             allowWebSearch: webSearchEnabled && Boolean(tavilyApiKey),
           },
+          apiConfig: buildApiConfigPayload(currentModelConfig, { apiKey, baseUrl: base, providerConfig }),
           signal: controller.signal,
         };
 
@@ -737,8 +742,9 @@ export function useChat(
           : '';
         const systemPrompt = [currentRole.systemPrompt, memoryContext, searchPrompt].filter(Boolean).join('\n\n');
         const tools = buildTools(false, false, webSearchEnabled && Boolean(tavilyApiKey));
-        const result = await getProvider().chatCompletion({
-          model: currentModel,
+        const provider = createProvider(currentModelConfig?.base || base, currentModelConfig?.apiKey || apiKey, currentModelConfig?.providerConfig || providerConfig);
+        const result = await provider.chatCompletion({
+          model: providerModel,
           messages: [
             ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
             ...sourceMessages,
@@ -755,8 +761,8 @@ export function useChat(
             tool_call_id: toolCall.id,
             content: await runToolCall(toolCall),
           })));
-          const toolResult = await getProvider().chatCompletion({
-            model: currentModel,
+          const toolResult = await provider.chatCompletion({
+            model: providerModel,
             messages: [
               ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
               ...sourceMessages,
@@ -778,7 +784,7 @@ export function useChat(
         const extractionMessages = [...conv.msgs, userMessage]
           .map((msg) => ({ role: msg.role, content: msg.content }))
           .concat({ role: 'assistant', content: finalContent });
-        scheduleExtraction(extractionMessages, activeIdResolved, currentModel, base, apiKey);
+        scheduleExtraction(extractionMessages, activeIdResolved, providerModel, currentModelConfig?.base || base, currentModelConfig?.apiKey || apiKey);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -818,11 +824,12 @@ export function useChat(
     canSend,
     conv.msgs,
     currentModel,
+    currentModelConfig,
+    providerModel,
     currentRole.id,
     currentRole.systemPrompt,
     getMemoryContext,
     refreshMemories,
-    getProvider,
     input,
     pendingFiles,
     pendingImages,

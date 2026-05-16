@@ -1297,6 +1297,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
     throw new Error('Image API did not return any images');
   }
 
+  const shouldPersistGeneratedOutputs = runtimeConfig.persistGeneratedOutputs !== false;
   const outputImages = [];
   for (let index = 0; index < rawImages.length; index += 1) {
     const image = rawImages[index];
@@ -1305,6 +1306,10 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
       try {
         const match = imageStr.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
+          if (!shouldPersistGeneratedOutputs) {
+            outputImages.push(imageStr);
+            continue;
+          }
           const ext = (match[1] || 'image/png').split('/').pop() || 'png';
           const fileName = `images/${randomUUID()}.${ext}`;
           const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
@@ -1321,6 +1326,10 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
         try {
           const match = downloaded.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
+            if (!shouldPersistGeneratedOutputs) {
+              outputImages.push(downloaded);
+              continue;
+            }
             const ext = (match[1] || 'image/png').split('/').pop() || 'png';
             const fileName = `images/${randomUUID()}.${ext}`;
             const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);

@@ -17,10 +17,18 @@ export type ProjectModel = {
 };
 
 type CategorizedModels = {
-  all: string[];
-  chat: string[];
-  image: string[];
-  video: string[];
+  all: ModelOption[];
+  chat: ModelOption[];
+  image: ModelOption[];
+  video: ModelOption[];
+};
+
+export type ModelOption = {
+  label: string;
+  value: string;
+  group?: string;
+  modelId: string;
+  configId?: string;
 };
 
 function cleanText(value: unknown) {
@@ -97,10 +105,11 @@ export function groupConfiguredProjectModels(projectModels: ProjectModel[]): Cat
   const groups: CategorizedModels = { all: [], chat: [], image: [], video: [] };
   for (const model of projectModels) {
     if (!model.configured) continue;
-    groups.all.push(model.modelId);
-    if (model.type === 'chat') groups.chat.push(model.modelId);
-    if (model.type === 'image') groups.image.push(model.modelId);
-    if (model.type === 'video') groups.video.push(model.modelId);
+    const option = { label: model.modelId, value: model.modelId, modelId: model.modelId };
+    groups.all.push(option);
+    if (model.type === 'chat') groups.chat.push(option);
+    if (model.type === 'image') groups.image.push(option);
+    if (model.type === 'video') groups.video.push(option);
   }
   return groups;
 }

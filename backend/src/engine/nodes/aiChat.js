@@ -134,7 +134,7 @@ function normalizeMaxTokens(value) {
 }
 
 export async function execute(node, inputs, apiConfig, sendProgress) {
-  const runtimeConfig = resolveRuntimeApiConfig(inputs, apiConfig);
+  const runtimeConfig = resolveRuntimeApiConfig(inputs, apiConfig, node.data?.model);
   const { apiKey, baseUrl, providerConfig, projectModels } = runtimeConfig;
 
   if (!apiKey) {

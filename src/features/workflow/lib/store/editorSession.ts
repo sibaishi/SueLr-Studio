@@ -158,11 +158,12 @@ export function createWorkflowEditorSessionActions(
     fetchModels: async () => {
       const result = await api.fetchAvailableModels();
       if (result.success && result.data) {
+        const toOptions = (items: string[] = []) => items.map((id) => ({ label: id, value: id, modelId: id }));
         const nextModels = {
-          all: result.data.all || [],
-          chat: result.data.chat || [],
-          image: result.data.image || [],
-          video: result.data.video || [],
+          all: toOptions(result.data.all),
+          chat: toOptions(result.data.chat),
+          image: toOptions(result.data.image),
+          video: toOptions(result.data.video),
         };
 
         set({

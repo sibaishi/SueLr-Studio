@@ -47,6 +47,7 @@ export function createBaseWorkflowState(overrides: Partial<WorkflowState> = {}):
     executionLogs: [],
     workflowWarningMessage: null,
     availableModels: { all: [], chat: [], image: [], video: [] },
+    workflowRuntimeConfigs: [],
     projectModels: [],
     showDebugSizes: false,
     snapToGridEnabled: false,

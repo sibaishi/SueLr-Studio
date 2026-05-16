@@ -735,6 +735,40 @@ test('HTTP contract: capabilities image route rejects invalid request bodies', a
   }
 });
 
+test('HTTP contract: capabilities video route preserves long data URLs', async () => {
+  const { server, baseUrl } = await createTestServer('capabilities-video-data-url');
+  try {
+    const { capabilitiesService } = await import('../src/modules/capabilities/capabilities.service.js');
+    const originalSubmitVideo = capabilitiesService.submitVideo;
+    let receivedImageUrl = '';
+    capabilitiesService.submitVideo = async (body) => {
+      receivedImageUrl = body.image_url;
+      return { mode: 'poll', taskId: 'task-data-url' };
+    };
+
+    try {
+      const imageUrl = `data:image/jpeg;base64,${'A'.repeat(4096)}`;
+      const success = await requestJson(baseUrl, '/api/capabilities/video', {
+        method: 'POST',
+        body: JSON.stringify({
+          model: 'demo-video-model',
+          prompt: 'phase 2 video',
+          image_url: imageUrl,
+        }),
+      });
+
+      assert.equal(success.status, 200);
+      assertEnvelopeShape(success.body);
+      assert.equal(receivedImageUrl, imageUrl);
+      assert.equal(success.body.data.taskId, 'task-data-url');
+    } finally {
+      capabilitiesService.submitVideo = originalSubmitVideo;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: images generate route returns envelope-only payloads', async () => {
   const { server, baseUrl } = await createTestServer('images-generate');
   try {

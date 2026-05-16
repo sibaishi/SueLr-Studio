@@ -74,7 +74,7 @@ export class CapabilitiesController {
 
   async getVideoStatus(req, res, next) {
     try {
-      res.json(successEnvelope(await capabilitiesService.getVideoStatus(req.params.taskId)));
+      res.json(successEnvelope(await capabilitiesService.getVideoStatus(req.params.taskId, req.body?.apiConfig || {})));
     } catch (error) {
       next(error);
     }

@@ -63,6 +63,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   executionLogs: [],
   workflowWarningMessage: null,
   availableModels: { all: [], chat: [], image: [], video: [] },
+  workflowRuntimeConfigs: [],
   projectModels: [],
   showDebugSizes: false,
   snapToGridEnabled: false,

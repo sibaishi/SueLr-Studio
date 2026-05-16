@@ -241,3 +241,41 @@ test('executeVideoGeneration stores synchronous video results under generated vi
     cleanupStorage();
   }
 });
+
+test('executeVideoGeneration can leave generated video data unpersisted for workflow output nodes', async () => {
+  const cleanupStorage = withTempStorage();
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    video_url: 'data:video/mp4;base64,QUJD',
+  }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  try {
+    const runtime = createRuntime({
+      baseUrl: 'https://example.com',
+      providerConfig: {
+        authType: 'bearer',
+        videoEndpoint: '/v1/video/generations',
+      },
+      persistGeneratedOutputs: false,
+    });
+
+    const result = await executeVideoGeneration({
+      model: 'doubao-seedance-2-0-260128',
+      prompt: 'a cinematic sunrise',
+      duration: 5,
+      aspect_ratio: '16:9',
+      resolution: '720p',
+    }, runtime);
+
+    assert.equal(result.video, 'data:video/mp4;base64,QUJD');
+    const videosDir = path.join(STORAGE_PATHS.generatedDir, 'videos');
+    assert.equal(fs.existsSync(videosDir) ? fs.readdirSync(videosDir).length : 0, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanupStorage();
+  }
+});

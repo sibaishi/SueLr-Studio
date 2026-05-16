@@ -7,10 +7,12 @@ import { getProviderAdapter } from '../providers/index.js';
 import { ProviderError } from '../../app/errors/index.js';
 import { assertSafeRemoteDownloadUrl } from '../security/network-guards.js';
 import { STORAGE_PATHS } from '../storage/index.js';
+import { createLogger } from '../logging/logger.js';
 
 const REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 const ARK_VIDEO_TASKS_ENDPOINT = '/contents/generations/tasks';
+const logger = createLogger({ module: 'video-service' });
 
 const VIDEO_MIME_EXT = {
   'video/mp4': 'mp4',
@@ -32,6 +34,32 @@ function normalizeMediaArray(value) {
     return value.filter((item) => item !== undefined && item !== null && item !== '');
   }
   return [value];
+}
+
+function summarizeMedia(value) {
+  const text = String(value || '');
+  const dataMatch = text.match(/^data:([^;]+);base64,(.*)$/s);
+  if (dataMatch) {
+    return {
+      kind: 'data-url',
+      mimeType: dataMatch[1],
+      base64Length: dataMatch[2].replace(/\s+/g, '').length,
+    };
+  }
+  if (text.startsWith('/api/')) return { kind: 'local-api-url', length: text.length };
+  if (/^https?:\/\//i.test(text)) {
+    try {
+      const parsed = new URL(text);
+      return { kind: 'remote-url', host: parsed.host, path: parsed.pathname };
+    } catch {
+      return { kind: 'remote-url', length: text.length };
+    }
+  }
+  return text ? { kind: 'other', length: text.length } : null;
+}
+
+function summarizeMediaList(value) {
+  return normalizeMediaArray(value).map(summarizeMedia).filter(Boolean);
 }
 
 function normalizeDuration(value) {
@@ -289,6 +317,22 @@ export async function submitVideoGeneration({
         ...(messages?.length ? { messages } : {}),
       };
   sendProgress?.(`调用视频生成接口: ${endpoint}; model=${resolvedModelId}`);
+  logger.info('video generation request prepared', {
+    endpoint,
+    model: resolvedModelId,
+    mode: usesArkVideoTasks ? 'content' : 'flat',
+    promptLength: normalizeTextInput(prompt).length,
+    duration: normalizedDuration,
+    aspectRatio: aspect_ratio || '',
+    resolution: resolution || '',
+    imageUrl: summarizeMedia(image_url),
+    imageUrls: summarizeMediaList(image_urls),
+    videoUrl: summarizeMedia(video_url),
+    videoUrls: summarizeMediaList(video_urls),
+    inputAudio: summarizeMedia(input_audio),
+    inputAudios: summarizeMediaList(input_audios),
+    messagesCount: Array.isArray(messages) ? messages.length : 0,
+  });
   const response = await adapter.jsonRequest({
     apiKey,
     providerConfig,
@@ -386,6 +430,7 @@ export async function waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId
 
 export async function executeVideoGeneration(request, runtimeConfig, sendProgress) {
   const { apiKey, baseUrl, providerConfig, projectModels, abortSignal } = runtimeConfig;
+  const shouldPersistGeneratedOutputs = runtimeConfig.persistGeneratedOutputs !== false;
   const prompt = normalizeTextInput(request.prompt);
   if (!prompt) {
     throw new Error('未提供提示词，请连接文本输入节点。');
@@ -433,14 +478,16 @@ export async function executeVideoGeneration(request, runtimeConfig, sendProgres
     throw new Error('视频生成完成但未返回可用地址');
   }
 
-  sendProgress?.('正在下载并保存视频...');
+  sendProgress?.(shouldPersistGeneratedOutputs ? '正在下载并保存视频...' : '正在下载视频...');
 
   if (String(videoUrl).startsWith('data:')) {
+    if (!shouldPersistGeneratedOutputs) return { video: videoUrl };
     return { video: saveGeneratedVideoDataUrl(videoUrl) || videoUrl };
   }
 
   if (String(videoUrl).startsWith('http')) {
     const downloaded = await downloadRemoteVideo(videoUrl);
+    if (!shouldPersistGeneratedOutputs) return { video: downloaded };
     return { video: saveGeneratedVideoDataUrl(downloaded) || downloaded };
   }
 

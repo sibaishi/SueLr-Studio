@@ -258,6 +258,15 @@ What gets stored there:
 - memories
 - runtime settings
 
+Generated media is organized under the app data root:
+
+- `files/generated/images/`: raw image-generation outputs from Image, Chat tool calls, and workflow image generation
+- `files/generated/videos/`: raw synchronous or downloaded video-generation outputs from tool/workflow execution
+- `files/generated/assistant-images/`: images explicitly saved into the Chat/assistant gallery
+- `files/generated/assistant-videos/`: videos explicitly saved into the Chat/assistant video gallery
+
+All generated files are still served through `/api/outputs/...` or `/api/assistant/files/...`, so display and reuse flows keep using local URLs rather than absolute filesystem paths.
+
 If `APP_CONFIG_DIR` is set in the environment, it overrides the in-app storage path setting.
 
 ### 7. Restart backend from Settings

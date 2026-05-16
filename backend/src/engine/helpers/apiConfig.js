@@ -8,6 +8,21 @@ function cleanObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function parseRoutedModel(value) {
+  const text = cleanText(value);
+  const separatorIndex = text.indexOf('::');
+  if (separatorIndex <= 0) return { configId: '', modelId: text };
+  return {
+    configId: text.slice(0, separatorIndex),
+    modelId: text.slice(separatorIndex + 2),
+  };
+}
+
+function findRuntimeConfig(apiConfig, configId) {
+  if (!configId || !Array.isArray(apiConfig?.configs)) return null;
+  return apiConfig.configs.find((config) => cleanText(config?.id) === configId) || null;
+}
+
 function mergeProviderConfig(baseConfig, incomingConfig) {
   const base = cleanObject(baseConfig);
   const incoming = cleanObject(incomingConfig);
@@ -39,10 +54,13 @@ const DEFAULT_RUNTIME_PROVIDER_CONFIG = {
   modelOverrides: {},
 };
 
-export function resolveRuntimeApiConfig(inputs, apiConfig) {
+export function resolveRuntimeApiConfig(inputs, apiConfig, selectedModel = '') {
   const incoming = inputs?.apiKey;
-  const globalProviderConfig = mergeProviderConfig(DEFAULT_RUNTIME_PROVIDER_CONFIG, apiConfig.providerConfig || {});
-  const projectModels = normalizeProjectModels(apiConfig.projectModels || []);
+  const routedModel = parseRoutedModel(selectedModel);
+  const routedConfig = findRuntimeConfig(apiConfig, routedModel.configId);
+  const sourceConfig = routedConfig || apiConfig || {};
+  const globalProviderConfig = mergeProviderConfig(DEFAULT_RUNTIME_PROVIDER_CONFIG, sourceConfig.providerConfig || {});
+  const projectModels = normalizeProjectModels(sourceConfig.projectModels || []);
 
   if (incoming && typeof incoming === 'object') {
     const nodeApiKey = cleanText(incoming.apiKey);
@@ -76,9 +94,9 @@ export function resolveRuntimeApiConfig(inputs, apiConfig) {
 
   const nodeApiKey = cleanText(incoming);
   return {
-    apiKey: nodeApiKey || cleanText(apiConfig.apiKey),
-    baseUrl: apiConfig.baseUrl,
-    model: '',
+    apiKey: nodeApiKey || cleanText(sourceConfig.apiKey),
+    baseUrl: sourceConfig.baseUrl || sourceConfig.base,
+    model: routedModel.modelId,
     endpoint: '',
     projectModels,
     providerConfig: globalProviderConfig,

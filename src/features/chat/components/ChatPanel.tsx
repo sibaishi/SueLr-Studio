@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
-import type { AgentRole, BridgeRef, Colors, ModelInfo } from '@/lib/types';
+import type { AgentRole, ApiConfig, BridgeRef, Colors, ModelInfo } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/providers';
+import { getModelDisplayName, getModelGroupName } from '@/lib/model-routing';
 import { useChat } from '../hooks/useChat';
 import { useT } from '@/contexts/ThemeContext';
 import { MarkdownRenderer } from '@/shared/ui/content/Markdown';
@@ -180,6 +181,7 @@ function InlineHint({ title, body }: { title: string; body: string }) {
 export function ChatPanel({
   base,
   apiKey,
+  apiConfigs,
   models,
   addLog,
   bridgeRef,
@@ -199,6 +201,7 @@ export function ChatPanel({
 }: {
   base: string;
   apiKey: string;
+  apiConfigs: ApiConfig[];
   models: ModelInfo[];
   addLog: (level: string, message: string) => void;
   bridgeRef: React.MutableRefObject<BridgeRef>;
@@ -217,7 +220,7 @@ export function ChatPanel({
   onOpenWorkflowRun?: (payload: { runId: string; workflowId?: string; source?: 'persisted' | 'draft' }) => void;
 }) {
   const T = useT();
-  const chat = useChat(base, apiKey, models, addLog, bridgeRef, roles, getMemoryContext, refreshMemories, scheduleExtraction, tavilyApiKey, providerConfig, chatStreamingMode, videoStreamingMode, activeTab, searchMemories);
+  const chat = useChat(base, apiKey, apiConfigs, models, addLog, bridgeRef, roles, getMemoryContext, refreshMemories, scheduleExtraction, tavilyApiKey, providerConfig, chatStreamingMode, videoStreamingMode, activeTab, searchMemories);
   const chatBusy = chat.sendings.size > 0;
 
   useEffect(() => {
@@ -227,7 +230,7 @@ export function ChatPanel({
     };
   }, [chatBusy, onBusyChange]);
 
-  const modelOptions = chat.chatModels.map((model) => ({ label: model.id, value: model.id, group: '对话模型' }));
+  const modelOptions = chat.chatModels.map((model) => ({ label: getModelDisplayName(model), value: model.id, group: getModelGroupName(model) }));
   const currentModelLabel = modelOptions.find((option) => option.value === chat.currentModel)?.label || '未选择';
   const activeRole = roles.find((role) => role.id === chat.currentRole.id);
   const activeConversation = chat.conv;

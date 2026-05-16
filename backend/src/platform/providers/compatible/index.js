@@ -3,6 +3,27 @@ import { CompatibleProviderAdapter } from './compatible-adapter.js';
 import { proxyAwareFetch } from '../../http/proxy-aware-fetch.js';
 import { parseProviderErrorResponse, toProviderError } from '../provider-http.js';
 import { assertSafeProviderBaseUrl } from '../../security/network-guards.js';
+import { createLogger } from '../../logging/logger.js';
+
+const logger = createLogger({ module: 'compatible-provider' });
+
+function summarizeUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return '';
+  }
+}
+
+async function readResponseSnippet(response) {
+  try {
+    const text = await response.clone().text();
+    return text.replace(/\s+/g, ' ').slice(0, 1000);
+  } catch {
+    return '';
+  }
+}
 
 export class CompatibleHttpAdapter extends CompatibleProviderAdapter {
   async jsonRequest({ apiKey, providerConfig, baseUrl, endpoint, method = 'POST', body, signal, errorCode = 'PROVIDER_REQUEST_FAILED' }) {
@@ -17,6 +38,13 @@ export class CompatibleHttpAdapter extends CompatibleProviderAdapter {
     }
 
     if (!response.ok) {
+      logger.warn('upstream provider response not ok', {
+        status: response.status,
+        errorCode,
+        method,
+        url: summarizeUrl(request.url),
+        upstreamBody: await readResponseSnippet(response),
+      });
       throw new ProviderError(errorCode, await parseProviderErrorResponse(response, '上游 API 调用失败'));
     }
 

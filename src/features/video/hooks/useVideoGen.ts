@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type MutableRefObject } from 'react';
-import type { ModelInfo, GalleryItem, VTask, BridgeRef } from '@/lib/types';
+import type { ApiConfig, ModelInfo, GalleryItem, VTask, BridgeRef } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/providers';
+import { createProvider } from '@/lib/providers';
 import { gid } from '@/lib/utils';
 import { fileToB64, compressImage } from '@/lib/image';
-import { useProvider } from '@/shared/hooks/provider';
+import { useApiRefs } from '@/shared/hooks/provider';
+import { buildApiConfigPayload, resolveModelConfig, resolveProviderModelId, resolveSelectedModel } from '@/lib/model-routing';
 import { useToast } from '@/contexts/ToastContext';
 import { clearVideos, loadVideos, saveVideo } from '@/shared/api/assistant';
 import { startVideoPoll, waitForVideoCompletion } from '@/lib/videoPoll';
+import type { ApiConfigPayload } from '@/shared/api/capabilities';
 
 function formatVideoGenerationError(error: string) {
   const detail = String(error || '未知错误').trim().slice(0, 160);
@@ -19,9 +22,38 @@ function touchTask(task: VTask, patch: Partial<VTask>): VTask {
   return { ...task, ...patch, updatedAt: Date.now() };
 }
 
+function buildVideoPollApiConfigCandidates(
+  apiConfigs: ApiConfig[],
+  preferredConfigId: string | undefined,
+  fallback: { apiKey: string; baseUrl: string; providerConfig?: ProviderConfig },
+): ApiConfigPayload[] {
+  const preferred = preferredConfigId
+    ? apiConfigs.find((config) => config.id === preferredConfigId) || null
+    : null;
+  const orderedConfigs = [
+    ...(preferred ? [preferred] : []),
+    ...apiConfigs.filter((config) => config.id !== preferred?.id),
+  ];
+  const candidates = orderedConfigs.map((config) => buildApiConfigPayload(config, fallback));
+  candidates.push(buildApiConfigPayload(null, fallback));
+
+  const seen = new Set<string>();
+  return candidates.filter((candidate) => {
+    const key = JSON.stringify({
+      baseUrl: candidate.baseUrl || '',
+      apiKey: candidate.apiKey || '',
+      videoEndpoint: candidate.providerConfig?.videoEndpoint || '',
+    });
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function useVideoGen(
   base: string,
   apiKey: string,
+  apiConfigs: ApiConfig[],
   models: ModelInfo[],
   addLog: (l: string, m: string) => void,
   bridgeRef: MutableRefObject<BridgeRef>,
@@ -43,14 +75,14 @@ export function useVideoGen(
 
   const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
   const abortMap = useRef<Record<string, AbortController>>({});
-  const { baseR, keyR, getProvider } = useProvider(base, apiKey, providerConfig);
+  const { baseR, keyR } = useApiRefs(base, apiKey);
 
   const vidModels = useMemo(() => models.filter(m => m.cat === 'video'), [models]);
   const activeCount = useMemo(() => tasks.filter(t => t.status === '提交中' || t.status === '处理中').length, [tasks]);
   const vlog = useCallback((msg: string) => addLog('info', `[Video] ${msg}`), [addLog]);
 
   useEffect(() => {
-    if (model && !vidModels.some((item) => item.id === model)) {
+    if (model && !vidModels.some((item) => item.id === model || item.modelId === model)) {
       setModel('');
     }
   }, [model, vidModels]);
@@ -95,12 +127,16 @@ export function useVideoGen(
 
     const id = gid();
     const now = Date.now();
+    const selectedModel = resolveSelectedModel(vidModels, model);
+    const modelConfig = resolveModelConfig(apiConfigs, selectedModel);
+    const providerModel = resolveProviderModelId(vidModels, model);
     const task: VTask = {
       id,
       taskId: '',
       status: '提交中',
       prompt: prompt.trim(),
-      model,
+      model: providerModel,
+      configId: selectedModel?.configId,
       params: `${resolution} ${vidRatio} ${duration}s`,
       ts: now,
       updatedAt: now,
@@ -112,8 +148,9 @@ export function useVideoGen(
     abortMap.current[id] = ac;
 
     try {
-      const { taskId: tid } = await getProvider().submitVideoGeneration({
-        model,
+      const provider = createProvider(modelConfig?.base || base, modelConfig?.apiKey || apiKey, modelConfig?.providerConfig || providerConfig);
+      const { taskId: tid } = await provider.submitVideoGeneration({
+        model: providerModel,
         prompt: prompt.trim(),
         duration,
         aspect_ratio: vidRatio,
@@ -130,7 +167,7 @@ export function useVideoGen(
         vlog('视频生成完成');
         toast('视频生成完成', 'success');
         setTasks(prev => prev.map(t => t.id === id ? touchTask(t, { status: '已完成', videoUrl: url, error: undefined }) : t));
-        const vidItem = { id, url, prompt: task.prompt, model, ts: Date.now() };
+        const vidItem = { id, url, prompt: task.prompt, model: providerModel, ts: Date.now() };
         setCompletedVideos(prev => [vidItem, ...prev]);
         void saveVideo(vidItem).then((persistedUrl) => {
           if (!persistedUrl) return;
@@ -156,10 +193,13 @@ export function useVideoGen(
         vlog(`轮询错误: ${errMsg}`);
       };
 
+      const pollBaseR = { current: modelConfig?.base || baseR.current };
+      const pollKeyR = { current: modelConfig?.apiKey || keyR.current };
+      const pollApiConfig = buildApiConfigPayload(modelConfig, { apiKey, baseUrl: base, providerConfig });
       if (videoStreamingMode === 'stream') {
-        startVideoPoll({ taskId: tid || '', pollKey: id, pollRefs, baseR, keyR, onSuccess, onNoUrl, onFailure, onPollError });
+        startVideoPoll({ taskId: tid || '', pollKey: id, pollRefs, baseR: pollBaseR, keyR: pollKeyR, apiConfig: pollApiConfig, onSuccess, onNoUrl, onFailure, onPollError });
       } else {
-        await waitForVideoCompletion({ taskId: tid || '', baseR, keyR, onSuccess, onNoUrl, onFailure, onPollError });
+        await waitForVideoCompletion({ taskId: tid || '', baseR: pollBaseR, keyR: pollKeyR, apiConfig: pollApiConfig, onSuccess, onNoUrl, onFailure, onPollError });
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
@@ -172,7 +212,7 @@ export function useVideoGen(
     } finally {
       delete abortMap.current[id];
     }
-  }, [prompt, model, resolution, vidRatio, duration, mode, refImages, audioFile, vlog, toast, addLog, baseR, keyR, getProvider, videoStreamingMode]);
+  }, [prompt, model, resolution, vidRatio, duration, mode, refImages, audioFile, vlog, toast, addLog, baseR, keyR, videoStreamingMode, vidModels, apiConfigs, base, apiKey, providerConfig]);
 
   const resumeTaskPolling = useCallback(async (taskId: string) => {
     const normalizedTaskId = String(taskId || '').trim();
@@ -246,6 +286,13 @@ export function useVideoGen(
       vlog(`手动轮询请求异常: ${normalizedTaskId}; ${error}`);
     };
 
+    const apiConfigCandidates = buildVideoPollApiConfigCandidates(
+      apiConfigs,
+      existingTask?.configId,
+      { apiKey, baseUrl: base, providerConfig },
+    );
+    vlog(`Manual polling will try ${apiConfigCandidates.length} API config(s).`);
+
     if (videoStreamingMode === 'stream') {
       startVideoPoll({
         taskId: normalizedTaskId,
@@ -253,6 +300,7 @@ export function useVideoGen(
         pollRefs,
         baseR,
         keyR,
+        apiConfigCandidates,
         onSuccess,
         onNoUrl,
         onFailure,
@@ -265,12 +313,13 @@ export function useVideoGen(
       taskId: normalizedTaskId,
       baseR,
       keyR,
+      apiConfigCandidates,
       onSuccess,
       onNoUrl,
       onFailure,
       onPollError,
     });
-  }, [tasks, vlog, toast, videoStreamingMode, baseR, keyR]);
+  }, [tasks, vlog, toast, videoStreamingMode, baseR, keyR, apiConfigs, apiKey, base, providerConfig]);
 
   const cancelTask = useCallback((tid: string) => {
     if (abortMap.current[tid]) {

@@ -223,7 +223,7 @@ Current cleanup and ownership notes:
 - `backend/src/modules/images/images.routes.js`
   - image generation endpoints
 - `backend/src/modules/images/images.service.js`
-  - image request handling and response normalization
+  - image request handling and response normalization; raw generated image files are written under `files/generated/images/`
 - `backend/src/modules/settings/settings.routes.js`
   - settings routes
 - `backend/src/modules/settings/settings.controller.js`
@@ -271,9 +271,9 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
 - `backend/src/engine/nodes/saveFile.js`
   - save-to-disk workflow node behavior
 - `backend/src/engine/helpers/imageGeneration.js`
-  - image-node request and output helpers
+  - image-node request and output helpers; generated image URLs use `/api/outputs/images/...`
 - `backend/src/engine/helpers/saveHelper.js`
-  - save-file output handling
+  - save-file output handling; materialized workflow outputs are grouped by media type under `images/`, `videos/`, `audio/`, `text/`, and `data/`
 - `backend/src/engine/helpers/workflowLogger.js`
   - workflow log shaping before persistence
 
@@ -286,7 +286,7 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
 - `backend/src/platform/ai/search-service.js`
   - upstream web-search request handling
 - `backend/src/platform/ai/video-service.js`
-  - upstream video request handling
+  - upstream video request handling; synchronous or downloaded video results are materialized under `files/generated/videos/`
 - `backend/src/platform/http/proxy-aware-fetch.js`
   - shared fetch wrapper with proxy awareness; supports app-level outbound proxy settings, environment proxy variables, and Windows system proxy fallback
 - `backend/src/platform/providers/`
@@ -309,6 +309,7 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
   - storage-root-relative path validation
 - `backend/src/platform/storage/legacy-storage.js`
   - migration and compatibility helpers for older storage layouts
+
 - `backend/src/platform/system/select-directory.js`
   - native directory picker integration
 - `backend/src/platform/system/restart-backend.js`
@@ -325,6 +326,17 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
   - workflow run log persistence
 - `backend/src/platform/logging/workflow-log-sanitizer.js`
   - trims oversized payloads such as inline base64 before they flood logs
+
+### Generated media storage
+
+The active app data root owns runtime files. Under that root, generated media uses these canonical directories:
+
+- `files/generated/images/`: raw outputs from image generation, including Image page, Chat `generate_image`, and workflow `imageGen`
+- `files/generated/videos/`: raw video outputs produced synchronously or downloaded by `executeVideoGeneration`
+- `files/generated/assistant-images/`: assets explicitly saved into the Chat/assistant image gallery
+- `files/generated/assistant-videos/`: assets explicitly saved into the Chat/assistant video gallery
+
+The public URL contract remains rooted at `/api/outputs/...` for generated outputs and `/api/assistant/files/...` for assistant gallery files. New code should preserve relative subpaths when converting between URLs and `STORAGE_PATHS.generatedDir`.
 
 ### Request flow examples
 

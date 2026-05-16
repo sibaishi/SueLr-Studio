@@ -3,6 +3,7 @@ import { selectDirectory } from '@/shared/api';
 import { getNodeDef } from '@/features/workflow/lib/constants';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
 import type { ParamDef } from '@/features/workflow/lib/types';
+import type { ModelOption } from '@/features/workflow/lib/projectModels';
 import { LongTextEditorModal } from './LongTextEditorModal';
 import { useBufferedStringField } from './useBufferedStringField';
 
@@ -142,9 +143,9 @@ function ParamEditor({
     : undefined;
   const connectedApiModel = String(connectedApiKeyNode?.data?.selectedModel || '').trim();
   const connectedApiModelGroups = (connectedApiKeyNode?.data?.apiModelGroups || {}) as {
-    chat?: string[];
-    image?: string[];
-    video?: string[];
+    chat?: ModelOption[];
+    image?: ModelOption[];
+    video?: ModelOption[];
   };
 
   const handleFocus = (event: FocusEvent<HTMLElement>) => {
@@ -323,19 +324,21 @@ function ParamEditor({
       const modelLockedByApiKey = isModelParam && Boolean(connectedApiKeyNode);
 
       if (isModelParam) {
-        let modelsForType: string[] = [];
+        let modelsForType: ModelOption[] = [];
         if (connectedApiKeyNode) {
           if (nodeType === 'aiChat') modelsForType = connectedApiModelGroups.chat || [];
           else if (nodeType === 'imageGen') modelsForType = connectedApiModelGroups.image || [];
           else if (nodeType === 'videoGen') modelsForType = connectedApiModelGroups.video || [];
-          else modelsForType = Array.isArray(connectedApiKeyNode.data?.apiModels) ? connectedApiKeyNode.data.apiModels.map(String) : [];
+          else modelsForType = Array.isArray(connectedApiKeyNode.data?.apiModels)
+            ? connectedApiKeyNode.data.apiModels.map((id) => ({ label: String(id), value: String(id), modelId: String(id) }))
+            : [];
         } else if (nodeType === 'aiChat') modelsForType = availableModels.chat;
         else if (nodeType === 'imageGen') modelsForType = availableModels.image;
         else if (nodeType === 'videoGen') modelsForType = availableModels.video;
         else modelsForType = availableModels.all;
 
         if (modelsForType.length > 0) {
-          selectOptions = modelsForType.map((id) => ({ label: id, value: id }));
+          selectOptions = modelsForType;
         }
       }
 
@@ -372,10 +375,25 @@ function ParamEditor({
             {displayedValue && !hasValidOption && (
               <option value={displayedValue}>{displayedValue}</option>
             )}
-            {selectOptions.map((option) => (
-              <option key={String(option.value)} value={String(option.value)}>
-                {option.label}
-              </option>
+            {Object.entries(selectOptions.reduce<Record<string, typeof selectOptions>>((groups, option) => {
+              const group = String((option as { group?: string }).group || '');
+              groups[group] = groups[group] || [];
+              groups[group].push(option);
+              return groups;
+            }, {})).map(([group, options]) => (
+              group ? (
+                <optgroup key={group} label={group}>
+                  {options.map((option) => (
+                    <option key={String(option.value)} value={String(option.value)}>
+                      {option.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : options.map((option) => (
+                <option key={String(option.value)} value={String(option.value)}>
+                  {option.label}
+                </option>
+              ))
             ))}
           </select>
           {isModelParam && !modelLockedByApiKey && !suppressModelHint && !showCombinedModelHint && (

@@ -79,6 +79,17 @@ Linux:   ${XDG_CONFIG_HOME:-~/.config}/SueLr-Studio
 
 如果你希望把运行时数据固定到自定义绝对路径，可以设置 `APP_CONFIG_DIR`。
 
+生成媒体会按类型放在运行时数据目录下：
+
+```text
+files/generated/images/             图片生成原始输出
+files/generated/videos/             视频生成原始输出
+files/generated/assistant-images/    Chat/assistant 图库图片
+files/generated/assistant-videos/    Chat/assistant 视频库视频
+```
+
+应用内仍通过 `/api/outputs/...` 和 `/api/assistant/files/...` 访问这些文件。
+
 ## 常用命令
 
 ```bash

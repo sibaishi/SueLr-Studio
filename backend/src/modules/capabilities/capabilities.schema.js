@@ -81,7 +81,8 @@ function getUrlLabel(allowedDataTypes) {
 }
 
 function validateUrlOrEmpty(value, fieldName, allowedDataTypes = []) {
-  const normalized = cleanOptionalString(value, 2000);
+  if (value === undefined || value === null) return '';
+  const normalized = String(value).trim();
   if (!normalized) return '';
 
   const isHttp = /^https?:\/\//i.test(normalized);
@@ -93,6 +94,9 @@ function validateUrlOrEmpty(value, fieldName, allowedDataTypes = []) {
 
   if (!isHttp && !isApiPath && !isAllowedDataUrl) {
     throw new ValidationError('VALIDATION_ERROR', `${fieldName} 不是允许的${getUrlLabel(allowedDataTypes)}`);
+  }
+  if ((isHttp || isApiPath) && normalized.length > 2000) {
+    throw new ValidationError('VALIDATION_ERROR', `${fieldName} 过长`);
   }
   return normalized;
 }
@@ -198,4 +202,11 @@ export function validateTaskId(value) {
   const taskId = cleanOptionalString(value, 200);
   if (!taskId) throw new ValidationError('VALIDATION_ERROR', 'taskId 不能为空');
   return taskId;
+}
+
+export function validateVideoStatusBody(payload) {
+  const body = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+  return {
+    apiConfig: normalizeApiConfig(body.apiConfig),
+  };
 }

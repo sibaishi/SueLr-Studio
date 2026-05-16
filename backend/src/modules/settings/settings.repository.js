@@ -352,7 +352,11 @@ function getActiveRuntimeConfig(settings = readSettingsInternal()) {
 function buildRuntimeApiConfigInternal(overrides = {}) {
   const settings = readSettingsInternal();
   configureOutboundProxy(settings.runtime.outboundProxy);
-  const active = getActiveRuntimeConfig(settings);
+  const overrideConfigs = sanitizeApiConfigList(overrides.configs);
+  const configs = overrideConfigs.length > 0 ? overrideConfigs : settings.runtime.configs || [];
+  const requestedConfigId = cleanOptionalString(overrides.configId, 120);
+  const active = (requestedConfigId ? configs.find((config) => config.id === requestedConfigId) : null)
+    || getActiveRuntimeConfig({ ...settings, runtime: { ...settings.runtime, configs } });
   const providerConfig = sanitizeProviderConfig({
     ...DEFAULT_PROVIDER_CONFIG,
     ...(active?.providerConfig || {}),
@@ -367,6 +371,8 @@ function buildRuntimeApiConfigInternal(overrides = {}) {
     baseUrl: cleanOptionalString(overrides.baseUrl, 2000) || active?.base || 'https://api.openai.com/v1',
     projectModels,
     providerConfig,
+    configId: active?.id || '',
+    configs,
   };
 }
 
