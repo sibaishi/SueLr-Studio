@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { testApiConnection, uploadFile } from '@/features/workflow/lib/api';
 import { GROUP_SAFE_MARGIN } from '@/features/workflow/lib/groupLayout';
 import { getNodeDef } from '@/features/workflow/lib/constants';
@@ -161,6 +161,20 @@ export function NodeContent({
     case 'maskInput':
       return <MaskInputContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outerStyle={outerStyle} />;
     case 'imageResize':
+    case 'imageCompare':
+      return type === 'imageCompare'
+        ? <ImageCompareContent outputs={outputs} outerStyle={outerStyle} />
+        : (
+          <NodeSettingsContent
+            params={def?.params || []}
+            nodeType={type}
+            nodeId={nodeId}
+            data={data}
+            outerStyle={outerStyle}
+            onChange={(paramId, value) => updateNodeData(nodeId, { [paramId]: value })}
+            onPatch={(patch) => updateNodeData(nodeId, patch)}
+          />
+        );
     case 'aiChat':
     case 'imageGen':
     case 'videoGen':
@@ -387,6 +401,10 @@ function FileInputContent({
   const maskUploadError = (data._maskUploadError as string) || '';
   const maskUploading = Boolean(data._maskUploading);
   const mediaKind = accept.startsWith('image') ? 'image' : accept.startsWith('video') ? 'video' : 'audio';
+  const maskSource = maskPreviewUrl && !(maskPreviewUrl.startsWith('blob:') && maskFileUrl) ? maskPreviewUrl : maskFileUrl;
+  const [maskContentState, setMaskContentState] = useState<'empty' | 'present'>('empty');
+  const hasGeneratedMask = maskContentState === 'present';
+  const hasOriginalCanvasImage = Boolean(data.canvasOriginalFileUrl || data.canvasOriginalPreviewUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const localPathField = useBufferedStringField(localPath, (nextPath) => {
     if (!nextPath) {
@@ -398,6 +416,10 @@ function FileInputContent({
         fileSize: undefined,
         _uploading: false,
         _uploadError: '',
+        canvasOriginalFileUrl: '',
+        canvasOriginalPreviewUrl: '',
+        canvasOriginalFileName: '',
+        canvasOriginalFileSize: undefined,
       });
       return;
     }
@@ -425,6 +447,10 @@ function FileInputContent({
       fileSize: file.size,
       _uploading: true,
       _uploadError: '',
+      canvasOriginalFileUrl: '',
+      canvasOriginalPreviewUrl: '',
+      canvasOriginalFileName: '',
+      canvasOriginalFileSize: undefined,
     });
 
     try {
@@ -455,6 +481,45 @@ function FileInputContent({
     event.target.value = '';
   }, [uploadSelectedFile]);
 
+  const restoreOriginalCanvasImage = useCallback(() => {
+    const originalFileUrl = (data.canvasOriginalFileUrl as string) || '';
+    const originalPreviewUrl = (data.canvasOriginalPreviewUrl as string) || '';
+    if (!originalFileUrl && !originalPreviewUrl) return;
+
+    updateNodeData(nodeId, {
+      fileUrl: originalFileUrl,
+      previewUrl: originalPreviewUrl || originalFileUrl,
+      fileName: (data.canvasOriginalFileName as string) || fileName,
+      fileSize: typeof data.canvasOriginalFileSize === 'number' ? data.canvasOriginalFileSize : data.fileSize,
+      _uploading: false,
+      _uploadError: '',
+      canvasOriginalFileUrl: '',
+      canvasOriginalPreviewUrl: '',
+      canvasOriginalFileName: '',
+      canvasOriginalFileSize: undefined,
+    });
+  }, [data, fileName, nodeId, updateNodeData]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (mediaKind !== 'image' || !maskSource) {
+      setMaskContentState('empty');
+      return;
+    }
+
+    void detectMaskHasPaint(maskSource)
+      .then((hasPaint) => {
+        if (!cancelled) setMaskContentState(hasPaint ? 'present' : 'empty');
+      })
+      .catch(() => {
+        if (!cancelled) setMaskContentState('empty');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [maskSource, mediaKind]);
+
   const statusText = uploadError
     ? '上传失败'
     : uploading
@@ -479,9 +544,21 @@ function FileInputContent({
           </div>
           {mediaKind === 'image' && (
             <div className="node-file-badges">
-              <span className={`node-file-badge${maskFileUrl || maskPreviewUrl ? ' node-file-badge--active' : ''}`}>
-                {maskFileUrl || maskPreviewUrl ? '已附带遮罩' : '未生成遮罩'}
+              <span className={`node-file-badge${hasGeneratedMask ? ' node-file-badge--active' : ''}`}>
+                {hasGeneratedMask ? '已附带遮罩' : '未生成遮罩'}
               </span>
+              {hasOriginalCanvasImage && (
+                <button
+                  type="button"
+                  className="node-file-badge node-file-badge--button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    restoreOriginalCanvasImage();
+                  }}
+                >
+                  恢复原图
+                </button>
+              )}
               {(maskUploading || maskUploadError) && (
                 <span className={`node-file-badge${maskUploadError ? ' node-file-badge--error' : ''}`}>
                   {maskUploadError ? '遮罩上传失败' : '遮罩上传中'}
@@ -766,6 +843,22 @@ function loadImage(src: string) {
     image.onerror = () => reject(new Error('图片加载失败'));
     image.src = src;
   });
+}
+
+async function detectMaskHasPaint(src: string) {
+  const image = await loadImage(src);
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalWidth || image.width;
+  canvas.height = image.naturalHeight || image.height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return false;
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let index = 0; index < pixels.length; index += 4) {
+    if (pixels[index + 3] === 0) continue;
+    if (pixels[index] > 8 || pixels[index + 1] > 8 || pixels[index + 2] > 8) return true;
+  }
+  return false;
 }
 
 function MergeContent({
@@ -1133,6 +1226,56 @@ function OutputContent({
   return (
     <div className="node-content-shell node-output-content" style={{ ...outerStyle, overflow: 'hidden' }}>
       <InteractiveValue value={content} />
+    </div>
+  );
+}
+
+function ImageCompareContent({
+  outputs,
+  outerStyle,
+}: {
+  outputs?: Record<string, unknown>;
+  outerStyle: CSSProperties;
+}) {
+  const [position, setPosition] = useState(50);
+  const image1 = typeof outputs?.image1 === 'string' ? outputs.image1 : '';
+  const image2 = typeof outputs?.image2 === 'string' ? outputs.image2 : '';
+  const ready = Boolean(image1 && image2);
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const nextPosition = ((event.clientX - rect.left) / rect.width) * 100;
+    setPosition(Math.min(100, Math.max(0, nextPosition)));
+  };
+
+  if (!ready) {
+    return (
+      <div className="node-content-shell node-image-compare node-image-compare--empty" style={outerStyle}>
+        <span>运行后展示两张图片的对比预览</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="node-content-shell node-image-compare" style={outerStyle}>
+      <div
+        className="node-image-compare__viewport nodrag"
+        onPointerMove={handlePointerMove}
+        onPointerLeave={() => setPosition(50)}
+        style={{ '--compare-position': `${position}%` } as CSSProperties}
+      >
+        <div className="node-image-compare__pane node-image-compare__pane--left">
+          <img className="node-image-compare__image" src={image1} alt="图片1" draggable={false} />
+        </div>
+        <div className="node-image-compare__pane node-image-compare__pane--right">
+          <img className="node-image-compare__image" src={image2} alt="图片2" draggable={false} />
+        </div>
+        <div className="node-image-compare__divider" aria-hidden="true" />
+        <div className="node-image-compare__labels" aria-hidden="true">
+          <span>图片1</span>
+          <span>图片2</span>
+        </div>
+      </div>
     </div>
   );
 }

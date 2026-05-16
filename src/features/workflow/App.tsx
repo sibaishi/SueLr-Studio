@@ -136,7 +136,10 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
 
       if (snapshotSignature(current) === snapshotSignature(nextSnapshot)) return;
 
-      historyPastRef.current.push(current);
+      const latestPast = historyPastRef.current[historyPastRef.current.length - 1];
+      if (!latestPast || snapshotSignature(latestPast) !== snapshotSignature(current)) {
+        historyPastRef.current.push(current);
+      }
       if (historyPastRef.current.length > 80) historyPastRef.current.shift();
       historyFutureRef.current = [];
       currentSnapshotRef.current = nextSnapshot;
@@ -187,6 +190,30 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     syncHistoryState();
   }, [applyHistorySnapshot, store, syncHistoryState]);
 
+  const captureImmediateHistory = useCallback(() => {
+    if (store.isHydratingWorkflow || isApplyingHistoryRef.current) return;
+    if (historyTimerRef.current) {
+      window.clearTimeout(historyTimerRef.current);
+      historyTimerRef.current = null;
+    }
+
+    const currentSnapshot = buildSnapshot(store);
+    const previousSnapshot = currentSnapshotRef.current;
+    if (!previousSnapshot) {
+      currentSnapshotRef.current = currentSnapshot;
+      syncHistoryState();
+      return;
+    }
+
+    const latestPast = historyPastRef.current[historyPastRef.current.length - 1];
+    if (latestPast && snapshotSignature(latestPast) === snapshotSignature(currentSnapshot)) return;
+    historyPastRef.current.push(currentSnapshot);
+    if (historyPastRef.current.length > 80) historyPastRef.current.shift();
+    historyFutureRef.current = [];
+    currentSnapshotRef.current = currentSnapshot;
+    syncHistoryState();
+  }, [store, syncHistoryState]);
+
   const confirmDiscardChanges = useCallback(
     (actionLabel: string) => {
       if (!store.hasUnsavedChanges) return true;
@@ -229,6 +256,10 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
       fileKind: 'image',
       _uploading: false,
       _uploadError: '',
+      canvasOriginalFileUrl: '',
+      canvasOriginalPreviewUrl: '',
+      canvasOriginalFileName: '',
+      canvasOriginalFileSize: undefined,
     });
   }, [store]);
 
@@ -470,7 +501,10 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
 
         <div className="workflow-workbench glass min-w-0 flex-1 overflow-hidden">
           <div className="workflow-canvas-surface relative min-h-0 min-w-0 flex-1 overflow-hidden">
-            <FlowCanvas onViewportCenterChange={handleViewportCenterChange} />
+            <FlowCanvas
+              onViewportCenterChange={handleViewportCenterChange}
+              onBeforeCanvasEditorSave={captureImmediateHistory}
+            />
             {!store.isHydratingWorkflow && store.nodes.length === 0 && <EmptyCanvasHint />}
           </div>
         </div>

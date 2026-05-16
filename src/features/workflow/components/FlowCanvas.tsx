@@ -103,9 +103,10 @@ const WORKFLOW_NODE_CLIPBOARD_MARKER = 'suelr-studio/workflow-node-clipboard';
 
 interface FlowCanvasProps {
   onViewportCenterChange?: (position: { x: number; y: number }) => void;
+  onBeforeCanvasEditorSave?: () => void;
 }
 
-function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
+function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: FlowCanvasProps) {
   const store = useWorkflowCanvasStore();
   const reactFlow = useReactFlow();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -709,6 +710,10 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         fileSize: file.size,
         _uploading: true,
         _uploadError: '',
+        canvasOriginalFileUrl: '',
+        canvasOriginalPreviewUrl: '',
+        canvasOriginalFileName: '',
+        canvasOriginalFileSize: undefined,
       });
 
       void uploadFile(file)
@@ -1181,8 +1186,33 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     file: File,
     previewUrl: string,
     target: 'paint' | 'mask',
+    options?: { clearMask?: boolean },
   ) => {
+    onBeforeCanvasEditorSave?.();
+
+    if (target === 'mask' && options?.clearMask) {
+      store.updateNodeData(nodeId, {
+        maskFileUrl: '',
+        maskPreviewUrl: '',
+        maskFileName: '',
+        maskFileSize: undefined,
+        _maskUploading: false,
+        _maskUploadError: '',
+      });
+      return;
+    }
+
     if (target === 'paint') {
+      const node = store.nodes.find((item) => item.id === nodeId);
+      const hasStoredOriginal = Boolean(node?.data?.canvasOriginalFileUrl || node?.data?.canvasOriginalPreviewUrl);
+      const originalPatch = hasStoredOriginal
+        ? {}
+        : {
+          canvasOriginalFileUrl: typeof node?.data?.fileUrl === 'string' ? node.data.fileUrl : '',
+          canvasOriginalPreviewUrl: typeof node?.data?.previewUrl === 'string' ? node.data.previewUrl : '',
+          canvasOriginalFileName: typeof node?.data?.fileName === 'string' ? node.data.fileName : '',
+          canvasOriginalFileSize: typeof node?.data?.fileSize === 'number' ? node.data.fileSize : undefined,
+        };
       store.updateNodeData(nodeId, {
         fileUrl: '',
         previewUrl,
@@ -1191,6 +1221,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         fileSize: file.size,
         _uploading: true,
         _uploadError: '',
+        ...originalPatch,
       });
     } else {
       store.updateNodeData(nodeId, {
@@ -1239,7 +1270,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       _maskUploading: false,
       _maskUploadError: '',
     });
-  }, [store]);
+  }, [onBeforeCanvasEditorSave, store]);
 
   const resolveTargetHandle = useCallback((nodeType: string, sourceType?: string) => {
     const def = getNodeDef(nodeType);
@@ -1588,6 +1619,15 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
           onSaveMask={async (file, previewUrl) => {
             await saveCanvasEditorAsset(canvasEditorNode.id, file, previewUrl, 'mask');
           }}
+          onClearMask={async () => {
+            await saveCanvasEditorAsset(
+              canvasEditorNode.id,
+              new File([], 'empty-mask.png', { type: 'image/png' }),
+              '',
+              'mask',
+              { clearMask: true },
+            );
+          }}
         />
       )}
     </div>
@@ -1671,10 +1711,13 @@ function NodeCatalogButton({
   );
 }
 
-export default function FlowCanvas({ onViewportCenterChange }: FlowCanvasProps) {
+export default function FlowCanvas({ onViewportCenterChange, onBeforeCanvasEditorSave }: FlowCanvasProps) {
   return (
     <ReactFlowProvider>
-      <FlowCanvasInner onViewportCenterChange={onViewportCenterChange} />
+      <FlowCanvasInner
+        onViewportCenterChange={onViewportCenterChange}
+        onBeforeCanvasEditorSave={onBeforeCanvasEditorSave}
+      />
     </ReactFlowProvider>
   );
 }

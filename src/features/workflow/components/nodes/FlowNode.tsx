@@ -70,7 +70,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const isDisabled = Boolean(data.disabled);
   const isLocked = isNodeLockedWithAncestors(id, nodes);
   const isDirectlyLocked = Boolean(data.locked);
-  const hasGeneratedMask = type === 'imageInput' && Boolean(data.maskFileUrl || data.maskPreviewUrl);
   const isRunning = execStatus === 'running' && !isDisabled;
   const isError = execStatus === 'error';
   const hasWarning = Boolean(warningMessage) && !isError;
@@ -267,11 +266,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
             {isDisabled && (
               <span className="flow-node__state-chip">
                 Disabled
-              </span>
-            )}
-            {hasGeneratedMask && (
-              <span className="flow-node__state-chip flow-node__state-chip--mask">
-                Mask
               </span>
             )}
             {hasWarning && (

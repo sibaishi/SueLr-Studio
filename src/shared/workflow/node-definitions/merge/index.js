@@ -1,4 +1,5 @@
 import { AUDIO_MERGE_NODE } from './audioMerge/index.js';
+import { IMAGE_COMPARE_NODE } from './imageCompare/index.js';
 import { IMAGE_MERGE_NODE } from './imageMerge/index.js';
 import { IMAGE_RESIZE_NODE } from './imageResize/index.js';
 import { ITERATE_IMAGE_RUN_NODE } from './iterateImageRun/index.js';
@@ -10,6 +11,7 @@ import { VIDEO_MERGE_NODE } from './videoMerge/index.js';
 
 export {
   AUDIO_MERGE_NODE,
+  IMAGE_COMPARE_NODE,
   IMAGE_MERGE_NODE,
   IMAGE_RESIZE_NODE,
   ITERATE_IMAGE_RUN_NODE,
@@ -22,6 +24,7 @@ export {
 
 export const MERGE_NODES = [
   IMAGE_RESIZE_NODE,
+  IMAGE_COMPARE_NODE,
   ITERATE_RUN_NODE,
   ITERATE_IMAGE_RUN_NODE,
   TEXT_CLEAN_NODE,

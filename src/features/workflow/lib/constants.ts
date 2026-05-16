@@ -11,6 +11,7 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   imageInput: { w: 13, h: 13 },
   maskInput: { w: 13, h: 14 },
   imageResize: { w: 14, h: 12 },
+  imageCompare: { w: 16, h: 14 },
   videoInput: { w: 13, h: 11 },
   audioInput: { w: 13, h: 9 },
   apiKeyInput: { w: 14, h: 21 },

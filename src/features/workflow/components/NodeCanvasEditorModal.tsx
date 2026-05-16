@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react';
@@ -23,6 +24,7 @@ interface NodeCanvasEditorModalProps {
   onClose: () => void;
   onSavePaint?: (file: File, previewUrl: string) => Promise<void>;
   onSaveMask: (file: File, previewUrl: string) => Promise<void>;
+  onClearMask?: () => Promise<void>;
 }
 
 type SnapshotHistory = {
@@ -61,6 +63,17 @@ function loadImage(src: string) {
   });
 }
 
+function isBlankMaskCanvas(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return false;
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let index = 0; index < pixels.length; index += 4) {
+    if (pixels[index + 3] === 0) continue;
+    if (pixels[index] > 8 || pixels[index + 1] > 8 || pixels[index + 2] > 8) return false;
+  }
+  return true;
+}
+
 export function NodeCanvasEditorModal({
   src,
   initialMaskSrc,
@@ -69,10 +82,12 @@ export function NodeCanvasEditorModal({
   onClose,
   onSavePaint,
   onSaveMask,
+  onClearMask,
 }: NodeCanvasEditorModalProps) {
   const [mode, setMode] = useState<EditorMode>(initialMode);
   const [tool, setTool] = useState<ToolMode>('brush');
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
+  const [paintColor, setPaintColor] = useState('#ff375f');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [isDirty, setIsDirty] = useState(false);
@@ -87,6 +102,7 @@ export function NodeCanvasEditorModal({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [cursorPoint, setCursorPoint] = useState<{ x: number; y: number } | null>(null);
+  const [showBrushSizePreview, setShowBrushSizePreview] = useState(false);
   const dirtyRef = useRef(false);
   const panPointerIdRef = useRef<number | null>(null);
   const panStartRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null);
@@ -97,10 +113,16 @@ export function NodeCanvasEditorModal({
   const paintPreviewUrlRef = useRef<string>('');
   const maskPreviewUrlRef = useRef<string>('');
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const brushPreviewTimerRef = useRef<number | null>(null);
 
   const activeCanvasRef = mode === 'paint' ? paintCanvasRef : maskCanvasRef;
   const currentHistory = histories[mode];
   const canSavePaint = Boolean(onSavePaint);
+  const brushCursorColor = mode === 'paint'
+    ? (tool === 'eraser' ? '#ffffff' : paintColor)
+    : tool === 'eraser'
+      ? (maskInverted ? '#ffffff' : '#000000')
+      : (maskInverted ? '#000000' : '#ffffff');
 
   const revokePreviewUrls = useCallback(() => {
     if (paintPreviewUrlRef.current) {
@@ -111,6 +133,30 @@ export function NodeCanvasEditorModal({
       URL.revokeObjectURL(maskPreviewUrlRef.current);
       maskPreviewUrlRef.current = '';
     }
+  }, []);
+
+  const showBrushPreviewTemporarily = useCallback(() => {
+    setShowBrushSizePreview(true);
+    if (brushPreviewTimerRef.current !== null) {
+      window.clearTimeout(brushPreviewTimerRef.current);
+    }
+    brushPreviewTimerRef.current = window.setTimeout(() => {
+      brushPreviewTimerRef.current = null;
+      setShowBrushSizePreview(false);
+    }, 700);
+  }, []);
+
+  const handleBrushSizeChange = useCallback((nextSize: number) => {
+    setBrushSize(nextSize);
+    showBrushPreviewTemporarily();
+  }, [showBrushPreviewTemporarily]);
+
+  useEffect(() => {
+    return () => {
+      if (brushPreviewTimerRef.current !== null) {
+        window.clearTimeout(brushPreviewTimerRef.current);
+      }
+    };
   }, []);
 
   const applyHistorySnapshot = useCallback((targetMode: EditorMode, snapshot: string) => {
@@ -427,8 +473,8 @@ export function NodeCanvasEditorModal({
 
     if (mode === 'paint') {
       context.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
-      context.strokeStyle = '#ff375f';
-      context.fillStyle = '#ff375f';
+      context.strokeStyle = paintColor;
+      context.fillStyle = paintColor;
     } else {
       context.globalCompositeOperation = 'source-over';
       const activeColor = maskInverted ? '#000000' : '#ffffff';
@@ -444,7 +490,7 @@ export function NodeCanvasEditorModal({
     context.beginPath();
     context.arc(to.x, to.y, brushSize / 2, 0, Math.PI * 2);
     context.fill();
-  }, [activeCanvasRef, brushSize, maskInverted, mode, tool]);
+  }, [activeCanvasRef, brushSize, maskInverted, mode, paintColor, tool]);
 
   const getPointerPosition = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
     const canvas = activeCanvasRef.current;
@@ -458,35 +504,33 @@ export function NodeCanvasEditorModal({
   }, [activeCanvasRef]);
 
   const handleViewportWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
-    if (event.ctrlKey) return;
     event.preventDefault();
     if (!imageDimensions) return;
-    const viewport = viewportRef.current;
-    if (!viewport) return;
+    const canvas = activeCanvasRef.current;
+    if (!canvas) return;
 
     const direction = event.deltaY > 0 ? -0.12 : 0.12;
-    const viewportRect = viewport.getBoundingClientRect();
-    const pointerX = event.clientX - viewportRect.left;
-    const pointerY = event.clientY - viewportRect.top;
-    const centerX = viewportRect.width / 2;
-    const centerY = viewportRect.height / 2;
+    const canvasRect = canvas.getBoundingClientRect();
+    const renderedCenterX = canvasRect.left + canvasRect.width / 2;
+    const renderedCenterY = canvasRect.top + canvasRect.height / 2;
+    const pointerOffsetX = event.clientX - renderedCenterX;
+    const pointerOffsetY = event.clientY - renderedCenterY;
 
     setZoom((current) => {
       const nextZoom = clampZoom(Number((current + direction).toFixed(3)));
       if (nextZoom === current) return current;
+      const zoomRatio = nextZoom / current;
 
       setPan((currentPan) => {
-        const localOffsetX = (pointerX - centerX - currentPan.x) / current;
-        const localOffsetY = (pointerY - centerY - currentPan.y) / current;
         return {
-          x: pointerX - centerX - localOffsetX * nextZoom,
-          y: pointerY - centerY - localOffsetY * nextZoom,
+          x: currentPan.x + pointerOffsetX - pointerOffsetX * zoomRatio,
+          y: currentPan.y + pointerOffsetY - pointerOffsetY * zoomRatio,
         };
       });
 
       return nextZoom;
     });
-  }, [clampZoom, imageDimensions]);
+  }, [activeCanvasRef, clampZoom, imageDimensions]);
 
   const finishDrawing = useCallback(() => {
     if (!isDrawing) return;
@@ -576,6 +620,13 @@ export function NodeCanvasEditorModal({
       } else {
         const maskCanvas = maskCanvasRef.current;
         if (!maskCanvas) throw new Error('无法导出当前遮罩结果，请稍后重试。');
+        if (isBlankMaskCanvas(maskCanvas)) {
+          await onClearMask?.();
+          setIsDirty(false);
+          dirtyRef.current = false;
+          if (closeAfterSave) onClose();
+          return;
+        }
         const { file, previewUrl } = await exportCanvasToFile(maskCanvas, 'mask-image.png');
         if (maskPreviewUrlRef.current) URL.revokeObjectURL(maskPreviewUrlRef.current);
         maskPreviewUrlRef.current = previewUrl;
@@ -667,8 +718,25 @@ export function NodeCanvasEditorModal({
 
           <label className="node-canvas-editor-modal__slider">
             <span>笔刷 {brushSize}px</span>
-            <input type="range" min={4} max={96} step={2} value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} />
+            <input
+              type="range"
+              min={4}
+              max={96}
+              step={2}
+              value={brushSize}
+              style={{ '--range-progress': `${((brushSize - 4) / 92) * 100}%` } as CSSProperties}
+              onChange={(event) => handleBrushSizeChange(Number(event.target.value))}
+            />
           </label>
+
+          {mode === 'paint' && (
+            <label className="node-canvas-editor-modal__color-picker">
+              <span>颜色</span>
+              <span className="node-canvas-editor-modal__color-swatch" style={{ '--paint-color': paintColor } as CSSProperties}>
+                <input type="color" value={paintColor} onChange={(event) => setPaintColor(event.target.value)} />
+              </span>
+            </label>
+          )}
 
           {mode === 'mask' && (
             <>
@@ -680,6 +748,7 @@ export function NodeCanvasEditorModal({
                   max={80}
                   step={1}
                   value={Math.round(maskBackgroundOpacity * 100)}
+                  style={{ '--range-progress': `${(Math.round(maskBackgroundOpacity * 100) / 80) * 100}%` } as CSSProperties}
                   onChange={(event) => setMaskBackgroundOpacity(Number(event.target.value) / 100)}
                   disabled={!showReferenceImage}
                 />
@@ -697,7 +766,7 @@ export function NodeCanvasEditorModal({
 
           <div className="node-canvas-editor-modal__tool-group">
             <button type="button" onClick={() => setZoom((current) => clampZoom(Number((current - 0.15).toFixed(3))))}>缩小</button>
-            <button type="button" onClick={fitViewport}>Fit</button>
+            <button type="button" onClick={fitViewport}>适合视图</button>
             <button type="button" onClick={resetViewport}>重置视图</button>
             <button type="button" onClick={() => setZoom((current) => clampZoom(Number((current + 0.15).toFixed(3))))}>放大</button>
           </div>
@@ -726,9 +795,22 @@ export function NodeCanvasEditorModal({
                   style={{
                     left: `${(cursorPoint.x / (activeCanvasRef.current?.width || 1)) * 100}%`,
                     top: `${(cursorPoint.y / (activeCanvasRef.current?.height || 1)) * 100}%`,
-                    width: brushSize * zoom,
-                    height: brushSize * zoom,
-                  }}
+                    width: brushSize,
+                    height: brushSize,
+                    '--brush-color': brushCursorColor,
+                  } as CSSProperties}
+                />
+              )}
+              {showBrushSizePreview && viewMode === 'draw' && (
+                <div
+                  className="node-canvas-editor-modal__brush-cursor node-canvas-editor-modal__brush-cursor--preview"
+                  style={{
+                    left: '50%',
+                    top: '50%',
+                    width: brushSize,
+                    height: brushSize,
+                    '--brush-color': brushCursorColor,
+                  } as CSSProperties}
                 />
               )}
               <canvas
@@ -758,11 +840,11 @@ export function NodeCanvasEditorModal({
                     updatePan(event);
                     return;
                   }
-                  if (!isDrawing || mode !== 'paint') return;
                   const point = getPointerPosition(event);
+                  if (point) setCursorPoint(point);
+                  if (!isDrawing || mode !== 'paint') return;
                   const lastPoint = lastPointRef.current;
                   if (!point || !lastPoint) return;
-                  setCursorPoint(point);
                   drawSegment(lastPoint, point);
                   lastPointRef.current = point;
                 }}
@@ -820,11 +902,11 @@ export function NodeCanvasEditorModal({
                     updatePan(event);
                     return;
                   }
-                  if (!isDrawing || mode !== 'mask') return;
                   const point = getPointerPosition(event);
+                  if (point) setCursorPoint(point);
+                  if (!isDrawing || mode !== 'mask') return;
                   const lastPoint = lastPointRef.current;
                   if (!point || !lastPoint) return;
-                  setCursorPoint(point);
                   drawSegment(lastPoint, point);
                   lastPointRef.current = point;
                 }}

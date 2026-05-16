@@ -13,6 +13,7 @@ import { execute as executeTextClean } from './textClean.js';
 import { execute as executeTextSplit } from './textSplit.js';
 import { execute as executeTextMerge } from './textMerge.js';
 import { execute as executeImageMerge } from './imageMerge.js';
+import { execute as executeImageCompare } from './imageCompare.js';
 import { execute as executeVideoMerge } from './videoMerge.js';
 import { execute as executeAudioMerge } from './audioMerge.js';
 import { execute as executeImageGen } from './imageGen.js';
@@ -33,6 +34,7 @@ export const NODE_EXECUTORS = {
   textSplit: executeTextSplit,
   textMerge: executeTextMerge,
   imageMerge: executeImageMerge,
+  imageCompare: executeImageCompare,
   videoMerge: executeVideoMerge,
   audioMerge: executeAudioMerge,
   aiChat: executeAiChat,
