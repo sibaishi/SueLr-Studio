@@ -2,6 +2,7 @@ import { capabilityPollVideoTask } from '@/shared/api/capabilities';
 import type { ApiConfigPayload } from '@/shared/api/capabilities';
 
 type VideoPollResponse = Awaited<ReturnType<typeof capabilityPollVideoTask>>;
+type NormalizedVideoTaskStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 interface PollOptions {
   taskId: string;
@@ -15,10 +16,7 @@ interface PollOptions {
   onNoUrl: () => void;
   onFailure: (error: string) => void;
   onPollError: (error: string) => void;
-}
-
-function getTaskStatus(result: VideoPollResponse): string | undefined {
-  return result.status || result.data?.status;
+  onStatusUpdate?: (status: string) => void;
 }
 
 function findFirstStringByKeys(value: unknown, keys: string[]): string | undefined {
@@ -48,26 +46,61 @@ function findFirstStringByKeys(value: unknown, keys: string[]): string | undefin
 }
 
 function getVideoUrl(result: VideoPollResponse): string | undefined {
-  return findFirstStringByKeys(result, ['video_url']);
+  return findFirstStringByKeys(result, [
+    'video_url',
+    'videoUrl',
+    'result_url',
+    'resultUrl',
+    'file_url',
+    'fileUrl',
+    'media_url',
+    'mediaUrl',
+    'download_url',
+    'downloadUrl',
+  ]);
 }
 
 function getTaskError(result: VideoPollResponse, fallback: string): string {
-  const rawError = result.error ?? result.data?.error;
+  const rawError = result.error
+    ?? result.data?.error
+    ?? findFirstStringByKeys(result, ['error', 'message', 'detail', 'reason']);
   if (!rawError) return fallback;
   if (typeof rawError === 'string') return rawError;
   if (typeof rawError === 'object') {
-    const message = findFirstStringByKeys(rawError, ['message', 'code', 'detail', 'error']);
+    const message = findFirstStringByKeys(rawError, ['message', 'code', 'detail', 'error', 'reason']);
     if (message) return message;
   }
   return fallback;
 }
 
-async function pollTask(taskId: string, apiConfig?: ApiConfigPayload): Promise<{ status?: string; url?: string; error?: string }> {
+function readRawTaskStatus(result: VideoPollResponse): string | undefined {
+  return findFirstStringByKeys(result, ['status', 'state', 'phase']);
+}
+
+export function normalizeVideoTaskStatus(rawStatus: string | undefined, hasVideoUrl = false, hasError = false): NormalizedVideoTaskStatus | undefined {
+  const normalized = String(rawStatus || '').trim().toLowerCase();
+
+  if (['queued', 'pending', 'submitted', 'created'].includes(normalized)) return 'queued';
+  if (['processing', 'running', 'in_progress', 'in-progress', 'progressing'].includes(normalized)) return 'processing';
+  if (['succeeded', 'success', 'complete', 'completed', 'done', 'finished'].includes(normalized)) return 'completed';
+  if (['failed', 'error', 'errored'].includes(normalized)) return 'failed';
+  if (['cancelled', 'canceled', 'aborted'].includes(normalized)) return 'cancelled';
+  if (hasVideoUrl) return 'completed';
+  if (hasError) return 'failed';
+  return undefined;
+}
+
+async function pollTask(taskId: string, apiConfig?: ApiConfigPayload): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; error?: string }> {
   const result = await capabilityPollVideoTask(taskId, apiConfig);
+  const url = getVideoUrl(result);
+  const error = getTaskError(result, 'Video generation failed');
+  const rawStatus = readRawTaskStatus(result);
+
   return {
-    status: getTaskStatus(result),
-    url: getVideoUrl(result),
-    error: getTaskError(result, 'Video generation failed'),
+    status: normalizeVideoTaskStatus(rawStatus, Boolean(url), Boolean(result.error ?? result.data?.error)),
+    rawStatus,
+    url,
+    error,
   };
 }
 
@@ -75,7 +108,7 @@ async function pollTaskWithCandidates(
   taskId: string,
   apiConfig?: ApiConfigPayload,
   apiConfigCandidates?: ApiConfigPayload[],
-): Promise<{ status?: string; url?: string; error?: string }> {
+): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; error?: string }> {
   const candidates = apiConfigCandidates?.length ? apiConfigCandidates : (apiConfig ? [apiConfig] : []);
   if (candidates.length === 0) return pollTask(taskId);
 
@@ -93,7 +126,7 @@ async function pollTaskWithCandidates(
 }
 
 export function startVideoPoll(opts: PollOptions): () => void {
-  const { taskId, pollKey, pollRefs, apiConfig, apiConfigCandidates, onSuccess, onNoUrl, onFailure, onPollError } = opts;
+  const { taskId, pollKey, pollRefs, apiConfig, apiConfigCandidates, onSuccess, onNoUrl, onFailure, onPollError, onStatusUpdate } = opts;
 
   const cleanup = () => {
     if (pollRefs.current[pollKey]) {
@@ -105,15 +138,20 @@ export function startVideoPoll(opts: PollOptions): () => void {
   const pollOnce = async () => {
     try {
       const result = await pollTaskWithCandidates(taskId, apiConfig, apiConfigCandidates);
+      const displayStatus = result.rawStatus || result.status;
 
-      if (result.status === 'succeeded' || result.status === 'complete' || result.status === 'completed') {
+      if (displayStatus) {
+        onStatusUpdate?.(displayStatus);
+      }
+
+      if (result.status === 'completed') {
         cleanup();
         if (result.url) onSuccess(result.url);
         else onNoUrl();
         return;
       }
 
-      if (result.status === 'failed' || result.status === 'error') {
+      if (result.status === 'failed' || result.status === 'cancelled') {
         cleanup();
         onFailure(result.error || 'Video generation failed');
       }
@@ -136,13 +174,18 @@ export function startVideoPoll(opts: PollOptions): () => void {
 export async function waitForVideoCompletion(
   opts: Omit<PollOptions, 'pollRefs' | 'pollKey'> & { intervalMs?: number },
 ): Promise<string> {
-  const { taskId, apiConfig, apiConfigCandidates, onSuccess, onNoUrl, onFailure, onPollError, intervalMs = 5000 } = opts;
+  const { taskId, apiConfig, apiConfigCandidates, onSuccess, onNoUrl, onFailure, onPollError, onStatusUpdate, intervalMs = 5000 } = opts;
 
   while (true) {
     try {
       const result = await pollTaskWithCandidates(taskId, apiConfig, apiConfigCandidates);
+      const displayStatus = result.rawStatus || result.status;
 
-      if (result.status === 'succeeded' || result.status === 'complete' || result.status === 'completed') {
+      if (displayStatus) {
+        onStatusUpdate?.(displayStatus);
+      }
+
+      if (result.status === 'completed') {
         if (result.url) {
           onSuccess(result.url);
           return result.url;
@@ -151,7 +194,7 @@ export async function waitForVideoCompletion(
         throw new Error('No video URL returned for completed task');
       }
 
-      if (result.status === 'failed' || result.status === 'error') {
+      if (result.status === 'failed' || result.status === 'cancelled') {
         const error = result.error || 'Video generation failed';
         onFailure(error);
         throw new Error(error);

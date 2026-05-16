@@ -32,16 +32,16 @@ function EmptyPanelState({
 }
 
 function getVideoTaskStatusLabel(status: string) {
-  if (status === 'queued' || status === '提交中') return '提交中';
-  if (status === 'processing' || status === '处理中') return '处理中';
-  if (status === 'done' || status === '已完成') return '已完成';
-  if (status === 'failed' || status === '失败') return '失败';
-  if (status === 'cancelled' || status === '已取消') return '已取消';
+  if (['queued', 'pending', 'submitted', 'created', '提交中'].includes(status)) return '提交中';
+  if (['processing', 'running', 'in_progress', 'in-progress', '处理中'].includes(status)) return '处理中';
+  if (['done', 'completed', 'complete', 'success', 'succeeded', 'finished', '已完成'].includes(status)) return '已完成';
+  if (['failed', 'error', 'errored', '失败'].includes(status)) return '失败';
+  if (['cancelled', 'canceled', 'aborted', '已取消'].includes(status)) return '已取消';
   return status || '未知';
 }
 
 function isActiveVideoTask(status: string) {
-  return status === 'queued' || status === 'processing' || status === '提交中' || status === '处理中';
+  return ['queued', 'pending', 'submitted', 'created', 'processing', 'running', 'in_progress', 'in-progress', '提交中', '处理中'].includes(status);
 }
 
 function formatDuration(ms: number) {

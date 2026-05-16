@@ -193,13 +193,19 @@ export function useVideoGen(
         vlog(`轮询错误: ${errMsg}`);
       };
 
+      const onStatusUpdate = (status: string) => {
+        setTasks((prev) => prev.map((task) => (
+          task.id === id ? touchTask(task, { status: status as VTask['status'] }) : task
+        )));
+      };
+
       const pollBaseR = { current: modelConfig?.base || baseR.current };
       const pollKeyR = { current: modelConfig?.apiKey || keyR.current };
       const pollApiConfig = buildApiConfigPayload(modelConfig, { apiKey, baseUrl: base, providerConfig });
       if (videoStreamingMode === 'stream') {
-        startVideoPoll({ taskId: tid || '', pollKey: id, pollRefs, baseR: pollBaseR, keyR: pollKeyR, apiConfig: pollApiConfig, onSuccess, onNoUrl, onFailure, onPollError });
+        startVideoPoll({ taskId: tid || '', pollKey: id, pollRefs, baseR: pollBaseR, keyR: pollKeyR, apiConfig: pollApiConfig, onSuccess, onNoUrl, onFailure, onPollError, onStatusUpdate });
       } else {
-        await waitForVideoCompletion({ taskId: tid || '', baseR: pollBaseR, keyR: pollKeyR, apiConfig: pollApiConfig, onSuccess, onNoUrl, onFailure, onPollError });
+        await waitForVideoCompletion({ taskId: tid || '', baseR: pollBaseR, keyR: pollKeyR, apiConfig: pollApiConfig, onSuccess, onNoUrl, onFailure, onPollError, onStatusUpdate });
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
@@ -286,6 +292,12 @@ export function useVideoGen(
       vlog(`手动轮询请求异常: ${normalizedTaskId}; ${error}`);
     };
 
+    const onStatusUpdate = (status: string) => {
+      setTasks((prev) => prev.map((task) => (
+        task.id === pollKey ? touchTask(task, { status: status as VTask['status'], error: undefined }) : task
+      )));
+    };
+
     const apiConfigCandidates = buildVideoPollApiConfigCandidates(
       apiConfigs,
       existingTask?.configId,
@@ -305,6 +317,7 @@ export function useVideoGen(
         onNoUrl,
         onFailure,
         onPollError,
+        onStatusUpdate,
       });
       return;
     }
@@ -318,6 +331,7 @@ export function useVideoGen(
       onNoUrl,
       onFailure,
       onPollError,
+      onStatusUpdate,
     });
   }, [tasks, vlog, toast, videoStreamingMode, baseR, keyR, apiConfigs, apiKey, base, providerConfig]);
 
