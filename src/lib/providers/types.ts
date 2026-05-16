@@ -64,6 +64,7 @@ export interface GenerateImageParams {
   width?: number;
   height?: number;
   quality?: 'low' | 'medium' | 'high' | 'auto';
+  resolution?: 'auto' | '512px' | '1k' | '2k' | '4k';
   n?: number;
   output_format?: 'png' | 'jpeg' | 'webp';
   image?: string[];

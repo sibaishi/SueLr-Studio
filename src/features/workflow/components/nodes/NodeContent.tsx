@@ -17,6 +17,110 @@ function formatModelDetectError(message?: string | null) {
     : '模型检测没有完成，请检查 API Key、Base URL 或稍后重试。';
 }
 
+function getBoolean(value: unknown, fallback: boolean) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function removeDelimitedRanges(sourceText: string, {
+  startToken,
+  endToken,
+  removeStartToken,
+  removeEndToken,
+  removeAllRanges,
+}: {
+  startToken: string;
+  endToken: string;
+  removeStartToken: boolean;
+  removeEndToken: boolean;
+  removeAllRanges: boolean;
+}) {
+  if (!startToken || !endToken) return sourceText;
+
+  let output = '';
+  let cursor = 0;
+
+  while (cursor < sourceText.length) {
+    const startIndex = sourceText.indexOf(startToken, cursor);
+    if (startIndex === -1) {
+      output += sourceText.slice(cursor);
+      break;
+    }
+
+    const contentStart = startIndex + startToken.length;
+    const endIndex = sourceText.indexOf(endToken, contentStart);
+    if (endIndex === -1) {
+      output += sourceText.slice(cursor);
+      break;
+    }
+
+    output += sourceText.slice(cursor, startIndex);
+    if (!removeStartToken) output += startToken;
+    if (!removeEndToken) output += endToken;
+
+    cursor = endIndex + endToken.length;
+    if (!removeAllRanges) {
+      output += sourceText.slice(cursor);
+      break;
+    }
+  }
+
+  return output;
+}
+
+function trimBoundaryBlankLines(text: string) {
+  return String(text)
+    .replace(/^(?:[ \t]*\r?\n)+/, '')
+    .replace(/(?:\r?\n[ \t]*)+$/, '');
+}
+
+function buildTextCleanPreview(data: Record<string, unknown>, outputs?: Record<string, unknown>) {
+  if (typeof outputs?.text === 'string') return outputs.text;
+  const text = String(data.previewText ?? data.text ?? '');
+  return trimBoundaryBlankLines(removeDelimitedRanges(text, {
+    startToken: String(data.startToken ?? '<think>'),
+    endToken: String(data.endToken ?? '</think>'),
+    removeStartToken: getBoolean(data.removeStartToken, true),
+    removeEndToken: getBoolean(data.removeEndToken, true),
+    removeAllRanges: getBoolean(data.removeAllRanges, true),
+  }));
+}
+
+function trimSeparatorAdjacentNewlines(text: string) {
+  return String(text)
+    .replace(/^[ \t]*(?:\r?\n)+/, '')
+    .replace(/(?:\r?\n)+[ \t]*$/, '');
+}
+
+function splitTextForPreview(data: Record<string, unknown>) {
+  const sourceText = String(data.previewText ?? data.text ?? '');
+  const rawSeparator = data.separator;
+  const separator = typeof rawSeparator === 'string' && rawSeparator.length > 0 ? rawSeparator : '\n';
+  const requestedOutputCount = Number(data.outputCount ?? 2);
+  const outputCount = Math.max(1, Math.min(9, Number.isFinite(requestedOutputCount) ? Math.trunc(requestedOutputCount) : 2));
+  const parts: string[] = [];
+  let cursor = 0;
+
+  for (let index = 0; index < outputCount - 1; index += 1) {
+    const separatorIndex = sourceText.indexOf(separator, cursor);
+    if (separatorIndex === -1) break;
+    parts.push(trimSeparatorAdjacentNewlines(sourceText.slice(cursor, separatorIndex)));
+    cursor = separatorIndex + separator.length;
+  }
+
+  parts.push(sourceText.slice(cursor));
+  while (parts.length < outputCount) parts.push('');
+  return parts.slice(0, outputCount);
+}
+
+function buildTextSplitPreview(data: Record<string, unknown>, outputs?: Record<string, unknown>) {
+  const outputEntries = Object.entries(outputs || {})
+    .filter(([key]) => /^part\d+$/.test(key))
+    .sort(([keyA], [keyB]) => Number(keyA.replace('part', '')) - Number(keyB.replace('part', '')))
+    .map(([, value]) => String(value ?? ''));
+
+  return outputEntries.length > 0 ? outputEntries : splitTextForPreview(data);
+}
+
 interface NodeContentProps {
   type: string;
   data: Record<string, unknown>;
@@ -61,8 +165,6 @@ export function NodeContent({
     case 'imageGen':
     case 'videoGen':
     case 'saveFile':
-    case 'textClean':
-    case 'textSplit':
       return (
         <NodeSettingsContent
           params={def?.params || []}
@@ -72,6 +174,34 @@ export function NodeContent({
           outerStyle={outerStyle}
           onChange={(paramId, value) => updateNodeData(nodeId, { [paramId]: value })}
           onPatch={(patch) => updateNodeData(nodeId, patch)}
+        />
+      );
+    case 'textClean':
+      return (
+        <TextResultPreviewContent
+          params={def?.params || []}
+          nodeType={type}
+          nodeId={nodeId}
+          data={data}
+          outputs={outputs}
+          outerStyle={outerStyle}
+          onChange={(paramId, value) => updateNodeData(nodeId, { [paramId]: value })}
+          onPatch={(patch) => updateNodeData(nodeId, patch)}
+          mode="clean"
+        />
+      );
+    case 'textSplit':
+      return (
+        <TextResultPreviewContent
+          params={def?.params || []}
+          nodeType={type}
+          nodeId={nodeId}
+          data={data}
+          outputs={outputs}
+          outerStyle={outerStyle}
+          onChange={(paramId, value) => updateNodeData(nodeId, { [paramId]: value })}
+          onPatch={(patch) => updateNodeData(nodeId, patch)}
+          mode="split"
         />
       );
     case 'videoInput':
@@ -681,7 +811,10 @@ function ApiKeyContent({
   const apiKey = String(data.apiKey || '');
   const baseUrl = String(data.baseUrl || '');
   const selectedModel = String(data.selectedModel || '');
-  const endpoint = String(data.endpoint || '');
+  const legacyEndpoint = String(data.endpoint || '');
+  const endpointMode = data.endpointMode === 'custom' || (!data.endpointMode && legacyEndpoint) ? 'custom' : 'category';
+  const endpointCategory = String(data.endpointCategory || 'chat');
+  const customEndpoint = String(data.customEndpoint || legacyEndpoint);
   const modelOptions = Array.isArray(data.apiModels) ? data.apiModels.map(String) : [];
   const modelsLoading = Boolean(data._modelsLoading);
   const modelsError = String(data._modelsError || '');
@@ -785,13 +918,39 @@ function ApiKeyContent({
         </div>
       </div>
       <ApiKeyField
-        label="接口路径"
-        value={endpoint}
-        placeholder="请填写完整的接口路径"
-        onChange={(value) => update({ endpoint: value })}
+        label="接口模式"
+        value={endpointMode}
+        kind="select"
+        options={[
+          { label: '内置接口类型', value: 'category' },
+          { label: '自定义路径', value: 'custom' },
+        ]}
+        onChange={(value) => update({ endpointMode: value })}
       />
+      {endpointMode === 'category' ? (
+        <ApiKeyField
+          label="接口类型"
+          value={endpointCategory}
+          kind="select"
+          options={[
+            { label: '对话接口 /v1/chat/completions', value: 'chat' },
+            { label: '图像生成 /v1/images/generations', value: 'image' },
+            { label: '图像编辑 /v1/images/edits', value: 'image-edit' },
+            { label: 'Gemini generateContent', value: 'gemini-generate-content' },
+            { label: '视频生成 /v1/video/generations', value: 'video' },
+          ]}
+          onChange={(value) => update({ endpointCategory: value })}
+        />
+      ) : (
+        <ApiKeyField
+          label="自定义路径"
+          value={customEndpoint}
+          placeholder="/v1/chat/completions"
+          onChange={(value) => update({ customEndpoint: value, endpoint: value })}
+        />
+      )}
       <div className="node-api-note">
-        只会影响与这个 API Key 节点直接相连的 AI 节点。不会影响未连接的节点，也不会顺着后续链路继续传递。缺少任意一项都会直接中断执行。
+        只会影响与这个 API Key 节点直接相连的 AI 节点。接口模式可选择内置类型或自定义路径；缺少任意必填项都会直接中断执行。
       </div>
     </div>
   );
@@ -803,12 +962,16 @@ function ApiKeyField({
   onChange,
   placeholder,
   type = 'text',
+  kind = 'input',
+  options = [],
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   type?: 'text' | 'password';
+  kind?: 'input' | 'select';
+  options?: { label: string; value: string }[];
 }) {
   const field = useBufferedStringField(value, onChange);
 
@@ -817,6 +980,17 @@ function ApiKeyField({
       <label className="node-api-label">
         {label}
       </label>
+      {kind === 'select' ? (
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="node-api-input"
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      ) : (
         <input
           type={type}
           value={field.value}
@@ -829,6 +1003,7 @@ function ApiKeyField({
           className="node-api-input"
           onKeyDown={(event) => event.stopPropagation()}
         />
+      )}
     </div>
   );
 }
@@ -859,6 +1034,82 @@ function NodeSettingsContent({
   );
 }
 
+function TextResultPreviewContent({
+  params,
+  nodeType,
+  nodeId,
+  data,
+  outputs,
+  outerStyle,
+  onChange,
+  onPatch,
+  mode,
+}: {
+  params: NonNullable<NodeDef>['params'];
+  nodeType: string;
+  nodeId?: string;
+  data: Record<string, unknown>;
+  outputs?: Record<string, unknown>;
+  outerStyle: CSSProperties;
+  onChange: (paramId: string, value: unknown) => void;
+  onPatch: (patch: Record<string, unknown>) => void;
+  mode: 'clean' | 'split';
+}) {
+  const [fullscreenValue, setFullscreenValue] = useState<{ title: string; value: string; segments?: string[] } | null>(null);
+  const cleanPreview = mode === 'clean' ? buildTextCleanPreview(data, outputs) : '';
+  const splitPreview = mode === 'split' ? buildTextSplitPreview(data, outputs) : [];
+  const hasRuntimeOutput = Boolean(outputs && Object.keys(outputs).length > 0);
+
+  return (
+    <div className="node-content-shell node-settings-content node-settings-content--with-preview" style={{ ...outerStyle, overflow: 'auto' }}>
+      <div className="node-settings-content__inner">
+        <NodeParamFields params={params} nodeType={nodeType} nodeId={nodeId} values={data} onChange={onChange} onPatch={onPatch} />
+        <div className="node-result-preview">
+          <div className="node-result-preview__header">
+            <span>{mode === 'clean' ? '清理后预览' : '拆分预览'}</span>
+            <span>{hasRuntimeOutput ? '最近执行结果' : '本地预览'}</span>
+          </div>
+          {mode === 'clean' ? (
+            <button
+              type="button"
+              className={['node-result-preview__text', cleanPreview ? '' : 'node-result-preview__text--empty'].filter(Boolean).join(' ')}
+              onDoubleClick={() => cleanPreview && setFullscreenValue({ title: '查看清理后文本', value: cleanPreview })}
+              title={cleanPreview ? '双击全屏查看' : undefined}
+            >
+              {cleanPreview || '暂无可预览内容，执行后会显示清理结果。'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="node-result-preview__open"
+              onClick={() => setFullscreenValue({
+                title: '查看拆分预览',
+                value: splitPreview.some((item) => item.trim())
+                  ? splitPreview.join('\n\n')
+                  : '暂无可预览内容，执行后会显示拆分结果。',
+                segments: splitPreview.some((item) => item.trim()) ? splitPreview : undefined,
+              })}
+            >
+              拆分预览
+            </button>
+          )}
+        </div>
+      </div>
+      {fullscreenValue && (
+        <LongTextEditorModal
+          title={fullscreenValue.title}
+          value={fullscreenValue.value}
+          segments={fullscreenValue.segments}
+          readOnly
+          placeholder=""
+          onChange={() => undefined}
+          onClose={() => setFullscreenValue(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 function OutputContent({
   outputs,
   outerStyle,
@@ -869,18 +1120,18 @@ function OutputContent({
   isLastSection: boolean;
 }) {
   const content = outputs?.content;
-  const lastRadius = isLastSection ? { borderRadius: '0 0 var(--radius-lg) var(--radius-lg)' } : {};
+  void isLastSection;
 
   if (content === undefined || content === null) {
     return (
-      <div className="node-content-shell node-output-content node-output-content--empty" style={{ ...outerStyle, ...lastRadius }}>
+      <div className="node-content-shell node-output-content node-output-content--empty" style={outerStyle}>
         <span>等待输入内容...</span>
       </div>
     );
   }
 
   return (
-    <div className="node-content-shell node-output-content" style={{ ...outerStyle, overflow: 'hidden', ...lastRadius }}>
+    <div className="node-content-shell node-output-content" style={{ ...outerStyle, overflow: 'hidden' }}>
       <InteractiveValue value={content} />
     </div>
   );
@@ -895,6 +1146,8 @@ function InteractiveValue({ value }: { value: unknown }) {
   if (Array.isArray(value)) {
     const mediaValues = value.filter((item): item is string => typeof item === 'string' && isRenderableOutputMediaUrl(item));
     if (mediaValues.length === value.length && mediaValues.length > 0) {
+      if (mediaValues.length === 1) return <MediaCard value={mediaValues[0]} fill />;
+
       return (
         <div className="node-media-grid">
           {mediaValues.map((item, index) => (

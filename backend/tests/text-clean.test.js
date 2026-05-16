@@ -17,6 +17,12 @@ test('textClean removes think ranges with default tokens', async () => {
   assert.deepEqual(progress, ['清理文本...']);
 });
 
+test('textClean trims blank lines only from the cleaned text boundaries', async () => {
+  const { result } = await clean('\n\n前文\n\n<think>推理内容</think>\n\n正文\n\n');
+
+  assert.deepEqual(result, { text: '前文\n\n\n\n正文' });
+});
+
 test('textClean removes all complete matching ranges by default', async () => {
   const { result } = await clean('A<think>one</think>B<think>two</think>C');
 

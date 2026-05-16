@@ -14,6 +14,7 @@ export async function execute(node, inputs, apiConfig, sendProgress) {
     width: node.data?.width,
     height: node.data?.height,
     quality: node.data?.quality,
+    resolution: node.data?.resolution,
     n: node.data?.n,
     output_format: node.data?.output_format,
     image: inputs.reference,

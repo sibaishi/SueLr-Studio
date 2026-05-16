@@ -57,6 +57,8 @@ export function buildFlowCanvasRenderModel({
       const height = collapsedSize
         ? collapsedSize.height
         : typeof node.height === 'number' ? Math.max(node.height, size.h) : size.h;
+      const minWidth = collapsedSize ? collapsedSize.width : size.w;
+      const minHeight = collapsedSize ? collapsedSize.height : size.h;
 
       return {
         ...node,
@@ -65,8 +67,8 @@ export function buildFlowCanvasRenderModel({
           ...(node.style || {}),
           width,
           height,
-          minWidth: size.w,
-          minHeight: size.h,
+          minWidth,
+          minHeight,
         },
       } as FlowNodeType;
     })

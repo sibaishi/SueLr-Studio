@@ -82,7 +82,7 @@ export function ImagePanel({ base, apiKey, apiConfigs, models, addLog, bridgeRef
               </div>
               <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', lineHeight: 1.5 }}>{getSizingHint(img.width, img.height, img.ratio)}</div>
               <div style={pairStyle}>
-                <div><IOSLabel>质量</IOSLabel><IOSSelect value={img.quality} onChange={v => img.setQuality(v as typeof img.quality)}><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="auto">auto</option></IOSSelect></div>
+                <div><IOSLabel>输出档位</IOSLabel><IOSSelect value={img.resolution} onChange={v => img.setResolution(v as typeof img.resolution)}><option value="auto">auto</option><option value="512px">512px</option><option value="1k">1k</option><option value="2k">2k</option><option value="4k">4k</option></IOSSelect></div>
                 <div><IOSLabel>输出格式</IOSLabel><IOSSelect value={img.outputFormat} onChange={v => img.setOutputFormat(v as typeof img.outputFormat)}><option value="png">png</option><option value="jpeg">jpeg</option><option value="webp">webp</option></IOSSelect></div>
               </div>
             </div>
@@ -179,7 +179,7 @@ export function ImagePanel({ base, apiKey, apiConfigs, models, addLog, bridgeRef
   return (
     <>
       <FullscreenViewer url={img.previewUrl} onClose={() => img.setPreviewUrl(null)} />
-      {detailTask && <TaskDetailModal task={detailTask} type="image" onClose={() => setDetailTask(null)} onApply={t => { img.setPrompt(t.prompt); img.setModel(t.model); img.setRatio(t.ratio); img.setWidth(t.width ? String(t.width) : ''); img.setHeight(t.height ? String(t.height) : ''); img.setQuality(t.quality || 'high'); img.setCount(t.n || 1); img.setOutputFormat(t.output_format || 'png'); if (t.refImages.length > 0) { img.setRefImages(t.refImages); img.setMode('image'); } }} />}
+      {detailTask && <TaskDetailModal task={detailTask} type="image" onClose={() => setDetailTask(null)} onApply={t => { img.setPrompt(t.prompt); img.setModel(t.model); img.setRatio(t.ratio); img.setWidth(t.width ? String(t.width) : ''); img.setHeight(t.height ? String(t.height) : ''); img.setQuality(t.quality || 'auto'); img.setResolution(t.resolution || 'auto'); img.setCount(t.n || 1); img.setOutputFormat(t.output_format || 'png'); if (t.refImages.length > 0) { img.setRefImages(t.refImages); img.setMode('image'); } }} />}
       <MediaWorkbench
         eyebrow="Image"
         title="图像工作台"

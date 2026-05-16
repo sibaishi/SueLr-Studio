@@ -76,8 +76,8 @@ export class CapabilitiesService {
     }
   }
 
-  async image(body) {
-    return this.imagesService.generate(body);
+  async image(body, options = {}) {
+    return this.imagesService.generate(body, options);
   }
 
   async submitVideo(body) {

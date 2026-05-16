@@ -291,15 +291,16 @@ describe('workflow store execution actions', () => {
     expect(addExecutionLog).toHaveBeenCalledTimes(1);
   });
 
-  it('stops execution cleanly when workflow save fails before launch', async () => {
+  it('executes draft workflows without saving first', async () => {
     const addExecutionLog = vi.fn();
+    const saveWorkflow = vi.fn(async () => false);
     const harness = createWorkflowStoreHarness({
       nodes: [
         {
-          id: 'ai_node',
-          type: 'aiChat',
+          id: 'text_node',
+          type: 'textInput',
           position: { x: 0, y: 0 },
-          data: { disabled: false },
+          data: { text: 'hello' },
         },
         {
           id: 'output_node',
@@ -308,8 +309,8 @@ describe('workflow store execution actions', () => {
           data: { disabled: false },
         },
       ],
-      edges: [{ id: 'edge-1', source: 'ai_node', sourceHandle: 'response', target: 'output_node', targetHandle: 'content' }],
-      saveWorkflow: vi.fn(async () => false),
+      edges: [{ id: 'edge-1', source: 'text_node', sourceHandle: 'text', target: 'output_node', targetHandle: 'content' }],
+      saveWorkflow,
       addExecutionLog,
     });
 
@@ -318,17 +319,63 @@ describe('workflow store execution actions', () => {
 
     await actions.executeWorkflow();
 
+    expect(saveWorkflow).not.toHaveBeenCalled();
+    expect(api.executeWorkflow).toHaveBeenCalledTimes(1);
+    expect(api.executeWorkflow).toHaveBeenCalledWith(
+      'wf_local',
+      expect.objectContaining({
+        name: 'Test Workflow',
+        nodes: expect.arrayContaining([
+          expect.objectContaining({ id: 'text_node', type: 'textInput' }),
+        ]),
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it('writes upstream textInput execution output back into node text', async () => {
+    vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
+      callbacks.onNodeComplete?.({
+        nodeId: 'editable_text',
+        outputs: { text: 'from upstream' },
+        duration: 1,
+      });
+      callbacks.onWorkflowComplete?.({
+        totalDuration: 1,
+        successCount: 1,
+        failCount: 0,
+      });
+    });
+
+    const harness = createWorkflowStoreHarness({
+      hasUnsavedChanges: false,
+      nodes: [
+        {
+          id: 'source_text',
+          type: 'textInput',
+          position: { x: 0, y: 0 },
+          data: { text: 'from upstream' },
+        },
+        {
+          id: 'editable_text',
+          type: 'textInput',
+          position: { x: 300, y: 0 },
+          data: { text: 'local fallback' },
+        },
+      ],
+      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'text', target: 'editable_text', targetHandle: 'input' }],
+      saveWorkflow: vi.fn(async () => false),
+      addExecutionLog: vi.fn(),
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflow();
+
     const state = harness.getState();
-    expect(api.executeWorkflow).not.toHaveBeenCalled();
-    expect(clearActiveRunSnapshot).toHaveBeenCalledTimes(1);
-    expect(state.isExecuting).toBe(false);
-    expect(state.currentRunId).toBeNull();
-    expect(state.lastExecutionStatus).toBe('error');
-    expect(state.lastExecutionError).toBe('工作流保存失败，未启动执行');
-    expect(addExecutionLog).toHaveBeenCalledWith(expect.objectContaining({
-      level: 'error',
-      message: '工作流保存失败，已取消执行',
-    }));
+    expect(state.nodes.find((node) => node.id === 'editable_text')?.data.text).toBe('from upstream');
+    expect(state.hasUnsavedChanges).toBe(true);
   });
 
   it('marks execution stopped when cancel is requested without a run id', async () => {

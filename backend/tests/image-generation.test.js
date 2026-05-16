@@ -327,6 +327,152 @@ test('generateImages resolves model ids when chat tool calls add spaces around h
   }
 });
 
+test('generateImages routes requested image resolution to configured model suffix', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gpt-image-2',
+      prompt: 'draw a mountain',
+      resolution: '4k',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gpt-image-2',
+          modelId: 'gpt-image-2',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+        {
+          id: 'gpt-image-2-4k',
+          modelId: 'gpt-image-2-4k',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(result.request.model, 'gpt-image-2-4k');
+    assert.equal(result.request.resolution, '4k');
+    assert.equal(requestBody.model, 'gpt-image-2-4k');
+    assert.equal(requestBody.resolution, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages probes unlisted resolution suffix then falls back to base model with resolution body', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestBodies = [];
+  const progress = [];
+
+  globalThis.fetch = async (_url, options = {}) => {
+    const requestBody = JSON.parse(String(options.body));
+    requestBodies.push(requestBody);
+
+    if (requestBodies.length === 1) {
+      assert.equal(requestBody.model, 'gpt-image-2-4k');
+      return new Response(JSON.stringify({
+        error: { message: 'model not found' },
+      }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gpt-image-2',
+      prompt: 'draw a mountain',
+      resolution: '4k',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gpt-image-2',
+          modelId: 'gpt-image-2',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    }), (message) => progress.push(message));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requestBodies.length, 2);
+    assert.equal(requestBodies[1].model, 'gpt-image-2');
+    assert.equal(requestBodies[1].resolution, '4k');
+    assert.match(progress.join('\n'), /resolution=4k/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages infers image resolution from selected model suffix', async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    data: [
+      { b64_json: 'YWJj' },
+    ],
+  }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  try {
+    const result = await generateImages({
+      model: 'gemini-3.1-flash-image-preview-512px',
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gemini-3.1-flash-image-preview-512px',
+          modelId: 'gemini-3.1-flash-image-preview-512px',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(result.request.resolution, '512px');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateImages retries connect timeout for image generation requests', async () => {
   const originalFetch = globalThis.fetch;
   const originalSetTimeout = globalThis.setTimeout;
@@ -663,8 +809,205 @@ test('generateImages supports Gemini generateContent image endpoints without cha
     assert.equal(requestBody.contents[0].parts[0].text.includes('Generate an image from this prompt:'), true);
     assert.equal(requestBody.contents[0].parts[0].text.includes('Size: 1088x1920'), true);
     assert.equal(requestBody.contents[0].parts[0].text.includes('1080x1920'), false);
+    assert.deepEqual(requestBody.generationConfig, {
+      imageConfig: {
+        imageSize: '4K',
+      },
+    });
     assert.equal(requestBody.model, undefined);
     assert.equal(requestBody.messages, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages sends Gemini imageConfig for native aspect ratio and resolution', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'YWJj',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gemini-3.1-flash-image-preview',
+      prompt: 'poster',
+      ratio: '9:16',
+      resolution: '2k',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gemini-3.1-flash-image-preview',
+          modelId: 'gemini-3.1-flash-image-preview',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'gemini-generate-content',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.deepEqual(requestBody.generationConfig, {
+      imageConfig: {
+        aspectRatio: '9:16',
+        imageSize: '2K',
+      },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages maps 1k resolution to Gemini native imageSize', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'YWJj',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gemini-3.1-flash-image-preview',
+      prompt: 'poster',
+      resolution: '1k',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gemini-3.1-flash-image-preview',
+          modelId: 'gemini-3.1-flash-image-preview',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'gemini-generate-content',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.deepEqual(requestBody.generationConfig, {
+      imageConfig: {
+        imageSize: '1K',
+      },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages falls back to base Gemini generateContent model endpoint for resolution suffixes', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestUrls = [];
+  const requestBodies = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    requestUrls.push(String(url));
+    requestBodies.push(JSON.parse(String(options.body)));
+
+    if (requestUrls.length === 1) {
+      return new Response(JSON.stringify({
+        error: { message: 'model not found' },
+      }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'YWJj',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gemini-3-pro-image-preview',
+      prompt: 'poster',
+      resolution: '4k',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gemini-3-pro-image-preview',
+          modelId: 'gemini-3-pro-image-preview',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'gemini-generate-content',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requestUrls.length, 2);
+    assert.equal(requestUrls[0], 'https://example.com/v1beta/models/gemini-3-pro-image-preview-4k:generateContent?key=demo-key');
+    assert.equal(requestUrls[1], 'https://example.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=demo-key');
+    assert.deepEqual(requestBodies[0].generationConfig, {
+      imageConfig: {
+        imageSize: '4K',
+      },
+    });
+    assert.deepEqual(requestBodies[1].generationConfig, {
+      imageConfig: {
+        imageSize: '4K',
+      },
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -859,6 +1202,69 @@ test('generateImages logs one ImageRequest entry for a single image edit request
   }
 });
 
+test('generateImages falls back to base model with resolution form field for image edits', async () => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  const progress = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({
+      url: String(url),
+      body: options.body,
+    });
+
+    if (requests.length === 1) {
+      assert.equal(options.body.get('model'), 'gpt-image-2-4k');
+      assert.equal(options.body.get('resolution'), null);
+      return new Response(JSON.stringify({
+        error: { message: 'model not found' },
+      }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gpt-image-2',
+      prompt: 'turn this into a render',
+      image: ['data:image/png;base64,QUJD'],
+      resolution: '4k',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gpt-image-2',
+          modelId: 'gpt-image-2',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    }), (message) => progress.push(message));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0].url, 'https://example.com/v1/images/edits');
+    assert.equal(requests[1].url, 'https://example.com/v1/images/edits');
+    assert.equal(requests[1].body.get('model'), 'gpt-image-2');
+    assert.equal(requests[1].body.get('resolution'), '4k');
+    assert.match(progress.join('\n'), /分辨率后缀模型请求失败/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateImages resolves local API image URLs before sending edit requests upstream', async () => {
   const cleanup = withTempStorage();
   const originalFetch = globalThis.fetch;
@@ -955,6 +1361,7 @@ test('generateImages uses chat payload instead of form-data when chat endpoint h
       prompt: 'turn this into a render',
       image: ['data:image/png;base64,QUJD'],
       quality: 'high',
+      resolution: '2k',
       width: 2048,
       height: 2048,
     }, createRuntimeConfig({
@@ -977,17 +1384,86 @@ test('generateImages uses chat payload instead of form-data when chat endpoint h
     assert.equal(requests[0].body instanceof FormData, false);
 
     const payload = JSON.parse(String(requests[0].body));
-    assert.equal(payload.model, 'demo-image-model');
+    assert.equal(payload.model, 'demo-image-model-2k');
     assert.equal(payload.stream, false);
     assert.deepEqual(payload.response_format, { type: 'url' });
     assert.equal(payload.quality, 'high');
+    assert.equal(payload.resolution, undefined);
     assert.equal(payload.size, '2048x2048');
     assert.equal(payload.messages?.[0]?.role, 'user');
     assert.ok(Array.isArray(payload.messages?.[0]?.content));
     assert.equal(payload.messages[0].content[0].type, 'text');
     assert.match(payload.messages[0].content[0].text, /turn this into a render/);
+    assert.match(payload.messages[0].content[0].text, /2k/);
     assert.equal(payload.messages[0].content[1].type, 'image_url');
     assert.equal(payload.messages[0].content[1].image_url.url, 'data:image/png;base64,QUJD');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages falls back to base chat image model with resolution body', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestBodies = [];
+
+  globalThis.fetch = async (_url, options = {}) => {
+    const body = JSON.parse(String(options.body));
+    requestBodies.push(body);
+
+    if (requestBodies.length === 1) {
+      assert.equal(body.model, 'demo-image-model-2k');
+      assert.equal(body.resolution, undefined);
+      return new Response(JSON.stringify({
+        error: { message: 'model not found' },
+      }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      choices: [
+        {
+          message: {
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: 'data:image/png;base64,YWJj' },
+              },
+            ],
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'turn this into a render',
+      image: ['data:image/png;base64,QUJD'],
+      resolution: '2k',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'demo-image-model',
+          modelId: 'demo-image-model',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'custom',
+          customEndpoint: '/v1/chat/completions',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requestBodies.length, 2);
+    assert.equal(requestBodies[1].model, 'demo-image-model');
+    assert.equal(requestBodies[1].resolution, '2k');
+    assert.match(requestBodies[1].messages[0].content[0].text, /2k/);
   } finally {
     globalThis.fetch = originalFetch;
   }

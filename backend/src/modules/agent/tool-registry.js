@@ -128,6 +128,12 @@ function normalizeImageOutputFormat(value) {
   return allowed.has(normalized) ? normalized : '';
 }
 
+function normalizeImageResolution(value) {
+  const normalized = cleanString(value, 40).toLowerCase();
+  const allowed = new Set(['auto', '512px', '1k', '2k', '4k']);
+  return allowed.has(normalized) ? normalized : '';
+}
+
 function normalizeVideoRatio(value) {
   return normalizeImageRatio(value);
 }
@@ -434,6 +440,11 @@ export class ToolRegistry {
             enum: ['low', 'medium', 'high', 'auto'],
             description: 'Use medium instead of standard, and high instead of hd.',
           },
+          resolution: {
+            type: 'string',
+            enum: ['auto', '512px', '1k', '2k', '4k'],
+            description: 'Preferred output tier. Prefer this over quality for image models with -512px, -1k, -2k, or -4k variants.',
+          },
           n: { type: 'number' },
           output_format: {
             type: 'string',
@@ -456,6 +467,9 @@ export class ToolRegistry {
               width: args.width,
               height: args.height,
               quality: normalizeImageQuality(args.quality),
+              ...(normalizeImageResolution(args.resolution || args.output_resolution || args.outputResolution)
+                ? { resolution: normalizeImageResolution(args.resolution || args.output_resolution || args.outputResolution) }
+                : {}),
               n: args.n,
               output_format: normalizeImageOutputFormat(args.output_format),
             });

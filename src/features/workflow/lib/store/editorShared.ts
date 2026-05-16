@@ -10,6 +10,7 @@ import {
 import {
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
+  getCollapsedGroupNodeSize,
   getEffectiveNodeSize,
   getGroupContentBounds,
   GROUP_CONTENT_INSET_BOTTOM,
@@ -916,6 +917,15 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
 
     const groupNode = nodeMap.get(parentId);
     if (!groupNode || groupNode.type !== 'group') return;
+
+    if (groupNode.data?.collapsed) {
+      const collapsedSize = getCollapsedGroupNodeSize(groupNode);
+      if (!isNodeLocked(groupNode)) {
+        groupNode.width = collapsedSize.width;
+        groupNode.height = collapsedSize.height;
+      }
+      return;
+    }
 
     const minSize = getNodeDefaultSize('group');
     let maxX = GROUP_CONTENT_INSET_X;

@@ -74,7 +74,8 @@ export function useImageGen(
   const [ratio, setRatio] = useState('auto');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
-  const [quality, setQuality] = useState<'low' | 'medium' | 'high' | 'auto'>('high');
+  const [quality, setQuality] = useState<'low' | 'medium' | 'high' | 'auto'>('auto');
+  const [resolution, setResolution] = useState<'auto' | '512px' | '1k' | '2k' | '4k'>('auto');
   const [count, setCount] = useState(1);
   const [outputFormat, setOutputFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
   const [mode, setMode] = useState<'text' | 'image'>('text');
@@ -146,11 +147,15 @@ export function useImageGen(
 
     const controller = new AbortController();
     abortMap.current[nextTaskId] = controller;
-    addLogRef.current('info', `[Image] 开始生成: ${task.prompt.slice(0, 30)}... (${task.model})`);
+    addLogRef.current('info', `[Image] 开始生成 ${task.prompt.slice(0, 30)}... (${task.model})`);
 
     const taskModelInfo = resolveSelectedModel(imgModels, task.model);
     const taskConfig = resolveModelConfig(apiConfigs, taskModelInfo);
-    const provider = createProvider(taskConfig?.base || base, taskConfig?.apiKey || apiKey, taskConfig?.providerConfig || providerConfig);
+    const provider = createProvider(
+      taskConfig?.base || base,
+      taskConfig?.apiKey || apiKey,
+      taskConfig?.providerConfig || providerConfig,
+    );
 
     provider
       .generateImage({
@@ -159,7 +164,8 @@ export function useImageGen(
         ratio: task.ratio,
         width: task.width,
         height: task.height,
-        quality: task.quality,
+        quality: task.quality && task.quality !== 'auto' ? task.quality : undefined,
+        resolution: task.resolution,
         n: task.n,
         output_format: task.output_format,
         image: task.refImages,
@@ -238,6 +244,7 @@ export function useImageGen(
       width: sizing.width,
       height: sizing.height,
       quality,
+      resolution,
       n: count,
       output_format: outputFormat,
       refImages: mode === 'image' ? refImages : [],
@@ -250,9 +257,9 @@ export function useImageGen(
 
     setTasks((prev) => [task, ...prev]);
     queueRef.current.push(task.id);
-    addLog('info', `[Image] 任务已提交: ${task.prompt.slice(0, 30)}...`);
+    addLog('info', `[Image] 任务已提交 ${task.prompt.slice(0, 30)}...`);
     setTimeout(() => processNext(), 0);
-  }, [prompt, model, ratio, width, height, quality, count, outputFormat, mode, refImages, addLog, processNext, imgModels]);
+  }, [prompt, model, ratio, width, height, quality, resolution, count, outputFormat, mode, refImages, addLog, processNext, imgModels]);
 
   const cancelTask = useCallback((id: string) => {
     queueRef.current = queueRef.current.filter((queuedId) => queuedId !== id);
@@ -309,6 +316,7 @@ export function useImageGen(
     width,
     height,
     quality,
+    resolution,
     count,
     outputFormat,
     mode,
@@ -322,6 +330,7 @@ export function useImageGen(
     setWidth,
     setHeight,
     setQuality,
+    setResolution,
     setCount,
     setOutputFormat,
     setMode,

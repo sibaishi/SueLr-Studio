@@ -1,4 +1,4 @@
-import { normalizeProjectModels, resolveProjectModelRuntime } from './projectModels.js';
+import { DEFAULT_ENDPOINTS, normalizeProjectModels, resolveProjectModelRuntime } from './projectModels.js';
 
 function cleanText(value) {
   return String(value || '').trim();
@@ -6,6 +6,39 @@ function cleanText(value) {
 
 function cleanObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+const NODE_ENDPOINT_CATEGORIES = new Set(['chat', 'image', 'image-edit', 'gemini-generate-content', 'video']);
+
+function normalizeEndpointMode(value) {
+  return value === 'custom' ? 'custom' : 'category';
+}
+
+function normalizeEndpointCategory(value) {
+  return NODE_ENDPOINT_CATEGORIES.has(value) ? value : 'chat';
+}
+
+export function resolveNodeEndpoint({
+  modelId = '',
+  endpointMode,
+  endpointCategory,
+  customEndpoint,
+  legacyEndpoint,
+}) {
+  const mode = normalizeEndpointMode(endpointMode);
+  const normalizedLegacyEndpoint = cleanText(legacyEndpoint);
+
+  if (mode === 'custom') {
+    return cleanText(customEndpoint) || normalizedLegacyEndpoint;
+  }
+
+  const category = normalizeEndpointCategory(endpointCategory);
+  if (category === 'gemini-generate-content') {
+    const resolvedModelId = cleanText(modelId);
+    return resolvedModelId ? `/v1beta/models/${encodeURIComponent(resolvedModelId)}:generateContent` : '';
+  }
+
+  return DEFAULT_ENDPOINTS[category] || '';
 }
 
 function parseRoutedModel(value) {
@@ -66,7 +99,16 @@ export function resolveRuntimeApiConfig(inputs, apiConfig, selectedModel = '') {
     const nodeApiKey = cleanText(incoming.apiKey);
     const nodeBaseUrl = cleanText(incoming.baseUrl);
     const nodeModel = cleanText(incoming.model);
-    const nodeEndpoint = cleanText(incoming.endpoint);
+    const nodeEndpointMode = normalizeEndpointMode(incoming.endpointMode);
+    const nodeEndpointCategory = normalizeEndpointCategory(incoming.endpointCategory);
+    const nodeCustomEndpoint = cleanText(incoming.customEndpoint);
+    const nodeEndpoint = resolveNodeEndpoint({
+      modelId: nodeModel,
+      endpointMode: nodeEndpointMode,
+      endpointCategory: nodeEndpointCategory,
+      customEndpoint: nodeCustomEndpoint,
+      legacyEndpoint: incoming.endpoint,
+    });
     const incomingProviderConfig = mergeProviderConfig(
       DEFAULT_RUNTIME_PROVIDER_CONFIG,
       incoming.providerConfig || {},
@@ -87,6 +129,9 @@ export function resolveRuntimeApiConfig(inputs, apiConfig, selectedModel = '') {
       baseUrl: nodeBaseUrl,
       model: nodeModel,
       endpoint: nodeEndpoint,
+      endpointMode: nodeEndpointMode,
+      endpointCategory: nodeEndpointCategory,
+      customEndpoint: nodeCustomEndpoint || cleanText(incoming.endpoint),
       projectModels,
       providerConfig: incomingProviderConfig,
     };

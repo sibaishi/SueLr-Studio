@@ -659,10 +659,14 @@ test('HTTP contract: capabilities image route returns envelope-only payloads', a
   try {
     const { capabilitiesService } = await import('../src/modules/capabilities/capabilities.service.js');
     const originalImage = capabilitiesService.image;
-    capabilitiesService.image = async () => ({
-      images: ['https://example.com/generated.png'],
-      request: { model: 'demo-image-model' },
-    });
+    let receivedOptions = null;
+    capabilitiesService.image = async (_body, options) => {
+      receivedOptions = options;
+      return {
+        images: ['https://example.com/generated.png'],
+        request: { model: 'demo-image-model' },
+      };
+    };
 
     try {
       const success = await requestJson(baseUrl, '/api/capabilities/image', {
@@ -681,6 +685,7 @@ test('HTTP contract: capabilities image route returns envelope-only payloads', a
       });
       assert.equal(success.body.images, undefined);
       assert.equal(success.body.request, undefined);
+      assert.equal(receivedOptions?.signal instanceof AbortSignal, true);
     } finally {
       capabilitiesService.image = originalImage;
     }
@@ -774,10 +779,14 @@ test('HTTP contract: images generate route returns envelope-only payloads', asyn
   try {
     const { imagesService } = await import('../src/modules/images/images.service.js');
     const originalGenerate = imagesService.generate;
-    imagesService.generate = async () => ({
-      images: ['https://example.com/generated.png'],
-      request: { model: 'demo-image-model' },
-    });
+    let receivedOptions = null;
+    imagesService.generate = async (_body, options) => {
+      receivedOptions = options;
+      return {
+        images: ['https://example.com/generated.png'],
+        request: { model: 'demo-image-model' },
+      };
+    };
 
     try {
       const success = await requestJson(baseUrl, '/api/images/generate', {
@@ -796,6 +805,7 @@ test('HTTP contract: images generate route returns envelope-only payloads', asyn
       });
       assert.equal(success.body.images, undefined);
       assert.equal(success.body.request, undefined);
+      assert.equal(receivedOptions?.signal instanceof AbortSignal, true);
     } finally {
       imagesService.generate = originalGenerate;
     }

@@ -11,10 +11,13 @@ export class ImagesService {
     this.runImageGeneration = dependencies.runImageGeneration || runImageGeneration;
   }
 
-  async generate(body) {
+  async generate(body, options = {}) {
     try {
       const runtimeConfig = this.settingsService.buildRuntimeConfig(body?.apiConfig || {});
-      return await this.runImageGeneration(body || {}, { ...runtimeConfig, abortSignal: undefined });
+      return await this.runImageGeneration(body || {}, {
+        ...runtimeConfig,
+        abortSignal: options.signal || body?.signal,
+      });
     } catch (error) {
       logger.error('image generation failed', { code: error?.code, message: error?.message });
       throw error?.status ? error : new ProviderError('IMAGE_GENERATION_FAILED', error instanceof Error ? error.message : '图片生成失败');

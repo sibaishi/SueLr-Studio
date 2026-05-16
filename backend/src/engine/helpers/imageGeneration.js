@@ -34,6 +34,13 @@ const CHAT_URL_RESPONSE_FORMAT = { type: 'url' };
 
 const ALLOWED_QUALITY = new Set(['low', 'medium', 'high', 'auto']);
 const ALLOWED_FORMAT = new Set(['png', 'jpeg', 'webp']);
+const ALLOWED_IMAGE_RESOLUTION = new Set(['auto', '512px', '1k', '2k', '4k']);
+const IMAGE_RESOLUTION_SUFFIX_REGEX = /-(512px|1k|2k|4k)$/i;
+const GEMINI_IMAGE_SIZE_BY_RESOLUTION = {
+  '1k': '1K',
+  '2k': '2K',
+  '4k': '4K',
+};
 const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const DEFAULT_IMAGE_ENDPOINT = '/v1/images/generations';
@@ -80,6 +87,10 @@ function buildChatImagePromptText(prompt, payload) {
 
   if (payload.quality) {
     lines.push(`质量：${payload.quality}`);
+  }
+
+  if (payload.resolution) {
+    lines.push(`输出档位：${payload.resolution}`);
   }
 
   if (payload.output_format) {
@@ -158,6 +169,7 @@ function buildGeminiImagePromptText(prompt, payload = {}) {
   if (payload.size) lines.push(`Size: ${payload.size}`);
   if (payload.aspect_ratio) lines.push(`Aspect ratio: ${payload.aspect_ratio}`);
   if (payload.quality) lines.push(`Quality: ${payload.quality}`);
+  if (payload.resolution) lines.push(`Resolution tier: ${payload.resolution}`);
   if (payload.output_format) lines.push(`Output format: ${payload.output_format}`);
   return lines.join('\n');
 }
@@ -187,6 +199,21 @@ function buildGeminiImageParts(prompt, images, payload = {}) {
   return parts;
 }
 
+function buildGeminiImageGenerationConfig(payload = {}) {
+  const imageConfig = {};
+  const aspectRatio = payload.ratio && payload.ratio !== 'auto' ? payload.ratio : payload.aspect_ratio;
+  const imageSize = GEMINI_IMAGE_SIZE_BY_RESOLUTION[payload.resolution];
+
+  if (aspectRatio && SUPPORTED_RATIOS.has(aspectRatio)) {
+    imageConfig.aspectRatio = aspectRatio;
+  }
+  if (imageSize) {
+    imageConfig.imageSize = imageSize;
+  }
+
+  return Object.keys(imageConfig).length > 0 ? { imageConfig } : undefined;
+}
+
 function getImageTimeoutMs(providerConfig) {
   const timeout = Number(providerConfig?.imageTimeoutMs);
   return Number.isFinite(timeout) && timeout > 0 ? Math.round(timeout) : 300000;
@@ -194,6 +221,61 @@ function getImageTimeoutMs(providerConfig) {
 
 function getSizeFromRatio(ratio) {
   return SIZE_BY_RATIO[ratio] || undefined;
+}
+
+function normalizeImageResolution(value) {
+  const normalized = cleanText(value).toLowerCase();
+  return ALLOWED_IMAGE_RESOLUTION.has(normalized) ? normalized : '';
+}
+
+function getImageResolutionFromModel(modelId) {
+  const match = cleanText(modelId).match(IMAGE_RESOLUTION_SUFFIX_REGEX);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function stripImageResolutionSuffix(modelId) {
+  return cleanText(modelId).replace(IMAGE_RESOLUTION_SUFFIX_REGEX, '');
+}
+
+function resolveImageResolutionModel(modelId, resolution, projectModels = []) {
+  const requestedResolution = normalizeImageResolution(resolution);
+  if (!requestedResolution || requestedResolution === 'auto') return modelId;
+
+  const currentResolution = getImageResolutionFromModel(modelId);
+  if (currentResolution === requestedResolution) return modelId;
+
+  const baseModelId = stripImageResolutionSuffix(modelId);
+  const targetModelId = `${baseModelId}-${requestedResolution}`;
+  const targetModel = findProjectModel(projectModels, targetModelId);
+  if (targetModel?.configured && targetModel.enabled !== false && targetModel.type === 'image') {
+    return targetModel.modelId;
+  }
+
+  return targetModelId;
+}
+
+function getImageResolutionFallbackModel(modelId, resolution) {
+  const requestedResolution = normalizeImageResolution(resolution) || getImageResolutionFromModel(modelId);
+  if (!requestedResolution || requestedResolution === 'auto') return '';
+  const fallbackModel = stripImageResolutionSuffix(modelId);
+  return fallbackModel && fallbackModel !== modelId ? fallbackModel : '';
+}
+
+function resolveModelRuntimeAllowingResolutionSuffix(runtimeConfig, modelId, options = {}) {
+  try {
+    return resolveModelRuntime(runtimeConfig, modelId, options);
+  } catch (error) {
+    const fallbackModel = getImageResolutionFallbackModel(modelId);
+    if (!fallbackModel) throw error;
+    const resolved = resolveModelRuntime(runtimeConfig, fallbackModel, options);
+    if (resolved.endpoint && resolved.endpoint.includes(encodeURIComponent(fallbackModel))) {
+      return {
+        ...resolved,
+        endpoint: resolved.endpoint.replace(encodeURIComponent(fallbackModel), encodeURIComponent(modelId)),
+      };
+    }
+    return resolved;
+  }
 }
 
 function parseInteger(value) {
@@ -337,11 +419,15 @@ export function normalizeImageGenerationRequest(request = {}) {
   const sizing = getSizing({ ratio, roundedWidth, roundedHeight });
   const size = sizing.size;
   const quality = cleanText(request.quality);
+  const resolution = normalizeImageResolution(request.resolution || request.outputResolution || request.output_resolution);
   const outputFormat = cleanText(request.output_format || request.outputFormat);
   const n = request.n === undefined || request.n === null || request.n === '' ? 1 : parseInteger(request.n);
 
   if (!prompt) throw new Error('缺少提示词 prompt');
   if (quality && !ALLOWED_QUALITY.has(quality)) throw new Error('quality 仅支持 low、medium、high、auto');
+  if ((request.resolution || request.outputResolution || request.output_resolution) && !resolution) {
+    throw new Error('resolution 仅支持 auto、512px、1k、2k、4k');
+  }
   if (outputFormat && !ALLOWED_FORMAT.has(outputFormat)) throw new Error('output_format 仅支持 png、jpeg、webp');
   if (n === null || n <= 0) throw new Error('n 必须是正整数');
   validateSize(size);
@@ -356,6 +442,7 @@ export function normalizeImageGenerationRequest(request = {}) {
     aspect_ratio: sizing.aspect_ratio,
     sizeSource: sizing.sizeSource,
     quality: quality || undefined,
+    resolution: resolution && resolution !== 'auto' ? resolution : undefined,
     n,
     output_format: outputFormat || undefined,
     image: normalizeImageArray(request.image || request.referenceImages || request.reference),
@@ -386,9 +473,9 @@ export function resolveImageGenerationModel(request, runtimeConfig = {}) {
   if (requestedModel) {
     const configuredModel = findProjectModel(runtimeConfig.projectModels || [], requestedModel);
     if (configuredModel?.configured && configuredModel.type === 'image') {
-      return configuredModel.modelId;
+      return resolveImageResolutionModel(configuredModel.modelId, request.resolution, runtimeConfig.projectModels || []);
     }
-    return requestedModel;
+    return resolveImageResolutionModel(requestedModel, request.resolution, runtimeConfig.projectModels || []);
   }
 
   const operation = getImageOperation(request);
@@ -1064,6 +1151,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
 
   const normalized = normalizeImageGenerationRequest(request);
   normalized.model = resolveImageGenerationModel(normalized, runtimeConfig);
+  normalized.resolution = normalized.resolution || getImageResolutionFromModel(normalized.model) || undefined;
   const timeoutMs = getImageTimeoutMs(providerConfig);
 
   const referenceImages = [];
@@ -1093,10 +1181,18 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
   for (let index = 0; index < requestCount; index += 1) {
     sendProgress?.(`正在生成第 ${index + 1}/${requestCount} 张图片...`);
 
-    const { endpoint: imageEndpoint } = resolveModelRuntime(runtimeConfig, payload.model, {
-      expectedType: 'image',
-      purpose: 'image',
-    });
+    const resolveImageEndpoint = (model, purpose = 'image') => {
+      const { endpoint } = resolveModelRuntimeAllowingResolutionSuffix(runtimeConfig, model, {
+        expectedType: 'image',
+        purpose,
+      });
+      return endpoint;
+    };
+    const imageEndpoint = resolveImageEndpoint(payload.model);
+    const fallbackModel = getImageResolutionFallbackModel(payload.model, payload.resolution);
+    const logResolutionFallback = (model) => {
+      sendProgress?.(`分辨率后缀模型请求失败，回退到基础模型并在请求体中发送 resolution=${payload.resolution}: ${model}`);
+    };
     const usesGeminiGenerateContent = isGeminiGenerateContentEndpoint(imageEndpoint);
     const usesChatPayload = isChatCompletionsEndpoint(imageEndpoint);
     const usesArkImageGenerationPayload = isVolcengineArkRuntime(baseUrl) && !usesChatPayload && !usesGeminiGenerateContent;
@@ -1106,33 +1202,23 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
       && !usesGeminiGenerateContent;
 
     const attemptData = shouldUseEditEndpoint
-      ? await (() => {
-          const { endpoint } = resolveModelRuntime(runtimeConfig, payload.model, {
-            expectedType: 'image',
-            purpose: 'image-edit',
-          });
-          const requestBody = {
+      ? await (async () => {
+          const buildRequestBody = (options = {}) => ({
             ...payload,
+            model: options.model || payload.model,
             n: 1,
-          };
-          const form = new FormData();
-          form.append('model', requestBody.model);
-          form.append('prompt', requestBody.prompt);
-          if (requestBody.size) form.append('size', requestBody.size);
-          if (requestBody.quality) form.append('quality', requestBody.quality);
-          if (requestBody.output_format) form.append('output_format', requestBody.output_format);
-          if (requestBody.n) form.append('n', String(requestBody.n));
-          const formSummary = [
-            { key: 'model', value: requestBody.model },
-            { key: 'prompt', value: requestBody.prompt },
-            ...(requestBody.size ? [{ key: 'size', value: requestBody.size }] : []),
-            ...(requestBody.quality ? [{ key: 'quality', value: requestBody.quality }] : []),
-            ...(requestBody.output_format ? [{ key: 'output_format', value: requestBody.output_format }] : []),
-            { key: 'n', value: String(requestBody.n) },
-            ...requestBody.image.map((item, imageIndex) => ({ key: 'image', index: imageIndex, preview: String(item).slice(0, 120) })),
-            ...(requestBody.mask ? [{ key: 'mask', preview: String(requestBody.mask).slice(0, 120) }] : []),
-          ];
-          return (async () => {
+            resolution: options.includeResolution ? payload.resolution : undefined,
+          });
+          const callWithRequestBody = async (requestBody) => {
+            const endpoint = resolveImageEndpoint(requestBody.model, 'image-edit');
+            const form = new FormData();
+            form.append('model', requestBody.model);
+            form.append('prompt', requestBody.prompt);
+            if (requestBody.size) form.append('size', requestBody.size);
+            if (requestBody.quality) form.append('quality', requestBody.quality);
+            if (requestBody.resolution) form.append('resolution', requestBody.resolution);
+            if (requestBody.output_format) form.append('output_format', requestBody.output_format);
+            if (requestBody.n) form.append('n', String(requestBody.n));
             for (let imageIndex = 0; imageIndex < requestBody.image.length; imageIndex += 1) {
               const blob = await imageSourceToBlob(requestBody.image[imageIndex]);
               if (blob) form.append('image', blob, `image_${imageIndex}.png`);
@@ -1159,39 +1245,62 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
               sendProgress,
               abortSignal,
             );
-          })();
+          };
+
+          try {
+            return await callWithRequestBody(buildRequestBody());
+          } catch (error) {
+            if (!fallbackModel) throw error;
+            logResolutionFallback(fallbackModel);
+            return callWithRequestBody(buildRequestBody({
+              model: fallbackModel,
+              includeResolution: true,
+            }));
+          }
         })()
       : await (async () => {
           const endpoint = imageEndpoint;
 
           if (usesGeminiGenerateContent) {
-            const requestBody = {
-              contents: [
-                {
-                  parts: buildGeminiImageParts(payload.prompt, payload.image, payload),
-                },
-              ],
+            const buildRequestBody = () => {
+              const generationConfig = buildGeminiImageGenerationConfig(payload);
+              return {
+                contents: [
+                  {
+                    parts: buildGeminiImageParts(payload.prompt, payload.image, payload),
+                  },
+                ],
+                ...(generationConfig ? { generationConfig } : {}),
+              };
             };
-            return callGeminiGenerateContentApi(
+            const callWithModel = (model) => callGeminiGenerateContentApi(
               adapter,
               baseUrl,
-              endpoint,
+              resolveImageEndpoint(model),
               apiKey,
-              requestBody,
+              buildRequestBody(),
               timeoutMs,
               sendProgress,
               abortSignal,
             );
+            try {
+              return await callWithModel(payload.model);
+            } catch (error) {
+              if (!fallbackModel) throw error;
+              logResolutionFallback(fallbackModel);
+              return callWithModel(fallbackModel);
+            }
           }
 
           if (usesChatPayload) {
-            const buildRequestBody = (includeResponseFormat = true, includeOutputFormat = true) => ({
-              model: payload.model,
+            const buildRequestBody = (includeResponseFormat = true, includeOutputFormat = true, options = {}) => ({
+              model: options.model || payload.model,
               stream: false,
               ...(includeResponseFormat ? { response_format: CHAT_URL_RESPONSE_FORMAT } : {}),
               ...(payload.size ? { size: payload.size } : {}),
               ...(payload.aspect_ratio ? { aspect_ratio: payload.aspect_ratio } : {}),
               ...(payload.quality ? { quality: payload.quality } : {}),
+              ...(options.includeResolution && payload.resolution ? { resolution: payload.resolution } : {}),
               ...(includeOutputFormat && payload.output_format ? { output_format: payload.output_format } : {}),
               n: 1,
               messages: [
@@ -1206,7 +1315,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
                 apiKey,
                 providerConfig,
                 baseUrl,
-                endpoint,
+                endpoint: resolveImageEndpoint(requestBody.model),
                 method: 'POST',
                 body: requestBody,
               });
@@ -1236,21 +1345,27 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
                 sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
                 return callWithRequestBody(buildRequestBody(true, false));
               }
-              if (!shouldRetryWithoutResponseFormat(error)) {
-                throw error;
+              if (shouldRetryWithoutResponseFormat(error)) {
+                sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
+                return callWithRequestBody(buildRequestBody(false, true));
               }
-              sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
-              return callWithRequestBody(buildRequestBody(false, true));
+              if (!fallbackModel) throw error;
+              logResolutionFallback(fallbackModel);
+              return callWithRequestBody(buildRequestBody(true, true, {
+                model: fallbackModel,
+                includeResolution: true,
+              }));
             }
           }
 
-          const buildRequestBody = (includeResponseFormat = true, includeOutputFormat = true) => ({
-            model: payload.model,
+          const buildRequestBody = (includeResponseFormat = true, includeOutputFormat = true, options = {}) => ({
+            model: options.model || payload.model,
             prompt: payload.prompt,
             ...(includeResponseFormat ? { response_format: URL_RESPONSE_FORMAT } : {}),
             ...(payload.size ? { size: payload.size } : {}),
             ...(payload.aspect_ratio ? { aspect_ratio: payload.aspect_ratio } : {}),
             ...(payload.quality ? { quality: payload.quality } : {}),
+            ...(options.includeResolution && payload.resolution ? { resolution: payload.resolution } : {}),
             ...(includeOutputFormat && payload.output_format ? { output_format: payload.output_format } : {}),
             ...(usesArkImageGenerationPayload && payload.image.length > 0 ? { image: payload.image } : {}),
             n: 1,
@@ -1260,7 +1375,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
               apiKey,
               providerConfig,
               baseUrl,
-              endpoint,
+              endpoint: resolveImageEndpoint(requestBody.model),
               method: 'POST',
               body: requestBody,
             });
@@ -1274,6 +1389,33 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
             );
           };
 
+          const callFallbackWithResolutionBody = async () => {
+            if (!fallbackModel) return null;
+            logResolutionFallback(fallbackModel);
+            try {
+              return await callWithRequestBody(buildRequestBody(true, true, {
+                model: fallbackModel,
+                includeResolution: true,
+              }));
+            } catch (fallbackError) {
+              if (shouldRetryWithoutOutputFormat(fallbackError)) {
+                sendProgress?.('基础模型不支持 output_format，已忽略输出格式重试一次');
+                return callWithRequestBody(buildRequestBody(true, false, {
+                  model: fallbackModel,
+                  includeResolution: true,
+                }));
+              }
+              if (shouldRetryWithoutResponseFormat(fallbackError)) {
+                sendProgress?.('基础模型不支持 response_format=url，已降级为默认返回格式重试一次');
+                return callWithRequestBody(buildRequestBody(false, true, {
+                  model: fallbackModel,
+                  includeResolution: true,
+                }));
+              }
+              throw fallbackError;
+            }
+          };
+
           try {
             return await callWithRequestBody(buildRequestBody(true, true));
           } catch (error) {
@@ -1281,11 +1423,13 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
               sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
               return callWithRequestBody(buildRequestBody(true, false));
             }
-            if (!shouldRetryWithoutResponseFormat(error)) {
-              throw error;
+            if (shouldRetryWithoutResponseFormat(error)) {
+              sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
+              return callWithRequestBody(buildRequestBody(false, true));
             }
-            sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
-            return callWithRequestBody(buildRequestBody(false, true));
+            const fallbackResult = await callFallbackWithResolutionBody();
+            if (fallbackResult) return fallbackResult;
+            throw error;
           }
         })();
 

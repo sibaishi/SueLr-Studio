@@ -9,10 +9,24 @@ export const GROUP_PORT_ROW_GAP = 6;
 export const GROUP_PORT_SECTION_PADDING = 8;
 export const GROUP_CONTENT_INSET_X = 12;
 export const GROUP_CONTENT_INSET_BOTTOM = 12;
+const GROUP_COLLAPSED_FRAME_PADDING = 8;
+const GROUP_COLLAPSED_STACK_GAP = 6;
+const GROUP_COLLAPSED_HEADER_HEIGHT = 68;
+const GROUP_COLLAPSED_PORT_SECTION_BORDER = 2;
+const GROUP_COLLAPSED_PORT_SECTION_PADDING = 6;
+const GROUP_COLLAPSED_PORT_ROW_HEIGHT = 38;
+const GROUP_COLLAPSED_PORT_ROW_GAP = 4;
+const GROUP_COLLAPSED_META_HEIGHT = 18;
+const GROUP_COLLAPSED_META_MARGIN_TOP = 2;
+const GROUP_COLLAPSED_BOTTOM_SAFE_GAP = 10;
 const GROUP_EXCLUSION_MARGIN = GROUP_SAFE_MARGIN;
 
 function snapValue(value: number) {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
+}
+
+function snapUpValue(value: number) {
+  return Math.ceil(value / GRID_SIZE) * GRID_SIZE;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -20,6 +34,10 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export function getEffectiveNodeSize(node: Node) {
+  if (node.type === 'group' && node.data?.collapsed) {
+    return getCollapsedGroupNodeSize(node);
+  }
+
   const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
   const minSize = getNodeDefaultSize(node.type || '', inputCount);
   return {
@@ -59,13 +77,23 @@ export function getGroupTopInset(groupNode?: Pick<Node, 'data'>) {
 
 export function getCollapsedGroupNodeSize(node: Pick<Node, 'data'>) {
   const visibleRows = getGroupVisiblePortRowCount(node);
+  const portSectionHeight =
+    GROUP_COLLAPSED_PORT_SECTION_BORDER
+    + GROUP_COLLAPSED_PORT_SECTION_PADDING * 2
+    + visibleRows * GROUP_COLLAPSED_PORT_ROW_HEIGHT
+    + Math.max(0, visibleRows - 1) * GROUP_COLLAPSED_PORT_ROW_GAP;
+  const contentHeight =
+    GROUP_COLLAPSED_FRAME_PADDING * 2
+    + GROUP_COLLAPSED_HEADER_HEIGHT
+    + portSectionHeight
+    + GROUP_COLLAPSED_META_HEIGHT
+    + GROUP_COLLAPSED_META_MARGIN_TOP
+    + GROUP_COLLAPSED_BOTTOM_SAFE_GAP
+    + GROUP_COLLAPSED_STACK_GAP * 2;
 
   return {
     width: GRID_SIZE * 12,
-    height: Math.max(
-      GRID_SIZE * 6,
-      GRID_SIZE * 2 + visibleRows * GRID_SIZE + GRID_SIZE * 2,
-    ),
+    height: Math.max(GRID_SIZE * 6, snapUpValue(contentHeight)),
   };
 }
 

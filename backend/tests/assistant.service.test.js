@@ -63,7 +63,7 @@ test('assistant service downloads the first playable candidate video url', async
         headers: { 'content-type': 'application/json' },
       });
     }
-    if (String(url) === 'https://cdn.example.com/final.mp4') {
+    if (String(url) === 'https://93.184.216.34/final.mp4') {
       return new Response(Buffer.from('VIDEO'), {
         status: 200,
         headers: { 'content-type': 'video/mp4' },
@@ -84,7 +84,7 @@ test('assistant service downloads the first playable candidate video url', async
       url: 'https://example.com/result',
       candidateUrls: [
         'https://example.com/result',
-        'https://cdn.example.com/final.mp4',
+        'https://93.184.216.34/final.mp4',
       ],
       prompt: 'demo',
       model: 'video-model',

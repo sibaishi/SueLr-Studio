@@ -7,7 +7,7 @@ const DEFAULT_NODE_SIZE_UNITS = { w: 10, h: 6 };
 
 export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   group: { w: 14, h: 10 },
-  textInput: { w: 12, h: 7 },
+  textInput: { w: 12, h: 9 },
   imageInput: { w: 13, h: 13 },
   maskInput: { w: 13, h: 14 },
   imageResize: { w: 14, h: 12 },
@@ -16,8 +16,8 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   apiKeyInput: { w: 14, h: 21 },
   iterateRun: { w: 11, h: 8 },
   iterateImageRun: { w: 11, h: 8 },
-  textClean: { w: 12, h: 11 },
-  textSplit: { w: 12, h: 20 },
+  textClean: { w: 12, h: 14 },
+  textSplit: { w: 12, h: 23 },
   textMerge: { w: 11, h: 8 },
   imageMerge: { w: 11, h: 8 },
   videoMerge: { w: 11, h: 8 },

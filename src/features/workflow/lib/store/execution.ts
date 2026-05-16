@@ -38,6 +38,17 @@ function appendRepeatedNodeOutputs(
   return merged;
 }
 
+function shouldPersistTextInputOutput(
+  state: WorkflowState,
+  nodeId: string,
+  outputs: Record<string, unknown>,
+) {
+  const node = state.nodes.find((item) => item.id === nodeId);
+  if (node?.type !== 'textInput') return false;
+  if (typeof outputs.text !== 'string') return false;
+  return state.edges.some((edge) => edge.target === nodeId && ['input', 'text'].includes(String(edge.targetHandle || '')));
+}
+
 function buildSyncedExecutionSummary(status: {
   totalDuration?: number;
   successCount?: number;
@@ -155,25 +166,6 @@ export function createWorkflowExecutionActions(
         executableGraph.edges,
       );
 
-      const saved = await get().saveWorkflow();
-      if (!saved) {
-        clearActiveRunSnapshot();
-        get().addExecutionLog({
-          level: 'error',
-          message: '工作流保存失败，已取消执行',
-        });
-        set({
-          isExecuting: false,
-          executionProgress: null,
-          executionMessage: '工作流保存失败，未启动执行',
-          currentRunId: null,
-          executingNodeId: null,
-          lastExecutionStatus: 'error',
-          lastExecutionError: '工作流保存失败，未启动执行',
-        });
-        return;
-      }
-
       const runtimeApiConfig = state.workflowRuntimeConfigs.length > 0
         ? { configs: state.workflowRuntimeConfigs }
         : undefined;
@@ -226,31 +218,40 @@ export function createWorkflowExecutionActions(
             nodeId: data.nodeId,
             details: formatLogDetails(data.logOutputs ?? data.outputs),
           });
-          set((currentState) => ({
-            executionMessage: `${nodeLabel} 执行完成`,
-            nodeExecStatus: {
-              ...currentState.nodeExecStatus,
-              [data.nodeId]: 'success',
-            },
-            nodeExecutionTime: {
-              ...currentState.nodeExecutionTime,
-              [data.nodeId]: data.duration,
-            },
-            nodeOutputs: {
-              ...currentState.nodeOutputs,
-              [data.nodeId]: data.iteration
-                ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
-                : data.outputs,
-            },
-            aiResultOutputs: AI_RESULT_NODE_TYPES.has(currentState.nodes.find((node) => node.id === data.nodeId)?.type || '')
-              ? {
-                  ...currentState.aiResultOutputs,
-                  [data.nodeId]: data.iteration
-                    ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
-                    : data.outputs,
-                }
-              : currentState.aiResultOutputs,
-          }));
+          set((currentState) => {
+            const persistTextOutput = shouldPersistTextInputOutput(currentState, data.nodeId, data.outputs);
+            return {
+              executionMessage: `${nodeLabel} 执行完成`,
+              nodes: persistTextOutput
+                ? currentState.nodes.map((node) => (
+                    node.id === data.nodeId ? { ...node, data: { ...node.data, text: data.outputs.text } } : node
+                  ))
+                : currentState.nodes,
+              hasUnsavedChanges: persistTextOutput ? true : currentState.hasUnsavedChanges,
+              nodeExecStatus: {
+                ...currentState.nodeExecStatus,
+                [data.nodeId]: 'success',
+              },
+              nodeExecutionTime: {
+                ...currentState.nodeExecutionTime,
+                [data.nodeId]: data.duration,
+              },
+              nodeOutputs: {
+                ...currentState.nodeOutputs,
+                [data.nodeId]: data.iteration
+                  ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
+                  : data.outputs,
+              },
+              aiResultOutputs: AI_RESULT_NODE_TYPES.has(currentState.nodes.find((node) => node.id === data.nodeId)?.type || '')
+                ? {
+                    ...currentState.aiResultOutputs,
+                    [data.nodeId]: data.iteration
+                      ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
+                      : data.outputs,
+                  }
+                : currentState.aiResultOutputs,
+            };
+          });
         },
         onNodeError: (data) => {
           const nodeLabel = getNodeDisplayNameById(data.nodeId, get().nodes);
@@ -355,9 +356,9 @@ export function createWorkflowExecutionActions(
         },
       };
       if (runtimeApiConfig) {
-        await api.executeWorkflow(state.workflowId, { nodes: payload.nodes, edges: payload.edges }, callbacks, runtimeApiConfig);
+        await api.executeWorkflow(state.workflowId, { name: state.workflowName, nodes: payload.nodes, edges: payload.edges }, callbacks, runtimeApiConfig);
       } else {
-        await api.executeWorkflow(state.workflowId, { nodes: payload.nodes, edges: payload.edges }, callbacks);
+        await api.executeWorkflow(state.workflowId, { name: state.workflowName, nodes: payload.nodes, edges: payload.edges }, callbacks);
       }
     },
 

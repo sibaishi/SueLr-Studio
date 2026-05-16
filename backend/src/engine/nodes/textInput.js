@@ -4,9 +4,10 @@
 
 /**
  * 执行文本输入节点
- * 直接返回节点中存储的文本内容
+ * 当连接了上游文本时，优先返回上游文本；否则返回节点中存储的文本内容。
  */
 export async function execute(node, inputs) {
-  const text = node.data?.text || '';
+  const upstreamText = String(inputs?.input ?? inputs?.text ?? '').trim();
+  const text = upstreamText || node.data?.text || '';
   return { text };
 }

@@ -155,6 +155,7 @@ export function validateImageBody(payload) {
     width: validateBoundedNumber(body.width, 'width', { min: 16, max: 4096, integer: true }),
     height: validateBoundedNumber(body.height, 'height', { min: 16, max: 4096, integer: true }),
     quality: validateEnum(body.quality, 'quality', ['low', 'medium', 'high', 'auto']),
+    resolution: validateEnum(cleanOptionalString(body.resolution || body.outputResolution || body.output_resolution, 40).toLowerCase(), 'resolution', ['auto', '512px', '1k', '2k', '4k']),
     n: validateBoundedNumber(body.n, 'n', { min: 1, max: 10, integer: true }),
     output_format: validateEnum(body.output_format || body.outputFormat, 'output_format', ['png', 'jpeg', 'webp']),
     image: validateUrlArray(body.image, 'image', ['image/']),

@@ -42,6 +42,12 @@ function removeDelimitedRanges(sourceText, {
   return output;
 }
 
+function trimBoundaryBlankLines(text) {
+  return String(text)
+    .replace(/^(?:[ \t]*\r?\n)+/, '')
+    .replace(/(?:\r?\n[ \t]*)+$/, '');
+}
+
 export async function execute(node, inputs, apiConfig, onProgress) {
   void apiConfig;
   onProgress('清理文本...');
@@ -51,13 +57,15 @@ export async function execute(node, inputs, apiConfig, onProgress) {
   const startToken = String(data.startToken ?? '<think>');
   const endToken = String(data.endToken ?? '</think>');
 
-  return {
-    text: removeDelimitedRanges(text, {
+  const cleanedText = removeDelimitedRanges(text, {
       startToken,
       endToken,
       removeStartToken: getBoolean(data.removeStartToken, true),
       removeEndToken: getBoolean(data.removeEndToken, true),
       removeAllRanges: getBoolean(data.removeAllRanges, true),
-    }),
+    });
+
+  return {
+    text: trimBoundaryBlankLines(cleanedText),
   };
 }

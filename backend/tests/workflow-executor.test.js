@@ -65,6 +65,98 @@ test('disabled nodes are excluded from workflow execution and validation', async
   });
 });
 
+test('textInput uses upstream text when connected', async () => {
+  const events = [];
+
+  await executeWorkflow(
+    {
+      nodes: [
+        {
+          id: 'source-text',
+          type: 'textInput',
+          data: { text: 'from upstream' },
+        },
+        {
+          id: 'editable-text',
+          type: 'textInput',
+          data: { text: 'local fallback' },
+        },
+      ],
+      edges: [
+        {
+          id: 'edge-text-input',
+          source: 'source-text',
+          sourceHandle: 'text',
+          target: 'editable-text',
+          targetHandle: 'input',
+        },
+      ],
+    },
+    {},
+    (event, data) => events.push({ event, data }),
+  );
+
+  const completedEvent = events.find(({ event, data }) => (
+    event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+    && data.nodeId === 'editable-text'
+  ));
+
+  assert.ok(completedEvent);
+  assert.deepEqual(completedEvent.data.outputs, { text: 'from upstream' });
+});
+
+test('textInput override flows to downstream output nodes', async () => {
+  const events = [];
+
+  await executeWorkflow(
+    {
+      nodes: [
+        {
+          id: 'source-text',
+          type: 'textInput',
+          data: { text: 'from upstream' },
+        },
+        {
+          id: 'editable-text',
+          type: 'textInput',
+          data: { text: 'local fallback' },
+        },
+        {
+          id: 'output',
+          type: 'output',
+          data: {},
+        },
+      ],
+      edges: [
+        {
+          id: 'edge-text-input',
+          source: 'source-text',
+          sourceHandle: 'text',
+          target: 'editable-text',
+          targetHandle: 'input',
+        },
+        {
+          id: 'edge-output',
+          source: 'editable-text',
+          sourceHandle: 'text',
+          target: 'output',
+          targetHandle: 'content',
+        },
+      ],
+    },
+    {},
+    (event, data) => events.push({ event, data }),
+  );
+
+  const outputEvent = events.find(({ event, data }) => (
+    event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+    && data.nodeId === 'output'
+  ));
+
+  assert.ok(outputEvent);
+  assert.equal(outputEvent.data.outputs.content, 'from upstream');
+});
+
 test('workflow node completed events include sanitized log outputs while preserving raw outputs', async () => {
   const root = createStorageDir('inline-data');
   process.env.APP_CONFIG_DIR = root;

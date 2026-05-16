@@ -592,10 +592,27 @@ export class ExecutionService {
   }
 
   async execute(workflowId, body, res, requestId) {
-    const persistedWorkflow = this.repository.read(workflowId).workflow;
+    const persistedWorkflow = body.source === 'draft'
+      ? (() => {
+          try {
+            return this.repository.read(workflowId).workflow;
+          } catch {
+            return null;
+          }
+        })()
+      : this.repository.read(workflowId).workflow;
     const draftWorkflow = body.source === 'draft'
       ? {
-          ...persistedWorkflow,
+          ...(persistedWorkflow || {
+            id: workflowId,
+            name: cleanString(body.name, 200) || workflowId,
+            version: 1,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            settings: {},
+          }),
+          id: workflowId,
+          name: cleanString(body.name, 200) || persistedWorkflow?.name || workflowId,
           nodes: body.nodes,
           edges: body.edges,
         }

@@ -1,4 +1,5 @@
 import { successEnvelope } from '../../app/http/envelope.js';
+import { createRequestAbortSignal } from '../../app/http/request-abort.js';
 import { capabilitiesService } from './capabilities.service.js';
 
 export class CapabilitiesController {
@@ -58,7 +59,9 @@ export class CapabilitiesController {
 
   async image(req, res, next) {
     try {
-      res.json(successEnvelope(await capabilitiesService.image(req.body)));
+      res.json(successEnvelope(await capabilitiesService.image(req.body, {
+        signal: createRequestAbortSignal(req, res),
+      })));
     } catch (error) {
       next(error);
     }

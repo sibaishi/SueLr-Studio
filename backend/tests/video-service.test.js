@@ -155,7 +155,7 @@ test('executeVideoGeneration prefers playable media url over provider result_url
           data: {
             status: 'completed',
             metadata: {
-              url: 'https://cdn.example.com/final.mp4',
+              url: 'https://93.184.216.34/final.mp4',
             },
           },
         },
@@ -165,7 +165,7 @@ test('executeVideoGeneration prefers playable media url over provider result_url
       });
     }
 
-    if (String(url) === 'https://cdn.example.com/final.mp4') {
+    if (String(url) === 'https://93.184.216.34/final.mp4') {
       return new Response(Buffer.from('VIDEO'), {
         status: 200,
         headers: { 'content-type': 'video/mp4' },
@@ -200,7 +200,7 @@ test('executeVideoGeneration prefers playable media url over provider result_url
     }, runtime);
 
     assert.match(result.video, /^\/api\/outputs\/videos\/.+\.mp4$/);
-    assert.equal(requests.includes('https://cdn.example.com/final.mp4'), true);
+    assert.equal(requests.includes('https://93.184.216.34/final.mp4'), true);
     assert.equal(requests.includes('https://example.com/task/result'), false);
   } finally {
     globalThis.fetch = originalFetch;

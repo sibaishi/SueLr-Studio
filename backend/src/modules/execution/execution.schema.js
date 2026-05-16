@@ -34,6 +34,7 @@ export function validateExecutionBody(value) {
 
   return {
     source,
+    ...(typeof value.name === 'string' ? { name: value.name } : {}),
     ...(Array.isArray(value.nodes) ? { nodes: value.nodes } : {}),
     ...(Array.isArray(value.edges) ? { edges: value.edges } : {}),
     ...(isPlainObject(value.apiConfig) ? { apiConfig: value.apiConfig } : {}),

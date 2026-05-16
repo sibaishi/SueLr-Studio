@@ -1,18 +1,44 @@
 import { useState, type CSSProperties } from 'react';
 import { ImagePreviewModal } from '@/features/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/features/workflow/components/ImageSizeLabel';
+import { LongTextEditorModal } from './LongTextEditorModal';
 
 export function TextCard({ text, mono = false }: { text: string; mono?: boolean }) {
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const displayText = text || '(空内容)';
+  const lineCount = text ? text.split(/\r\n|\r|\n/).length : 0;
+
   return (
     <div className="node-value-card">
       <div className="node-value-card__actions">
         <ActionButton label="复制文本" onClick={() => void navigator.clipboard?.writeText(text)} />
       </div>
       <div
+        role="button"
+        tabIndex={0}
         className={['node-value-card__body', mono ? 'node-value-card__body--mono' : ''].filter(Boolean).join(' ')}
+        title="双击全屏查看"
+        onDoubleClick={() => setFullscreenOpen(true)}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === 'Enter') setFullscreenOpen(true);
+        }}
       >
-        {text || '(空内容)'}
+        {displayText}
       </div>
+      <div className="node-value-card__meta">
+        <span>{lineCount} 行 · {text.length} 字符</span>
+      </div>
+      {fullscreenOpen && (
+        <LongTextEditorModal
+          title="查看输出文本"
+          value={text}
+          readOnly
+          placeholder=""
+          onChange={() => undefined}
+          onClose={() => setFullscreenOpen(false)}
+        />
+      )}
     </div>
   );
 }

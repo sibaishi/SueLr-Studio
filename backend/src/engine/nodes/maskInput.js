@@ -102,8 +102,8 @@ export async function execute(node, _inputs, _apiConfig, sendProgress) {
     create: {
       width,
       height,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 1 },
+      channels: 3,
+      background: { r: 0, g: 0, b: 0 },
     },
   })
     .joinChannel(alphaChannel, {

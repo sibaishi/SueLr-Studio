@@ -155,7 +155,7 @@ export function buildTools(hasImage: boolean, hasVideo: boolean, hasSearch: bool
             reference_image_url: { type: 'string', description: 'Optional reference image URL.' },
             width: { type: 'number', description: 'Optional output width in pixels. Will be rounded to the nearest multiple of 16.' },
             height: { type: 'number', description: 'Optional output height in pixels. Will be rounded to the nearest multiple of 16.' },
-            quality: { type: 'string', description: 'Optional quality: low, medium, high, auto.' },
+            resolution: { type: 'string', description: 'Optional output tier: auto, 512px, 1k, 2k, 4k.' },
           },
           required: ['prompt'],
         },

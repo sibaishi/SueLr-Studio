@@ -181,6 +181,10 @@ Common node groups:
 - output nodes
 - group nodes
 
+Text input:
+
+- `文本输入` can also accept an optional upstream text connection; when connected with non-empty text, that upstream value replaces the text written inside the node for that run
+
 Text cleanup:
 
 - use `文本清理` to remove content between custom start and end keywords before passing model output to the next AI node

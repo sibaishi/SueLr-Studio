@@ -15,6 +15,7 @@ import {
   GROUP_CONTENT_INSET_X,
   GROUP_HEADER_HEIGHT,
   enforceGroupLayout,
+  getCollapsedGroupNodeSize,
   getEffectiveNodeSize,
 } from '@/features/workflow/lib/groupLayout';
 import { useWorkflowStore } from '@/features/workflow/lib/store';
@@ -57,6 +58,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const isMergeNode = def.maxInputs !== undefined;
   const isGroupNode = type === 'group';
   const isCollapsed = isGroupNode && Boolean(data.collapsed);
+  const collapsedGroupSize = isCollapsed ? getCollapsedGroupNodeSize({ data }) : null;
   const inputCount = isMergeNode ? ((data.inputCount as number) || 1) : 0;
   const outputCount = def.maxOutputs ? getNodeOutputCount(type, data) : 1;
   const minSize = def.maxOutputs
@@ -161,8 +163,8 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
         ...nodeStyle,
         width: '100%',
         height: '100%',
-        minWidth: isCollapsed ? GRID_SIZE * 10 : minSize.w,
-        minHeight: isCollapsed ? GRID_SIZE * 6 : minSize.h,
+        minWidth: collapsedGroupSize ? collapsedGroupSize.width : minSize.w,
+        minHeight: collapsedGroupSize ? collapsedGroupSize.height : minSize.h,
         animation: isRunning ? 'pulse-border 1.5s ease-in-out infinite' : undefined,
         display: 'flex',
         flexDirection: 'column',

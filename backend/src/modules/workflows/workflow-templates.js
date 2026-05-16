@@ -35,7 +35,7 @@ export const BUILTIN_WORKFLOW_TEMPLATES = [
       node('generate', 'imageGen', 480, 80, {
         model: '',
         ratio: '1:1',
-        quality: 'high',
+        resolution: 'auto',
         n: 1,
         output_format: 'png',
       }),
@@ -92,7 +92,7 @@ export const BUILTIN_WORKFLOW_TEMPLATES = [
       node('generate', 'imageGen', 500, 160, {
         model: '',
         ratio: 'auto',
-        quality: 'high',
+        resolution: 'auto',
         n: 1,
         output_format: 'png',
       }),

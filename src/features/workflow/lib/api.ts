@@ -133,7 +133,7 @@ export interface SSECallbacks {
 
 export async function executeWorkflow(
   workflowId: string,
-  draft: { nodes: unknown[]; edges: unknown[] },
+  draft: { name?: string; nodes: unknown[]; edges: unknown[] },
   callbacks: SSECallbacks,
   apiConfig?: Record<string, unknown>,
 ): Promise<void> {
@@ -142,7 +142,7 @@ export async function executeWorkflow(
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source: 'draft', nodes: draft.nodes, edges: draft.edges, apiConfig }),
+    body: JSON.stringify({ source: 'draft', name: draft.name, nodes: draft.nodes, edges: draft.edges, apiConfig }),
   });
 
   if (!response.ok) {
