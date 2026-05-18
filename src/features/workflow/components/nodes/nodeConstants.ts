@@ -11,6 +11,7 @@ import {
   Merge,
   Music2,
   PenTool,
+  Sparkles,
   Repeat,
   ScanLine,
   Search,
@@ -39,6 +40,7 @@ export const NODE_ICONS: Record<string, NodeIconComponent> = {
   clapperboard: Clapperboard,
   search: Search,
   eye: Eye,
+  promptHelper: Sparkles,
   save: FolderDown,
 };
 

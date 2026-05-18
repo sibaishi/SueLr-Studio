@@ -6,6 +6,7 @@ import { MediaCard, MediaPreview, TextCard, isMediaUrl } from './NodeMedia';
 import { NodeParamFields } from './NodeParamFields';
 import { NODE_API_PROVIDER_CONFIG } from './nodeConstants';
 import { LongTextEditorModal } from './LongTextEditorModal';
+import { PromptHelperNodeCard, PromptHelperWorkbenchModal } from './PromptHelperWorkbench';
 import { useBufferedStringField } from './useBufferedStringField';
 
 type NodeDef = ReturnType<typeof getNodeDef>;
@@ -201,6 +202,8 @@ export function NodeContent({
             onPatch={(patch) => updateNodeData(nodeId, patch)}
           />
         );
+    case 'promptHelper':
+      return <PromptHelperContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outputs={outputs} outerStyle={outerStyle} />;
     case 'aiChat':
     case 'imageGen':
     case 'videoGen':
@@ -264,6 +267,35 @@ export function NodeContent({
     default:
       return null;
   }
+}
+
+function PromptHelperContent({
+  data,
+  nodeId,
+  updateNodeData,
+  outputs,
+  outerStyle,
+}: {
+  data: Record<string, unknown>;
+  nodeId: string;
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void;
+  outputs?: Record<string, unknown>;
+  outerStyle: CSSProperties;
+}) {
+  const [isWorkbenchOpen, setIsWorkbenchOpen] = useState(false);
+
+  return (
+    <div className="node-content-shell prompt-helper-node" style={outerStyle}>
+      <PromptHelperNodeCard data={data} outputs={outputs} onOpen={() => setIsWorkbenchOpen(true)} />
+      {isWorkbenchOpen && (
+        <PromptHelperWorkbenchModal
+          data={data}
+          onPatch={(patch) => updateNodeData(nodeId, patch)}
+          onClose={() => setIsWorkbenchOpen(false)}
+        />
+      )}
+    </div>
+  );
 }
 
 function GroupNodeContent({ outerStyle, collapsed }: { outerStyle: CSSProperties; collapsed: boolean }) {

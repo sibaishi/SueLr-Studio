@@ -17,6 +17,7 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   apiKeyInput: { w: 14, h: 21 },
   iterateRun: { w: 11, h: 8 },
   iterateImageRun: { w: 11, h: 8 },
+  promptHelper: { w: 14, h: 12 },
   textClean: { w: 12, h: 14 },
   textSplit: { w: 12, h: 23 },
   textMerge: { w: 11, h: 8 },

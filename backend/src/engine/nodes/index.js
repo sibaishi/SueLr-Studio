@@ -9,6 +9,7 @@ import { execute as executeAudioInput } from './audioInput.js';
 import { execute as executeApiKeyInput } from './apiKeyInput.js';
 import { execute as executeIterateImageRun } from './iterateImageRun.js';
 import { execute as executeIterateRun } from './iterateRun.js';
+import { execute as executePromptHelper } from './promptHelper.js';
 import { execute as executeTextClean } from './textClean.js';
 import { execute as executeTextSplit } from './textSplit.js';
 import { execute as executeTextMerge } from './textMerge.js';
@@ -30,6 +31,7 @@ export const NODE_EXECUTORS = {
   apiKeyInput: executeApiKeyInput,
   iterateImageRun: executeIterateImageRun,
   iterateRun: executeIterateRun,
+  promptHelper: executePromptHelper,
   textClean: executeTextClean,
   textSplit: executeTextSplit,
   textMerge: executeTextMerge,
