@@ -42,6 +42,14 @@ async function imageSourceToBuffer(imageSource) {
     };
   }
 
+  if (source.startsWith('file://')) {
+    const filePath = source.slice(7);
+    return {
+      buffer: fs.readFileSync(filePath),
+      mimeType: getMimeType(filePath),
+    };
+  }
+
   if (source.startsWith('http://') || source.startsWith('https://')) {
     const response = await fetch(source);
     if (!response.ok) {
