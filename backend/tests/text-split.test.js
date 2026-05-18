@@ -15,7 +15,7 @@ test('textSplit keeps remainder text intact after the final split', async () => 
 
   assert.deepEqual(result, {
     part1: '甲',
-    part2: '\n\n乙\n\n##\n\n丙\n\n丁',
+    part2: '乙\n\n##\n\n丙\n\n丁',
   });
   assert.deepEqual(progress, ['拆分文本...']);
 });
@@ -27,6 +27,34 @@ test('textSplit preserves untouched tail content when it cannot split further', 
   assert.deepEqual(result, {
     part1: 'A',
     part2: 'B',
-    part3: '\n\nC\n\nD',
+    part3: 'C\n\nD',
+  });
+});
+
+test('textSplit uses local segments when upstream text is empty', async () => {
+  const { result } = await split('', { outputCount: 3, segments: ['A', 'B', 'C'] });
+
+  assert.deepEqual(result, {
+    part1: 'A',
+    part2: 'B',
+    part3: 'C',
+  });
+});
+
+test('textSplit upstream text takes precedence over local segments', async () => {
+  const { result } = await split('A##\n\nB', { separator: '##', outputCount: 2, segments: ['local A', 'local B'] });
+
+  assert.deepEqual(result, {
+    part1: 'A',
+    part2: 'B',
+  });
+});
+
+test('textSplit preserves final segment internal and trailing newlines', async () => {
+  const { result } = await split('A##\n\nB\n\nC\n', { separator: '##', outputCount: 2 });
+
+  assert.deepEqual(result, {
+    part1: 'A',
+    part2: 'B\n\nC\n',
   });
 });

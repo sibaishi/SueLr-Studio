@@ -753,6 +753,7 @@
 }
 
 .long-text-editor-modal__segment-title {
+  display: block;
   padding: 9px 12px;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-secondary);
@@ -761,16 +762,25 @@
 }
 
 .long-text-editor-modal__segment-text {
+  display: block;
+  width: 100%;
+  min-height: 96px;
+  resize: none;
+  overflow: hidden;
+  border: 0;
+  outline: none;
+  background: transparent;
   padding: 12px;
   color: var(--color-text-primary);
   font-size: 14px;
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
+  font-family: inherit;
 }
 
-.long-text-editor-modal__segment-text--empty {
-  color: var(--color-text-tertiary);
+.long-text-editor-modal__segment-text:focus {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
 }
 
 .long-text-editor-modal__meta {

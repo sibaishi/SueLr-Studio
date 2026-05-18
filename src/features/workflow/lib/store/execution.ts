@@ -1,5 +1,9 @@
 import * as api from '@/features/workflow/lib/api';
-import { projectWorkflowToExecutionGraph } from '@/features/workflow/lib/executionGraph';
+import { getNodeDef } from '@/features/workflow/lib/constants';
+import {
+  filterExecutionGraphToUpstreamTarget,
+  projectWorkflowToExecutionGraph,
+} from '@/features/workflow/lib/executionGraph';
 import { clearActiveRunSnapshot, loadActiveRunSnapshot, saveActiveRunSnapshot } from '@/features/workflow/lib/store/persistence';
 import {
   buildWorkflowPayload,
@@ -9,14 +13,16 @@ import {
   getNodeDisplayNameById,
   gid,
 } from '@/features/workflow/lib/store/helpers';
+import type { Node } from '@xyflow/react';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
 
 type WorkflowStoreExecutionActions = Pick<
   WorkflowState,
-  'executeWorkflow' | 'cancelWorkflowExecution' | 'restoreExecutionRun' | 'syncExecutionRunStatus'
+  'executeWorkflow' | 'executeWorkflowToNode' | 'cancelWorkflowExecution' | 'restoreExecutionRun' | 'syncExecutionRunStatus'
 >;
 
 const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
+const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
 
 function mergeRepeatedOutputValue(existing: unknown, next: unknown) {
   if (existing === undefined) return next;
@@ -47,6 +53,30 @@ function shouldPersistTextInputOutput(
   if (node?.type !== 'textInput') return false;
   if (typeof outputs.text !== 'string') return false;
   return state.edges.some((edge) => edge.target === nodeId && ['input', 'text'].includes(String(edge.targetHandle || '')));
+}
+
+function buildTextSplitSegmentsFromOutputs(outputs: Record<string, unknown>) {
+  return Object.entries(outputs)
+    .filter(([key]) => /^part\d+$/.test(key))
+    .sort(([keyA], [keyB]) => Number(keyA.replace('part', '')) - Number(keyB.replace('part', '')))
+    .map(([, value]) => String(value ?? ''));
+}
+
+function shouldPersistTextSplitOutput(
+  state: WorkflowState,
+  nodeId: string,
+  outputs: Record<string, unknown>,
+) {
+  const node = state.nodes.find((item) => item.id === nodeId);
+  if (node?.type !== 'textSplit') return false;
+  if (buildTextSplitSegmentsFromOutputs(outputs).length === 0) return false;
+  return state.edges.some((edge) => edge.target === nodeId && String(edge.targetHandle || '') === 'text');
+}
+
+function isRunToNodeAllowed(node: Node | undefined) {
+  if (!node || node.type === 'group' || node.data?.disabled || RUN_TO_NODE_BLOCKED_TYPES.has(node.type || '')) return false;
+  const def = getNodeDef(node.type || '');
+  return Boolean(def && ((def.inputs?.length || 0) > 0 || (def.maxInputs || 0) > 0));
 }
 
 function buildSyncedExecutionSummary(status: {
@@ -108,13 +138,39 @@ export function createWorkflowExecutionActions(
   set: WorkflowStoreSet,
   get: WorkflowStoreGet,
 ): WorkflowStoreExecutionActions {
-  return {
-    executeWorkflow: async () => {
+  const runWorkflow = async (options: { targetNodeId?: string } = {}) => {
       const state = get();
       if (state.isExecuting || state.nodes.length === 0) return;
 
-      const executableGraph = projectWorkflowToExecutionGraph(state.nodes, state.edges);
-      const aiNodesMissingOutputs = getAiNodesMissingValidOutputs(executableGraph.nodes, executableGraph.edges);
+      const fullExecutableGraph = projectWorkflowToExecutionGraph(state.nodes, state.edges);
+      const executableGraph = options.targetNodeId
+        ? filterExecutionGraphToUpstreamTarget(fullExecutableGraph, options.targetNodeId)
+        : fullExecutableGraph;
+      const targetNode = options.targetNodeId
+        ? state.nodes.find((node) => node.id === options.targetNodeId)
+        : null;
+
+      if (options.targetNodeId && !isRunToNodeAllowed(targetNode || undefined)) {
+        set({
+          lastExecutionStatus: 'error',
+          lastExecutionError: '目标节点不存在或不可执行',
+          workflowWarningMessage: '无法运行到该节点：目标节点不存在或不可执行',
+        });
+        return;
+      }
+
+      if (options.targetNodeId && executableGraph.nodes.length === 0) {
+        set({
+          lastExecutionStatus: 'error',
+          lastExecutionError: '目标节点不存在或不可执行',
+          workflowWarningMessage: '无法运行到该节点：目标节点不存在或不可执行',
+        });
+        return;
+      }
+
+      const aiNodesMissingOutputs = options.targetNodeId
+        ? []
+        : getAiNodesMissingValidOutputs(executableGraph.nodes, executableGraph.edges);
       if (aiNodesMissingOutputs.length > 0) {
         const labels = aiNodesMissingOutputs.map((node) => getNodeDisplayName(node, executableGraph.nodes));
         const nodeWarnings = Object.fromEntries(
@@ -136,7 +192,7 @@ export function createWorkflowExecutionActions(
       set({
         executionProgress: null,
         isExecuting: true,
-        executionMessage: '准备执行工作流...',
+        executionMessage: options.targetNodeId ? '正在准备运行到节点...' : '准备执行工作流...',
         currentRunId: null,
         executingNodeId: null,
         nodeExecStatus: {},
@@ -150,8 +206,14 @@ export function createWorkflowExecutionActions(
           id: `log_${gid()}`,
           timestamp: Date.now(),
           level: 'info',
-          message: `开始执行工作流：${state.workflowName}`,
-          details: { nodeCount: state.nodes.length, edgeCount: state.edges.length },
+          message: options.targetNodeId
+            ? `开始运行到节点：${getNodeDisplayName(targetNode || undefined, state.nodes)}`
+            : `开始执行工作流：${state.workflowName}`,
+          details: {
+            nodeCount: executableGraph.nodes.length,
+            edgeCount: executableGraph.edges.length,
+            ...(options.targetNodeId ? { targetNodeId: options.targetNodeId } : {}),
+          },
         }],
         lastExecutionStatus: null,
         lastExecutionTime: null,
@@ -220,14 +282,24 @@ export function createWorkflowExecutionActions(
           });
           set((currentState) => {
             const persistTextOutput = shouldPersistTextInputOutput(currentState, data.nodeId, data.outputs);
+            const persistTextSplitOutput = shouldPersistTextSplitOutput(currentState, data.nodeId, data.outputs);
             return {
               executionMessage: `${nodeLabel} 执行完成`,
-              nodes: persistTextOutput
+              nodes: persistTextOutput || persistTextSplitOutput
                 ? currentState.nodes.map((node) => (
-                    node.id === data.nodeId ? { ...node, data: { ...node.data, text: data.outputs.text } } : node
+                    node.id === data.nodeId
+                      ? {
+                          ...node,
+                          data: {
+                            ...node.data,
+                            ...(persistTextOutput ? { text: data.outputs.text } : {}),
+                            ...(persistTextSplitOutput ? { segments: buildTextSplitSegmentsFromOutputs(data.outputs) } : {}),
+                          },
+                        }
+                      : node
                   ))
                 : currentState.nodes,
-              hasUnsavedChanges: persistTextOutput ? true : currentState.hasUnsavedChanges,
+              hasUnsavedChanges: persistTextOutput || persistTextSplitOutput ? true : currentState.hasUnsavedChanges,
               nodeExecStatus: {
                 ...currentState.nodeExecStatus,
                 [data.nodeId]: 'success',
@@ -360,6 +432,15 @@ export function createWorkflowExecutionActions(
       } else {
         await api.executeWorkflow(state.workflowId, { name: state.workflowName, nodes: payload.nodes, edges: payload.edges }, callbacks);
       }
+  };
+
+  return {
+    executeWorkflow: async () => {
+      await runWorkflow();
+    },
+
+    executeWorkflowToNode: async (nodeId: string) => {
+      await runWorkflow({ targetNodeId: nodeId });
     },
 
     cancelWorkflowExecution: async () => {

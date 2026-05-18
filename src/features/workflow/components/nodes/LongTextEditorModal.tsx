@@ -8,6 +8,7 @@ interface LongTextEditorModalProps {
   segments?: string[];
   placeholder?: string;
   onChange: (value: string) => void;
+  onSegmentsChange?: (segments: string[]) => void;
   onClose: () => void;
   readOnly?: boolean;
   onCompositionStart?: () => void;
@@ -20,16 +21,26 @@ export function LongTextEditorModal({
   segments,
   placeholder = '粘贴/输入文本...',
   onChange,
+  onSegmentsChange,
   onClose,
   readOnly = false,
   onCompositionStart,
   onCompositionEnd,
 }: LongTextEditorModalProps) {
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const segmentRefs = useRef<Array<HTMLTextAreaElement | null>>([]);
 
   useEffect(() => {
     editorRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    segmentRefs.current.forEach((textarea) => {
+      if (!textarea) return;
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    });
+  }, [segments]);
 
   return createPortal(
     <div
@@ -61,10 +72,37 @@ export function LongTextEditorModal({
           >
             {segments.map((segment, index) => (
               <section key={`segment-${index + 1}`} className="long-text-editor-modal__segment">
-                <div className="long-text-editor-modal__segment-title">片段 {index + 1}</div>
-                <div className={segment ? 'long-text-editor-modal__segment-text' : 'long-text-editor-modal__segment-text long-text-editor-modal__segment-text--empty'}>
-                  {segment || '空片段'}
-                </div>
+                <label className="long-text-editor-modal__segment-title" htmlFor={`segment-editor-${index + 1}`}>
+                  片段 {index + 1}
+                </label>
+                <textarea
+                  id={`segment-editor-${index + 1}`}
+                  ref={(element) => {
+                    segmentRefs.current[index] = element;
+                  }}
+                  className="long-text-editor-modal__segment-text"
+                  value={segment}
+                  placeholder="输入片段内容..."
+                  readOnly={readOnly || !onSegmentsChange}
+                  onChange={(event) => {
+                    const nextSegments = [...segments];
+                    nextSegments[index] = event.target.value;
+                    event.currentTarget.style.height = 'auto';
+                    event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
+                    onSegmentsChange?.(nextSegments);
+                  }}
+                  onCompositionStart={onCompositionStart}
+                  onCompositionEnd={(event) => {
+                    const nextSegments = [...segments];
+                    nextSegments[index] = event.currentTarget.value;
+                    onSegmentsChange?.(nextSegments);
+                    onCompositionEnd?.(event.currentTarget.value);
+                  }}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    if (event.key === 'Escape') onClose();
+                  }}
+                />
               </section>
             ))}
           </div>

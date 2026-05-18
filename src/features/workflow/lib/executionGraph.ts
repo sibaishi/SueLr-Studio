@@ -157,3 +157,38 @@ export function projectWorkflowToExecutionGraph(nodes: Node[], edges: Edge[]) {
     edges: projectedEdges,
   };
 }
+
+export function filterExecutionGraphToUpstreamTarget(
+  graph: { nodes: Node[]; edges: Edge[] },
+  targetNodeId: string,
+) {
+  const nodeIds = new Set(graph.nodes.map((node) => node.id));
+  if (!nodeIds.has(targetNodeId)) {
+    return {
+      nodes: [],
+      edges: [],
+    };
+  }
+
+  const includedNodeIds = new Set<string>();
+  const queue = [targetNodeId];
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || includedNodeIds.has(nodeId)) continue;
+
+    includedNodeIds.add(nodeId);
+    for (const edge of graph.edges) {
+      if (edge.target === nodeId && !includedNodeIds.has(edge.source)) {
+        queue.push(edge.source);
+      }
+    }
+  }
+
+  return {
+    nodes: graph.nodes.filter((node) => includedNodeIds.has(node.id)),
+    edges: graph.edges.filter((edge) => (
+      includedNodeIds.has(edge.source) && includedNodeIds.has(edge.target)
+    )),
+  };
+}

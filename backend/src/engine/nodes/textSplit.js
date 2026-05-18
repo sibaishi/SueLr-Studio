@@ -4,6 +4,10 @@ function trimSeparatorAdjacentNewlines(text) {
     .replace(/(?:\r?\n)+[ \t]*$/, '');
 }
 
+function trimSeparatorLeadingNewlines(text) {
+  return String(text).replace(/^[ \t]*(?:\r?\n)+/, '');
+}
+
 function splitTextPreservingRemainder(sourceText, separator, outputCount) {
   const parts = [];
   let cursor = 0;
@@ -15,21 +19,32 @@ function splitTextPreservingRemainder(sourceText, separator, outputCount) {
     cursor = separatorIndex + separator.length;
   }
 
-  parts.push(sourceText.slice(cursor));
+  parts.push(trimSeparatorLeadingNewlines(sourceText.slice(cursor)));
   return parts;
+}
+
+function normalizeOutputCount(value) {
+  const requestedOutputCount = Number(value ?? 2);
+  return Math.max(1, Math.min(9, Number.isFinite(requestedOutputCount) ? Math.trunc(requestedOutputCount) : 2));
+}
+
+function normalizeLocalSegments(value, outputCount) {
+  const source = Array.isArray(value) ? value : [];
+  return Array.from({ length: outputCount }, (_, index) => String(source[index] ?? ''));
 }
 
 export async function execute(node, inputs, apiConfig, onProgress) {
   void apiConfig;
   onProgress('拆分文本...');
 
-  const sourceText = String(inputs.text ?? '');
   const rawSeparator = node?.data?.separator;
   const separator = typeof rawSeparator === 'string' && rawSeparator.length > 0 ? rawSeparator : '\n';
-  const requestedOutputCount = Number(node?.data?.outputCount ?? 2);
-  const outputCount = Math.max(1, Math.min(9, Number.isFinite(requestedOutputCount) ? Math.trunc(requestedOutputCount) : 2));
+  const outputCount = normalizeOutputCount(node?.data?.outputCount);
 
-  const segments = splitTextPreservingRemainder(sourceText, separator, outputCount);
+  const upstreamText = String(inputs.text ?? '').trim();
+  const segments = upstreamText
+    ? splitTextPreservingRemainder(String(inputs.text ?? ''), separator, outputCount)
+    : normalizeLocalSegments(node?.data?.segments, outputCount);
 
   const result = {};
   for (let index = 0; index < outputCount; index += 1) {

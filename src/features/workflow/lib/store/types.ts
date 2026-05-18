@@ -123,6 +123,7 @@ export interface WorkflowState {
   setSnapToGridEnabled: (enabled: boolean) => void;
 
   executeWorkflow: () => Promise<void>;
+  executeWorkflowToNode: (nodeId: string) => Promise<void>;
   cancelWorkflowExecution: () => Promise<void>;
   saveWorkflow: () => Promise<boolean>;
   loadWorkflow: (id: string) => Promise<boolean>;

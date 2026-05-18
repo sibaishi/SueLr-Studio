@@ -186,6 +186,132 @@ describe('workflow store execution actions', () => {
     expect(state.workflowWarningMessage).toBeTruthy();
   });
 
+  it('accepts textInput as a valid terminal node for AI output validation', async () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        {
+          id: 'prompt',
+          type: 'textInput',
+          position: { x: 0, y: 0 },
+          data: { text: 'hello' },
+        },
+        {
+          id: 'ai_node',
+          type: 'aiChat',
+          position: { x: 200, y: 0 },
+          data: { disabled: false },
+        },
+        {
+          id: 'editable_text',
+          type: 'textInput',
+          position: { x: 400, y: 0 },
+          data: { text: 'local fallback' },
+        },
+      ],
+      edges: [
+        { id: 'edge-prompt-ai', source: 'prompt', sourceHandle: 'text', target: 'ai_node', targetHandle: 'prompt' },
+        { id: 'edge-ai-text', source: 'ai_node', sourceHandle: 'response', target: 'editable_text', targetHandle: 'input' },
+      ],
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflow();
+
+    expect(api.executeWorkflow).toHaveBeenCalledTimes(1);
+    expect(harness.getState().workflowWarningMessage).toBeNull();
+  });
+
+  it('executes only the upstream graph when running to a target node', async () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'a', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'a' } },
+        { id: 'b', type: 'textMerge', position: { x: 200, y: 0 }, data: {} },
+        { id: 'c', type: 'textInput', position: { x: 400, y: 0 }, data: {} },
+        { id: 'd', type: 'output', position: { x: 600, y: 0 }, data: {} },
+        { id: 'side', type: 'output', position: { x: 400, y: 160 }, data: {} },
+        { id: 'other', type: 'textInput', position: { x: 0, y: 160 }, data: { text: 'other' } },
+      ],
+      edges: [
+        { id: 'ab', source: 'a', sourceHandle: 'text', target: 'b', targetHandle: 'text1' },
+        { id: 'bc', source: 'b', sourceHandle: 'text', target: 'c', targetHandle: 'input' },
+        { id: 'cd', source: 'c', sourceHandle: 'text', target: 'd', targetHandle: 'content' },
+        { id: 'b-side', source: 'b', sourceHandle: 'text', target: 'side', targetHandle: 'content' },
+      ],
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflowToNode('c');
+
+    expect(api.executeWorkflow).toHaveBeenCalledTimes(1);
+    const [, payload] = vi.mocked(api.executeWorkflow).mock.calls[0] || [];
+    const payloadNodes = (payload?.nodes || []) as Node[];
+    const payloadEdges = (payload?.edges || []) as Edge[];
+    expect(payloadNodes.map((node) => node.id)).toEqual(['a', 'b', 'c']);
+    expect(payloadEdges.map((edge) => edge.id)).toEqual(['ab', 'bc']);
+  });
+
+  it('running to a non-output node skips full AI terminal validation', async () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'prompt', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'hello' } },
+        { id: 'ai_node', type: 'aiChat', position: { x: 200, y: 0 }, data: { disabled: false } },
+        { id: 'clean_node', type: 'textClean', position: { x: 400, y: 0 }, data: {} },
+      ],
+      edges: [
+        { id: 'prompt-ai', source: 'prompt', sourceHandle: 'text', target: 'ai_node', targetHandle: 'prompt' },
+        { id: 'ai-clean', source: 'ai_node', sourceHandle: 'response', target: 'clean_node', targetHandle: 'text' },
+      ],
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflowToNode('clean_node');
+
+    expect(api.executeWorkflow).toHaveBeenCalledTimes(1);
+    expect(harness.getState().workflowWarningMessage).toBeNull();
+  });
+
+  it('does not run to an AI capability node', async () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'prompt', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'hello' } },
+        { id: 'ai_node', type: 'aiChat', position: { x: 200, y: 0 }, data: { disabled: false } },
+      ],
+      edges: [
+        { id: 'prompt-ai', source: 'prompt', sourceHandle: 'text', target: 'ai_node', targetHandle: 'prompt' },
+      ],
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflowToNode('ai_node');
+
+    expect(api.executeWorkflow).not.toHaveBeenCalled();
+    expect(harness.getState().workflowWarningMessage).toBe('无法运行到该节点：目标节点不存在或不可执行');
+  });
+
+  it('does not run to a source-only node without inputs', async () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'source', type: 'apiKeyInput', position: { x: 0, y: 0 }, data: { apiKey: 'secret' } },
+      ],
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflowToNode('source');
+
+    expect(api.executeWorkflow).not.toHaveBeenCalled();
+    expect(harness.getState().workflowWarningMessage).toBe('无法运行到该节点：目标节点不存在或不可执行');
+  });
+
   it('clears a stale active run snapshot when the upstream run is no longer running', async () => {
     vi.mocked(loadActiveRunSnapshot).mockReturnValue({
       runId: 'run_stale',
@@ -375,6 +501,51 @@ describe('workflow store execution actions', () => {
 
     const state = harness.getState();
     expect(state.nodes.find((node) => node.id === 'editable_text')?.data.text).toBe('from upstream');
+    expect(state.hasUnsavedChanges).toBe(true);
+  });
+
+  it('writes upstream textSplit execution outputs back into node segments', async () => {
+    vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
+      callbacks.onNodeComplete?.({
+        nodeId: 'split_node',
+        outputs: { part1: 'first', part2: 'second' },
+        duration: 1,
+      });
+      callbacks.onWorkflowComplete?.({
+        totalDuration: 1,
+        successCount: 1,
+        failCount: 0,
+      });
+    });
+
+    const harness = createWorkflowStoreHarness({
+      hasUnsavedChanges: false,
+      nodes: [
+        {
+          id: 'source_text',
+          type: 'textInput',
+          position: { x: 0, y: 0 },
+          data: { text: 'first\n---\nsecond' },
+        },
+        {
+          id: 'split_node',
+          type: 'textSplit',
+          position: { x: 300, y: 0 },
+          data: { outputCount: 2, segments: ['local first', 'local second'] },
+        },
+      ],
+      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'text', target: 'split_node', targetHandle: 'text' }],
+      saveWorkflow: vi.fn(async () => false),
+      addExecutionLog: vi.fn(),
+    });
+
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.executeWorkflow();
+
+    const state = harness.getState();
+    expect(state.nodes.find((node) => node.id === 'split_node')?.data.segments).toEqual(['first', 'second']);
     expect(state.hasUnsavedChanges).toBe(true);
   });
 

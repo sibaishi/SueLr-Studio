@@ -3,7 +3,7 @@ import { GRID_SIZE, NODE_REGISTRY } from '@/features/workflow/lib/constants';
 import type { PersistedWorkflow } from '@/features/workflow/lib/persistenceTypes';
 
 const AI_TYPES = ['aiChat', 'imageGen', 'videoGen'];
-const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile']);
+const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile', 'textInput']);
 const FORCE_DISABLED_NODE_TYPES = new Set<string>();
 const LOG_DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
 const LOG_DATA_URL_PREVIEW_LENGTH = 48;

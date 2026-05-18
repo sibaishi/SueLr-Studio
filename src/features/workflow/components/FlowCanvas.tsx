@@ -100,6 +100,7 @@ import { NODE_ICONS } from './nodes/nodeConstants';
 import './contextMenu.css';
 
 const WORKFLOW_NODE_CLIPBOARD_MARKER = 'suelr-studio/workflow-node-clipboard';
+const AI_CAPABILITY_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
 
 interface FlowCanvasProps {
   onViewportCenterChange?: (position: { x: number; y: number }) => void;
@@ -901,6 +902,13 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   const hasSingleChildContextNode = contextNodes.length === 1 && Boolean((contextNodes[0] as FlowNodeType & { parentId?: string })?.parentId);
   const hasSingleImageInputContextNode = contextNodes.length === 1 && contextNodes[0]?.type === 'imageInput';
   const canDetachSingleContextNode = contextNodes.length === 1 && contextNodes[0]?.type !== 'group';
+  const canRunToSingleContextNode = (() => {
+    if (contextNodes.length !== 1) return false;
+    const node = contextNodes[0];
+    if (!node || node.type === 'group' || AI_CAPABILITY_NODE_TYPES.has(node.type || '')) return false;
+    const def = getNodeDef(node.type || '');
+    return Boolean(def && ((def.inputs?.length || 0) > 0 || (def.maxInputs || 0) > 0));
+  })();
   const canCreateGroup = hasMultipleContextNodes && contextNodes.every((node) => node?.type !== 'group');
   const allContextNodesDisabled = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.disabled));
   const allContextNodesLocked = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.locked));
@@ -1053,6 +1061,12 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   const detachContextNodeFromChain = useCallback(() => {
     if (!contextMenu?.nodeId) return;
     store.detachNodeFromChain(contextMenu.nodeId);
+    closeContextMenu();
+  }, [closeContextMenu, contextMenu?.nodeId, store]);
+
+  const runToContextNode = useCallback(() => {
+    if (!contextMenu?.nodeId) return;
+    void store.executeWorkflowToNode(contextMenu.nodeId);
     closeContextMenu();
   }, [closeContextMenu, contextMenu?.nodeId, store]);
 
@@ -1538,6 +1552,20 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
                   label={allContextNodesDisabled ? (hasSingleGroupContextNode ? '启用组' : '启用节点') : (hasSingleGroupContextNode ? '禁用组' : '禁用节点')}
                   onClick={() => setContextNodesDisabled(!allContextNodesDisabled)}
                 />
+                {canRunToSingleContextNode && (
+                  <ContextMenuButton
+                    label="运行到该节点"
+                    onClick={runToContextNode}
+                    disabled={store.isExecuting || allContextNodesDisabled}
+                    title={
+                      store.isExecuting
+                        ? '当前已有工作流正在运行'
+                        : allContextNodesDisabled
+                          ? '当前节点已禁用'
+                          : undefined
+                    }
+                  />
+                )}
                 {hasSingleImageInputContextNode && (
                   <ContextMenuButton
                     label="进入画板"

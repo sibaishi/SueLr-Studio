@@ -91,12 +91,16 @@ function trimSeparatorAdjacentNewlines(text: string) {
     .replace(/(?:\r?\n)+[ \t]*$/, '');
 }
 
-function splitTextForPreview(data: Record<string, unknown>) {
-  const sourceText = String(data.previewText ?? data.text ?? '');
-  const rawSeparator = data.separator;
-  const separator = typeof rawSeparator === 'string' && rawSeparator.length > 0 ? rawSeparator : '\n';
+function trimSeparatorLeadingNewlines(text: string) {
+  return String(text).replace(/^[ \t]*(?:\r?\n)+/, '');
+}
+
+function getTextSplitOutputCount(data: Record<string, unknown>) {
   const requestedOutputCount = Number(data.outputCount ?? 2);
-  const outputCount = Math.max(1, Math.min(9, Number.isFinite(requestedOutputCount) ? Math.trunc(requestedOutputCount) : 2));
+  return Math.max(1, Math.min(9, Number.isFinite(requestedOutputCount) ? Math.trunc(requestedOutputCount) : 2));
+}
+
+function splitTextIntoSegments(sourceText: string, separator: string, outputCount: number) {
   const parts: string[] = [];
   let cursor = 0;
 
@@ -107,18 +111,40 @@ function splitTextForPreview(data: Record<string, unknown>) {
     cursor = separatorIndex + separator.length;
   }
 
-  parts.push(sourceText.slice(cursor));
+  parts.push(trimSeparatorLeadingNewlines(sourceText.slice(cursor)));
   while (parts.length < outputCount) parts.push('');
   return parts.slice(0, outputCount);
 }
 
+function getStoredTextSplitSegments(data: Record<string, unknown>) {
+  return Array.isArray(data.segments) ? data.segments.map((item) => String(item ?? '')) : null;
+}
+
+function normalizeTextSplitSegments(segments: string[], outputCount: number) {
+  return Array.from({ length: outputCount }, (_, index) => segments[index] ?? '');
+}
+
+function buildTextSplitLocalSegments(data: Record<string, unknown>) {
+  const outputCount = getTextSplitOutputCount(data);
+  const storedSegments = getStoredTextSplitSegments(data);
+  if (storedSegments) {
+    return normalizeTextSplitSegments(storedSegments, outputCount);
+  }
+
+  const sourceText = String(data.previewText ?? data.text ?? '');
+  const rawSeparator = data.separator;
+  const separator = typeof rawSeparator === 'string' && rawSeparator.length > 0 ? rawSeparator : '\n';
+  return splitTextIntoSegments(sourceText, separator, outputCount);
+}
+
 function buildTextSplitPreview(data: Record<string, unknown>, outputs?: Record<string, unknown>) {
+  const outputCount = getTextSplitOutputCount(data);
   const outputEntries = Object.entries(outputs || {})
     .filter(([key]) => /^part\d+$/.test(key))
     .sort(([keyA], [keyB]) => Number(keyA.replace('part', '')) - Number(keyB.replace('part', '')))
     .map(([, value]) => String(value ?? ''));
 
-  return outputEntries.length > 0 ? outputEntries : splitTextForPreview(data);
+  return outputEntries.length > 0 ? normalizeTextSplitSegments(outputEntries, outputCount) : buildTextSplitLocalSegments(data);
 }
 
 interface NodeContentProps {
@@ -1152,7 +1178,6 @@ function TextResultPreviewContent({
   const cleanPreview = mode === 'clean' ? buildTextCleanPreview(data, outputs) : '';
   const splitPreview = mode === 'split' ? buildTextSplitPreview(data, outputs) : [];
   const hasRuntimeOutput = Boolean(outputs && Object.keys(outputs).length > 0);
-
   return (
     <div className="node-content-shell node-settings-content node-settings-content--with-preview" style={{ ...outerStyle, overflow: 'auto' }}>
       <div className="node-settings-content__inner">
@@ -1177,10 +1202,8 @@ function TextResultPreviewContent({
               className="node-result-preview__open"
               onClick={() => setFullscreenValue({
                 title: '查看拆分预览',
-                value: splitPreview.some((item) => item.trim())
-                  ? splitPreview.join('\n\n')
-                  : '暂无可预览内容，执行后会显示拆分结果。',
-                segments: splitPreview.some((item) => item.trim()) ? splitPreview : undefined,
+                value: splitPreview.some((item) => item.trim()) ? splitPreview.join('\n\n') : '暂无可预览内容。',
+                segments: splitPreview,
               })}
             >
               拆分预览
@@ -1193,9 +1216,20 @@ function TextResultPreviewContent({
           title={fullscreenValue.title}
           value={fullscreenValue.value}
           segments={fullscreenValue.segments}
-          readOnly
           placeholder=""
           onChange={() => undefined}
+          onSegmentsChange={(nextSegments) => {
+            setFullscreenValue((current) => (
+              current
+                ? {
+                    ...current,
+                    segments: nextSegments,
+                    value: nextSegments.join('\n\n'),
+                  }
+                : current
+            ));
+            onPatch({ segments: nextSegments });
+          }}
           onClose={() => setFullscreenValue(null)}
         />
       )}
