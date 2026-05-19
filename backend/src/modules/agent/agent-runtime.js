@@ -4,6 +4,7 @@ import { AgentMemoryStrategy } from './agent-memory-strategy.js';
 const DEFAULT_CONTEXT_COMPRESSION_THRESHOLD = 128000;
 const CHARS_PER_TOKEN = 3.5;
 const IMAGE_TOKEN_ESTIMATE = 768;
+const TERMINAL_SIDE_EFFECT_TOOLS = new Set(['generate_image', 'video_generate']);
 
 function cleanString(value, maxLength = 5000) {
   if (value === undefined || value === null) return '';
@@ -228,6 +229,23 @@ function buildToolFallbackContent(toolTrace = []) {
   }
 
   return '';
+}
+
+function shouldStopAfterToolResult(name, result) {
+  if (!TERMINAL_SIDE_EFFECT_TOOLS.has(name)) return false;
+  const parsed = parseToolResult(result);
+  if (!parsed || typeof parsed !== 'object') return true;
+  if (parsed.type === 'tool_needs_clarification' || parsed.type === 'tool_needs_configuration') return true;
+  if (name === 'generate_image') {
+    return Array.isArray(parsed.images) || Array.isArray(parsed.artifacts);
+  }
+  if (name === 'video_generate') {
+    return parsed.status === 'submitted'
+      || Array.isArray(parsed.videos)
+      || Array.isArray(parsed.video)
+      || Array.isArray(parsed.artifacts);
+  }
+  return true;
 }
 
 function profileAllowsTool(profile, toolName) {
@@ -504,8 +522,9 @@ export class AgentRuntime {
     let finalContent = '';
     let round = 0;
     let tokenUsage = buildTokenUsage({ promptMessages: conversation });
+    let shouldStopToolLoop = false;
 
-    while (round < maxToolRounds) {
+    while (round < maxToolRounds && !shouldStopToolLoop) {
       throwIfAborted(signal);
       round += 1;
       this.sessionStore.update(sessionId, { toolLoopCount: round });
@@ -563,6 +582,10 @@ export class AgentRuntime {
         toolCalls.push({ name, args, result });
         toolTrace.push({ name, args, result });
         conversation.push(toToolMessage(toolCall.id, result, name));
+        if (shouldStopAfterToolResult(name, result)) {
+          shouldStopToolLoop = true;
+          break;
+        }
       }
 
       const summarizeCall = toolCalls.find((tc) => tc.name === 'conversation_summarize');
@@ -660,8 +683,9 @@ export class AgentRuntime {
     let lastAssistantMessage = { role: 'assistant', content: '', tool_calls: [] };
     let round = 0;
     let tokenUsage = buildTokenUsage({ promptMessages: conversation });
+    let shouldStopToolLoop = false;
 
-    while (round < maxToolRounds) {
+    while (round < maxToolRounds && !shouldStopToolLoop) {
       throwIfAborted(signal);
       round += 1;
       this.sessionStore.update(sessionId, { toolLoopCount: round });
@@ -725,6 +749,10 @@ export class AgentRuntime {
         toolTrace.push({ name, args, result });
         handlers.onToolCallCompleted?.({ sessionId, name, args, result });
         conversation.push(toToolMessage(toolCall.id, result, name));
+        if (shouldStopAfterToolResult(name, result)) {
+          shouldStopToolLoop = true;
+          break;
+        }
       }
 
       const summarizeCall = toolTrace.find((tc) => tc.name === 'conversation_summarize');
@@ -736,7 +764,7 @@ export class AgentRuntime {
       }
     }
 
-    if (!lastAssistantMessage.content && (!lastAssistantMessage.tool_calls || lastAssistantMessage.tool_calls.length === 0) && toolTrace.length > 0) {
+    if (!lastAssistantMessage.content && toolTrace.length > 0) {
       const fallbackContent = buildToolFallbackContent(toolTrace);
       if (fallbackContent) {
         lastAssistantMessage = { role: 'assistant', content: fallbackContent, tool_calls: [] };

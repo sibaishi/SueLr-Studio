@@ -169,7 +169,6 @@ test('AgentRuntime.runStream writes extracted memories after streaming completio
 
 test('AgentRuntime.runStream uses generate_image tool result when final model response is empty', async () => {
   let chatCallCount = 0;
-  let secondRoundToolContent = '';
   const completed = [];
   const { runtime } = createRuntime({
     profileService: {
@@ -194,10 +193,7 @@ test('AgentRuntime.runStream uses generate_image tool result when final model re
           );
         }
 
-        secondRoundToolContent = body.messages.find((message) => message.role === 'tool')?.content || '';
-        return new Response('data: [DONE]\n\n', {
-          headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
-        });
+        throw new Error('generate_image should complete the stream without a second chat round');
       },
       async chat() {
         throw new Error('memory extraction should not run');
@@ -240,12 +236,9 @@ test('AgentRuntime.runStream uses generate_image tool result when final model re
     },
   });
 
-  assert.equal(chatCallCount, 2);
+  assert.equal(chatCallCount, 1);
   assert.equal(result.assistantMessage.content, '图片已生成。');
   assert.equal(completed[0].assistantMessage.content, '图片已生成。');
-  assert.match(secondRoundToolContent, /"imageCount":1/);
-  assert.doesNotMatch(secondRoundToolContent, /data:image|AAAA|BBBB|CCCC|base64/);
-  assert.ok(secondRoundToolContent.length < 1000);
   assert.equal(result.toolTrace.length, 1);
   assert.equal(result.toolTrace[0].name, 'generate_image');
 });
@@ -276,9 +269,7 @@ test('AgentRuntime.runStream passes the most recent conversation image to genera
           );
         }
 
-        return new Response('data: [DONE]\n\n', {
-          headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
-        });
+        throw new Error('generate_image should complete the stream without a second chat round');
       },
       async chat() {
         throw new Error('memory extraction should not run');
@@ -395,7 +386,7 @@ test('AgentRuntime.runStream asks user to pick a model when generate_image is am
     messages: [{ role: 'user', content: 'Generate an image.' }],
   });
 
-  assert.equal(chatCallCount, 2);
+  assert.equal(chatCallCount, 1);
   assert.equal(result.assistantMessage.content, '请选择要使用的图像模型：image-a、image-b');
 });
 
