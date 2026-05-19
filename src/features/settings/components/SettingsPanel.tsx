@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3 } from 'lucide-react';
+import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, Wallet } from 'lucide-react';
 import { LogPanel } from '@/shared/ui/ios';
 import { useToast } from '@/contexts/ToastContext';
 import { useT } from '@/contexts/ThemeContext';
@@ -9,11 +9,16 @@ import type { ProviderConfig } from '@/lib/types';
 import { capabilityWebSearch } from '@/shared/api/capabilities';
 import {
   checkSettingsServer,
+  clearAccountDetails,
   getBackendStatus,
+  loadAccountDetails,
+  loadAccountDetailsLogs,
   loadStorageSettings,
   pickStorageDirectory,
+  refreshAccountDetails,
   resetStorageSettings,
   restartBackendRequest,
+  saveAccountDetails,
   saveStorageSettings,
   useSettingsPanelController,
   waitForBackendReady,
@@ -22,6 +27,7 @@ import type { SettingsPanelProps, StorageSettingsPayload } from '@/features/sett
 import { createImportedProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
 import { AgentMemorySection } from './MemorySection';
 import { AgentPersonaSection } from './AgentPersonaSection';
+import { AccountDetailsSection } from './AccountDetailsSection';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
 import { DefaultsSection } from './DefaultsSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
@@ -80,6 +86,15 @@ export function SettingsPanel({
   const [storageSettingsLoading, setStorageSettingsLoading] = useState(true);
   const [storageSettingsSaving, setStorageSettingsSaving] = useState(false);
   const [backendRestarting, setBackendRestarting] = useState(false);
+  const [accountDetails, setAccountDetails] = useState<SettingsViewModel['accountDetails']>(null);
+  const [accountDetailsUsername, setAccountDetailsUsername] = useState('');
+  const [accountDetailsPassword, setAccountDetailsPassword] = useState('');
+  const [accountDetailsLoading, setAccountDetailsLoading] = useState(true);
+  const [accountDetailsSaving, setAccountDetailsSaving] = useState(false);
+  const [accountDetailsRefreshing, setAccountDetailsRefreshing] = useState(false);
+  const [accountDetailsLogs, setAccountDetailsLogs] = useState<SettingsViewModel['accountDetailsLogs']>(null);
+  const [accountDetailsLogsLoading, setAccountDetailsLogsLoading] = useState(false);
+  const [accountDetailsLogsPage, setAccountDetailsLogsPage] = useState(1);
 
   const {
     activeConfig,
@@ -150,6 +165,58 @@ export function SettingsPanel({
       cancelled = true;
     };
   }, [addLog]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setAccountDetailsLoading(true);
+      try {
+        const next = await loadAccountDetails();
+        if (cancelled) return;
+        setAccountDetails(next);
+        setAccountDetailsUsername(next?.username || '');
+      } catch (error) {
+        if (!cancelled) {
+          addLog('error', error instanceof Error ? error.message : String(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setAccountDetailsLoading(false);
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [addLog]);
+
+  useEffect(() => {
+    if (!accountDetails?.configured) {
+      setAccountDetailsLogs(null);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      setAccountDetailsLogsLoading(true);
+      try {
+        const next = await loadAccountDetailsLogs(accountDetailsLogsPage, 20);
+        if (!cancelled) setAccountDetailsLogs(next);
+      } catch (error) {
+        if (!cancelled) addLog('error', error instanceof Error ? error.message : String(error));
+      } finally {
+        if (!cancelled) setAccountDetailsLogsLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountDetails?.configured, accountDetailsLogsPage, addLog]);
 
   const updateConfig = (patch: Partial<ApiConfig>) => {
     if (!activeConfigId) return;
@@ -323,6 +390,63 @@ export function SettingsPanel({
     }
   };
 
+  const saveAccountDetailsAction = async () => {
+    setAccountDetailsSaving(true);
+    try {
+      const next = await saveAccountDetails(accountDetailsUsername.trim(), accountDetailsPassword);
+      setAccountDetails(next);
+      setAccountDetailsUsername(next.username || accountDetailsUsername.trim());
+      setAccountDetailsPassword('');
+      addLog('success', '账号已登录');
+    } catch (error) {
+      addLog('error', error instanceof Error ? error.message : String(error));
+    } finally {
+      setAccountDetailsSaving(false);
+    }
+  };
+
+  const refreshAccountDetailsAction = async () => {
+    setAccountDetailsRefreshing(true);
+    try {
+      const next = await refreshAccountDetails();
+      setAccountDetails(next);
+      setAccountDetailsUsername(next.username || accountDetailsUsername);
+      addLog('success', `账号明细已刷新：${next.balance?.balance ?? '-'}`);
+    } catch (error) {
+      addLog('error', error instanceof Error ? error.message : String(error));
+    } finally {
+      setAccountDetailsRefreshing(false);
+    }
+  };
+
+  const refreshAccountDetailsLogsAction = async () => {
+    setAccountDetailsLogsLoading(true);
+    try {
+      const next = await loadAccountDetailsLogs(accountDetailsLogsPage, 20);
+      setAccountDetailsLogs(next);
+      addLog('success', `调用日志已刷新：${next.items.length} 条`);
+    } catch (error) {
+      addLog('error', error instanceof Error ? error.message : String(error));
+    } finally {
+      setAccountDetailsLogsLoading(false);
+    }
+  };
+
+  const clearAccountDetailsAction = async () => {
+    setAccountDetailsSaving(true);
+    try {
+      const next = await clearAccountDetails();
+      setAccountDetails(next);
+      setAccountDetailsUsername('');
+      setAccountDetailsPassword('');
+      addLog('success', '账号已清除');
+    } catch (error) {
+      addLog('error', error instanceof Error ? error.message : String(error));
+    } finally {
+      setAccountDetailsSaving(false);
+    }
+  };
+
   const modules: SettingsModuleMeta[] = [
     { id: 'connection', label: '连接', desc: 'Provider、鉴权与接口地址', icon: KeyRound, accent: T.blue, stat: base ? '已配置' : '待配置' },
     { id: 'models', label: '模型', desc: '项目模型库与导入管理', icon: Database, accent: T.green, stat: `${projectModels.length} 项` },
@@ -332,9 +456,27 @@ export function SettingsPanel({
     { id: 'diagnostics', label: '诊断', desc: '运行态可见性与快速检查', icon: Gauge, accent: T.green, stat: `${logs.length} 条` },
   ];
 
+  modules.splice(2, 0, {
+    id: 'account_details',
+    label: '账号明细',
+    desc: '账号登录、余额与调用日志',
+    icon: Wallet,
+    accent: T.purple,
+    stat: accountDetails?.balance ? accountDetails.balance.balance.toFixed(2) : (accountDetails?.configured ? '已配置' : '未配置'),
+  });
+
   const activeModuleMeta = modules.find((module) => module.id === activeModule) || modules[0];
 
   const view: SettingsViewModel = {
+    accountDetails,
+    accountDetailsLoading,
+    accountDetailsPassword,
+    accountDetailsRefreshing,
+    accountDetailsSaving,
+    accountDetailsUsername,
+    accountDetailsLogs,
+    accountDetailsLogsLoading,
+    accountDetailsLogsPage,
     activeConfig,
     activeConfigId,
     activeModule,
@@ -376,6 +518,7 @@ export function SettingsPanel({
     addConfig,
     addLog,
     applyConfig,
+    clearAccountDetails: clearAccountDetailsAction,
     deleteAgentProfile,
     deleteConfig,
     exportMemoriesToFile,
@@ -387,9 +530,15 @@ export function SettingsPanel({
     removeProjectModel,
     resetStoragePath: resetStoragePathAction,
     restartBackend: restartBackendAction,
+    refreshAccountDetails: refreshAccountDetailsAction,
+    refreshAccountDetailsLogs: refreshAccountDetailsLogsAction,
     saveAgentProfile,
+    saveAccountDetails: saveAccountDetailsAction,
     saveStoragePath: saveStoragePathAction,
     setActiveConfigName,
+    setAccountDetailsPassword,
+    setAccountDetailsUsername,
+    setAccountDetailsLogsPage,
     setActiveModule,
     setApiConfigs,
     setApiKey,
@@ -422,6 +571,7 @@ export function SettingsPanel({
   const workspaceContent = {
     connection: <ConnectionSettingsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
     models: <ModelsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
+    account_details: <AccountDetailsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
     defaults: <DefaultsSection actions={actions} view={view} />,
     agent_persona: <AgentPersonaSection actions={actions} view={view} />,
     agent_memory: <AgentMemorySection T={T as unknown as Record<string, string>} actions={actions} view={view} />,

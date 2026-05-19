@@ -120,6 +120,92 @@ test('HTTP contract: restart backend endpoint uses unified envelopes', async () 
   }
 });
 
+test('HTTP contract: account details endpoints do not expose secrets', async () => {
+  const { server, baseUrl } = await createTestServer('account-details');
+  try {
+    const { accountDetailsService } = await import('../src/modules/settings/account-details.service.js');
+    const originalSave = accountDetailsService.saveCredentials;
+    const originalRefresh = accountDetailsService.refreshBalance;
+    const originalPublic = accountDetailsService.getPublicState;
+    const originalLogs = accountDetailsService.getLogs;
+    const originalClear = accountDetailsService.clear;
+
+    try {
+      const publicPayload = {
+        configured: true,
+        username: 'demo-user',
+        loggedIn: true,
+        sessionExpiresAt: 1779175706000,
+        user: { id: 129, username: 'demo-user', displayName: 'Demo User', role: 1, status: 1 },
+        balance: { quota: 25000000, usedQuota: 22627709, requestCount: 486, balance: 50, usedBalance: 45.26, refreshedAt: Date.now() },
+        updatedAt: Date.now(),
+      };
+      accountDetailsService.saveCredentials = async () => publicPayload;
+      accountDetailsService.refreshBalance = async () => publicPayload;
+      accountDetailsService.getPublicState = () => publicPayload;
+      accountDetailsService.getLogs = async (query) => ({
+        items: [{
+          id: 1,
+          userId: 129,
+          createdAt: 1779177600,
+          type: 2,
+          content: 'chat completion',
+          tokenName: 'main-key',
+          modelName: 'gpt-demo',
+          quota: 1234567,
+          cost: 2.47,
+          promptTokens: 100,
+          completionTokens: 50,
+        }],
+        total: 1,
+        page: Number(query.page) || 1,
+        pageSize: Math.min(100, Number(query.pageSize) || 20),
+      });
+      accountDetailsService.clear = () => ({ ...publicPayload, configured: false, loggedIn: false, username: '', user: null, balance: null });
+
+      const saved = await requestJson(baseUrl, '/api/settings/account-details', {
+        method: 'PUT',
+        body: JSON.stringify({ username: 'demo-user', password: 'secret' }),
+      });
+      assert.equal(saved.status, 200);
+      assertEnvelopeShape(saved.body);
+      assert.equal(saved.body.success, true);
+      assert.equal(saved.body.data.password, undefined);
+      assert.equal(saved.body.data.session, undefined);
+      assert.equal(saved.body.data.cookie, undefined);
+
+      const fetched = await requestJson(baseUrl, '/api/settings/account-details');
+      assert.equal(fetched.status, 200);
+      assert.equal(fetched.body.data.balance.balance, 50);
+
+      const refreshed = await requestJson(baseUrl, '/api/settings/account-details/refresh', { method: 'POST' });
+      assert.equal(refreshed.status, 200);
+      assert.equal(refreshed.body.data.username, 'demo-user');
+
+      const logs = await requestJson(baseUrl, '/api/settings/account-details/logs?page=2&pageSize=200');
+      assert.equal(logs.status, 200);
+      assertEnvelopeShape(logs.body);
+      assert.equal(logs.body.data.page, 2);
+      assert.equal(logs.body.data.pageSize, 100);
+      assert.equal(logs.body.data.items[0].cost, 2.47);
+      assert.equal(logs.body.data.password, undefined);
+      assert.equal(logs.body.data.session, undefined);
+
+      const cleared = await requestJson(baseUrl, '/api/settings/account-details', { method: 'DELETE' });
+      assert.equal(cleared.status, 200);
+      assert.equal(cleared.body.data.configured, false);
+    } finally {
+      accountDetailsService.saveCredentials = originalSave;
+      accountDetailsService.refreshBalance = originalRefresh;
+      accountDetailsService.getPublicState = originalPublic;
+      accountDetailsService.getLogs = originalLogs;
+      accountDetailsService.clear = originalClear;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: health and status endpoints expose runtime baseline payloads', async () => {
   const { server, baseUrl } = await createTestServer('runtime-baseline');
   try {

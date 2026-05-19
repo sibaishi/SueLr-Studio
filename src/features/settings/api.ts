@@ -1,6 +1,6 @@
 import { apiRequest, getApiErrorMessage, setBackendAvailable, isBackendAvailable, selectDirectory } from '@/shared/api';
 import type { ModelInfo } from '@/lib/types';
-import type { BackendRestartPayload, BackendStatusPayload, StorageSettingsPayload, StudioSettingsPayload } from './types';
+import type { AccountDetailsLogsPayload, AccountDetailsPayload, BackendRestartPayload, BackendStatusPayload, StorageSettingsPayload, StudioSettingsPayload } from './types';
 
 type BackendModelsData = {
   message?: string;
@@ -107,6 +107,60 @@ export async function restartBackendRequest(): Promise<BackendRestartPayload> {
   }
   return result.data || {};
 }
+
+export async function loadAccountDetails(): Promise<AccountDetailsPayload | null> {
+  const result = await apiRequest<AccountDetailsPayload>('/api/settings/account-details');
+  setBackendAvailable(Boolean(result.success));
+  return result.success && result.data ? result.data : null;
+}
+
+export async function saveAccountDetails(username: string, password: string): Promise<AccountDetailsPayload> {
+  const result = await apiRequest<AccountDetailsPayload>('/api/settings/account-details', {
+    method: 'PUT',
+    body: JSON.stringify({ username, password }),
+    timeoutMs: 20000,
+  });
+  if (!result.success || !result.data) {
+    throw new Error(result.error || '账号登录失败');
+  }
+  return result.data;
+}
+
+export async function refreshAccountDetails(): Promise<AccountDetailsPayload> {
+  const result = await apiRequest<AccountDetailsPayload>('/api/settings/account-details/refresh', {
+    method: 'POST',
+    timeoutMs: 20000,
+  });
+  if (!result.success || !result.data) {
+    throw new Error(result.error || '账号明细刷新失败');
+  }
+  return result.data;
+}
+
+export async function clearAccountDetails(): Promise<AccountDetailsPayload> {
+  const result = await apiRequest<AccountDetailsPayload>('/api/settings/account-details', {
+    method: 'DELETE',
+  });
+  if (!result.success || !result.data) {
+    throw new Error(result.error || '账号清除失败');
+  }
+  return result.data;
+}
+
+export async function loadAccountDetailsLogs(page = 1, pageSize = 20): Promise<AccountDetailsLogsPayload> {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  const result = await apiRequest<AccountDetailsLogsPayload>(`/api/settings/account-details/logs?${params.toString()}`, {
+    timeoutMs: 20000,
+  });
+  if (!result.success || !result.data) {
+    throw new Error(result.error || '账号日志加载失败');
+  }
+  return result.data;
+}
+
 
 type WaitForBackendReadyOptions = {
   previousProcessInstanceId?: string;

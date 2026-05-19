@@ -18,6 +18,16 @@ router.put('/studio', validateObjectBody(), settingsController.updateStudioSetti
 router.get('/storage', settingsController.getStorageSettings.bind(settingsController));
 router.put('/storage', validateObjectBody(), settingsController.updateStorageSettings.bind(settingsController));
 router.post('/storage/reset', settingsController.resetStorageSettings.bind(settingsController));
+router.get('/account-details', settingsController.getAccountDetails.bind(settingsController));
+router.put('/account-details', validateObjectBody(), settingsController.updateAccountDetails.bind(settingsController));
+router.post('/account-details/refresh', settingsController.refreshAccountDetails.bind(settingsController));
+router.get('/account-details/logs', settingsController.getAccountDetailsLogs.bind(settingsController));
+router.delete('/account-details', settingsController.clearAccountDetails.bind(settingsController));
+router.get('/6789-account', settingsController.getAccountDetails.bind(settingsController));
+router.put('/6789-account', validateObjectBody(), settingsController.updateAccountDetails.bind(settingsController));
+router.post('/6789-account/refresh', settingsController.refreshAccountDetails.bind(settingsController));
+router.get('/6789-account/logs', settingsController.getAccountDetailsLogs.bind(settingsController));
+router.delete('/6789-account', settingsController.clearAccountDetails.bind(settingsController));
 router.post('/select-directory', settingsController.selectDirectory.bind(settingsController));
 router.post('/restart-backend', settingsController.restartBackend.bind(settingsController));
 
