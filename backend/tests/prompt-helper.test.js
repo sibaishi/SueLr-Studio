@@ -48,13 +48,135 @@ test('promptHelper lighting tool distinguishes add and reshape modes', async () 
 test('promptHelper storyboard outputs requested shot count', async () => {
   const { result } = await helper({
     activeTool: 'storyboard',
-    storyboardConfig: { shotCount: 3, shots: [{ action: '开场' }, { action: '冲突' }, { action: '结尾' }] },
+    storyboardConfig: {
+      shotCount: 3,
+      layoutPreset: 'vertical-3',
+      aspectRatio: '9:16',
+      stylePreset: 'custom',
+      customStyle: '赛博朋克夜景',
+      includeShotNumbers: true,
+      noText: false,
+      continuity: true,
+      shots: [
+        { content: '开场', note: '悬念', duration: '1s' },
+        { content: '冲突', note: '紧张', duration: '2s' },
+        { content: '结尾', note: '释放', duration: '3s' },
+      ],
+    },
   });
 
   assert.match(result.prompt, /生成 3 格分镜图/);
+  assert.match(result.prompt, /版式为3格竖版/);
+  assert.match(result.prompt, /整张分镜图画幅比例 9:16/);
+  assert.match(result.prompt, /赛博朋克夜景/);
+  assert.match(result.prompt, /纯白背景、统一网格、清晰分镜框/);
+  assert.match(result.prompt, /可以在每个分镜格的角落或格外侧使用简洁镜头编号/);
+  assert.match(result.prompt, /时长：1s/);
+  assert.match(result.prompt, /内容：开场/);
+  assert.match(result.prompt, /备注：悬念/);
   assert.match(result.prompt, /镜头 1/);
   assert.match(result.prompt, /镜头 3/);
   assert.doesNotMatch(result.prompt, /镜头 4/);
+  assert.doesNotMatch(result.prompt, /景别/);
+  assert.doesNotMatch(result.prompt, /机位/);
+  assert.doesNotMatch(result.prompt, /转场/);
+});
+
+test('promptHelper storyboard layout presets lock shot count and whole-sheet aspect ratio', async () => {
+  const { result } = await helper({
+    activeTool: 'storyboard',
+    storyboardConfig: {
+      shotCount: 2,
+      layoutPreset: 'grid-6',
+      aspectRatio: '9:16',
+      shots: [
+        { content: '镜头一' },
+        { content: '镜头二' },
+        { content: '镜头三' },
+        { content: '镜头四' },
+        { content: '镜头五' },
+        { content: '镜头六' },
+      ],
+    },
+  });
+
+  assert.match(result.prompt, /生成 6 格分镜图/);
+  assert.match(result.prompt, /版式为6格横版/);
+  assert.match(result.prompt, /整张分镜图画幅比例 16:9/);
+  assert.match(result.prompt, /镜头 6/);
+});
+
+test('promptHelper storyboard has separate horizontal and vertical 9-shot presets', async () => {
+  const { result: horizontalResult } = await helper({
+    activeTool: 'storyboard',
+    storyboardConfig: { layoutPreset: 'grid-9', shotCount: 1, aspectRatio: '1:1' },
+  });
+  const { result: verticalResult } = await helper({
+    activeTool: 'storyboard',
+    storyboardConfig: { layoutPreset: 'vertical-9', shotCount: 1, aspectRatio: '1:1' },
+  });
+
+  assert.match(horizontalResult.prompt, /生成 9 格分镜图/);
+  assert.match(horizontalResult.prompt, /版式为9格横版/);
+  assert.match(horizontalResult.prompt, /整张分镜图画幅比例 16:9/);
+  assert.match(verticalResult.prompt, /生成 9 格分镜图/);
+  assert.match(verticalResult.prompt, /版式为9格竖版/);
+  assert.match(verticalResult.prompt, /整张分镜图画幅比例 9:16/);
+});
+
+test('promptHelper storyboard custom layout keeps editable shot count and aspect ratio', async () => {
+  const { result } = await helper({
+    activeTool: 'storyboard',
+    storyboardConfig: {
+      shotCount: 2,
+      layoutPreset: 'custom',
+      aspectRatio: '2.35:1',
+      shots: [
+        { content: '镜头一' },
+        { content: '镜头二' },
+        { content: '不应出现' },
+      ],
+    },
+  });
+
+  assert.match(result.prompt, /生成 2 格分镜图/);
+  assert.match(result.prompt, /版式为自定义/);
+  assert.match(result.prompt, /整张分镜图画幅比例 2\.35:1/);
+  assert.doesNotMatch(result.prompt, /不应出现/);
+});
+
+test('promptHelper storyboard keeps legacy shot data compatible', async () => {
+  const { result } = await helper({
+    activeTool: 'storyboard',
+    storyboardConfig: {
+      shotCount: 1,
+      shots: [{ shotSize: '特写', camera: '固定镜头', action: '展示道具', transition: 'fade' }],
+    },
+  });
+
+  assert.match(result.prompt, /生成 1 格分镜图/);
+  assert.match(result.prompt, /展示道具/);
+  assert.match(result.prompt, /备注：固定镜头；特写；fade/);
+  assert.match(result.prompt, /画面内不要出现字幕、编号、文字标签、对白气泡或水印/);
+});
+
+test('promptHelper storyboard omits empty shot fields', async () => {
+  const { result } = await helper({
+    activeTool: 'storyboard',
+    storyboardConfig: {
+      shotCount: 2,
+      shots: [
+        { duration: '', content: '', note: '' },
+        { content: '产品出场' },
+      ],
+    },
+  });
+
+  assert.doesNotMatch(result.prompt, /镜头 1:/);
+  assert.match(result.prompt, /镜头 2: 内容：产品出场/);
+  assert.doesNotMatch(result.prompt, /时长：/);
+  assert.doesNotMatch(result.prompt, /备注：/);
+  assert.match(result.prompt, /如果某个镜头没有填写内容、时长或备注/);
 });
 
 test('promptHelper layout outputs white background and block positions', async () => {

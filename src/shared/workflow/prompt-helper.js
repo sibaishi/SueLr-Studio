@@ -5,6 +5,25 @@ export const PROMPT_HELPER_TOOLS = {
   layout: 'layout',
 };
 
+export const STORYBOARD_LAYOUT_PRESETS = [
+  { id: 'grid-4', label: '4格横版', description: '2 x 2 白底统一网格', shotCount: 4, aspectRatio: '16:9', columns: 2 },
+  { id: 'grid-6', label: '6格横版', description: '3 x 2 白底统一网格', shotCount: 6, aspectRatio: '16:9', columns: 3 },
+  { id: 'grid-9', label: '9格横版', description: '3 x 3 横向白底统一网格', shotCount: 9, aspectRatio: '16:9', columns: 3 },
+  { id: 'vertical-3', label: '3格竖版', description: '单列竖向白底分镜', shotCount: 3, aspectRatio: '9:16', columns: 1 },
+  { id: 'vertical-6', label: '6格竖版', description: '双列竖向白底分镜', shotCount: 6, aspectRatio: '9:16', columns: 2 },
+  { id: 'vertical-9', label: '9格竖版', description: '3 x 3 竖向白底统一网格', shotCount: 9, aspectRatio: '9:16', columns: 3 },
+  { id: 'custom', label: '自定义', description: '自定义镜头数与整张分镜图画幅比例', shotCount: null, aspectRatio: null, columns: null },
+];
+
+export const STORYBOARD_STYLE_PRESETS = [
+  { id: 'cinematic-realistic', label: '电影感写实' },
+  { id: 'clean-commercial', label: '清爽商业广告' },
+  { id: 'anime', label: '动画插画' },
+  { id: 'sketch', label: '手绘草图' },
+  { id: 'product-demo', label: '产品演示' },
+  { id: 'custom', label: '自定义' },
+];
+
 const TOOL_LABELS = {
   camera: '转换视角',
   lighting: '调整光照',
@@ -40,11 +59,18 @@ const DEFAULT_LIGHTING_CONFIG = {
 
 const DEFAULT_STORYBOARD_CONFIG = {
   shotCount: 4,
+  layoutPreset: 'grid-4',
+  aspectRatio: '16:9',
+  stylePreset: 'cinematic-realistic',
+  customStyle: '',
+  includeShotNumbers: false,
+  noText: true,
+  continuity: true,
   shots: [
-    { id: 'shot-1', shotSize: '远景', camera: '建立场景', action: '展示环境与主体关系', transition: 'cut' },
-    { id: 'shot-2', shotSize: '中景', camera: '平视跟随', action: '主体开始行动', transition: 'cut' },
-    { id: 'shot-3', shotSize: '近景', camera: '轻微推进', action: '突出关键动作或表情', transition: 'cut' },
-    { id: 'shot-4', shotSize: '特写', camera: '稳定镜头', action: '呈现结果与情绪落点', transition: 'cut' },
+    { id: 'shot-1', duration: '', content: '', note: '' },
+    { id: 'shot-2', duration: '', content: '', note: '' },
+    { id: 'shot-3', duration: '', content: '', note: '' },
+    { id: 'shot-4', duration: '', content: '', note: '' },
   ],
 };
 
@@ -98,6 +124,10 @@ function isLegacyUpDirection(direction) {
   return Math.abs(direction.x) < 0.001 && Math.abs(direction.y - 1) < 0.001 && Math.abs(direction.z) < 0.001;
 }
 
+function getOptionLabel(options, id, fallback) {
+  return options.find((option) => option.id === id)?.label || fallback;
+}
+
 export function getPromptHelperToolLabel(tool) {
   return TOOL_LABELS[tool] || TOOL_LABELS.camera;
 }
@@ -140,19 +170,43 @@ export function normalizePromptHelperData(data = {}) {
     }),
   };
 
-  const shotCount = Math.max(1, Math.min(12, Math.trunc(asNumber(storyboardSource.shotCount, DEFAULT_STORYBOARD_CONFIG.shotCount))));
   const rawShots = Array.isArray(storyboardSource.shots) ? storyboardSource.shots : DEFAULT_STORYBOARD_CONFIG.shots;
+  const hasExplicitStoryboardSize = storyboardSource.shotCount != null || storyboardSource.aspectRatio != null;
+  const layoutPreset = STORYBOARD_LAYOUT_PRESETS.some((item) => item.id === storyboardSource.layoutPreset)
+    ? storyboardSource.layoutPreset
+    : (hasExplicitStoryboardSize ? 'custom' : DEFAULT_STORYBOARD_CONFIG.layoutPreset);
+  const layoutSpec = STORYBOARD_LAYOUT_PRESETS.find((item) => item.id === layoutPreset) || STORYBOARD_LAYOUT_PRESETS[0];
+  const isCustomLayout = layoutPreset === 'custom';
+  const shotCount = isCustomLayout
+    ? Math.max(1, Math.min(12, Math.trunc(asNumber(storyboardSource.shotCount, DEFAULT_STORYBOARD_CONFIG.shotCount))))
+    : layoutSpec.shotCount;
+  const aspectRatio = isCustomLayout
+    ? asText(storyboardSource.aspectRatio, DEFAULT_STORYBOARD_CONFIG.aspectRatio)
+    : layoutSpec.aspectRatio;
+  const stylePreset = STORYBOARD_STYLE_PRESETS.some((item) => item.id === storyboardSource.stylePreset)
+    ? storyboardSource.stylePreset
+    : (storyboardSource.style ? 'custom' : DEFAULT_STORYBOARD_CONFIG.stylePreset);
   const storyboardConfig = {
     shotCount,
+    layoutPreset,
+    aspectRatio,
+    stylePreset,
+    customStyle: asText(storyboardSource.customStyle, asText(storyboardSource.style, DEFAULT_STORYBOARD_CONFIG.customStyle)),
+    includeShotNumbers: storyboardSource.includeShotNumbers === true,
+    noText: storyboardSource.noText !== false,
+    continuity: storyboardSource.continuity !== false,
     shots: Array.from({ length: shotCount }, (_, index) => {
       const item = asObject(rawShots[index]);
       const fallback = DEFAULT_STORYBOARD_CONFIG.shots[index % DEFAULT_STORYBOARD_CONFIG.shots.length];
+      const legacyContent = asText(item.action, '');
+      const legacyNoteParts = [item.camera, item.shotSize, item.emotion, item.transition]
+        .map((value) => String(value ?? '').trim())
+        .filter(Boolean);
       return {
         id: asText(item.id, `shot-${index + 1}`),
-        shotSize: asText(item.shotSize, fallback.shotSize),
-        camera: asText(item.camera, fallback.camera),
-        action: asText(item.action, fallback.action),
-        transition: asText(item.transition, fallback.transition),
+        duration: asText(item.duration, fallback.duration),
+        content: asText(item.content, legacyContent || fallback.content),
+        note: asText(item.note, legacyNoteParts.join('；') || fallback.note),
       };
     }),
   };
@@ -217,14 +271,39 @@ function buildLightingPrompt(config) {
 }
 
 function buildStoryboardPrompt(config) {
+  const layoutText = getOptionLabel(STORYBOARD_LAYOUT_PRESETS, config.layoutPreset, '4格横版');
+  const styleText = config.stylePreset === 'custom'
+    ? asText(config.customStyle, '电影感写实')
+    : getOptionLabel(STORYBOARD_STYLE_PRESETS, config.stylePreset, '电影感写实');
+  const textPolicy = config.noText
+    ? '画面内不要出现字幕、编号、文字标签、对白气泡或水印。'
+    : '允许画面内保留必要的简短文字，但不要添加大段说明。';
+  const numberingPolicy = config.includeShotNumbers
+    ? '可以在每个分镜格的角落或格外侧使用简洁镜头编号，编号不要遮挡画面主体。'
+    : '不要在画面内或格子外添加镜头编号。';
+  const continuityPolicy = config.continuity
+    ? '保持主体身份、服装、道具、场景方位和视觉风格连续一致。'
+    : '允许每个镜头根据用户填写内容自由变化。';
+  const shotLines = config.shots.flatMap((shot, index) => {
+    const details = [
+      shot.duration ? `时长：${shot.duration}` : '',
+      shot.content ? `内容：${shot.content}` : '',
+      shot.note ? `备注：${shot.note}` : '',
+    ].filter(Boolean);
+    return details.length > 0 ? [`镜头 ${index + 1}: ${details.join('，')}。`] : [];
+  });
+
   return [
     '辅助类型：生成分镜图 / storyboard sheet.',
-    `生成 ${config.shotCount} 格分镜图，使用清晰网格排列，每格呈现一个镜头画面。`,
-    ...config.shots.map((shot, index) => (
-      `镜头 ${index + 1}: ${shot.shotSize}，${shot.camera}，画面内容：${shot.action}，转场/节奏：${shot.transition}。`
-    )),
-    '保持画面连续性、角色一致性、动作方向清晰，适合后续生成影视分镜参考。',
-    'English keywords: storyboard panels, sequential shots, cinematic framing, continuity, clear action.',
+    `生成 ${config.shotCount} 格分镜图，版式为${layoutText}，整张分镜图画幅比例 ${config.aspectRatio}。`,
+    '最终分镜图必须固定为纯白背景、统一网格、清晰分镜框，每格只放一张分镜头图片；按整张分镜图画幅比例安排网格和单格尺寸，不要把画幅比例理解为每个镜头单格的比例；不要生成杂志拼贴、海报排版、漫画跨格或其他自由排版风格。',
+    `基本视觉风格：${styleText}。`,
+    textPolicy,
+    numberingPolicy,
+    ...shotLines,
+    continuityPolicy,
+    '如果某个镜头没有填写内容、时长或备注，请根据基础提示词和整体设定自由补全，不要在画面上写出空字段。',
+    'English keywords: white background storyboard sheet, uniform grid, clean panel borders, consistent layout, storyboard panels.',
   ];
 }
 
@@ -273,7 +352,7 @@ export function summarizePromptHelper(data = {}) {
     return `${getPromptHelperToolLabel(normalized.activeTool)} · ${normalized.lightingConfig.mode === 'reshape' ? '重塑光线' : '增加光线'} · ${normalized.lightingConfig.lights.length} 盏灯`;
   }
   if (normalized.activeTool === PROMPT_HELPER_TOOLS.storyboard) {
-    return `${getPromptHelperToolLabel(normalized.activeTool)} · ${normalized.storyboardConfig.shotCount} 镜头`;
+    return `${getPromptHelperToolLabel(normalized.activeTool)} · ${normalized.storyboardConfig.shotCount} 镜头 · ${normalized.storyboardConfig.aspectRatio}`;
   }
   if (normalized.activeTool === PROMPT_HELPER_TOOLS.layout) {
     return `${getPromptHelperToolLabel(normalized.activeTool)} · ${normalized.layoutConfig.blocks.length} 个版面块`;

@@ -5,6 +5,20 @@ export const PROMPT_HELPER_TOOLS: {
   readonly layout: 'layout';
 };
 
+export const STORYBOARD_LAYOUT_PRESETS: readonly {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly shotCount: number | null;
+  readonly aspectRatio: string | null;
+  readonly columns: number | null;
+}[];
+
+export const STORYBOARD_STYLE_PRESETS: readonly {
+  readonly id: string;
+  readonly label: string;
+}[];
+
 export type PromptHelperTool = 'camera' | 'lighting' | 'storyboard' | 'layout';
 
 export type PromptHelperPoint = {
@@ -41,14 +55,20 @@ export type PromptHelperLightingConfig = {
 
 export type PromptHelperShot = {
   id: string;
-  shotSize: string;
-  camera: string;
-  action: string;
-  transition: string;
+  duration: string;
+  content: string;
+  note: string;
 };
 
 export type PromptHelperStoryboardConfig = {
   shotCount: number;
+  layoutPreset: string;
+  aspectRatio: string;
+  stylePreset: string;
+  customStyle: string;
+  includeShotNumbers: boolean;
+  noText: boolean;
+  continuity: boolean;
   shots: PromptHelperShot[];
 };
 

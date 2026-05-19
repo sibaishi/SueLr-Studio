@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Camera, Lightbulb, Plus, Rows3, SquareMousePointer, Trash2, X } from 'lucide-react';
 import * as THREE from 'three';
@@ -7,6 +7,8 @@ import {
   getPromptHelperToolLabel,
   normalizePromptHelperData,
   PROMPT_HELPER_TOOLS,
+  STORYBOARD_LAYOUT_PRESETS,
+  STORYBOARD_STYLE_PRESETS,
   summarizePromptHelper,
   type PromptHelperData,
   type PromptHelperTool,
@@ -27,6 +29,31 @@ const LIGHT_TYPE_LABELS: Record<string, string> = {
   directional: '平行光',
   spot: '聚光灯',
 };
+
+const STORYBOARD_ASPECT_RATIOS = ['16:9', '9:16', '1:1', '4:3', '2.35:1'];
+
+const STORYBOARD_GRID_COLUMNS: Record<string, number> = {
+  'grid-4': 2,
+  'grid-6': 3,
+  'grid-9': 3,
+  'vertical-3': 1,
+  'vertical-6': 2,
+  'vertical-9': 3,
+};
+
+function getStoryboardLayoutPreset(layoutPreset: string) {
+  return STORYBOARD_LAYOUT_PRESETS.find((item) => item.id === layoutPreset) || STORYBOARD_LAYOUT_PRESETS[0];
+}
+
+function getStoryboardPreviewRatio(aspectRatio: string) {
+  const [width, height] = aspectRatio.split(':').map((part) => Number(part));
+  return width > 0 && height > 0 ? `${width} / ${height}` : '16 / 9';
+}
+
+function circledNumber(index: number) {
+  const circled = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫'];
+  return circled[index] || String(index + 1);
+}
 
 export function PromptHelperNodeCard({
   data,
@@ -320,37 +347,105 @@ function StoryboardTool({ data, onPatch }: { data: PromptHelperData; onPatch: (p
       shotCount: nextCount,
       shots: Array.from({ length: nextCount }, (_, index) => config.shots[index] || {
         id: `shot-${index + 1}`,
-        shotSize: '中景',
-        camera: '稳定镜头',
-        action: '',
-        transition: 'cut',
+        duration: '',
+        content: '',
+        note: '',
       }),
     });
   };
-  const updateShot = (index: number, patch: Record<string, string>) => {
+  const updateShot = (index: number, patch: Partial<PromptHelperData['storyboardConfig']['shots'][number]>) => {
     patchStoryboard({ shots: config.shots.map((shot, shotIndex) => shotIndex === index ? { ...shot, ...patch } : shot) });
+  };
+  const layoutSpec = getStoryboardLayoutPreset(config.layoutPreset);
+  const isCustomLayout = config.layoutPreset === 'custom';
+  const previewColumns = layoutSpec.columns || STORYBOARD_GRID_COLUMNS[config.layoutPreset] || Math.min(3, config.shotCount);
+  const previewRatio = getStoryboardPreviewRatio(config.aspectRatio);
+  const setLayoutPreset = (layoutPreset: string) => {
+    const nextSpec = getStoryboardLayoutPreset(layoutPreset);
+    if (layoutPreset === 'custom') {
+      patchStoryboard({ layoutPreset });
+      return;
+    }
+    const nextCount = nextSpec.shotCount || config.shotCount;
+    patchStoryboard({
+      layoutPreset,
+      shotCount: nextCount,
+      aspectRatio: nextSpec.aspectRatio || config.aspectRatio,
+      shots: Array.from({ length: nextCount }, (_, index) => config.shots[index] || {
+        id: `shot-${index + 1}`,
+        duration: '',
+        content: '',
+        note: '',
+      }),
+    });
   };
 
   return (
     <div className="prompt-helper-storyboard">
       <div className="prompt-helper-inline-controls">
-        <NumberField label="镜头数" value={config.shotCount} min={1} max={12} onChange={setShotCount} />
+        <label className="prompt-helper-field">
+          <span>分镜图版式</span>
+          <select value={config.layoutPreset} onChange={(event) => setLayoutPreset(event.target.value)}>
+            {STORYBOARD_LAYOUT_PRESETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+        <NumberField label="镜头数" value={config.shotCount} min={1} max={12} disabled={!isCustomLayout} onChange={setShotCount} />
+        <label className="prompt-helper-field">
+          <span>整图画幅比例</span>
+          <select value={config.aspectRatio} disabled={!isCustomLayout} onChange={(event) => patchStoryboard({ aspectRatio: event.target.value })}>
+            {STORYBOARD_ASPECT_RATIOS.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </label>
+        <label className="prompt-helper-field">
+          <span>视觉风格</span>
+          <select value={config.stylePreset} onChange={(event) => patchStoryboard({ stylePreset: event.target.value })}>
+            {STORYBOARD_STYLE_PRESETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+        <TextField label="自定义风格" value={config.customStyle} onChange={(value) => patchStoryboard({ customStyle: value, stylePreset: value.trim() ? 'custom' : config.stylePreset })} />
+        <label className="prompt-helper-check">
+          <input type="checkbox" checked={config.continuity} onChange={(event) => patchStoryboard({ continuity: event.target.checked })} />
+          <span>保持连续性</span>
+        </label>
+        <label className="prompt-helper-check">
+          <input type="checkbox" checked={config.noText} onChange={(event) => patchStoryboard({ noText: event.target.checked })} />
+          <span>画面无文字</span>
+        </label>
+        <label className="prompt-helper-check">
+          <input type="checkbox" checked={config.includeShotNumbers} onChange={(event) => patchStoryboard({ includeShotNumbers: event.target.checked })} />
+          <span>允许镜头编号</span>
+        </label>
       </div>
-      <div className="prompt-helper-shot-grid">
-        {config.shots.map((shot, index) => (
-          <div key={shot.id} className="prompt-helper-shot-card">
-            <div className="prompt-helper-shot-card__index">镜头 {index + 1}</div>
-            <label className="prompt-helper-field">
-              <span>景别</span>
-              <select value={shot.shotSize} onChange={(event) => updateShot(index, { shotSize: event.target.value })}>
-                {['远景', '全景', '中景', '近景', '特写'].map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            <TextField label="机位" value={shot.camera} onChange={(value) => updateShot(index, { camera: value })} />
-            <TextField label="动作/内容" value={shot.action} onChange={(value) => updateShot(index, { action: value })} />
-            <TextField label="节奏/转场" value={shot.transition} onChange={(value) => updateShot(index, { transition: value })} />
-          </div>
-        ))}
+      <div
+        className="prompt-helper-storyboard-sheet"
+        style={{
+          '--storyboard-columns': previewColumns,
+          '--storyboard-ratio': previewRatio,
+        } as CSSProperties}
+      >
+        <div className="prompt-helper-shot-grid">
+          {config.shots.map((shot, index) => (
+            <div key={shot.id} className="prompt-helper-shot-card">
+              <div className="prompt-helper-shot-frame">
+                <div className="prompt-helper-shot-frame__label">{circledNumber(index)}</div>
+                <div className="prompt-helper-shot-fields">
+                  <label className="prompt-helper-shot-field prompt-helper-shot-field--duration">
+                    <span>时长</span>
+                    <input value={shot.duration} onChange={(event) => updateShot(index, { duration: event.target.value })} placeholder="可空" />
+                  </label>
+                  <label className="prompt-helper-shot-field">
+                    <span>内容</span>
+                    <input value={shot.content} onChange={(event) => updateShot(index, { content: event.target.value })} placeholder="可空，让 AI 自由发挥" />
+                  </label>
+                  <label className="prompt-helper-shot-field">
+                    <span>备注</span>
+                    <input value={shot.note} onChange={(event) => updateShot(index, { note: event.target.value })} placeholder="可空" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1027,6 +1122,7 @@ function NumberField({
   min,
   max,
   step = 1,
+  disabled = false,
   onChange,
 }: {
   label: string;
@@ -1034,12 +1130,13 @@ function NumberField({
   min?: number;
   max?: number;
   step?: number;
+  disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
     <label className="prompt-helper-field">
       <span>{label}</span>
-      <input type="number" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} />
+      <input type="number" value={value} min={min} max={max} step={step} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   );
 }
