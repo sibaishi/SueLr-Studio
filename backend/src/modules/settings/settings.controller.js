@@ -1,4 +1,5 @@
 import { successEnvelope } from '../../app/http/envelope.js';
+import { accountDetailsService } from './account-details.service.js';
 import { settingsService } from './settings.service.js';
 
 export class SettingsController {
@@ -106,6 +107,46 @@ export class SettingsController {
   async restartBackend(_req, res, next) {
     try {
       res.json(successEnvelope(await settingsService.requestBackendRestart()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  getAccountDetails(_req, res, next) {
+    try {
+      res.json(successEnvelope(accountDetailsService.getPublicState()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateAccountDetails(req, res, next) {
+    try {
+      res.json(successEnvelope(await accountDetailsService.saveCredentials(req.body)));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async refreshAccountDetails(_req, res, next) {
+    try {
+      res.json(successEnvelope(await accountDetailsService.refreshBalance()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAccountDetailsLogs(req, res, next) {
+    try {
+      res.json(successEnvelope(await accountDetailsService.getLogs(req.query)));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  clearAccountDetails(_req, res, next) {
+    try {
+      res.json(successEnvelope(accountDetailsService.clear()));
     } catch (error) {
       next(error);
     }

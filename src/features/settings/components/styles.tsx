@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 export type SettingsModuleId =
   | 'connection'
   | 'models'
+  | 'account_details'
   | 'defaults'
   | 'agent_persona'
   | 'agent_memory'
