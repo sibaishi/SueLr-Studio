@@ -15,6 +15,11 @@ const proxyModeOptions = [
   { l: '自定义', v: 'custom' },
 ];
 
+const concurrencyModeOptions = [
+  { l: '关闭', v: 'off' },
+  { l: '开启', v: 'on' },
+];
+
 export function DefaultsSection({ actions, view }: Props) {
   const storageSourceLabel = {
     env: '环境变量覆盖',
@@ -39,6 +44,45 @@ export function DefaultsSection({ actions, view }: Props) {
                 value={view.themeMode}
                 onChange={(value) => actions.setThemeMode(value as ThemeMode)}
               />
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="工作流执行"
+        description="控制工作流节点、逐项运行和多图生成是否并发，以及同一时间最多启动多少个任务。"
+      >
+        <div className="flex-col" style={{ gap: 14 }}>
+          <div>
+            <IOSLabel>并发执行</IOSLabel>
+            <div style={{ maxWidth: 260 }}>
+              <IOSSegmentedControl
+                options={concurrencyModeOptions}
+                value={view.workflowConcurrency.enabled ? 'on' : 'off'}
+                onChange={(value) => actions.setWorkflowConcurrency({
+                  ...view.workflowConcurrency,
+                  enabled: value === 'on',
+                })}
+              />
+            </div>
+          </div>
+
+          <div style={{ maxWidth: 260 }}>
+            <IOSLabel>最大并发数</IOSLabel>
+            <IOSInput
+              value={String(view.workflowConcurrency.maxConcurrency)}
+              onChange={(value) => {
+                const parsed = Number(value);
+                actions.setWorkflowConcurrency({
+                  ...view.workflowConcurrency,
+                  maxConcurrency: Number.isFinite(parsed) ? Math.max(1, Math.round(parsed)) : view.workflowConcurrency.maxConcurrency,
+                });
+              }}
+              placeholder="5"
+            />
+            <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+              关闭并发时按 1 个任务顺序执行；开启后此数值会同时限制工作流分支、逐项运行和 AI 生图张数请求。
             </div>
           </div>
         </div>

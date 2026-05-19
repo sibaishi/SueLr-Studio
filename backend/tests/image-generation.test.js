@@ -285,6 +285,175 @@ test('generateImages can leave generated image data unpersisted for workflow out
   }
 });
 
+test('generateImages starts all requested image attempts concurrently and preserves output order', async () => {
+  const originalFetch = globalThis.fetch;
+  const allRequestsStarted = (() => {
+    let resolve;
+    const promise = new Promise((promiseResolve) => {
+      resolve = promiseResolve;
+    });
+    return { promise, resolve };
+  })();
+  let startedRequests = 0;
+  let activeRequests = 0;
+  let maxActiveRequests = 0;
+
+  globalThis.fetch = async () => {
+    startedRequests += 1;
+    const requestIndex = startedRequests;
+    activeRequests += 1;
+    maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+    if (startedRequests === 8) {
+      allRequestsStarted.resolve();
+    }
+
+    await allRequestsStarted.promise;
+    activeRequests -= 1;
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: Buffer.from(`image-${requestIndex}`).toString('base64') },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      prompt: 'draw a mountain',
+      n: 8,
+    }, createRuntimeConfig({
+      persistGeneratedOutputs: false,
+      workflowExecution: { enabled: true, maxConcurrency: 8 },
+    }));
+
+    assert.equal(startedRequests, 8);
+    assert.equal(maxActiveRequests, 8);
+    assert.deepEqual(
+      result.images,
+      Array.from({ length: 8 }, (_item, index) => (
+        `data:image/png;base64,${Buffer.from(`image-${index + 1}`).toString('base64')}`
+      )),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages applies workflow concurrency limit to n image attempts', async () => {
+  const originalFetch = globalThis.fetch;
+  let startedRequests = 0;
+  let activeRequests = 0;
+  let maxActiveRequests = 0;
+
+  globalThis.fetch = async () => {
+    startedRequests += 1;
+    const requestIndex = startedRequests;
+    activeRequests += 1;
+    maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    activeRequests -= 1;
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: Buffer.from(`limited-image-${requestIndex}`).toString('base64') },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      prompt: 'draw a mountain',
+      n: 5,
+    }, createRuntimeConfig({
+      persistGeneratedOutputs: false,
+      workflowExecution: { enabled: true, maxConcurrency: 2 },
+    }));
+
+    assert.equal(startedRequests, 5);
+    assert.equal(maxActiveRequests, 2);
+    assert.deepEqual(
+      result.images,
+      Array.from({ length: 5 }, (_item, index) => (
+        `data:image/png;base64,${Buffer.from(`limited-image-${index + 1}`).toString('base64')}`
+      )),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages keeps successful concurrent attempts when one image request fails', async () => {
+  const originalFetch = globalThis.fetch;
+  const allRequestsStarted = (() => {
+    let resolve;
+    const promise = new Promise((promiseResolve) => {
+      resolve = promiseResolve;
+    });
+    return { promise, resolve };
+  })();
+  const progress = [];
+  let startedRequests = 0;
+  let activeRequests = 0;
+  let maxActiveRequests = 0;
+
+  globalThis.fetch = async () => {
+    startedRequests += 1;
+    const requestIndex = startedRequests;
+    activeRequests += 1;
+    maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+    if (startedRequests === 4) {
+      allRequestsStarted.resolve();
+    }
+
+    await allRequestsStarted.promise;
+    activeRequests -= 1;
+
+    if (requestIndex === 2) {
+      return new Response(JSON.stringify({
+        error: { message: 'temporary provider failure' },
+      }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: Buffer.from(`partial-image-${requestIndex}`).toString('base64') },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      prompt: 'draw a mountain',
+      n: 4,
+    }, createRuntimeConfig({
+      persistGeneratedOutputs: false,
+      workflowExecution: { enabled: true, maxConcurrency: 4 },
+    }), (message) => progress.push(message));
+
+    assert.equal(startedRequests, 4);
+    assert.equal(maxActiveRequests, 4);
+    assert.deepEqual(result.images, [1, 3, 4].map((index) => (
+      `data:image/png;base64,${Buffer.from(`partial-image-${index}`).toString('base64')}`
+    )));
+    assert.match(progress.join('\n'), /部分图片生成失败.*1\/4/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateImages resolves model ids when chat tool calls add spaces around hyphens', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;

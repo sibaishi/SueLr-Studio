@@ -52,6 +52,10 @@ const DEFAULT_SETTINGS = {
   },
   workflow: {
     snapToGrid: true,
+    concurrency: {
+      enabled: false,
+      maxConcurrency: 5,
+    },
   },
 };
 
@@ -87,6 +91,12 @@ function validateEnum(value, allowed, fallback) {
 
 function validateBoolean(value, fallback = false) {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+function validatePositiveInteger(value, fallback, { min = 1, max = 999 } = {}) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(parsed)));
 }
 
 function createDefaultRuntimeConfig() {
@@ -198,6 +208,15 @@ function sanitizeOutboundProxy(value) {
   };
 }
 
+function sanitizeWorkflowConcurrency(value) {
+  const defaults = DEFAULT_SETTINGS.workflow.concurrency;
+  if (!isPlainObject(value)) return { ...defaults };
+  return {
+    enabled: validateBoolean(value.enabled, defaults.enabled),
+    maxConcurrency: validatePositiveInteger(value.maxConcurrency, defaults.maxConcurrency, { min: 1, max: 999 }),
+  };
+}
+
 function summarizeOutboundProxy(value) {
   const proxy = sanitizeOutboundProxy(value);
   return {
@@ -303,6 +322,7 @@ function sanitizeSettingsShape(input) {
   });
   settings.workflow = {
     snapToGrid: validateBoolean(value.workflow?.snapToGrid, DEFAULT_SETTINGS.workflow.snapToGrid),
+    concurrency: sanitizeWorkflowConcurrency(value.workflow?.concurrency),
   };
 
   return settings;
@@ -368,6 +388,7 @@ function buildRuntimeApiConfigInternal(overrides = {}) {
     apiKey: cleanOptionalString(overrides.apiKey, 4000) || active?.apiKey || '',
     tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || settings.runtime.tavilyApiKey || '',
     outboundProxy: settings.runtime.outboundProxy,
+    workflowExecution: settings.workflow.concurrency,
     baseUrl: cleanOptionalString(overrides.baseUrl, 2000) || active?.base || 'https://api.openai.com/v1',
     projectModels,
     providerConfig,

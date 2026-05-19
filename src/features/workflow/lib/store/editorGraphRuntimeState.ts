@@ -5,6 +5,10 @@ type WorkflowRuntimeState = Pick<
   | 'nodeExecStatus'
   | 'nodeExecutionTime'
   | 'nodeExecutionStartedAt'
+  | 'nodeExecutionActiveCounts'
+  | 'nodeExecutionStartedCounts'
+  | 'nodeExecutionCompletedCounts'
+  | 'nodeExecutionExpectedCounts'
   | 'nodeErrors'
   | 'nodeWarnings'
   | 'nodeOutputs'
@@ -17,6 +21,10 @@ export function clearRemovedNodeRuntimeState(
   const nodeExecStatus = { ...state.nodeExecStatus };
   const nodeExecutionTime = { ...state.nodeExecutionTime };
   const nodeExecutionStartedAt = { ...state.nodeExecutionStartedAt };
+  const nodeExecutionActiveCounts = { ...state.nodeExecutionActiveCounts };
+  const nodeExecutionStartedCounts = { ...state.nodeExecutionStartedCounts };
+  const nodeExecutionCompletedCounts = { ...state.nodeExecutionCompletedCounts };
+  const nodeExecutionExpectedCounts = { ...state.nodeExecutionExpectedCounts };
   const nodeErrors = { ...state.nodeErrors };
   const nodeWarnings = { ...state.nodeWarnings };
   const nodeOutputs = { ...state.nodeOutputs };
@@ -25,6 +33,10 @@ export function clearRemovedNodeRuntimeState(
     delete nodeExecStatus[id];
     delete nodeExecutionTime[id];
     delete nodeExecutionStartedAt[id];
+    delete nodeExecutionActiveCounts[id];
+    delete nodeExecutionStartedCounts[id];
+    delete nodeExecutionCompletedCounts[id];
+    delete nodeExecutionExpectedCounts[id];
     delete nodeErrors[id];
     delete nodeWarnings[id];
     delete nodeOutputs[id];
@@ -34,6 +46,10 @@ export function clearRemovedNodeRuntimeState(
     nodeExecStatus,
     nodeExecutionTime,
     nodeExecutionStartedAt,
+    nodeExecutionActiveCounts,
+    nodeExecutionStartedCounts,
+    nodeExecutionCompletedCounts,
+    nodeExecutionExpectedCounts,
     nodeErrors,
     nodeWarnings,
     nodeOutputs,

@@ -35,6 +35,15 @@ export function createWorkflowEditorSessionActions(
         nodeExecutionStartedAt: status === 'running'
           ? { ...state.nodeExecutionStartedAt, [nodeId]: Date.now() }
           : state.nodeExecutionStartedAt,
+        nodeExecutionActiveCounts: status === 'running'
+          ? { ...state.nodeExecutionActiveCounts, [nodeId]: 1 }
+          : state.nodeExecutionActiveCounts,
+        nodeExecutionStartedCounts: status === 'running'
+          ? { ...state.nodeExecutionStartedCounts, [nodeId]: 1 }
+          : state.nodeExecutionStartedCounts,
+        nodeExecutionExpectedCounts: status === 'running'
+          ? { ...state.nodeExecutionExpectedCounts, [nodeId]: 1 }
+          : state.nodeExecutionExpectedCounts,
         nodeErrors: error ? { ...state.nodeErrors, [nodeId]: error } : state.nodeErrors,
       }));
     },
@@ -43,6 +52,10 @@ export function createWorkflowEditorSessionActions(
       nodeExecStatus: {},
       nodeExecutionTime: {},
       nodeExecutionStartedAt: {},
+      nodeExecutionActiveCounts: {},
+      nodeExecutionStartedCounts: {},
+      nodeExecutionCompletedCounts: {},
+      nodeExecutionExpectedCounts: {},
       nodeErrors: {},
       nodeWarnings: {},
       workflowWarningMessage: null,
@@ -115,6 +128,10 @@ export function createWorkflowEditorSessionActions(
         nodeExecStatus: {},
         nodeExecutionTime: {},
         nodeExecutionStartedAt: {},
+        nodeExecutionActiveCounts: {},
+        nodeExecutionStartedCounts: {},
+        nodeExecutionCompletedCounts: {},
+        nodeExecutionExpectedCounts: {},
         nodeErrors: {},
         nodeWarnings: {},
         nodeOutputs: {},
@@ -144,6 +161,10 @@ export function createWorkflowEditorSessionActions(
         nodeExecStatus: {},
         nodeExecutionTime: {},
         nodeExecutionStartedAt: {},
+        nodeExecutionActiveCounts: {},
+        nodeExecutionStartedCounts: {},
+        nodeExecutionCompletedCounts: {},
+        nodeExecutionExpectedCounts: {},
         nodeErrors: {},
         nodeWarnings: {},
         nodeOutputs: {},

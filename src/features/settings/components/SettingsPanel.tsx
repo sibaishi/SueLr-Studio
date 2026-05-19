@@ -62,6 +62,8 @@ export function SettingsPanel({
   setTavilyApiKeySet,
   outboundProxy,
   setOutboundProxy,
+  workflowConcurrency,
+  setWorkflowConcurrency,
   projectBusy,
 }: SettingsPanelProps) {
   const T = useT();
@@ -367,6 +369,7 @@ export function SettingsPanel({
     tavilyApiKeySet,
     themeMode,
     themeOptions,
+    workflowConcurrency,
   };
 
   const actions: SettingsActions = {
@@ -397,6 +400,7 @@ export function SettingsPanel({
     setMemoryQuery,
     setModels,
     setOutboundProxy,
+    setWorkflowConcurrency,
     setProjectModelSearch,
     setProviderAuthType,
     setProviderCustomHeaderName,

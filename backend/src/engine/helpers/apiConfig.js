@@ -134,6 +134,7 @@ export function resolveRuntimeApiConfig(inputs, apiConfig, selectedModel = '') {
       customEndpoint: nodeCustomEndpoint || cleanText(incoming.endpoint),
       projectModels,
       providerConfig: incomingProviderConfig,
+      workflowExecution: apiConfig?.workflowExecution,
     };
   }
 
@@ -145,6 +146,7 @@ export function resolveRuntimeApiConfig(inputs, apiConfig, selectedModel = '') {
     endpoint: '',
     projectModels,
     providerConfig: globalProviderConfig,
+    workflowExecution: apiConfig?.workflowExecution,
   };
 }
 

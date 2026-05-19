@@ -6,7 +6,7 @@ import { ftime, gid, loadJSON } from '@/lib/utils';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
 import { isBackendAvailable } from '@/shared/api';
 import { loadAgentProfiles, saveAgentProfiles, type AgentProfile } from '@/shared/api/agent';
-import type { OutboundProxySettingsPayload, StreamMode } from './types';
+import type { OutboundProxySettingsPayload, StreamMode, WorkflowConcurrencySettingsPayload } from './types';
 
 const MAX_LOGS = 500;
 
@@ -105,6 +105,10 @@ export function useStudioSettingsState() {
     httpProxy: '',
     httpsProxy: '',
     noProxy: '',
+  });
+  const [workflowConcurrency, setWorkflowConcurrency] = useState<WorkflowConcurrencySettingsPayload>({
+    enabled: false,
+    maxConcurrency: 5,
   });
   const [chatStreamingMode, setChatStreamingMode] = useState<StreamMode>(() => mapLegacyStreamingMode(loadJSON('ai_chat_streaming_mode', loadJSON('ai_streaming_mode', 'non-stream'))));
   const [imageStreamingMode, setImageStreamingMode] = useState<StreamMode>(() => mapLegacyStreamingMode(loadJSON('ai_image_streaming_mode', 'stream')));
@@ -252,6 +256,7 @@ export function useStudioSettingsState() {
     setImageStreamingMode,
     setModels,
     setOutboundProxy,
+    setWorkflowConcurrency,
     setTavilyApiKey,
     setTavilyApiKeySet,
     setVideoStreamingMode,
@@ -259,6 +264,7 @@ export function useStudioSettingsState() {
     tavilyApiKeySet,
     upsertAgentProfile,
     videoStreamingMode,
+    workflowConcurrency,
   };
 }
 

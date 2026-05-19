@@ -2,10 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { executeWorkflow } from '../src/engine/executor.js';
+import { NODE_EXECUTORS } from '../src/engine/nodes/index.js';
 import { WORKFLOW_SSE_EVENTS } from '../src/platform/logging/workflow-events.js';
 
 function edge(id, source, sourceHandle, target, targetHandle) {
   return { id, source, sourceHandle, target, targetHandle };
+}
+
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
 }
 
 async function runWorkflow(workflow) {
@@ -198,6 +209,120 @@ test('iterateImageRun expands image array inputs into sequential item runs', asy
     '/api/files/b.png',
   ]);
   assert.deepEqual(outputCompletions.map((item) => item.data.iteration.index), [1, 2]);
+});
+
+test('iterateRun executes item downstream segments concurrently', async () => {
+  const originalTextClean = NODE_EXECUTORS.textClean;
+  const bothItemsStarted = createDeferred();
+  const releaseItems = createDeferred();
+  const startedIterations = [];
+  const events = [];
+
+  NODE_EXECUTORS.textClean = async (_node, inputs) => {
+    startedIterations.push(inputs.text);
+    if (startedIterations.length === 2) {
+      bothItemsStarted.resolve();
+    }
+    await releaseItems.promise;
+    return { text: inputs.text };
+  };
+
+  try {
+    const runPromise = executeWorkflow({
+      nodes: [
+        { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
+        { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+        { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
+        { id: 'clean', type: 'textClean', data: {} },
+      ],
+      edges: [
+        edge('a-iterate', 'promptA', 'text', 'iterate', 'item1'),
+        edge('b-iterate', 'promptB', 'text', 'iterate', 'item2'),
+        edge('iterate-clean', 'iterate', 'text', 'clean', 'text'),
+      ],
+    }, { workflowExecution: { enabled: true, maxConcurrency: 16 } }, (event, data) => {
+      events.push({ event, data });
+    });
+
+    await bothItemsStarted.promise;
+    const cleanCompletionsBeforeRelease = events.filter((item) => (
+      item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+      && item.data.nodeId === 'clean'
+    ));
+    assert.deepEqual(startedIterations.sort(), ['alpha', 'beta']);
+    assert.equal(cleanCompletionsBeforeRelease.length, 0);
+
+    releaseItems.resolve();
+    await runPromise;
+
+    const cleanCompletions = events.filter((item) => (
+      item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+      && item.data.nodeId === 'clean'
+    ));
+    assert.equal(cleanCompletions.length, 2);
+    assert.deepEqual(cleanCompletions.map((item) => item.data.iteration.index).sort(), [1, 2]);
+  } finally {
+    NODE_EXECUTORS.textClean = originalTextClean;
+  }
+});
+
+test('iterateRun waits for concurrent item runs to settle before failing on one item error', async () => {
+  const originalTextClean = NODE_EXECUTORS.textClean;
+  const bothItemsStarted = createDeferred();
+  const releaseItems = createDeferred();
+  const startedIterations = [];
+  const events = [];
+
+  NODE_EXECUTORS.textClean = async (_node, inputs) => {
+    startedIterations.push(inputs.text);
+    if (startedIterations.length === 2) {
+      bothItemsStarted.resolve();
+    }
+    await releaseItems.promise;
+    if (inputs.text === 'alpha') {
+      throw new Error('alpha failed');
+    }
+    return { text: inputs.text };
+  };
+
+  try {
+    const runPromise = executeWorkflow({
+      nodes: [
+        { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
+        { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+        { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
+        { id: 'clean', type: 'textClean', data: {} },
+      ],
+      edges: [
+        edge('a-iterate', 'promptA', 'text', 'iterate', 'item1'),
+        edge('b-iterate', 'promptB', 'text', 'iterate', 'item2'),
+        edge('iterate-clean', 'iterate', 'text', 'clean', 'text'),
+      ],
+    }, { workflowExecution: { enabled: true, maxConcurrency: 16 } }, (event, data) => {
+      events.push({ event, data });
+    });
+
+    await bothItemsStarted.promise;
+    releaseItems.resolve();
+    await assert.rejects(runPromise, /alpha failed/);
+
+    const cleanCompletions = events.filter((item) => (
+      item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+      && item.data.nodeId === 'clean'
+    ));
+    const cleanFailures = events.filter((item) => (
+      item.event === WORKFLOW_SSE_EVENTS.NODE_FAILED
+      && item.data.nodeId === 'clean'
+    ));
+
+    assert.deepEqual(startedIterations.sort(), ['alpha', 'beta']);
+    assert.equal(cleanCompletions.length, 1);
+    assert.equal(cleanCompletions[0].data.outputs.text, 'beta');
+    assert.equal(cleanFailures.length, 1);
+    assert.equal(cleanFailures[0].data.iteration.index, 1);
+  } finally {
+    NODE_EXECUTORS.textClean = originalTextClean;
+  }
 });
 
 test('merge nodes pass one grouped payload downstream', async () => {

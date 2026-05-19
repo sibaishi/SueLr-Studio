@@ -125,17 +125,22 @@ test('AgentService.chat surfaces timed-out sessions as 504 errors', async () => 
     },
   });
 
-  await assert.rejects(
-    service.chat({
-      conversationId: 'conv-timeout-sync',
-      model: 'demo-model',
-      messages: [{ role: 'user', content: 'hello' }],
-      options: { timeoutMs: 20 },
-    }),
-    (error) => {
-      assert.equal(error?.status, 504);
-      assert.equal(error?.code, 'AGENT_SESSION_TIMEOUT');
-      return true;
-    },
-  );
+  const keepEventLoopAlive = setTimeout(() => {}, 100);
+  try {
+    await assert.rejects(
+      service.chat({
+        conversationId: 'conv-timeout-sync',
+        model: 'demo-model',
+        messages: [{ role: 'user', content: 'hello' }],
+        options: { timeoutMs: 20 },
+      }),
+      (error) => {
+        assert.equal(error?.status, 504);
+        assert.equal(error?.code, 'AGENT_SESSION_TIMEOUT');
+        return true;
+      },
+    );
+  } finally {
+    clearTimeout(keepEventLoopAlive);
+  }
 });

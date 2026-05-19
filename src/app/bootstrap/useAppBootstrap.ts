@@ -1,7 +1,7 @@
 import type { DependencyList, MutableRefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/lib/types';
-import type { OutboundProxySettingsPayload, StreamMode, StudioSettingsPayload } from '@/features/settings';
+import type { OutboundProxySettingsPayload, StreamMode, StudioSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
 import type { StudioSettingsState } from '@/features/settings';
 import { checkSettingsServer, loadStudioSettings, saveStudioSettings, testSettingsConnection } from '@/features/settings';
 import { debouncedSaveJSON } from '@/lib/utils';
@@ -32,6 +32,7 @@ function buildStudioSettingsPayload(params: {
   tavilyApiKey: string;
   tavilyApiKeySet: boolean;
   outboundProxy: OutboundProxySettingsPayload;
+  workflowConcurrency: WorkflowConcurrencySettingsPayload;
   themeMode: ThemeMode;
   videoStreamingMode: StreamMode;
 }): StudioSettingsPayload {
@@ -52,6 +53,9 @@ function buildStudioSettingsPayload(params: {
       tavilyApiKeySet: params.tavilyApiKeySet,
       outboundProxy: params.outboundProxy,
     },
+    workflow: {
+      concurrency: params.workflowConcurrency,
+    },
   };
 }
 
@@ -70,6 +74,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     settings.tavilyApiKey,
     settings.tavilyApiKeySet,
     settings.outboundProxy,
+    settings.workflowConcurrency,
     params.tab,
     params.sidebarCollapsed,
     settings.chatStreamingMode,
@@ -91,6 +96,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       tavilyApiKey: settings.tavilyApiKey,
       tavilyApiKeySet: settings.tavilyApiKeySet,
       outboundProxy: settings.outboundProxy,
+      workflowConcurrency: settings.workflowConcurrency,
       themeMode: params.themeMode,
       videoStreamingMode: settings.videoStreamingMode,
     });
@@ -126,6 +132,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     settings.setTavilyApiKey,
     settings.setTavilyApiKeySet,
     settings.setOutboundProxy,
+    settings.setWorkflowConcurrency,
     params.setThemeMode,
     settings.setVideoStreamingMode,
   ];
@@ -158,6 +165,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
           params.settings.setTavilyApiKey(loadedSettings.runtime?.tavilyApiKey || '');
           params.settings.setTavilyApiKeySet(Boolean(loadedSettings.runtime?.tavilyApiKeySet || loadedSettings.runtime?.tavilyApiKey));
           if (loadedSettings.runtime?.outboundProxy) params.settings.setOutboundProxy(loadedSettings.runtime.outboundProxy);
+          if (loadedSettings.workflow?.concurrency) params.settings.setWorkflowConcurrency(loadedSettings.workflow.concurrency);
           if (loadedSettings.ui?.lastTab) params.setTab(loadedSettings.ui.lastTab as Tab);
           if (typeof loadedSettings.ui?.sidebarCollapsed === 'boolean') params.setSidebarCollapsed(loadedSettings.ui.sidebarCollapsed);
           if (loadedSettings.ui?.chatStreamingMode) params.settings.setChatStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.chatStreamingMode));

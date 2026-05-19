@@ -21,6 +21,14 @@ export type StudioSettingsPayload = {
     tavilyApiKeySet?: boolean;
     outboundProxy?: OutboundProxySettingsPayload;
   };
+  workflow?: {
+    concurrency?: WorkflowConcurrencySettingsPayload;
+  };
+};
+
+export type WorkflowConcurrencySettingsPayload = {
+  enabled: boolean;
+  maxConcurrency: number;
 };
 
 export type OutboundProxyMode = 'system' | 'direct' | 'custom';
@@ -93,5 +101,7 @@ export type SettingsPanelProps = {
   setTavilyApiKeySet: (value: boolean) => void;
   outboundProxy: OutboundProxySettingsPayload;
   setOutboundProxy: (value: OutboundProxySettingsPayload) => void;
+  workflowConcurrency: WorkflowConcurrencySettingsPayload;
+  setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   projectBusy: boolean;
 };

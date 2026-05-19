@@ -549,6 +549,80 @@ describe('workflow store execution actions', () => {
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
+  it('keeps a repeated node running until all concurrent iteration completions settle', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+
+    try {
+      const harness = createWorkflowStoreHarness({
+        nodes: [
+          {
+            id: 'repeated_node',
+            type: 'textClean',
+            position: { x: 0, y: 0 },
+            data: {},
+          },
+        ],
+        addExecutionLog: vi.fn(),
+      });
+      const actions = createWorkflowExecutionActions(harness.set, harness.get);
+      harness.attachActions(actions);
+
+      vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
+        callbacks.onNodeStart?.({
+          nodeId: 'repeated_node',
+          nodeType: 'textClean',
+          index: 0,
+          total: 1,
+          iteration: { sourceNodeId: 'iter_node', index: 1, total: 2 },
+        });
+        vi.setSystemTime(1200);
+        callbacks.onNodeStart?.({
+          nodeId: 'repeated_node',
+          nodeType: 'textClean',
+          index: 0,
+          total: 1,
+          iteration: { sourceNodeId: 'iter_node', index: 2, total: 2 },
+        });
+        vi.setSystemTime(1500);
+        callbacks.onNodeComplete?.({
+          nodeId: 'repeated_node',
+          outputs: { text: 'first' },
+          duration: 500,
+          iteration: { sourceNodeId: 'iter_node', index: 1, total: 2 },
+        });
+
+        const midState = harness.getState();
+        expect(midState.nodeExecStatus.repeated_node).toBe('running');
+        expect(midState.nodeExecutionTime.repeated_node).toBe(0);
+        expect(midState.nodeExecutionActiveCounts.repeated_node).toBe(1);
+
+        vi.setSystemTime(1900);
+        callbacks.onNodeComplete?.({
+          nodeId: 'repeated_node',
+          outputs: { text: 'second' },
+          duration: 700,
+          iteration: { sourceNodeId: 'iter_node', index: 2, total: 2 },
+        });
+        callbacks.onWorkflowComplete?.({
+          totalDuration: 900,
+          successCount: 2,
+          failCount: 0,
+        });
+      });
+
+      await actions.executeWorkflow();
+
+      const state = harness.getState();
+      expect(state.nodeExecStatus.repeated_node).toBe('success');
+      expect(state.nodeExecutionTime.repeated_node).toBe(900);
+      expect(state.nodeExecutionActiveCounts.repeated_node).toBe(0);
+      expect(state.nodeOutputs.repeated_node).toEqual({ text: ['first', 'second'] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('marks execution stopped when cancel is requested without a run id', async () => {
     const addExecutionLog = vi.fn();
     const harness = createWorkflowStoreHarness({

@@ -62,6 +62,13 @@ function buildTextSplitSegmentsFromOutputs(outputs: Record<string, unknown>) {
     .map(([, value]) => String(value ?? ''));
 }
 
+function getNodeEventExpectedCount(data: { iteration?: { total?: number } }) {
+  if (typeof data.iteration?.total === 'number' && Number.isFinite(data.iteration.total)) {
+    return Math.max(1, Math.round(data.iteration.total));
+  }
+  return 1;
+}
+
 function shouldPersistTextSplitOutput(
   state: WorkflowState,
   nodeId: string,
@@ -108,6 +115,7 @@ function settleLingeringNodeExecutions(
 ) {
   const nextNodeExecStatus = { ...state.nodeExecStatus };
   const nextNodeExecutionTime = { ...state.nodeExecutionTime };
+  const nextNodeExecutionActiveCounts = { ...state.nodeExecutionActiveCounts };
   const nextNodeErrors = { ...state.nodeErrors };
   const now = Date.now();
   let changed = false;
@@ -116,6 +124,7 @@ function settleLingeringNodeExecutions(
     if (status !== 'running') continue;
     changed = true;
     nextNodeExecStatus[nodeId] = options.status;
+    nextNodeExecutionActiveCounts[nodeId] = 0;
     nextNodeExecutionTime[nodeId] = state.nodeExecutionStartedAt[nodeId]
       ? Math.max(0, now - state.nodeExecutionStartedAt[nodeId])
       : nextNodeExecutionTime[nodeId] ?? 0;
@@ -130,6 +139,7 @@ function settleLingeringNodeExecutions(
   return {
     nodeExecStatus: nextNodeExecStatus,
     nodeExecutionTime: nextNodeExecutionTime,
+    nodeExecutionActiveCounts: nextNodeExecutionActiveCounts,
     nodeErrors: nextNodeErrors,
   };
 }
@@ -198,6 +208,10 @@ export function createWorkflowExecutionActions(
         nodeExecStatus: {},
         nodeExecutionTime: {},
         nodeExecutionStartedAt: {},
+        nodeExecutionActiveCounts: {},
+        nodeExecutionStartedCounts: {},
+        nodeExecutionCompletedCounts: {},
+        nodeExecutionExpectedCounts: {},
         nodeErrors: {},
         nodeWarnings: {},
         nodeOutputs: {},
@@ -241,23 +255,45 @@ export function createWorkflowExecutionActions(
             nodeId: data.nodeId,
             details: data,
           });
-          set((currentState) => ({
-            executionProgress: { current: data.index + 1, total: data.total },
-            executionMessage: `正在执行：${nodeLabel}`,
-            executingNodeId: data.nodeId,
-            nodeExecStatus: {
-              ...currentState.nodeExecStatus,
-              [data.nodeId]: 'running',
-            },
-            nodeExecutionStartedAt: {
-              ...currentState.nodeExecutionStartedAt,
-              [data.nodeId]: Date.now(),
-            },
-            nodeExecutionTime: {
-              ...currentState.nodeExecutionTime,
-              [data.nodeId]: 0,
-            },
-          }));
+          set((currentState) => {
+            const startedCount = (currentState.nodeExecutionStartedCounts[data.nodeId] || 0) + 1;
+            const activeCount = (currentState.nodeExecutionActiveCounts[data.nodeId] || 0) + 1;
+            const expectedCount = Math.max(
+              currentState.nodeExecutionExpectedCounts[data.nodeId] || 0,
+              getNodeEventExpectedCount(data),
+              startedCount,
+            );
+
+            return {
+              executionProgress: { current: data.index + 1, total: data.total },
+              executionMessage: `正在执行：${nodeLabel}`,
+              executingNodeId: data.nodeId,
+              nodeExecStatus: {
+                ...currentState.nodeExecStatus,
+                [data.nodeId]: 'running',
+              },
+              nodeExecutionStartedAt: {
+                ...currentState.nodeExecutionStartedAt,
+                [data.nodeId]: currentState.nodeExecutionStartedAt[data.nodeId] || Date.now(),
+              },
+              nodeExecutionTime: {
+                ...currentState.nodeExecutionTime,
+                [data.nodeId]: 0,
+              },
+              nodeExecutionActiveCounts: {
+                ...currentState.nodeExecutionActiveCounts,
+                [data.nodeId]: activeCount,
+              },
+              nodeExecutionStartedCounts: {
+                ...currentState.nodeExecutionStartedCounts,
+                [data.nodeId]: startedCount,
+              },
+              nodeExecutionExpectedCounts: {
+                ...currentState.nodeExecutionExpectedCounts,
+                [data.nodeId]: expectedCount,
+              },
+            };
+          });
         },
         onNodeProgress: (data) => {
           const nodeLabel = getNodeDisplayNameById(data.nodeId, get().nodes);
@@ -283,6 +319,19 @@ export function createWorkflowExecutionActions(
           set((currentState) => {
             const persistTextOutput = shouldPersistTextInputOutput(currentState, data.nodeId, data.outputs);
             const persistTextSplitOutput = shouldPersistTextSplitOutput(currentState, data.nodeId, data.outputs);
+            const activeCount = Math.max(0, (currentState.nodeExecutionActiveCounts[data.nodeId] || 0) - 1);
+            const completedCount = (currentState.nodeExecutionCompletedCounts[data.nodeId] || 0) + 1;
+            const expectedCount = Math.max(
+              currentState.nodeExecutionExpectedCounts[data.nodeId] || 0,
+              getNodeEventExpectedCount(data),
+              completedCount,
+            );
+            const allKnownExecutionsCompleted = activeCount === 0 && completedCount >= expectedCount;
+            const startedAt = currentState.nodeExecutionStartedAt[data.nodeId];
+            const aggregateDuration = startedAt ? Math.max(0, Date.now() - startedAt) : data.duration;
+            const mergedNodeOutputs = data.iteration
+              ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
+              : data.outputs;
             return {
               executionMessage: `${nodeLabel} 执行完成`,
               nodes: persistTextOutput || persistTextSplitOutput
@@ -302,24 +351,32 @@ export function createWorkflowExecutionActions(
               hasUnsavedChanges: persistTextOutput || persistTextSplitOutput ? true : currentState.hasUnsavedChanges,
               nodeExecStatus: {
                 ...currentState.nodeExecStatus,
-                [data.nodeId]: 'success',
+                [data.nodeId]: allKnownExecutionsCompleted ? 'success' : 'running',
               },
               nodeExecutionTime: {
                 ...currentState.nodeExecutionTime,
-                [data.nodeId]: data.duration,
+                [data.nodeId]: allKnownExecutionsCompleted ? aggregateDuration : 0,
+              },
+              nodeExecutionActiveCounts: {
+                ...currentState.nodeExecutionActiveCounts,
+                [data.nodeId]: activeCount,
+              },
+              nodeExecutionCompletedCounts: {
+                ...currentState.nodeExecutionCompletedCounts,
+                [data.nodeId]: completedCount,
+              },
+              nodeExecutionExpectedCounts: {
+                ...currentState.nodeExecutionExpectedCounts,
+                [data.nodeId]: expectedCount,
               },
               nodeOutputs: {
                 ...currentState.nodeOutputs,
-                [data.nodeId]: data.iteration
-                  ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
-                  : data.outputs,
+                [data.nodeId]: mergedNodeOutputs,
               },
               aiResultOutputs: AI_RESULT_NODE_TYPES.has(currentState.nodes.find((node) => node.id === data.nodeId)?.type || '')
                 ? {
                     ...currentState.aiResultOutputs,
-                    [data.nodeId]: data.iteration
-                      ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
-                      : data.outputs,
+                    [data.nodeId]: mergedNodeOutputs,
                   }
                 : currentState.aiResultOutputs,
             };
@@ -344,6 +401,10 @@ export function createWorkflowExecutionActions(
               [data.nodeId]: currentState.nodeExecutionStartedAt[data.nodeId]
                 ? Math.max(0, Date.now() - currentState.nodeExecutionStartedAt[data.nodeId])
                 : 0,
+            },
+            nodeExecutionActiveCounts: {
+              ...currentState.nodeExecutionActiveCounts,
+              [data.nodeId]: Math.max(0, (currentState.nodeExecutionActiveCounts[data.nodeId] || 0) - 1),
             },
             nodeErrors: {
               ...currentState.nodeErrors,

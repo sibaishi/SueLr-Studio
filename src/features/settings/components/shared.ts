@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ThemeMode } from '@/lib/types';
 import type { ProviderConfig } from '@/lib/types';
-import type { OutboundProxySettingsPayload, StorageSettingsPayload } from '@/features/settings';
+import type { OutboundProxySettingsPayload, StorageSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
 import type { AgentProfile } from '@/shared/api/agent';
 import type { LucideIcon } from 'lucide-react';
 
@@ -69,6 +69,7 @@ export type SettingsActions = {
   setApiKey: (value: string) => void;
   setModels: (models: ModelInfo[]) => void;
   setOutboundProxy: (value: OutboundProxySettingsPayload) => void;
+  setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   testConnection: () => Promise<void>;
   testSearch: () => Promise<void>;
@@ -112,4 +113,5 @@ export type SettingsViewModel = {
   tavilyApiKeySet: boolean;
   themeMode: ThemeMode;
   themeOptions: Array<{ l: string; v: string }>;
+  workflowConcurrency: WorkflowConcurrencySettingsPayload;
 };

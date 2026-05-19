@@ -47,6 +47,76 @@ const DEFAULT_IMAGE_ENDPOINT = '/v1/images/generations';
 const IMAGE_REQUEST_RETRY_DELAYS_MS = [1_000, 2_000];
 const DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
 const DATA_URL_LOG_PREVIEW_LENGTH = 48;
+const DEFAULT_IMAGE_GENERATION_CONCURRENCY = {
+  enabled: false,
+  maxConcurrency: 5,
+};
+
+function normalizeWorkflowConcurrency(value) {
+  const enabled = value?.enabled === true;
+  const parsedMaxConcurrency = Number(value?.maxConcurrency);
+  const maxConcurrency = Number.isFinite(parsedMaxConcurrency) && parsedMaxConcurrency > 0
+    ? Math.max(1, Math.round(parsedMaxConcurrency))
+    : DEFAULT_IMAGE_GENERATION_CONCURRENCY.maxConcurrency;
+  return {
+    enabled,
+    maxConcurrency: enabled ? maxConcurrency : 1,
+  };
+}
+
+async function runWithConcurrency(items, worker, maxConcurrency) {
+  if (items.length === 0) return [];
+  if (maxConcurrency <= 1) {
+    const results = [];
+    for (let index = 0; index < items.length; index += 1) {
+      results.push(await worker(items[index], index));
+    }
+    return results;
+  }
+
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(maxConcurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+async function runSettledWithConcurrency(items, worker, maxConcurrency) {
+  if (items.length === 0) return [];
+  if (maxConcurrency <= 1) {
+    const results = [];
+    for (let index = 0; index < items.length; index += 1) {
+      try {
+        results.push({ status: 'fulfilled', value: await worker(items[index], index) });
+      } catch (error) {
+        results.push({ status: 'rejected', reason: error });
+      }
+    }
+    return results;
+  }
+
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(maxConcurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      try {
+        results[index] = { status: 'fulfilled', value: await worker(items[index], index) };
+      } catch (error) {
+        results[index] = { status: 'rejected', reason: error };
+      }
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 function cleanText(value) {
   return String(value || '').trim();
@@ -1144,6 +1214,7 @@ async function callImageEditApi(url, headers, payload, timeoutMs, sendProgress, 
 export async function generateImages(request, runtimeConfig, sendProgress) {
   const { apiKey, baseUrl, providerConfig } = runtimeConfig;
   const abortSignal = runtimeConfig.abortSignal;
+  const workflowConcurrency = normalizeWorkflowConcurrency(runtimeConfig.workflowExecution);
   const adapter = getProviderAdapter(providerConfig);
   if (!apiKey) {
     throw new Error('Missing API key for image generation');
@@ -1175,10 +1246,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
       : 'auto';
   sendProgress?.(`开始生成图片: model=${payload.model}; size=${sizeSummary}; n=${requestCount}`);
 
-  const rawImages = [];
-  const rawData = [];
-
-  for (let index = 0; index < requestCount; index += 1) {
+  const runImageGenerationAttempt = async (index) => {
     sendProgress?.(`正在生成第 ${index + 1}/${requestCount} 张图片...`);
 
     const resolveImageEndpoint = (model, purpose = 'image') => {
@@ -1433,37 +1501,56 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
           }
         })();
 
-    rawData.push(attemptData);
-    rawImages.push(...extractImagesFromResponse(attemptData));
+    return attemptData;
+  };
+
+  const attemptResults = await runSettledWithConcurrency(
+    Array.from({ length: requestCount }, (_item, index) => index),
+    (index) => runImageGenerationAttempt(index),
+    workflowConcurrency.maxConcurrency,
+  );
+  const failedAttempts = attemptResults
+    .map((result, index) => ({ result, index }))
+    .filter(({ result }) => result.status === 'rejected');
+  if (failedAttempts.length > 0) {
+    const failures = failedAttempts
+      .map(({ result, index }) => `#${index + 1}: ${result.reason?.message || result.reason}`)
+      .join('; ');
+    sendProgress?.(`部分图片生成失败: ${failedAttempts.length}/${requestCount}; ${failures}`);
   }
+  const rawData = attemptResults
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value);
+  const rawImages = rawData.flatMap((attemptData) => extractImagesFromResponse(attemptData));
 
   if (rawImages.length === 0) {
-    throw new Error('Image API did not return any images');
+    const failureSummary = failedAttempts
+      .map(({ result, index }) => `#${index + 1}: ${result.reason?.message || result.reason}`)
+      .join('; ');
+    throw new Error(failureSummary || 'Image API did not return any images');
   }
 
   const shouldPersistGeneratedOutputs = runtimeConfig.persistGeneratedOutputs !== false;
-  const outputImages = [];
-  for (let index = 0; index < rawImages.length; index += 1) {
-    const image = rawImages[index];
+  const processOutputImage = async (image) => {
     const imageStr = String(image);
     if (imageStr.startsWith('data:')) {
       try {
         const match = imageStr.match(/^data:([^;]+);base64,(.+)$/);
         if (match) {
           if (!shouldPersistGeneratedOutputs) {
-            outputImages.push(imageStr);
-            continue;
+            return imageStr;
           }
           const ext = (match[1] || 'image/png').split('/').pop() || 'png';
           const fileName = `images/${randomUUID()}.${ext}`;
           const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
           fs.mkdirSync(path.dirname(filePath), { recursive: true });
           fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
-          outputImages.push(`/api/outputs/${fileName}`);
+          return `/api/outputs/${fileName}`;
         }
       } catch {
-        outputImages.push(imageStr);
+        return imageStr;
       }
+      return undefined;
     } else if (imageStr.startsWith('http://') || imageStr.startsWith('https://')) {
       try {
         const downloaded = await downloadRemoteImage(image, sendProgress, abortSignal);
@@ -1471,26 +1558,52 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
           const match = downloaded.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
             if (!shouldPersistGeneratedOutputs) {
-              outputImages.push(downloaded);
-              continue;
+              return downloaded;
             }
             const ext = (match[1] || 'image/png').split('/').pop() || 'png';
             const fileName = `images/${randomUUID()}.${ext}`;
             const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
             fs.mkdirSync(path.dirname(filePath), { recursive: true });
             fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
-            outputImages.push(`/api/outputs/${fileName}`);
+            return `/api/outputs/${fileName}`;
           }
         } catch {
-          outputImages.push(downloaded);
+          return downloaded;
         }
+        return undefined;
       } catch (error) {
         sendProgress?.(`下载远程图片失败，已保留原始URL继续流程: ${String(image)}; ${error?.message || error}`);
-        outputImages.push(String(image));
+        return String(image);
       }
     } else {
       throw new Error(`无法识别的图片返回格式: ${String(image).slice(0, 120)}`);
     }
+  };
+
+  const outputImageResults = await runSettledWithConcurrency(
+    rawImages,
+    (image) => processOutputImage(image),
+    workflowConcurrency.maxConcurrency,
+  );
+  const failedOutputImages = outputImageResults
+    .map((result, index) => ({ result, index }))
+    .filter(({ result }) => result.status === 'rejected');
+  if (failedOutputImages.length > 0) {
+    const failures = failedOutputImages
+      .map(({ result, index }) => `#${index + 1}: ${result.reason?.message || result.reason}`)
+      .join('; ');
+    sendProgress?.(`部分图片结果处理失败: ${failedOutputImages.length}/${rawImages.length}; ${failures}`);
+  }
+  const outputImages = outputImageResults
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .filter((image) => image !== undefined);
+
+  if (outputImages.length === 0) {
+    const failureSummary = failedOutputImages
+      .map(({ result, index }) => `#${index + 1}: ${result.reason?.message || result.reason}`)
+      .join('; ');
+    throw new Error(failureSummary || 'Image API did not return any usable images');
   }
 
   return {

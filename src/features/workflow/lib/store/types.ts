@@ -67,6 +67,10 @@ export interface WorkflowState {
   nodeExecStatus: Record<string, NodeExecStatus>;
   nodeExecutionTime: Record<string, number>;
   nodeExecutionStartedAt: Record<string, number>;
+  nodeExecutionActiveCounts: Record<string, number>;
+  nodeExecutionStartedCounts: Record<string, number>;
+  nodeExecutionCompletedCounts: Record<string, number>;
+  nodeExecutionExpectedCounts: Record<string, number>;
   nodeErrors: Record<string, string>;
   nodeWarnings: Record<string, string>;
   nodeOutputs: Record<string, Record<string, unknown>>;

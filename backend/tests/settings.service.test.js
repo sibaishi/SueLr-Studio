@@ -20,16 +20,34 @@ test('settings service reads and updates studio settings', async () => {
 
   const initial = settingsService.getStudioSettings();
   assert.equal(initial.ui.theme, 'dark');
+  assert.deepEqual(initial.workflow.concurrency, {
+    enabled: false,
+    maxConcurrency: 5,
+  });
 
   const updated = settingsService.updateStudioSettings({
     ui: { theme: 'light' },
     runtime: {
       tavilyApiKey: 'demo-key',
     },
+    workflow: {
+      concurrency: {
+        enabled: true,
+        maxConcurrency: 12,
+      },
+    },
   });
 
   assert.equal(updated.ui.theme, 'light');
   assert.equal(updated.runtime.tavilyApiKey, 'demo-key');
+  assert.deepEqual(updated.workflow.concurrency, {
+    enabled: true,
+    maxConcurrency: 12,
+  });
+  assert.deepEqual(settingsService.buildRuntimeConfig().workflowExecution, {
+    enabled: true,
+    maxConcurrency: 12,
+  });
   assert.deepEqual(updated.runtime.outboundProxy, {
     mode: 'system',
     httpProxy: '',

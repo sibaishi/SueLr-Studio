@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { executeWorkflow } from '../src/engine/executor.js';
+import { NODE_EXECUTORS } from '../src/engine/nodes/index.js';
 import { WORKFLOW_SSE_EVENTS } from '../src/platform/logging/workflow-events.js';
 import { createWorkflowRunLogger } from '../src/platform/logging/workflow-run-logger.js';
 import { sanitizeNodeOutputsForLogs } from '../src/platform/logging/workflow-log-sanitizer.js';
@@ -12,6 +13,16 @@ function createStorageDir(name) {
   const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `executor-${name}-${Date.now()}`);
   fs.mkdirSync(root, { recursive: true });
   return root;
+}
+
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
 }
 
 test('disabled nodes are excluded from workflow execution and validation', async () => {
@@ -155,6 +166,150 @@ test('textInput override flows to downstream output nodes', async () => {
 
   assert.ok(outputEvent);
   assert.equal(outputEvent.data.outputs.content, 'from upstream');
+});
+
+test('independent ready workflow nodes execute concurrently when enabled', async () => {
+  const originalTextClean = NODE_EXECUTORS.textClean;
+  const bothCleanNodesStarted = createDeferred();
+  const releaseCleanNodes = createDeferred();
+  const cleanStarted = [];
+  const events = [];
+
+  NODE_EXECUTORS.textClean = async (_node, inputs) => {
+    cleanStarted.push(_node.id);
+    if (cleanStarted.length === 2) {
+      bothCleanNodesStarted.resolve();
+    }
+    await releaseCleanNodes.promise;
+    return { text: inputs.text };
+  };
+
+  try {
+    const runPromise = executeWorkflow(
+      {
+        nodes: [
+          { id: 'source-a', type: 'textInput', data: { text: 'alpha' } },
+          { id: 'source-b', type: 'textInput', data: { text: 'beta' } },
+          { id: 'clean-a', type: 'textClean', data: {} },
+          { id: 'clean-b', type: 'textClean', data: {} },
+          { id: 'merge', type: 'textMerge', data: { inputCount: 2 } },
+        ],
+        edges: [
+          { id: 'source-a-clean-a', source: 'source-a', sourceHandle: 'text', target: 'clean-a', targetHandle: 'text' },
+          { id: 'source-b-clean-b', source: 'source-b', sourceHandle: 'text', target: 'clean-b', targetHandle: 'text' },
+          { id: 'clean-a-merge', source: 'clean-a', sourceHandle: 'text', target: 'merge', targetHandle: 'item1' },
+          { id: 'clean-b-merge', source: 'clean-b', sourceHandle: 'text', target: 'merge', targetHandle: 'item2' },
+        ],
+      },
+      { workflowExecution: { enabled: true, maxConcurrency: 16 } },
+      (event, data) => events.push({ event, data }),
+    );
+
+    await bothCleanNodesStarted.promise;
+    const cleanCompletionsBeforeRelease = events.filter((item) => (
+      item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+      && ['clean-a', 'clean-b'].includes(item.data.nodeId)
+    ));
+    assert.deepEqual(cleanStarted.sort(), ['clean-a', 'clean-b']);
+    assert.equal(cleanCompletionsBeforeRelease.length, 0);
+
+    releaseCleanNodes.resolve();
+    await runPromise;
+
+    const mergeStartedIndex = events.findIndex((item) => (
+      item.event === WORKFLOW_SSE_EVENTS.NODE_STARTED
+      && item.data.nodeId === 'merge'
+    ));
+    const cleanCompletionIndexes = events
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => (
+        item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+        && ['clean-a', 'clean-b'].includes(item.data.nodeId)
+      ))
+      .map(({ index }) => index);
+
+    assert.equal(cleanCompletionIndexes.length, 2);
+    assert.ok(cleanCompletionIndexes.every((index) => index < mergeStartedIndex));
+  } finally {
+    NODE_EXECUTORS.textClean = originalTextClean;
+  }
+});
+
+test('imageGen node runs multi-image requests concurrently through workflow config', async () => {
+  const originalFetch = globalThis.fetch;
+  const allRequestsStarted = createDeferred();
+  let startedRequests = 0;
+  let activeRequests = 0;
+  let maxActiveRequests = 0;
+
+  globalThis.fetch = async () => {
+    startedRequests += 1;
+    const requestIndex = startedRequests;
+    activeRequests += 1;
+    maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+    if (startedRequests === 4) {
+      allRequestsStarted.resolve();
+    }
+
+    await allRequestsStarted.promise;
+    activeRequests -= 1;
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: Buffer.from(`workflow-image-${requestIndex}`).toString('base64') },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const events = [];
+    await executeWorkflow(
+      {
+        nodes: [
+          { id: 'prompt', type: 'textInput', data: { text: 'draw a mountain' } },
+          { id: 'image', type: 'imageGen', data: { model: 'demo-image-model', n: 4 } },
+        ],
+        edges: [
+          { id: 'prompt-image', source: 'prompt', sourceHandle: 'text', target: 'image', targetHandle: 'prompt' },
+        ],
+      },
+      {
+        apiKey: 'demo-key',
+        baseUrl: 'https://example.com',
+        providerConfig: {
+          authType: 'bearer',
+          imageEndpoint: '/v1/images/generations',
+          imageEditEndpoint: '/v1/images/edits',
+        },
+        projectModels: [
+          {
+            id: 'demo-image-model',
+            modelId: 'demo-image-model',
+            type: 'image',
+            enabled: true,
+            endpointMode: 'category',
+            endpointCategory: 'image',
+          },
+        ],
+        workflowExecution: { enabled: true, maxConcurrency: 4 },
+      },
+      (event, data) => events.push({ event, data }),
+    );
+
+    const imageCompleted = events.find((item) => (
+      item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+      && item.data.nodeId === 'image'
+    ));
+
+    assert.equal(startedRequests, 4);
+    assert.equal(maxActiveRequests, 4);
+    assert.equal(imageCompleted?.data.outputs.images.length, 4);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('workflow node completed events include sanitized log outputs while preserving raw outputs', async () => {
