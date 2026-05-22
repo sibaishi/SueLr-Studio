@@ -2,6 +2,7 @@ const { app, BrowserWindow, shell } = require('electron');
 const { pathToFileURL } = require('node:url');
 const net = require('node:net');
 const path = require('node:path');
+const { buildRelaunchOptions } = require('./relaunch.cjs');
 
 const APP_HOST = '127.0.0.1';
 const WINDOW_OPTIONS = {
@@ -36,6 +37,23 @@ function resolveAppPath(...segments) {
   return path.join(app.getAppPath(), ...segments);
 }
 
+function relaunchApp() {
+  if (relaunching) return;
+  relaunching = true;
+
+  const relaunchOptions = buildRelaunchOptions({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    portableExecutableFile: process.env.PORTABLE_EXECUTABLE_FILE,
+  });
+  if (relaunchOptions) {
+    app.relaunch(relaunchOptions);
+  } else {
+    app.relaunch();
+  }
+  app.exit(0);
+}
+
 async function startBackend() {
   const port = await findFreePort(APP_HOST);
   const frontendDist = resolveAppPath('dist');
@@ -48,12 +66,7 @@ async function startBackend() {
   process.env.APP_EMBEDDED_BACKEND = '1';
   process.env.APP_DESKTOP_RELAUNCH = '1';
   process.env.APP_DESKTOP_RELAUNCH_HOOK = '1';
-  globalThis.__SUE_LR_RELAUNCH__ = () => {
-    if (relaunching) return;
-    relaunching = true;
-    app.relaunch();
-    app.exit(0);
-  };
+  globalThis.__SUE_LR_RELAUNCH__ = relaunchApp;
 
   const { startServer } = await import(pathToFileURL(backendEntry).href);
   backendServer = startServer(port, APP_HOST);
