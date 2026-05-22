@@ -307,21 +307,40 @@ function stripImageResolutionSuffix(modelId) {
   return cleanText(modelId).replace(IMAGE_RESOLUTION_SUFFIX_REGEX, '');
 }
 
+function isGeminiStyleImageModel(model) {
+  if (!model) return false;
+  if (model.endpointMode === 'custom') {
+    return cleanText(model.customEndpoint).toLowerCase().includes(':generatecontent');
+  }
+  return model.endpointCategory === 'gemini-generate-content';
+}
+
 function resolveImageResolutionModel(modelId, resolution, projectModels = []) {
-  const requestedResolution = normalizeImageResolution(resolution);
+  const requestedResolution = normalizeImageResolution(resolution) || getImageResolutionFromModel(modelId);
   if (!requestedResolution || requestedResolution === 'auto') return modelId;
 
   const currentResolution = getImageResolutionFromModel(modelId);
-  if (currentResolution === requestedResolution) return modelId;
-
   const baseModelId = stripImageResolutionSuffix(modelId);
   const targetModelId = `${baseModelId}-${requestedResolution}`;
+  const currentModel = findProjectModel(projectModels, modelId);
+  const baseModel = findProjectModel(projectModels, baseModelId);
   const targetModel = findProjectModel(projectModels, targetModelId);
-  if (targetModel?.configured && targetModel.enabled !== false && targetModel.type === 'image') {
+
+  if (currentResolution === requestedResolution && currentModel?.configured && isGeminiStyleImageModel(currentModel)) {
+    return currentModel.modelId;
+  }
+  if (isGeminiStyleImageModel(targetModel)) {
     return targetModel.modelId;
   }
+  if (isGeminiStyleImageModel(baseModel)) {
+    return targetModelId;
+  }
 
-  return targetModelId;
+  if (currentResolution === requestedResolution && baseModel?.configured && baseModel.type === 'image') {
+    return baseModel.modelId;
+  }
+
+  return baseModelId || modelId;
 }
 
 function getImageResolutionFallbackModel(modelId, resolution) {
@@ -331,10 +350,28 @@ function getImageResolutionFallbackModel(modelId, resolution) {
   return fallbackModel && fallbackModel !== modelId ? fallbackModel : '';
 }
 
+function shouldSendResolutionInBody(modelId, resolution) {
+  const requestedResolution = normalizeImageResolution(resolution);
+  return Boolean(requestedResolution && requestedResolution !== 'auto' && !getImageResolutionFromModel(modelId));
+}
+
 function resolveModelRuntimeAllowingResolutionSuffix(runtimeConfig, modelId, options = {}) {
   try {
     return resolveModelRuntime(runtimeConfig, modelId, options);
   } catch (error) {
+    const requestedResolution = normalizeImageResolution(options.resolution);
+    if (requestedResolution && requestedResolution !== 'auto' && !getImageResolutionFromModel(modelId)) {
+      const suffixModel = `${stripImageResolutionSuffix(modelId)}-${requestedResolution}`;
+      const resolvedSuffix = resolveModelRuntime(runtimeConfig, suffixModel, options);
+      if (resolvedSuffix.endpoint && resolvedSuffix.endpoint.includes(encodeURIComponent(suffixModel))) {
+        return {
+          ...resolvedSuffix,
+          endpoint: resolvedSuffix.endpoint.replace(encodeURIComponent(suffixModel), encodeURIComponent(modelId)),
+        };
+      }
+      return resolvedSuffix;
+    }
+
     const fallbackModel = getImageResolutionFallbackModel(modelId);
     if (!fallbackModel) throw error;
     const resolved = resolveModelRuntime(runtimeConfig, fallbackModel, options);
@@ -1221,8 +1258,8 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
   }
 
   const normalized = normalizeImageGenerationRequest(request);
-  normalized.model = resolveImageGenerationModel(normalized, runtimeConfig);
   normalized.resolution = normalized.resolution || getImageResolutionFromModel(normalized.model) || undefined;
+  normalized.model = resolveImageGenerationModel(normalized, runtimeConfig);
   const timeoutMs = getImageTimeoutMs(providerConfig);
 
   const referenceImages = [];
@@ -1236,6 +1273,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
     image: referenceImages,
     mask,
   }, runtimeConfig);
+  const includeResolutionInBody = shouldSendResolutionInBody(payload.model, payload.resolution);
 
   const requestCount = payload.n || 1;
 
@@ -1253,14 +1291,11 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
       const { endpoint } = resolveModelRuntimeAllowingResolutionSuffix(runtimeConfig, model, {
         expectedType: 'image',
         purpose,
+        resolution: payload.resolution,
       });
       return endpoint;
     };
     const imageEndpoint = resolveImageEndpoint(payload.model);
-    const fallbackModel = getImageResolutionFallbackModel(payload.model, payload.resolution);
-    const logResolutionFallback = (model) => {
-      sendProgress?.(`分辨率后缀模型请求失败，回退到基础模型并在请求体中发送 resolution=${payload.resolution}: ${model}`);
-    };
     const usesGeminiGenerateContent = isGeminiGenerateContentEndpoint(imageEndpoint);
     const usesChatPayload = isChatCompletionsEndpoint(imageEndpoint);
     const usesArkImageGenerationPayload = isVolcengineArkRuntime(baseUrl) && !usesChatPayload && !usesGeminiGenerateContent;
@@ -1315,16 +1350,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
             );
           };
 
-          try {
-            return await callWithRequestBody(buildRequestBody());
-          } catch (error) {
-            if (!fallbackModel) throw error;
-            logResolutionFallback(fallbackModel);
-            return callWithRequestBody(buildRequestBody({
-              model: fallbackModel,
-              includeResolution: true,
-            }));
-          }
+          return callWithRequestBody(buildRequestBody({ includeResolution: includeResolutionInBody }));
         })()
       : await (async () => {
           const endpoint = imageEndpoint;
@@ -1351,13 +1377,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
               sendProgress,
               abortSignal,
             );
-            try {
-              return await callWithModel(payload.model);
-            } catch (error) {
-              if (!fallbackModel) throw error;
-              logResolutionFallback(fallbackModel);
-              return callWithModel(fallbackModel);
-            }
+            return callWithModel(payload.model);
           }
 
           if (usesChatPayload) {
@@ -1407,22 +1427,23 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
             };
 
             try {
-              return await callWithRequestBody(buildRequestBody(true, true));
+              return await callWithRequestBody(buildRequestBody(true, true, {
+                includeResolution: includeResolutionInBody,
+              }));
             } catch (error) {
               if (shouldRetryWithoutOutputFormat(error)) {
                 sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
-                return callWithRequestBody(buildRequestBody(true, false));
+                return callWithRequestBody(buildRequestBody(true, false, {
+                  includeResolution: includeResolutionInBody,
+                }));
               }
               if (shouldRetryWithoutResponseFormat(error)) {
                 sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
-                return callWithRequestBody(buildRequestBody(false, true));
+                return callWithRequestBody(buildRequestBody(false, true, {
+                  includeResolution: includeResolutionInBody,
+                }));
               }
-              if (!fallbackModel) throw error;
-              logResolutionFallback(fallbackModel);
-              return callWithRequestBody(buildRequestBody(true, true, {
-                model: fallbackModel,
-                includeResolution: true,
-              }));
+              throw error;
             }
           }
 
@@ -1457,46 +1478,23 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
             );
           };
 
-          const callFallbackWithResolutionBody = async () => {
-            if (!fallbackModel) return null;
-            logResolutionFallback(fallbackModel);
-            try {
-              return await callWithRequestBody(buildRequestBody(true, true, {
-                model: fallbackModel,
-                includeResolution: true,
-              }));
-            } catch (fallbackError) {
-              if (shouldRetryWithoutOutputFormat(fallbackError)) {
-                sendProgress?.('基础模型不支持 output_format，已忽略输出格式重试一次');
-                return callWithRequestBody(buildRequestBody(true, false, {
-                  model: fallbackModel,
-                  includeResolution: true,
-                }));
-              }
-              if (shouldRetryWithoutResponseFormat(fallbackError)) {
-                sendProgress?.('基础模型不支持 response_format=url，已降级为默认返回格式重试一次');
-                return callWithRequestBody(buildRequestBody(false, true, {
-                  model: fallbackModel,
-                  includeResolution: true,
-                }));
-              }
-              throw fallbackError;
-            }
-          };
-
           try {
-            return await callWithRequestBody(buildRequestBody(true, true));
+            return await callWithRequestBody(buildRequestBody(true, true, {
+              includeResolution: includeResolutionInBody,
+            }));
           } catch (error) {
             if (shouldRetryWithoutOutputFormat(error)) {
               sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
-              return callWithRequestBody(buildRequestBody(true, false));
+              return callWithRequestBody(buildRequestBody(true, false, {
+                includeResolution: includeResolutionInBody,
+              }));
             }
             if (shouldRetryWithoutResponseFormat(error)) {
               sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
-              return callWithRequestBody(buildRequestBody(false, true));
+              return callWithRequestBody(buildRequestBody(false, true, {
+                includeResolution: includeResolutionInBody,
+              }));
             }
-            const fallbackResult = await callFallbackWithResolutionBody();
-            if (fallbackResult) return fallbackResult;
             throw error;
           }
         })();

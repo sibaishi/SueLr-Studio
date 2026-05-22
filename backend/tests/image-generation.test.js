@@ -496,7 +496,7 @@ test('generateImages resolves model ids when chat tool calls add spaces around h
   }
 });
 
-test('generateImages routes requested image resolution to configured model suffix', async () => {
+test('generateImages sends configured non-Gemini resolution through base model body', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;
 
@@ -540,33 +540,22 @@ test('generateImages routes requested image resolution to configured model suffi
     }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(result.request.model, 'gpt-image-2-4k');
+    assert.equal(result.request.model, 'gpt-image-2');
     assert.equal(result.request.resolution, '4k');
-    assert.equal(requestBody.model, 'gpt-image-2-4k');
-    assert.equal(requestBody.resolution, undefined);
+    assert.equal(requestBody.model, 'gpt-image-2');
+    assert.equal(requestBody.resolution, '4k');
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('generateImages probes unlisted resolution suffix then falls back to base model with resolution body', async () => {
+test('generateImages sends unlisted resolution through base model body', async () => {
   const originalFetch = globalThis.fetch;
   const requestBodies = [];
-  const progress = [];
 
   globalThis.fetch = async (_url, options = {}) => {
     const requestBody = JSON.parse(String(options.body));
     requestBodies.push(requestBody);
-
-    if (requestBodies.length === 1) {
-      assert.equal(requestBody.model, 'gpt-image-2-4k');
-      return new Response(JSON.stringify({
-        error: { message: 'model not found' },
-      }), {
-        status: 404,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
 
     return new Response(JSON.stringify({
       data: [
@@ -594,22 +583,25 @@ test('generateImages probes unlisted resolution suffix then falls back to base m
           endpointCategory: 'image',
         },
       ],
-    }), (message) => progress.push(message));
+    }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(requestBodies.length, 2);
-    assert.equal(requestBodies[1].model, 'gpt-image-2');
-    assert.equal(requestBodies[1].resolution, '4k');
-    assert.match(progress.join('\n'), /resolution=4k/);
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].model, 'gpt-image-2');
+    assert.equal(requestBodies[0].resolution, '4k');
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('generateImages infers image resolution from selected model suffix', async () => {
+test('generateImages infers non-Gemini suffix resolution and sends it in request body', async () => {
   const originalFetch = globalThis.fetch;
+  let requestBody = null;
 
-  globalThis.fetch = async () => new Response(JSON.stringify({
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
     data: [
       { b64_json: 'YWJj' },
     ],
@@ -617,6 +609,7 @@ test('generateImages infers image resolution from selected model suffix', async 
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
+  };
 
   try {
     const result = await generateImages({
@@ -636,7 +629,62 @@ test('generateImages infers image resolution from selected model suffix', async 
     }));
 
     assertGeneratedPngOutput(result);
+    assert.equal(result.request.model, 'gemini-3.1-flash-image-preview');
     assert.equal(result.request.resolution, '512px');
+    assert.equal(requestBody.model, 'gemini-3.1-flash-image-preview');
+    assert.equal(requestBody.resolution, '512px');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages sends explicit non-Gemini suffix model as base model with resolution body', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gpt-image-2-flatfee-2k',
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gpt-image-2-flatfee',
+          modelId: 'gpt-image-2-flatfee',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+        {
+          id: 'gpt-image-2-flatfee-2k',
+          modelId: 'gpt-image-2-flatfee-2k',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'image',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(result.request.model, 'gpt-image-2-flatfee');
+    assert.equal(result.request.resolution, '2k');
+    assert.equal(requestBody.model, 'gpt-image-2-flatfee');
+    assert.equal(requestBody.resolution, '2k');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1106,7 +1154,7 @@ test('generateImages maps 1k resolution to Gemini native imageSize', async () =>
   }
 });
 
-test('generateImages falls back to base Gemini generateContent model endpoint for resolution suffixes', async () => {
+test('generateImages routes Gemini resolution through model suffix endpoint', async () => {
   const originalFetch = globalThis.fetch;
   const requestUrls = [];
   const requestBodies = [];
@@ -1114,15 +1162,6 @@ test('generateImages falls back to base Gemini generateContent model endpoint fo
   globalThis.fetch = async (url, options = {}) => {
     requestUrls.push(String(url));
     requestBodies.push(JSON.parse(String(options.body)));
-
-    if (requestUrls.length === 1) {
-      return new Response(JSON.stringify({
-        error: { message: 'model not found' },
-      }), {
-        status: 404,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
 
     return new Response(JSON.stringify({
       candidates: [
@@ -1164,15 +1203,9 @@ test('generateImages falls back to base Gemini generateContent model endpoint fo
     }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(requestUrls.length, 2);
+    assert.equal(requestUrls.length, 1);
     assert.equal(requestUrls[0], 'https://example.com/v1beta/models/gemini-3-pro-image-preview-4k:generateContent?key=demo-key');
-    assert.equal(requestUrls[1], 'https://example.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=demo-key');
     assert.deepEqual(requestBodies[0].generationConfig, {
-      imageConfig: {
-        imageSize: '4K',
-      },
-    });
-    assert.deepEqual(requestBodies[1].generationConfig, {
       imageConfig: {
         imageSize: '4K',
       },
@@ -1371,27 +1404,15 @@ test('generateImages logs one ImageRequest entry for a single image edit request
   }
 });
 
-test('generateImages falls back to base model with resolution form field for image edits', async () => {
+test('generateImages sends image edit resolution through base model form field', async () => {
   const originalFetch = globalThis.fetch;
   const requests = [];
-  const progress = [];
 
   globalThis.fetch = async (url, options = {}) => {
     requests.push({
       url: String(url),
       body: options.body,
     });
-
-    if (requests.length === 1) {
-      assert.equal(options.body.get('model'), 'gpt-image-2-4k');
-      assert.equal(options.body.get('resolution'), null);
-      return new Response(JSON.stringify({
-        error: { message: 'model not found' },
-      }), {
-        status: 404,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
 
     return new Response(JSON.stringify({
       data: [
@@ -1420,15 +1441,13 @@ test('generateImages falls back to base model with resolution form field for ima
           endpointCategory: 'image',
         },
       ],
-    }), (message) => progress.push(message));
+    }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(requests.length, 2);
+    assert.equal(requests.length, 1);
     assert.equal(requests[0].url, 'https://example.com/v1/images/edits');
-    assert.equal(requests[1].url, 'https://example.com/v1/images/edits');
-    assert.equal(requests[1].body.get('model'), 'gpt-image-2');
-    assert.equal(requests[1].body.get('resolution'), '4k');
-    assert.match(progress.join('\n'), /分辨率后缀模型请求失败/);
+    assert.equal(requests[0].body.get('model'), 'gpt-image-2');
+    assert.equal(requests[0].body.get('resolution'), '4k');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1553,11 +1572,11 @@ test('generateImages uses chat payload instead of form-data when chat endpoint h
     assert.equal(requests[0].body instanceof FormData, false);
 
     const payload = JSON.parse(String(requests[0].body));
-    assert.equal(payload.model, 'demo-image-model-2k');
+    assert.equal(payload.model, 'demo-image-model');
     assert.equal(payload.stream, false);
     assert.deepEqual(payload.response_format, { type: 'url' });
     assert.equal(payload.quality, 'high');
-    assert.equal(payload.resolution, undefined);
+    assert.equal(payload.resolution, '2k');
     assert.equal(payload.size, '2048x2048');
     assert.equal(payload.messages?.[0]?.role, 'user');
     assert.ok(Array.isArray(payload.messages?.[0]?.content));
@@ -1571,24 +1590,13 @@ test('generateImages uses chat payload instead of form-data when chat endpoint h
   }
 });
 
-test('generateImages falls back to base chat image model with resolution body', async () => {
+test('generateImages sends chat image resolution through base model body', async () => {
   const originalFetch = globalThis.fetch;
   const requestBodies = [];
 
   globalThis.fetch = async (_url, options = {}) => {
     const body = JSON.parse(String(options.body));
     requestBodies.push(body);
-
-    if (requestBodies.length === 1) {
-      assert.equal(body.model, 'demo-image-model-2k');
-      assert.equal(body.resolution, undefined);
-      return new Response(JSON.stringify({
-        error: { message: 'model not found' },
-      }), {
-        status: 404,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
 
     return new Response(JSON.stringify({
       choices: [
@@ -1629,10 +1637,10 @@ test('generateImages falls back to base chat image model with resolution body', 
     }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(requestBodies.length, 2);
-    assert.equal(requestBodies[1].model, 'demo-image-model');
-    assert.equal(requestBodies[1].resolution, '2k');
-    assert.match(requestBodies[1].messages[0].content[0].text, /2k/);
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].model, 'demo-image-model');
+    assert.equal(requestBodies[0].resolution, '2k');
+    assert.match(requestBodies[0].messages[0].content[0].text, /2k/);
   } finally {
     globalThis.fetch = originalFetch;
   }
