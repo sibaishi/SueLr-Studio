@@ -23,6 +23,7 @@
     "check:test-surface": "node scripts/check-test-surface.mjs",
     "check:repo-hygiene": "node scripts/check-repo-hygiene.mjs",
     "check:encoding": "node scripts/check-encoding.mjs",
+    "fix:encoding": "node scripts/fix-encoding.mjs",
     "typecheck": "npx tsc --noEmit",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
