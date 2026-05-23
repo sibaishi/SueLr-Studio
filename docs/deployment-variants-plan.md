@@ -276,6 +276,18 @@ Branch rules:
 
 The following files should be changed first on `master` before the release branches are allowed to diverge further.
 
+Status as of 2026-05-23:
+
+- completed on `master` and already present in the shared trunk:
+  - frontend and backend runtime mode contracts
+  - backend runtime capability endpoint and privileged-route guards
+  - settings capability-aware UI for local-only actions
+  - public trunk and branch structure documentation
+- still pending before `local-web` and `server` variant delivery:
+  - dedicated `local-web` launcher and packaging scripts
+  - production-style server static hosting and tighter deployment configuration
+  - broader audit of chat, image, video, and workflow surfaces for non-desktop assumptions
+
 ### Frontend runtime and capability files
 
 - Modify `src/app/bootstrap/useAppBootstrap.ts`
@@ -292,50 +304,68 @@ The following files should be changed first on `master` before the release branc
   - define `desktop`, `local-web`, `server-single-user`, and `server-multi-user` modes
 - Create `src/shared/runtime/useRuntimeCapabilities.ts`
   - provide a shared capability-aware hook for UI logic
+  - current status: deferred; capability state is currently consumed through bootstrap plus cached server state
 
 ### Frontend feature files that must become capability-aware
 
 - Modify `src/features/settings/components/DefaultsSection.tsx`
   - hide or disable restart and local-directory actions when unsupported
+  - current status: completed on trunk
 - Modify `src/features/settings/components/DiagnosticsSection.tsx`
   - expose runtime mode and capability state for debugging
+  - current status: completed on trunk
 - Modify `src/features/settings/useSettingsPanelController.ts`
   - consume runtime capabilities instead of assuming desktop-local behavior
+  - current status: partially completed; capability state is wired through `SettingsPanel` view assembly, not a dedicated controller hook yet
 - Review `src/domains/chat/`, `src/domains/image/`, `src/domains/video/`, and `src/domains/workflow/`
   - remove any hard dependency on Electron or unrestricted host filesystem behavior
+  - current status: pending audit
 
 ### Backend runtime and capability files
 
 - Modify `backend/src/app/create-app.js`
   - register runtime mode and deployment capability responses
   - enforce runtime restrictions for privileged routes
+  - current status: completed on trunk
 - Modify `backend/server.js`
   - read deployment mode from environment or startup configuration
+  - current status: still needs explicit rollout work for `local-web` and `server` launch targets
 - Modify `backend/src/modules/capabilities/capabilities.routes.js`
   - add a runtime-capability endpoint or extend the existing capability surface
+  - current status: completed on trunk
 - Modify `backend/src/modules/capabilities/capabilities.service.js`
   - include deployment mode, local filesystem privileges, and restart support flags
+  - current status: completed on trunk
 - Create `backend/src/platform/runtime/index.js`
   - export runtime helpers
+  - current status: completed on trunk
 - Create `backend/src/platform/runtime/mode.js`
   - resolve `desktop-embedded`, `local-web`, `server-single-user`, and `server-multi-user`
+  - current status: completed on trunk
 - Create `backend/src/platform/runtime/capabilities.js`
   - centralize environment-specific capability decisions
+  - current status: completed on trunk
 
 ### Backend settings and privileged system routes
 
 - Modify `backend/src/modules/settings/settings.routes.js`
   - route privileged actions through runtime capability checks
+  - current status: completed through guarded settings actions and runtime-aware system helpers
 - Modify `backend/src/modules/settings/settings.controller.js`
   - return consistent capability errors when a mode does not support an action
+  - current status: completed through standard blocked-action responses
 - Modify `backend/src/modules/settings/settings.service.js`
   - avoid server-mode behavior that depends on unrestricted local-system control
+  - current status: completed for directory selection and backend restart
 - Modify `backend/src/platform/system/select-directory.js`
   - treat directory selection as an optional environment capability
+  - current status: completed on trunk
 - Modify `backend/src/platform/system/restart-backend.js`
   - support safe disablement in non-desktop and non-local contexts
+  - current status: completed on trunk
 - Modify `backend/src/platform/system/restart-trigger.js`
   - guard restart orchestration by runtime mode
+  - current status: pending deeper rollout review
 
 ### Storage and future multi-user preparation
 
@@ -465,6 +495,18 @@ The shared trunk should prepare extension points without forcing multi-user logi
 ## Milestones
 
 ### Milestone 1: Runtime Capability Layer
+
+Current status on 2026-05-23:
+
+- completed:
+  - frontend runtime mode display
+  - settings gating for directory selection and backend restart
+  - backend runtime capability reporting
+  - backend blocking of unsupported local-only actions
+  - unit and e2e coverage for capability-aware settings behavior
+- still open:
+  - wider capability audit across chat, image, video, and workflow surfaces
+  - explicit `local-web` startup path that emits production-ready runtime mode configuration
 
 Scope:
 
