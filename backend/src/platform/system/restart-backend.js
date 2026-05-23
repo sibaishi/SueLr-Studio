@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { AppError } from '../../app/errors/index.js';
+import { getRuntimeCapabilities } from '../runtime/index.js';
 
 const systemDir = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(systemDir, '../../..');
@@ -71,6 +73,10 @@ function spawnReplacementServer() {
 }
 
 export async function scheduleBackendRestart() {
+  if (!getRuntimeCapabilities().canRestartBackend) {
+    throw new AppError(403, 'BACKEND_RESTART_UNAVAILABLE', '当前运行模式不支持重启后端');
+  }
+
   if (isEmbeddedBackend()) {
     if (canRelaunchElectronApp() && process.env.APP_DESKTOP_RELAUNCH_HOOK === '1') {
       return scheduleElectronRelaunch();

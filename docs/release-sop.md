@@ -1,38 +1,52 @@
 # Release SOP
 
-This document defines the standard desktop release process for SueLr Studio.
+This document defines the standard release workflow for SueLr Studio variants. The detailed execution roadmap for the current `master` trunk plus `local-web`, `desktop`, and `server` lives in `docs/deployment-variants-plan.md`.
 
 ## Branching
 
-- `master` is the only long-lived source branch.
-- GitHub Releases is the only official distribution channel for packaged desktop builds.
+- `master` is the shared long-lived source branch in this repository.
+- `release/local-web`, `release/desktop`, and `release/server` are long-lived release branches for variant-specific work.
+- shared behavior must land on `master` before it is promoted into a release branch unless the change is a release-only hotfix.
+- GitHub Releases remains the official distribution channel for packaged desktop builds unless a variant-specific distribution process is defined later.
 - Packaged artifacts such as `.exe`, `dist/`, and `release/` outputs must not be committed to git.
 
 ## Standard Release Flow
 
-1. Finish feature work and fixes on `master`.
-2. Pull the latest source:
+1. Finish shared feature work and fixes on `master`.
+2. Merge or cherry-pick any required variant-specific release work into the target `release/*` branch.
+3. Pull the latest source for the branch you are releasing:
 
    ```powershell
    git pull origin master
    ```
 
-3. Run validation:
+   Or, for a variant release branch:
+
+   ```powershell
+   git pull origin release/desktop
+   ```
+
+4. Run validation:
 
    ```powershell
    npm.cmd run typecheck
    npm.cmd run test --prefix backend
    npm.cmd run check:encoding
    npm.cmd run check:repo-hygiene
+   npm.cmd run check:docs
    ```
 
-4. Build the desktop single-file executable:
+5. Build the target release artifact.
+
+   For desktop:
 
    ```powershell
    npm.cmd run electron:dist
    ```
 
-5. Verify the packaged app manually.
+   For other variants, follow the build steps defined in `docs/deployment-variants-plan.md`.
+
+6. Verify the packaged or deployed app manually.
 
    Recommended checks:
 
@@ -42,7 +56,7 @@ This document defines the standard desktop release process for SueLr Studio.
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
 
-6. Commit and push source changes:
+7. Commit and push source changes:
 
    ```powershell
    git status
@@ -51,25 +65,25 @@ This document defines the standard desktop release process for SueLr Studio.
    git push origin master
    ```
 
-7. Create and push a version tag:
+8. Create and push a version tag:
 
    ```powershell
    git tag -a v1.0.1 -m "SueLr Studio v1.0.1"
    git push origin v1.0.1
    ```
 
-8. Create a GitHub Release based on the new tag and upload:
+9. Create a GitHub Release based on the new tag and upload the appropriate variant artifact.
 
    - `release/SueLr-Studio.exe`
 
 ## Versioning Guidance
 
-- Patch release: `v1.0.1`
-- Minor feature release: `v1.1.0`
-- Major release: `v2.0.0`
+- keep version bumps aligned with the actual packaged scope
+- use changelog notes or release descriptions to call out variant-specific differences
+- prefer tagging only after validation has passed on the branch being released
 
-## Notes
+## Failure Handling
 
-- Only publish a release after confirming it is suitable for normal users.
-- Keep release notes concise and user-facing.
-- If a release candidate fails manual verification, fix the issue on `master` before tagging.
+- If validation fails, fix the issue and rerun the failed checks before continuing.
+- If a release candidate fails manual verification, fix the issue on `master` first unless it is truly release-branch-specific.
+- If a release-only fix is required on a `release/*` branch, merge the shared portion back to `master` as soon as practical.

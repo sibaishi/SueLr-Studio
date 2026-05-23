@@ -1,5 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { AppError } from '../../app/errors/index.js';
+import { getRuntimeCapabilities } from '../runtime/index.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -39,6 +41,10 @@ async function selectDirectoryOnLinux() {
 }
 
 export async function selectDirectory() {
+  if (!getRuntimeCapabilities().canSelectDirectory) {
+    throw new AppError(403, 'DIRECTORY_PICKER_UNAVAILABLE', '当前运行模式不支持目录选择');
+  }
+
   switch (process.platform) {
     case 'win32':
       return selectDirectoryOnWindows();

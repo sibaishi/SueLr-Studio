@@ -231,3 +231,34 @@ test('settings service requests backend restart when project is idle', async () 
   assert.equal(called, true);
   assert.deepEqual(result, { mode: 'spawn' });
 });
+
+test('settings service blocks local-only actions in server runtime modes', async () => {
+  const root = createStorageDir('settings-server-capabilities');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { SettingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
+  const service = new SettingsService(undefined, {
+    executionService: { runningExecutions: new Set() },
+    restartBackend: async () => ({ mode: 'spawn' }),
+    getRuntimeCapabilities: () => ({
+      mode: 'server-single-user',
+      canSelectDirectory: false,
+      canRestartBackend: false,
+      hasEmbeddedShell: false,
+    }),
+  });
+
+  await assert.rejects(() => service.selectDirectory(), (error) => {
+    assert.equal(error.code, 'DIRECTORY_PICKER_UNAVAILABLE');
+    assert.equal(error.status, 403);
+    return true;
+  });
+
+  await assert.rejects(() => service.requestBackendRestart(), (error) => {
+    assert.equal(error.code, 'BACKEND_RESTART_UNAVAILABLE');
+    assert.equal(error.status, 403);
+    return true;
+  });
+});

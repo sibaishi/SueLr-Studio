@@ -5,6 +5,7 @@ import { imagesService } from '../images/images.service.js';
 import { runChatCompletion } from '../../platform/ai/chat-service.js';
 import { formatWebSearchResult, normalizeWebSearchResult, runWebSearch } from '../../platform/ai/search-service.js';
 import { executeVideoGeneration, pollVideoTask, submitVideoGeneration } from '../../platform/ai/video-service.js';
+import { getRuntimeCapabilities } from '../../platform/runtime/index.js';
 
 const logger = createLogger({ module: 'capabilities-service' });
 
@@ -16,6 +17,10 @@ export class CapabilitiesService {
 
   buildRuntimeConfig(apiConfig = {}) {
     return this.settingsService.buildRuntimeConfig(apiConfig || {});
+  }
+
+  getRuntimeCapabilities() {
+    return getRuntimeCapabilities();
   }
 
   async chat(body) {

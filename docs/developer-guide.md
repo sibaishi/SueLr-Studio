@@ -11,13 +11,20 @@ SueLr Studio is a local-first multimodal workspace made of:
 The current architecture goal is clear ownership:
 
 - `src/app/` owns shell bootstrapping and top-level navigation
-- `src/features/` owns product surfaces such as chat, image, workflow, video, and settings
-- `src/shared/` owns reusable UI, hooks, and API clients
+- `src/domains/` owns domain product surfaces such as chat, image, video, and workflow
+- `src/features/` owns cross-domain product surfaces, currently centered on settings
+- `src/providers/` owns React context providers
+- `src/shared/` owns reusable UI, hooks, API clients, provider adapters, runtime helpers, and workflow infrastructure
 - `backend/src/modules/` owns HTTP feature modules
 - `backend/src/engine/` owns workflow runtime and node execution
 - `backend/src/platform/` owns infrastructure such as AI adapters, storage, logging, and system helpers
 
 This document is the first place a maintainer should look before searching the whole repo.
+
+Repository note:
+
+- the active trunk in this repository is currently `master`
+- release-planning docs may still describe a future or cross-repo `main` model, but maintenance work in this repo should follow the actual local branch layout
 
 ## Encoding Baseline
 
@@ -32,15 +39,30 @@ When changing text transport or persistence paths:
 
 If a new regression test covers text handling, prefer asserting against the actual Chinese string that should survive the round trip.
 
+High-signal UI surfaces that deserve extra care during refactors:
+
+- `src/shared/ui/ios/`
+- `src/features/settings/components/`
+
+These files are user-facing and Chinese-first. If text becomes mojibake during a move or mass edit, fix the source string directly and rerun `npm run check:encoding`.
+
 ## Repository Layout
 
 Top-level layout:
 
 - `src/`: frontend source
 - `backend/`: backend source, tests, and runtime entry
-- `docs/`: public release documentation only
+- `docs/`: public release and execution documentation only
 - `scripts/`: repo scripts, including release-doc checks
 - `tests/`: frontend-focused tests
+
+Root ownership rules:
+
+- keep stable source roots, launcher entrypoints, and repo-wide config files at the repository root
+- keep maintenance helpers in `scripts/` instead of creating new ad hoc root files
+- treat `dist/`, `release/`, `.run-logs/`, and repository-local `storage/` as generated or runtime-only surfaces, not source structure
+- keep `.private-docs/` as the home for private plans, migration notes, and temporary implementation records
+- keep `development/` drained; if durable content appears there during a refactor, move it into `scripts/`, `docs/`, or `.private-docs/` in the same change
 
 Important entry points:
 
@@ -53,8 +75,16 @@ Important entry points:
 
 Current cleanup and ownership notes:
 
-- `src/lib/` is still active and contains shared runtime helpers; treat it as legacy shared code that should be decomposed gradually, not as dead code
-- `src/components/`, `src/hooks/`, `src/domains/`, and `src/utils/` are no longer growth targets
+- `src/lib/` is now a compatibility surface only; do not add new modules there
+- application code outside `src/lib/` should no longer import from `@/lib/*`
+- canonical homes are:
+  - app shell constants in `src/app/`
+  - shared icons and status helpers in `src/shared/ui/`
+  - provider contracts and routing in `src/shared/providers/`
+  - browser/runtime helpers in `src/shared/runtime/`
+  - shared frontend contracts in `src/shared/types/`
+  - domain-owned constants and helpers in `src/domains/*`
+- `src/components/`, `src/hooks/`, and `src/utils/` are no longer growth targets
 - `src/components/ios/` has been drained into `src/shared/ui/ios/`; do not place new work back into the old path
 
 ## Frontend Structure
@@ -75,23 +105,23 @@ Current cleanup and ownership notes:
 
 ### Chat
 
-- `src/features/chat/components/ChatPanel.tsx`
+- `src/domains/chat/components/ChatPanel.tsx`
   - chat page surface
-- `src/features/chat/hooks/useChat.ts`
+- `src/domains/chat/hooks/useChat.ts`
   - chat request lifecycle, attachments, and transcript state
 
 ### Image
 
-- `src/features/image/components/ImagePanel.tsx`
+- `src/domains/image/components/ImagePanel.tsx`
   - image generation page surface
-- `src/features/image/hooks/useImageGen.ts`
+- `src/domains/image/hooks/useImageGen.ts`
   - image request lifecycle, prompt state, uploads, and result handling
 
 ### Video
 
-- `src/features/video/components/VideoPanel.tsx`
+- `src/domains/video/components/VideoPanel.tsx`
   - retained video UI surface
-- `src/features/video/hooks/useVideoGen.ts`
+- `src/domains/video/hooks/useVideoGen.ts`
   - current video request orchestration helpers
 
 ### Settings
@@ -117,61 +147,61 @@ Current cleanup and ownership notes:
 
 ### Workflow
 
-- `src/features/workflow/App.tsx`
+- `src/domains/workflow/App.tsx`
   - workflow workspace shell
-- `src/features/workflow/components/Toolbar.tsx`
+- `src/domains/workflow/components/Toolbar.tsx`
   - workflow switching, save state, import/export, execute, stop
-- `src/features/workflow/components/Sidebar.tsx`
+- `src/domains/workflow/components/Sidebar.tsx`
   - node catalog and canvas insertion entry
-- `src/features/workflow/components/FlowCanvas.tsx`
+- `src/domains/workflow/components/FlowCanvas.tsx`
   - canvas graph rendering, context menus, centered node-picker panel, keyboard shortcuts, grouping, connection, drag/drop, and editor interactions
-- `src/features/workflow/components/flowCanvas*.ts*`
+- `src/domains/workflow/components/flowCanvas*.ts*`
   - extracted canvas helpers for render-model building, clipboard behavior, geometry, connection rules, UI helpers, text handling, and catalog UI
-- `src/features/workflow/components/nodes/FlowNode.tsx`
+- `src/domains/workflow/components/nodes/FlowNode.tsx`
   - workflow node frame rendering, node chrome, group collapse controls, and node-level actions
-- `src/features/workflow/components/nodes/NodePorts.tsx`
+- `src/domains/workflow/components/nodes/NodePorts.tsx`
   - regular node handles and group boundary port handles, including split internal and external group-port affordances
-- `src/features/workflow/components/ResultsPanel.tsx`
+- `src/domains/workflow/components/ResultsPanel.tsx`
   - outputs, logs, and run diagnostics
-- `src/features/workflow/components/StatusBar.tsx`
+- `src/domains/workflow/components/StatusBar.tsx`
   - graph summary and execution state
-- `src/features/workflow/components/nodes/NodeParamFields.tsx`
+- `src/domains/workflow/components/nodes/NodeParamFields.tsx`
   - node parameter editors
-- `src/features/workflow/lib/groupLayout.ts`
+- `src/domains/workflow/lib/groupLayout.ts`
   - group sizing, collapsed group size, child constraints, and root-node placement around groups
-- `src/features/workflow/lib/groupPorts.ts`
+- `src/domains/workflow/lib/groupPorts.ts`
   - group input/output port normalization, boundary-handle ids, compatibility, and transit-port routing
-- `src/features/workflow/lib/executionGraph.ts`
+- `src/domains/workflow/lib/executionGraph.ts`
   - projection from editable grouped canvas graph to executable flat graph
-- `src/features/workflow/lib/store.ts`
+- `src/domains/workflow/lib/store.ts`
   - main workflow state store
-- `src/features/workflow/lib/store/document.ts`
+- `src/domains/workflow/lib/store/document.ts`
   - workflow document persistence state
-- `src/features/workflow/lib/store/editor.ts`
+- `src/domains/workflow/lib/store/editor.ts`
   - composed canvas editing operations
-- `src/features/workflow/lib/store/editorGraph.ts`
+- `src/domains/workflow/lib/store/editorGraph.ts`
   - node and edge editing, connection changes, and graph mutation helpers
-- `src/features/workflow/lib/store/editorGraphEdgeBuilders.ts`
+- `src/domains/workflow/lib/store/editorGraphEdgeBuilders.ts`
   - bypass-edge and insertion-edge construction helpers
-- `src/features/workflow/lib/store/editorGraphGroupEdges.ts`
+- `src/domains/workflow/lib/store/editorGraphGroupEdges.ts`
   - group-edge and group-port cleanup helpers
-- `src/features/workflow/lib/store/editorGraphNodeRemoval.ts`
+- `src/domains/workflow/lib/store/editorGraphNodeRemoval.ts`
   - shared node-removal graph rebuild helper
-- `src/features/workflow/lib/store/editorGraphRuntimeState.ts`
+- `src/domains/workflow/lib/store/editorGraphRuntimeState.ts`
   - runtime-state cleanup for removed nodes
-- `src/features/workflow/lib/store/editorGroups.ts`
+- `src/domains/workflow/lib/store/editorGroups.ts`
   - group creation, ungrouping, collapse state, and group membership operations
-- `src/features/workflow/lib/store/editorSession.ts`
+- `src/domains/workflow/lib/store/editorSession.ts`
   - transient editor session state such as selection-oriented canvas state
-- `src/features/workflow/lib/store/editorShared.ts`
+- `src/domains/workflow/lib/store/editorShared.ts`
   - shared editor helpers for layout, locking, disabling, group movement, and related graph updates
-- `src/features/workflow/lib/store/execution.ts`
+- `src/domains/workflow/lib/store/execution.ts`
   - run lifecycle and execution status
-- `src/features/workflow/lib/api.ts`
+- `src/domains/workflow/lib/api.ts`
   - workflow API bridge to backend execution and persistence routes
-- `src/features/workflow/lib/importExport.ts`
+- `src/domains/workflow/lib/importExport.ts`
   - workflow import/export serialization helpers
-- `src/features/workflow/lib/hotkeys.ts`
+- `src/domains/workflow/lib/hotkeys.ts`
   - workflow workspace shortcut resolution for undo, redo, grouping, and execution
 
 ### Shared frontend infrastructure
@@ -188,6 +218,12 @@ Current cleanup and ownership notes:
   - provider-related shared selection helpers
 - `src/shared/hooks/useMemory.ts`
   - reusable memory data hook
+- `src/shared/providers/`
+  - shared provider adapters, configuration contracts, and model-routing helpers
+- `src/shared/runtime/`
+  - shared browser/runtime helpers such as file/image conversion, task polling, and runtime mode contracts
+- `src/shared/types/`
+  - shared frontend contracts such as API config, models, chat messages, tasks, tabs, and theme types
 - `src/shared/ui/ios/index.ts`
   - shared iOS-style UI exports
 - `src/shared/ui/workbench/MediaWorkbench.tsx`
@@ -309,7 +345,6 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
   - storage-root-relative path validation
 - `backend/src/platform/storage/legacy-storage.js`
   - migration and compatibility helpers for older storage layouts
-
 - `backend/src/platform/system/select-directory.js`
   - native directory picker integration
 - `backend/src/platform/system/restart-backend.js`
@@ -396,14 +431,35 @@ Only these public markdown docs belong under `docs/`:
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
+- `docs/deployment-variants-plan.md`
 
 Rules for future work:
 
 - every structural or behavior change that affects user flows must update `docs/user-guide.md`
 - every structural or ownership change that affects developer navigation must update `docs/developer-guide.md`
 - every desktop release workflow change must update `docs/release-sop.md`
-- do not add planning notes, weekly execution files, or private working docs under `docs/`
+- every mainline-and-variant execution-plan change must update `docs/deployment-variants-plan.md`
+- do not add private working notes, weekly scratch files, or internal-only plans under `docs/`
 - keep this guide aligned with the actual file layout so maintainers can jump directly to the right module instead of re-scanning the repo
+
+## Variant Delivery Model
+
+SueLr Studio now follows the current `master` trunk plus three release variants:
+
+- `master`: shared product trunk in this repository
+- `release/local-web`: local browser deployment branch
+- `release/desktop`: Electron desktop branch
+- `release/server`: deployable server branch
+
+Working rules:
+
+- implement shared behavior on `master` first in this repository
+- keep release branches focused on packaging, deployment, and shell-specific differences
+- use `docs/deployment-variants-plan.md` as the public execution reference for:
+  - which shared-trunk files move first
+  - which variant scripts must be added
+  - which server interfaces change by phase
+  - what each milestone must prove before the next one starts
 
 ## Maintenance Workflow
 

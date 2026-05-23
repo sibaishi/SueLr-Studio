@@ -1,4 +1,5 @@
 import { apiRequest } from './client';
+import { getCachedRuntimeCapabilities } from './serverState';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
@@ -7,6 +8,11 @@ export type DirectoryPickerResult = {
 };
 
 export async function selectDirectory(): Promise<string | null> {
+  const runtime = getCachedRuntimeCapabilities();
+  if (runtime && !runtime.canSelectDirectory) {
+    throw new Error('当前运行模式不支持目录选择');
+  }
+
   const result = await apiRequest<DirectoryPickerResult>(`${API_BASE}/settings/select-directory`, {
     method: 'POST',
     body: JSON.stringify({}),

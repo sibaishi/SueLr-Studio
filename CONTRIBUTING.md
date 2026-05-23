@@ -4,6 +4,22 @@ Thanks for taking a look at SueLr Studio.
 
 This project is maintained as a local-first multimodal studio. The main contribution goal is to improve product behavior without making the repository harder to understand or operate.
 
+## Branch Model
+
+SueLr Studio now uses the current `master` trunk plus three long-lived release branches:
+
+- `master`
+- `release/local-web`
+- `release/desktop`
+- `release/server`
+
+Contribution rules:
+
+- shared behavior belongs on `master` first in this repository
+- release branches are for variant-specific packaging, deployment, and shell work
+- if a change affects more than one variant, do not implement it only on a release branch
+- when a release branch needs a hotfix, keep the fix minimal and merge the shared portion back to `master`
+
 ## Local Setup
 
 Requirements:
@@ -107,8 +123,18 @@ At this stage, the maintained project docs are:
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
+- `docs/deployment-variants-plan.md`
 
 Weekly execution notes, scratch plans, private rollout checklists, and similar process artifacts should stay outside the public documentation surface shipped with the repository.
+
+Use these ownership buckets when you need a home for non-product files:
+
+- keep repo-wide launchers and config at the root
+- keep maintenance and validation helpers in `scripts/`
+- keep private plans, migration notes, and temporary implementation records in `.private-docs/`
+- keep `development/` drained instead of treating it as a second documentation area
+
+`src/lib/` is now a migration surface only. Do not add new shared helpers there, and do not introduce new `@/lib/*` imports outside `src/lib/`. Place new shared runtime and provider-facing helpers under `src/shared/runtime/` or `src/shared/providers/`, place shared contracts under `src/shared/types/`, and place feature-local helpers under the owning feature tree.
 
 ## Pull Request Notes
 

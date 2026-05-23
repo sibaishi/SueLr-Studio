@@ -1,10 +1,10 @@
 import type { DependencyList, MutableRefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/lib/types';
+import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/shared/types';
 import type { OutboundProxySettingsPayload, StreamMode, StudioSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
 import type { StudioSettingsState } from '@/features/settings';
-import { checkSettingsServer, loadStudioSettings, saveStudioSettings, testSettingsConnection } from '@/features/settings';
-import { debouncedSaveJSON } from '@/lib/utils';
+import { checkSettingsServer, loadRuntimeCapabilities, loadStudioSettings, saveStudioSettings, testSettingsConnection } from '@/features/settings';
+import { debouncedSaveJSON } from '@/shared/runtime';
 
 type UseAppBootstrapParams = {
   hydratedRef: MutableRefObject<boolean>;
@@ -147,6 +147,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       const serverOk = await checkSettingsServer().catch(() => false);
 
       if (serverOk) {
+        await loadRuntimeCapabilities().catch(() => null);
         settings.addLog('success', '本地存储服务已连接');
         const loadedSettings = await loadStudioSettings().catch(() => null);
         if (loadedSettings) {

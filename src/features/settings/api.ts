@@ -1,5 +1,7 @@
-import { apiRequest, getApiErrorMessage, setBackendAvailable, isBackendAvailable, selectDirectory } from '@/shared/api';
-import type { ModelInfo } from '@/lib/types';
+import { apiRequest, getApiErrorMessage, setBackendAvailable, isBackendAvailable, selectDirectory, getRuntimeCapabilities } from '@/shared/api';
+import { getCachedRuntimeCapabilities, setCachedRuntimeCapabilities } from '@/shared/api/serverState';
+import type { ModelInfo } from '@/shared/types';
+import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { AccountDetailsLogsPayload, AccountDetailsPayload, BackendRestartPayload, BackendStatusPayload, StorageSettingsPayload, StudioSettingsPayload } from './types';
 
 type BackendModelsData = {
@@ -32,6 +34,9 @@ export async function checkSettingsServer(): Promise<boolean> {
   const payload = result.data as ({ ok?: boolean } | undefined);
   const available = Boolean(payload?.ok ?? ((payload as { data?: { ok?: boolean } } | undefined)?.data?.ok));
   setBackendAvailable(available);
+  if (result.data?.runtime) {
+    setCachedRuntimeCapabilities(result.data.runtime);
+  }
   return available;
 }
 
@@ -39,10 +44,25 @@ export async function getBackendStatus(timeoutMs = 2000): Promise<BackendStatusP
   const result = await apiRequest<BackendStatusPayload>('/api/status', { timeoutMs });
   if (!result.success || !result.data?.ok) {
     setBackendAvailable(false);
+    setCachedRuntimeCapabilities(null);
     return null;
   }
   setBackendAvailable(true);
+  if (result.data.runtime) {
+    setCachedRuntimeCapabilities(result.data.runtime);
+  }
   return result.data;
+}
+
+export async function loadRuntimeCapabilities(): Promise<RuntimeCapabilities | null> {
+  if (!isBackendAvailable()) return null;
+  const runtime = await getRuntimeCapabilities().catch(() => null);
+  setCachedRuntimeCapabilities(runtime);
+  return runtime;
+}
+
+export function getRuntimeCapabilitiesSnapshot(): RuntimeCapabilities | null {
+  return getCachedRuntimeCapabilities();
 }
 
 export async function loadStudioSettings(): Promise<StudioSettingsPayload | null> {

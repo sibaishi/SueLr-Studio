@@ -1,9 +1,10 @@
 import { createLogger } from '../../platform/logging/logger.js';
-import { ConflictError, fromLegacyError } from '../../app/errors/index.js';
+import { AppError, ConflictError, fromLegacyError } from '../../app/errors/index.js';
 import { settingsRepository } from './settings.repository.js';
 import { selectDirectory as selectSystemDirectory } from '../../platform/system/select-directory.js';
 import { scheduleBackendRestart } from '../../platform/system/restart-backend.js';
 import { executionService } from '../execution/execution.service.js';
+import { getRuntimeCapabilities } from '../../platform/runtime/index.js';
 
 const logger = createLogger({ module: 'settings-service' });
 
@@ -12,10 +13,22 @@ export class SettingsService {
     this.repository = repository;
     this.executionService = options.executionService;
     this.restartBackend = options.restartBackend || scheduleBackendRestart;
+    this.getRuntimeCapabilities = options.getRuntimeCapabilities || getRuntimeCapabilities;
   }
 
   getExecutionService() {
     return this.executionService || executionService;
+  }
+
+  getRuntimeCapabilitiesSnapshot() {
+    return this.getRuntimeCapabilities();
+  }
+
+  assertCapability(key, code, message) {
+    if (this.getRuntimeCapabilitiesSnapshot()?.[key]) {
+      return;
+    }
+    throw new AppError(403, code, message);
   }
 
   getSettingsResponse() {
@@ -63,6 +76,8 @@ export class SettingsService {
   }
 
   async selectDirectory() {
+    this.assertCapability('canSelectDirectory', 'DIRECTORY_PICKER_UNAVAILABLE', '当前运行模式不支持目录选择');
+
     try {
       const selectedPath = await selectSystemDirectory();
       return { path: selectedPath || null };
@@ -75,6 +90,8 @@ export class SettingsService {
   }
 
   async requestBackendRestart() {
+    this.assertCapability('canRestartBackend', 'BACKEND_RESTART_UNAVAILABLE', '当前运行模式不支持重启后端');
+
     if (this.getExecutionService()?.runningExecutions?.size > 0) {
       throw new ConflictError('PROJECT_BUSY', '项目正在运行中，请稍后再试');
     }

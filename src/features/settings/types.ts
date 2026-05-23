@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/lib/types';
+import type { RuntimeCapabilities } from '@/shared/runtime';
+import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/shared/types';
 import type { AgentProfile } from '@/shared/api/agent';
 
 export type StreamMode = 'stream' | 'non-stream';
@@ -61,6 +62,7 @@ export type BackendStatusPayload = {
   ok: boolean;
   version: string;
   processInstanceId?: string;
+  runtime?: RuntimeCapabilities;
 };
 
 export type BackendRestartPayload = {

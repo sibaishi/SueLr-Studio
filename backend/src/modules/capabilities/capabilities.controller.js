@@ -3,6 +3,14 @@ import { createRequestAbortSignal } from '../../app/http/request-abort.js';
 import { capabilitiesService } from './capabilities.service.js';
 
 export class CapabilitiesController {
+  runtime(_req, res, next) {
+    try {
+      res.json(successEnvelope(capabilitiesService.getRuntimeCapabilities()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async chat(req, res, next) {
     try {
       if (req.query.stream === 'true' || req.body.stream === true) {

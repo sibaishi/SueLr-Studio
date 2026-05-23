@@ -221,7 +221,52 @@ test('HTTP contract: health and status endpoints expose runtime baseline payload
     assertEnvelopeShape(status.body);
     assert.equal(status.body.data.ok, true);
     assert.equal(status.body.data.version, '1.0.0');
+    assert.equal(status.body.data.runtime.mode, 'local-web');
+    assert.equal(status.body.data.runtime.canSelectDirectory, true);
+    assert.equal(status.body.data.runtime.canRestartBackend, true);
   } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: runtime capabilities endpoint returns envelope-only payloads', async () => {
+  const { server, baseUrl } = await createTestServer('runtime-capabilities');
+  try {
+    const runtime = await requestJson(baseUrl, '/api/capabilities/runtime');
+    assert.equal(runtime.status, 200);
+    assertEnvelopeShape(runtime.body);
+    assert.deepEqual(runtime.body.data, {
+      mode: 'local-web',
+      canSelectDirectory: true,
+      canRestartBackend: true,
+      hasEmbeddedShell: false,
+    });
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: server runtime blocks local-only settings actions', async () => {
+  process.env.APP_RUNTIME_MODE = 'server-single-user';
+  const { server, baseUrl } = await createTestServer('server-runtime-settings');
+  try {
+    const pick = await requestJson(baseUrl, '/api/settings/select-directory', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    assert.equal(pick.status, 403);
+    assertEnvelopeShape(pick.body);
+    assert.equal(pick.body.error.code, 'DIRECTORY_PICKER_UNAVAILABLE');
+
+    const restart = await requestJson(baseUrl, '/api/settings/restart-backend', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    assert.equal(restart.status, 403);
+    assertEnvelopeShape(restart.body);
+    assert.equal(restart.body.error.code, 'BACKEND_RESTART_UNAVAILABLE');
+  } finally {
+    delete process.env.APP_RUNTIME_MODE;
     await new Promise((resolve) => server.close(resolve));
   }
 });

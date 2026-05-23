@@ -1,7 +1,8 @@
 import { apiRequestOrThrow } from '@/shared/api';
-import type { ProviderConfig } from '@/lib/providers';
-import type { ChatCompletionResponse, ContentPart, ToolDefinition } from '@/lib/types';
-import type { ProjectModel } from '@/features/workflow/lib/projectModels';
+import type { ProviderConfig } from '@/shared/providers';
+import type { RuntimeCapabilities } from '@/shared/runtime';
+import type { ChatCompletionResponse, ContentPart, ToolDefinition } from '@/shared/types';
+import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 
 export type ApiConfigPayload = {
   apiKey?: string;
@@ -15,6 +16,10 @@ export type ImageCapabilityResult = {
   images: string[];
   request: Record<string, unknown>;
 };
+
+export async function getRuntimeCapabilities() {
+  return apiRequestOrThrow<RuntimeCapabilities>('/api/capabilities/runtime');
+}
 
 type CapabilityRequestOptions = {
   signal?: AbortSignal;

@@ -21,6 +21,16 @@ const checks = [
     path: 'docs/release-sop.md',
     sections: ['## Branching', '## Standard Release Flow', '## Versioning Guidance', '## Notes'],
   },
+  {
+    path: 'docs/deployment-variants-plan.md',
+    sections: [
+      '## Branch Model',
+      '## Mainline First Changes',
+      '## Local-Web Variant',
+      '## Server Single-User Variant',
+      '## Milestones',
+    ],
+  },
 ];
 
 const failures = [];
@@ -28,6 +38,7 @@ const allowedMarkdownDocs = new Set([
   'docs/user-guide.md',
   'docs/developer-guide.md',
   'docs/release-sop.md',
+  'docs/deployment-variants-plan.md',
 ]);
 
 function collectMarkdownFiles(dir, bucket = []) {

@@ -18,6 +18,7 @@ import { STORAGE_PATHS, ensureStorageDirectories, migrateLegacyStorageIfNeeded }
 import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js';
 import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.js';
 import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
+import { getRuntimeCapabilities } from '../platform/runtime/index.js';
 
 function buildAllowedOrigins() {
   const configured = String(process.env.APP_ALLOWED_ORIGINS || '')
@@ -45,6 +46,7 @@ export function createApp() {
 
   const app = express();
   const allowedOrigins = buildAllowedOrigins();
+  const runtimeCapabilities = getRuntimeCapabilities();
 
   app.use(cors({
     origin(origin, callback) {
@@ -59,6 +61,7 @@ export function createApp() {
   }));
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));
+  app.locals.runtimeCapabilities = runtimeCapabilities;
   app.use(requestContextMiddleware);
   app.use(requestLoggerMiddleware);
 
@@ -79,7 +82,12 @@ export function createApp() {
   });
 
   app.get('/api/status', (_req, res) => {
-    res.json(successEnvelope({ ok: true, version: '1.0.0', processInstanceId: getProcessInstanceId() }));
+    res.json(successEnvelope({
+      ok: true,
+      version: '1.0.0',
+      processInstanceId: getProcessInstanceId(),
+      runtime: runtimeCapabilities,
+    }));
   });
 
   const frontendDist = process.env.APP_FRONTEND_DIST ? resolve(process.env.APP_FRONTEND_DIST) : '';
