@@ -191,4 +191,57 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('settings-importable-models-panel')).toHaveCount(0);
     await expect(page.locator('[data-testid^="settings-project-model-card-"]')).toHaveCount(0);
   });
+
+  test('settings disables local-only actions in server runtime mode', async ({ page }) => {
+    await clearLocalState(page);
+
+    await page.route('**/api/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            ok: true,
+            version: 'test',
+            runtime: {
+              mode: 'server-single-user',
+              canSelectDirectory: false,
+              canRestartBackend: false,
+              hasEmbeddedShell: false,
+            },
+          },
+        }),
+      });
+    });
+    await page.route('**/api/capabilities/runtime', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            mode: 'server-single-user',
+            canSelectDirectory: false,
+            canRestartBackend: false,
+            hasEmbeddedShell: false,
+          },
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await expect(page.locator('.splash-overlay')).toHaveCount(0);
+    await page.getByTestId('settings-module-defaults').click();
+
+    await expect(page.getByTestId('settings-runtime-storage-mode')).toContainText('服务器单用户');
+    await expect(page.getByTestId('settings-pick-storage-path')).toBeDisabled();
+    await expect(page.getByTestId('settings-restart-backend')).toBeDisabled();
+    await expect(page.getByTestId('settings-restart-backend-hint')).toContainText('部署端');
+
+    await page.getByTestId('settings-module-diagnostics').click();
+    await expect(page.getByTestId('settings-runtime-diagnostics')).toContainText('server-single-user');
+    await expect(page.getByTestId('settings-capability-select-directory')).toContainText('禁用');
+    await expect(page.getByTestId('settings-capability-restart-backend')).toContainText('禁用');
+  });
 });

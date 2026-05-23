@@ -9,6 +9,7 @@ import { capabilityWebSearch } from '@/shared/api/capabilities';
 import {
   checkSettingsServer,
   clearAccountDetails,
+  getRuntimeCapabilitiesSnapshot,
   getBackendStatus,
   loadAccountDetails,
   loadAccountDetailsLogs,
@@ -128,6 +129,9 @@ export function SettingsPanel({
   const filteredMemories = useMemo(() => memories.filter((memory) => fuzzyMatch(memory.content, memoryQuery)), [memories, memoryQuery]);
   const themeOptions = Object.entries(THEME_LABELS).map(([value, label]) => ({ l: label, v: value }));
   const logSummary = useMemo(() => logs.slice(0, 5), [logs]);
+  const runtimeCapabilities = getRuntimeCapabilitiesSnapshot();
+  const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? false;
+  const canRestartBackend = runtimeCapabilities?.canRestartBackend ?? false;
 
   useEffect(() => {
     let cancelled = false;
@@ -506,6 +510,9 @@ export function SettingsPanel({
     storageSettingsSaving,
     backendRestarting,
     projectBusy,
+    runtimeCapabilities,
+    canRestartBackend,
+    canSelectDirectory,
     tavilyApiKey,
     tavilyApiKeySet,
     themeMode,

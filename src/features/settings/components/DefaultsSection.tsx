@@ -1,6 +1,7 @@
 import type { OutboundProxyMode } from '@/features/settings';
 import type { ThemeMode } from '@/shared/types';
 import { IOSButton, IOSInput, IOSLabel, IOSSegmentedControl } from '@/shared/ui/ios';
+import { formatRuntimeModeLabel, getRuntimeActionHint } from '../runtimePresentation';
 import { SectionCard, eyebrowStyle, mutedPanelStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';
 
@@ -24,13 +25,16 @@ export function DefaultsSection({ actions, view }: Props) {
   const storageSourceLabel = {
     env: '环境变量覆盖',
     custom: '用户自定义',
-    legacy: '旧版部署路径',
+    legacy: '旧版迁移路径',
     default: '系统默认',
   }[view.storageSettings?.source || 'default'];
 
   const updateProxy = (patch: Partial<typeof view.outboundProxy>) => {
     actions.setOutboundProxy({ ...view.outboundProxy, ...patch });
   };
+
+  const selectDirectoryHint = getRuntimeActionHint(view.runtimeCapabilities, 'canSelectDirectory');
+  const restartBackendHint = getRuntimeActionHint(view.runtimeCapabilities, 'canRestartBackend');
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
@@ -95,6 +99,18 @@ export function DefaultsSection({ actions, view }: Props) {
         description="配置工作流、日志、上传文件等数据的存放位置。保存后需要重启后端生效。"
       >
         <div className="flex-col" style={{ gap: 12 }}>
+          <div data-testid="settings-runtime-storage-mode" style={{ ...mutedPanelStyle(), padding: 14 }}>
+            <div style={eyebrowStyle()}>运行模式</div>
+            <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-primary)', marginTop: 8 }}>
+              {formatRuntimeModeLabel(view.runtimeCapabilities?.mode)}
+            </div>
+            {!view.canSelectDirectory ? (
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                {selectDirectoryHint}
+              </div>
+            ) : null}
+          </div>
+
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>
             <div style={eyebrowStyle()}>当前生效路径</div>
             <div
@@ -111,7 +127,7 @@ export function DefaultsSection({ actions, view }: Props) {
             <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>来源：{storageSourceLabel}</div>
             {view.storageSettings?.envOverride ? (
               <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
-                当前存在 `APP_CONFIG_DIR` 环境变量覆盖，界面保存后不会立刻接管，需先移除该环境变量。
+                当前存在 `APP_CONFIG_DIR` 环境变量覆盖，界面保存后不会立即接管，需要先移除该环境变量。
               </div>
             ) : null}
           </div>
@@ -125,7 +141,8 @@ export function DefaultsSection({ actions, view }: Props) {
                 onClick={() => {
                   void actions.pickStoragePath();
                 }}
-                disabled={view.storagePathPicking || view.storageSettingsSaving || view.storageSettingsLoading}
+                disabled={view.storagePathPicking || view.storageSettingsSaving || view.storageSettingsLoading || !view.canSelectDirectory}
+                data-testid="settings-pick-storage-path"
                 small
                 style={{ width: 'auto', whiteSpace: 'nowrap' }}
               />
@@ -133,6 +150,11 @@ export function DefaultsSection({ actions, view }: Props) {
             <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
               留空时可点击“恢复默认”。默认路径：{view.storageSettings?.defaultRoot || '未获取'}
             </div>
+            {!view.canSelectDirectory ? (
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                {selectDirectoryHint}
+              </div>
+            ) : null}
           </div>
 
           <div
@@ -174,7 +196,8 @@ export function DefaultsSection({ actions, view }: Props) {
               onClick={() => {
                 void actions.restartBackend();
               }}
-              disabled={view.backendRestarting}
+              disabled={view.backendRestarting || !view.canRestartBackend}
+              data-testid="settings-restart-backend"
               small
               style={{
                 width: 'auto',
@@ -186,6 +209,11 @@ export function DefaultsSection({ actions, view }: Props) {
               }}
             />
           </div>
+          {!view.canRestartBackend ? (
+            <div data-testid="settings-restart-backend-hint" style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>
+              {restartBackendHint}
+            </div>
+          ) : null}
         </div>
       </SectionCard>
 
@@ -206,7 +234,7 @@ export function DefaultsSection({ actions, view }: Props) {
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>
             <div style={eyebrowStyle()}>当前策略</div>
             <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              {view.outboundProxy.mode === 'system' && '优先使用 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY 环境变量；Windows 下未设置环境变量时读取系统代理。'}
+              {view.outboundProxy.mode === 'system' && '优先使用 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY 环境变量，Windows 下未设置环境变量时读取系统代理。'}
               {view.outboundProxy.mode === 'direct' && '后端出站请求将直连，不使用环境变量代理或 Windows 系统代理。'}
               {view.outboundProxy.mode === 'custom' && '后端出站请求优先使用下方自定义代理，并按绕过列表直连匹配目标。'}
             </div>

@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
+import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { AccountDetailsLogsPayload, AccountDetailsPayload, OutboundProxySettingsPayload, StorageSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
 import type { AgentProfile } from '@/shared/api/agent';
 import type { LucideIcon } from 'lucide-react';
@@ -124,6 +125,9 @@ export type SettingsViewModel = {
   storageSettingsSaving: boolean;
   backendRestarting: boolean;
   projectBusy: boolean;
+  runtimeCapabilities: RuntimeCapabilities | null;
+  canRestartBackend: boolean;
+  canSelectDirectory: boolean;
   tavilyApiKey: string;
   tavilyApiKeySet: boolean;
   themeMode: ThemeMode;

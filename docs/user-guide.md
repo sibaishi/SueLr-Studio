@@ -253,6 +253,12 @@ Default app data root:
 
 You can override that from `Settings -> Defaults`.
 
+Runtime-specific behavior:
+
+- in `desktop` and `local-web`, the settings page can offer local path selection and backend restart when the runtime exposes those capabilities
+- in `server-single-user` and `server-multi-user`, local-only actions are disabled in `Settings -> Defaults`
+- when server modes block an action, `Settings -> Diagnostics` shows the active runtime mode and capability snapshot so the reason is visible in the UI
+
 What gets stored there:
 
 - workflows
@@ -278,6 +284,8 @@ If `APP_CONFIG_DIR` is set in the environment, it overrides the in-app storage p
 `Settings -> Defaults` includes a `Restart Backend` button.
 
 This is mainly used after changing storage-root-related settings.
+
+In server deployment modes, this button is intentionally disabled. Restart must be handled by the deployment-side process manager or service supervisor.
 
 Safety rule:
 

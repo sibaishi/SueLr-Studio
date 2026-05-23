@@ -133,17 +133,19 @@ Current cleanup and ownership notes:
 - `src/features/settings/components/ModelsSection.tsx`
   - discovered-model import, capability tagging, enablement
 - `src/features/settings/components/DefaultsSection.tsx`
-  - theme mode, external data path, restart backend action
+  - theme mode, external data path, restart backend action, and runtime-aware gating for local-only controls
 - `src/features/settings/components/RolesSection.tsx`
   - role presets and assistant-role editing
 - `src/features/settings/components/MemorySection.tsx`
   - memory browsing and management
 - `src/features/settings/components/DiagnosticsSection.tsx`
-  - diagnostics, logs, search, and capability inspection
+  - diagnostics, logs, search, runtime mode display, and capability inspection
 - `src/features/settings/useSettingsPanelController.ts`
   - section orchestration and action wiring
 - `src/features/settings/useStudioSettingsState.ts`
   - settings state loading, editing, persistence, and dirty tracking
+- `src/features/settings/runtimePresentation.ts`
+  - shared runtime-mode labels and user-facing hints for capability-gated settings actions
 
 ### Workflow
 
