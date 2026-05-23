@@ -244,4 +244,53 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('settings-capability-select-directory')).toContainText('禁用');
     await expect(page.getByTestId('settings-capability-restart-backend')).toContainText('禁用');
   });
+  test('workflow saveFile node disables directory picker in server runtime mode', async ({ page }) => {
+    await clearLocalState(page);
+
+    await page.route('**/api/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            ok: true,
+            version: 'test',
+            runtime: {
+              mode: 'server-single-user',
+              canSelectDirectory: false,
+              canRestartBackend: false,
+              hasEmbeddedShell: false,
+            },
+          },
+        }),
+      });
+    });
+    await page.route('**/api/capabilities/runtime', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            mode: 'server-single-user',
+            canSelectDirectory: false,
+            canRestartBackend: false,
+            hasEmbeddedShell: false,
+          },
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await expect(page.locator('.splash-overlay')).toHaveCount(0);
+    await page.getByTestId('nav-tab-workflow').click();
+    await expect(page.getByTestId('workflow-page')).toBeVisible();
+
+    await page.getByTestId('workflow-node-item-saveFile').click();
+
+    const pickerButton = page.locator('.node-param__picker-button').filter({ hasText: '选择文件夹' }).first();
+    await expect(pickerButton).toBeDisabled();
+    await expect(page.locator('.node-param__hint').filter({ hasText: '当前运行模式不支持目录选择器' }).first()).toBeVisible();
+  });
 });

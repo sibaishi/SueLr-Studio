@@ -498,15 +498,21 @@ The shared trunk should prepare extension points without forcing multi-user logi
 
 Current status on 2026-05-23:
 
-- completed:
+- completed and ready to close:
   - frontend runtime mode display
   - settings gating for directory selection and backend restart
   - backend runtime capability reporting
   - backend blocking of unsupported local-only actions
+  - workflow save-file directory picker gating for server runtimes
   - unit and e2e coverage for capability-aware settings behavior
-- still open:
-  - wider capability audit across chat, image, video, and workflow surfaces
-  - explicit `local-web` startup path that emits production-ready runtime mode configuration
+- explicitly deferred to later milestones:
+  - `local-web` startup and packaging entrypoints belong to Milestone 2, not Milestone 1
+
+Milestone 1 close-out decision:
+
+- closed once shared runtime capability data exists on frontend and backend
+- closed once all currently known local-only UI entrypoints are capability-aware
+- closed without waiting for `local-web` launcher implementation, because that is variant delivery work rather than runtime-foundation work
 
 Scope:
 

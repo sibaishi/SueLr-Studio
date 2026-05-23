@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FocusEvent } from 'react';
 import { selectDirectory } from '@/shared/api';
+import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ParamDef } from '@/domains/workflow/lib/types';
@@ -133,6 +134,8 @@ function ParamEditor({
 }) {
   const availableModels = useWorkflowStore((s) => s.availableModels);
   const addExecutionLog = useWorkflowStore((s) => s.addExecutionLog);
+  const runtimeCapabilities = getCachedRuntimeCapabilities();
+  const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? true;
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
   const connectedApiKeyNode = nodeId
@@ -265,31 +268,44 @@ function ParamEditor({
         <div className="node-param">
           <label className="node-param__label">{param.label}</label>
           {param.picker === 'directory' ? (
-            <div className="node-param__input-row">
-              <input
-                type={param.id === 'apiKey' ? 'password' : 'text'}
-                value={textField.value}
-                onChange={(event) => textField.onChange(event.target.value)}
-                className="node-field nodrag"
-                onFocus={(event) => {
-                  textField.onFocus();
-                  handleFocus(event);
-                }}
-                onBlur={(event) => {
-                  textField.onBlur(event.target.value);
-                  handleBlur(event);
-                }}
-                onCompositionStart={() => textField.onCompositionStart()}
-                onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
-                onClick={(event) => event.stopPropagation()}
-                onPointerDown={(event) => event.stopPropagation()}
-                onMouseDown={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
-              />
-              <button type="button" className="node-secondary-button node-param__picker-button" onClick={() => { void handlePickDirectory(); }}>
-                选择文件夹
-              </button>
-            </div>
+            <>
+              <div className="node-param__input-row">
+                <input
+                  type={param.id === 'apiKey' ? 'password' : 'text'}
+                  value={textField.value}
+                  onChange={(event) => textField.onChange(event.target.value)}
+                  className="node-field nodrag"
+                  onFocus={(event) => {
+                    textField.onFocus();
+                    handleFocus(event);
+                  }}
+                  onBlur={(event) => {
+                    textField.onBlur(event.target.value);
+                    handleBlur(event);
+                  }}
+                  onCompositionStart={() => textField.onCompositionStart()}
+                  onCompositionEnd={(event) => textField.onCompositionEnd(event.currentTarget.value)}
+                  onClick={(event) => event.stopPropagation()}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                />
+                <button
+                  type="button"
+                  className="node-secondary-button node-param__picker-button"
+                  onClick={() => { void handlePickDirectory(); }}
+                  disabled={!canSelectDirectory}
+                  title={canSelectDirectory ? '选择文件夹' : '当前运行模式不支持目录选择器'}
+                >
+                  选择文件夹
+                </button>
+              </div>
+              {!canSelectDirectory ? (
+                <div className="node-param__hint">
+                  当前运行模式不支持目录选择器，请直接输入可访问的绝对路径。
+                </div>
+              ) : null}
+            </>
           ) : (
             <input
               type={param.id === 'apiKey' ? 'password' : 'text'}
