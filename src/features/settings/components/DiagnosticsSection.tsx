@@ -11,10 +11,7 @@ type Props = {
 export function DiagnosticsSection({ actions, view }: Props) {
   return (
     <div className="flex-col" style={{ gap: 16 }}>
-      <SectionCard
-        title="诊断"
-        description="查看模型覆盖情况和最近运行反馈，方便快速定位 Agent 配置问题。"
-      >
+      <SectionCard title="诊断" description="查看模型覆盖情况和最近运行反馈，方便快速定位 Agent 配置问题。">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>
             <div style={eyebrowStyle()}>Chat</div>
@@ -42,10 +39,7 @@ export function DiagnosticsSection({ actions, view }: Props) {
         </div>
       </SectionCard>
 
-      <SectionCard
-        title="运行日志"
-        description="集中查看最近的连接、导入、搜索和后端运行反馈。"
-      >
+      <SectionCard title="运行日志" description="集中查看最近的连接、导入、搜索和后端运行反馈。">
         <LogPanel
           logs={view.logs}
           onClear={actions.onClearLogs}

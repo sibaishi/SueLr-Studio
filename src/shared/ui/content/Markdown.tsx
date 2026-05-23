@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 
 export function MarkdownRenderer({ content, isUser }: { content: string; isUser: boolean }) {
   const T = useT();

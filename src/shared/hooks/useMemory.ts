@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Memory } from '@/lib/types';
-import { gid, loadJSON, debouncedSaveJSON, cleanKey } from '@/lib/utils';
-import { MEMORY_PROMPT } from '@/lib/constants';
+import type { Memory } from '@/shared/types';
+import { MEMORY_PROMPT } from '@/domains/chat/constants';
+import { cleanKey, debouncedSaveJSON, gid, loadJSON } from '@/shared/runtime';
 import {
   clearAgentMemories,
   deleteAgentMemory,

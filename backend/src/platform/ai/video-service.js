@@ -433,10 +433,8 @@ export async function waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId
       }
 
       if (status === 'failed' || status === 'cancelled') {
-        const normalizedError = extractVideoTaskError(data) || '瑙嗛鐢熸垚澶辫触';
-        throw new Error(`瑙嗛鐢熸垚澶辫触: ${normalizedError}`);
-        const error = data.error || data.data?.error || '视频生成失败';
-        throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
+        const normalizedError = extractVideoTaskError(data) || '视频生成失败';
+        throw new Error(`视频生成失败: ${normalizedError}`);
       }
 
       const progress = data.progress || data.data?.progress;

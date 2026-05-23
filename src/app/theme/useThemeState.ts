@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { ThemeMode } from '@/lib/types';
-import { DARK, LIGHT } from '@/lib/constants';
-import { loadJSON } from '@/lib/utils';
+import type { ThemeMode } from '@/shared/types';
+import { loadJSON } from '@/shared/runtime';
+import { DARK, LIGHT } from './constants';
 
 export function useThemeState() {
   const [themeMode, setThemeMode] = useState<ThemeMode>(loadJSON('ai_theme', 'dark'));

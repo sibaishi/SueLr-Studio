@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { normalizeVideoTaskStatus, waitForVideoCompletion } from '@/lib/videoPoll';
+import { normalizeVideoTaskStatus, waitForVideoCompletion } from '@/shared/runtime/video-poll';
 
 const capabilityPollVideoTask = vi.fn();
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 import { glass } from './glass';
 
 type IOSInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useT } from '@/contexts/ThemeContext';
-import type { AgentRole } from '@/lib/types';
+import { useT } from '@/providers/ThemeContext';
+import type { AgentRole } from '@/shared/types';
 import { RoleIcon } from './RoleIcon';
 
 export function RoleSelector({

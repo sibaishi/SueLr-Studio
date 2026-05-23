@@ -81,7 +81,11 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
         </div>
       </SectionCard>
 
-      <SectionCard title="网页搜索" description="配置 Tavily 搜索能力，并用一次搜索请求验证当前密钥。" action={<Search size={14} color={T.text3} />}>
+      <SectionCard
+        title="网页搜索"
+        description="配置 Tavily 搜索能力，并用一次搜索请求验证当前密钥。"
+        action={<Search size={14} color={T.text3} />}
+      >
         <div className="flex-col" style={{ gap: 12 }}>
           <div>
             <IOSLabel>Tavily API Key</IOSLabel>
@@ -89,8 +93,8 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <IOSButton small label="测试搜索" onClick={() => void actions.testSearch()} disabled={!view.tavilyApiKey} />
-            <span style={chipStyle((view.tavilyApiKey || view.tavilyApiKeySet) ? T.green : T.orange)}>
-              {(view.tavilyApiKey || view.tavilyApiKeySet) ? '已配置搜索能力' : '未配置搜索能力'}
+            <span style={chipStyle(view.tavilyApiKey || view.tavilyApiKeySet ? T.green : T.orange)}>
+              {view.tavilyApiKey || view.tavilyApiKeySet ? '已配置搜索能力' : '未配置搜索能力'}
             </span>
           </div>
           {!view.tavilyApiKey && (
@@ -103,12 +107,20 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
         </div>
       </SectionCard>
 
-      <SectionCard title="Provider 适配" description="对接非标准 OpenAI 兼容接口时，在这里微调请求协议。" action={<Settings size={14} color={T.text3} />}>
+      <SectionCard
+        title="Provider 适配"
+        description="对接非标准 OpenAI 兼容接口时，在这里微调请求协议。"
+        action={<Settings size={14} color={T.text3} />}
+      >
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <div>
               <IOSLabel>认证方式</IOSLabel>
-              <IOSSelect value={view.providerConfig.authType} onChange={(value) => actions.setProviderAuthType(value as typeof view.providerConfig.authType)} data-testid="settings-provider-auth-type">
+              <IOSSelect
+                value={view.providerConfig.authType}
+                onChange={(value) => actions.setProviderAuthType(value as typeof view.providerConfig.authType)}
+                data-testid="settings-provider-auth-type"
+              >
                 <option value="bearer">Bearer Token</option>
                 <option value="api-key">API Key Header</option>
                 <option value="custom">自定义 Header</option>

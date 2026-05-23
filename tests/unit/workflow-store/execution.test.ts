@@ -1,25 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Edge, Node } from '@xyflow/react';
-import { createWorkflowExecutionActions } from '@/features/workflow/lib/store/execution';
+import { createWorkflowExecutionActions } from '@/domains/workflow/lib/store/execution';
 import { createWorkflowStoreHarness } from './testHarness';
 
-vi.mock('@/features/workflow/lib/api', () => ({
+vi.mock('@/domains/workflow/lib/api', () => ({
   executeWorkflow: vi.fn(),
   cancelExecution: vi.fn(),
   fetchExecutionStatus: vi.fn(),
 }));
 
-vi.mock('@/features/workflow/lib/store/persistence', () => ({
+vi.mock('@/domains/workflow/lib/store/persistence', () => ({
   clearActiveRunSnapshot: vi.fn(),
   loadActiveRunSnapshot: vi.fn(() => null),
   saveActiveRunSnapshot: vi.fn(),
 }));
 
-import * as api from '@/features/workflow/lib/api';
+import * as api from '@/domains/workflow/lib/api';
 import {
   clearActiveRunSnapshot,
   loadActiveRunSnapshot,
-} from '@/features/workflow/lib/store/persistence';
+} from '@/domains/workflow/lib/store/persistence';
 
 describe('workflow store execution actions', () => {
   beforeEach(() => {

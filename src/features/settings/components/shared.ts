@@ -1,6 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ThemeMode } from '@/lib/types';
-import type { ProviderConfig } from '@/lib/types';
+import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
 import type { AccountDetailsLogsPayload, AccountDetailsPayload, OutboundProxySettingsPayload, StorageSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
 import type { AgentProfile } from '@/shared/api/agent';
 import type { LucideIcon } from 'lucide-react';

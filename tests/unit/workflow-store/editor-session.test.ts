@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createWorkflowEditorSessionActions } from '@/features/workflow/lib/store/editorSession';
+import { createWorkflowEditorSessionActions } from '@/domains/workflow/lib/store/editorSession';
 import { createWorkflowStoreHarness } from './testHarness';
 
 describe('workflow store editor session actions', () => {

@@ -1,5 +1,5 @@
-import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/features/workflow/lib/store/types';
-import type { GroupPortSide } from '@/features/workflow/lib/groupPorts';
+import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
+import type { GroupPortSide } from '@/domains/workflow/lib/groupPorts';
 
 const EXPORT_WORKFLOW_RESULT = {
   id: 'wf_local',

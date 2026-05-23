@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Check, Database, Search, UploadCloud, X } from 'lucide-react';
-import type { ModelInfo, ProjectModel } from '@/lib/types';
-import { inferEndpointCategory } from '@/features/workflow/lib/projectModels';
+import type { ModelInfo, ProjectModel } from '@/shared/types';
+import { inferEndpointCategory } from '@/domains/workflow/lib/projectModels';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';

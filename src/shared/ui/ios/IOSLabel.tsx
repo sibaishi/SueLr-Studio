@@ -1,5 +1,5 @@
 import React from 'react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 
 export function IOSLabel({ children }: { children: React.ReactNode }) {
   const T = useT();

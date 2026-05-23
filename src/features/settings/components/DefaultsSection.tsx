@@ -1,5 +1,5 @@
 import type { OutboundProxyMode } from '@/features/settings';
-import type { ThemeMode } from '@/lib/types';
+import type { ThemeMode } from '@/shared/types';
 import { IOSButton, IOSInput, IOSLabel, IOSSegmentedControl } from '@/shared/ui/ios';
 import { SectionCard, eyebrowStyle, mutedPanelStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';
@@ -60,10 +60,12 @@ export function DefaultsSection({ actions, view }: Props) {
               <IOSSegmentedControl
                 options={concurrencyModeOptions}
                 value={view.workflowConcurrency.enabled ? 'on' : 'off'}
-                onChange={(value) => actions.setWorkflowConcurrency({
-                  ...view.workflowConcurrency,
-                  enabled: value === 'on',
-                })}
+                onChange={(value) =>
+                  actions.setWorkflowConcurrency({
+                    ...view.workflowConcurrency,
+                    enabled: value === 'on',
+                  })
+                }
               />
             </div>
           </div>
@@ -104,13 +106,9 @@ export function DefaultsSection({ actions, view }: Props) {
                 overflowWrap: 'anywhere',
               }}
             >
-              {view.storageSettingsLoading
-                ? '正在读取...'
-                : (view.storageSettings?.effectiveRoot || '未获取到路径信息')}
+              {view.storageSettingsLoading ? '正在读取...' : view.storageSettings?.effectiveRoot || '未获取到路径信息'}
             </div>
-            <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              来源：{storageSourceLabel}
-            </div>
+            <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>来源：{storageSourceLabel}</div>
             {view.storageSettings?.envOverride ? (
               <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
                 当前存在 `APP_CONFIG_DIR` 环境变量覆盖，界面保存后不会立刻接管，需先移除该环境变量。
@@ -121,14 +119,12 @@ export function DefaultsSection({ actions, view }: Props) {
           <div>
             <IOSLabel>自定义绝对路径</IOSLabel>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'center' }}>
-              <IOSInput
-                value={view.storagePathDraft}
-                onChange={actions.setStoragePathDraft}
-                placeholder="例如：D:\\SueLr-Studio-Data"
-              />
+              <IOSInput value={view.storagePathDraft} onChange={actions.setStoragePathDraft} placeholder="例如：D:\\SueLr-Studio-Data" />
               <IOSButton
                 label={view.storagePathPicking ? '选择中...' : '选择文件夹'}
-                onClick={() => { void actions.pickStoragePath(); }}
+                onClick={() => {
+                  void actions.pickStoragePath();
+                }}
                 disabled={view.storagePathPicking || view.storageSettingsSaving || view.storageSettingsLoading}
                 small
                 style={{ width: 'auto', whiteSpace: 'nowrap' }}
@@ -151,14 +147,18 @@ export function DefaultsSection({ actions, view }: Props) {
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <IOSButton
                 label={view.storageSettingsSaving ? '保存中...' : '保存路径'}
-                onClick={() => { void actions.saveStoragePath(); }}
+                onClick={() => {
+                  void actions.saveStoragePath();
+                }}
                 disabled={view.storageSettingsSaving || !view.storagePathDraft.trim()}
                 small
                 style={{ width: 'auto' }}
               />
               <IOSButton
                 label={view.storageSettingsSaving ? '处理中...' : '恢复默认'}
-                onClick={() => { void actions.resetStoragePath(); }}
+                onClick={() => {
+                  void actions.resetStoragePath();
+                }}
                 disabled={view.storageSettingsSaving}
                 small
                 style={{
@@ -171,7 +171,9 @@ export function DefaultsSection({ actions, view }: Props) {
             </div>
             <IOSButton
               label={view.backendRestarting ? '重启中...' : '重启后端'}
-              onClick={() => { void actions.restartBackend(); }}
+              onClick={() => {
+                void actions.restartBackend();
+              }}
               disabled={view.backendRestarting}
               small
               style={{
@@ -215,19 +217,11 @@ export function DefaultsSection({ actions, view }: Props) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
                 <div>
                   <IOSLabel>HTTP 代理</IOSLabel>
-                  <IOSInput
-                    value={view.outboundProxy.httpProxy}
-                    onChange={(value) => updateProxy({ httpProxy: value })}
-                    placeholder="http://127.0.0.1:7890"
-                  />
+                  <IOSInput value={view.outboundProxy.httpProxy} onChange={(value) => updateProxy({ httpProxy: value })} placeholder="http://127.0.0.1:7890" />
                 </div>
                 <div>
                   <IOSLabel>HTTPS 代理</IOSLabel>
-                  <IOSInput
-                    value={view.outboundProxy.httpsProxy}
-                    onChange={(value) => updateProxy({ httpsProxy: value })}
-                    placeholder="http://127.0.0.1:7897"
-                  />
+                  <IOSInput value={view.outboundProxy.httpsProxy} onChange={(value) => updateProxy({ httpsProxy: value })} placeholder="http://127.0.0.1:7897" />
                 </div>
               </div>
               <div>
@@ -238,7 +232,7 @@ export function DefaultsSection({ actions, view }: Props) {
                   placeholder="localhost,127.0.0.1,*.internal,<local>"
                 />
                 <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-                  支持逗号或分号分隔、通配符、域名后缀和 &lt;local&gt;。
+                  支持逗号或分号分隔、通配符、域名后缀和 `&lt;local&gt;`。
                 </div>
               </div>
             </div>

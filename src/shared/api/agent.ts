@@ -1,5 +1,5 @@
 import { apiRequestOrThrow, isBackendAvailable } from '@/shared/api';
-import type { ContentPart } from '@/lib/types';
+import type { ContentPart } from '@/shared/types';
 import type { ApiConfigPayload } from '@/shared/api/capabilities';
 
 const API = '/api/agent';

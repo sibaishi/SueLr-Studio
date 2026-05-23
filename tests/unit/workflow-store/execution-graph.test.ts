@@ -3,7 +3,7 @@ import type { Node } from '@xyflow/react';
 import {
   filterExecutionGraphToUpstreamTarget,
   projectWorkflowToExecutionGraph,
-} from '@/features/workflow/lib/executionGraph';
+} from '@/domains/workflow/lib/executionGraph';
 
 describe('execution graph projection', () => {
   it('flattens group transit ports into direct executable edges', () => {

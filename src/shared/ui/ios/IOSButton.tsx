@@ -1,5 +1,5 @@
 import React from 'react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 
 export function IOSButton({ label, onClick, color, disabled = false, small = false, style = {}, ...buttonProps }: {
   label: string; onClick: () => void; color?: string; disabled?: boolean; small?: boolean; style?: React.CSSProperties;

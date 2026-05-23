@@ -1,5 +1,5 @@
 import { Bot } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 
 export function SplashScreen({ fading }: { fading: boolean }) {
   const T = useT();

@@ -1,6 +1,6 @@
 import { IOSButton, IOSCard, RoleIcon } from '@/shared/ui/ios';
-import { useT } from '@/contexts/ThemeContext';
-import { gid } from '@/lib/utils';
+import { useT } from '@/providers/ThemeContext';
+import { gid } from '@/shared/runtime';
 import type { AgentProfile } from '@/shared/api/agent';
 import { AgentProfileEditor } from './AgentProfileEditor';
 import { SectionCard } from './styles';

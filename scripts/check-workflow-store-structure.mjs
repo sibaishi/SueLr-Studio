@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const storePath = resolve('src/features/workflow/lib/store.ts');
+const storePath = resolve('src/domains/workflow/lib/store.ts');
 const storeSource = readFileSync(storePath, 'utf8');
-const editorPath = resolve('src/features/workflow/lib/store/editor.ts');
+const editorPath = resolve('src/domains/workflow/lib/store/editor.ts');
 const editorSource = readFileSync(editorPath, 'utf8');
 const boundaryDocPath = resolve('docs/developer-guide.md');
 const boundaryDocSource = existsSync(boundaryDocPath)
@@ -56,10 +56,10 @@ const forbiddenEditorMarkers = [
 const requiredBoundaryDocMarkers = [
   '## Frontend Structure',
   '### Workflow',
-  '- `src/features/workflow/lib/store.ts`',
-  '- `src/features/workflow/lib/store/document.ts`',
-  '- `src/features/workflow/lib/store/editor.ts`',
-  '- `src/features/workflow/lib/store/execution.ts`',
+  '- `src/domains/workflow/lib/store.ts`',
+  '- `src/domains/workflow/lib/store/document.ts`',
+  '- `src/domains/workflow/lib/store/editor.ts`',
+  '- `src/domains/workflow/lib/store/execution.ts`',
   '## Public Documentation Policy',
 ];
 

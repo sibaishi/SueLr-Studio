@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createImportedProjectModels } from '@/features/workflow/lib/projectModels';
+import { createImportedProjectModels } from '@/domains/workflow/lib/projectModels';
 
 describe('createImportedProjectModels', () => {
   it('keeps discovered model categories when importing into the project model library', () => {

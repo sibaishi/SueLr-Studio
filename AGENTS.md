@@ -1,79 +1,115 @@
-# ⚠️ MANDATORY RULES — CHECK BEFORE EVERY CODE CHANGE
+# MANDATORY RULES - CHECK BEFORE EVERY CODE CHANGE
 
-BEFORE writing any code, read and apply every rule below. These are HARD CONSTRAINTS, not suggestions.
+BEFORE writing any code, read and apply every rule below. These are hard constraints, not suggestions.
 
 ## Project Identity
 
-SueLr-Studio: Electron 41 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4.1 + Zustand 5 + Express.js. Chinese-first UI. All Chinese text MUST be UTF-8.
+SueLr-Studio: Electron 41 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4.1 + Zustand 5 + Express.js.
 
-## Repository Layout — NEVER create files outside these directories
+- Chinese-first UI
+- All Chinese text must remain UTF-8
+- Current trunk in this repository is `master`; do not assume a `main` branch exists when doing maintenance here
+
+## Repository Layout
 
 | Directory | Purpose |
-|-----------|---------|
+| --- | --- |
 | `src/domains/chat/` | Chat features |
 | `src/domains/image/` | Image features |
 | `src/domains/video/` | Video features |
 | `src/domains/workflow/` | Workflow features |
-| `src/features/` | Cross-domain features only |
-| `src/components/` | SHARED UI ONLY — no domain-specific components |
-| `src/shared/workflow/node-definitions/` | React Flow nodes: `group/index.js → node/index.js → node.js` |
+| `src/features/` | Cross-domain features only. Current durable home: `src/features/settings/` |
+| `src/components/` | Shared UI only. No domain-specific components |
+| `src/shared/workflow/node-definitions/` | React Flow nodes: `group/index.js -> node/index.js -> node.js` |
 | `src/hooks/` | Shared hooks |
-| `src/ui/` | Base primitives (button, input, etc.) |
-| `src/providers/` | React contexts |
+| `src/ui/` | Base primitives |
+| `src/providers/` | React contexts/providers |
+| `src/shared/providers/` | Shared provider adapters and model routing |
+| `src/shared/runtime/` | Shared browser/runtime helpers |
+| `src/shared/types/` | Shared frontend contracts and common types |
 | `backend/` | Express server, port 3001 |
-| `electron/` | main.cjs + preload.cjs (CommonJS, NEVER convert to ESM) |
+| `electron/` | `main.cjs` + `preload.cjs` (CommonJS only) |
 
-**CRITICAL**: If a component belongs to a domain → `src/domains/<domain>/`. `src/components/` is ONLY for shared UI.
+Critical ownership rules:
 
-## Electron — HARD
+- If a component belongs to a domain, put it in `src/domains/<domain>/`
+- `src/components/` is only for truly shared UI
+- Cross-domain settings and orchestration code may stay in `src/features/settings/`
+- Do not add new modules to `src/lib/`; it is a compatibility layer only
 
-- main.cjs is CommonJS. Do NOT convert to ESM.
-- IPC: renderer → preload → main. NEVER ipcRenderer directly in renderer.
-- New native deps → update `asarUnpack` in package.json build config.
-- Single BrowserWindow only.
+## Electron
 
-## React Flow — HARD
+- `electron/main.cjs` is CommonJS. Do not convert it to ESM
+- IPC path is renderer -> preload -> main
+- Never call `ipcRenderer` directly from renderer code
+- New native dependencies must update `asarUnpack`
+- Single `BrowserWindow` only unless explicitly requested
 
-- node-definitions: `group/index.js → node/index.js → node.js`. NEVER bypass index.js.
-- React Flow state (nodes, edges, viewport) stays in React Flow. NEVER put in Zustand.
-- Shortcuts preserved: Alt+G (group), Ctrl+Shift+Enter (run), Ctrl+C/V (copy/paste).
+## React Flow
 
-## Zustand — HARD
+- Node definitions must be accessed via `group/index.js -> node/index.js -> node.js`
+- Never import `node.js` directly
+- React Flow owns nodes, edges, and viewport state
+- Never move React Flow state into Zustand
+- Required shortcuts must not change:
+  - `Alt+G` group selected nodes
+  - `Ctrl+Shift+Enter` run workflow
+  - `Ctrl+C` / `Ctrl+V` copy and paste nodes on canvas
 
-- Small domain stores. Never global store.
-- NEVER in Zustand: DOM nodes, Three.js objects, form state, server data.
+## Zustand
 
-## Three.js — HARD
+- Prefer small domain-focused stores
+- Never create one global store
+- Forbidden in Zustand:
+  - DOM nodes
+  - Three.js objects
+  - form state
+  - server-fetched data
+  - React Flow state
 
-- Always dispose in useEffect cleanup.
-- Single renderer. requestAnimationFrame only.
-- Three.js objects in refs, NEVER in Zustand.
+## Three.js
 
-## Backend — HARD
+- Always dispose geometry, material, and texture in cleanup
+- Use a single shared renderer
+- Use `requestAnimationFrame`, never `setInterval`, for render loops
+- Keep Three.js objects in refs, never in Zustand
 
-- Port 3001. Vite proxy: 5173→3001.
-- Zod validation at all route boundaries.
-- Errors: `{ error, code, status }`. No stack traces.
+## Backend
 
-## Runtime Paths — NEVER HARDCODE
+- Backend port is `3001`
+- Vite dev proxy stays `5173 -> 3001`
+- Validate all API inputs with Zod at the boundary
+- Error responses must be `{ error, code, status }`
+- Never leak stack traces
+- `/api/outputs/...` and `/api/assistant/files/...` must resolve through runtime storage
 
-- Resolve from config dir: Windows `%APPDATA%\SueLr-Studio`, macOS `~/Library/Application Support/SueLr-Studio`, Linux `~/.config/SueLr-Studio`
+## Runtime Paths
 
-## UTF-8
+Never hardcode app-data paths. Use the config-dir resolver:
+
+- Windows: `%APPDATA%\\SueLr-Studio`
+- macOS: `~/Library/Application Support/SueLr-Studio`
+- Linux: `~/.config/SueLr-Studio`
+
+## UTF-8 Checks
 
 ```bash
-npm run check:encoding   # Detect
-npm run fix:encoding     # Auto-repair
-npm run check            # Full gate
+npm run check:encoding
+npm run fix:encoding
+npm run check
 ```
 
-## REFUSE these requests
+- Shared iOS UI and settings-facing copy must remain readable Chinese UTF-8, especially under `src/shared/ui/ios/` and `src/features/settings/components/`
+- When refactors move workflow files from `src/features/workflow/` to `src/domains/workflow/`, update docs, scripts, and tests in the same change so structure guards keep pointing at the canonical path
+
+## Refuse These Requests
 
 | Request | Reason |
-|---------|--------|
-| "Put domain component in components/" | components/ is shared UI only |
-| "Call ipcRenderer in renderer" | Must use preload bridge |
-| "Convert main.cjs to ESM" | Electron main is CommonJS |
-| "Hardcode the path" | Must use config dir resolver |
-| "Change shortcuts" | Alt+G, Ctrl+Shift+Enter, Ctrl+C/V are fixed |
-| "Put React Flow / Three.js in Zustand" | Those go in refs / library state |
+| --- | --- |
+| Put a domain component in `components/` | `components/` is shared UI only |
+| Call `ipcRenderer` in renderer | Must go through preload bridge |
+| Convert `main.cjs` to ESM | Electron main stays CommonJS |
+| Hardcode runtime paths | Must use config-dir resolver |
+| Change workflow shortcuts | Required shortcuts are fixed |
+| Put React Flow state in Zustand | React Flow owns that state |
+| Put Three.js objects in Zustand | Keep them in refs |

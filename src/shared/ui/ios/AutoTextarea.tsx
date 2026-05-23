@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 import { glass } from './glass';
 
 export function AutoTextarea({ value, onChange, placeholder, maxH = 160, onKeyDown, onBlur, disabled = false, style = {} }: { value: string; onChange: (v: string) => void; placeholder?: string; maxH?: number; onKeyDown?: (e: React.KeyboardEvent) => void; onBlur?: () => void; disabled?: boolean; style?: React.CSSProperties }) {

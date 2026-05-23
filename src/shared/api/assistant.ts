@@ -1,5 +1,5 @@
 import { apiRequest, isBackendAvailable } from '@/shared/api';
-import type { Conv, GalleryItem } from '@/lib/types';
+import type { Conv, GalleryItem } from '@/shared/types';
 
 const API = '/api/assistant';
 

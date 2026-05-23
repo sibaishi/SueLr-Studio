@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PersistedWorkflow, WorkflowImportReport } from '@/features/workflow/lib/persistenceTypes';
-import { createWorkflowDocumentActions } from '@/features/workflow/lib/store/document';
+import type { PersistedWorkflow, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
+import { createWorkflowDocumentActions } from '@/domains/workflow/lib/store/document';
 import { createWorkflowStoreHarness } from './testHarness';
 
-vi.mock('@/features/workflow/lib/api', () => ({
+vi.mock('@/domains/workflow/lib/api', () => ({
   updateWorkflow: vi.fn(),
   createWorkflow: vi.fn(),
   fetchWorkflow: vi.fn(),
@@ -13,13 +13,13 @@ vi.mock('@/features/workflow/lib/api', () => ({
   importWorkflow: vi.fn(),
 }));
 
-vi.mock('@/features/workflow/lib/store/persistence', () => ({
+vi.mock('@/domains/workflow/lib/store/persistence', () => ({
   clearActiveRunSnapshot: vi.fn(),
   loadLocalDraft: vi.fn(() => null),
 }));
 
-import * as api from '@/features/workflow/lib/api';
-import { clearActiveRunSnapshot } from '@/features/workflow/lib/store/persistence';
+import * as api from '@/domains/workflow/lib/api';
+import { clearActiveRunSnapshot } from '@/domains/workflow/lib/store/persistence';
 
 function createPersistedWorkflow(overrides: Partial<PersistedWorkflow> = {}): PersistedWorkflow {
   return {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveWorkflowShortcutAction } from '@/features/workflow/lib/hotkeys';
+import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
 
 describe('workflow keyboard shortcuts', () => {
   it('maps Alt+G to group creation', () => {

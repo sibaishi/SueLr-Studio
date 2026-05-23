@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 
 export function CollapsibleSection({ title, count, defaultOpen = true, children, extra }: { title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode; extra?: React.ReactNode }) {
   const T = useT();

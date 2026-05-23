@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createWorkflowGroupEditorActions } from '@/features/workflow/lib/store/editorGroups';
+import { createWorkflowGroupEditorActions } from '@/domains/workflow/lib/store/editorGroups';
 import { createWorkflowStoreHarness } from './testHarness';
 
 describe('workflow store group editor actions', () => {

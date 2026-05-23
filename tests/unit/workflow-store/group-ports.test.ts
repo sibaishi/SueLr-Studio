@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGroupPortsFromBoundaryEdges, normalizeGroupPortNodes } from '@/features/workflow/lib/groupPorts';
+import { buildGroupPortsFromBoundaryEdges, normalizeGroupPortNodes } from '@/domains/workflow/lib/groupPorts';
 
 describe('group port helpers', () => {
   it('builds facade transit ports from boundary edges and keeps one trailing empty slot', () => {

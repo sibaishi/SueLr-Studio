@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 
 export function RefImageList({ images, onRemove }: { images: string[]; onRemove: (index: number) => void }) {
   const T = useT();

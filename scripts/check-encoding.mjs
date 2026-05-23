@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 
 const ROOT = resolve('.');
-const EXCLUDED_SEGMENTS = new Set(['.git', 'node_modules', 'dist', 'build', 'release']);
+const EXCLUDED_SEGMENTS = new Set(['.git', 'node_modules', 'dist', 'build', 'release', 'playwright-report', 'test-results']);
 const TEXT_EXTENSIONS = new Set([
   '.bat',
   '.cjs',

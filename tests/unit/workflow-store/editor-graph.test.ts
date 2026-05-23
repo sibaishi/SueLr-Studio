@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createWorkflowGraphEditorActions } from '@/features/workflow/lib/store/editorGraph';
-import { createWorkflowGroupEditorActions } from '@/features/workflow/lib/store/editorGroups';
-import { getEffectiveNodeSize } from '@/features/workflow/lib/groupLayout';
+import { createWorkflowGraphEditorActions } from '@/domains/workflow/lib/store/editorGraph';
+import { createWorkflowGroupEditorActions } from '@/domains/workflow/lib/store/editorGroups';
+import { getEffectiveNodeSize } from '@/domains/workflow/lib/groupLayout';
 import { createWorkflowStoreHarness } from './testHarness';
 
 function getBoundsCenter(nodes: Array<{ position: { x: number; y: number } } & Parameters<typeof getEffectiveNodeSize>[0]>) {

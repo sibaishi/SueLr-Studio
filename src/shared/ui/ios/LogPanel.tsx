@@ -1,7 +1,7 @@
 import React from 'react';
 import { ClipboardList } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
-import type { LogEntry } from '@/lib/types';
+import { useT } from '@/providers/ThemeContext';
+import type { LogEntry } from '@/shared/types';
 import { glass } from './glass';
 import { CollapsibleSection } from './CollapsibleSection';
 

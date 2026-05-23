@@ -1,13 +1,13 @@
 # SueLr Studio
 
-SueLr Studio 是一个本地优先的多模态工作台，用于对话、图像、视频和基于工作流的 AI 任务。
+SueLr Studio 是一个本地优先的多模态 AI 工作台，用于对话、图像、视频和基于工作流的自动化任务。
 
-它面向希望在自己机器上使用桌面式 AI 工作空间的人：配置模型服务、运行多模态任务、在画布上搭建工作流，并让运行时数据保持本地可控。
+它面向希望在自己的机器上运行桌面式 AI 工作空间的用户：配置模型服务、运行多模态任务、在画布上搭建工作流，并让运行时数据保持本地可控。
 
 ## 仓库内容
 
-- 基于 Vite + React 的前端，用于对话、图像、视频和工作流编辑
-- 基于 Express 的本地后端，用于模型服务接入、工作流运行、文件处理和设置管理
+- 基于 Vite + React 的前端，用于对话、图像、视频和工作流编排
+- 基于 Express 的本地后端，用于模型服务接入、工作流执行、文件处理和设置管理
 - 本地优先的运行时模型，默认将应用数据存放在仓库外部
 - 覆盖文档、运行时边界、工作流状态结构、测试与构建的仓库质量门禁
 
@@ -82,8 +82,8 @@ Linux:   ${XDG_CONFIG_HOME:-~/.config}/SueLr-Studio
 生成媒体会按类型放在运行时数据目录下：
 
 ```text
-files/generated/images/             图片生成原始输出
-files/generated/videos/             视频生成原始输出
+files/generated/images/              图片生成原始输出
+files/generated/videos/              视频生成原始输出
 files/generated/assistant-images/    Chat/assistant 图库图片
 files/generated/assistant-videos/    Chat/assistant 视频库视频
 ```
@@ -137,6 +137,7 @@ node-definitions/
 ## 参与贡献
 
 欢迎外部协作。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，了解本地环境搭建、校验命令和仓库约定。
+
 如果你是第一次参与，建议先在本地把应用跑起来一次，然后执行 `npm run check`，并在第一次本地运行 `npm run test:e2e` 之前先通过 `npm run test:e2e:install` 安装 Playwright。
 
 当你修改中文用户可见文案、文件名或持久化内容时，请保持 UTF-8 编码，并把 `npm run check:encoding` 纳入你的检查流程。
@@ -144,4 +145,5 @@ node-definitions/
 ## 许可状态
 
 这个仓库当前还没有声明开源许可证文件。
+
 如果你计划将它公开发布并供更广泛复用，在将其视为开源分发之前，应该先明确许可证选择。

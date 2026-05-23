@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Node } from '@xyflow/react';
-import { getNodeDefaultSize } from '@/features/workflow/lib/constants';
-import { autoArrangeNodes, isNodeLockedWithAncestors, normalizeMergeNodeSizes } from '@/features/workflow/lib/store/editorShared';
+import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import { autoArrangeNodes, isNodeLockedWithAncestors, normalizeMergeNodeSizes } from '@/domains/workflow/lib/store/editorShared';
 
 describe('workflow store shared editor helpers', () => {
   it('grows merge nodes to match the highest connected input handle', () => {

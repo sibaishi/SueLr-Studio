@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, Wallet } from 'lucide-react';
 import { LogPanel } from '@/shared/ui/ios';
-import { useToast } from '@/contexts/ToastContext';
-import { useT } from '@/contexts/ThemeContext';
-import { THEME_LABELS } from '@/lib/constants';
-import type { ApiConfig, ModelInfo, ProjectModel } from '@/lib/types';
-import type { ProviderConfig } from '@/lib/types';
+import { useToast } from '@/providers/ToastContext';
+import { useT } from '@/providers/ThemeContext';
+import { THEME_LABELS } from '@/app/theme/constants';
+import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
 import { capabilityWebSearch } from '@/shared/api/capabilities';
 import {
   checkSettingsServer,
@@ -24,7 +23,7 @@ import {
   waitForBackendReady,
 } from '@/features/settings';
 import type { SettingsPanelProps, StorageSettingsPayload } from '@/features/settings';
-import { createImportedProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
+import { createImportedProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { AgentMemorySection } from './MemorySection';
 import { AgentPersonaSection } from './AgentPersonaSection';
 import { AccountDetailsSection } from './AccountDetailsSection';
@@ -462,7 +461,7 @@ export function SettingsPanel({
     desc: '账号登录、余额与调用日志',
     icon: Wallet,
     accent: T.purple,
-    stat: accountDetails?.balance ? accountDetails.balance.balance.toFixed(2) : (accountDetails?.configured ? '已配置' : '未配置'),
+    stat: accountDetails?.balance ? accountDetails.balance.balance.toFixed(2) : accountDetails?.configured ? '已配置' : '未配置',
   });
 
   const activeModuleMeta = modules.find((module) => module.id === activeModule) || modules[0];
@@ -594,7 +593,7 @@ export function SettingsPanel({
               <div style={eyebrowStyle()}>Agent 设置</div>
               <div className="workflow-toolbar__title" style={{ fontSize: 18 }}>工作室设置</div>
               <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                将连接、Persona、Memory 和诊断收拢到统一的 Agent 设置域中。
+                将连接、Persona、Memory 和诊断收拢到统一的 Agent 设置区域中。
               </div>
             </div>
           </div>
@@ -609,8 +608,8 @@ export function SettingsPanel({
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <span style={chipStyle(base ? T.green : T.orange)}>{base ? '服务已接入' : '服务待配置'}</span>
               <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
-              <span style={chipStyle((tavilyApiKey || tavilyApiKeySet) ? T.purple : undefined)}>
-                {(tavilyApiKey || tavilyApiKeySet) ? '搜索已启用' : '搜索未启用'}
+              <span style={chipStyle(tavilyApiKey || tavilyApiKeySet ? T.purple : undefined)}>
+                {tavilyApiKey || tavilyApiKeySet ? '搜索已启用' : '搜索未启用'}
               </span>
             </div>
           </div>

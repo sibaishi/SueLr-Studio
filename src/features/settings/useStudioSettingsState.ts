@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PRESET_ROLES } from '@/lib/constants';
-import type { AgentRole, ApiConfig, LogEntry, ModelInfo } from '@/lib/types';
-import type { ProviderConfig } from '@/lib/providers';
-import { ftime, gid, loadJSON } from '@/lib/utils';
-import { groupConfiguredProjectModels, normalizeProjectModels } from '@/features/workflow/lib/projectModels';
+import { PRESET_ROLES } from '@/domains/chat/constants';
+import type { AgentRole, ApiConfig, LogEntry, ModelInfo } from '@/shared/types';
+import type { ProviderConfig } from '@/shared/providers';
+import { ftime, gid, loadJSON } from '@/shared/runtime';
+import { groupConfiguredProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { isBackendAvailable } from '@/shared/api';
 import { loadAgentProfiles, saveAgentProfiles, type AgentProfile } from '@/shared/api/agent';
 import type { OutboundProxySettingsPayload, StreamMode, WorkflowConcurrencySettingsPayload } from './types';

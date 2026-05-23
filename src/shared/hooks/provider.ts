@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { createProvider } from '@/lib/providers';
-import type { ProviderConfig } from '@/lib/providers';
+import { createProvider } from '@/shared/providers';
+import type { ProviderConfig } from '@/shared/providers';
 
 export function useLiveRef<T>(value: T) {
   const ref = useRef(value);

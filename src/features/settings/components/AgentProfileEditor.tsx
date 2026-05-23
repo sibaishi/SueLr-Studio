@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AutoTextarea, IOSButton, IOSInput, IOSLabel, IOSSelect, RoleIcon } from '@/shared/ui/ios';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 import type { AgentProfile } from '@/shared/api/agent';
 import { AGENT_TOOL_OPTIONS, MEMORY_MODE_OPTIONS, ROLE_ICONS } from './shared';
 
@@ -25,15 +25,18 @@ export function AgentProfileEditor({ profile, onSave, onCancel }: Props) {
     },
   });
 
-  const toolLabelMap = useMemo(() => ({
-    web_search: '联网搜索',
-    search_memory: '记忆检索',
-    memory_write: '记忆写入',
-    get_current_time: '当前时间',
-    generate_image: '图片生成',
-    video_generate: '视频生成',
-    workflow_execute: '工作流执行',
-  }), []);
+  const toolLabelMap = useMemo(
+    () => ({
+      web_search: '联网搜索',
+      search_memory: '记忆检索',
+      memory_write: '记忆写入',
+      get_current_time: '当前时间',
+      generate_image: '图片生成',
+      video_generate: '视频生成',
+      workflow_execute: '工作流执行',
+    }),
+    [],
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

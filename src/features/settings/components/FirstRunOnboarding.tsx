@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, Database, FolderOpen, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
-import type { ApiConfig, ModelInfo, ProjectModel } from '@/lib/types';
-import { catModel } from '@/lib/utils';
-import { DEFAULT_PROVIDER_CONFIG } from '@/lib/providers';
+import { useT } from '@/providers/ThemeContext';
+import type { ApiConfig, ModelInfo, ProjectModel } from '@/shared/types';
+import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
+import { catModel } from '@/shared/providers/model-family';
 import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
 import { apiRequest } from '@/shared/api';
 import {
@@ -16,7 +16,7 @@ import {
   waitForBackendReady,
 } from '@/features/settings';
 import type { StorageSettingsPayload } from '@/features/settings';
-import type { PersistedWorkflow } from '@/features/workflow/lib/persistenceTypes';
+import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
 
 type Props = {
   activeConfigId: string;
@@ -73,7 +73,7 @@ function getConnectionFailureGuidance(message: string) {
     return '连接超时。请检查网络、代理设置，以及接口地址是否可以在浏览器或命令行中访问。';
   }
   if (message.includes('401') || message.includes('403') || lower.includes('unauthorized') || lower.includes('forbidden')) {
-    return '服务拒绝了请求。请确认 API Key 是否正确、是否有余额/权限，以及认证方式是否匹配。';
+    return '服务拒绝了请求。请确认 API Key 是否正确、是否有余额或权限，以及认证方式是否匹配。';
   }
   if (message.includes('404')) {
     return '接口路径可能不对。通常需要填写服务根地址，例如 https://api.example.com/v1，而不是具体的 chat 或 models 路径。';
@@ -149,13 +149,15 @@ export function FirstRunOnboarding({
 
   useEffect(() => {
     let cancelled = false;
-    void loadStorageSettings().then((next) => {
-      if (cancelled) return;
-      setStorage(next);
-      setStorageDraft(next?.customRoot || '');
-    }).catch(() => {
-      if (!cancelled) setStorage(null);
-    });
+    void loadStorageSettings()
+      .then((next) => {
+        if (cancelled) return;
+        setStorage(next);
+        setStorageDraft(next?.customRoot || '');
+      })
+      .catch(() => {
+        if (!cancelled) setStorage(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -208,7 +210,7 @@ export function FirstRunOnboarding({
           return;
         } else {
           await waitForBackendReady({ timeoutMs: 25000, intervalMs: 500 });
-          next = await loadStorageSettings() || next;
+          next = (await loadStorageSettings()) || next;
         }
       }
       setStorage(next);
@@ -226,7 +228,7 @@ export function FirstRunOnboarding({
     const cleanSecret = secret.trim();
     if (!cleanBase || !cleanSecret) {
       setMessage('请先填写接口地址和 API Key。');
-      setGuidance('接口地址通常类似 https://api.example.com/v1；API Key 请使用你自己的服务商密钥。');
+      setGuidance('接口地址通常类似 https://api.example.com/v1，API Key 请使用你自己的服务商密钥。');
       return;
     }
 
@@ -265,9 +267,11 @@ export function FirstRunOnboarding({
         return 0;
       });
       setMessage(`连接成功，已发现 ${nextModels.length} 个模型。`);
-      setGuidance(updatedTemplates > 0
-        ? '已把基础工作流里的空模型自动填好，进入工作台后可以直接试运行，也可以在节点里改成其他模型。'
-        : '模型已导入。基础工作流如果仍有空模型，请进入工作台后在节点里选择一次模型。');
+      setGuidance(
+        updatedTemplates > 0
+          ? '已把基础工作流里的空模型自动填好，进入工作台后可以直接试运行，也可以在节点里改成其他模型。'
+          : '模型已导入。基础工作流如果仍有空模型，请进入工作台后在节点里选择一次模型。',
+      );
       addLog('success', `首次配置连接成功，发现 ${nextModels.length} 个模型`);
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
@@ -325,8 +329,10 @@ export function FirstRunOnboarding({
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'center', marginBottom: 12 }}>
               <IOSInput value={storageDraft} onChange={setStorageDraft} placeholder="留空则使用默认位置" />
               <IOSButton
-                label={storageBusy ? '选择中' : '选择'}
-                onClick={() => { void chooseStorage(); }}
+                label={storageBusy ? '选择中...' : '选择'}
+                onClick={() => {
+                  void chooseStorage();
+                }}
                 disabled={storageBusy}
                 small
                 style={{ width: 72 }}
@@ -335,7 +341,9 @@ export function FirstRunOnboarding({
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <IOSButton
                 label={storageBusy ? '处理中...' : storageDraft.trim() ? '保存并应用路径' : '使用默认位置'}
-                onClick={() => { void applyStorage(); }}
+                onClick={() => {
+                  void applyStorage();
+                }}
                 disabled={storageBusy}
                 small
                 style={{ width: 'auto' }}
@@ -353,23 +361,48 @@ export function FirstRunOnboarding({
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: 12, marginBottom: 12 }}>
               <div>
                 <IOSLabel>配置名称</IOSLabel>
-                <IOSInput value={configName} onChange={(value) => { setConfigName(value); updateActiveConfig({ name: value }); }} />
+                <IOSInput
+                  value={configName}
+                  onChange={(value) => {
+                    setConfigName(value);
+                    updateActiveConfig({ name: value });
+                  }}
+                />
               </div>
               <div>
                 <IOSLabel>接口地址</IOSLabel>
-                <IOSInput value={baseUrl} onChange={(value) => { setBaseUrl(value); setBase(value); updateActiveConfig({ base: value }); }} placeholder="https://api.example.com/v1" />
+                <IOSInput
+                  value={baseUrl}
+                  onChange={(value) => {
+                    setBaseUrl(value);
+                    setBase(value);
+                    updateActiveConfig({ base: value });
+                  }}
+                  placeholder="https://api.example.com/v1"
+                />
               </div>
             </div>
 
             <div style={{ marginBottom: 14 }}>
               <IOSLabel>API Key</IOSLabel>
-              <IOSInput value={secret} onChange={(value) => { setSecret(value); setApiKey(value); updateActiveConfig({ apiKey: value }); }} type="password" placeholder="sk-..." />
+              <IOSInput
+                value={secret}
+                onChange={(value) => {
+                  setSecret(value);
+                  setApiKey(value);
+                  updateActiveConfig({ apiKey: value });
+                }}
+                type="password"
+                placeholder="sk-..."
+              />
             </div>
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
               <IOSButton
                 label={testing ? '测试中...' : '测试连接并导入模型'}
-                onClick={() => { void testConnection(); }}
+                onClick={() => {
+                  void testConnection();
+                }}
                 disabled={testing}
                 small
                 style={{ width: 'auto' }}

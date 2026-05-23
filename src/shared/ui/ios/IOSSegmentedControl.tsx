@@ -1,4 +1,4 @@
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 import { glass } from './glass';
 
 export function IOSSegmentedControl({ options, value, onChange }: { options: { l: string; v: string }[]; value: string; onChange: (v: string) => void }) {

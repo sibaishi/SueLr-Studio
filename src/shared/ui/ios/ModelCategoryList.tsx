@@ -1,5 +1,5 @@
-import { useT } from '@/contexts/ThemeContext';
-import type { ModelInfo } from '@/lib/types';
+import { useT } from '@/providers/ThemeContext';
+import type { ModelInfo } from '@/shared/types';
 import { CollapsibleSection } from './CollapsibleSection';
 
 export function ModelCategoryList({ models, searchQuery = '' }: { models: ModelInfo[]; searchQuery?: string }) {

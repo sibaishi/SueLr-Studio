@@ -1,8 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
-import { DEFAULT_PROVIDER_CONFIG } from '@/lib/providers';
-import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/lib/types';
-import { normalizeProjectModels } from '@/features/workflow/lib/projectModels';
+import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
+import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
+import { normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { testSettingsConnection } from './api';
 
 type SettingsPanelControllerParams = {

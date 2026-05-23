@@ -1,7 +1,8 @@
 import { X } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
-import type { ImgTask } from '@/lib/types';
-import { taskStatusColor, taskStatusLabel, ftime } from '@/lib/utils';
+import { useT } from '@/providers/ThemeContext';
+import type { ImgTask } from '@/shared/types';
+import { ftime } from '@/shared/runtime';
+import { taskStatusColor, taskStatusLabel } from '@/shared/ui/status';
 import { glass, lightOverlay } from './glass';
 import { IOSButton } from './IOSButton';
 

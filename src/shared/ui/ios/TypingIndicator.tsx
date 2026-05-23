@@ -1,5 +1,5 @@
 import { Bot } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 import { glass } from './glass';
 
 export function TypingIndicator() {

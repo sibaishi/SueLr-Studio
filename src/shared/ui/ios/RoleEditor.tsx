@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useT } from '@/contexts/ThemeContext';
-import type { AgentRole } from '@/lib/types';
+import { useT } from '@/providers/ThemeContext';
+import type { AgentRole } from '@/shared/types';
 import { IOSLabel } from './IOSLabel';
 import { IOSInput } from './IOSInput';
 import { AutoTextarea } from './AutoTextarea';
@@ -61,7 +61,7 @@ export function RoleEditor({
       </div>
 
       <div>
-        <IOSLabel>System Prompt</IOSLabel>
+        <IOSLabel>系统提示词</IOSLabel>
         <AutoTextarea value={prompt} onChange={setPrompt} placeholder="角色的系统提示词..." maxH={200} />
       </div>
 

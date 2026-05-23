@@ -1,5 +1,5 @@
 import { ImagePlus, X } from 'lucide-react';
-import { useT } from '@/contexts/ThemeContext';
+import { useT } from '@/providers/ThemeContext';
 import { glass, lightOverlay } from './glass';
 
 export function FullscreenViewer({
