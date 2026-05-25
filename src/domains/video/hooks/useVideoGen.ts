@@ -157,6 +157,7 @@ export function useVideoGen(
         resolution,
         image_url: mode === 'image' ? refImages[0] : undefined,
         input_audio: audioFile?.data,
+        apiConfig: buildApiConfigPayload(modelConfig, { apiKey, baseUrl: base, providerConfig }),
         signal: ac.signal,
       });
 

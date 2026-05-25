@@ -86,6 +86,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
     const data = await capabilitySubmitVideoGeneration({
       ...params,
       apiConfig: {
+        ...params.apiConfig,
         apiKey,
         baseUrl: base,
         providerConfig: cfg,
@@ -105,6 +106,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
     return capabilityGenerateImage({
       ...params,
       apiConfig: {
+        ...params.apiConfig,
         apiKey,
         baseUrl: base,
         providerConfig: cfg,

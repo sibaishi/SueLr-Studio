@@ -1,5 +1,6 @@
 import type { ContentPart, ToolCallDef, ToolDefinition, ModelInfo } from '@/shared/types';
 import type { ProviderConfig } from './provider-config';
+import type { ApiConfigPayload } from '@/shared/api/capabilities';
 
 export type { ProviderConfig } from './provider-config';
 
@@ -39,6 +40,7 @@ export interface VideoSubmitParams {
   video_urls?: string[];
   input_audio?: string;
   input_audios?: string[];
+  apiConfig?: ApiConfigPayload;
   signal?: AbortSignal;
 }
 
@@ -64,6 +66,7 @@ export interface GenerateImageParams {
   output_format?: 'png' | 'jpeg' | 'webp';
   image?: string[];
   mask?: string;
+  apiConfig?: ApiConfigPayload;
   signal?: AbortSignal;
 }
 

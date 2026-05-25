@@ -4,7 +4,7 @@ import type { ProviderConfig } from '@/shared/providers';
 import { gid } from '@/shared/runtime';
 import { compressImage } from '@/shared/runtime/image';
 import { createProvider } from '@/shared/providers';
-import { resolveModelConfig, resolveProviderModelId, resolveSelectedModel } from '@/shared/providers/model-routing';
+import { buildApiConfigPayload, resolveModelConfig, resolveProviderModelId, resolveSelectedModel } from '@/shared/providers/model-routing';
 import { clearGallery as clearStoredGallery, loadGallery, saveImage } from '@/shared/api/assistant';
 import { useToast } from '@/providers/ToastContext';
 
@@ -169,6 +169,11 @@ export function useImageGen(
         n: task.n,
         output_format: task.output_format,
         image: task.refImages,
+        apiConfig: buildApiConfigPayload(taskConfig, {
+          apiKey,
+          baseUrl: base,
+          providerConfig,
+        }),
         signal: controller.signal,
       })
       .then(async (result) => {

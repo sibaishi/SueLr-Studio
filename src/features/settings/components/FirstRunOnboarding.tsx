@@ -6,9 +6,14 @@ import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
 import { catModel } from '@/shared/providers/model-family';
 import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
 import { apiRequest } from '@/shared/api';
+import type { RuntimeCapabilities } from '@/shared/runtime';
+import { getRuntimeCapabilities } from '@/shared/api/capabilities';
 import {
+  loadClientDownloadDirectoryState,
   loadStorageSettings,
   pickStorageDirectory,
+  pickClientDownloadDirectory,
+  resetClientDownloadDirectory,
   resetStorageSettings,
   restartBackendRequest,
   saveStorageSettings,
@@ -132,6 +137,7 @@ export function FirstRunOnboarding({
 }: Props) {
   const T = useT();
   const [storage, setStorage] = useState<StorageSettingsPayload | null>(null);
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilities | null>(null);
   const [storageDraft, setStorageDraft] = useState('');
   const [storageBusy, setStorageBusy] = useState(false);
   const [configName, setConfigName] = useState('默认配置');
@@ -149,6 +155,13 @@ export function FirstRunOnboarding({
 
   useEffect(() => {
     let cancelled = false;
+    void getRuntimeCapabilities()
+      .then((next: RuntimeCapabilities) => {
+        if (!cancelled) setRuntimeCapabilities(next);
+      })
+      .catch(() => {
+        if (!cancelled) setRuntimeCapabilities(null);
+      });
     void loadStorageSettings()
       .then((next) => {
         if (cancelled) return;
@@ -183,9 +196,16 @@ export function FirstRunOnboarding({
     setApiConfigs((prev) => prev.map((config) => (config.id === id ? { ...config, ...patch } : config)));
   };
 
+  const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
+
   const chooseStorage = async () => {
     setStorageBusy(true);
     try {
+      if (isServerRuntime) {
+        const selected = await pickClientDownloadDirectory();
+        if (selected) setStorageDraft(selected.label);
+        return;
+      }
       const selected = await pickStorageDirectory();
       if (selected) setStorageDraft(selected);
     } catch (error) {
@@ -198,6 +218,12 @@ export function FirstRunOnboarding({
   const applyStorage = async () => {
     setStorageBusy(true);
     try {
+      if (isServerRuntime) {
+        const next = loadClientDownloadDirectoryState();
+        setStorageDraft(next?.label || '');
+        addLog('success', '浏览器自动下载目录已更新');
+        return;
+      }
       let next = storageDraft.trim()
         ? await saveStorageSettings(storageDraft.trim())
         : await resetStorageSettings();
@@ -284,7 +310,9 @@ export function FirstRunOnboarding({
   };
 
   const canComplete = Boolean(baseUrl.trim() && secret.trim() && testedModels.length > 0);
-  const storageLabel = storage?.effectiveRoot || '正在读取默认位置...';
+  const storageLabel = isServerRuntime
+    ? (storageDraft || '未设置浏览器自动下载目录，将回退到手动下载')
+    : (storage?.effectiveRoot || '正在读取默认位置...');
   const chatCount = testedModels.filter((model) => model.cat === 'chat').length;
   const imageCount = testedModels.filter((model) => model.cat === 'image').length;
   const videoCount = testedModels.filter((model) => model.cat === 'video').length;
@@ -321,15 +349,15 @@ export function FirstRunOnboarding({
             </div>
 
             <div style={{ borderRadius: 8, border: `1px solid ${T.border}`, background: T.card2, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: T.text3, marginBottom: 8 }}>当前生效路径</div>
+              <div style={{ fontSize: 12, color: T.text3, marginBottom: 8 }}>{isServerRuntime ? '当前浏览器下载目录' : '当前生效路径'}</div>
               <div style={{ fontSize: 13, lineHeight: 1.6, color: T.text, overflowWrap: 'anywhere' }}>{storageLabel}</div>
             </div>
 
-            <IOSLabel>自定义绝对路径</IOSLabel>
+            <IOSLabel>{isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径'}</IOSLabel>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'center', marginBottom: 12 }}>
-              <IOSInput value={storageDraft} onChange={setStorageDraft} placeholder="留空则使用默认位置" />
+              <IOSInput value={storageDraft} onChange={setStorageDraft} placeholder={isServerRuntime ? '授权后用于接收 server-web 输出的本地下载目录' : '留空则使用默认位置'} disabled={isServerRuntime} />
               <IOSButton
-                label={storageBusy ? '选择中...' : '选择'}
+                label={storageBusy ? '选择中...' : (isServerRuntime ? '授权目录' : '选择')}
                 onClick={() => {
                   void chooseStorage();
                 }}
@@ -338,9 +366,14 @@ export function FirstRunOnboarding({
                 style={{ width: 72 }}
               />
             </div>
+            {isServerRuntime ? (
+              <div style={{ fontSize: 12, color: T.text2, lineHeight: 1.6, marginBottom: 12 }}>
+                这里只管理当前浏览器接收 `server-web` 输出时的本地自动下载目录，不会修改服务器宿主机路径。
+              </div>
+            ) : null}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <IOSButton
-                label={storageBusy ? '处理中...' : storageDraft.trim() ? '保存并应用路径' : '使用默认位置'}
+                label={storageBusy ? '处理中...' : (isServerRuntime ? '应用目录' : (storageDraft.trim() ? '保存并应用路径' : '使用默认位置'))}
                 onClick={() => {
                   void applyStorage();
                 }}
@@ -348,6 +381,29 @@ export function FirstRunOnboarding({
                 small
                 style={{ width: 'auto' }}
               />
+              {isServerRuntime ? (
+                <IOSButton
+                  label={storageBusy ? '处理中...' : '清除授权'}
+                  onClick={() => {
+                    void (async () => {
+                      setStorageBusy(true);
+                      try {
+                        await resetClientDownloadDirectory();
+                        const next = loadClientDownloadDirectoryState();
+                        setStorageDraft(next?.label || '');
+                        addLog('success', '浏览器自动下载目录授权已清除');
+                      } catch (error) {
+                        addLog('error', error instanceof Error ? error.message : String(error));
+                      } finally {
+                        setStorageBusy(false);
+                      }
+                    })();
+                  }}
+                  disabled={storageBusy}
+                  small
+                  style={{ width: 'auto' }}
+                />
+              ) : null}
               <span style={{ fontSize: 12, color: T.text3 }}>之后也可以在设置里修改。</span>
             </div>
           </section>
