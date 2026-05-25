@@ -104,6 +104,16 @@ Never hardcode app-data paths. Use the config-dir resolver:
 - macOS: `~/Library/Application Support/SueLr-Studio`
 - Linux: `~/.config/SueLr-Studio`
 
+## Server-Web Deployment Assets
+
+- Repository-checked server deployments live under `scripts/deploy/server-web/`
+- Keep compose, Dockerfile, nginx site config, and host helper scripts aligned in the same change
+- If server rollout steps change, update:
+  - `docs/user-guide.md`
+  - `docs/developer-guide.md`
+  - `docs/release-sop.md`
+  - `docs/deployment-variants-plan.md`
+
 ## UTF-8 Checks
 
 ```bash

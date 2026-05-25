@@ -538,6 +538,19 @@ Current desktop shell module split:
 - `electron/embedded-backend.cjs`
   - embedded backend child-process spawn, readiness, and teardown orchestration
 
+Server-web deployment assets:
+
+- `scripts/deploy/server-web/compose.yaml`
+  - compose definition for the server-web runtime
+- `scripts/deploy/server-web/Dockerfile`
+  - backend plus static frontend image build
+- `scripts/deploy/server-web/studio.suelr.com.nginx.conf`
+  - example nginx reverse-proxy site file
+- `scripts/deploy/server-web/install.sh`
+  - first-time host setup for repository-checkout deployments
+- `scripts/deploy/server-web/update.sh`
+  - host-side update flow for pull, rebuild, and nginx reload
+
 Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.
 
 ## Local Launching

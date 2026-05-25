@@ -723,6 +723,8 @@ Operational notes:
 - browser users download generated files from the server; they do not write directly into a server host path through Settings
 - if long-term retention is not desired, define cleanup policy together with application-side cleanup entry points
 - the repository deployment assets for this mode should stay versioned under `scripts/deploy/server-web/`
+- for repository-checkout deployments, `scripts/deploy/server-web/install.sh` handles first-time setup and `scripts/deploy/server-web/update.sh` handles later pull-and-rebuild updates
+- those scripts assume a checked-out repo with a sibling `runtime/` directory by default; override target paths or branch selection through `SUE_LR_*` environment variables when the host layout differs
 
 ### Milestone 5: Multi-User Foundations
 

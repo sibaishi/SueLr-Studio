@@ -124,6 +124,12 @@ npm.cmd run electron:dist
 - the desktop app is single-window by design
 - launching the packaged app a second time should focus the existing window instead of opening a second main window
 
+Server-web repository deployment:
+
+- first-time setup can use `bash ./scripts/deploy/server-web/install.sh`
+- later updates on the same host can use `bash ./scripts/deploy/server-web/update.sh`
+- the scripts refresh docker compose and nginx config together, so browser routing and app container stay aligned
+
 Default local addresses:
 
 - Frontend: `http://localhost:5173`

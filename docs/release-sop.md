@@ -44,6 +44,13 @@ This document defines the standard release workflow for SueLr Studio variants. T
    npm.cmd run electron:dist
    ```
 
+   For `server-web` repository-checkout deployments, use:
+
+   ```bash
+   bash ./scripts/deploy/server-web/install.sh
+   bash ./scripts/deploy/server-web/update.sh
+   ```
+
    For other variants, follow the build steps defined in `docs/deployment-variants-plan.md`.
 
 6. Verify the packaged or deployed app manually.
