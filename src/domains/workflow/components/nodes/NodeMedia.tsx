@@ -142,7 +142,7 @@ export function MediaPreview({
             background: 'var(--node-card-field)',
           }}
         />
-        <ImageSizeLabel src={resolvedPreviewValue} dimensionSrc={value} className="node-media-preview__size" />
+        <ImageSizeLabel src={resolvedPreviewValue} className="node-media-preview__size" />
       </button>
     );
   }

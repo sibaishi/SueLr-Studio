@@ -472,7 +472,7 @@ function ImageResult({
   return (
     <button type="button" onClick={() => onPreviewImage(src)} className={`workflow-results__media ${compact ? 'workflow-results__media--compact' : ''}`}>
       <img src={thumbnailSrc || src} alt="" className="h-full w-full object-cover" />
-      <ImageSizeLabel src={thumbnailSrc || src} dimensionSrc={src} className="workflow-results__media-size" />
+      <ImageSizeLabel src={thumbnailSrc || src} className="workflow-results__media-size" />
     </button>
   );
 }
