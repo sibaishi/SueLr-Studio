@@ -183,6 +183,16 @@ function sanitizeApiConfig(value) {
   };
 }
 
+function sanitizeApiConfigForPublic(value) {
+  const config = sanitizeApiConfig(value);
+  if (!config) return null;
+  return {
+    ...config,
+    apiKey: '',
+    apiKeySet: Boolean(config.apiKey),
+  };
+}
+
 function sanitizeApiConfigList(value) {
   if (!Array.isArray(value)) return [];
   const deduped = new Map();
@@ -295,6 +305,40 @@ function mergeRuntimeSections(...sections) {
     merged.activeConfigId = merged.configs[0].id;
   }
   return merged;
+}
+
+function mergeSettingsPreservingSecrets(current, patch) {
+  const next = {
+    ...current,
+    ...patch,
+    ui: {
+      ...current.ui,
+      ...(isPlainObject(patch.ui) ? patch.ui : {}),
+    },
+    runtime: {
+      ...current.runtime,
+      ...(isPlainObject(patch.runtime) ? patch.runtime : {}),
+    },
+    workflow: {
+      ...current.workflow,
+      ...(isPlainObject(patch.workflow) ? patch.workflow : {}),
+    },
+    migrations: {
+      ...current.migrations,
+      ...(isPlainObject(patch.migrations) ? patch.migrations : {}),
+    },
+  };
+
+  if (Array.isArray(patch.runtime?.configs)) {
+    const currentById = new Map((current.runtime?.configs || []).map((config) => [config.id, config]));
+    next.runtime.configs = patch.runtime.configs.map((config) => {
+      const previous = currentById.get(config.id);
+      const apiKey = cleanOptionalString(config.apiKey, 4000) || previous?.apiKey || '';
+      return { ...config, apiKey };
+    });
+  }
+
+  return next;
 }
 
 function sanitizeSettingsShape(input) {
@@ -479,26 +523,7 @@ export class SettingsRepository {
   updateSettings(patch) {
     assertPlainObject(patch, '设置更新体必须为对象');
     const current = this.readSettings();
-    const next = {
-      ...current,
-      ...patch,
-      ui: {
-        ...current.ui,
-        ...(isPlainObject(patch.ui) ? patch.ui : {}),
-      },
-      runtime: {
-        ...current.runtime,
-        ...(isPlainObject(patch.runtime) ? patch.runtime : {}),
-      },
-      workflow: {
-        ...current.workflow,
-        ...(isPlainObject(patch.workflow) ? patch.workflow : {}),
-      },
-      migrations: {
-        ...current.migrations,
-        ...(isPlainObject(patch.migrations) ? patch.migrations : {}),
-      },
-    };
+    const next = mergeSettingsPreservingSecrets(current, patch);
     const sanitized = sanitizeSettingsShape(next);
     configureOutboundProxy(sanitized.runtime.outboundProxy);
     writeJsonFile(STORAGE_PATHS.settingsFile, sanitized);
@@ -584,6 +609,20 @@ export class SettingsRepository {
       projectModels,
       providerConfig: sanitizeProviderConfig(active?.providerConfig || DEFAULT_PROVIDER_CONFIG),
       availableProjectModels: groupConfiguredProjectModels(projectModels),
+    };
+  }
+
+  buildStudioSettingsResponse(settings) {
+    const currentSettings = settings || this.readSettings();
+    return {
+      version: currentSettings.version,
+      migrations: currentSettings.migrations,
+      ui: currentSettings.ui,
+      runtime: {
+        ...currentSettings.runtime,
+        configs: currentSettings.runtime.configs.map((config) => sanitizeApiConfigForPublic(config)).filter(Boolean),
+      },
+      workflow: currentSettings.workflow,
     };
   }
 

@@ -79,10 +79,15 @@ export async function loadStudioSettings(): Promise<StudioSettingsPayload | null
 
 export async function saveStudioSettings(settings: StudioSettingsPayload): Promise<void> {
   if (!isBackendAvailable()) return;
+  const sanitizedConfigs = (settings.runtime.configs || []).map((config) => ({
+    ...config,
+    ...(config.apiKey ? { apiKey: config.apiKey } : {}),
+  }));
   const payload: StudioSettingsPayload = {
     ...settings,
     runtime: {
       ...settings.runtime,
+      configs: sanitizedConfigs,
       ...(settings.runtime.tavilyApiKey ? { tavilyApiKey: settings.runtime.tavilyApiKey } : {}),
     },
   };

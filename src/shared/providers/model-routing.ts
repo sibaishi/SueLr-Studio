@@ -34,6 +34,7 @@ export function buildApiConfigPayload(
   },
 ): ApiConfigPayload {
   return {
+    configId: config?.id,
     apiKey: config?.apiKey || fallback.apiKey,
     baseUrl: config?.base || fallback.baseUrl,
     providerConfig: config?.providerConfig || fallback.providerConfig,

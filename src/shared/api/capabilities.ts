@@ -5,6 +5,7 @@ import type { ChatCompletionResponse, ContentPart, ToolDefinition } from '@/shar
 import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 
 export type ApiConfigPayload = {
+  configId?: string;
   apiKey?: string;
   tavilyApiKey?: string;
   baseUrl?: string;

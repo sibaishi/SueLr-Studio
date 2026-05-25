@@ -53,11 +53,23 @@ function assertEnvelopeShape(body) {
 test('HTTP contract: settings endpoints use unified envelope', async () => {
   const { server, baseUrl } = await createTestServer('settings');
   try {
+    await requestJson(baseUrl, '/api/settings/studio', {
+      method: 'PUT',
+      body: JSON.stringify({
+        runtime: {
+          activeConfigId: 'default',
+          configs: [{ id: 'default', name: 'Primary', base: 'https://api.openai.com/v1', apiKey: 'sk-secret', models: [] }],
+        },
+      }),
+    });
+
     const initial = await requestJson(baseUrl, '/api/settings/studio');
     assert.equal(initial.status, 200);
     assert.equal(initial.body.success, true);
     assert.equal(initial.body.data.ui.theme, 'dark');
     assert.equal(initial.body.data.runtime.tavilyApiKey, '');
+    assert.equal(initial.body.data.runtime.configs[0].apiKey, '');
+    assert.equal(initial.body.data.runtime.configs[0].apiKeySet, true);
 
     const publicSettings = await requestJson(baseUrl, '/api/settings');
     assert.equal(publicSettings.status, 200);
@@ -72,6 +84,8 @@ test('HTTP contract: settings endpoints use unified envelope', async () => {
     assert.equal(updated.status, 200);
     assert.equal(updated.body.success, true);
     assert.equal(updated.body.data.ui.theme, 'light');
+    assert.equal(updated.body.data.runtime.configs[0].apiKey, '');
+    assert.equal(updated.body.data.runtime.configs[0].apiKeySet, true);
 
     const invalid = await requestJson(baseUrl, '/api/settings/studio', {
       method: 'PUT',

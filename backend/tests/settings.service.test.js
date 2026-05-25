@@ -54,6 +54,43 @@ test('settings service reads and updates studio settings', async () => {
     httpsProxy: '',
     noProxy: '',
   });
+  assert.equal(updated.runtime.configs[0]?.apiKey, '');
+  assert.equal(updated.runtime.configs[0]?.apiKeySet, false);
+});
+
+test('studio settings response redacts provider secrets but preserves them on empty apiKey patch', async () => {
+  const root = createStorageDir('studio-settings-redaction');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { settingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
+
+  settingsService.updateStudioSettings({
+    runtime: {
+      activeConfigId: 'default',
+      configs: [{ id: 'default', name: 'Primary', base: 'https://api.openai.com/v1', apiKey: 'sk-secret', models: [] }],
+    },
+  });
+
+  const redacted = settingsService.getStudioSettings();
+  assert.equal(redacted.runtime.configs[0]?.apiKey, '');
+  assert.equal(redacted.runtime.configs[0]?.apiKeySet, true);
+
+  settingsService.updateStudioSettings({
+    runtime: {
+      activeConfigId: 'default',
+      configs: [{ id: 'default', name: 'Renamed', base: 'https://api.openai.com/v1', apiKey: '', models: [] }],
+    },
+  });
+
+  const runtimeConfig = settingsService.buildRuntimeConfig({ configId: 'default' });
+  assert.equal(runtimeConfig.apiKey, 'sk-secret');
+
+  const roundTrip = settingsService.getStudioSettings();
+  assert.equal(roundTrip.runtime.configs[0]?.name, 'Renamed');
+  assert.equal(roundTrip.runtime.configs[0]?.apiKey, '');
+  assert.equal(roundTrip.runtime.configs[0]?.apiKeySet, true);
 });
 
 test('settings response does not expose secrets in plaintext', async () => {

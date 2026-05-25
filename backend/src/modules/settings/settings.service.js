@@ -65,7 +65,7 @@ export class SettingsService {
 
   getStudioSettings() {
     try {
-      return this.repository.readSettings();
+      return this.repository.buildStudioSettingsResponse(this.repository.readSettings());
     } catch (error) {
       throw fromLegacyError(error);
     }
@@ -151,7 +151,7 @@ export class SettingsService {
     try {
       const updated = this.repository.updateSettings(patch);
       logger.info('studio settings updated');
-      return updated;
+      return this.repository.buildStudioSettingsResponse(updated);
     } catch (error) {
       throw fromLegacyError(error);
     }
