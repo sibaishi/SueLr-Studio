@@ -183,7 +183,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
         params.settings.setBase(config.base);
         params.settings.setApiKey(config.apiKey);
         params.settings.setModels(config.models);
-        if (config.models.length === 0 && config.base && config.apiKey) {
+        if (config.models.length === 0 && config.base && (config.apiKey || config.apiKeySet)) {
           try {
             const result = await testSettingsConnection(
               'use-stored',

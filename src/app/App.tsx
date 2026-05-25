@@ -48,7 +48,7 @@ export default function App() {
     themeMode,
   });
   const hasUsableConfig = settings.apiConfigs.some((config) => (
-    Boolean(config.base && config.apiKey) &&
+    Boolean(config.base && (config.apiKey || config.apiKeySet)) &&
     (config.projectModels || []).some((model) => model.configured)
   ));
   const showOnboarding = splashHidden && !hasUsableConfig && !onboardingDismissed;

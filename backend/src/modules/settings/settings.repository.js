@@ -422,7 +422,16 @@ function buildRuntimeApiConfigInternal(overrides = {}) {
   const settings = readSettingsInternal();
   configureOutboundProxy(settings.runtime.outboundProxy);
   const overrideConfigs = sanitizeApiConfigList(overrides.configs);
-  const configs = overrideConfigs.length > 0 ? overrideConfigs : settings.runtime.configs || [];
+  const storedConfigs = settings.runtime.configs || [];
+  const configs = overrideConfigs.length > 0
+    ? overrideConfigs.map((config) => {
+        const stored = storedConfigs.find((item) => item.id === config.id);
+        return {
+          ...config,
+          apiKey: cleanSecretOverride(config.apiKey, 4000) || stored?.apiKey || '',
+        };
+      })
+    : storedConfigs;
   const requestedConfigId = cleanOptionalString(overrides.configId, 120);
   const active = (requestedConfigId ? configs.find((config) => config.id === requestedConfigId) : null)
     || getActiveRuntimeConfig({ ...settings, runtime: { ...settings.runtime, configs } });

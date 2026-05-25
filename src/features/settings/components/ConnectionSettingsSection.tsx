@@ -10,6 +10,8 @@ type Props = {
 };
 
 export function ConnectionSettingsSection({ T, actions, view }: Props) {
+  const hasApiKey = Boolean(view.apiKey || view.activeConfig?.apiKeySet);
+
   return (
     <div className="flex-col" style={{ gap: 16 }}>
       <SectionCard title="配置身份" description="切换当前工作室使用的 API 配置，并管理配置生命周期。">
@@ -37,7 +39,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             <div style={{ minWidth: 0 }}>
               <IOSLabel>认证状态</IOSLabel>
               <div
-                title={view.apiKey ? '已设置 API Key，可以开始连接测试' : '还没有提供 API Key'}
+                title={hasApiKey ? '已设置 API Key，可以开始连接测试' : '还没有提供 API Key'}
                 style={{
                   ...mutedPanelStyle(),
                   minHeight: 44,
@@ -49,7 +51,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {view.apiKey ? '已设置 API Key，可以开始连接测试' : '还没有提供 API Key'}
+                {hasApiKey ? '已设置 API Key，可以开始连接测试' : '还没有提供 API Key'}
               </div>
             </div>
           </div>
@@ -71,7 +73,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             <IOSLabel>API 密钥</IOSLabel>
             <IOSInput value={view.apiKey} onChange={actions.setConnectionApiKey} type="password" placeholder="sk-..." />
           </div>
-          {(!view.base || !view.apiKey) && (
+          {(!view.base || !hasApiKey) && (
             <EmptyStateCard
               title="连接信息还不完整"
               body="测试连接前需要先补齐接口地址和 API 密钥。"

@@ -147,6 +147,7 @@ export interface ApiConfig {
   name: string;
   base: string;
   apiKey: string;
+  apiKeySet?: boolean;
   models: ModelInfo[];
   providerConfig?: ProviderConfig;
   projectModels?: ProjectModel[];
