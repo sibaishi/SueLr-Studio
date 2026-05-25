@@ -15,6 +15,13 @@ import { errorHandler } from './middleware/error-handler.js';
 import { requestContextMiddleware } from './middleware/request-context.js';
 import { requestLoggerMiddleware } from './middleware/request-logger.js';
 import { STORAGE_PATHS, ensureStorageDirectories, migrateLegacyStorageIfNeeded } from '../platform/storage/index.js';
+import {
+  ensureGeneratedThumbnailFromFile,
+  ensureUploadThumbnail,
+  resolveGeneratedOriginalFromThumbnailRelativePath,
+  resolveUploadOriginalFromThumbnailName,
+} from '../platform/media/image-thumbnails.js';
+import { getMimeType } from '../platform/media/media-resolver.js';
 import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js';
 import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.js';
 import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
@@ -64,6 +71,45 @@ export function createApp() {
   app.locals.runtimeCapabilities = runtimeCapabilities;
   app.use(requestContextMiddleware);
   app.use(requestLoggerMiddleware);
+
+  app.get('/api/files/.thumbnails/:filename', async (req, res, next) => {
+    try {
+      const targetPath = resolve(STORAGE_PATHS.uploadsDir, '.thumbnails', req.params.filename);
+      if (!existsSync(targetPath)) {
+        const original = resolveUploadOriginalFromThumbnailName(req.params.filename);
+        if (!original) return next();
+        await ensureUploadThumbnail({
+          filename: original.filename,
+          sourcePath: original.absolutePath,
+          mimeType: getMimeType(original.absolutePath),
+        });
+      }
+      res.sendFile(targetPath);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/outputs/*', async (req, res, next) => {
+    try {
+      const relativePath = String(req.params[0] || '');
+      const absolutePath = resolve(STORAGE_PATHS.generatedDir, relativePath);
+      if (!relativePath.includes('/.thumbnails/') || existsSync(absolutePath)) return next();
+
+      const original = resolveGeneratedOriginalFromThumbnailRelativePath(relativePath);
+      if (!original) return next();
+      await ensureGeneratedThumbnailFromFile({
+        relativePath: original.relativePath,
+        absolutePath: original.absolutePath,
+        mimeType: getMimeType(original.absolutePath),
+      });
+
+      if (!existsSync(absolutePath)) return next();
+      res.sendFile(absolutePath);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.use('/api/outputs', express.static(STORAGE_PATHS.generatedDir));
   app.use('/api/files', express.static(STORAGE_PATHS.uploadsDir));

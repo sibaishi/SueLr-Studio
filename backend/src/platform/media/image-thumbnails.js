@@ -87,6 +87,57 @@ export async function ensureGeneratedThumbnailFromBuffer({ relativePath, buffer,
   return buildUrl('/api/outputs', target.relativePath);
 }
 
+export function resolveUploadOriginalFromThumbnailName(thumbnailName) {
+  const match = String(thumbnailName || '').match(/^(.*)__thumb\.jpg$/i);
+  if (!match) return null;
+  const baseName = match[1];
+  const uploadsDir = STORAGE_PATHS.uploadsDir;
+  if (!fs.existsSync(uploadsDir)) return null;
+
+  for (const entry of fs.readdirSync(uploadsDir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const parsed = path.parse(entry.name);
+    if (parsed.name === baseName) {
+      const absolutePath = safeResolveWithin(uploadsDir, entry.name);
+      if (!absolutePath) continue;
+      return {
+        absolutePath,
+        filename: entry.name,
+        mimeType: '',
+      };
+    }
+  }
+
+  return null;
+}
+
+export function resolveGeneratedOriginalFromThumbnailRelativePath(relativePath) {
+  const normalized = String(relativePath || '').replace(/\\/g, '/');
+  const match = normalized.match(/^(.*?)(?:\/)?\.thumbnails\/([^/]+)__thumb\.jpg$/i);
+  if (!match) return null;
+  const [, directory = '', baseName] = match;
+  const originalDirectory = directory || '';
+  const absoluteDirectory = safeResolveWithin(STORAGE_PATHS.generatedDir, originalDirectory);
+  if (!absoluteDirectory || !fs.existsSync(absoluteDirectory)) return null;
+
+  for (const entry of fs.readdirSync(absoluteDirectory, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const parsed = path.parse(entry.name);
+    if (parsed.name === baseName) {
+      const originalRelativePath = path.posix.join(originalDirectory, entry.name).replace(/^\/+/, '');
+      const absolutePath = safeResolveWithin(STORAGE_PATHS.generatedDir, originalRelativePath);
+      if (!absolutePath) continue;
+      return {
+        absolutePath,
+        relativePath: originalRelativePath,
+        mimeType: '',
+      };
+    }
+  }
+
+  return null;
+}
+
 export function deleteUploadThumbnail(filename) {
   const thumbnailPath = getUploadThumbnailPath(filename);
   if (thumbnailPath && fs.existsSync(thumbnailPath)) {
