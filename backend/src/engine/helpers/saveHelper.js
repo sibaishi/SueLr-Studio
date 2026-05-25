@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.js';
 import { isServerRuntimeMode } from '../../platform/runtime/mode.js';
+import { ensureGeneratedThumbnailFromFile } from '../../platform/media/image-thumbnails.js';
+import { getMimeType } from '../../platform/media/media-resolver.js';
 
 const TYPE_DIRS = {
   image: 'images',
@@ -63,20 +65,35 @@ function toApiOutputUrl(filePath) {
   return `/api/outputs/${relativePath.split(path.sep).join('/')}`;
 }
 
-function toPublicSavedFile(file) {
-  return {
+async function toPublicSavedFile(file) {
+  const url = toApiOutputUrl(file.path) || '';
+  const mimeType = getMimeType(file.path);
+  const publicFile = {
     type: file.type,
     name: path.basename(file.path),
-    url: toApiOutputUrl(file.path) || '',
+    url,
+    thumbnailUrl: '',
+    mimeType,
     width: undefined,
     height: undefined,
   };
+
+  if (file.type === 'image' && url) {
+    const relativePath = path.relative(STORAGE_PATHS.generatedDir, file.path).split(path.sep).join('/');
+    publicFile.thumbnailUrl = await ensureGeneratedThumbnailFromFile({
+      relativePath,
+      absolutePath: file.path,
+      mimeType,
+    }).catch(() => '');
+  }
+
+  return publicFile;
 }
 
 function buildSaveResult(content, savedFiles, savedPaths, { exposeHostPaths = !isServerRuntimeMode() } = {}) {
   const result = {
     content,
-    savedFiles: savedFiles.map(toPublicSavedFile),
+    savedFiles,
   };
 
   if (exposeHostPaths) {
@@ -145,14 +162,15 @@ export async function saveContentByType(content, options = {}) {
 export async function materializeContentForOutput(content, options = {}) {
   const savedFiles = await saveContentByType(content, options);
   const savedPaths = savedFiles.map((file) => file.path);
+  const publicSavedFiles = await Promise.all(savedFiles.map((file) => toPublicSavedFile(file)));
   const urls = savedPaths.map(toApiOutputUrl).filter(Boolean);
   const exposeHostPaths = options.exposeHostPaths ?? !isServerRuntimeMode();
 
   if (typeof content === 'string') {
     if (savedFiles.length === 1 && savedFiles[0]?.type !== 'text' && urls[0]) {
-      return buildSaveResult(urls[0], savedFiles, savedPaths, { exposeHostPaths });
+      return buildSaveResult(urls[0], publicSavedFiles, savedPaths, { exposeHostPaths });
     }
-    return buildSaveResult(content, savedFiles, savedPaths, { exposeHostPaths });
+    return buildSaveResult(content, publicSavedFiles, savedPaths, { exposeHostPaths });
   }
 
   if (Array.isArray(content)) {
@@ -160,12 +178,15 @@ export async function materializeContentForOutput(content, options = {}) {
       if (typeof item !== 'string') return item;
       const savedFile = savedFiles[index];
       const url = urls[index];
-      return savedFile && savedFile.type !== 'text' && url ? url : item;
+      if (savedFile && savedFile.type !== 'text' && url) {
+        return url;
+      }
+      return item;
     });
-    return buildSaveResult(mappedContent, savedFiles, savedPaths, { exposeHostPaths });
+    return buildSaveResult(mappedContent, publicSavedFiles, savedPaths, { exposeHostPaths });
   }
 
-  return buildSaveResult(content, savedFiles, savedPaths, { exposeHostPaths });
+  return buildSaveResult(content, publicSavedFiles, savedPaths, { exposeHostPaths });
 }
 
 export const DEFAULT_OUTPUTS_DIR = STORAGE_PATHS.generatedDir;

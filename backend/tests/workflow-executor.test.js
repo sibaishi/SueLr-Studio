@@ -250,6 +250,7 @@ test('legacy image handle aliases still flow imageGen output into output nodes',
     assert.match(outputEvent.data.outputs.content, /^\/api\/outputs\/images\/.+\.png$/);
     assert.equal(Array.isArray(outputEvent.data.outputs.savedFiles), true);
     assert.equal(outputEvent.data.outputs.savedFiles.length > 0, true);
+    assert.equal(typeof outputEvent.data.outputs.savedFiles[0].thumbnailUrl, 'string');
   } finally {
     globalThis.fetch = originalFetch;
   }

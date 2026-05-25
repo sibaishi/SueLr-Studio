@@ -1419,7 +1419,25 @@ function OutputContent({
   outerStyle: CSSProperties;
   isLastSection: boolean;
 }) {
-  const content = outputs?.content;
+  const savedFiles = Array.isArray(outputs?.savedFiles) ? outputs.savedFiles : [];
+  const rawContent = outputs?.content;
+  const content = (() => {
+    if (
+      typeof rawContent === 'string'
+      && rawContent.startsWith('/api/outputs/')
+      && isRenderableOutputMediaUrl(rawContent)
+    ) {
+      const matched = savedFiles.find((file) => (
+        file
+        && typeof file === 'object'
+        && typeof (file as { url?: unknown }).url === 'string'
+        && (file as { url: string }).url === rawContent
+        && (file as { type?: unknown }).type === 'image'
+      )) as { url: string; thumbnailUrl?: string; type?: string; width?: number; height?: number } | undefined;
+      if (matched) return matched;
+    }
+    return rawContent;
+  })();
   void isLastSection;
 
   if (content === undefined || content === null) {

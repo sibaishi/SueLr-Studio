@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { NODE_ICONS } from '@/domains/workflow/components/nodes/nodeConstants';
+import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
@@ -355,10 +356,30 @@ function AiOutputGroup({
   onPreviewImage: (src: string) => void;
   onBackfillText?: (text: string) => void;
 }) {
+  const savedFiles = Array.isArray(outputs.savedFiles) ? outputs.savedFiles : [];
   const entries = Object.entries(outputs)
     .filter(([key]) => key !== 'savedFiles' && key !== 'savedPaths')
     .filter(([, value]) => value !== undefined && value !== null)
-    .map(([key, value]) => [key, unwrapOutputValue(value)] as const);
+    .map(([key, value]) => {
+      const unwrapped = unwrapOutputValue(value);
+      if (
+        typeof unwrapped === 'string'
+        && unwrapped.startsWith('/api/outputs/')
+        && isRenderableOutputImageUrl(unwrapped)
+      ) {
+        const matched = savedFiles.find((file) => (
+          file
+          && typeof file === 'object'
+          && typeof (file as { url?: unknown }).url === 'string'
+          && (file as { url: string }).url === unwrapped
+          && (file as { type?: unknown }).type === 'image'
+        )) as { url: string; thumbnailUrl?: string; type: string; name?: string; mimeType?: string; width?: number; height?: number } | undefined;
+        if (matched) {
+          return [key, unwrapOutputValue(matched)] as const;
+        }
+      }
+      return [key, unwrapped] as const;
+    });
 
   if (entries.length === 0) return <TextResult text="" />;
 
@@ -388,7 +409,7 @@ function AiOutputValue({
   onBackfillText?: (text: string) => void;
 }) {
   if (isGeneratedOutputValue(value)) {
-    if (value.type === 'image') return <ImageResult src={value.url} thumbnailSrc={value.thumbnailUrl} width={value.width} height={value.height} onPreviewImage={onPreviewImage} />;
+    if (value.type === 'image') return <ImageResult src={value.url} thumbnailSrc={value.thumbnailUrl || inferImageThumbnailUrl(value.url) || value.url} width={value.width} height={value.height} onPreviewImage={onPreviewImage} />;
     if (value.type === 'video') return <VideoResult src={value.url} />;
     if (value.type === 'audio') return <audio src={value.url} controls className="w-full" />;
     if (isPreviewableTextOutput(value)) {
