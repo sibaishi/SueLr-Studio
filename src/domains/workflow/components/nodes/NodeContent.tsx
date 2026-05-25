@@ -1367,7 +1367,15 @@ function InteractiveValue({ value }: { value: unknown }) {
 
   if (isRenderableOutputMediaObject(value)) {
     if (value.type === 'image' && isRenderableOutputMediaUrl(value.url)) {
-      return <MediaPreview value={value.url} previewValue={value.thumbnailUrl || value.url} fill inertImage kindOverride="image" />;
+      return (
+        <MediaPreview
+          value={value.url}
+          previewValue={value.thumbnailUrl || inferImageThumbnailUrl(value.url) || value.url}
+          fill
+          inertImage
+          kindOverride="image"
+        />
+      );
     }
     if (isRenderableOutputMediaUrl(value.url)) {
       return <MediaCard value={value.url} fill />;
