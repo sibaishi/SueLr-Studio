@@ -66,7 +66,7 @@ function toApiOutputUrl(filePath) {
 }
 
 async function toPublicSavedFile(file) {
-  const url = toApiOutputUrl(file.path) || '';
+  const url = file.url || toApiOutputUrl(file.path) || '';
   const mimeType = getMimeType(file.path);
   const publicFile = {
     type: file.type,
@@ -132,6 +132,9 @@ async function saveString(value, options) {
   const localApiPath = resolveLocalApiPath(value);
   if (localApiPath && fs.existsSync(localApiPath)) {
     const type = detectUrlType(value);
+    if (value.startsWith('/api/outputs/')) {
+      return { type, path: localApiPath, url: value };
+    }
     const ext = path.extname(localApiPath).replace('.', '') || 'bin';
     const filePath = targetPath(type, options, ext);
     fs.copyFileSync(localApiPath, filePath);

@@ -32,6 +32,9 @@ export async function execute(node, inputs, apiConfig, sendProgress) {
 
   return {
     images: result.images,
-    request: result.request,
+    meta: {
+      model: result.request?.model || request.model,
+      count: result.images.length,
+    },
   };
 }
