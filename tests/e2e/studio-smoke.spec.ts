@@ -192,7 +192,7 @@ test.describe('studio smoke', () => {
     await expect(page.locator('[data-testid^="settings-project-model-card-"]')).toHaveCount(0);
   });
 
-  test('settings disables local-only actions in server runtime mode', async ({ page }) => {
+  test('settings keeps browser download path entry in server runtime mode', async ({ page }) => {
     await clearLocalState(page);
 
     await page.route('**/api/status', async (route) => {
@@ -270,10 +270,10 @@ test.describe('studio smoke', () => {
     await page.getByTestId('settings-module-defaults').click();
 
     await expect(page.getByTestId('settings-runtime-storage-mode')).toContainText('服务器单用户');
-    await expect(page.getByTestId('settings-storage-effective-root')).toContainText('服务器托管存储目录');
-    await expect(page.getByTestId('settings-pick-storage-path')).toBeDisabled();
-    await expect(page.getByTestId('settings-save-storage-path')).toBeDisabled();
-    await expect(page.getByTestId('settings-reset-storage-path')).toBeDisabled();
+    await expect(page.getByTestId('settings-storage-effective-root')).toContainText('未设置浏览器自动下载目录');
+    await expect(page.getByTestId('settings-pick-storage-path')).toBeEnabled();
+    await expect(page.getByTestId('settings-save-storage-path')).toBeEnabled();
+    await expect(page.getByTestId('settings-reset-storage-path')).toBeEnabled();
     await expect(page.getByTestId('settings-restart-backend')).toBeDisabled();
     await expect(page.getByTestId('settings-restart-backend-hint')).toContainText('部署端');
 
@@ -283,7 +283,7 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('settings-capability-restart-backend')).toContainText('禁用');
   });
 
-  test('workflow saveFile node disables directory picker in server runtime mode', async ({ page }) => {
+  test('workflow saveFile node switches to browser download authorization in server runtime mode', async ({ page }) => {
     await clearLocalState(page);
 
     await page.route('**/api/status', async (route) => {
@@ -328,8 +328,8 @@ test.describe('studio smoke', () => {
 
     await page.getByTestId('workflow-node-item-saveFile').click();
 
-    const pickerButton = page.locator('.node-param__picker-button').filter({ hasText: '选择文件夹' }).first();
-    await expect(pickerButton).toBeDisabled();
-    await expect(page.locator('.node-param__hint').filter({ hasText: '当前运行模式不支持目录选择器' }).first()).toBeVisible();
+    const pickerButton = page.locator('.node-param__picker-button').filter({ hasText: '授权下载目录' }).first();
+    await expect(pickerButton).toBeEnabled();
+    await expect(page.locator('.node-param__hint').filter({ hasText: 'server-web 下这里用于授权当前浏览器的自动下载目录' }).first()).toBeVisible();
   });
 });

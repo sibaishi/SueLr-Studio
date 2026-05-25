@@ -60,6 +60,11 @@ export type StorageSettingsPayload = {
   canManagePath?: boolean;
 };
 
+export type ClientDownloadDirectoryState = {
+  label: string;
+  supported: boolean;
+};
+
 export type BackendStatusPayload = {
   ok: boolean;
   version: string;

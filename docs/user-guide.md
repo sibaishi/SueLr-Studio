@@ -283,8 +283,9 @@ You can override that from `Settings -> Defaults`.
 Runtime-specific behavior:
 
 - in `desktop` and `local-web`, the settings page can offer local path selection and backend restart when the runtime exposes those capabilities
-- in `server-single-user` and `server-multi-user`, local-only actions are disabled in `Settings -> Defaults`
-- when server modes block an action, `Settings -> Diagnostics` shows the active runtime mode and capability snapshot so the reason is visible in the UI
+- in `server-web`, the same `外部数据路径` entry stays visible, but it represents the current browser user's local auto-download target rather than the server host storage directory
+- in `server-web`, backend restart stays unavailable from the browser UI
+- when a server runtime blocks a host-only action, `Settings -> Diagnostics` shows the active runtime mode and capability snapshot so the reason is visible in the UI
 
 What gets stored there:
 
@@ -304,6 +305,10 @@ Generated media is organized under the app data root:
 
 All generated files are still served through `/api/outputs/...` or `/api/assistant/files/...`, so display and reuse flows keep using local URLs rather than absolute filesystem paths.
 
+In `server-web`, generated files may be stored temporarily on the server before you download them. The settings path shown in the browser does not change the server host storage directory.
+
+In `Workflow -> 结果`, `server-web` can expose a `清空服务器结果` action. This deletes the server's currently retained temporary output history directly. The action is irreversible, so the UI will ask for confirmation first.
+
 If `APP_CONFIG_DIR` is set in the environment, it overrides the in-app storage path setting.
 
 ### 7. Restart backend from Settings
@@ -314,7 +319,7 @@ This is mainly used after changing storage-root-related settings.
 
 In `local-web`, this button is still valid because the backend is running on the same local machine as the browser UI.
 
-In server deployment modes, this button is intentionally disabled. Restart must be handled by the deployment-side process manager or service supervisor.
+In `server-web`, this button is intentionally disabled. Restart must be handled by the deployment-side process manager or service supervisor.
 
 Safety rule:
 

@@ -6,6 +6,10 @@ export class FilesController {
     res.json(successEnvelope(filesService.listGeneratedOutputs()));
   }
 
+  clearGenerated(_req, res) {
+    res.json(successEnvelope(filesService.clearGeneratedOutputs()));
+  }
+
   upload(req, res) {
     res.json(successEnvelope(filesService.buildUploadResponse(req.file)));
   }

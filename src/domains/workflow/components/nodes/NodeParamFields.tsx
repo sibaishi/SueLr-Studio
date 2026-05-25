@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FocusEvent } from 'react';
 import { selectDirectory } from '@/shared/api';
 import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
+import { pickBrowserDownloadDirectory } from '@/shared/runtime/browserDownload';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ParamDef } from '@/domains/workflow/lib/types';
@@ -136,6 +137,7 @@ function ParamEditor({
   const addExecutionLog = useWorkflowStore((s) => s.addExecutionLog);
   const runtimeCapabilities = getCachedRuntimeCapabilities();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? true;
+  const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
   const connectedApiKeyNode = nodeId
@@ -193,6 +195,13 @@ function ParamEditor({
 
   const handlePickDirectory = async () => {
     try {
+      if (isServerRuntime) {
+        const directory = await pickBrowserDownloadDirectory();
+        textField.setValue(directory.label);
+        onChange(directory.label);
+        addExecutionLog({ level: 'success', message: `已授权浏览器自动下载目录：${directory.label}` });
+        return;
+      }
       const selectedPath = await selectDirectory();
       if (!selectedPath) return;
       textField.setValue(selectedPath);
@@ -294,15 +303,20 @@ function ParamEditor({
                   type="button"
                   className="node-secondary-button node-param__picker-button"
                   onClick={() => { void handlePickDirectory(); }}
-                  disabled={!canSelectDirectory}
-                  title={canSelectDirectory ? '选择文件夹' : '当前运行模式不支持目录选择器'}
+                  disabled={!canSelectDirectory && !isServerRuntime}
+                  title={isServerRuntime ? '授权浏览器自动下载目录' : (canSelectDirectory ? '选择文件夹' : '当前运行模式不支持目录选择器')}
                 >
-                  选择文件夹
+                  {isServerRuntime ? '授权下载目录' : '选择文件夹'}
                 </button>
               </div>
-              {!canSelectDirectory ? (
+              {!canSelectDirectory && !isServerRuntime ? (
                 <div className="node-param__hint">
                   当前运行模式不支持目录选择器，请直接输入可访问的绝对路径。
+                </div>
+              ) : null}
+              {isServerRuntime ? (
+                <div className="node-param__hint">
+                  server-web 下这里用于授权当前浏览器的自动下载目录，不代表服务器宿主机保存路径。
                 </div>
               ) : null}
             </>

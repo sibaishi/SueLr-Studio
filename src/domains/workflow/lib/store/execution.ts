@@ -13,6 +13,8 @@ import {
   getNodeDisplayNameById,
   gid,
 } from '@/domains/workflow/lib/store/helpers';
+import { autoDownloadGeneratedFiles } from '@/shared/runtime/browserDownload';
+import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import type { Node } from '@xyflow/react';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
 
@@ -23,6 +25,22 @@ type WorkflowStoreExecutionActions = Pick<
 
 const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
 const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
+
+function extractDownloadableFiles(outputs: Record<string, unknown>) {
+  const savedFiles = Array.isArray(outputs.savedFiles) ? outputs.savedFiles : [];
+  return savedFiles
+    .filter((file): file is { url: string; name?: string; type?: string } => (
+      Boolean(file)
+      && typeof file === 'object'
+      && typeof (file as { url?: unknown }).url === 'string'
+      && (file as { url: string }).url.startsWith('/api/outputs/')
+    ))
+    .map((file) => ({
+      url: file.url,
+      name: typeof file.name === 'string' ? file.name : undefined,
+      type: typeof file.type === 'string' ? file.type : undefined,
+    }));
+}
 
 function mergeRepeatedOutputValue(existing: unknown, next: unknown) {
   if (existing === undefined) return next;
@@ -316,6 +334,30 @@ export function createWorkflowExecutionActions(
             nodeId: data.nodeId,
             details: formatLogDetails(data.logOutputs ?? data.outputs),
           });
+          const runtime = getCachedRuntimeCapabilities();
+          if (runtime?.mode?.startsWith('server')) {
+            const files = extractDownloadableFiles(data.outputs);
+            if (files.length > 0) {
+              void autoDownloadGeneratedFiles(files)
+                .then((results) => {
+                  const downloaded = results.map((item) => item.filename).join('、');
+                  if (downloaded) {
+                    get().addExecutionLog({
+                      level: 'success',
+                      message: `已为当前浏览器下载输出：${downloaded}`,
+                      nodeId: data.nodeId,
+                    });
+                  }
+                })
+                .catch((error) => {
+                  get().addExecutionLog({
+                    level: 'error',
+                    message: error instanceof Error ? error.message : '自动下载失败，请改用手动下载',
+                    nodeId: data.nodeId,
+                  });
+                });
+            }
+          }
           set((currentState) => {
             const persistTextOutput = shouldPersistTextInputOutput(currentState, data.nodeId, data.outputs);
             const persistTextSplitOutput = shouldPersistTextSplitOutput(currentState, data.nodeId, data.outputs);

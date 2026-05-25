@@ -1,8 +1,14 @@
 import { apiRequest, getApiErrorMessage, setBackendAvailable, isBackendAvailable, selectDirectory, getRuntimeCapabilities } from '@/shared/api';
 import { getCachedRuntimeCapabilities, setCachedRuntimeCapabilities } from '@/shared/api/serverState';
+import {
+  clearBrowserDownloadDirectory,
+  isBrowserDownloadDirectorySupported,
+  loadBrowserDownloadDirectoryMeta,
+  pickBrowserDownloadDirectory,
+} from '@/shared/runtime/browserDownload';
 import type { ModelInfo } from '@/shared/types';
 import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { AccountDetailsLogsPayload, AccountDetailsPayload, BackendRestartPayload, BackendStatusPayload, StorageSettingsPayload, StudioSettingsPayload } from './types';
+import type { AccountDetailsLogsPayload, AccountDetailsPayload, BackendRestartPayload, BackendStatusPayload, ClientDownloadDirectoryState, StorageSettingsPayload, StudioSettingsPayload } from './types';
 
 type BackendModelsData = {
   message?: string;
@@ -116,6 +122,20 @@ export async function resetStorageSettings(): Promise<StorageSettingsPayload> {
 export async function pickStorageDirectory(): Promise<string | null> {
   if (!isBackendAvailable()) return null;
   return selectDirectory();
+}
+
+export function loadClientDownloadDirectoryState(): ClientDownloadDirectoryState | null {
+  const meta = loadBrowserDownloadDirectoryMeta();
+  return meta ? { ...meta, supported: isBrowserDownloadDirectorySupported() } : null;
+}
+
+export async function pickClientDownloadDirectory(): Promise<ClientDownloadDirectoryState> {
+  const meta = await pickBrowserDownloadDirectory();
+  return { ...meta, supported: isBrowserDownloadDirectorySupported() };
+}
+
+export async function resetClientDownloadDirectory(): Promise<void> {
+  await clearBrowserDownloadDirectory();
 }
 
 export async function restartBackendRequest(): Promise<BackendRestartPayload> {

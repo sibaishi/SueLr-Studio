@@ -330,6 +330,12 @@ export async function fetchGeneratedOutputs() {
   return apiFetch<GeneratedOutputFile[]>('/files/generated');
 }
 
+export async function clearGeneratedOutputs() {
+  return apiFetch<{ removed: number }>('/files/generated', {
+    method: 'DELETE',
+  });
+}
+
 export async function uploadFile(file: File): Promise<UploadResult> {
   const formData = new FormData();
   formData.append('file', file);

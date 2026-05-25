@@ -27,7 +27,7 @@ describe('runtime capability cache', () => {
     } as const;
 
     expect(formatRuntimeModeLabel(snapshot.mode)).toBe('服务器单用户');
-    expect(getRuntimeActionHint(snapshot, 'canSelectDirectory')).toContain('不在界面中暴露宿主机存储路径');
+    expect(getRuntimeActionHint(snapshot, 'canSelectDirectory')).toContain('浏览器侧如需自动下载');
     expect(getRuntimeActionHint(snapshot, 'canRestartBackend')).toContain('部署端');
   });
 });

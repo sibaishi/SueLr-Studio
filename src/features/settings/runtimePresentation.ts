@@ -23,7 +23,7 @@ export function getRuntimeActionHint(runtime: RuntimeCapabilities | null, capabi
 
   if (capability === 'canSelectDirectory') {
     return runtime.mode.startsWith('server')
-      ? '服务器模式下不提供本地目录选择，也不在界面中暴露宿主机存储路径。'
+      ? '服务器模式下不会暴露宿主机目录选择器。浏览器侧如需自动下载，请改用下载目录授权。'
       : '当前运行模式不支持目录选择器。';
   }
 

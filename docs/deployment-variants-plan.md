@@ -4,7 +4,7 @@ This document defines how SueLr Studio will evolve from one local-first codebase
 
 - `local-web`: frontend + backend running locally and opened in a browser
 - `desktop`: a clean Electron desktop shell
-- `server`: a deployable server version that starts single-user and later evolves to multi-user
+- `server-web`: a deployable server version that starts single-user and later evolves to multi-user
 
 The delivery rule is simple:
 
@@ -264,7 +264,7 @@ Long-lived branches:
 - `master`: shared product trunk in this repository
 - `release/local-web`: local browser distribution branch
 - `release/desktop`: Electron desktop distribution branch
-- `release/server`: deployable server distribution branch
+- `release/server-web`: deployable server distribution branch
 
 Branch rules:
 
@@ -283,7 +283,7 @@ Status as of 2026-05-23:
   - backend runtime capability endpoint and privileged-route guards
   - settings capability-aware UI for local-only actions
   - public trunk and branch structure documentation
-- still pending before `local-web` and `server` variant delivery:
+- still pending before `local-web` and `server-web` variant delivery:
   - dedicated `local-web` launcher and packaging scripts
   - production-style server static hosting and tighter deployment configuration
   - broader audit of chat, image, video, and workflow surfaces for non-desktop assumptions
@@ -301,7 +301,7 @@ Status as of 2026-05-23:
 - Create `src/shared/runtime/index.ts`
   - export runtime helpers
 - Create `src/shared/runtime/types.ts`
-  - define `desktop`, `local-web`, `server-single-user`, and `server-multi-user` modes
+  - define `desktop`, `local-web`, and `server-web` variant semantics plus single-user and multi-user server phases
 - Create `src/shared/runtime/useRuntimeCapabilities.ts`
   - provide a shared capability-aware hook for UI logic
   - current status: deferred; capability state is currently consumed through bootstrap plus cached server state
@@ -340,7 +340,7 @@ Status as of 2026-05-23:
   - export runtime helpers
   - current status: completed on trunk
 - Create `backend/src/platform/runtime/mode.js`
-  - resolve `desktop-embedded`, `local-web`, `server-single-user`, and `server-multi-user`
+  - resolve `desktop-embedded`, `local-web`, and server runtime phases without leaking host assumptions into shared UI behavior
   - current status: completed on trunk
 - Create `backend/src/platform/runtime/capabilities.js`
   - centralize environment-specific capability decisions
@@ -457,12 +457,12 @@ The `desktop` variant should remain a thin shell over shared logic.
 
 ## Server Single-User Variant
 
-The first server milestone is a single-user deployment, not a full SaaS or multi-tenant system.
+The first `server-web` milestone is a single-user deployment, not a full SaaS or multi-tenant system.
 
 Current status on 2026-05-25:
 
 - completed on trunk:
-  - server runtime already blocks local-only actions such as directory picking and backend restart
+  - server runtime already hides host filesystem details and blocks host-only actions such as backend restart
   - `/api/settings/storage` now redacts host filesystem roots in server modes
   - server-mode storage mutation routes now reject UI-side path changes
   - workflow output materialization no longer exposes host `savedPaths` in server modes
@@ -479,13 +479,15 @@ Current status on 2026-05-25:
 - Modify `backend/src/modules/capabilities/capabilities.routes.js`
   - expose server runtime capabilities to the frontend
 - Modify `backend/src/modules/settings/settings.routes.js`
-  - disable or guard:
-    - `POST /api/settings/select-directory`
+  - guard:
     - `POST /api/settings/restart-backend`
+    - any host-path mutation route that writes server storage roots
+  - preserve the single `外部数据路径` settings entry for `server-web`, but reinterpret it as client download preference rather than host storage-root editing
 - Modify `backend/src/modules/settings/settings.controller.js`
-  - return the standard error envelope when server mode blocks a local-only action
+  - return the standard error envelope when server mode blocks a host-only action
+  - return client-download-path state without exposing host filesystem roots
 - Modify `backend/src/modules/files/files.routes.js`
-  - review file access for server-safe boundaries
+  - review file access for server-safe boundaries and download handoff
 - Modify `backend/src/modules/files/files.service.js`
   - ensure all file paths remain storage-root relative and never leak host paths
 - Modify `backend/src/platform/storage/storage-bootstrap.js`
@@ -493,14 +495,19 @@ Current status on 2026-05-25:
 - Modify `backend/src/platform/logging/request-context.js`
   - prepare request metadata needed for later user-scoped observability
 
-### Server single-user rules
+### Server-web single-user rules
 
 - no desktop-only restart UX
-- no local directory picker UX
 - no host filesystem path exposure in API responses
 - static frontend should be served by Express or an external reverse proxy
 - deployment should be controlled by environment configuration, not hardcoded defaults
 - workflow execution responses must not return absolute host output paths in server mode
+- the `外部数据路径` entry remains the only user-facing path setting in Settings
+- in `server-web`, `外部数据路径` means the browser client's local auto-download target, not the server host storage directory
+- generated files may be stored temporarily on the server and downloaded through supported APIs
+- server-side output history must be clearable in a later `server-web` milestone without exposing raw host paths
+- clearing history in `server-web` means deleting the server-retained temporary outputs themselves, not only hiding the frontend list
+- the cleanup entry must carry an irreversible warning before deletion
 
 ## Server Multi-User Preparation
 
@@ -536,20 +543,20 @@ Current status on 2026-05-23:
 Milestone 1 close-out decision:
 
 - closed once shared runtime capability data exists on frontend and backend
-- closed once all currently known local-only UI entrypoints are capability-aware
+- closed once all currently known host-only UI entrypoints are capability-aware
 - closed without waiting for `local-web` launcher implementation, because that is variant delivery work rather than runtime-foundation work
 
 Scope:
 
 - runtime mode definitions exist on frontend and backend
-- capability-aware UI gates exist for local-only actions
+- capability-aware UI gates exist for host-only actions
 - backend privileged routes are runtime-guarded
 - repository root cleanup rules are documented
 
 Acceptance criteria:
 
 - frontend can display the active runtime mode
-- `select-directory` and `restart-backend` are no longer assumed to exist in every mode
+- `restart-backend` and other host-only actions are no longer assumed to exist in every mode
 - backend returns standard capability errors when a blocked action is requested
 - existing local behavior still works in local development
 - the public execution plan documents which root directories are source, generated, runtime, or under review
@@ -625,28 +632,34 @@ Risk checklist:
 Scope:
 
 - server deployment works with static frontend hosting
-- local-only actions are disabled
+- host-path exposure is removed
 - server-safe storage and file access behavior is enforced
+- the existing `外部数据路径` entry is redefined as a client-side download-path preference for browser users
 
 Current status on 2026-05-25:
 
 - partially closed on trunk:
   - runtime capability gating is in place
   - storage settings responses are server-safe
-  - server-mode storage writes from the UI are blocked
+  - server-mode host storage writes from the UI are blocked
   - workflow save results no longer expose host output paths in server mode
 - still open:
   - real deployment validation
   - deployment SOP finalization
   - reverse-proxy and allowed-origin production verification
+  - browser-side auto-download path behavior and fallback manual download flow
+  - server-side history cleanup flow
 
 Acceptance criteria:
 
 - server can boot with production environment variables
 - frontend can run entirely through the deployed backend and static assets
-- blocked local-only settings actions return standard API errors
+- blocked host-only settings actions return standard API errors
 - generated files remain accessible only through supported API paths
 - storage settings and workflow save results never expose absolute host paths in server mode
+- `Settings -> Defaults -> 外部数据路径` remains available in `server-web`
+- in `server-web`, that setting is explicitly surfaced as a client local auto-download path
+- if the browser cannot auto-save, the user can still manually download generated outputs through supported UI flows
 
 Risk checklist:
 
@@ -654,6 +667,7 @@ Risk checklist:
 - verify stack traces are not leaked in API responses
 - verify server mode does not expose host paths
 - verify upload and output routes remain storage-root relative
+- verify the client download-path UX does not imply server-host write access
 
 ### Milestone 5: Multi-User Foundations
 

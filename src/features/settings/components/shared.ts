@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
 import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { AccountDetailsLogsPayload, AccountDetailsPayload, OutboundProxySettingsPayload, StorageSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
+import type { AccountDetailsLogsPayload, AccountDetailsPayload, ClientDownloadDirectoryState, OutboundProxySettingsPayload, StorageSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
 import type { AgentProfile } from '@/shared/api/agent';
 import type { LucideIcon } from 'lucide-react';
 
@@ -61,6 +61,7 @@ export type SettingsActions = {
   setProviderModelsEndpoint: (value: string) => void;
   setSelectedImports: (value: string[]) => void;
   setStoragePathDraft: (value: string) => void;
+  clearClientDownloadDirectory: () => Promise<void>;
   setTavilyApiKey: (value: string) => void;
   setTavilyApiKeySet: (value: boolean) => void;
   setThemeMode: (value: ThemeMode) => void;
@@ -120,6 +121,7 @@ export type SettingsViewModel = {
   selectedImports: string[];
   storagePathDraft: string;
   storageSettings: StorageSettingsPayload | null;
+  clientDownloadDirectory: ClientDownloadDirectoryState | null;
   storagePathPicking: boolean;
   storageSettingsLoading: boolean;
   storageSettingsSaving: boolean;

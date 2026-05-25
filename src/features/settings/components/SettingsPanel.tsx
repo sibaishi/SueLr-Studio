@@ -13,8 +13,11 @@ import {
   getBackendStatus,
   loadAccountDetails,
   loadAccountDetailsLogs,
+  loadClientDownloadDirectoryState,
   loadStorageSettings,
+  pickClientDownloadDirectory,
   pickStorageDirectory,
+  resetClientDownloadDirectory,
   refreshAccountDetails,
   resetStorageSettings,
   restartBackendRequest,
@@ -23,7 +26,7 @@ import {
   useSettingsPanelController,
   waitForBackendReady,
 } from '@/features/settings';
-import type { SettingsPanelProps, StorageSettingsPayload } from '@/features/settings';
+import type { ClientDownloadDirectoryState, SettingsPanelProps, StorageSettingsPayload } from '@/features/settings';
 import { createImportedProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { AgentMemorySection } from './MemorySection';
 import { AgentPersonaSection } from './AgentPersonaSection';
@@ -85,6 +88,7 @@ export function SettingsPanel({
   const [storagePathPicking, setStoragePathPicking] = useState(false);
   const [storageSettingsLoading, setStorageSettingsLoading] = useState(true);
   const [storageSettingsSaving, setStorageSettingsSaving] = useState(false);
+  const [clientDownloadDirectory, setClientDownloadDirectory] = useState<ClientDownloadDirectoryState | null>(null);
   const [backendRestarting, setBackendRestarting] = useState(false);
   const [accountDetails, setAccountDetails] = useState<SettingsViewModel['accountDetails']>(null);
   const [accountDetailsUsername, setAccountDetailsUsername] = useState('');
@@ -132,6 +136,7 @@ export function SettingsPanel({
   const runtimeCapabilities = getRuntimeCapabilitiesSnapshot();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? false;
   const canRestartBackend = runtimeCapabilities?.canRestartBackend ?? false;
+  const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
 
   useEffect(() => {
     let cancelled = false;
@@ -152,6 +157,7 @@ export function SettingsPanel({
         if (cancelled) return;
         setStorageSettings(next);
         setStoragePathDraft(next?.customRoot || '');
+        setClientDownloadDirectory(loadClientDownloadDirectoryState());
       } catch (error) {
         if (!cancelled) {
           addLog('error', error instanceof Error ? error.message : String(error));
@@ -288,6 +294,15 @@ export function SettingsPanel({
   };
 
   const saveStoragePathAction = async () => {
+    if (isServerRuntime) {
+      if (!clientDownloadDirectory) {
+        addLog('error', '请先选择浏览器自动下载目录');
+        return;
+      }
+      addLog('success', `浏览器自动下载目录已生效：${clientDownloadDirectory.label}`);
+      return;
+    }
+
     const nextPath = storagePathDraft.trim();
     if (!nextPath) {
       addLog('error', '请先选择自定义存储路径');
@@ -308,6 +323,21 @@ export function SettingsPanel({
   };
 
   const resetStoragePathAction = async () => {
+    if (isServerRuntime) {
+      setStorageSettingsSaving(true);
+      try {
+        await resetClientDownloadDirectory();
+        setClientDownloadDirectory(null);
+        setStoragePathDraft('');
+        addLog('success', '已清除浏览器自动下载目录，下次将回退到手动下载');
+      } catch (error) {
+        addLog('error', error instanceof Error ? error.message : String(error));
+      } finally {
+        setStorageSettingsSaving(false);
+      }
+      return;
+    }
+
     setStorageSettingsSaving(true);
     try {
       const next = await resetStorageSettings();
@@ -324,6 +354,14 @@ export function SettingsPanel({
   const pickStoragePathAction = async () => {
     setStoragePathPicking(true);
     try {
+      if (isServerRuntime) {
+        const next = await pickClientDownloadDirectory();
+        setClientDownloadDirectory(next);
+        setStoragePathDraft(next.label);
+        addLog('success', `已授权浏览器自动下载目录：${next.label}`);
+        return;
+      }
+
       const selectedPath = await pickStorageDirectory();
       if (!selectedPath) return;
       setStoragePathDraft(selectedPath);
@@ -505,6 +543,7 @@ export function SettingsPanel({
     selectedImports,
     storagePathDraft,
     storageSettings,
+    clientDownloadDirectory,
     storagePathPicking,
     storageSettingsLoading,
     storageSettingsSaving,
@@ -532,6 +571,7 @@ export function SettingsPanel({
     onClearLogs,
     onClearMemories,
     onDeleteMemory,
+    clearClientDownloadDirectory: resetStoragePathAction,
     pickStoragePath: pickStoragePathAction,
     removeProjectModel,
     resetStoragePath: resetStoragePathAction,

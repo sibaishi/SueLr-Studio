@@ -9,6 +9,7 @@ const router = Router();
 const upload = filesService.createUploader();
 
 router.get('/files/generated', filesController.listGenerated.bind(filesController));
+router.delete('/files/generated', filesController.clearGenerated.bind(filesController));
 
 router.post('/files/upload', (req, res, next) => {
   upload.single('file')(req, res, (error) => {

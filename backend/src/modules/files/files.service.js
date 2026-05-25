@@ -42,7 +42,13 @@ export class FilesService {
   }
 
   listGeneratedOutputs() {
-    return this.repository.listGeneratedOutputsSinceProcessStart();
+    return this.repository.listGeneratedOutputs();
+  }
+
+  clearGeneratedOutputs() {
+    const result = this.repository.clearGeneratedOutputs();
+    logger.info('generated outputs cleared', result);
+    return result;
   }
 
   cleanupUploadedFile(file) {

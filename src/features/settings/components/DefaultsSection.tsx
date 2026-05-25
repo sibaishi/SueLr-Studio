@@ -22,11 +22,12 @@ const concurrencyModeOptions = [
 ];
 
 export function DefaultsSection({ actions, view }: Props) {
+  const isServerRuntime = view.runtimeCapabilities?.mode?.startsWith('server') ?? false;
   const storageSourceLabel = {
     env: '环境变量覆盖',
-    custom: '用户自定义',
+    custom: isServerRuntime ? '浏览器下载偏好' : '用户自定义',
     legacy: '旧版迁移路径',
-    default: '系统默认',
+    default: isServerRuntime ? '浏览器默认下载行为' : '系统默认',
   }[view.storageSettings?.source || 'default'];
 
   const updateProxy = (patch: Partial<typeof view.outboundProxy>) => {
@@ -35,13 +36,29 @@ export function DefaultsSection({ actions, view }: Props) {
 
   const selectDirectoryHint = getRuntimeActionHint(view.runtimeCapabilities, 'canSelectDirectory');
   const restartBackendHint = getRuntimeActionHint(view.runtimeCapabilities, 'canRestartBackend');
-  const canManageStoragePath = view.storageSettings?.canManagePath ?? view.canSelectDirectory;
-  const effectiveRootLabel = view.storageSettings?.pathsRedacted
-    ? '服务器托管存储目录（路径已隐藏）'
-    : (view.storageSettings?.effectiveRoot || '未获取到路径信息');
-  const defaultRootLabel = view.storageSettings?.pathsRedacted
-    ? '服务器托管存储目录（路径已隐藏）'
-    : (view.storageSettings?.defaultRoot || '未获取');
+  const canManageStoragePath = isServerRuntime
+    ? true
+    : (view.storageSettings?.canManagePath ?? view.canSelectDirectory);
+
+  const effectiveRootLabel = isServerRuntime
+    ? (view.clientDownloadDirectory?.label || '未设置浏览器自动下载目录，将回退到手动下载')
+    : view.storageSettings?.pathsRedacted
+      ? '服务器托管存储目录（路径已隐藏）'
+      : (view.storageSettings?.effectiveRoot || '未获取到路径信息');
+
+  const defaultRootLabel = isServerRuntime
+    ? (view.clientDownloadDirectory?.supported ? '浏览器默认下载位置' : '当前浏览器不支持自动下载目录授权')
+    : view.storageSettings?.pathsRedacted
+      ? '服务器托管存储目录（路径已隐藏）'
+      : (view.storageSettings?.defaultRoot || '未获取');
+
+  const pathTitle = isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径';
+  const pathPlaceholder = isServerRuntime
+    ? '选择后，server-web 输出会优先自动保存到该目录'
+    : (view.storageSettings?.pathsRedacted ? '服务器模式下不开放路径编辑' : '例如：D:\\SueLr-Studio-Data');
+  const pathDescription = isServerRuntime
+    ? '该设置只影响当前浏览器用户接收 server-web 输出时的本地自动下载位置，不会修改服务器宿主机存储路径。'
+    : `留空时可点击“恢复默认”。默认路径：${defaultRootLabel}`;
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
@@ -101,7 +118,9 @@ export function DefaultsSection({ actions, view }: Props) {
 
       <SectionCard
         title="外部数据路径"
-        description="配置工作流、日志、上传文件等数据的存放位置。保存后可能需要重启后端生效。"
+        description={isServerRuntime
+          ? '在 server-web 中，这里表示当前浏览器用户接收输出时的本地自动下载目录，不代表服务器宿主机路径。'
+          : '配置工作流、日志、上传文件等数据的存放位置。保存后可能需要重启后端生效。'}
       >
         <div className="flex-col" style={{ gap: 12 }}>
           <div data-testid="settings-runtime-storage-mode" style={{ ...mutedPanelStyle(), padding: 14 }}>
@@ -109,7 +128,11 @@ export function DefaultsSection({ actions, view }: Props) {
             <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-primary)', marginTop: 8 }}>
               {formatRuntimeModeLabel(view.runtimeCapabilities?.mode)}
             </div>
-            {!canManageStoragePath ? (
+            {isServerRuntime ? (
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                服务器宿主机存储路径不会显示在这里。这里仅管理当前浏览器的自动下载偏好。
+              </div>
+            ) : !canManageStoragePath ? (
               <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
                 {selectDirectoryHint}
               </div>
@@ -117,7 +140,7 @@ export function DefaultsSection({ actions, view }: Props) {
           </div>
 
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-            <div style={eyebrowStyle()}>当前生效路径</div>
+            <div style={eyebrowStyle()}>{isServerRuntime ? '当前下载目录' : '当前生效路径'}</div>
             <div
               data-testid="settings-storage-effective-root"
               style={{
@@ -133,7 +156,7 @@ export function DefaultsSection({ actions, view }: Props) {
             <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
               来源：{storageSourceLabel}
             </div>
-            {view.storageSettings?.envOverride ? (
+            {!isServerRuntime && view.storageSettings?.envOverride ? (
               <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
                 当前存在 `APP_CONFIG_DIR` 环境变量覆盖，界面保存后不会立刻接管，需要先移除该环境变量。
               </div>
@@ -141,29 +164,29 @@ export function DefaultsSection({ actions, view }: Props) {
           </div>
 
           <div>
-            <IOSLabel>自定义绝对路径</IOSLabel>
+            <IOSLabel>{pathTitle}</IOSLabel>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'center' }}>
               <IOSInput
                 value={view.storagePathDraft}
                 onChange={actions.setStoragePathDraft}
-                placeholder={view.storageSettings?.pathsRedacted ? '服务器模式下不开放路径编辑' : '例如：D:\\SueLr-Studio-Data'}
-                disabled={!canManageStoragePath}
+                placeholder={pathPlaceholder}
+                disabled={isServerRuntime || !canManageStoragePath}
               />
               <IOSButton
-                label={view.storagePathPicking ? '选择中...' : '选择文件夹'}
+                label={view.storagePathPicking ? '选择中...' : (isServerRuntime ? '授权目录' : '选择文件夹')}
                 onClick={() => {
                   void actions.pickStoragePath();
                 }}
-                disabled={view.storagePathPicking || view.storageSettingsSaving || view.storageSettingsLoading || !view.canSelectDirectory || !canManageStoragePath}
+                disabled={view.storagePathPicking || view.storageSettingsSaving || view.storageSettingsLoading || (!isServerRuntime && (!view.canSelectDirectory || !canManageStoragePath))}
                 data-testid="settings-pick-storage-path"
                 small
                 style={{ width: 'auto', whiteSpace: 'nowrap' }}
               />
             </div>
             <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              留空时可点击“恢复默认”。默认路径：{defaultRootLabel}
+              {pathDescription}
             </div>
-            {!canManageStoragePath ? (
+            {!isServerRuntime && !canManageStoragePath ? (
               <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
                 {selectDirectoryHint}
               </div>
@@ -181,21 +204,21 @@ export function DefaultsSection({ actions, view }: Props) {
           >
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <IOSButton
-                label={view.storageSettingsSaving ? '保存中...' : '保存路径'}
+                label={view.storageSettingsSaving ? '保存中...' : (isServerRuntime ? '应用目录' : '保存路径')}
                 onClick={() => {
                   void actions.saveStoragePath();
                 }}
-                disabled={view.storageSettingsSaving || !view.storagePathDraft.trim() || !canManageStoragePath}
+                disabled={view.storageSettingsSaving || (!isServerRuntime && (!view.storagePathDraft.trim() || !canManageStoragePath))}
                 data-testid="settings-save-storage-path"
                 small
                 style={{ width: 'auto' }}
               />
               <IOSButton
-                label={view.storageSettingsSaving ? '处理中...' : '恢复默认'}
+                label={view.storageSettingsSaving ? '处理中...' : (isServerRuntime ? '清除授权' : '恢复默认')}
                 onClick={() => {
                   void actions.resetStoragePath();
                 }}
-                disabled={view.storageSettingsSaving || !canManageStoragePath}
+                disabled={view.storageSettingsSaving || (!isServerRuntime && !canManageStoragePath)}
                 data-testid="settings-reset-storage-path"
                 small
                 style={{

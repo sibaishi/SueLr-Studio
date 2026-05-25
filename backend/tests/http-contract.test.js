@@ -295,6 +295,37 @@ test('HTTP contract: server runtime blocks local-only settings actions', async (
   }
 });
 
+test('HTTP contract: generated outputs can be cleared from the server', async () => {
+  const fs = await import('fs');
+  const path = await import('path');
+  const { server, baseUrl } = await createTestServer('clear-generated-outputs');
+  try {
+    const { STORAGE_PATHS } = await import(`../src/platform/storage/index.js?test=${Date.now()}`);
+    const outputDir = path.join(STORAGE_PATHS.generatedDir, 'text');
+    fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(path.join(outputDir, 'clear-me.txt'), 'temporary output');
+
+    const listedBefore = await requestJson(baseUrl, '/api/files/generated');
+    assert.equal(listedBefore.status, 200);
+    assert.equal(Array.isArray(listedBefore.body.data), true);
+    assert.equal(listedBefore.body.data.some((item) => item.name === 'clear-me.txt'), true);
+
+    const cleared = await requestJson(baseUrl, '/api/files/generated', {
+      method: 'DELETE',
+    });
+    assert.equal(cleared.status, 200);
+    assertEnvelopeShape(cleared.body);
+    assert.equal(typeof cleared.body.data.removed, 'number');
+    assert.equal(cleared.body.data.removed >= 1, true);
+
+    const listedAfter = await requestJson(baseUrl, '/api/files/generated');
+    assert.equal(listedAfter.status, 200);
+    assert.equal(listedAfter.body.data.some((item) => item.name === 'clear-me.txt'), false);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: CORS rejection stays on the unified error envelope', async () => {
   const { server, baseUrl } = await createTestServer('cors-envelope');
   try {

@@ -19,7 +19,8 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { formatDurationSeconds, getExecutionStatusLabel } from '@/domains/workflow/lib/executionFormat';
-import { fetchGeneratedOutputs, type GeneratedOutputFile } from '@/domains/workflow/lib/api';
+import { clearGeneratedOutputs, fetchGeneratedOutputs, type GeneratedOutputFile } from '@/domains/workflow/lib/api';
+import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
 
 type PanelTab = 'results' | 'logs';
 const LOG_MESSAGE_PREVIEW_LIMIT = 600;
@@ -36,6 +37,7 @@ export default function ResultsPanel({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [generatedOutputs, setGeneratedOutputs] = useState<GeneratedOutputFile[]>([]);
   const [isLoadingOutputs, setIsLoadingOutputs] = useState(false);
+  const [isClearingOutputs, setIsClearingOutputs] = useState(false);
   const [outputsError, setOutputsError] = useState<string | null>(null);
   const nodes = useWorkflowStore((s) => s.nodes);
   const executionLogs = useWorkflowStore((s) => s.executionLogs);
@@ -46,6 +48,8 @@ export default function ResultsPanel({
   const nodeWarnings = useWorkflowStore((s) => s.nodeWarnings);
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const clearExecutionLogs = useWorkflowStore((s) => s.clearExecutionLogs);
+  const runtimeCapabilities = getCachedRuntimeCapabilities();
+  const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
 
   const refreshGeneratedOutputs = useCallback(async () => {
     setIsLoadingOutputs(true);
@@ -70,6 +74,22 @@ export default function ResultsPanel({
     }, 2500);
     return () => window.clearInterval(timer);
   }, [isExecuting, refreshGeneratedOutputs]);
+
+  const handleClearGeneratedOutputs = useCallback(async () => {
+    const confirmed = window.confirm('确定要清除服务器后端当前保留的历史输出吗？此操作会直接删除服务器上的临时输出文件，且无法撤回。');
+    if (!confirmed) return;
+
+    setIsClearingOutputs(true);
+    const result = await clearGeneratedOutputs();
+    setIsClearingOutputs(false);
+
+    if (!result.success) {
+      setOutputsError(result.error || '清除服务器输出失败');
+      return;
+    }
+
+    await refreshGeneratedOutputs();
+  }, [refreshGeneratedOutputs]);
 
   const warningItems = useMemo(() => {
     return nodes
@@ -141,6 +161,19 @@ export default function ResultsPanel({
         <TabButton active={tab === 'results'} onClick={() => setTab('results')} label="结果" />
         <TabButton active={tab === 'logs'} onClick={() => setTab('logs')} label={`日志 ${executionLogs.length ? executionLogs.length : ''}`} />
       </div>
+
+      {isServerRuntime && tab === 'results' && generatedOutputs.length > 0 ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+          <button
+            type="button"
+            onClick={() => { void handleClearGeneratedOutputs(); }}
+            className="workflow-results__mini-action"
+            disabled={isClearingOutputs}
+          >
+            {isClearingOutputs ? '清除中...' : '清空服务器结果'}
+          </button>
+        </div>
+      ) : null}
 
       <div className="workflow-panel__body workflow-results__body">
         {workflowWarningMessage && (
@@ -581,7 +614,7 @@ function TextPreviewModal({
           <div className="min-w-0">
             <div className="workflow-text-preview-modal__title">{title}</div>
             <div className="workflow-text-preview-modal__meta">
-              {isLoading ? '读取中' : error ? '读取失败' : `${text ? text.split(/\r\n|\r|\n/).length : 0} 行 · ${text.length} 字符`}
+              {isLoading ? '读取中...' : error ? '读取失败' : `${text ? text.split(/\r\n|\r|\n/).length : 0} 行 · ${text.length} 字符`}
             </div>
           </div>
           <div className="workflow-text-preview-modal__actions">

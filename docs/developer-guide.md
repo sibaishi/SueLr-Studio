@@ -133,7 +133,7 @@ Current cleanup and ownership notes:
 - `src/features/settings/components/ModelsSection.tsx`
   - discovered-model import, capability tagging, enablement
 - `src/features/settings/components/DefaultsSection.tsx`
-  - theme mode, external data path, restart backend action, and runtime-aware gating for local-only controls
+  - theme mode, external data path, restart backend action, and runtime-aware gating for host-only controls
 - `src/features/settings/components/RolesSection.tsx`
   - role presets and assistant-role editing
 - `src/features/settings/components/MemorySection.tsx`
@@ -379,18 +379,26 @@ The public URL contract remains rooted at `/api/outputs/...` for generated outpu
 
 ## Server Runtime Guardrails
 
-When the runtime mode is `server-single-user` or `server-multi-user`, shared code should assume a stricter boundary than local or desktop mode:
+When the runtime is running as `server-web` in either its single-user or future multi-user phase, shared code should assume a stricter boundary than local or desktop mode:
 
 - storage settings APIs must not expose absolute host filesystem paths
-- settings UI must not allow path picking, path editing, or backend restart controls
+- settings UI must not imply direct control over server host filesystem roots
+- backend restart controls must remain unavailable from the browser UI
 - workflow output results must not return absolute `savedPaths`
 - request-scoped metadata should be attached through `request-context`, not inferred from globals
 
 If a new API needs to surface storage or generated outputs, prefer relative URLs or semantic state, never raw host paths.
 
+For the product-facing `外部数据路径` entry:
+
+- `desktop` and `local-web` may use it as a local machine storage-root setting when the runtime exposes that capability
+- `server-web` must keep the same entry point, but reinterpret it as the browser client's local auto-download target
+- do not add a second settings entry just for server download behavior
+- do not expose or edit server-host storage directories through that control
+
 ### Request flow examples
 
-#### Settings external path change
+#### Settings external path change in local runtimes
 
 1. frontend `DefaultsSection` saves the new external data path
 2. frontend calls backend settings route
@@ -398,6 +406,22 @@ If a new API needs to surface storage or generated outputs, prefer relative URLs
 4. user clicks `Restart Backend`
 5. backend restart helpers relaunch the process
 6. storage-root bootstrap reads the new path on startup
+
+#### Settings external path change in `server-web`
+
+1. frontend `DefaultsSection` saves the browser-side download preference behind the same `外部数据路径` entry
+2. frontend persists only client-safe state and never sends a host absolute path as a server storage-root mutation
+3. generated outputs remain temporarily materialized on the server
+4. user receives outputs through `/api/outputs/...` or `/api/assistant/files/...`
+5. browser auto-download uses the configured client preference when available; otherwise the user falls back to manual download
+
+#### Server retained output cleanup in `server-web`
+
+1. backend keeps generated outputs under the runtime storage root for temporary browser access
+2. frontend results surfaces list those files through `/api/files/generated`
+3. when the user clicks the cleanup action, the UI must show an irreversible confirmation
+4. backend deletes the currently retained generated outputs from server storage
+5. frontend refreshes the list and must not treat the action as a local hide-only operation
 
 #### Workflow image generation
 

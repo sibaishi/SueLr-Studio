@@ -4,8 +4,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
 import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.js';
 
-const PROCESS_STARTED_AT = Date.now();
-
 const OUTPUT_FILE_TYPES = new Map([
   ['.png', { type: 'image', mimeType: 'image/png' }],
   ['.jpg', { type: 'image', mimeType: 'image/jpeg' }],
@@ -82,7 +80,7 @@ export class FilesRepository {
     fs.unlinkSync(resolved);
   }
 
-  listGeneratedOutputsSinceProcessStart() {
+  listGeneratedOutputs() {
     ensureStorageDirectories();
     const root = STORAGE_PATHS.generatedDir;
     const items = [];
@@ -98,7 +96,6 @@ export class FilesRepository {
         if (!entry.isFile()) continue;
 
         const stat = fs.statSync(filePath);
-        if (stat.mtimeMs < PROCESS_STARTED_AT) continue;
 
         const relativePath = path.relative(root, filePath);
         if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) continue;
@@ -120,6 +117,34 @@ export class FilesRepository {
 
     visit(root);
     return items.sort((a, b) => b.modifiedAt - a.modifiedAt);
+  }
+
+  clearGeneratedOutputs() {
+    ensureStorageDirectories();
+    const root = STORAGE_PATHS.generatedDir;
+    let removed = 0;
+
+    const visit = (dir) => {
+      if (!fs.existsSync(dir)) return;
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const filePath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          visit(filePath);
+          if (fs.existsSync(filePath) && fs.readdirSync(filePath).length === 0) {
+            fs.rmdirSync(filePath);
+          }
+          continue;
+        }
+        if (!entry.isFile()) continue;
+
+        const stat = fs.statSync(filePath);
+        fs.unlinkSync(filePath);
+        removed += 1;
+      }
+    };
+
+    visit(root);
+    return { removed };
   }
 }
 
