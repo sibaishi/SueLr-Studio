@@ -6,6 +6,7 @@ import { fileToBase64 } from './fileHelper.js';
 import { resolveModelRuntime } from './apiConfig.js';
 import { findProjectModel, normalizeProjectModels } from './projectModels.js';
 import { getProviderAdapter } from '../../platform/providers/index.js';
+import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
 import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.js';
 import { STORAGE_PATHS } from '../../platform/storage/index.js';
 import { ValidationError } from '../../app/errors/index.js';
@@ -756,7 +757,7 @@ async function fetchWithImageTimeout(url, options, timeoutMs, externalSignal, se
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      return await fetch(url, {
+      return await proxyAwareFetch(url, {
         ...options,
         signal,
       });

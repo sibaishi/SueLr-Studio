@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { generateImages, normalizeImageGenerationRequest, resolveImageGenerationModel } from '../src/engine/helpers/imageGeneration.js';
+import { configureOutboundProxy } from '../src/platform/http/proxy-aware-fetch.js';
 import { ensureStorageDirectories, STORAGE_PATHS } from '../src/platform/storage/index.js';
 
 function withTempStorage() {
@@ -1462,6 +1463,47 @@ test('generateImages logs one ImageRequest entry for a single image edit request
     assert.equal(imageRequestLogs.length, 1);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages sends image requests through outbound proxy configuration', async () => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+
+  configureOutboundProxy({
+    mode: 'custom',
+    httpsProxy: 'http://127.0.0.1:7897',
+  });
+
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({
+      url: String(url),
+      dispatcher: options.dispatcher,
+    });
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig());
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, 'https://example.com/v1/images/generations');
+    assert.ok(requests[0].dispatcher);
+  } finally {
+    globalThis.fetch = originalFetch;
+    configureOutboundProxy({ mode: 'system' });
   }
 });
 
