@@ -621,6 +621,9 @@ test('HTTP contract: agent chat route validates body and wraps success payloads'
     const originalChat = agentService.chat;
     agentService.chat = async () => ({
       sessionId: 'agent-session-contract',
+      agentRunLog: {
+        runId: 'agent-run-1',
+      },
       assistantMessage: {
         role: 'assistant',
         content: 'agent ok',
@@ -641,7 +644,10 @@ test('HTTP contract: agent chat route validates body and wraps success payloads'
       assert.equal(success.status, 200);
       assertEnvelopeShape(success.body);
       assert.equal(success.body.data.sessionId, 'agent-session-contract');
+      assert.deepEqual(success.body.data.agentRunLog, { runId: 'agent-run-1' });
       assert.equal(success.body.data.assistantMessage.content, 'agent ok');
+      assert.equal(JSON.stringify(success.body).includes('/srv/'), false);
+      assert.equal(JSON.stringify(success.body).includes('D:\\\\'), false);
 
       const invalid = await requestJson(baseUrl, '/api/agent/chat', {
         method: 'POST',
@@ -652,6 +658,37 @@ test('HTTP contract: agent chat route validates body and wraps success payloads'
       assert.equal(invalid.body.error.code, 'VALIDATION_ERROR');
     } finally {
       agentService.chat = originalChat;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: agent session route does not expose host log paths', async () => {
+  const { server, baseUrl } = await createTestServer('agent-session-public');
+  try {
+    const { agentService } = await import('../src/modules/agent/agent.service.js');
+    const originalGetSession = agentService.getSession;
+    try {
+      agentService.getSession = () => ({
+        sessionId: 'agent-session-public',
+        status: 'completed',
+        lastRunStatus: 'completed',
+        startedAt: Date.now() - 1000,
+        finishedAt: Date.now(),
+        agentRunLog: {
+          runId: 'agent-run-public',
+        },
+      });
+
+      const response = await requestJson(baseUrl, '/api/agent/sessions/agent-session-public');
+      assert.equal(response.status, 200);
+      assertEnvelopeShape(response.body);
+      assert.deepEqual(response.body.data.agentRunLog, { runId: 'agent-run-public' });
+      assert.equal(JSON.stringify(response.body).includes('/srv/'), false);
+      assert.equal(JSON.stringify(response.body).includes('D:\\\\'), false);
+    } finally {
+      agentService.getSession = originalGetSession;
     }
   } finally {
     await new Promise((resolve) => server.close(resolve));
@@ -715,6 +752,12 @@ test('HTTP contract: execution status and cancel use runId routes', async () => 
     assert.ok(match);
     const snapshot = JSON.parse(match[1]);
     assert.equal(typeof snapshot.runId, 'string');
+    assert.equal(body.includes('/srv/'), false);
+    assert.equal(body.includes('D:\\'), false);
+    const logMatch = body.match(/event: workflow_log\ndata: (.+?)\n\n/s);
+    assert.ok(logMatch);
+    const workflowLog = JSON.parse(logMatch[1]);
+    assert.deepEqual(workflowLog, { runId: workflowLog.runId });
 
     const status = await requestJson(baseUrl, `/api/execute/runs/${snapshot.runId}/status`);
     assert.equal(status.status, 200);
@@ -727,6 +770,30 @@ test('HTTP contract: execution status and cancel use runId routes', async () => 
     assert.equal(cancel.status, 200);
     assert.equal(cancel.body.success, true);
     assert.equal(cancel.body.data.runId, snapshot.runId);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: generated outputs listing does not expose absolute host paths', async () => {
+  const fs = await import('fs');
+  const path = await import('path');
+  const { server, baseUrl } = await createTestServer('generated-list-public');
+  try {
+    const { STORAGE_PATHS } = await import(`../src/platform/storage/index.js?test=${Date.now()}`);
+    const outputDir = path.join(STORAGE_PATHS.generatedDir, 'images');
+    fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(path.join(outputDir, 'public-check.txt'), 'ok');
+
+    const response = await requestJson(baseUrl, '/api/files/generated');
+    assert.equal(response.status, 200);
+    assertEnvelopeShape(response.body);
+    const item = response.body.data.find((entry) => entry.name === 'public-check.txt');
+    assert.ok(item);
+    assert.equal('absolutePath' in item, false);
+    assert.equal('filePath' in item, false);
+    assert.equal(JSON.stringify(item).includes('/srv/'), false);
+    assert.equal(JSON.stringify(item).includes('D:\\\\'), false);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
