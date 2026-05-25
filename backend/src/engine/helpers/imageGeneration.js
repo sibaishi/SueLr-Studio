@@ -741,6 +741,11 @@ function shouldRetryWithoutOutputFormat(error) {
     && /(unsupported|not supported|unknown|unrecognized|invalid|extra|cannot unmarshal|type|required|requ|不支持|未知|无效)/i.test(message);
 }
 
+function shouldRetryOptionalImageParamsOnGatewayError(error) {
+  const message = String(error?.message || error || '');
+  return /(Bad Gateway|\(502\)|\b502\b)/i.test(message);
+}
+
 async function fetchWithImageTimeout(url, options, timeoutMs, externalSignal, sendProgress) {
   const signal = externalSignal
     ? AbortSignal.any([externalSignal, AbortSignal.timeout(timeoutMs)])
@@ -1483,14 +1488,26 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
               includeResolution: includeResolutionInBody,
             }));
           } catch (error) {
-            if (shouldRetryWithoutOutputFormat(error)) {
-              sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
-              return callWithRequestBody(buildRequestBody(true, false, {
-                includeResolution: includeResolutionInBody,
-              }));
+            const canRetryOutputFormat = Boolean(payload.output_format)
+              && (shouldRetryWithoutOutputFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error));
+            if (canRetryOutputFormat) {
+              sendProgress?.('Image endpoint retry: drop output_format after first failure');
+              try {
+                return await callWithRequestBody(buildRequestBody(true, false, {
+                  includeResolution: includeResolutionInBody,
+                }));
+              } catch (retryError) {
+                if (shouldRetryWithoutResponseFormat(retryError) || shouldRetryOptionalImageParamsOnGatewayError(retryError)) {
+                  sendProgress?.('Image endpoint retry: drop response_format after second failure');
+                  return callWithRequestBody(buildRequestBody(false, false, {
+                    includeResolution: includeResolutionInBody,
+                  }));
+                }
+                throw retryError;
+              }
             }
-            if (shouldRetryWithoutResponseFormat(error)) {
-              sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
+            if (shouldRetryWithoutResponseFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error)) {
+              sendProgress?.('Image endpoint retry: drop response_format after first failure');
               return callWithRequestBody(buildRequestBody(false, true, {
                 includeResolution: includeResolutionInBody,
               }));

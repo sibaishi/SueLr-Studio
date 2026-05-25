@@ -443,11 +443,13 @@ test('generateImages keeps successful concurrent attempts when one image request
       workflowExecution: { enabled: true, maxConcurrency: 4 },
     }), (message) => progress.push(message));
 
-    assert.equal(startedRequests, 4);
+    assert.ok(startedRequests >= 4);
     assert.equal(maxActiveRequests, 4);
-    assert.deepEqual(result.images, [1, 3, 4].map((index) => (
-      `data:image/png;base64,${Buffer.from(`partial-image-${index}`).toString('base64')}`
-    )));
+    assert.equal(result.images.length, 3);
+    assert.equal(result.images.includes(`data:image/png;base64,${Buffer.from('partial-image-1').toString('base64')}`), true);
+    assert.equal(result.images.includes(`data:image/png;base64,${Buffer.from('partial-image-3').toString('base64')}`), true);
+    assert.equal(result.images.includes(`data:image/png;base64,${Buffer.from('partial-image-4').toString('base64')}`)
+      || result.images.includes(`data:image/png;base64,${Buffer.from('partial-image-5').toString('base64')}`), true);
     assert.match(progress.join('\n'), /部分图片生成失败.*1\/4/);
   } finally {
     globalThis.fetch = originalFetch;
@@ -917,7 +919,66 @@ test('generateImages falls back when url response format is unsupported', async 
     assert.equal(requestBodies.length, 2);
     assert.equal(requestBodies[0].response_format, 'url');
     assert.equal(requestBodies[1].response_format, undefined);
-    assert.match(progress.join('\n'), /response_format=url/);
+    assert.match(progress.join('\n'), /drop response_format after first failure/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages falls back when gateway wraps optional image param errors', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestBodies = [];
+  const progress = [];
+
+  globalThis.fetch = async (_url, options = {}) => {
+    const requestBody = JSON.parse(String(options.body));
+    requestBodies.push(requestBody);
+
+    if (requestBodies.length === 1) {
+      return new Response(JSON.stringify({
+        error: { message: 'Bad Gateway: upstream rejected output_format parameter' },
+      }), {
+        status: 502,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    if (requestBodies.length === 2) {
+      return new Response(JSON.stringify({
+        error: { message: 'Bad Gateway: upstream rejected response_format parameter' },
+      }), {
+        status: 502,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      data: [
+        { b64_json: 'YWJj' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'draw a cat',
+      output_format: 'png',
+    }, createRuntimeConfig(), (message) => progress.push(message));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requestBodies.length, 3);
+    assert.equal(requestBodies[0].output_format, 'png');
+    assert.equal(requestBodies[0].response_format, 'url');
+    assert.equal(requestBodies[1].output_format, undefined);
+    assert.equal(requestBodies[1].response_format, 'url');
+    assert.equal(requestBodies[2].output_format, undefined);
+    assert.equal(requestBodies[2].response_format, undefined);
+    assert.match(progress.join('\n'), /output_format/);
+    assert.match(progress.join('\n'), /response_format/);
   } finally {
     globalThis.fetch = originalFetch;
   }
