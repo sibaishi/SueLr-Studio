@@ -93,13 +93,21 @@ export function MediaPreview({
         title={inertImage ? undefined : '点击查看大图'}
         style={{
           ...baseFrameStyle,
-          backgroundImage: `url("${value}")`,
-          backgroundSize: 'contain',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
           cursor: inertImage ? 'default' : 'zoom-in',
         }}
       >
+        <img
+          src={value}
+          alt=""
+          draggable={false}
+          className="h-full w-full object-contain"
+          style={{
+            flex: '1 1 auto',
+            minWidth: 0,
+            minHeight,
+            background: 'var(--node-card-field)',
+          }}
+        />
         <ImageSizeLabel src={value} className="node-media-preview__size" />
       </button>
     );
