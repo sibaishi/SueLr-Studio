@@ -1,11 +1,11 @@
 # Release SOP
 
-This document defines the standard release workflow for SueLr Studio variants. The detailed execution roadmap for the current `master` trunk plus `local-web`, `desktop`, and `server` lives in `docs/deployment-variants-plan.md`.
+This document defines the standard release workflow for SueLr Studio variants. The detailed execution roadmap for the current `master` trunk plus `local-web`, `desktop`, and `server-web` lives in `docs/deployment-variants-plan.md`.
 
 ## Branching
 
 - `master` is the shared long-lived source branch in this repository.
-- `release/local-web`, `release/desktop`, and `release/server` are long-lived release branches for variant-specific work.
+- `release/local-web`, `release/desktop`, and `release/server-web` are long-lived release branches for variant-specific work.
 - shared behavior must land on `master` before it is promoted into a release branch unless the change is a release-only hotfix.
 - GitHub Releases remains the official distribution channel for packaged desktop builds unless a variant-specific distribution process is defined later.
 - Packaged artifacts such as `.exe`, `dist/`, and `release/` outputs must not be committed to git.
@@ -92,3 +92,4 @@ This document defines the standard release workflow for SueLr Studio variants. T
 
 - `local-web` release validation should explicitly cover both `build:local-web` and `start:local-web`.
 - Variant-specific launchers and packaging steps must stay documented in `docs/deployment-variants-plan.md`.
+- `server-web` deployment precheck, environment contract, and rollout smoke SOP live in `docs/deployment-variants-plan.md`.

@@ -2,24 +2,22 @@
 
 SueLr Studio 是一个本地优先的多模态 AI 工作台，用于对话、图像、视频和基于工作流的自动化任务。
 
-它面向希望在自己的机器上运行桌面式 AI 工作空间的用户：配置模型服务、运行多模态任务、在画布上搭建工作流，并让运行时数据保持本地可控。
+它当前围绕一套共享代码主干加三个交付版本演进：
+
+- `local-web`：本地前后端 + 浏览器访问
+- `desktop`：Electron 桌面壳
+- `server-web`：服务器部署版本，当前先以单用户阶段收口
+
+当前主干分支是 `master`。
 
 ## 仓库内容
 
-- 基于 Vite + React 的前端，用于对话、图像、视频和工作流编排
-- 基于 Express 的本地后端，用于模型服务接入、工作流执行、文件处理和设置管理
-- 本地优先的运行时模型，默认将应用数据存放在仓库外部
-- 覆盖文档、运行时边界、工作流状态结构、测试与构建的仓库质量门禁
-
-## 项目状态
-
-这个仓库当前作为本地应用项目持续维护，并不是一个托管式多用户 SaaS。
-
-当前公开文档保持精简：
-
-- [User Guide](docs/user-guide.md)
-- [Developer Guide](docs/developer-guide.md)
-- [Release SOP](docs/release-sop.md)
+- `src/`：前端应用代码
+- `backend/`：Express 后端、工作流执行与运行时能力
+- `electron/`：桌面壳入口
+- `tests/`：前端单测与 E2E
+- `docs/`：公开文档
+- `.private-docs/`：本地私有计划、验收和临时记录
 
 ## 快速开始
 
@@ -35,16 +33,10 @@ npm install
 npm run install:all
 ```
 
-### 启动
+### 常规启动
 
 ```bash
 npm start
-```
-
-Windows PowerShell 可能会因为本地执行策略拦截 `npm.ps1`。如果遇到这个问题，请使用：
-
-```bash
-start.bat
 ```
 
 默认本地地址：
@@ -52,98 +44,82 @@ start.bat
 - 前端：`http://localhost:5173`
 - 后端：`http://127.0.0.1:3001`
 
-## 典型使用方式
-
-SueLr Studio 主要围绕四类日常使用流程组织：
-
-1. 在设置中配置模型服务和模型访问方式。
-2. 直接运行对话、图像和视频任务。
-3. 在画布上搭建并执行工作流，包括居中节点选择、节点分组和键盘复制粘贴。
-4. 在本地查看输出、日志、生成文件和工作流运行详情。
-
-工作流快捷键包括：
-
-- `Alt+G`：将当前选中的画布节点创建为节点组
-- `Ctrl+Shift+Enter`：在工作流页面直接启动一次工作流运行
-- `Ctrl+C` 和 `Ctrl+V`：在画布中复制和粘贴节点
-
-## 运行时数据
-
-运行时数据默认存放在系统配置目录，而不是仓库内的 `storage/` 目录：
-
-```text
-Windows: %APPDATA%\SueLr-Studio
-macOS:   ~/Library/Application Support/SueLr-Studio
-Linux:   ${XDG_CONFIG_HOME:-~/.config}/SueLr-Studio
-```
-
-如果你希望把运行时数据固定到自定义绝对路径，可以设置 `APP_CONFIG_DIR`。
-
-生成媒体会按类型放在运行时数据目录下：
-
-```text
-files/generated/images/              图片生成原始输出
-files/generated/videos/              视频生成原始输出
-files/generated/assistant-images/    Chat/assistant 图库图片
-files/generated/assistant-videos/    Chat/assistant 视频库视频
-```
-
-应用内仍通过 `/api/outputs/...` 和 `/api/assistant/files/...` 访问这些文件。
-
-## 常用命令
+如果 Windows PowerShell 拦截 `npm.ps1`，可以改用：
 
 ```bash
-npm start
-npm run dev
-npm run dev:frontend
-npm run dev:backend
-npm run build
-npm run check
-npm run electron:dist
-npm run test:e2e
-npm run test:e2e:install
+cmd /c npm start
 ```
 
-`start.bat` 和 `start.sh` 是 `npm start` 的便捷启动器。一键启动器会检查 Node.js 版本、安装缺失的根目录与后端依赖、寻找可用的前后端端口、把带时间戳的日志写到 `.run-logs/`、自动打开浏览器，并在 `Ctrl+C` 时同时停止前后端进程。
+也可以直接使用根目录启动器：
 
-对于希望使用更直接的组合开发命令、而不依赖启动器编排的维护者，`npm run dev` 仍然可用。
+- `start.bat`
+- `start.sh`
 
-当你只运行前端 `npm run dev:frontend` 时，工作流和设置等 API 请求仍然依赖 Vite 的 `/api` 代理。如果你的后端并没有运行在默认的 `http://localhost:3001`，请确保 `VITE_DEV_PROXY_TARGET` 指向实际后端地址。
+## 版本相关命令
 
-## 仓库结构
+### local-web
 
-```text
-src/            前端应用代码
-backend/        后端服务与功能模块
-tests/          前端单元测试与端到端验证
-docs/           公开项目文档
-scripts/        仓库质量门禁脚本
-workflows/      示例工作流文件
+```bash
+npm.cmd run dev:local-web
+npm.cmd run build:local-web
+npm.cmd run start:local-web
 ```
 
-工作流节点定义现在采用 `src/shared/workflow/node-definitions/` 下的隔离目录结构：
+### desktop
 
-```text
-node-definitions/
-  <group>/
-    index.js
-    <node>/
-      index.js
-      node.js
+```bash
+npm.cmd run electron:pack
+npm.cmd run electron:dist
 ```
 
-这种方式可以让每个节点的公开入口保持稳定，同时把真实定义隔离开，方便后续更安全地修改。
+### server-web 本地模拟
 
-## 参与贡献
+后端：
 
-欢迎外部协作。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，了解本地环境搭建、校验命令和仓库约定。
+```powershell
+$env:APP_RUNTIME_MODE='server-single-user'
+$env:APP_HOST='127.0.0.1'
+$env:APP_PORT='3001'
+$env:APP_ALLOWED_ORIGINS='http://127.0.0.1:5173,http://localhost:5173'
+Set-Location .\backend
+npm.cmd run start
+```
 
-如果你是第一次参与，建议先在本地把应用跑起来一次，然后执行 `npm run check`，并在第一次本地运行 `npm run test:e2e` 之前先通过 `npm run test:e2e:install` 安装 Playwright。
+前端：
 
-当你修改中文用户可见文案、文件名或持久化内容时，请保持 UTF-8 编码，并把 `npm run check:encoding` 纳入你的检查流程。
+```powershell
+$env:VITE_DEV_PROXY_TARGET='http://127.0.0.1:3001'
+Set-Location .
+npm.cmd run dev:frontend
+```
 
-## 许可状态
+## 当前 server-web 语义
 
-这个仓库当前还没有声明开源许可证文件。
+- `外部数据路径` 在 `server-web` 下表示浏览器客户端自动下载目录语义，不表示服务器宿主机路径
+- 生成结果会临时保留在服务器侧，通过 `/api/outputs/...` 提供访问
+- 结果面板中的 `清空服务器结果` 会实际删除服务器当前保留的临时输出历史
 
-如果你计划将它公开发布并供更广泛复用，在将其视为开源分发之前，应该先明确许可证选择。
+## 常用校验命令
+
+```bash
+npm.cmd run typecheck
+npm.cmd run test:backend
+npm.cmd run test:unit -- runtime-capabilities
+npm.cmd run test:e2e
+npm.cmd run check:docs
+npm.cmd run check:encoding
+```
+
+## 文档入口
+
+- [User Guide](docs/user-guide.md)
+- [Developer Guide](docs/developer-guide.md)
+- [Release SOP](docs/release-sop.md)
+- [Deployment Variants Plan](docs/deployment-variants-plan.md)
+
+## 贡献说明
+
+提交前建议先阅读：
+
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [AGENTS.md](AGENTS.md)

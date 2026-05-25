@@ -11,7 +11,7 @@ SueLr Studio now uses the current `master` trunk plus three long-lived release b
 - `master`
 - `release/local-web`
 - `release/desktop`
-- `release/server`
+- `release/server-web`
 
 Contribution rules:
 

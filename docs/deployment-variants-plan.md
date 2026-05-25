@@ -669,6 +669,51 @@ Risk checklist:
 - verify upload and output routes remain storage-root relative
 - verify the client download-path UX does not imply server-host write access
 
+### Server-Web Deployment Precheck And SOP
+
+This section is the public deployment preparation baseline for the future `release/server-web` branch. It does not replace real production rollout documents, but it defines what must already be true before the first real server deployment starts.
+
+Precheck:
+
+- confirm the deployment candidate comes from `release/server-web`, or from a reviewed branch that will merge into it
+- confirm `npm run typecheck`
+- confirm `npm run test:backend`
+- confirm `npm run test:unit -- runtime-capabilities`
+- confirm `npm run test:e2e -- --grep "settings keeps browser download path entry in server runtime mode|workflow saveFile node switches to browser download authorization in server runtime mode"`
+- confirm `npm run check:docs`
+- confirm `npm run check:encoding`
+- confirm the frontend production build exists and the backend can serve it through `APP_FRONTEND_DIST`
+- confirm `APP_ALLOWED_ORIGINS` is explicitly configured for the expected browser origin set
+- confirm runtime storage still goes through the resolver or explicit `APP_CONFIG_DIR`, never a hardcoded path
+- confirm settings, workflow output, and file APIs do not expose absolute host filesystem paths
+- confirm blocked host-only routes still return standard server-runtime errors
+
+Recommended environment contract:
+
+- `APP_RUNTIME_MODE=server-single-user`
+- `APP_HOST=127.0.0.1` when running behind a reverse proxy, or the explicit bind host required by the environment
+- `APP_PORT=3001`
+- `APP_ALLOWED_ORIGINS=<comma-separated allowed browser origins>`
+- `APP_FRONTEND_DIST=<absolute path to built frontend dist>`
+- optional `APP_CONFIG_DIR=<absolute runtime data root>` when the default resolver location is not desired
+
+Recommended rollout steps:
+
+1. Build frontend assets using the server-web release flow.
+2. Provision the environment variables above.
+3. Start the backend as the long-running process that serves both APIs and static assets.
+4. Put a reverse proxy in front of the backend if public HTTPS, host routing, or stricter ingress control is required.
+5. Verify `/api/health`, `/api/status`, `/api/capabilities/runtime`, and the browser shell.
+6. Verify generated outputs download through `/api/outputs/...` without exposing host paths.
+7. Verify `外部数据路径` in Settings still means browser download authorization, not server storage-root editing.
+8. Verify `清空服务器结果` shows an irreversible warning and actually deletes retained server outputs.
+
+Operational notes:
+
+- logs and temporary generated outputs stay on the server unless deployment-side retention or cleanup policy removes them
+- browser users download generated files from the server; they do not write directly into a server host path through Settings
+- if long-term retention is not desired, define cleanup policy together with application-side cleanup entry points
+
 ### Milestone 5: Multi-User Foundations
 
 Scope:

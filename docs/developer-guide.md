@@ -488,7 +488,7 @@ SueLr Studio now follows the current `master` trunk plus three release variants:
 - `master`: shared product trunk in this repository
 - `release/local-web`: local browser deployment branch
 - `release/desktop`: Electron desktop branch
-- `release/server`: deployable server branch
+- `release/server-web`: deployable server branch
 
 Working rules:
 
