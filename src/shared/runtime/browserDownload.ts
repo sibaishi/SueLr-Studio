@@ -106,9 +106,10 @@ function sanitizeFilename(value: string, fallback = 'download') {
   return trimmed.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').slice(0, 180) || fallback;
 }
 
-async function ensureDirectoryPermission(handle: BrowserDirectoryHandle) {
+async function ensureDirectoryPermission(handle: BrowserDirectoryHandle, options?: { interactive?: boolean }) {
   const query = await handle.queryPermission?.({ mode: 'readwrite' });
   if (query === 'granted') return true;
+  if (!options?.interactive) return false;
   const next = await handle.requestPermission?.({ mode: 'readwrite' });
   return next === 'granted';
 }
@@ -137,7 +138,7 @@ export async function pickBrowserDownloadDirectory(): Promise<BrowserDownloadDir
   }
 
   const handle = await pickerWindow.showDirectoryPicker({ mode: 'readwrite' });
-  const granted = await ensureDirectoryPermission(handle);
+  const granted = await ensureDirectoryPermission(handle, { interactive: true });
   if (!granted) {
     throw new Error('浏览器未授予下载目录写入权限。');
   }
@@ -159,7 +160,7 @@ export async function saveBlobToBrowserDownloadDirectory(blob: Blob, filename: s
   const handle = await readStoredDirectoryHandle();
   if (!handle) return false;
 
-  const granted = await ensureDirectoryPermission(handle);
+  const granted = await ensureDirectoryPermission(handle, { interactive: false });
   if (!granted) return false;
 
   const nextFile = await handle.getFileHandle(sanitizeFilename(filename), { create: true });
