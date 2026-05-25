@@ -108,6 +108,7 @@ Never hardcode app-data paths. Use the config-dir resolver:
 
 - Repository-checked server deployments live under `scripts/deploy/server-web/`
 - Keep compose, Dockerfile, nginx site config, and host helper scripts aligned in the same change
+- Current helper scripts are `install.sh`, `update.sh`, and `uninstall.sh`
 - If server rollout steps change, update:
   - `docs/user-guide.md`
   - `docs/developer-guide.md`

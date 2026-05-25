@@ -128,7 +128,9 @@ Server-web repository deployment:
 
 - first-time setup can use `bash ./scripts/deploy/server-web/install.sh`
 - later updates on the same host can use `bash ./scripts/deploy/server-web/update.sh`
+- removal can use `bash ./scripts/deploy/server-web/uninstall.sh`
 - the scripts refresh docker compose and nginx config together, so browser routing and app container stay aligned
+- `uninstall.sh` keeps runtime data by default; set `SUE_LR_REMOVE_DATA=1` if you really want to delete stored files and settings
 
 Default local addresses:
 

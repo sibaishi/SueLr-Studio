@@ -49,6 +49,7 @@ This document defines the standard release workflow for SueLr Studio variants. T
    ```bash
    bash ./scripts/deploy/server-web/install.sh
    bash ./scripts/deploy/server-web/update.sh
+   bash ./scripts/deploy/server-web/uninstall.sh
    ```
 
    For other variants, follow the build steps defined in `docs/deployment-variants-plan.md`.

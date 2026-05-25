@@ -550,6 +550,9 @@ Server-web deployment assets:
   - first-time host setup for repository-checkout deployments
 - `scripts/deploy/server-web/update.sh`
   - host-side update flow for pull, rebuild, and nginx reload
+- `scripts/deploy/server-web/uninstall.sh`
+  - host-side removal flow for stopping containers and removing nginx wiring
+  - keeps runtime data by default unless `SUE_LR_REMOVE_DATA=1` is set
 
 Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.
 
