@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Poin
 import { testApiConnection, uploadFile } from '@/domains/workflow/lib/api';
 import { GROUP_SAFE_MARGIN } from '@/domains/workflow/lib/groupLayout';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
-import { MediaCard, MediaPreview, TextCard, isMediaUrl } from './NodeMedia';
+import { MediaCard, MediaPreview, TextCard, inferImageThumbnailUrl, isMediaUrl } from './NodeMedia';
 import { NodeParamFields } from './NodeParamFields';
 import { NODE_API_PROVIDER_CONFIG } from './nodeConstants';
 import { LongTextEditorModal } from './LongTextEditorModal';
@@ -451,7 +451,6 @@ function FileInputContent({
   const thumbnailUrl = (data.thumbnailUrl as string) || '';
   const storedPreviewUrl = (data.previewUrl as string) || '';
   const previewUrl = storedPreviewUrl && !(storedPreviewUrl.startsWith('blob:') && fileUrl) ? storedPreviewUrl : fileUrl;
-  const previewDisplayUrl = thumbnailUrl || previewUrl;
   const fileName = (data.fileName as string) || '';
   const localPath = (data.localPath as string) || '';
   const uploading = Boolean(data._uploading);
@@ -461,6 +460,9 @@ function FileInputContent({
   const maskUploadError = (data._maskUploadError as string) || '';
   const maskUploading = Boolean(data._maskUploading);
   const mediaKind = accept.startsWith('image') ? 'image' : accept.startsWith('video') ? 'video' : 'audio';
+  const previewDisplayUrl = mediaKind === 'image'
+    ? (thumbnailUrl || inferImageThumbnailUrl(fileUrl || previewUrl) || previewUrl)
+    : previewUrl;
   const maskSource = maskPreviewUrl && !(maskPreviewUrl.startsWith('blob:') && maskFileUrl) ? maskPreviewUrl : maskFileUrl;
   const [maskContentState, setMaskContentState] = useState<'empty' | 'present'>('empty');
   const hasGeneratedMask = maskContentState === 'present';
@@ -1354,7 +1356,12 @@ function ImageCompareContent({
 
 function InteractiveValue({ value }: { value: unknown }) {
   if (typeof value === 'string') {
-    if (isRenderableOutputMediaUrl(value)) return <MediaCard value={value} fill />;
+    if (isRenderableOutputMediaUrl(value)) {
+      if (getMediaKindFromOutputValue(value) === 'image') {
+        return <MediaPreview value={value} previewValue={inferImageThumbnailUrl(value) || value} fill inertImage kindOverride="image" />;
+      }
+      return <MediaCard value={value} fill />;
+    }
     return <TextCard text={value} />;
   }
 
@@ -1370,12 +1377,19 @@ function InteractiveValue({ value }: { value: unknown }) {
   if (Array.isArray(value)) {
     const mediaValues = value.filter((item): item is string => typeof item === 'string' && isRenderableOutputMediaUrl(item));
     if (mediaValues.length === value.length && mediaValues.length > 0) {
-      if (mediaValues.length === 1) return <MediaCard value={mediaValues[0]} fill />;
+      if (mediaValues.length === 1) {
+        if (getMediaKindFromOutputValue(mediaValues[0]) === 'image') {
+          return <MediaPreview value={mediaValues[0]} previewValue={inferImageThumbnailUrl(mediaValues[0]) || mediaValues[0]} fill inertImage kindOverride="image" />;
+        }
+        return <MediaCard value={mediaValues[0]} fill />;
+      }
 
       return (
         <div className="node-media-grid">
           {mediaValues.map((item, index) => (
-            <MediaCard key={String(index)} value={item} compact fill />
+            getMediaKindFromOutputValue(item) === 'image'
+              ? <MediaPreview key={String(index)} value={item} previewValue={inferImageThumbnailUrl(item) || item} compact fill inertImage kindOverride="image" />
+              : <MediaCard key={String(index)} value={item} compact fill />
           ))}
         </div>
       );
@@ -1394,4 +1408,11 @@ function isRenderableOutputMediaUrl(value: string) {
 
 function isRenderableOutputMediaObject(value: unknown): value is { url: string; thumbnailUrl?: string; type?: string } {
   return Boolean(value && typeof value === 'object' && typeof (value as { url?: unknown }).url === 'string');
+}
+
+function getMediaKindFromOutputValue(value: string) {
+  if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(value) || value.startsWith('data:image/') || value.startsWith('blob:')) return 'image';
+  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(value) || value.startsWith('data:video/')) return 'video';
+  if (/\.(mp3|wav|ogg|m4a|aac)(\?.*)?$/i.test(value) || value.startsWith('data:audio/')) return 'audio';
+  return 'unknown';
 }

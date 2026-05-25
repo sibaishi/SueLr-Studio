@@ -1,7 +1,30 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { LongTextEditorModal } from './LongTextEditorModal';
+
+export function inferImageThumbnailUrl(value: string) {
+  const source = String(value || '').trim();
+  if (!source || source.includes('/.thumbnails/') || /__thumb\.jpg(?:\?.*)?$/i.test(source)) return '';
+
+  const uploadMatch = source.match(/^(.+\/api\/files)\/([^/?#]+)(\?.*)?$/i);
+  if (uploadMatch) {
+    const [, prefix, filename] = uploadMatch;
+    const extension = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : '';
+    const baseName = extension ? filename.slice(0, -extension.length) : filename;
+    return `${prefix}/.thumbnails/${baseName}__thumb.jpg`;
+  }
+
+  const outputMatch = source.match(/^(.+\/api\/outputs)\/(.+\/)?([^/?#/]+)(\?.*)?$/i);
+  if (outputMatch) {
+    const [, prefix, directory = '', filename] = outputMatch;
+    const extension = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : '';
+    const baseName = extension ? filename.slice(0, -extension.length) : filename;
+    return `${prefix}/${directory}.thumbnails/${baseName}__thumb.jpg`;
+  }
+
+  return '';
+}
 
 export function TextCard({ text, mono = false }: { text: string; mono?: boolean }) {
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
@@ -80,6 +103,12 @@ export function MediaPreview({
 }) {
   const displayValue = previewValue || value;
   const kind = kindOverride || getMediaKind(displayValue);
+  const [resolvedPreviewValue, setResolvedPreviewValue] = useState(displayValue || value);
+
+  useEffect(() => {
+    setResolvedPreviewValue(displayValue || value);
+  }, [displayValue, value]);
+
   const minHeight = minHeightOverride ?? (compact ? 44 : 72);
   const baseFrameStyle: CSSProperties = {
     flex: fill ? '1 1 auto' : '0 0 auto',
@@ -100,15 +129,20 @@ export function MediaPreview({
         }}
       >
         <img
-          src={displayValue}
+          src={resolvedPreviewValue}
           alt=""
           draggable={false}
           className="absolute inset-0 h-full w-full object-contain"
+          onError={() => {
+            if (resolvedPreviewValue !== value) {
+              setResolvedPreviewValue(value);
+            }
+          }}
           style={{
             background: 'var(--node-card-field)',
           }}
         />
-        <ImageSizeLabel src={displayValue} dimensionSrc={value} className="node-media-preview__size" />
+        <ImageSizeLabel src={resolvedPreviewValue} dimensionSrc={value} className="node-media-preview__size" />
       </button>
     );
   }
