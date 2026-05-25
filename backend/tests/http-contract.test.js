@@ -250,6 +250,15 @@ test('HTTP contract: server runtime blocks local-only settings actions', async (
   process.env.APP_RUNTIME_MODE = 'server-single-user';
   const { server, baseUrl } = await createTestServer('server-runtime-settings');
   try {
+    const storage = await requestJson(baseUrl, '/api/settings/storage');
+    assert.equal(storage.status, 200);
+    assertEnvelopeShape(storage.body);
+    assert.equal(storage.body.data.pathsRedacted, true);
+    assert.equal(storage.body.data.canManagePath, false);
+    assert.equal(storage.body.data.effectiveRoot, '[server-managed]');
+    assert.equal(storage.body.data.defaultRoot, '[server-managed]');
+    assert.equal(storage.body.data.customRoot, '');
+
     const pick = await requestJson(baseUrl, '/api/settings/select-directory', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -265,6 +274,21 @@ test('HTTP contract: server runtime blocks local-only settings actions', async (
     assert.equal(restart.status, 403);
     assertEnvelopeShape(restart.body);
     assert.equal(restart.body.error.code, 'BACKEND_RESTART_UNAVAILABLE');
+
+    const saveStorage = await requestJson(baseUrl, '/api/settings/storage', {
+      method: 'PUT',
+      body: JSON.stringify({ customRoot: 'D:\\server-path' }),
+    });
+    assert.equal(saveStorage.status, 403);
+    assertEnvelopeShape(saveStorage.body);
+    assert.equal(saveStorage.body.error.code, 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE');
+
+    const resetStorage = await requestJson(baseUrl, '/api/settings/storage/reset', {
+      method: 'POST',
+    });
+    assert.equal(resetStorage.status, 403);
+    assertEnvelopeShape(resetStorage.body);
+    assert.equal(resetStorage.body.error.code, 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE');
   } finally {
     delete process.env.APP_RUNTIME_MODE;
     await new Promise((resolve) => server.close(resolve));

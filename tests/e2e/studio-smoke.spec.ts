@@ -229,13 +229,51 @@ test.describe('studio smoke', () => {
         }),
       });
     });
+    await page.route('**/api/settings/storage', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: {
+              effectiveRoot: '[server-managed]',
+              defaultRoot: '[server-managed]',
+              customRoot: '',
+              source: 'default',
+              restartRequired: false,
+              envOverride: '',
+              legacyRoot: '',
+              pathsRedacted: true,
+              canManagePath: false,
+            },
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: false,
+          error: {
+            code: 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE',
+            message: '当前运行模式不支持修改存储路径',
+          },
+        }),
+      });
+    });
 
     await page.goto('/');
     await expect(page.locator('.splash-overlay')).toHaveCount(0);
     await page.getByTestId('settings-module-defaults').click();
 
     await expect(page.getByTestId('settings-runtime-storage-mode')).toContainText('服务器单用户');
+    await expect(page.getByTestId('settings-storage-effective-root')).toContainText('服务器托管存储目录');
     await expect(page.getByTestId('settings-pick-storage-path')).toBeDisabled();
+    await expect(page.getByTestId('settings-save-storage-path')).toBeDisabled();
+    await expect(page.getByTestId('settings-reset-storage-path')).toBeDisabled();
     await expect(page.getByTestId('settings-restart-backend')).toBeDisabled();
     await expect(page.getByTestId('settings-restart-backend-hint')).toContainText('部署端');
 
@@ -244,6 +282,7 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('settings-capability-select-directory')).toContainText('禁用');
     await expect(page.getByTestId('settings-capability-restart-backend')).toContainText('禁用');
   });
+
   test('workflow saveFile node disables directory picker in server runtime mode', async ({ page }) => {
     await clearLocalState(page);
 

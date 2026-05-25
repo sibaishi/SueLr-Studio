@@ -459,6 +459,19 @@ The `desktop` variant should remain a thin shell over shared logic.
 
 The first server milestone is a single-user deployment, not a full SaaS or multi-tenant system.
 
+Current status on 2026-05-25:
+
+- completed on trunk:
+  - server runtime already blocks local-only actions such as directory picking and backend restart
+  - `/api/settings/storage` now redacts host filesystem roots in server modes
+  - server-mode storage mutation routes now reject UI-side path changes
+  - workflow output materialization no longer exposes host `savedPaths` in server modes
+  - request context now carries request method, path, origin, user agent, and client IP groundwork for later scoped observability
+- still pending before full Milestone 4 close:
+  - production environment rollout validation on a real deployed server
+  - static asset hosting and reverse-proxy verification outside local simulation
+  - broader server deployment SOP and environment template hardening
+
 ### Interfaces and routes to change first
 
 - Modify `backend/src/app/create-app.js`
@@ -487,6 +500,7 @@ The first server milestone is a single-user deployment, not a full SaaS or multi
 - no host filesystem path exposure in API responses
 - static frontend should be served by Express or an external reverse proxy
 - deployment should be controlled by environment configuration, not hardcoded defaults
+- workflow execution responses must not return absolute host output paths in server mode
 
 ## Server Multi-User Preparation
 
@@ -614,12 +628,25 @@ Scope:
 - local-only actions are disabled
 - server-safe storage and file access behavior is enforced
 
+Current status on 2026-05-25:
+
+- partially closed on trunk:
+  - runtime capability gating is in place
+  - storage settings responses are server-safe
+  - server-mode storage writes from the UI are blocked
+  - workflow save results no longer expose host output paths in server mode
+- still open:
+  - real deployment validation
+  - deployment SOP finalization
+  - reverse-proxy and allowed-origin production verification
+
 Acceptance criteria:
 
 - server can boot with production environment variables
 - frontend can run entirely through the deployed backend and static assets
 - blocked local-only settings actions return standard API errors
 - generated files remain accessible only through supported API paths
+- storage settings and workflow save results never expose absolute host paths in server mode
 
 Risk checklist:
 

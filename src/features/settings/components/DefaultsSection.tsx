@@ -35,13 +35,20 @@ export function DefaultsSection({ actions, view }: Props) {
 
   const selectDirectoryHint = getRuntimeActionHint(view.runtimeCapabilities, 'canSelectDirectory');
   const restartBackendHint = getRuntimeActionHint(view.runtimeCapabilities, 'canRestartBackend');
+  const canManageStoragePath = view.storageSettings?.canManagePath ?? view.canSelectDirectory;
+  const effectiveRootLabel = view.storageSettings?.pathsRedacted
+    ? '服务器托管存储目录（路径已隐藏）'
+    : (view.storageSettings?.effectiveRoot || '未获取到路径信息');
+  const defaultRootLabel = view.storageSettings?.pathsRedacted
+    ? '服务器托管存储目录（路径已隐藏）'
+    : (view.storageSettings?.defaultRoot || '未获取');
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
-      <SectionCard title="主题与界面偏好" description="切换当前工作室的色彩模式。">
+      <SectionCard title="主题与界面偏好" description="切换当前工作室的颜色主题。">
         <div className="flex-col" style={{ gap: 12 }}>
           <div>
-            <IOSLabel>色彩模式</IOSLabel>
+            <IOSLabel>颜色主题</IOSLabel>
             <div style={{ maxWidth: 360 }}>
               <IOSSegmentedControl
                 options={view.themeOptions}
@@ -55,7 +62,7 @@ export function DefaultsSection({ actions, view }: Props) {
 
       <SectionCard
         title="工作流执行"
-        description="控制工作流节点、逐项运行和多图生成是否并发，以及同一时间最多启动多少个任务。"
+        description="控制工作流节点、逐项执行和多图生成是否并发，以及同一时间最多启动多少个任务。"
       >
         <div className="flex-col" style={{ gap: 14 }}>
           <div>
@@ -64,12 +71,10 @@ export function DefaultsSection({ actions, view }: Props) {
               <IOSSegmentedControl
                 options={concurrencyModeOptions}
                 value={view.workflowConcurrency.enabled ? 'on' : 'off'}
-                onChange={(value) =>
-                  actions.setWorkflowConcurrency({
-                    ...view.workflowConcurrency,
-                    enabled: value === 'on',
-                  })
-                }
+                onChange={(value) => actions.setWorkflowConcurrency({
+                  ...view.workflowConcurrency,
+                  enabled: value === 'on',
+                })}
               />
             </div>
           </div>
@@ -88,7 +93,7 @@ export function DefaultsSection({ actions, view }: Props) {
               placeholder="5"
             />
             <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              关闭并发时按 1 个任务顺序执行；开启后此数值会同时限制工作流分支、逐项运行和 AI 生图张数请求。
+              关闭并发时按 1 个任务顺序执行；开启后这个数值会同时限制工作流分支、逐项运行和 AI 生图张数请求。
             </div>
           </div>
         </div>
@@ -96,7 +101,7 @@ export function DefaultsSection({ actions, view }: Props) {
 
       <SectionCard
         title="外部数据路径"
-        description="配置工作流、日志、上传文件等数据的存放位置。保存后需要重启后端生效。"
+        description="配置工作流、日志、上传文件等数据的存放位置。保存后可能需要重启后端生效。"
       >
         <div className="flex-col" style={{ gap: 12 }}>
           <div data-testid="settings-runtime-storage-mode" style={{ ...mutedPanelStyle(), padding: 14 }}>
@@ -104,7 +109,7 @@ export function DefaultsSection({ actions, view }: Props) {
             <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-primary)', marginTop: 8 }}>
               {formatRuntimeModeLabel(view.runtimeCapabilities?.mode)}
             </div>
-            {!view.canSelectDirectory ? (
+            {!canManageStoragePath ? (
               <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
                 {selectDirectoryHint}
               </div>
@@ -114,6 +119,7 @@ export function DefaultsSection({ actions, view }: Props) {
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>
             <div style={eyebrowStyle()}>当前生效路径</div>
             <div
+              data-testid="settings-storage-effective-root"
               style={{
                 fontSize: 13,
                 lineHeight: 1.6,
@@ -122,12 +128,14 @@ export function DefaultsSection({ actions, view }: Props) {
                 overflowWrap: 'anywhere',
               }}
             >
-              {view.storageSettingsLoading ? '正在读取...' : view.storageSettings?.effectiveRoot || '未获取到路径信息'}
+              {view.storageSettingsLoading ? '正在读取...' : effectiveRootLabel}
             </div>
-            <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>来源：{storageSourceLabel}</div>
+            <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+              来源：{storageSourceLabel}
+            </div>
             {view.storageSettings?.envOverride ? (
               <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
-                当前存在 `APP_CONFIG_DIR` 环境变量覆盖，界面保存后不会立即接管，需要先移除该环境变量。
+                当前存在 `APP_CONFIG_DIR` 环境变量覆盖，界面保存后不会立刻接管，需要先移除该环境变量。
               </div>
             ) : null}
           </div>
@@ -135,22 +143,27 @@ export function DefaultsSection({ actions, view }: Props) {
           <div>
             <IOSLabel>自定义绝对路径</IOSLabel>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'center' }}>
-              <IOSInput value={view.storagePathDraft} onChange={actions.setStoragePathDraft} placeholder="例如：D:\\SueLr-Studio-Data" />
+              <IOSInput
+                value={view.storagePathDraft}
+                onChange={actions.setStoragePathDraft}
+                placeholder={view.storageSettings?.pathsRedacted ? '服务器模式下不开放路径编辑' : '例如：D:\\SueLr-Studio-Data'}
+                disabled={!canManageStoragePath}
+              />
               <IOSButton
                 label={view.storagePathPicking ? '选择中...' : '选择文件夹'}
                 onClick={() => {
                   void actions.pickStoragePath();
                 }}
-                disabled={view.storagePathPicking || view.storageSettingsSaving || view.storageSettingsLoading || !view.canSelectDirectory}
+                disabled={view.storagePathPicking || view.storageSettingsSaving || view.storageSettingsLoading || !view.canSelectDirectory || !canManageStoragePath}
                 data-testid="settings-pick-storage-path"
                 small
                 style={{ width: 'auto', whiteSpace: 'nowrap' }}
               />
             </div>
             <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              留空时可点击“恢复默认”。默认路径：{view.storageSettings?.defaultRoot || '未获取'}
+              留空时可点击“恢复默认”。默认路径：{defaultRootLabel}
             </div>
-            {!view.canSelectDirectory ? (
+            {!canManageStoragePath ? (
               <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
                 {selectDirectoryHint}
               </div>
@@ -172,7 +185,8 @@ export function DefaultsSection({ actions, view }: Props) {
                 onClick={() => {
                   void actions.saveStoragePath();
                 }}
-                disabled={view.storageSettingsSaving || !view.storagePathDraft.trim()}
+                disabled={view.storageSettingsSaving || !view.storagePathDraft.trim() || !canManageStoragePath}
+                data-testid="settings-save-storage-path"
                 small
                 style={{ width: 'auto' }}
               />
@@ -181,7 +195,8 @@ export function DefaultsSection({ actions, view }: Props) {
                 onClick={() => {
                   void actions.resetStoragePath();
                 }}
-                disabled={view.storageSettingsSaving}
+                disabled={view.storageSettingsSaving || !canManageStoragePath}
+                data-testid="settings-reset-storage-path"
                 small
                 style={{
                   width: 'auto',
@@ -234,7 +249,7 @@ export function DefaultsSection({ actions, view }: Props) {
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>
             <div style={eyebrowStyle()}>当前策略</div>
             <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              {view.outboundProxy.mode === 'system' && '优先使用 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY 环境变量，Windows 下未设置环境变量时读取系统代理。'}
+              {view.outboundProxy.mode === 'system' && '优先使用 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY 环境变量；Windows 下未设置环境变量时读取系统代理。'}
               {view.outboundProxy.mode === 'direct' && '后端出站请求将直连，不使用环境变量代理或 Windows 系统代理。'}
               {view.outboundProxy.mode === 'custom' && '后端出站请求优先使用下方自定义代理，并按绕过列表直连匹配目标。'}
             </div>

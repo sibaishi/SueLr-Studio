@@ -56,6 +56,8 @@ export type StorageSettingsPayload = {
   restartRequired: boolean;
   envOverride?: string;
   legacyRoot?: string;
+  pathsRedacted?: boolean;
+  canManagePath?: boolean;
 };
 
 export type BackendStatusPayload = {

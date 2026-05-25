@@ -262,3 +262,39 @@ test('settings service blocks local-only actions in server runtime modes', async
     return true;
   });
 });
+
+test('settings service redacts storage roots and blocks storage path changes in server runtime modes', async () => {
+  const root = createStorageDir('settings-server-storage');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { SettingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
+  const service = new SettingsService(undefined, {
+    getRuntimeCapabilities: () => ({
+      mode: 'server-single-user',
+      canSelectDirectory: false,
+      canRestartBackend: false,
+      hasEmbeddedShell: false,
+    }),
+  });
+
+  const storage = service.getStorageSettings();
+  assert.equal(storage.pathsRedacted, true);
+  assert.equal(storage.canManagePath, false);
+  assert.equal(storage.effectiveRoot, '[server-managed]');
+  assert.equal(storage.defaultRoot, '[server-managed]');
+  assert.equal(storage.customRoot, '');
+
+  assert.throws(() => service.updateStorageSettings({ customRoot: 'D:\\server-path' }), (error) => {
+    assert.equal(error.code, 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE');
+    assert.equal(error.status, 403);
+    return true;
+  });
+
+  assert.throws(() => service.resetStorageSettings(), (error) => {
+    assert.equal(error.code, 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE');
+    assert.equal(error.status, 403);
+    return true;
+  });
+});

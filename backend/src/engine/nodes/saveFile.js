@@ -1,4 +1,6 @@
 import { saveContentByType } from '../helpers/saveHelper.js';
+import path from 'path';
+import { isServerRuntimeMode } from '../../platform/runtime/mode.js';
 
 export async function execute(node, inputs, _apiConfig, sendProgress) {
   const content = inputs.content;
@@ -21,10 +23,15 @@ export async function execute(node, inputs, _apiConfig, sendProgress) {
     outputPath,
     prefix: node.data?.filenamePrefix || 'saved',
   });
+  const exposeHostPaths = !isServerRuntimeMode();
 
   return {
     content,
-    savedFiles,
-    savedPaths: savedFiles.map((file) => file.path),
+    savedFiles: savedFiles.map((file) => ({
+      type: file.type,
+      name: path.basename(file.path),
+      url: '',
+    })),
+    ...(exposeHostPaths ? { savedPaths: savedFiles.map((file) => file.path) } : {}),
   };
 }

@@ -7,6 +7,30 @@ import { executionService } from '../execution/execution.service.js';
 import { getRuntimeCapabilities } from '../../platform/runtime/index.js';
 
 const logger = createLogger({ module: 'settings-service' });
+const REDACTED_STORAGE_LABEL = '[server-managed]';
+
+function sanitizeStorageSettingsForRuntime(settings, runtime) {
+  if (!settings) return settings;
+
+  if (!runtime?.mode?.startsWith?.('server')) {
+    return {
+      ...settings,
+      pathsRedacted: false,
+      canManagePath: true,
+    };
+  }
+
+  return {
+    ...settings,
+    effectiveRoot: REDACTED_STORAGE_LABEL,
+    defaultRoot: REDACTED_STORAGE_LABEL,
+    customRoot: '',
+    envOverride: settings.envOverride ? REDACTED_STORAGE_LABEL : '',
+    legacyRoot: settings.legacyRoot ? REDACTED_STORAGE_LABEL : '',
+    pathsRedacted: true,
+    canManagePath: false,
+  };
+}
 
 export class SettingsService {
   constructor(repository = settingsRepository, options = {}) {
@@ -49,27 +73,32 @@ export class SettingsService {
 
   getStorageSettings() {
     try {
-      return this.repository.readStorageSettings();
+      return sanitizeStorageSettingsForRuntime(
+        this.repository.readStorageSettings(),
+        this.getRuntimeCapabilitiesSnapshot(),
+      );
     } catch (error) {
       throw fromLegacyError(error);
     }
   }
 
   updateStorageSettings(patch) {
+    this.assertCapability('canSelectDirectory', 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE', '当前运行模式不支持修改存储路径');
     try {
       const updated = this.repository.updateStorageSettings(patch);
-      logger.info('storage settings updated', { source: updated.source, effectiveRoot: updated.effectiveRoot });
-      return updated;
+      logger.info('storage settings updated', { source: updated.source });
+      return sanitizeStorageSettingsForRuntime(updated, this.getRuntimeCapabilitiesSnapshot());
     } catch (error) {
       throw fromLegacyError(error);
     }
   }
 
   resetStorageSettings() {
+    this.assertCapability('canSelectDirectory', 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE', '当前运行模式不支持修改存储路径');
     try {
       const updated = this.repository.resetStorageSettings();
-      logger.info('storage settings reset', { source: updated.source, effectiveRoot: updated.effectiveRoot });
-      return updated;
+      logger.info('storage settings reset', { source: updated.source });
+      return sanitizeStorageSettingsForRuntime(updated, this.getRuntimeCapabilitiesSnapshot());
     } catch (error) {
       throw fromLegacyError(error);
     }

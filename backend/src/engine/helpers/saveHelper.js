@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.js';
+import { isServerRuntimeMode } from '../../platform/runtime/mode.js';
 
 const TYPE_DIRS = {
   image: 'images',
@@ -60,6 +61,27 @@ function toApiOutputUrl(filePath) {
   const relativePath = path.relative(normalizedDefaultDir, normalizedFilePath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) return null;
   return `/api/outputs/${relativePath.split(path.sep).join('/')}`;
+}
+
+function toPublicSavedFile(file) {
+  return {
+    type: file.type,
+    name: path.basename(file.path),
+    url: toApiOutputUrl(file.path) || '',
+  };
+}
+
+function buildSaveResult(content, savedFiles, savedPaths, { exposeHostPaths = !isServerRuntimeMode() } = {}) {
+  const result = {
+    content,
+    savedFiles: savedFiles.map(toPublicSavedFile),
+  };
+
+  if (exposeHostPaths) {
+    result.savedPaths = savedPaths;
+  }
+
+  return result;
 }
 
 function detectUrlType(value) {
@@ -123,12 +145,13 @@ export async function materializeContentForOutput(content, options = {}) {
   const savedFiles = await saveContentByType(content, options);
   const savedPaths = savedFiles.map((file) => file.path);
   const urls = savedPaths.map(toApiOutputUrl).filter(Boolean);
+  const exposeHostPaths = options.exposeHostPaths ?? !isServerRuntimeMode();
 
   if (typeof content === 'string') {
     if (savedFiles.length === 1 && savedFiles[0]?.type !== 'text' && urls[0]) {
-      return { content: urls[0], savedFiles, savedPaths };
+      return buildSaveResult(urls[0], savedFiles, savedPaths, { exposeHostPaths });
     }
-    return { content, savedFiles, savedPaths };
+    return buildSaveResult(content, savedFiles, savedPaths, { exposeHostPaths });
   }
 
   if (Array.isArray(content)) {
@@ -138,10 +161,10 @@ export async function materializeContentForOutput(content, options = {}) {
       const url = urls[index];
       return savedFile && savedFile.type !== 'text' && url ? url : item;
     });
-    return { content: mappedContent, savedFiles, savedPaths };
+    return buildSaveResult(mappedContent, savedFiles, savedPaths, { exposeHostPaths });
   }
 
-  return { content, savedFiles, savedPaths };
+  return buildSaveResult(content, savedFiles, savedPaths, { exposeHostPaths });
 }
 
 export const DEFAULT_OUTPUTS_DIR = STORAGE_PATHS.generatedDir;

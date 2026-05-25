@@ -359,6 +359,8 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
   - shared logger
 - `backend/src/platform/logging/runtime-observability.js`
   - runtime probes used to diagnose stuck or invalid transitions
+- `backend/src/platform/logging/request-context.js`
+  - request-scoped metadata carrier used by logs and future server-side ownership hooks
 - `backend/src/platform/logging/workflow-run-logger.js`
   - workflow run log persistence
 - `backend/src/platform/logging/workflow-log-sanitizer.js`
@@ -374,6 +376,17 @@ The active app data root owns runtime files. Under that root, generated media us
 - `files/generated/assistant-videos/`: assets explicitly saved into the Chat/assistant video gallery
 
 The public URL contract remains rooted at `/api/outputs/...` for generated outputs and `/api/assistant/files/...` for assistant gallery files. New code should preserve relative subpaths when converting between URLs and `STORAGE_PATHS.generatedDir`.
+
+## Server Runtime Guardrails
+
+When the runtime mode is `server-single-user` or `server-multi-user`, shared code should assume a stricter boundary than local or desktop mode:
+
+- storage settings APIs must not expose absolute host filesystem paths
+- settings UI must not allow path picking, path editing, or backend restart controls
+- workflow output results must not return absolute `savedPaths`
+- request-scoped metadata should be attached through `request-context`, not inferred from globals
+
+If a new API needs to surface storage or generated outputs, prefer relative URLs or semantic state, never raw host paths.
 
 ### Request flow examples
 
