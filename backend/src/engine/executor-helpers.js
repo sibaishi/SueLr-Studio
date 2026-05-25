@@ -96,6 +96,36 @@ export function topoSort(nodes, edges) {
   return result;
 }
 
+function resolveLegacyOutputAlias(sourceOutput, sourceHandle) {
+  if (!sourceOutput || typeof sourceOutput !== 'object') return undefined;
+
+  if (sourceHandle === 'image' && Array.isArray(sourceOutput.images)) {
+    return sourceOutput.images[0];
+  }
+
+  if (sourceHandle === 'images' && sourceOutput.image !== undefined) {
+    return Array.isArray(sourceOutput.image) ? sourceOutput.image : [sourceOutput.image];
+  }
+
+  if (sourceHandle === 'video' && Array.isArray(sourceOutput.videos)) {
+    return sourceOutput.videos[0];
+  }
+
+  if (sourceHandle === 'videos' && sourceOutput.video !== undefined) {
+    return Array.isArray(sourceOutput.video) ? sourceOutput.video : [sourceOutput.video];
+  }
+
+  if (sourceHandle === 'audio' && Array.isArray(sourceOutput.audios)) {
+    return sourceOutput.audios[0];
+  }
+
+  if (sourceHandle === 'audios' && sourceOutput.audio !== undefined) {
+    return Array.isArray(sourceOutput.audio) ? sourceOutput.audio : [sourceOutput.audio];
+  }
+
+  return undefined;
+}
+
 export function collectInputs(node, edges, outputs) {
   const inputs = {};
   edges
@@ -103,7 +133,10 @@ export function collectInputs(node, edges, outputs) {
     .forEach((edge) => {
       const sourceOutput = outputs[edge.source];
       if (sourceOutput) {
-        inputs[edge.targetHandle] = sourceOutput[edge.sourceHandle];
+        const directValue = sourceOutput[edge.sourceHandle];
+        inputs[edge.targetHandle] = directValue !== undefined
+          ? directValue
+          : resolveLegacyOutputAlias(sourceOutput, edge.sourceHandle);
       }
     });
   return inputs;

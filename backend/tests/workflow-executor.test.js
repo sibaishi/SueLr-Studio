@@ -168,6 +168,93 @@ test('textInput override flows to downstream output nodes', async () => {
   assert.equal(outputEvent.data.outputs.content, 'from upstream');
 });
 
+test('legacy image handle aliases still flow imageGen output into output nodes', async () => {
+  const originalFetch = globalThis.fetch;
+  const events = [];
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    data: [
+      { b64_json: 'YWJj' },
+    ],
+  }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  try {
+    await executeWorkflow(
+      {
+        nodes: [
+          {
+            id: 'prompt',
+            type: 'textInput',
+            data: { text: 'draw a mountain' },
+          },
+          {
+            id: 'image',
+            type: 'imageGen',
+            data: { model: 'demo-image-model', n: 1 },
+          },
+          {
+            id: 'output',
+            type: 'output',
+            data: {},
+          },
+        ],
+        edges: [
+          {
+            id: 'prompt-image',
+            source: 'prompt',
+            sourceHandle: 'text',
+            target: 'image',
+            targetHandle: 'prompt',
+          },
+          {
+            id: 'image-output',
+            source: 'image',
+            sourceHandle: 'image',
+            target: 'output',
+            targetHandle: 'content',
+          },
+        ],
+      },
+      {
+        apiKey: 'demo-key',
+        baseUrl: 'https://example.com',
+        providerConfig: {
+          authType: 'bearer',
+          imageEndpoint: '/v1/images/generations',
+          imageEditEndpoint: '/v1/images/edits',
+        },
+        projectModels: [
+          {
+            id: 'demo-image-model',
+            modelId: 'demo-image-model',
+            type: 'image',
+            enabled: true,
+            endpointMode: 'category',
+            endpointCategory: 'image',
+          },
+        ],
+      },
+      (event, data) => events.push({ event, data }),
+    );
+
+    const outputEvent = events.find(({ event, data }) => (
+      event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+      && data.nodeId === 'output'
+    ));
+
+    assert.ok(outputEvent);
+    assert.equal(typeof outputEvent.data.outputs.content, 'string');
+    assert.match(outputEvent.data.outputs.content, /^\/api\/outputs\/images\/.+\.png$/);
+    assert.equal(Array.isArray(outputEvent.data.outputs.savedFiles), true);
+    assert.equal(outputEvent.data.outputs.savedFiles.length > 0, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('independent ready workflow nodes execute concurrently when enabled', async () => {
   const originalTextClean = NODE_EXECUTORS.textClean;
   const bothCleanNodesStarted = createDeferred();
