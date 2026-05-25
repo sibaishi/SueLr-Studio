@@ -313,6 +313,8 @@ export interface UploadResult {
   fileName?: string;
   fileSize?: number;
   mimeType?: string;
+  width?: number;
+  height?: number;
   error?: string;
 }
 
@@ -324,6 +326,8 @@ export interface GeneratedOutputFile {
   thumbnailUrl?: string;
   type: 'image' | 'video' | 'audio' | 'text' | 'data' | 'file';
   mimeType: string;
+  width?: number;
+  height?: number;
   size: number;
   modifiedAt: number;
 }
@@ -349,6 +353,8 @@ export async function uploadFile(file: File): Promise<UploadResult> {
       fileName: string;
       fileSize: number;
       mimeType: string;
+      width?: number;
+      height?: number;
     }>(`${API_BASE}/files/upload`, {
       method: 'POST',
       body: formData,
@@ -363,6 +369,8 @@ export async function uploadFile(file: File): Promise<UploadResult> {
           fileName: result.data.fileName,
           fileSize: result.data.fileSize,
           mimeType: result.data.mimeType,
+          width: result.data.width,
+          height: result.data.height,
       };
     }
 

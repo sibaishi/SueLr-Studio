@@ -1,4 +1,5 @@
 import multer from 'multer';
+import sharp from 'sharp';
 import { createLogger } from '../../platform/logging/logger.js';
 import { filesRepository } from './files.repository.js';
 import { ensureUploadThumbnail, deleteUploadThumbnail } from '../../platform/media/image-thumbnails.js';
@@ -33,6 +34,7 @@ export class FilesService {
       sourcePath: file.path,
       mimeType: file.mimetype,
     }).catch(() => '');
+    const dimensions = await readImageDimensions(file.path, file.mimetype);
 
     logger.info('file uploaded', { filename: file.filename, size: file.size, mimeType: file.mimetype });
     return {
@@ -41,6 +43,8 @@ export class FilesService {
       fileName: this.repository.decodeOriginalName(file.originalname),
       fileSize: file.size,
       mimeType: file.mimetype,
+      width: dimensions?.width,
+      height: dimensions?.height,
     };
   }
 
@@ -50,8 +54,8 @@ export class FilesService {
     logger.info('file deleted', { filename });
   }
 
-  listGeneratedOutputs() {
-    return this.repository.listGeneratedOutputs();
+  async listGeneratedOutputs() {
+    return await this.repository.listGeneratedOutputs();
   }
 
   clearGeneratedOutputs() {
@@ -73,3 +77,17 @@ export class FilesService {
 }
 
 export const filesService = new FilesService();
+
+async function readImageDimensions(filePath, mimeType) {
+  if (!String(mimeType || '').startsWith('image/')) return null;
+
+  try {
+    const metadata = await sharp(filePath, { failOn: 'none' }).metadata();
+    const width = Number(metadata.width || 0);
+    const height = Number(metadata.height || 0);
+    if (!width || !height) return null;
+    return { width, height };
+  } catch {
+    return null;
+  }
+}

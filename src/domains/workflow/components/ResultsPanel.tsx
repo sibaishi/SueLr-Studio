@@ -288,7 +288,7 @@ function ResultsList({
     label: file.name,
     color: file.type === 'video' ? '#AF52DE' : '#FF9500',
     outputLabels: { content: file.relativePath },
-    outputs: { content: { url: file.url, thumbnailUrl: file.thumbnailUrl, type: file.type, name: file.name, mimeType: file.mimeType } },
+    outputs: { content: { url: file.url, thumbnailUrl: file.thumbnailUrl, type: file.type, name: file.name, mimeType: file.mimeType, width: file.width, height: file.height } },
   }));
 
   if (error) {
@@ -388,7 +388,7 @@ function AiOutputValue({
   onBackfillText?: (text: string) => void;
 }) {
   if (isGeneratedOutputValue(value)) {
-    if (value.type === 'image') return <ImageResult src={value.url} thumbnailSrc={value.thumbnailUrl} onPreviewImage={onPreviewImage} />;
+    if (value.type === 'image') return <ImageResult src={value.url} thumbnailSrc={value.thumbnailUrl} width={value.width} height={value.height} onPreviewImage={onPreviewImage} />;
     if (value.type === 'video') return <VideoResult src={value.url} />;
     if (value.type === 'audio') return <audio src={value.url} controls className="w-full" />;
     if (isPreviewableTextOutput(value)) {
@@ -461,18 +461,22 @@ function TextResult({
 function ImageResult({
   src,
   thumbnailSrc,
+  width,
+  height,
   onPreviewImage,
   compact = false,
 }: {
   src: string;
   thumbnailSrc?: string;
+  width?: number;
+  height?: number;
   onPreviewImage: (src: string) => void;
   compact?: boolean;
 }) {
   return (
     <button type="button" onClick={() => onPreviewImage(src)} className={`workflow-results__media ${compact ? 'workflow-results__media--compact' : ''}`}>
       <img src={thumbnailSrc || src} alt="" className="h-full w-full object-cover" />
-      <ImageSizeLabel src={thumbnailSrc || src} className="workflow-results__media-size" />
+      <ImageSizeLabel src={thumbnailSrc || src} width={width} height={height} className="workflow-results__media-size" />
     </button>
   );
 }
@@ -710,6 +714,8 @@ function unwrapOutputValue(value: unknown): unknown {
           type,
           name: typeof record.name === 'string' ? record.name : '',
           mimeType: typeof record.mimeType === 'string' ? record.mimeType : '',
+          width: typeof record.width === 'number' ? record.width : undefined,
+          height: typeof record.height === 'number' ? record.height : undefined,
       };
     }
     if (typeof record.url === 'string') return record.url;
@@ -717,7 +723,7 @@ function unwrapOutputValue(value: unknown): unknown {
   return value;
 }
 
-function isGeneratedOutputValue(value: unknown): value is { url: string; thumbnailUrl?: string; type: string; name: string; mimeType?: string } {
+function isGeneratedOutputValue(value: unknown): value is { url: string; thumbnailUrl?: string; type: string; name: string; mimeType?: string; width?: number; height?: number } {
   return Boolean(
     value
     && typeof value === 'object'

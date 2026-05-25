@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.js';
 import { isServerRuntimeMode } from '../../platform/runtime/mode.js';
 
@@ -64,10 +65,13 @@ function toApiOutputUrl(filePath) {
 }
 
 function toPublicSavedFile(file) {
+  const dimensions = file.type === 'image' ? readImageDimensionsSync(file.path) : null;
   return {
     type: file.type,
     name: path.basename(file.path),
     url: toApiOutputUrl(file.path) || '',
+    width: dimensions?.width,
+    height: dimensions?.height,
   };
 }
 
@@ -168,3 +172,15 @@ export async function materializeContentForOutput(content, options = {}) {
 }
 
 export const DEFAULT_OUTPUTS_DIR = STORAGE_PATHS.generatedDir;
+
+function readImageDimensionsSync(filePath) {
+  try {
+    const metadata = sharp(filePath, { failOn: 'none' }).metadataSync?.();
+    const width = Number(metadata?.width || 0);
+    const height = Number(metadata?.height || 0);
+    if (!width || !height) return null;
+    return { width, height };
+  } catch {
+    return null;
+  }
+}

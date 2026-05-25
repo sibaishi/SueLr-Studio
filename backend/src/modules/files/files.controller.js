@@ -2,8 +2,12 @@ import { successEnvelope } from '../../app/http/envelope.js';
 import { filesService } from './files.service.js';
 
 export class FilesController {
-  listGenerated(_req, res) {
-    res.json(successEnvelope(filesService.listGeneratedOutputs()));
+  async listGenerated(_req, res, next) {
+    try {
+      res.json(successEnvelope(await filesService.listGeneratedOutputs()));
+    } catch (error) {
+      next(error);
+    }
   }
 
   clearGenerated(_req, res) {

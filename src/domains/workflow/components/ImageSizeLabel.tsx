@@ -36,11 +36,23 @@ export function ImageSizeLabel({
   src,
   className = '',
   dimensionSrc,
+  width,
+  height,
 }: {
   src: string;
   className?: string;
   dimensionSrc?: string;
+  width?: number;
+  height?: number;
 }) {
+  if (typeof width === 'number' && width > 0 && typeof height === 'number' && height > 0) {
+    return (
+      <span className={className}>
+        {width} x {height}
+      </span>
+    );
+  }
+
   const dimensions = useImageDimensions(dimensionSrc || src);
   if (!dimensions) return null;
 

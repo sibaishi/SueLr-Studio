@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
 import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.js';
@@ -85,18 +86,18 @@ export class FilesRepository {
     fs.unlinkSync(resolved);
   }
 
-  listGeneratedOutputs() {
+  async listGeneratedOutputs() {
     ensureStorageDirectories();
     const root = STORAGE_PATHS.generatedDir;
     const items = [];
 
-    const visit = (dir) => {
+    const visit = async (dir) => {
       if (!fs.existsSync(dir)) return;
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const filePath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           if (entry.name === '.thumbnails') continue;
-          visit(filePath);
+          await visit(filePath);
           continue;
         }
         if (!entry.isFile()) continue;
@@ -114,6 +115,9 @@ export class FilesRepository {
         const thumbnailUrl = thumbnailTarget?.absolutePath && fs.existsSync(thumbnailTarget.absolutePath)
           ? toOutputUrl(thumbnailTarget.relativePath)
           : '';
+        const dimensions = fileType.type === 'image'
+          ? await readImageDimensions(filePath)
+          : null;
         items.push({
           id: relativePath.split(path.sep).join('/'),
           name: entry.name,
@@ -122,6 +126,8 @@ export class FilesRepository {
           thumbnailUrl,
           type: fileType.type,
           mimeType: fileType.mimeType,
+          width: dimensions?.width,
+          height: dimensions?.height,
           size: stat.size,
           modifiedAt: stat.mtimeMs,
         });
@@ -135,7 +141,7 @@ export class FilesRepository {
       }
     };
 
-    visit(root);
+    await visit(root);
     return items.sort((a, b) => b.modifiedAt - a.modifiedAt);
   }
 
@@ -175,3 +181,15 @@ export class FilesRepository {
 }
 
 export const filesRepository = new FilesRepository();
+
+async function readImageDimensions(filePath) {
+  try {
+    const metadata = await sharp(filePath, { failOn: 'none' }).metadata();
+    const width = Number(metadata.width || 0);
+    const height = Number(metadata.height || 0);
+    if (!width || !height) return null;
+    return { width, height };
+  } catch {
+    return null;
+  }
+}

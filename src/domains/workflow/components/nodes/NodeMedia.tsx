@@ -85,6 +85,8 @@ export function MediaCard({ value, compact = false, fill = false }: { value: str
 export function MediaPreview({
   value,
   previewValue,
+  imageWidth,
+  imageHeight,
   compact = false,
   onPreviewImage,
   inertImage = false,
@@ -94,6 +96,8 @@ export function MediaPreview({
 }: {
   value: string;
   previewValue?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   compact?: boolean;
   onPreviewImage?: () => void;
   inertImage?: boolean;
@@ -142,7 +146,7 @@ export function MediaPreview({
             background: 'var(--node-card-field)',
           }}
         />
-        <ImageSizeLabel src={resolvedPreviewValue} className="node-media-preview__size" />
+        <ImageSizeLabel src={resolvedPreviewValue} width={imageWidth} height={imageHeight} className="node-media-preview__size" />
       </button>
     );
   }

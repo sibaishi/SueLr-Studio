@@ -453,6 +453,8 @@ function FileInputContent({
   const previewUrl = storedPreviewUrl && !(storedPreviewUrl.startsWith('blob:') && fileUrl) ? storedPreviewUrl : fileUrl;
   const fileName = (data.fileName as string) || '';
   const localPath = (data.localPath as string) || '';
+  const imageWidth = typeof data.width === 'number' ? data.width : undefined;
+  const imageHeight = typeof data.height === 'number' ? data.height : undefined;
   const uploading = Boolean(data._uploading);
   const uploadError = (data._uploadError as string) || '';
   const maskFileUrl = (data.maskFileUrl as string) || '';
@@ -476,6 +478,8 @@ function FileInputContent({
         previewUrl: '',
         fileName: '',
         fileSize: undefined,
+        width: undefined,
+        height: undefined,
         _uploading: false,
         _uploadError: '',
         canvasOriginalFileUrl: '',
@@ -508,6 +512,8 @@ function FileInputContent({
       fileName: file.name,
       fileKind: mediaKind,
       fileSize: file.size,
+      width: undefined,
+      height: undefined,
       _uploading: true,
       _uploadError: '',
       canvasOriginalFileUrl: '',
@@ -526,6 +532,8 @@ function FileInputContent({
           previewUrl: result.url,
           fileName: result.fileName || file.name,
           fileSize: result.fileSize || file.size,
+          width: result.width,
+          height: result.height,
           _uploading: false,
           _uploadError: '',
         });
@@ -599,7 +607,7 @@ function FileInputContent({
       <input ref={fileInputRef} type="file" accept={accept} onChange={handleFileChange} className="hidden" />
         {previewDisplayUrl ? (
           <>
-          <MediaPreview value={previewUrl || previewDisplayUrl} previewValue={previewDisplayUrl} compact fill inertImage kindOverride={mediaKind} minHeightOverride={mediaKind === 'audio' ? 48 : 82} />
+          <MediaPreview value={previewUrl || previewDisplayUrl} previewValue={previewDisplayUrl} imageWidth={imageWidth} imageHeight={imageHeight} compact fill inertImage kindOverride={mediaKind} minHeightOverride={mediaKind === 'audio' ? 48 : 82} />
             <div className="node-file-status">
             <span className="node-file-status__name">{fileName}</span>
             <span className={uploadError ? 'node-file-status__state node-file-status__state--error' : uploading ? 'node-file-status__state node-file-status__state--loading' : 'node-file-status__state'}>
@@ -1371,6 +1379,8 @@ function InteractiveValue({ value }: { value: unknown }) {
         <MediaPreview
           value={value.url}
           previewValue={value.thumbnailUrl || inferImageThumbnailUrl(value.url) || value.url}
+          imageWidth={typeof value.width === 'number' ? value.width : undefined}
+          imageHeight={typeof value.height === 'number' ? value.height : undefined}
           fill
           inertImage
           kindOverride="image"
@@ -1414,7 +1424,7 @@ function isRenderableOutputMediaUrl(value: string) {
   return false;
 }
 
-function isRenderableOutputMediaObject(value: unknown): value is { url: string; thumbnailUrl?: string; type?: string } {
+function isRenderableOutputMediaObject(value: unknown): value is { url: string; thumbnailUrl?: string; type?: string; width?: number; height?: number } {
   return Boolean(value && typeof value === 'object' && typeof (value as { url?: unknown }).url === 'string');
 }
 
