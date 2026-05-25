@@ -24,6 +24,7 @@ ENV APP_FRONTEND_DIST=/app/dist
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/backend ./backend
+COPY --from=build /app/src/shared/workflow ./src/shared/workflow
 
 WORKDIR /app/backend
 

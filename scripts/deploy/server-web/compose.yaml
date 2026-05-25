@@ -1,7 +1,7 @@
 services:
   suelr-studio:
     build:
-      context: ../../..
+      context: ../app
       dockerfile: scripts/deploy/server-web/Dockerfile
     container_name: suelr-studio
     restart: unless-stopped
