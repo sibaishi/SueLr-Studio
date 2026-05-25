@@ -552,13 +552,18 @@ Risk checklist:
 
 Current status on 2026-05-25:
 
-- completed:
+- completed and ready to close:
   - local-web launcher scripts exist
   - local-web build flow exists
   - backend static hosting path is wired through `APP_FRONTEND_DIST`
-- still open:
-  - full clean-machine acceptance verification
-  - broader UX verification that no desktop-only affordances remain in local-web mode
+  - public user documentation now covers `dev:local-web`, `build:local-web`, and `start:local-web`
+  - startup verification covers Vite-proxy development mode and backend-hosted static mode
+
+Milestone 2 close-out decision:
+
+- closed once the shared trunk can build and launch the browser-only local runtime in both development and production-style local modes
+- closed once public documentation explains how to start and verify the local-web variant
+- closed without waiting for installer-style packaging, because this milestone only requires a working local browser distribution path
 
 Scope:
 

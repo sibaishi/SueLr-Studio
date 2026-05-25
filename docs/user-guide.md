@@ -87,6 +87,33 @@ Start only the backend:
 npm run dev:backend
 ```
 
+Local-web variant:
+
+```bash
+npm.cmd run dev:local-web
+```
+
+- starts backend in `local-web` runtime mode
+- starts Vite for browser-based local development
+- opens the app in your default browser
+
+Build local-web assets:
+
+```bash
+npm.cmd run build:local-web
+```
+
+Run the production-style local-web launcher:
+
+```bash
+npm.cmd run start:local-web
+```
+
+- builds frontend assets if needed
+- serves `dist/` through the backend using `APP_FRONTEND_DIST`
+- opens the browser against the backend-hosted app
+- uses the same config-dir storage resolver as the desktop variant
+
 Default local addresses:
 
 - Frontend: `http://localhost:5173`
@@ -284,6 +311,8 @@ If `APP_CONFIG_DIR` is set in the environment, it overrides the in-app storage p
 `Settings -> Defaults` includes a `Restart Backend` button.
 
 This is mainly used after changing storage-root-related settings.
+
+In `local-web`, this button is still valid because the backend is running on the same local machine as the browser UI.
 
 In server deployment modes, this button is intentionally disabled. Restart must be handled by the deployment-side process manager or service supervisor.
 

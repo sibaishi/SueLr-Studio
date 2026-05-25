@@ -69,6 +69,7 @@ describe('repository documentation and branch hygiene', () => {
   it('keeps local-web launcher scripts and package entrypoints aligned with the public plan', () => {
     const packageJson = readUtf8('package.json');
     const deploymentPlan = readUtf8('docs/deployment-variants-plan.md');
+    const userGuide = readUtf8('docs/user-guide.md');
     const startDev = readUtf8('scripts/start-dev.mjs');
     const startLocalWeb = readUtf8('scripts/start-local-web.mjs');
     const buildLocalWeb = readUtf8('scripts/build-local-web.mjs');
@@ -83,6 +84,9 @@ describe('repository documentation and branch hygiene', () => {
     expect(buildLocalWeb).toContain("runNpmChecked(['run', 'build']");
     expect(deploymentPlan).toContain('scripts/start-local-web.mjs');
     expect(deploymentPlan).toContain('scripts/build-local-web.mjs');
+    expect(userGuide).toContain('npm.cmd run dev:local-web');
+    expect(userGuide).toContain('npm.cmd run build:local-web');
+    expect(userGuide).toContain('npm.cmd run start:local-web');
   });
 
   it('keeps workflow structure guards aligned with the canonical domains path', () => {
