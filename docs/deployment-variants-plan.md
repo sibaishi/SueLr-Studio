@@ -408,6 +408,17 @@ The `local-web` variant is the first release target because it removes the Elect
   - validates backend readiness for local-web packaging
   - prepares any local-web release metadata if needed
 
+Current status on 2026-05-25:
+
+- completed on trunk:
+  - `scripts/start-local-web.mjs`
+  - `scripts/build-local-web.mjs`
+  - root scripts `dev:local-web`, `build:local-web`, and `start:local-web`
+  - `scripts/start-dev.mjs` now explicitly runs the shared local-web development path and emits `APP_RUNTIME_MODE=local-web`
+- still pending in Milestone 2:
+  - broader production verification on a clean machine
+  - packaging metadata only if release distribution later needs more than backend + built frontend assets
+
 ### Existing scripts to modify
 
 - Modify `scripts/start-dev.mjs`
@@ -538,6 +549,16 @@ Risk checklist:
 - confirm no new ad hoc helper files are added at the repository root
 
 ### Milestone 2: Local-Web Release Readiness
+
+Current status on 2026-05-25:
+
+- completed:
+  - local-web launcher scripts exist
+  - local-web build flow exists
+  - backend static hosting path is wired through `APP_FRONTEND_DIST`
+- still open:
+  - full clean-machine acceptance verification
+  - broader UX verification that no desktop-only affordances remain in local-web mode
 
 Scope:
 

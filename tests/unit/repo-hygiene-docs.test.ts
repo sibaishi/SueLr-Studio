@@ -66,6 +66,25 @@ describe('repository documentation and branch hygiene', () => {
     }
   });
 
+  it('keeps local-web launcher scripts and package entrypoints aligned with the public plan', () => {
+    const packageJson = readUtf8('package.json');
+    const deploymentPlan = readUtf8('docs/deployment-variants-plan.md');
+    const startDev = readUtf8('scripts/start-dev.mjs');
+    const startLocalWeb = readUtf8('scripts/start-local-web.mjs');
+    const buildLocalWeb = readUtf8('scripts/build-local-web.mjs');
+
+    expect(packageJson).toContain('"dev:local-web"');
+    expect(packageJson).toContain('"build:local-web"');
+    expect(packageJson).toContain('"start:local-web"');
+    expect(startDev).toContain("APP_RUNTIME_MODE: 'local-web'");
+    expect(startLocalWeb).toContain("APP_FRONTEND_DIST: distDir");
+    expect(startLocalWeb).toContain("APP_RUNTIME_MODE: 'local-web'");
+    expect(startLocalWeb).toContain('const frontendUrl = `http://localhost:${backendPort}`');
+    expect(buildLocalWeb).toContain("runNpmChecked(['run', 'build']");
+    expect(deploymentPlan).toContain('scripts/start-local-web.mjs');
+    expect(deploymentPlan).toContain('scripts/build-local-web.mjs');
+  });
+
   it('keeps workflow structure guards aligned with the canonical domains path', () => {
     const workflowStoreCheck = readUtf8('scripts/check-workflow-store-structure.mjs');
 

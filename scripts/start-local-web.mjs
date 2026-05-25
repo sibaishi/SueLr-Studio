@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   backendDir,
@@ -13,51 +14,63 @@ import {
   openBrowser,
   print,
   rootDir,
+  runNpmChecked,
+  shutdown,
   startProcess,
   waitForHttp,
 } from './local-web-common.mjs';
 
-const preferredFrontendPort = Number(process.env.FRONTEND_PORT || process.env.VITE_PORT || 5173);
 const preferredBackendPort = Number(process.env.APP_PORT || process.env.PORT || 3001);
+const skipBuild = process.argv.includes('--skip-build');
 const selfTest = process.argv.includes('--self-test') || process.env.SUE_LR_START_SELF_TEST === '1';
 const noBrowser = selfTest || process.env.SUE_LR_NO_BROWSER === '1';
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 
 async function main() {
   const defaultHost = getDefaultHost();
+  const distDir = resolve(rootDir, 'dist');
+  const indexHtml = resolve(distDir, 'index.html');
+
   print('');
-  print('SueLr Studio Local-Web Dev');
-  print('==========================');
+  print('SueLr Studio Local-Web');
+  print('======================');
 
   ensureNodeVersion();
   ensureLogDir();
   await ensureDependencies();
 
-  const frontendPort = await findPort(preferredFrontendPort);
+  if (!skipBuild || !existsSync(indexHtml)) {
+    await runNpmChecked(['run', 'build:local-web'], { cwd: rootDir });
+  }
+
+  if (!existsSync(indexHtml)) {
+    fail(`Missing built frontend entry: ${indexHtml}`);
+  }
+
   const backendPort = await findPort(preferredBackendPort);
-  const frontendUrl = `http://localhost:${frontendPort}`;
+  const frontendUrl = `http://localhost:${backendPort}`;
   const backendUrl = `http://${defaultHost}:${backendPort}`;
-  const allowedOrigins = buildAllowedOrigins(frontendPort);
-  const backendLog = resolve(logDir, `backend-local-web-dev-${runId}.log`);
-  const frontendLog = resolve(logDir, `frontend-local-web-dev-${runId}.log`);
-  const viteEntry = resolve(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
+  const allowedOrigins = buildAllowedOrigins(backendPort);
+  const backendLog = resolve(logDir, `backend-local-web-${runId}.log`);
 
   print('');
-  print(`[mode] local-web dev`);
+  print(`[mode] local-web start`);
   print(`[start] Frontend: ${frontendUrl}`);
   print(`[start] Backend:  ${backendUrl}`);
+  print(`[dist]  ${distDir}`);
   print(`[logs]  ${logDir}`);
   print('');
 
   startProcess(
     'backend',
     process.execPath,
-    selfTest ? ['server.js'] : ['--watch', 'server.js'],
+    ['server.js'],
     backendDir,
     {
       APP_HOST: defaultHost,
       APP_PORT: String(backendPort),
       APP_ALLOWED_ORIGINS: allowedOrigins,
+      APP_FRONTEND_DIST: distDir,
       APP_RUNTIME_MODE: 'local-web',
     },
     backendLog,
@@ -67,20 +80,8 @@ async function main() {
     fail(`Backend did not become healthy: ${error.message}`);
   });
 
-  startProcess(
-    'frontend',
-    process.execPath,
-    [viteEntry, '--host', defaultHost, '--port', String(frontendPort)],
-    rootDir,
-    {
-      VITE_DEV_PROXY_TARGET: backendUrl,
-      VITE_API_BASE: '/api',
-    },
-    frontendLog,
-  );
-
   await waitForHttp(frontendUrl).catch((error) => {
-    fail(`Frontend did not become available: ${error.message}`);
+    fail(`Local-web frontend did not become available: ${error.message}`);
   });
 
   if (noBrowser) {
@@ -89,10 +90,10 @@ async function main() {
     openBrowser(frontendUrl);
     print(`[ready] Opened ${frontendUrl}`);
   }
-  print('[ready] Press Ctrl+C to stop frontend and backend.');
+  print('[ready] Press Ctrl+C to stop the local-web backend.');
 
   if (selfTest) {
-    setTimeout(() => process.exit(0), 500);
+    setTimeout(() => shutdown(0), 500);
   }
 }
 

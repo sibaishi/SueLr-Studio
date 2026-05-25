@@ -87,3 +87,8 @@ This document defines the standard release workflow for SueLr Studio variants. T
 - If validation fails, fix the issue and rerun the failed checks before continuing.
 - If a release candidate fails manual verification, fix the issue on `master` first unless it is truly release-branch-specific.
 - If a release-only fix is required on a `release/*` branch, merge the shared portion back to `master` as soon as practical.
+
+## Notes
+
+- `local-web` release validation should explicitly cover both `build:local-web` and `start:local-web`.
+- Variant-specific launchers and packaging steps must stay documented in `docs/deployment-variants-plan.md`.

@@ -13,6 +13,9 @@
   "scripts": {
     "install:all": "npm install --prefix backend",
     "start": "node scripts/start-dev.mjs",
+    "dev:local-web": "node scripts/start-dev.mjs",
+    "build:local-web": "node scripts/build-local-web.mjs",
+    "start:local-web": "node scripts/start-local-web.mjs",
     "dev": "concurrently -n frontend,backend -c blue,green \"vite\" \"npm run dev --prefix backend\"",
     "dev:frontend": "vite",
     "dev:backend": "npm run dev --prefix backend",
