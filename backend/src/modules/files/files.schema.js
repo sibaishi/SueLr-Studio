@@ -5,15 +5,36 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/webp',
   'image/gif',
+  'image/svg+xml',
   'video/mp4',
   'video/webm',
   'video/quicktime',
+  'video/x-m4v',
+  'video/ogg',
   'audio/mpeg',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/ogg',
   'audio/wav',
   'audio/webm',
 ]);
 
-const ALLOWED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm', '.mov', '.mp3', '.wav']);
+const ALLOWED_EXTENSIONS = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.gif',
+  '.svg',
+  '.mp4',
+  '.webm',
+  '.mov',
+  '.m4v',
+  '.mp3',
+  '.m4a',
+  '.ogg',
+  '.wav',
+]);
 
 export function validateUploadFile(file) {
   if (!file) throw new ValidationError('UPLOAD_FILE_REQUIRED', '未选择文件');
