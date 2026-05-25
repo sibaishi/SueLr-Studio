@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, Database, FolderOpen, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
 import { useT } from '@/providers/ThemeContext';
-import type { ApiConfig, ModelInfo, ProjectModel } from '@/shared/types';
+import type { ApiConfig, ModelInfo } from '@/shared/types';
 import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
-import { catModel } from '@/shared/providers/model-family';
 import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
-import { apiRequest } from '@/shared/api';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import { getRuntimeCapabilities } from '@/shared/api/capabilities';
 import {
@@ -21,8 +19,6 @@ import {
   waitForBackendReady,
 } from '@/features/settings';
 import type { StorageSettingsPayload } from '@/features/settings';
-import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
-
 type Props = {
   activeConfigId: string;
   addLog: (level: string, message: string) => void;
@@ -43,32 +39,6 @@ const panelStyle: React.CSSProperties = {
   boxShadow: '0 18px 40px rgba(15, 23, 42, 0.10)',
 };
 
-const STARTER_WORKFLOW_IDS = ['starter_text_to_image', 'starter_ai_chat', 'starter_image_to_image'];
-
-function buildProjectModels(models: ModelInfo[]): ProjectModel[] {
-  const now = Date.now();
-  return models.map((model) => {
-    const type = model.cat || catModel(model.id);
-    return {
-      id: model.id,
-      modelId: model.id,
-      enabled: true,
-      type,
-      endpointMode: 'category',
-      endpointCategory: type,
-      customEndpoint: '',
-      source: 'imported',
-      configured: Boolean(type),
-      createdAt: now,
-      updatedAt: now,
-    };
-  });
-}
-
-function getFirstModel(models: ModelInfo[], category: ModelInfo['cat']) {
-  return models.find((model) => model.cat === category)?.id || '';
-}
-
 function getConnectionFailureGuidance(message: string) {
   const lower = message.toLowerCase();
   if (lower.includes('remote_host_forbidden') || message.includes('本机') || message.includes('内网')) {
@@ -87,40 +57,6 @@ function getConnectionFailureGuidance(message: string) {
     return '连接到了服务，但没有拿到可用模型。请确认服务支持 /models，或稍后在设置里手动维护项目模型。';
   }
   return '请检查接口地址、API Key、服务商兼容性和代理设置。修正后可以再次点击测试连接。';
-}
-
-async function applyStarterWorkflowModels(models: ModelInfo[]) {
-  const chatModel = getFirstModel(models, 'chat');
-  const imageModel = getFirstModel(models, 'image');
-  if (!chatModel && !imageModel) return 0;
-
-  let updatedCount = 0;
-  for (const workflowId of STARTER_WORKFLOW_IDS) {
-    const result = await apiRequest<PersistedWorkflow>(`/api/workflows/${workflowId}`);
-    if (!result.success || !result.data) continue;
-
-    let changed = false;
-    const nodes = result.data.nodes.map((node) => {
-      if (node.type === 'aiChat' && chatModel && !node.data?.model) {
-        changed = true;
-        return { ...node, data: { ...node.data, model: chatModel } };
-      }
-      if (node.type === 'imageGen' && imageModel && !node.data?.model) {
-        changed = true;
-        return { ...node, data: { ...node.data, model: imageModel } };
-      }
-      return node;
-    });
-
-    if (!changed) continue;
-    const updateResult = await apiRequest<PersistedWorkflow>(`/api/workflows/${workflowId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...result.data, nodes }),
-    });
-    if (updateResult.success) updatedCount += 1;
-  }
-
-  return updatedCount;
 }
 
 export function FirstRunOnboarding({
@@ -286,18 +222,9 @@ export function FirstRunOnboarding({
         apiKey: cleanSecret,
         models: nextModels,
         providerConfig: activeConfig?.providerConfig || DEFAULT_PROVIDER_CONFIG,
-        projectModels: buildProjectModels(nextModels),
-      });
-      const updatedTemplates = await applyStarterWorkflowModels(nextModels).catch((error) => {
-        addLog('warn', error instanceof Error ? error.message : String(error));
-        return 0;
       });
       setMessage(`连接成功，已发现 ${nextModels.length} 个模型。`);
-      setGuidance(
-        updatedTemplates > 0
-          ? '已把基础工作流里的空模型自动填好，进入工作台后可以直接试运行，也可以在节点里改成其他模型。'
-          : '模型已导入。基础工作流如果仍有空模型，请进入工作台后在节点里选择一次模型。',
-      );
+      setGuidance('当前只保存连接信息和已发现模型，不会自动启用项目模型。请进入设置页的“模型”模块，手动导入你要启用的模型。');
       addLog('success', `首次配置连接成功，发现 ${nextModels.length} 个模型`);
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
@@ -455,7 +382,7 @@ export function FirstRunOnboarding({
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
               <IOSButton
-                label={testing ? '测试中...' : '测试连接并导入模型'}
+                label={testing ? '测试中...' : '测试连接并发现模型'}
                 onClick={() => {
                   void testConnection();
                 }}
@@ -492,7 +419,7 @@ export function FirstRunOnboarding({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: canComplete ? T.green : T.text3 }}>
                 {canComplete ? <CheckCircle2 size={16} /> : <Database size={16} />}
-                {canComplete ? '配置已可用，可以进入工作台。' : '完成连接测试后即可进入工作台。'}
+                {canComplete ? '连接信息已保存，进入后请到设置里手动启用模型。' : '完成连接测试后即可进入工作台。'}
               </div>
               <IOSButton
                 label="进入工作台"

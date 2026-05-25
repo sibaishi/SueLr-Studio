@@ -114,6 +114,16 @@ npm.cmd run start:local-web
 - opens the browser against the backend-hosted app
 - uses the same config-dir storage resolver as the desktop variant
 
+Desktop variant:
+
+```bash
+npm.cmd run electron:dist
+```
+
+- builds the portable desktop package
+- the desktop app is single-window by design
+- launching the packaged app a second time should focus the existing window instead of opening a second main window
+
 Default local addresses:
 
 - Frontend: `http://localhost:5173`
@@ -123,7 +133,9 @@ Default local addresses:
 
 ### 1. First-time setup
 
-Open `Settings` and complete this order:
+On first launch, the onboarding page only saves connection info and discovers remote models. It does not auto-enable those models for Chat, Image, Video, or Workflow use.
+
+After onboarding, open `Settings` and complete this order:
 
 1. `Connection`
    - Fill in `Base URL`
@@ -138,6 +150,11 @@ Open `Settings` and complete this order:
    - Choose theme mode
    - Optionally set an external data path
    - If you changed the external data path, click `Restart Backend` after saving
+
+Important rule:
+
+- discovered models are not the same as enabled project models
+- product model pickers only show models that you explicitly imported and enabled in `Settings -> Models`
 
 ### 2. Use Chat
 

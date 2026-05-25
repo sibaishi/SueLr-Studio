@@ -613,6 +613,15 @@ Scope:
 - Electron shell remains thin
 - desktop packaging keeps working after mainline runtime changes
 
+Current status on 2026-05-25:
+
+- closed on trunk:
+  - desktop-only main-process behavior is split into dedicated Electron helper modules instead of accumulating in `electron/main.cjs`
+  - single-instance protection is implemented and covered by unit tests
+  - embedded backend startup and window lifecycle responsibilities are covered by unit tests
+  - unpacked desktop packaging validation has passed with the refactored shell
+  - first-run onboarding no longer auto-enables discovered models, so desktop first-run behavior matches the intended manual model-selection flow
+
 Acceptance criteria:
 
 - desktop app launches and opens one BrowserWindow only

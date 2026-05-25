@@ -520,6 +520,24 @@ For an unpacked desktop inspection build:
 
 - `npm run electron:pack`
 
+Desktop shell maintenance rules:
+
+- keep `electron/main.cjs` as a thin CommonJS composition entrypoint
+- move single-instance, window lifecycle, and embedded-backend orchestration into dedicated `electron/*.cjs` helper modules when they grow beyond trivial wiring
+- preserve the single-window contract unless a later milestone explicitly expands desktop scope
+- keep first-run onboarding behavior aligned with shared product rules: onboarding may discover models, but model enablement remains an explicit settings action
+
+Current desktop shell module split:
+
+- `electron/main.cjs`
+  - assembly only; wires Electron app lifecycle, helper modules, and shared startup flow
+- `electron/single-instance.cjs`
+  - single-instance lock and second-launch focus behavior
+- `electron/window-lifecycle.cjs`
+  - BrowserWindow creation, show/focus helpers, and close lifecycle wiring
+- `electron/embedded-backend.cjs`
+  - embedded backend child-process spawn, readiness, and teardown orchestration
+
 Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.
 
 ## Local Launching

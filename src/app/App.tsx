@@ -49,7 +49,7 @@ export default function App() {
   });
   const hasUsableConfig = settings.apiConfigs.some((config) => (
     Boolean(config.base && config.apiKey) &&
-    ((config.projectModels || []).some((model) => model.configured) || (config.models || []).length > 0)
+    (config.projectModels || []).some((model) => model.configured)
   ));
   const showOnboarding = splashHidden && !hasUsableConfig && !onboardingDismissed;
   const chatPanelStyle = panelDisplayStyle(tab === 'chat');

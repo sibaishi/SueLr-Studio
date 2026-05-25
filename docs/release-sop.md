@@ -52,7 +52,9 @@ This document defines the standard release workflow for SueLr Studio variants. T
 
    - The app launches successfully.
    - First-run onboarding works as expected.
+   - First-run onboarding only saves connection info and discovered models; it must not auto-enable project models.
    - Saving configuration applies correctly.
+   - A second desktop launch focuses the existing instance instead of opening a second main window.
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
 

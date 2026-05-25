@@ -44,6 +44,19 @@ Critical ownership rules:
 - Never call `ipcRenderer` directly from renderer code
 - New native dependencies must update `asarUnpack`
 - Single `BrowserWindow` only unless explicitly requested
+- Desktop-shell-only concerns should stay encapsulated under `electron/` helper modules so `main.cjs` remains a thin assembly entrypoint
+- Current desktop shell split:
+  - `electron/main.cjs`: assembly only
+  - `electron/single-instance.cjs`: single-instance coordination
+  - `electron/window-lifecycle.cjs`: BrowserWindow lifecycle
+  - `electron/embedded-backend.cjs`: embedded backend process orchestration
+
+## First-Run Model Setup
+
+- First-run onboarding may validate connectivity and discover remote models
+- First-run onboarding must not auto-enable discovered models as project models
+- A model is considered usable in product surfaces only after the user explicitly imports or enables it through settings
+- Do not silently prefill starter workflows with discovered models during onboarding
 
 ## React Flow
 
