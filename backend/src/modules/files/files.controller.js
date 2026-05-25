@@ -10,8 +10,12 @@ export class FilesController {
     res.json(successEnvelope(filesService.clearGeneratedOutputs()));
   }
 
-  upload(req, res) {
-    res.json(successEnvelope(filesService.buildUploadResponse(req.file)));
+  async upload(req, res, next) {
+    try {
+      res.json(successEnvelope(await filesService.buildUploadResponse(req.file)));
+    } catch (error) {
+      next(error);
+    }
   }
 
   remove(req, res) {

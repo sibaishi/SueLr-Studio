@@ -1,6 +1,7 @@
 import path from 'path';
 import { getStoragePaths } from './storage-paths.js';
 import { ensureDir } from './ensure-dir.js';
+export { ensureDir } from './ensure-dir.js';
 export { BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot, getStorageRoot } from './storage-root.js';
 export { ensureJsonFile, readJsonFile, writeJsonFile } from './json-store.js';
 export { safeResolveWithin } from './safe-path.js';

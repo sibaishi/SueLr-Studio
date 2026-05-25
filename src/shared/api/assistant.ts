@@ -9,7 +9,7 @@ function getResultData<T>(result: { success: boolean; data?: T }): T | null {
 
 function normalizeGalleryItems(items: unknown[]): GalleryItem[] {
   if (!Array.isArray(items)) return [];
-  return items
+  const normalized: Array<GalleryItem | null> = items
     .map((item) => {
       if (!item || typeof item !== 'object') return null;
       const record = item as Record<string, unknown>;
@@ -18,12 +18,14 @@ function normalizeGalleryItems(items: unknown[]): GalleryItem[] {
       return {
         id: String(record.id || ''),
         url,
+        thumbnailUrl: String(record.thumbnailUrl || ''),
         prompt: String(record.prompt || ''),
         model: String(record.model || ''),
         ts: Number(record.ts || Date.now()),
       };
-    })
-    .filter((item): item is GalleryItem => Boolean(item));
+    });
+
+  return normalized.filter((item): item is GalleryItem => item !== null);
 }
 
 export async function loadConversations(): Promise<Conv[]> {
@@ -45,13 +47,14 @@ export async function deleteConversation(id: string): Promise<void> {
   await apiRequest(`${API}/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-export async function saveImage(item: { id: string; data?: string; url?: string; prompt: string; model: string; ts: number }): Promise<string | null> {
-  if (!isBackendAvailable()) return null;
-  const result = await apiRequest<{ localUrl?: string }>(`${API}/images`, {
+export async function saveImage(item: { id: string; data?: string; url?: string; prompt: string; model: string; ts: number }): Promise<{ localUrl: string | null; thumbnailUrl?: string | null }> {
+  if (!isBackendAvailable()) return { localUrl: null, thumbnailUrl: null };
+  const result = await apiRequest<{ localUrl?: string; thumbnailUrl?: string }>(`${API}/images`, {
     method: 'POST',
     body: JSON.stringify(item),
   });
-  return getResultData(result)?.localUrl ?? null;
+  const data = getResultData(result);
+  return { localUrl: data?.localUrl ?? null, thumbnailUrl: data?.thumbnailUrl ?? null };
 }
 
 export async function loadGallery(): Promise<GalleryItem[]> {

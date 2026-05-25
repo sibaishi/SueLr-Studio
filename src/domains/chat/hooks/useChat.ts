@@ -445,23 +445,29 @@ export function useChat(
     const artifactModel = getToolResultModel(resultObj, currentModel);
 
     if (toolName === 'generate_image') {
-      const persistedItems = await Promise.all(artifacts.map(async (artifact, index) => {
+      type ImageArtifact = NonNullable<ToolCallState['artifacts']>[number] & { thumbnailUrl?: string };
+      const persistedItems: Array<NonNullable<ToolCallState['artifacts']>[number] | ImageArtifact> = await Promise.all(artifacts.map(async (artifact, index) => {
         if (artifact.type !== 'image' || !artifact.url) return artifact;
         const ts = Date.now() + index;
         const id = gid();
-        const localUrl = await saveImage(
-          artifact.url.startsWith('data:image/')
-            ? { id, data: artifact.url, prompt, model: artifactModel, ts }
-            : { id, url: artifact.url, prompt, model: artifactModel, ts },
-        );
-        return { ...artifact, url: localUrl || artifact.url };
-      }));
+          const persisted = await saveImage(
+            artifact.url.startsWith('data:image/')
+              ? { id, data: artifact.url, prompt, model: artifactModel, ts }
+              : { id, url: artifact.url, prompt, model: artifactModel, ts },
+          );
+          return {
+            ...artifact,
+            url: persisted.localUrl || artifact.url,
+            thumbnailUrl: persisted.thumbnailUrl || ('thumbnailUrl' in artifact ? artifact.thumbnailUrl : undefined),
+          };
+        }));
 
       const galleryItems = persistedItems
-        .filter((artifact): artifact is NonNullable<ToolCallState['artifacts']>[number] => Boolean(artifact && artifact.type === 'image' && artifact.url))
+        .filter((artifact): artifact is ImageArtifact => Boolean(artifact && artifact.type === 'image' && artifact.url))
         .map((artifact, index) => ({
           id: `${Date.now()}_${index}`,
           url: artifact.url,
+          thumbnailUrl: artifact.thumbnailUrl,
           prompt,
           model: artifactModel,
           ts: Date.now() + index,

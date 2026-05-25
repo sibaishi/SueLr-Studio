@@ -2376,11 +2376,14 @@
 }
 
 .node-media-preview__size {
-  margin: 8px;
-  border-radius: 999px;
-  padding: 3px 8px;
-  background: rgba(15, 23, 42, 0.72);
-  color: #fff;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    margin: 8px;
+    border-radius: 999px;
+    padding: 3px 8px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #fff;
   font-size: 10px;
   line-height: 1;
   backdrop-filter: blur(6px);

@@ -61,6 +61,7 @@ export function MediaCard({ value, compact = false, fill = false }: { value: str
 
 export function MediaPreview({
   value,
+  previewValue,
   compact = false,
   onPreviewImage,
   inertImage = false,
@@ -69,6 +70,7 @@ export function MediaPreview({
   minHeightOverride,
 }: {
   value: string;
+  previewValue?: string;
   compact?: boolean;
   onPreviewImage?: () => void;
   inertImage?: boolean;
@@ -76,7 +78,8 @@ export function MediaPreview({
   fill?: boolean;
   minHeightOverride?: number;
 }) {
-  const kind = kindOverride || getMediaKind(value);
+  const displayValue = previewValue || value;
+  const kind = kindOverride || getMediaKind(displayValue);
   const minHeight = minHeightOverride ?? (compact ? 44 : 72);
   const baseFrameStyle: CSSProperties = {
     flex: fill ? '1 1 auto' : '0 0 auto',
@@ -97,18 +100,15 @@ export function MediaPreview({
         }}
       >
         <img
-          src={value}
+          src={displayValue}
           alt=""
           draggable={false}
-          className="h-full w-full object-contain"
+          className="absolute inset-0 h-full w-full object-contain"
           style={{
-            flex: '1 1 auto',
-            minWidth: 0,
-            minHeight,
             background: 'var(--node-card-field)',
           }}
         />
-        <ImageSizeLabel src={value} className="node-media-preview__size" />
+        <ImageSizeLabel src={displayValue} dimensionSrc={value} className="node-media-preview__size" />
       </button>
     );
   }

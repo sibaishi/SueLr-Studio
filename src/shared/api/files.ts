@@ -2,6 +2,7 @@ import { apiRequestOrThrow } from './client';
 
 export type UploadedFile = {
   url: string;
+  thumbnailUrl?: string;
   fileName: string;
   fileSize: number;
   mimeType: string;

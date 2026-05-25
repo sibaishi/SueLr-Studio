@@ -3,6 +3,11 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
 import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.js';
+import {
+  ensureGeneratedThumbnailFromFile,
+  deleteGeneratedThumbnail,
+  getGeneratedThumbnailPath,
+} from '../../platform/media/image-thumbnails.js';
 
 const OUTPUT_FILE_TYPES = new Map([
   ['.png', { type: 'image', mimeType: 'image/png' }],
@@ -90,6 +95,7 @@ export class FilesRepository {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const filePath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
+          if (entry.name === '.thumbnails') continue;
           visit(filePath);
           continue;
         }
@@ -102,16 +108,30 @@ export class FilesRepository {
 
         const extension = path.extname(entry.name).toLowerCase();
         const fileType = OUTPUT_FILE_TYPES.get(extension) || { type: 'file', mimeType: 'application/octet-stream' };
+        const thumbnailTarget = fileType.type === 'image'
+          ? getGeneratedThumbnailPath(relativePath.split(path.sep).join('/'))
+          : null;
+        const thumbnailUrl = thumbnailTarget?.absolutePath && fs.existsSync(thumbnailTarget.absolutePath)
+          ? toOutputUrl(thumbnailTarget.relativePath)
+          : '';
         items.push({
           id: relativePath.split(path.sep).join('/'),
           name: entry.name,
           relativePath: relativePath.split(path.sep).join('/'),
           url: toOutputUrl(relativePath),
+          thumbnailUrl,
           type: fileType.type,
           mimeType: fileType.mimeType,
           size: stat.size,
           modifiedAt: stat.mtimeMs,
         });
+        if (fileType.type === 'image' && !items[items.length - 1].thumbnailUrl) {
+          void ensureGeneratedThumbnailFromFile({
+            relativePath: relativePath.split(path.sep).join('/'),
+            absolutePath: filePath,
+            mimeType: fileType.mimeType,
+          }).catch(() => {});
+        }
       }
     };
 
@@ -129,6 +149,10 @@ export class FilesRepository {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const filePath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
+          if (entry.name === '.thumbnails') {
+            fs.rmSync(filePath, { recursive: true, force: true });
+            continue;
+          }
           visit(filePath);
           if (fs.existsSync(filePath) && fs.readdirSync(filePath).length === 0) {
             fs.rmdirSync(filePath);
@@ -138,7 +162,9 @@ export class FilesRepository {
         if (!entry.isFile()) continue;
 
         const stat = fs.statSync(filePath);
+        const relativePath = path.relative(root, filePath).split(path.sep).join('/');
         fs.unlinkSync(filePath);
+        deleteGeneratedThumbnail(relativePath);
         removed += 1;
       }
     };

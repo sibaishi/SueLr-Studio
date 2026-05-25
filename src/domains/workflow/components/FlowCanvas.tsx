@@ -700,6 +700,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
       const localPreview = URL.createObjectURL(file);
       store.updateNodeData(nodeId, {
         fileUrl: '',
+        thumbnailUrl: '',
         previewUrl: localPreview,
         localPath: file.webkitRelativePath || file.name,
         fileName: file.name,
@@ -723,6 +724,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
             URL.revokeObjectURL(localPreview);
             store.updateNodeData(nodeId, {
               fileUrl: result.url,
+              thumbnailUrl: result.thumbnailUrl || '',
               previewUrl: result.url,
               fileName: result.fileName || file.name,
               fileSize: result.fileSize || file.size,
@@ -1229,6 +1231,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         };
       store.updateNodeData(nodeId, {
         fileUrl: '',
+        thumbnailUrl: '',
         previewUrl,
         fileName: file.name,
         fileKind: 'image',
@@ -1267,6 +1270,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     if (target === 'paint') {
       store.updateNodeData(nodeId, {
         fileUrl: result.url,
+        thumbnailUrl: result.thumbnailUrl || '',
         previewUrl,
         fileName: result.fileName || file.name,
         fileSize: result.fileSize || file.size,

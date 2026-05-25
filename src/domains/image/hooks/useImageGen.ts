@@ -185,7 +185,7 @@ export function useImageGen(
           images.map(async (url, index) => {
             const ts = Date.now();
             const id = `${nextTaskId}_${index}`;
-            const persistedUrl = await saveImage(
+            const persisted = await saveImage(
               url.startsWith('data:image/')
                 ? { id, data: url, prompt: task.prompt, model: task.model, ts }
                 : { id, url, prompt: task.prompt, model: task.model, ts },
@@ -193,7 +193,8 @@ export function useImageGen(
 
             return {
               id,
-              url: persistedUrl || url,
+              url: persisted?.localUrl || url,
+              thumbnailUrl: persisted?.thumbnailUrl || '',
               prompt: task.prompt,
               model: task.model,
               ts,

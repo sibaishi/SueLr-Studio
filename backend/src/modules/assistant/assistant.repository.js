@@ -8,6 +8,7 @@ import {
   safeResolveWithin,
   writeJsonFile,
 } from '../../platform/storage/index.js';
+import { ensureGeneratedThumbnailFromBuffer, deleteGeneratedThumbnail } from '../../platform/media/image-thumbnails.js';
 
 const DATA_FILE_MAP = {
   conversations: STORAGE_PATHS.conversationsFile,
@@ -39,7 +40,13 @@ export class AssistantRepository {
   }
 
   writeAssistantImage(filename, content) {
-    return this.writeAssistantFile('assistant-images', filename, content);
+    const filePath = this.writeAssistantFile('assistant-images', filename, content);
+    void ensureGeneratedThumbnailFromBuffer({
+      relativePath: `assistant-images/${filename}`,
+      buffer: content,
+      mimeType: `image/${path.extname(filename).toLowerCase().replace('.', '') || 'png'}`,
+    }).catch(() => {});
+    return filePath;
   }
 
   writeAssistantVideo(filename, content) {
@@ -51,6 +58,7 @@ export class AssistantRepository {
     if (filePath && fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
+    deleteGeneratedThumbnail(relativePath);
   }
 
   resolveGeneratedFile(relativePath) {

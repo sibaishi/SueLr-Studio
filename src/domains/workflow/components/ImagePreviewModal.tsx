@@ -5,6 +5,7 @@ import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 
 export interface PreviewImageItem {
   src: string;
+  thumbnailSrc?: string;
   name?: string;
 }
 

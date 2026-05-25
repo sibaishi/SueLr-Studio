@@ -125,6 +125,7 @@ export default function ResultsPanel({
       .filter((file) => file.type === 'image')
       .map((file) => ({
         src: file.url,
+        thumbnailSrc: file.thumbnailUrl,
         name: file.name,
       }));
   }, [generatedOutputs]);
@@ -287,7 +288,7 @@ function ResultsList({
     label: file.name,
     color: file.type === 'video' ? '#AF52DE' : '#FF9500',
     outputLabels: { content: file.relativePath },
-    outputs: { content: { url: file.url, type: file.type, name: file.name, mimeType: file.mimeType } },
+    outputs: { content: { url: file.url, thumbnailUrl: file.thumbnailUrl, type: file.type, name: file.name, mimeType: file.mimeType } },
   }));
 
   if (error) {
@@ -387,7 +388,7 @@ function AiOutputValue({
   onBackfillText?: (text: string) => void;
 }) {
   if (isGeneratedOutputValue(value)) {
-    if (value.type === 'image') return <ImageResult src={value.url} onPreviewImage={onPreviewImage} />;
+    if (value.type === 'image') return <ImageResult src={value.url} thumbnailSrc={value.thumbnailUrl} onPreviewImage={onPreviewImage} />;
     if (value.type === 'video') return <VideoResult src={value.url} />;
     if (value.type === 'audio') return <audio src={value.url} controls className="w-full" />;
     if (isPreviewableTextOutput(value)) {
@@ -459,17 +460,19 @@ function TextResult({
 
 function ImageResult({
   src,
+  thumbnailSrc,
   onPreviewImage,
   compact = false,
 }: {
   src: string;
+  thumbnailSrc?: string;
   onPreviewImage: (src: string) => void;
   compact?: boolean;
 }) {
   return (
     <button type="button" onClick={() => onPreviewImage(src)} className={`workflow-results__media ${compact ? 'workflow-results__media--compact' : ''}`}>
-      <img src={src} alt="" className="h-full w-full object-cover" />
-      <ImageSizeLabel src={src} className="workflow-results__media-size" />
+      <img src={thumbnailSrc || src} alt="" className="h-full w-full object-cover" />
+      <ImageSizeLabel src={thumbnailSrc || src} dimensionSrc={src} className="workflow-results__media-size" />
     </button>
   );
 }
@@ -700,12 +703,13 @@ function unwrapOutputValue(value: unknown): unknown {
     const record = value as Record<string, unknown>;
     const url = record.url;
     const type = record.type;
-    if (typeof url === 'string' && typeof type === 'string') {
-      return {
-        url,
-        type,
-        name: typeof record.name === 'string' ? record.name : '',
-        mimeType: typeof record.mimeType === 'string' ? record.mimeType : '',
+      if (typeof url === 'string' && typeof type === 'string') {
+        return {
+          url,
+          thumbnailUrl: typeof record.thumbnailUrl === 'string' ? record.thumbnailUrl : '',
+          type,
+          name: typeof record.name === 'string' ? record.name : '',
+          mimeType: typeof record.mimeType === 'string' ? record.mimeType : '',
       };
     }
     if (typeof record.url === 'string') return record.url;
@@ -713,7 +717,7 @@ function unwrapOutputValue(value: unknown): unknown {
   return value;
 }
 
-function isGeneratedOutputValue(value: unknown): value is { url: string; type: string; name: string; mimeType?: string } {
+function isGeneratedOutputValue(value: unknown): value is { url: string; thumbnailUrl?: string; type: string; name: string; mimeType?: string } {
   return Boolean(
     value
     && typeof value === 'object'

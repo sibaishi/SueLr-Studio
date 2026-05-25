@@ -448,8 +448,10 @@ function FileInputContent({
   label: string;
 }) {
   const fileUrl = (data.fileUrl as string) || '';
+  const thumbnailUrl = (data.thumbnailUrl as string) || '';
   const storedPreviewUrl = (data.previewUrl as string) || '';
   const previewUrl = storedPreviewUrl && !(storedPreviewUrl.startsWith('blob:') && fileUrl) ? storedPreviewUrl : fileUrl;
+  const previewDisplayUrl = thumbnailUrl || previewUrl;
   const fileName = (data.fileName as string) || '';
   const localPath = (data.localPath as string) || '';
   const uploading = Boolean(data._uploading);
@@ -498,6 +500,7 @@ function FileInputContent({
     const localPreview = URL.createObjectURL(file);
     updateNodeData(nodeId, {
       fileUrl: '',
+      thumbnailUrl: '',
       previewUrl: localPreview,
       localPath: file.webkitRelativePath || file.name,
       fileName: file.name,
@@ -517,6 +520,7 @@ function FileInputContent({
         URL.revokeObjectURL(localPreview);
         updateNodeData(nodeId, {
           fileUrl: result.url,
+          thumbnailUrl: result.thumbnailUrl || '',
           previewUrl: result.url,
           fileName: result.fileName || file.name,
           fileSize: result.fileSize || file.size,
@@ -591,10 +595,10 @@ function FileInputContent({
   return (
     <div className="node-content-shell node-content-shell--file" style={outerStyle}>
       <input ref={fileInputRef} type="file" accept={accept} onChange={handleFileChange} className="hidden" />
-      {previewUrl ? (
-        <>
-          <MediaPreview value={previewUrl} compact fill inertImage kindOverride={mediaKind} minHeightOverride={mediaKind === 'audio' ? 48 : 82} />
-          <div className="node-file-status">
+        {previewDisplayUrl ? (
+          <>
+          <MediaPreview value={previewUrl || previewDisplayUrl} previewValue={previewDisplayUrl} compact fill inertImage kindOverride={mediaKind} minHeightOverride={mediaKind === 'audio' ? 48 : 82} />
+            <div className="node-file-status">
             <span className="node-file-status__name">{fileName}</span>
             <span className={uploadError ? 'node-file-status__state node-file-status__state--error' : uploading ? 'node-file-status__state node-file-status__state--loading' : 'node-file-status__state'}>
               {statusText}
@@ -702,6 +706,7 @@ function MaskInputContent({
     const localPreview = URL.createObjectURL(file);
     updateNodeData(nodeId, {
       fileUrl: '',
+      thumbnailUrl: '',
       previewUrl: localPreview,
       localPath: file.webkitRelativePath || file.name,
       fileName: file.name,
@@ -717,6 +722,7 @@ function MaskInputContent({
         URL.revokeObjectURL(localPreview);
         updateNodeData(nodeId, {
           fileUrl: result.url,
+          thumbnailUrl: result.thumbnailUrl || '',
           previewUrl: result.url,
           fileName: result.fileName || file.name,
           fileSize: result.fileSize || file.size,
@@ -1352,6 +1358,15 @@ function InteractiveValue({ value }: { value: unknown }) {
     return <TextCard text={value} />;
   }
 
+  if (isRenderableOutputMediaObject(value)) {
+    if (value.type === 'image' && isRenderableOutputMediaUrl(value.url)) {
+      return <MediaPreview value={value.url} previewValue={value.thumbnailUrl || value.url} fill inertImage kindOverride="image" />;
+    }
+    if (isRenderableOutputMediaUrl(value.url)) {
+      return <MediaCard value={value.url} fill />;
+    }
+  }
+
   if (Array.isArray(value)) {
     const mediaValues = value.filter((item): item is string => typeof item === 'string' && isRenderableOutputMediaUrl(item));
     if (mediaValues.length === value.length && mediaValues.length > 0) {
@@ -1375,4 +1390,8 @@ function isRenderableOutputMediaUrl(value: string) {
   if (value.startsWith('data:') || value.startsWith('blob:')) return isMediaUrl(value);
   if (value.startsWith('/api/files/') || value.startsWith('/api/outputs/')) return isMediaUrl(value);
   return false;
+}
+
+function isRenderableOutputMediaObject(value: unknown): value is { url: string; thumbnailUrl?: string; type?: string } {
+  return Boolean(value && typeof value === 'object' && typeof (value as { url?: unknown }).url === 'string');
 }

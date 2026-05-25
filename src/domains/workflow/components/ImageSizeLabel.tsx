@@ -35,11 +35,13 @@ export function useImageDimensions(src: string) {
 export function ImageSizeLabel({
   src,
   className = '',
+  dimensionSrc,
 }: {
   src: string;
   className?: string;
+  dimensionSrc?: string;
 }) {
-  const dimensions = useImageDimensions(src);
+  const dimensions = useImageDimensions(dimensionSrc || src);
   if (!dimensions) return null;
 
   return (

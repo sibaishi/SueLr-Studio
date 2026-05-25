@@ -309,6 +309,7 @@ export interface SettingsPayload {
 export interface UploadResult {
   success: boolean;
   url?: string;
+  thumbnailUrl?: string;
   fileName?: string;
   fileSize?: number;
   mimeType?: string;
@@ -320,6 +321,7 @@ export interface GeneratedOutputFile {
   name: string;
   relativePath: string;
   url: string;
+  thumbnailUrl?: string;
   type: 'image' | 'video' | 'audio' | 'text' | 'data' | 'file';
   mimeType: string;
   size: number;
@@ -343,6 +345,7 @@ export async function uploadFile(file: File): Promise<UploadResult> {
   try {
     const result = await apiRequest<{
       url: string;
+      thumbnailUrl?: string;
       fileName: string;
       fileSize: number;
       mimeType: string;
@@ -353,12 +356,13 @@ export async function uploadFile(file: File): Promise<UploadResult> {
     });
 
     if (result.success && result.data) {
-      return {
-        success: true,
-        url: result.data.url,
-        fileName: result.data.fileName,
-        fileSize: result.data.fileSize,
-        mimeType: result.data.mimeType,
+        return {
+          success: true,
+          url: result.data.url,
+          thumbnailUrl: result.data.thumbnailUrl,
+          fileName: result.data.fileName,
+          fileSize: result.data.fileSize,
+          mimeType: result.data.mimeType,
       };
     }
 

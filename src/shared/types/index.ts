@@ -99,6 +99,7 @@ export interface ImgTask extends ImageGenerateParams {
 export interface GalleryItem {
   id: string;
   url: string;
+  thumbnailUrl?: string;
   prompt: string;
   model: string;
   ts: number;

@@ -51,6 +51,12 @@ function buildAssistantLocalUrl(directoryName, filename) {
   return `/api/assistant/files/${directoryName}/${filename}`;
 }
 
+function buildAssistantThumbnailUrl(directoryName, filename) {
+  const ext = path.extname(filename);
+  const base = path.basename(filename, ext);
+  return `/api/outputs/${directoryName}/.thumbnails/${base}__thumb.jpg`;
+}
+
 async function downloadRemoteVideoCandidate(url) {
   await assertSafeRemoteDownloadUrl(url, '视频下载地址');
 
@@ -181,6 +187,9 @@ export class AssistantService {
       ...body,
       url: body.url || '',
       localUrl: localUrl || body.url || body.localUrl || null,
+      thumbnailUrl: localUrl?.startsWith('/api/assistant/files/')
+        ? buildAssistantThumbnailUrl('assistant-images', path.basename(localUrl))
+        : '',
       storedAt: Date.now(),
     };
     delete record.data;
@@ -188,7 +197,7 @@ export class AssistantService {
     gallery.push(record);
     this.repository.save('gallery', gallery);
     logger.info('assistant image stored', { imageId: body.id, localUrl: record.localUrl });
-    return { localUrl: record.localUrl };
+    return { localUrl: record.localUrl, thumbnailUrl: record.thumbnailUrl || '' };
   }
 
   clearImages() {
