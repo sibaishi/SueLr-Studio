@@ -26,6 +26,7 @@ import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js
 import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.js';
 import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
 import { getRuntimeCapabilities } from '../platform/runtime/index.js';
+import { filesService } from '../modules/files/files.service.js';
 
 function buildAllowedOrigins() {
   const configured = String(process.env.APP_ALLOWED_ORIGINS || '')
@@ -50,6 +51,7 @@ export function createApp() {
   migrateLegacyStorageIfNeeded();
   ensureLogDirectories();
   ensureAgentLogDirectories();
+  filesService.resumePendingUploadProcessingIfNeeded();
 
   const app = express();
   const allowedOrigins = buildAllowedOrigins();

@@ -86,6 +86,14 @@ export class FilesRepository {
     fs.unlinkSync(resolved);
   }
 
+  uploadExists(filename) {
+    return fs.existsSync(this.resolveUploadFile(filename));
+  }
+
+  uploadedFileExists(filePath) {
+    return Boolean(filePath && fs.existsSync(filePath));
+  }
+
   async listGeneratedOutputs() {
     ensureStorageDirectories();
     const root = STORAGE_PATHS.generatedDir;

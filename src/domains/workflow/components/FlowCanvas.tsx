@@ -34,6 +34,7 @@ import {
   PORT_COMPATIBILITY,
 } from '@/domains/workflow/lib/constants';
 import { uploadFile } from '@/domains/workflow/lib/api';
+import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
 import {
   findGroupPort,
   isGroupPortExternallyConnectable,
@@ -712,6 +713,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         fileSize: file.size,
         _uploading: true,
         _uploadError: '',
+        _fileProcessingStatus: '',
+        _fileProcessingError: '',
         canvasOriginalFileUrl: '',
         canvasOriginalPreviewUrl: '',
         canvasOriginalFileName: '',
@@ -730,7 +733,22 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
               fileSize: result.fileSize || file.size,
               _uploading: false,
               _uploadError: '',
+              _fileProcessingStatus: result.processing ? 'processing' : '',
+              _fileProcessingError: result.processingError || '',
             });
+            if (result.processing && result.url) {
+              void waitForUploadedImageMetadata(result.url, (metadata) => {
+                store.updateNodeData(nodeId, {
+                  fileUrl: metadata.url || result.url,
+                  thumbnailUrl: metadata.thumbnailUrl || '',
+                  previewUrl: metadata.url || result.url,
+                  width: metadata.width,
+                  height: metadata.height,
+                  _fileProcessingStatus: metadata.processingStatus || '',
+                  _fileProcessingError: metadata.processingError || '',
+                });
+              });
+            }
             return;
           }
 
@@ -739,6 +757,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
             previewUrl: '',
             _uploading: false,
             _uploadError: formatCanvasUploadError(result.error),
+            _fileProcessingStatus: '',
+            _fileProcessingError: '',
           });
         })
         .catch((error) => {
@@ -747,6 +767,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
             previewUrl: '',
             _uploading: false,
             _uploadError: formatCanvasUploadError(error instanceof Error ? error.message : ''),
+            _fileProcessingStatus: '',
+            _fileProcessingError: '',
           });
         });
     });
@@ -1238,6 +1260,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         fileSize: file.size,
         _uploading: true,
         _uploadError: '',
+        _fileProcessingStatus: '',
+        _fileProcessingError: '',
         ...originalPatch,
       });
     } else {
@@ -1257,6 +1281,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         store.updateNodeData(nodeId, {
           _uploading: false,
           _uploadError: formatCanvasUploadError(result.error),
+          _fileProcessingStatus: '',
+          _fileProcessingError: '',
         });
       } else {
         store.updateNodeData(nodeId, {
@@ -1276,7 +1302,22 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         fileSize: result.fileSize || file.size,
         _uploading: false,
         _uploadError: '',
+        _fileProcessingStatus: result.processing ? 'processing' : '',
+        _fileProcessingError: result.processingError || '',
       });
+      if (result.processing && result.url) {
+        void waitForUploadedImageMetadata(result.url, (metadata) => {
+          store.updateNodeData(nodeId, {
+            fileUrl: metadata.url || result.url,
+            thumbnailUrl: metadata.thumbnailUrl || '',
+            previewUrl: metadata.url || result.url,
+            width: metadata.width,
+            height: metadata.height,
+            _fileProcessingStatus: metadata.processingStatus || '',
+            _fileProcessingError: metadata.processingError || '',
+          });
+        });
+      }
       return;
     }
 

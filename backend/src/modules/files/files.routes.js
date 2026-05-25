@@ -3,7 +3,7 @@ import { ValidationError } from '../../app/errors/index.js';
 import { validateParam } from '../../app/middleware/validate-request.js';
 import { filesController } from './files.controller.js';
 import { filesService } from './files.service.js';
-import { validateFilename, validateUploadFile } from './files.schema.js';
+import { validateFilename, validateUploadFile, validateUploadMetadataQuery } from './files.schema.js';
 
 const router = Router();
 const upload = filesService.createUploader();
@@ -27,6 +27,7 @@ router.post('/files/upload', (req, res, next) => {
   });
 }, filesController.upload.bind(filesController));
 
+router.get('/files/:filename/metadata', validateParam('filename', validateUploadMetadataQuery), filesController.metadata.bind(filesController));
 router.delete('/files/:filename', validateParam('filename', validateFilename), filesController.remove.bind(filesController));
 
 export default router;

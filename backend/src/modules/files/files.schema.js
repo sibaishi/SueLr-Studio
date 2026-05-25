@@ -55,3 +55,7 @@ export function validateFilename(value) {
   if (normalized.startsWith('.')) throw new ValidationError('VALIDATION_ERROR', 'filename 不是允许的文件名');
   return normalized;
 }
+
+export function validateUploadMetadataQuery(value) {
+  return validateFilename(value);
+}

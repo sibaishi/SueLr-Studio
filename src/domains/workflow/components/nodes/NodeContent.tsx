@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { testApiConnection, uploadFile } from '@/domains/workflow/lib/api';
 import { GROUP_SAFE_MARGIN } from '@/domains/workflow/lib/groupLayout';
+import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { MediaCard, MediaPreview, TextCard, inferImageThumbnailUrl, isMediaUrl } from './NodeMedia';
 import { NodeParamFields } from './NodeParamFields';
@@ -72,6 +73,59 @@ function trimBoundaryBlankLines(text: string) {
   return String(text)
     .replace(/^(?:[ \t]*\r?\n)+/, '')
     .replace(/(?:\r?\n[ \t]*)+$/, '');
+}
+
+function getUploadProcessingState(data: Record<string, unknown>) {
+  return {
+    processingStatus: (data._fileProcessingStatus as string) || '',
+    processingError: (data._fileProcessingError as string) || '',
+  };
+}
+
+function getUploadStatusText({
+  uploadError,
+  uploading,
+  fileUrl,
+  previewUrl,
+  processingStatus,
+  processingError,
+}: {
+  uploadError: string;
+  uploading: boolean;
+  fileUrl: string;
+  previewUrl: string;
+  processingStatus: string;
+  processingError: string;
+}) {
+  if (uploadError) return '上传失败';
+  if (uploading) return '上传中';
+  if (processingStatus === 'processing') return '上传完成，正在处理预览';
+  if (processingStatus === 'failed') return '处理失败，已回退原图';
+  if (processingStatus === 'completed') return '处理完成';
+  if (processingError) return '处理失败，已回退原图';
+  if (fileUrl) return '已上传';
+  if (previewUrl) return '本地预览';
+  return '未选择';
+}
+
+function getUploadStatusClassName({
+  uploadError,
+  uploading,
+  processingStatus,
+  processingError,
+}: {
+  uploadError: string;
+  uploading: boolean;
+  processingStatus: string;
+  processingError: string;
+}) {
+  if (uploadError || processingStatus === 'failed' || processingError) {
+    return 'node-file-status__state node-file-status__state--error';
+  }
+  if (uploading || processingStatus === 'processing') {
+    return 'node-file-status__state node-file-status__state--loading';
+  }
+  return 'node-file-status__state';
 }
 
 function buildTextCleanPreview(data: Record<string, unknown>, outputs?: Record<string, unknown>) {
@@ -457,6 +511,7 @@ function FileInputContent({
   const imageHeight = typeof data.height === 'number' ? data.height : undefined;
   const uploading = Boolean(data._uploading);
   const uploadError = (data._uploadError as string) || '';
+  const { processingStatus, processingError } = getUploadProcessingState(data);
   const maskFileUrl = (data.maskFileUrl as string) || '';
   const maskPreviewUrl = (data.maskPreviewUrl as string) || '';
   const maskUploadError = (data._maskUploadError as string) || '';
@@ -482,6 +537,8 @@ function FileInputContent({
         height: undefined,
         _uploading: false,
         _uploadError: '',
+        _fileProcessingStatus: '',
+        _fileProcessingError: '',
         canvasOriginalFileUrl: '',
         canvasOriginalPreviewUrl: '',
         canvasOriginalFileName: '',
@@ -516,6 +573,8 @@ function FileInputContent({
       height: undefined,
       _uploading: true,
       _uploadError: '',
+      _fileProcessingStatus: '',
+      _fileProcessingError: '',
       canvasOriginalFileUrl: '',
       canvasOriginalPreviewUrl: '',
       canvasOriginalFileName: '',
@@ -536,14 +595,41 @@ function FileInputContent({
           height: result.height,
           _uploading: false,
           _uploadError: '',
+          _fileProcessingStatus: result.processing ? 'processing' : (result.processingStatus || ''),
+          _fileProcessingError: result.processingError || '',
         });
+        if (result.processing && result.url) {
+          void waitForUploadedImageMetadata(result.url, (metadata) => {
+            updateNodeData(nodeId, {
+              fileUrl: metadata.url || result.url,
+              thumbnailUrl: metadata.thumbnailUrl || '',
+              previewUrl: metadata.url || result.url,
+              width: metadata.width,
+              height: metadata.height,
+              _fileProcessingStatus: metadata.processingStatus || '',
+              _fileProcessingError: metadata.processingError || '',
+            });
+          });
+        }
       } else {
         URL.revokeObjectURL(localPreview);
-        updateNodeData(nodeId, { previewUrl: '', _uploading: false, _uploadError: formatUploadError(result.error) });
+        updateNodeData(nodeId, {
+          previewUrl: '',
+          _uploading: false,
+          _uploadError: formatUploadError(result.error),
+          _fileProcessingStatus: '',
+          _fileProcessingError: '',
+        });
       }
     } catch (error) {
       URL.revokeObjectURL(localPreview);
-      updateNodeData(nodeId, { previewUrl: '', _uploading: false, _uploadError: formatUploadError(error instanceof Error ? error.message : '') });
+      updateNodeData(nodeId, {
+        previewUrl: '',
+        _uploading: false,
+        _uploadError: formatUploadError(error instanceof Error ? error.message : ''),
+        _fileProcessingStatus: '',
+        _fileProcessingError: '',
+      });
     }
   }, [formatUploadError, mediaKind, nodeId, updateNodeData]);
 
@@ -565,6 +651,8 @@ function FileInputContent({
       fileSize: typeof data.canvasOriginalFileSize === 'number' ? data.canvasOriginalFileSize : data.fileSize,
       _uploading: false,
       _uploadError: '',
+      _fileProcessingStatus: '',
+      _fileProcessingError: '',
       canvasOriginalFileUrl: '',
       canvasOriginalPreviewUrl: '',
       canvasOriginalFileName: '',
@@ -592,15 +680,20 @@ function FileInputContent({
     };
   }, [maskSource, mediaKind]);
 
-  const statusText = uploadError
-    ? '上传失败'
-    : uploading
-      ? '上传中'
-      : fileUrl
-        ? '已上传'
-        : previewUrl
-          ? '本地预览'
-          : '未选择';
+  const statusText = getUploadStatusText({
+    uploadError,
+    uploading,
+    fileUrl,
+    previewUrl,
+    processingStatus,
+    processingError,
+  });
+  const statusClassName = getUploadStatusClassName({
+    uploadError,
+    uploading,
+    processingStatus,
+    processingError,
+  });
 
   return (
     <div className="node-content-shell node-content-shell--file" style={outerStyle}>
@@ -610,7 +703,7 @@ function FileInputContent({
           <MediaPreview value={previewUrl || previewDisplayUrl} previewValue={previewDisplayUrl} imageWidth={imageWidth} imageHeight={imageHeight} compact fill inertImage kindOverride={mediaKind} minHeightOverride={mediaKind === 'audio' ? 48 : 82} />
             <div className="node-file-status">
             <span className="node-file-status__name">{fileName}</span>
-            <span className={uploadError ? 'node-file-status__state node-file-status__state--error' : uploading ? 'node-file-status__state node-file-status__state--loading' : 'node-file-status__state'}>
+            <span className={statusClassName}>
               {statusText}
             </span>
           </div>
@@ -638,7 +731,7 @@ function FileInputContent({
               )}
             </div>
           )}
-          {uploadError && <div className="node-file-error">{uploadError}</div>}
+          {(uploadError || processingError) && <div className="node-file-error">{uploadError || processingError}</div>}
         </>
       ) : !uploading ? (
         <button
@@ -696,6 +789,7 @@ function MaskInputContent({
   const localPath = (data.localPath as string) || '';
   const uploading = Boolean(data._uploading);
   const uploadError = (data._uploadError as string) || '';
+  const { processingStatus, processingError } = getUploadProcessingState(data);
   const previewUrl = storedPreviewUrl && !(storedPreviewUrl.startsWith('blob:') && fileUrl) ? storedPreviewUrl : fileUrl;
   const threshold = Number(data.threshold ?? 128);
   const invertMask = Boolean(data.invertMask);
@@ -724,6 +818,8 @@ function MaskInputContent({
       fileSize: file.size,
       _uploading: true,
       _uploadError: '',
+      _fileProcessingStatus: '',
+      _fileProcessingError: '',
     });
 
     try {
@@ -738,14 +834,41 @@ function MaskInputContent({
           fileSize: result.fileSize || file.size,
           _uploading: false,
           _uploadError: '',
+          _fileProcessingStatus: result.processing ? 'processing' : (result.processingStatus || ''),
+          _fileProcessingError: result.processingError || '',
         });
+        if (result.processing && result.url) {
+          void waitForUploadedImageMetadata(result.url, (metadata) => {
+            updateNodeData(nodeId, {
+              fileUrl: metadata.url || result.url,
+              thumbnailUrl: metadata.thumbnailUrl || '',
+              previewUrl: metadata.url || result.url,
+              width: metadata.width,
+              height: metadata.height,
+              _fileProcessingStatus: metadata.processingStatus || '',
+              _fileProcessingError: metadata.processingError || '',
+            });
+          });
+        }
       } else {
         URL.revokeObjectURL(localPreview);
-        updateNodeData(nodeId, { previewUrl: '', _uploading: false, _uploadError: formatUploadError(result.error) });
+        updateNodeData(nodeId, {
+          previewUrl: '',
+          _uploading: false,
+          _uploadError: formatUploadError(result.error),
+          _fileProcessingStatus: '',
+          _fileProcessingError: '',
+        });
       }
     } catch (error) {
       URL.revokeObjectURL(localPreview);
-      updateNodeData(nodeId, { previewUrl: '', _uploading: false, _uploadError: formatUploadError(error instanceof Error ? error.message : '') });
+      updateNodeData(nodeId, {
+        previewUrl: '',
+        _uploading: false,
+        _uploadError: formatUploadError(error instanceof Error ? error.message : ''),
+        _fileProcessingStatus: '',
+        _fileProcessingError: '',
+      });
     }
   }, [formatUploadError, nodeId, updateNodeData]);
 
@@ -766,6 +889,8 @@ function MaskInputContent({
         fileSize: undefined,
         _uploading: false,
         _uploadError: '',
+        _fileProcessingStatus: '',
+        _fileProcessingError: '',
       });
       return;
     }
@@ -867,11 +992,11 @@ function MaskInputContent({
           )}
           <div className="node-file-status">
             <span className="node-file-status__name">{fileName}</span>
-            <span className={uploadError ? 'node-file-status__state node-file-status__state--error' : uploading ? 'node-file-status__state node-file-status__state--loading' : 'node-file-status__state'}>
-              {uploadError ? '上传失败' : uploading ? '上传中' : fileUrl ? '已上传' : '本地预览'}
+            <span className={getUploadStatusClassName({ uploadError, uploading, processingStatus, processingError })}>
+              {getUploadStatusText({ uploadError, uploading, fileUrl, previewUrl, processingStatus, processingError })}
             </span>
           </div>
-          {uploadError && <div className="node-file-error">{uploadError}</div>}
+          {(uploadError || processingError) && <div className="node-file-error">{uploadError || processingError}</div>}
         </>
       ) : !uploading ? (
         <button
