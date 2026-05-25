@@ -711,9 +711,6 @@ export function useChat(
         } else {
           const agentResult = await sendAgentChat(requestPayload);
           backendSessionIds.current[activeIdResolved] = agentResult.sessionId;
-          if (agentResult.agentRunLog?.path) {
-            addLog('info', `Agent run log: ${agentResult.agentRunLog.path}`);
-          }
           finalContent = readAssistantContent(agentResult);
           for (const trace of agentResult.toolTrace) {
             const parsedResult = parseJsonIfPossible(trace.result) as Record<string, unknown> | string | undefined;

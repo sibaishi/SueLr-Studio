@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { ExecutionService } from '../src/modules/execution/execution.service.js';
+import { STORAGE_PATHS } from '../src/platform/storage/index.js';
 
 function createStorageDir(name) {
   const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `execution-service-${name}-${Date.now()}`);
@@ -139,8 +140,15 @@ test('ExecutionService stores sanitized node outputs in workflow run logs', asyn
   const sseEvents = parseSseEvents(res.chunks);
   const logEvent = sseEvents.find(({ event }) => event === 'workflow_log');
   assert.ok(logEvent);
+  assert.deepEqual(logEvent.data, { runId: logEvent.data.runId });
 
-  const rawLog = fs.readFileSync(logEvent.data.path, 'utf8');
+  const workflowRunDays = fs.readdirSync(STORAGE_PATHS.workflowRunsDir);
+  assert.equal(workflowRunDays.length > 0, true);
+  const latestDayDir = path.join(STORAGE_PATHS.workflowRunsDir, workflowRunDays.sort().at(-1));
+  const logFiles = fs.readdirSync(latestDayDir).filter((name) => name.endsWith('.jsonl'));
+  assert.equal(logFiles.length > 0, true);
+  const logPath = path.join(latestDayDir, logFiles.sort().at(-1));
+  const rawLog = fs.readFileSync(logPath, 'utf8');
   assert.equal(rawLog.includes(inlineImage), false);
 
   const entries = rawLog.trim().split('\n').map((line) => JSON.parse(line));
@@ -156,7 +164,7 @@ test('ExecutionService stores sanitized node outputs in workflow run logs', asyn
   assert.match(completedEntry.data.outputs.text.preview, /^data:image\/png;base64,/);
   assert.match(completedEntry.data.outputs.text.artifact, /\.dataurl\.txt$/);
 
-  const artifactPath = path.join(path.dirname(logEvent.data.path), completedEntry.data.outputs.text.artifact);
+  const artifactPath = path.join(path.dirname(logPath), completedEntry.data.outputs.text.artifact);
   assert.equal(fs.existsSync(artifactPath), true);
   assert.equal(fs.readFileSync(artifactPath, 'utf8'), inlineImage);
 

@@ -85,6 +85,11 @@ function cleanOptionalString(value, maxLength = 5000) {
   return String(value).trim().slice(0, maxLength);
 }
 
+function cleanSecretOverride(value, maxLength = 5000) {
+  const normalized = cleanOptionalString(value, maxLength);
+  return normalized === 'use-stored' ? '' : normalized;
+}
+
 function validateEnum(value, allowed, fallback) {
   return allowed.includes(value) ? value : fallback;
 }
@@ -429,7 +434,7 @@ function buildRuntimeApiConfigInternal(overrides = {}) {
   const projectModels = normalizeProjectModels(overrides.projectModels || active?.projectModels || []);
 
   return {
-    apiKey: cleanOptionalString(overrides.apiKey, 4000) || active?.apiKey || '',
+    apiKey: cleanSecretOverride(overrides.apiKey, 4000) || active?.apiKey || '',
     tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || settings.runtime.tavilyApiKey || '',
     outboundProxy: settings.runtime.outboundProxy,
     workflowExecution: settings.workflow.concurrency,

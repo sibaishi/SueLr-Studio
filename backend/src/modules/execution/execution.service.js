@@ -683,7 +683,7 @@ export class ExecutionService {
       }
     };
 
-    sendSSE(WORKFLOW_SSE_EVENTS.RUN_LOG, { runId: runLogger.runId, path: runLogger.filePath });
+    sendSSE(WORKFLOW_SSE_EVENTS.RUN_LOG, { runId: runLogger.runId });
     sendSSE(WORKFLOW_SSE_EVENTS.SNAPSHOT_BUILT, {
       runId: snapshot.runId,
       workflowId: snapshot.workflowId,

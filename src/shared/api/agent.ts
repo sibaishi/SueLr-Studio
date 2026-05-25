@@ -45,7 +45,6 @@ export type AgentChatResult = {
   model?: string;
   agentRunLog?: {
     runId: string;
-    path: string;
   };
   assistantMessage: {
     role: string;

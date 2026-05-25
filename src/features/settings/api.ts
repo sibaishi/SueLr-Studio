@@ -237,17 +237,19 @@ export async function waitForBackendReady(options: WaitForBackendReadyOptions = 
 export async function discoverProviderModels(
   apiKey: string,
   baseUrl: string,
+  configId?: string,
   providerConfig?: Record<string, unknown>,
 ) {
   return apiRequest<{ all: string[]; chat: string[]; image: string[]; video: string[] }>('/api/settings/discover-models', {
     method: 'POST',
-    body: JSON.stringify({ apiKey, baseUrl, providerConfig }),
+    body: JSON.stringify({ apiKey, baseUrl, configId, providerConfig }),
   });
 }
 
 export async function testSettingsConnection(
   apiKey: string,
   baseUrl: string,
+  configId?: string,
   providerConfig?: Record<string, unknown>,
 ): Promise<{ success: boolean; models: ModelInfo[]; message?: string; error?: string }> {
   if (!isBackendAvailable()) return { success: false, models: [], error: '本地后端服务未连接' };
@@ -255,7 +257,7 @@ export async function testSettingsConnection(
   try {
     const result = await apiRequest<BackendModelsData>('/api/settings/test-api', {
       method: 'POST',
-      body: JSON.stringify({ apiKey, baseUrl, providerConfig }),
+      body: JSON.stringify({ apiKey, baseUrl, configId, providerConfig }),
     });
     return {
       success: result.success,

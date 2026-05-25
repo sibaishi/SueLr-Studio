@@ -220,7 +220,6 @@ export class AgentService {
         ...result,
         agentRunLog: {
           runId: runLogger.runId,
-          path: runLogger.filePath,
         },
       };
       this.sessionStore.update(sessionId, {
@@ -280,7 +279,6 @@ export class AgentService {
           ...payload,
           agentRunLog: {
             runId: runLogger.runId,
-            path: runLogger.filePath,
           },
         };
         runLogger.log('agent_session_started', next);
@@ -308,7 +306,6 @@ export class AgentService {
           ...payload,
           agentRunLog: {
             runId: runLogger.runId,
-            path: runLogger.filePath,
           },
         };
         runLogger.log('agent_message_completed', next);

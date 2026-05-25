@@ -340,6 +340,55 @@ test('HTTP contract: generated outputs can be cleared from the server', async ()
   }
 });
 
+test('HTTP contract: settings test-api can resolve stored secrets by configId without exposing host paths', async () => {
+  const { server, baseUrl } = await createTestServer('settings-test-api-configid');
+  try {
+    await requestJson(baseUrl, '/api/settings/studio', {
+      method: 'PUT',
+      body: JSON.stringify({
+        runtime: {
+          activeConfigId: 'default',
+          configs: [{ id: 'default', name: 'Stored', base: 'https://api.openai.com/v1', apiKey: 'sk-secret', models: [] }],
+        },
+      }),
+    });
+
+    const { settingsService } = await import('../src/modules/settings/settings.service.js');
+    const originalDiscoverModels = settingsService.discoverModels;
+
+    try {
+      settingsService.discoverModels = async (payload) => {
+        const runtimeConfig = settingsService.buildRuntimeConfig(payload);
+        assert.equal(runtimeConfig.configId, 'default');
+        assert.equal(runtimeConfig.apiKey, 'sk-secret');
+        return {
+          runtimeConfig,
+          models: { all: ['gpt-5.5'], chat: ['gpt-5.5'], image: [], video: [] },
+        };
+      };
+
+      const response = await requestJson(baseUrl, '/api/settings/test-api', {
+        method: 'POST',
+        body: JSON.stringify({
+          configId: 'default',
+          apiKey: 'use-stored',
+          baseUrl: 'https://api.openai.com/v1',
+        }),
+      });
+
+      assert.equal(response.status, 200);
+      assertEnvelopeShape(response.body);
+      assert.deepEqual(response.body.data.models, ['gpt-5.5']);
+      assert.equal(JSON.stringify(response.body).includes('D:\\\\'), false);
+      assert.equal(JSON.stringify(response.body).includes('/srv/'), false);
+    } finally {
+      settingsService.discoverModels = originalDiscoverModels;
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: CORS rejection stays on the unified error envelope', async () => {
   const { server, baseUrl } = await createTestServer('cors-envelope');
   try {

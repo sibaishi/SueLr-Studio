@@ -121,6 +121,7 @@ export function useSettingsPanelController({
       const result = await testSettingsConnection(
         apiKey || 'use-stored',
         base,
+        activeConfig?.id,
         activeConfig?.providerConfig as Record<string, unknown> | undefined,
       );
       if (!result.success) throw new Error(result.error || '模型获取失败');

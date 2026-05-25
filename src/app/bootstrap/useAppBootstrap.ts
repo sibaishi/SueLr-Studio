@@ -185,7 +185,12 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
         params.settings.setModels(config.models);
         if (config.models.length === 0 && config.base && config.apiKey) {
           try {
-            const result = await testSettingsConnection('use-stored', config.base, config.providerConfig as Record<string, unknown> | undefined);
+            const result = await testSettingsConnection(
+              'use-stored',
+              config.base,
+              config.id,
+              config.providerConfig as Record<string, unknown> | undefined,
+            );
             if (!result.success) throw new Error(result.error || '模型获取失败');
             const nextModels = result.models;
             if (nextModels.length > 0) {

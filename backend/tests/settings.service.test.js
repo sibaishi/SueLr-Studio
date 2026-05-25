@@ -123,6 +123,40 @@ test('settings response does not expose secrets in plaintext', async () => {
   assert.equal(response.activeConfig.apiKeySet, true);
 });
 
+test('settings service discovers models with stored secrets when configId is provided', async () => {
+  const root = createStorageDir('settings-discover-stored-secret');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { settingsService } = await import(`../src/modules/settings/settings.service.js?test=${Date.now()}`);
+  settingsService.updateStudioSettings({
+    runtime: {
+      activeConfigId: 'default',
+      configs: [{ id: 'default', name: 'Stored', base: 'https://api.openai.com/v1', apiKey: 'sk-stored', models: [] }],
+    },
+  });
+
+  const originalFetchModelsFromProvider = settingsService.repository.fetchModelsFromProvider;
+  try {
+    settingsService.repository.fetchModelsFromProvider = async (runtimeConfig) => {
+      assert.equal(runtimeConfig.configId, 'default');
+      assert.equal(runtimeConfig.apiKey, 'sk-stored');
+      return { all: ['gpt-5.5'], chat: ['gpt-5.5'], image: [], video: [] };
+    };
+
+    const result = await settingsService.discoverModels({
+      configId: 'default',
+      apiKey: 'use-stored',
+      baseUrl: 'https://api.openai.com/v1',
+    });
+
+    assert.deepEqual(result.models, { all: ['gpt-5.5'], chat: ['gpt-5.5'], image: [], video: [] });
+  } finally {
+    settingsService.repository.fetchModelsFromProvider = originalFetchModelsFromProvider;
+  }
+});
+
 test('settings service persists outbound proxy settings without exposing proxy URLs publicly', async () => {
   const root = createStorageDir('settings-outbound-proxy');
   process.env.APP_CONFIG_DIR = root;
