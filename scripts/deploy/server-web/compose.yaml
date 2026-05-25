@@ -1,0 +1,18 @@
+services:
+  suelr-studio:
+    build:
+      context: ../../..
+      dockerfile: scripts/deploy/server-web/Dockerfile
+    container_name: suelr-studio
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 3001
+      APP_RUNTIME_MODE: server-single-user
+      APP_ALLOWED_ORIGINS: https://studio.suelr.com
+      APP_FRONTEND_DIST: /app/dist
+      APP_CONFIG_DIR: /data
+    volumes:
+      - ./data:/data

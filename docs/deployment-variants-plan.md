@@ -713,6 +713,7 @@ Operational notes:
 - logs and temporary generated outputs stay on the server unless deployment-side retention or cleanup policy removes them
 - browser users download generated files from the server; they do not write directly into a server host path through Settings
 - if long-term retention is not desired, define cleanup policy together with application-side cleanup entry points
+- the repository deployment assets for this mode should stay versioned under `scripts/deploy/server-web/`
 
 ### Milestone 5: Multi-User Foundations
 
