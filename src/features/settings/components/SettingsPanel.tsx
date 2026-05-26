@@ -714,8 +714,8 @@ export function SettingsPanel({
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <span style={chipStyle(base ? T.green : T.orange)}>{base ? '服务已接入' : '服务待配置'}</span>
               <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
-              <span style={chipStyle(runtimeCapabilities?.search.enabled ? T.purple : undefined)}>
-                {runtimeCapabilities?.search.enabled ? '联网搜索可用' : '联网搜索未启用'}
+              <span style={chipStyle(runtimeCapabilities?.search?.enabled ? T.purple : undefined)}>
+                {runtimeCapabilities?.search?.enabled ? '联网搜索可用' : '联网搜索未启用'}
               </span>
             </div>
           </div>

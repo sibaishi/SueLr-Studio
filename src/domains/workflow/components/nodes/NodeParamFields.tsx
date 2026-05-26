@@ -145,8 +145,8 @@ function ParamEditor({
   const runtimeCapabilities = getCachedRuntimeCapabilities();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? true;
   const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
-  const runtimeSearchEnabled = runtimeCapabilities?.search.enabled ?? false;
-  const runtimeSearchDisabledReason = runtimeCapabilities?.search.disabledReason || '当前部署未启用联网搜索';
+  const runtimeSearchEnabled = runtimeCapabilities?.search?.enabled ?? false;
+  const runtimeSearchDisabledReason = runtimeCapabilities?.search?.disabledReason || '当前部署未启用联网搜索';
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
   const connectedApiKeyNode = nodeId

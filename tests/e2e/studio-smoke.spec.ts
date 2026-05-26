@@ -34,6 +34,25 @@ async function readPersistedStudioConfig(page: import('@playwright/test').Page) 
   });
 }
 
+async function readStableNodeCount(page: import('@playwright/test').Page) {
+  const nodeCount = page.getByTestId('workflow-node-count').locator('strong');
+  await expect
+    .poll(
+      async () => {
+        const first = Number((await nodeCount.textContent()) || '0');
+        await page.waitForTimeout(250);
+        const second = Number((await nodeCount.textContent()) || '0');
+        return first === second ? second : Number.NaN;
+      },
+      {
+        timeout: 5_000,
+        intervals: [250, 500],
+      },
+    )
+    .not.toBeNaN();
+  return Number((await nodeCount.textContent()) || '0');
+}
+
 test.describe('studio smoke', () => {
   test('public developer docs reflect the current main plus release branch model', async ({ page }) => {
     await page.goto('/docs/developer-guide.md');
@@ -67,6 +86,7 @@ test.describe('studio smoke', () => {
         name: persisted.activeConfig?.name ?? '',
         base: persisted.activeConfig?.base ?? '',
         apiKey: persisted.activeConfig?.apiKey ?? '',
+        apiKeySet: Boolean(persisted.activeConfig?.apiKeySet),
       });
     }, {
       timeout: 10_000,
@@ -74,14 +94,15 @@ test.describe('studio smoke', () => {
     }).toBe(JSON.stringify({
       name: configName,
       base: baseUrl,
-      apiKey,
+      apiKey: '',
+      apiKeySet: true,
     }));
 
     await page.reload();
 
     await expect(configNameInput).toHaveValue(configName);
     await expect(baseUrlInput).toHaveValue(baseUrl);
-    await expect(apiKeyInput).toHaveValue(apiKey);
+    await expect(apiKeyInput).toHaveValue('');
   });
 
   test('workflow can add a node from the sidebar', async ({ page }) => {
@@ -91,7 +112,7 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     const nodeCount = page.getByTestId('workflow-node-count').locator('strong');
-    const beforeCount = Number((await nodeCount.textContent()) || '0');
+    const beforeCount = await readStableNodeCount(page);
 
     await page.getByTestId('workflow-node-item-textInput').click();
 
@@ -115,7 +136,7 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     const nodeCount = page.getByTestId('workflow-node-count').locator('strong');
-    const beforeCount = Number((await nodeCount.textContent()) || '0');
+    const beforeCount = await readStableNodeCount(page);
 
     await page.getByTestId('workflow-node-item-textInput').click();
     await expect(nodeCount).toHaveText(String(beforeCount + 1));
@@ -275,8 +296,8 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('settings-pick-storage-path')).toBeEnabled();
     await expect(page.getByTestId('settings-save-storage-path')).toBeEnabled();
     await expect(page.getByTestId('settings-reset-storage-path')).toBeEnabled();
-    await expect(page.getByTestId('settings-restart-backend')).toBeDisabled();
-    await expect(page.getByTestId('settings-restart-backend-hint')).toContainText('部署端');
+    await expect(page.getByTestId('settings-restart-backend')).toHaveCount(0);
+    await expect(page.getByTestId('settings-restart-backend-hint')).toHaveCount(0);
 
     await page.getByTestId('settings-module-diagnostics').click();
     await expect(page.getByTestId('settings-runtime-diagnostics')).toContainText('server-single-user');
