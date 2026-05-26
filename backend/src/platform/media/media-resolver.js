@@ -3,6 +3,8 @@ import path from 'node:path';
 import { STORAGE_PATHS, safeResolveWithin } from '../storage/index.js';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
+const DATA_URL_CACHE_LIMIT = 32;
+const dataUrlCache = new Map();
 
 const MIME_BY_EXT = {
   '.jpg': 'image/jpeg',
@@ -91,7 +93,22 @@ export function localUrlToFilePath(source) {
 export function localUrlToDataUrl(source) {
   const filePath = localUrlToFilePath(source);
   if (!filePath) return String(source || '');
-  return `data:${getMimeType(filePath)};base64,${fs.readFileSync(filePath).toString('base64')}`;
+  const stat = fs.statSync(filePath);
+  const cacheKey = `${filePath}:${stat.size}:${stat.mtimeMs}`;
+  const cached = dataUrlCache.get(cacheKey);
+  if (cached) {
+    dataUrlCache.delete(cacheKey);
+    dataUrlCache.set(cacheKey, cached);
+    return cached;
+  }
+
+  const dataUrl = `data:${getMimeType(filePath)};base64,${fs.readFileSync(filePath).toString('base64')}`;
+  dataUrlCache.set(cacheKey, dataUrl);
+  if (dataUrlCache.size > DATA_URL_CACHE_LIMIT) {
+    const oldestKey = dataUrlCache.keys().next().value;
+    if (oldestKey) dataUrlCache.delete(oldestKey);
+  }
+  return dataUrl;
 }
 
 export async function mediaSourceToDataUrl(source) {

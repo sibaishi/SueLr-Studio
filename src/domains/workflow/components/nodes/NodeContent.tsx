@@ -584,11 +584,10 @@ function FileInputContent({
     try {
       const result = await uploadFile(file);
       if (result.success && result.url) {
-        URL.revokeObjectURL(localPreview);
         updateNodeData(nodeId, {
           fileUrl: result.url,
           thumbnailUrl: result.thumbnailUrl || '',
-          previewUrl: result.url,
+          previewUrl: result.thumbnailUrl || localPreview,
           fileName: result.fileName || file.name,
           fileSize: result.fileSize || file.size,
           width: result.width,
@@ -600,16 +599,21 @@ function FileInputContent({
         });
         if (result.processing && result.url) {
           void waitForUploadedImageMetadata(result.url, (metadata) => {
+            if (metadata.thumbnailUrl || metadata.url) {
+              URL.revokeObjectURL(localPreview);
+            }
             updateNodeData(nodeId, {
               fileUrl: metadata.url || result.url,
               thumbnailUrl: metadata.thumbnailUrl || '',
-              previewUrl: metadata.url || result.url,
+              previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
               width: metadata.width,
               height: metadata.height,
               _fileProcessingStatus: metadata.processingStatus || '',
               _fileProcessingError: metadata.processingError || '',
             });
           });
+        } else if (result.thumbnailUrl || result.url) {
+          URL.revokeObjectURL(localPreview);
         }
       } else {
         URL.revokeObjectURL(localPreview);
@@ -825,11 +829,10 @@ function MaskInputContent({
     try {
       const result = await uploadFile(file);
       if (result.success && result.url) {
-        URL.revokeObjectURL(localPreview);
         updateNodeData(nodeId, {
           fileUrl: result.url,
           thumbnailUrl: result.thumbnailUrl || '',
-          previewUrl: result.url,
+          previewUrl: result.thumbnailUrl || localPreview,
           fileName: result.fileName || file.name,
           fileSize: result.fileSize || file.size,
           _uploading: false,
@@ -839,16 +842,21 @@ function MaskInputContent({
         });
         if (result.processing && result.url) {
           void waitForUploadedImageMetadata(result.url, (metadata) => {
+            if (metadata.thumbnailUrl || metadata.url) {
+              URL.revokeObjectURL(localPreview);
+            }
             updateNodeData(nodeId, {
               fileUrl: metadata.url || result.url,
               thumbnailUrl: metadata.thumbnailUrl || '',
-              previewUrl: metadata.url || result.url,
+              previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
               width: metadata.width,
               height: metadata.height,
               _fileProcessingStatus: metadata.processingStatus || '',
               _fileProcessingError: metadata.processingError || '',
             });
           });
+        } else if (result.thumbnailUrl || result.url) {
+          URL.revokeObjectURL(localPreview);
         }
       } else {
         URL.revokeObjectURL(localPreview);

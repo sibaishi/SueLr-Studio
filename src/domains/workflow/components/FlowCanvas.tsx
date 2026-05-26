@@ -724,11 +724,10 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
       void uploadFile(file)
         .then((result) => {
           if (result.success && result.url) {
-            URL.revokeObjectURL(localPreview);
             store.updateNodeData(nodeId, {
               fileUrl: result.url,
               thumbnailUrl: result.thumbnailUrl || '',
-              previewUrl: result.url,
+              previewUrl: result.thumbnailUrl || localPreview,
               fileName: result.fileName || file.name,
               fileSize: result.fileSize || file.size,
               _uploading: false,
@@ -738,16 +737,21 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
             });
             if (result.processing && result.url) {
               void waitForUploadedImageMetadata(result.url, (metadata) => {
+                if (metadata.thumbnailUrl || metadata.url) {
+                  URL.revokeObjectURL(localPreview);
+                }
                 store.updateNodeData(nodeId, {
                   fileUrl: metadata.url || result.url,
                   thumbnailUrl: metadata.thumbnailUrl || '',
-                  previewUrl: metadata.url || result.url,
+                  previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
                   width: metadata.width,
                   height: metadata.height,
                   _fileProcessingStatus: metadata.processingStatus || '',
                   _fileProcessingError: metadata.processingError || '',
                 });
               });
+            } else if (result.thumbnailUrl || result.url) {
+              URL.revokeObjectURL(localPreview);
             }
             return;
           }
@@ -1310,7 +1314,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
           store.updateNodeData(nodeId, {
             fileUrl: metadata.url || result.url,
             thumbnailUrl: metadata.thumbnailUrl || '',
-            previewUrl: metadata.url || result.url,
+            previewUrl: metadata.thumbnailUrl || previewUrl || metadata.url || result.url,
             width: metadata.width,
             height: metadata.height,
             _fileProcessingStatus: metadata.processingStatus || '',
