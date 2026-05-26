@@ -79,7 +79,7 @@ run_as_root cp "${NGINX_SOURCE}" "${NGINX_TARGET}"
 run_as_root ln -sfn "${NGINX_TARGET}" "${NGINX_ENABLED_LINK}"
 log "installed nginx site config at ${NGINX_TARGET}"
 
-"${DOCKER_COMPOSE[@]}" -f "${COMPOSE_TARGET}" up -d --build
+"${DOCKER_COMPOSE[@]}" --project-directory "${RUNTIME_DIR}" -f "${COMPOSE_TARGET}" up -d --build
 log "docker compose deployment started"
 
 run_as_root nginx -t

@@ -51,7 +51,7 @@ fi
 log "runtime dir: ${RUNTIME_DIR}"
 
 if [ -f "${COMPOSE_TARGET}" ]; then
-  "${DOCKER_COMPOSE[@]}" -f "${COMPOSE_TARGET}" down --remove-orphans || true
+  "${DOCKER_COMPOSE[@]}" --project-directory "${RUNTIME_DIR}" -f "${COMPOSE_TARGET}" down --remove-orphans || true
   log "docker compose stack stopped"
 else
   log "compose file missing, skipping docker compose down"
