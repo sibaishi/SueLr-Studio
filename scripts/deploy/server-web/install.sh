@@ -40,22 +40,37 @@ run_as_root() {
 require_command docker
 require_command nginx
 
-[ -d "${REPO_ROOT}/dist" ] || fail "frontend dist not found: ${REPO_ROOT}/dist"
+[ -f "${REPO_ROOT}/index.html" ] || fail "frontend entry not found: ${REPO_ROOT}/index.html"
+[ -d "${REPO_ROOT}/src" ] || fail "frontend sources not found: ${REPO_ROOT}/src"
+[ -f "${REPO_ROOT}/vite.config.ts" ] || fail "vite config not found: ${REPO_ROOT}/vite.config.ts"
+[ -f "${REPO_ROOT}/tsconfig.json" ] || fail "tsconfig not found: ${REPO_ROOT}/tsconfig.json"
 [ -d "${REPO_ROOT}/backend/src" ] || fail "backend sources not found: ${REPO_ROOT}/backend/src"
-[ -d "${REPO_ROOT}/src/shared/workflow" ] || fail "shared workflow sources not found: ${REPO_ROOT}/src/shared/workflow"
 
 sync_release_tree() {
+  copy_entry() {
+    local source_relative="$1"
+    local target_relative="$2"
+    local source_path="${REPO_ROOT}/${source_relative}"
+    local target_path="${APP_DIR}/${target_relative}"
+
+    [ -e "${source_path}" ] || fail "missing release source: ${source_relative}"
+    mkdir -p "$(dirname -- "${target_path}")"
+    cp -R "${source_path}" "${target_path}"
+  }
+
   rm -rf "${APP_DIR}"
-  mkdir -p "${APP_DIR}/backend" "${APP_DIR}/src/shared" "${APP_DIR}/scripts/deploy/server-web"
-  cp -R "${REPO_ROOT}/dist" "${APP_DIR}/dist"
-  cp "${REPO_ROOT}/package.json" "${APP_DIR}/package.json"
-  cp "${REPO_ROOT}/package-lock.json" "${APP_DIR}/package-lock.json"
-  cp "${REPO_ROOT}/backend/package.json" "${APP_DIR}/backend/package.json"
-  cp "${REPO_ROOT}/backend/package-lock.json" "${APP_DIR}/backend/package-lock.json"
-  cp "${REPO_ROOT}/backend/server.js" "${APP_DIR}/backend/server.js"
-  cp -R "${REPO_ROOT}/backend/src" "${APP_DIR}/backend/src"
-  cp -R "${REPO_ROOT}/src/shared/workflow" "${APP_DIR}/src/shared/workflow"
-  cp "${REPO_ROOT}/scripts/deploy/server-web/Dockerfile" "${APP_DIR}/scripts/deploy/server-web/Dockerfile"
+  mkdir -p "${APP_DIR}"
+  copy_entry "index.html" "index.html"
+  copy_entry "package.json" "package.json"
+  copy_entry "package-lock.json" "package-lock.json"
+  copy_entry "tsconfig.json" "tsconfig.json"
+  copy_entry "vite.config.ts" "vite.config.ts"
+  copy_entry "src" "src"
+  copy_entry "backend/package.json" "backend/package.json"
+  copy_entry "backend/package-lock.json" "backend/package-lock.json"
+  copy_entry "backend/server.js" "backend/server.js"
+  copy_entry "backend/src" "backend/src"
+  copy_entry "scripts/deploy/server-web/Dockerfile" "scripts/deploy/server-web/Dockerfile"
 }
 
 if docker compose version >/dev/null 2>&1; then

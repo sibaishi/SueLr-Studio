@@ -9,12 +9,14 @@ const outputDir = resolve(repoRoot, '.server-web-release');
 const appDir = resolve(outputDir, 'app');
 
 const copies = [
-  ['dist', 'dist'],
+  ['index.html', 'index.html'],
+  ['src', 'src'],
+  ['tsconfig.json', 'tsconfig.json'],
+  ['vite.config.ts', 'vite.config.ts'],
   ['backend/package.json', 'backend/package.json'],
   ['backend/package-lock.json', 'backend/package-lock.json'],
   ['backend/server.js', 'backend/server.js'],
   ['backend/src', 'backend/src'],
-  ['src/shared/workflow', 'src/shared/workflow'],
   ['package.json', 'package.json'],
   ['package-lock.json', 'package-lock.json'],
   ['scripts/deploy/server-web/Dockerfile', 'scripts/deploy/server-web/Dockerfile'],

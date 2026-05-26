@@ -15,9 +15,11 @@ describe('server-web release directory', () => {
       stdio: 'pipe',
     });
 
-    expect(existsSync(resolve(appDir, 'dist'))).toBe(true);
+    expect(existsSync(resolve(appDir, 'index.html'))).toBe(true);
+    expect(existsSync(resolve(appDir, 'src'))).toBe(true);
+    expect(existsSync(resolve(appDir, 'vite.config.ts'))).toBe(true);
+    expect(existsSync(resolve(appDir, 'tsconfig.json'))).toBe(true);
     expect(existsSync(resolve(appDir, 'backend/src'))).toBe(true);
-    expect(existsSync(resolve(appDir, 'src/shared/workflow'))).toBe(true);
     expect(existsSync(resolve(appDir, 'tests'))).toBe(false);
     expect(existsSync(resolve(appDir, 'docs'))).toBe(false);
     expect(existsSync(resolve(appDir, 'node_modules'))).toBe(false);
