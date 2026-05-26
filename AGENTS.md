@@ -109,6 +109,8 @@ Never hardcode app-data paths. Use the config-dir resolver:
 - Repository-checked server deployments live under `scripts/deploy/server-web/`
 - Keep compose, Dockerfile, nginx site config, and host helper scripts aligned in the same change
 - Current helper scripts are `install.sh`, `update.sh`, and `uninstall.sh`
+- Keep the server-web Docker build context minimized; do not let `tests/`, `docs/`, repo-level `node_modules/`, or other development-only surfaces flow into `runtime/app` or the runtime image
+- `master` keeps the full development surface, but release variants such as `local-web`, `desktop`, and `server-web` must ship only their minimal release surface
 - If server rollout steps change, update:
   - `docs/user-guide.md`
   - `docs/developer-guide.md`

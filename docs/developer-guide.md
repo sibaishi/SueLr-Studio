@@ -543,7 +543,9 @@ Server-web deployment assets:
 - `scripts/deploy/server-web/compose.yaml`
   - compose definition for the server-web runtime
 - `scripts/deploy/server-web/Dockerfile`
-  - backend plus static frontend image build
+  - backend plus static frontend image build with an explicit runtime-layer whitelist
+- `scripts/deploy/server-web/app.dockerignore`
+  - server-web-specific Docker build-context filter; keeps tests, docs, logs, and other development-only surfaces out of the minimized runtime app tree
 - `scripts/deploy/server-web/studio.suelr.com.nginx.conf`
   - example nginx reverse-proxy site file
 - `scripts/deploy/server-web/install.sh`
@@ -553,6 +555,15 @@ Server-web deployment assets:
 - `scripts/deploy/server-web/uninstall.sh`
   - host-side removal flow for stopping containers, removing nginx wiring, and deleting the synced `runtime/app` release tree
   - keeps runtime data by default unless `SUE_LR_REMOVE_DATA=1` is set
+
+Variant release-surface rule:
+
+- `master` keeps the full development surface, including tests, e2e assets, docs, and maintenance tooling
+- release variants must ship only what their runtime actually needs
+- current `server-web` enforcement points are:
+  - minimized `runtime/app` sync from the source checkout
+  - server-web-specific `.dockerignore` copied from `scripts/deploy/server-web/app.dockerignore`
+  - Docker runtime stage copying only `dist`, backend runtime files, backend production dependencies, and shared workflow contracts
 
 Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.
 

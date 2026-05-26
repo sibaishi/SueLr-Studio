@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+docs
+tests
+backend/tests
+playwright-report
+test-results
+.run-logs
+release
+dist
+.private-docs
+development

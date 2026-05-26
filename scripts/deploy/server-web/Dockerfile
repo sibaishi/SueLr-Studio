@@ -23,7 +23,11 @@ ENV APP_RUNTIME_MODE=server-single-user
 ENV APP_FRONTEND_DIST=/app/dist
 
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/backend ./backend
+COPY --from=build /app/backend/package.json ./backend/package.json
+COPY --from=build /app/backend/package-lock.json ./backend/package-lock.json
+COPY --from=build /app/backend/server.js ./backend/server.js
+COPY --from=build /app/backend/src ./backend/src
+COPY --from=build /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/src/shared/workflow ./src/shared/workflow
 
 WORKDIR /app/backend

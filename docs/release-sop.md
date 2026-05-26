@@ -52,6 +52,13 @@ This document defines the standard release workflow for SueLr Studio variants. T
    bash ./scripts/deploy/server-web/uninstall.sh
    ```
 
+   `server-web` release rule:
+
+   - keep the source checkout on the host only as the update source
+   - treat `runtime/app` as the minimized live build context
+   - do not deploy repository `tests/`, `e2e`, `docs/`, or other development-only surfaces into the server-web runtime app tree
+   - keep the server-web Docker runtime image limited to built frontend assets, backend runtime files, backend production dependencies, and shared workflow contracts
+
    For other variants, follow the build steps defined in `docs/deployment-variants-plan.md`.
 
 6. Verify the packaged or deployed app manually.

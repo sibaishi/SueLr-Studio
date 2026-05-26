@@ -17,6 +17,7 @@ const copies = [
   ['backend/package-lock.json', 'backend/package-lock.json'],
   ['backend/server.js', 'backend/server.js'],
   ['backend/src', 'backend/src'],
+  ['scripts/deploy/server-web/app.dockerignore', '.dockerignore'],
   ['package.json', 'package.json'],
   ['package-lock.json', 'package-lock.json'],
   ['scripts/deploy/server-web/Dockerfile', 'scripts/deploy/server-web/Dockerfile'],

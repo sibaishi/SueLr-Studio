@@ -11,6 +11,12 @@ The delivery rule is simple:
 - shared product logic belongs on `master` in this repository
 - release branches carry shell, packaging, and deployment differences only
 
+Release-surface rule:
+
+- `master` keeps the full development surface, including tests, e2e assets, maintenance tooling, and documentation
+- each release variant must publish only the minimum runtime surface it actually needs
+- release-surface trimming must be enforced by scripts, build context filters, and packaging rules rather than by manual operator discipline
+
 ## Repository Root Cleanup
 
 The repository root must become easier to scan before deeper variant work continues. Today the root mixes source trees, release outputs, runtime directories, public docs, launchers, and maintenance files.
@@ -724,6 +730,8 @@ Operational notes:
 - the repository deployment assets for this mode should stay versioned under `scripts/deploy/server-web/`
 - for repository-checkout deployments, `scripts/deploy/server-web/install.sh` handles first-time setup and `scripts/deploy/server-web/update.sh` handles later pull-and-rebuild updates
 - those scripts may keep a source checkout for update purposes, but the live compose build context should be synchronized into a minimized `runtime/app` release tree instead of using the full repository as the running build context
+- that minimized `runtime/app` tree should include only the frontend build inputs, backend runtime sources, deployment Docker assets, and repo-level package metadata needed for the server build
+- server-web Docker builds should additionally apply a variant-specific `.dockerignore` so tests, docs, logs, and other development-only surfaces do not enter the build context even if the source checkout contains them
 - `scripts/deploy/server-web/uninstall.sh` handles stack teardown and nginx cleanup; it keeps runtime data unless `SUE_LR_REMOVE_DATA=1` is set
 - those scripts assume a checked-out repo with a sibling `runtime/` directory by default; override target paths or branch selection through `SUE_LR_*` environment variables when the host layout differs
 

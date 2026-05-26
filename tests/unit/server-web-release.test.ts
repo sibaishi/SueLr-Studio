@@ -19,6 +19,7 @@ describe('server-web release directory', () => {
     expect(existsSync(resolve(appDir, 'src'))).toBe(true);
     expect(existsSync(resolve(appDir, 'vite.config.ts'))).toBe(true);
     expect(existsSync(resolve(appDir, 'tsconfig.json'))).toBe(true);
+    expect(existsSync(resolve(appDir, '.dockerignore'))).toBe(true);
     expect(existsSync(resolve(appDir, 'backend/src'))).toBe(true);
     expect(existsSync(resolve(appDir, 'tests'))).toBe(false);
     expect(existsSync(resolve(appDir, 'docs'))).toBe(false);

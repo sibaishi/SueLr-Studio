@@ -47,6 +47,7 @@ require_command nginx
 [ -f "${REPO_ROOT}/vite.config.ts" ] || fail "vite config not found: ${REPO_ROOT}/vite.config.ts"
 [ -f "${REPO_ROOT}/tsconfig.json" ] || fail "tsconfig not found: ${REPO_ROOT}/tsconfig.json"
 [ -d "${REPO_ROOT}/backend/src" ] || fail "backend sources not found: ${REPO_ROOT}/backend/src"
+[ -f "${REPO_ROOT}/scripts/deploy/server-web/app.dockerignore" ] || fail "server-web dockerignore not found: ${REPO_ROOT}/scripts/deploy/server-web/app.dockerignore"
 
 sync_release_tree() {
   copy_entry() {
@@ -72,6 +73,7 @@ sync_release_tree() {
   copy_entry "backend/package-lock.json" "backend/package-lock.json"
   copy_entry "backend/server.js" "backend/server.js"
   copy_entry "backend/src" "backend/src"
+  copy_entry "scripts/deploy/server-web/app.dockerignore" ".dockerignore"
   copy_entry "scripts/deploy/server-web/Dockerfile" "scripts/deploy/server-web/Dockerfile"
 }
 
