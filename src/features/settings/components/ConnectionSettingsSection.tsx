@@ -1,4 +1,4 @@
-﻿import { Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';

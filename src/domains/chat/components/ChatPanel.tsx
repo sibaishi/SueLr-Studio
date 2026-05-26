@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { AgentRole, ApiConfig, BridgeRef, Colors, ModelInfo } from '@/shared/types';
 import type { ProviderConfig } from '@/shared/providers';
 import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
