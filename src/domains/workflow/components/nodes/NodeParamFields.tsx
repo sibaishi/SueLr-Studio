@@ -138,6 +138,8 @@ function ParamEditor({
   const runtimeCapabilities = getCachedRuntimeCapabilities();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? true;
   const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
+  const runtimeSearchEnabled = runtimeCapabilities?.search.enabled ?? false;
+  const runtimeSearchDisabledReason = runtimeCapabilities?.search.disabledReason || '当前部署未启用联网搜索';
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
   const connectedApiKeyNode = nodeId
@@ -508,6 +510,7 @@ function ParamEditor({
 
     case 'toggle': {
       const toggled = Boolean(value ?? param.default ?? false);
+      const searchToggleDisabled = nodeType === 'aiChat' && param.id === 'enableWebSearch' && !runtimeSearchEnabled;
       const wrapperClassName = [
         'node-param',
         'node-param--toggle',
@@ -518,11 +521,20 @@ function ParamEditor({
           <label className="node-param__label">{param.label}</label>
           <button
             type="button"
-            onClick={() => onChange(!toggled)}
+            onClick={() => {
+              if (searchToggleDisabled) return;
+              onChange(!toggled);
+            }}
             className={['node-toggle', toggled ? 'node-toggle--on' : ''].filter(Boolean).join(' ')}
+            disabled={searchToggleDisabled}
+            title={searchToggleDisabled ? runtimeSearchDisabledReason : undefined}
+            style={searchToggleDisabled ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
           >
             <span className="node-toggle__thumb" />
           </button>
+          {searchToggleDisabled ? (
+            <div className="node-param__hint">{runtimeSearchDisabledReason}</div>
+          ) : null}
         </div>
       );
     }

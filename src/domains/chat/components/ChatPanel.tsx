@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+﻿import { useEffect, useMemo } from 'react';
 import type { AgentRole, ApiConfig, BridgeRef, Colors, ModelInfo } from '@/shared/types';
 import type { ProviderConfig } from '@/shared/providers';
 import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
@@ -189,7 +189,6 @@ export function ChatPanel({
   getMemoryContext,
   refreshMemories,
   scheduleExtraction,
-  tavilyApiKey,
   providerConfig,
   chatStreamingMode,
   imageStreamingMode: _imageStreamingMode,
@@ -209,7 +208,6 @@ export function ChatPanel({
   getMemoryContext: () => string;
   refreshMemories: () => Promise<void>;
   scheduleExtraction: (msgs: { role: string; content: string }[], cid: string, model: string, base: string, key: string) => void;
-  tavilyApiKey: string;
   providerConfig?: ProviderConfig;
   chatStreamingMode: 'stream' | 'non-stream';
   imageStreamingMode: 'stream' | 'non-stream';
@@ -220,7 +218,7 @@ export function ChatPanel({
   onOpenWorkflowRun?: (payload: { runId: string; workflowId?: string; source?: 'persisted' | 'draft' }) => void;
 }) {
   const T = useT();
-  const chat = useChat(base, apiKey, apiConfigs, models, addLog, bridgeRef, roles, getMemoryContext, refreshMemories, scheduleExtraction, tavilyApiKey, providerConfig, chatStreamingMode, videoStreamingMode, activeTab, searchMemories);
+  const chat = useChat(base, apiKey, apiConfigs, models, addLog, bridgeRef, roles, getMemoryContext, refreshMemories, scheduleExtraction, providerConfig, chatStreamingMode, videoStreamingMode, activeTab, searchMemories);
   const chatBusy = chat.sendings.size > 0;
 
   useEffect(() => {
@@ -455,7 +453,7 @@ export function ChatPanel({
               <button
                 onClick={() => chat.canUseWebSearch && chat.setWebSearchEnabled(!chat.webSearchEnabled)}
                 disabled={!chat.canUseWebSearch}
-                title={chat.canUseWebSearch ? (chat.webSearchEnabled ? '关闭联网搜索' : '开启联网搜索') : '请先在设置中配置 Tavily API Key'}
+                title={chat.canUseWebSearch ? (chat.webSearchEnabled ? '关闭联网搜索' : '开启联网搜索') : '当前部署未启用联网搜索'}
                 style={{
                   width: 38,
                   height: 38,
@@ -734,7 +732,7 @@ export function ChatPanel({
                         ? '先在设置中填写 API Key，再选择模型并发送消息。'
                         : !chat.currentModel
                           ? '当前还没有选中对话模型，选择后即可开始发送消息。'
-                          : '如需联网搜索，请先在设置中配置 Tavily API Key。'}
+                          : '联网搜索由当前部署的管理员统一控制，当前未启用。'}
                     />
                   </div>
                 )}

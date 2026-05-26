@@ -10,6 +10,7 @@ const appDir = resolve(outputDir, 'app');
 
 const copies = [
   ['index.html', 'index.html'],
+  ['admin.html', 'admin.html'],
   ['src', 'src'],
   ['tsconfig.json', 'tsconfig.json'],
   ['vite.config.ts', 'vite.config.ts'],
@@ -17,6 +18,7 @@ const copies = [
   ['backend/package-lock.json', 'backend/package-lock.json'],
   ['backend/server.js', 'backend/server.js'],
   ['backend/src', 'backend/src'],
+  ['scripts/serve-admin.mjs', 'scripts/serve-admin.mjs'],
   ['scripts/deploy/server-web/app.dockerignore', '.dockerignore'],
   ['package.json', 'package.json'],
   ['package-lock.json', 'package-lock.json'],

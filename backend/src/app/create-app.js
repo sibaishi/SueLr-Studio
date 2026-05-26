@@ -9,6 +9,7 @@ import agentRoutes from '../modules/agent/agent.routes.js';
 import imageRoutes from '../modules/images/images.routes.js';
 import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.js';
 import settingsRoutes from '../modules/settings/settings.routes.js';
+import adminConfigRoutes from '../modules/admin-config/admin-config.routes.js';
 import storageRoutes from '../modules/files/files.routes.js';
 import { errorEnvelope, successEnvelope } from './http/envelope.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -66,7 +67,7 @@ export function createApp() {
       callback(new Error('CORS origin not allowed'));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Access-Key'],
   }));
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -123,6 +124,7 @@ export function createApp() {
   app.use('/api/images', imageRoutes);
   app.use('/api/capabilities', capabilitiesRoutes);
   app.use('/api/settings', settingsRoutes);
+  app.use('/api/admin', adminConfigRoutes);
   app.use('/api', storageRoutes);
 
   app.get('/api/health', (_req, res) => {

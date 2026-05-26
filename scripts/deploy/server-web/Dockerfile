@@ -23,15 +23,24 @@ ENV APP_RUNTIME_MODE=server-single-user
 ENV APP_FRONTEND_DIST=/app/dist
 
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/scripts/serve-admin.mjs ./scripts/serve-admin.mjs
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/backend/package-lock.json ./backend/package-lock.json
 COPY --from=build /app/backend/server.js ./backend/server.js
 COPY --from=build /app/backend/src ./backend/src
 COPY --from=build /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/src/shared/workflow ./src/shared/workflow
+COPY <<'EOF' /app/start-server-web.sh
+#!/bin/sh
+set -eu
+node /app/scripts/serve-admin.mjs &
+exec node /app/backend/server.js
+EOF
 
-WORKDIR /app/backend
+RUN chmod +x /app/start-server-web.sh
 
-EXPOSE 3001
+WORKDIR /app
 
-CMD ["node", "server.js"]
+EXPOSE 3001 3002
+
+CMD ["/app/start-server-web.sh"]

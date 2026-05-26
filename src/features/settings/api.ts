@@ -88,7 +88,6 @@ export async function saveStudioSettings(settings: StudioSettingsPayload): Promi
     runtime: {
       ...settings.runtime,
       configs: sanitizedConfigs,
-      ...(settings.runtime.tavilyApiKey ? { tavilyApiKey: settings.runtime.tavilyApiKey } : {}),
     },
   };
   await apiRequest('/api/settings/studio', {

@@ -5,7 +5,6 @@ import { useToast } from '@/providers/ToastContext';
 import { useT } from '@/providers/ThemeContext';
 import { THEME_LABELS } from '@/app/theme/constants';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
-import { capabilityWebSearch } from '@/shared/api/capabilities';
 import {
   checkSettingsServer,
   clearAccountDetails,
@@ -65,10 +64,6 @@ export function SettingsPanel({
   onDeleteMemory,
   onClearMemories,
   exportMemories,
-  tavilyApiKey,
-  tavilyApiKeySet,
-  setTavilyApiKey,
-  setTavilyApiKeySet,
   outboundProxy,
   setOutboundProxy,
   workflowConcurrency,
@@ -268,19 +263,6 @@ export function SettingsPanel({
     await upsertAgentProfile(profile);
     setEditingProfile(null);
     addLog('success', `已保存 Agent Persona：${profile.name}`);
-  };
-
-  const testSearch = async () => {
-    try {
-      const data = await capabilityWebSearch({
-        query: 'AI 最新资讯',
-        maxResults: 3,
-        apiConfig: { tavilyApiKey },
-      });
-      addLog('success', data.content || '联网搜索成功');
-    } catch (error) {
-      addLog('error', error instanceof Error ? error.message : String(error));
-    }
   };
 
   const exportMemoriesToFile = () => {
@@ -554,8 +536,6 @@ export function SettingsPanel({
     runtimeCapabilities,
     canRestartBackend,
     canSelectDirectory,
-    tavilyApiKey,
-    tavilyApiKeySet,
     themeMode,
     themeOptions,
     workflowConcurrency,
@@ -606,11 +586,8 @@ export function SettingsPanel({
     setProviderModelsEndpoint,
     setSelectedImports,
     setStoragePathDraft,
-    setTavilyApiKey,
-    setTavilyApiKeySet,
     setThemeMode,
     testConnection,
-    testSearch,
     updateConfig,
     updateProjectModel: updateProjectModelAction,
     updateProviderConfig,
@@ -657,8 +634,8 @@ export function SettingsPanel({
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <span style={chipStyle(base ? T.green : T.orange)}>{base ? '服务已接入' : '服务待配置'}</span>
               <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
-              <span style={chipStyle(tavilyApiKey || tavilyApiKeySet ? T.purple : undefined)}>
-                {tavilyApiKey || tavilyApiKeySet ? '搜索已启用' : '搜索未启用'}
+              <span style={chipStyle(runtimeCapabilities?.search.enabled ? T.purple : undefined)}>
+                {runtimeCapabilities?.search.enabled ? '???????' : '??????????'}
               </span>
             </div>
           </div>

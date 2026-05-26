@@ -62,8 +62,6 @@ export type SettingsActions = {
   setSelectedImports: (value: string[]) => void;
   setStoragePathDraft: (value: string) => void;
   clearClientDownloadDirectory: () => Promise<void>;
-  setTavilyApiKey: (value: string) => void;
-  setTavilyApiKeySet: (value: boolean) => void;
   setThemeMode: (value: ThemeMode) => void;
   pickStoragePath: () => Promise<void>;
   saveStoragePath: () => Promise<void>;
@@ -80,7 +78,6 @@ export type SettingsActions = {
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   testConnection: () => Promise<void>;
-  testSearch: () => Promise<void>;
   updateConfig: (patch: Partial<ApiConfig>) => void;
   updateProjectModel: (modelId: string, patch: Partial<ProjectModel>) => void;
   updateProviderConfig: (patch: Partial<ProviderConfig>) => void;
@@ -130,8 +127,6 @@ export type SettingsViewModel = {
   runtimeCapabilities: RuntimeCapabilities | null;
   canRestartBackend: boolean;
   canSelectDirectory: boolean;
-  tavilyApiKey: string;
-  tavilyApiKeySet: boolean;
   themeMode: ThemeMode;
   themeOptions: Array<{ l: string; v: string }>;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;

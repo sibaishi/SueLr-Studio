@@ -1,4 +1,4 @@
-import { Search, Settings } from 'lucide-react';
+﻿import { Settings } from 'lucide-react';
 import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';
@@ -78,32 +78,6 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
               title="连接信息还不完整"
               body="测试连接前需要先补齐接口地址和 API 密钥。"
               action={view.base ? '当前还缺少 API 密钥，填写后即可校验模型发现能力。' : '先填写可访问的接口地址，再补充 API 密钥并执行连接测试。'}
-            />
-          )}
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="网页搜索"
-        description="配置 Tavily 搜索能力，并用一次搜索请求验证当前密钥。"
-        action={<Search size={14} color={T.text3} />}
-      >
-        <div className="flex-col" style={{ gap: 12 }}>
-          <div>
-            <IOSLabel>Tavily API Key</IOSLabel>
-            <IOSInput value={view.tavilyApiKey} onChange={actions.setTavilyApiKey} type="password" placeholder="tvly-..." />
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <IOSButton small label="测试搜索" onClick={() => void actions.testSearch()} disabled={!view.tavilyApiKey} />
-            <span style={chipStyle(view.tavilyApiKey || view.tavilyApiKeySet ? T.green : T.orange)}>
-              {view.tavilyApiKey || view.tavilyApiKeySet ? '已配置搜索能力' : '未配置搜索能力'}
-            </span>
-          </div>
-          {!view.tavilyApiKey && (
-            <EmptyStateCard
-              title="搜索能力还未启用"
-              body="当前还没有可用的 Tavily API Key，因此无法执行联网搜索测试。"
-              action="填写密钥后可立即执行一次搜索测试，并在日志中查看返回结果。"
             />
           )}
         </div>

@@ -29,8 +29,6 @@ function buildStudioSettingsPayload(params: {
   imageStreamingMode: StreamMode;
   sidebarCollapsed: boolean;
   tab: Tab;
-  tavilyApiKey: string;
-  tavilyApiKeySet: boolean;
   outboundProxy: OutboundProxySettingsPayload;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   themeMode: ThemeMode;
@@ -49,8 +47,6 @@ function buildStudioSettingsPayload(params: {
     runtime: {
       configs: params.apiConfigs,
       activeConfigId: params.activeConfigId,
-      ...(params.tavilyApiKey ? { tavilyApiKey: params.tavilyApiKey } : {}),
-      tavilyApiKeySet: params.tavilyApiKeySet,
       outboundProxy: params.outboundProxy,
     },
     workflow: {
@@ -71,8 +67,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     settings.activeConfigId,
     params.themeMode,
     settings.customRoles,
-    settings.tavilyApiKey,
-    settings.tavilyApiKeySet,
     settings.outboundProxy,
     settings.workflowConcurrency,
     params.tab,
@@ -93,8 +87,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       imageStreamingMode: settings.imageStreamingMode,
       sidebarCollapsed: params.sidebarCollapsed,
       tab: params.tab,
-      tavilyApiKey: settings.tavilyApiKey,
-      tavilyApiKeySet: settings.tavilyApiKeySet,
       outboundProxy: settings.outboundProxy,
       workflowConcurrency: settings.workflowConcurrency,
       themeMode: params.themeMode,
@@ -129,8 +121,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     settings.setModels,
     params.setSidebarCollapsed,
     params.setTab,
-    settings.setTavilyApiKey,
-    settings.setTavilyApiKeySet,
     settings.setOutboundProxy,
     settings.setWorkflowConcurrency,
     params.setThemeMode,
@@ -163,8 +153,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
           if (Array.isArray(loadedSettings.ui?.customRoles) && loadedSettings.ui.customRoles.length > 0) {
             params.settings.setCustomRoles(loadedSettings.ui.customRoles);
           }
-          params.settings.setTavilyApiKey(loadedSettings.runtime?.tavilyApiKey || '');
-          params.settings.setTavilyApiKeySet(Boolean(loadedSettings.runtime?.tavilyApiKeySet || loadedSettings.runtime?.tavilyApiKey));
           if (loadedSettings.runtime?.outboundProxy) params.settings.setOutboundProxy(loadedSettings.runtime.outboundProxy);
           if (loadedSettings.workflow?.concurrency) params.settings.setWorkflowConcurrency(loadedSettings.workflow.concurrency);
           if (loadedSettings.ui?.lastTab) params.setTab(loadedSettings.ui.lastTab as Tab);

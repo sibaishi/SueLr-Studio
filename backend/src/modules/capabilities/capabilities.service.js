@@ -67,6 +67,9 @@ export class CapabilitiesService {
   async search(body) {
     try {
       const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
+      if (!runtimeConfig.webSearchEnabled) {
+        throw new ValidationError('SEARCH_DISABLED', '当前部署未启用联网搜索');
+      }
       const data = await runWebSearch({
         tavilyApiKey: runtimeConfig.tavilyApiKey,
         query: body.query,

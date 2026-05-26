@@ -98,8 +98,6 @@ export function useStudioSettingsState() {
     const localRoles = loadJSON<AgentRole[]>('ai_custom_roles', []);
     return [...defaultAgentProfiles(), ...localRoles.map((role) => ({ ...toAgentProfile(role), isCustom: true }))];
   });
-  const [tavilyApiKey, setTavilyApiKey] = useState('');
-  const [tavilyApiKeySet, setTavilyApiKeySet] = useState(false);
   const [outboundProxy, setOutboundProxy] = useState<OutboundProxySettingsPayload>({
     mode: 'system',
     httpProxy: '',
@@ -257,11 +255,7 @@ export function useStudioSettingsState() {
     setModels,
     setOutboundProxy,
     setWorkflowConcurrency,
-    setTavilyApiKey,
-    setTavilyApiKeySet,
     setVideoStreamingMode,
-    tavilyApiKey,
-    tavilyApiKeySet,
     upsertAgentProfile,
     videoStreamingMode,
     workflowConcurrency,

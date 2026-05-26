@@ -6,6 +6,7 @@ import { debouncedSaveJSON, gid, loadJSON } from '@/shared/runtime';
 import { cancelAgentSession, sendAgentChat, sendAgentChatStream, type AgentChatResult } from '@/shared/api/agent';
 import { deleteConversation, loadConversations, saveConversations, saveImage, saveVideo } from '@/shared/api/assistant';
 import { capabilityWebSearch, isBackendAvailable } from '@/shared/api';
+import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import { uploadFile } from '@/shared/api/files';
 import { cancelExecution } from '@/domains/workflow/lib/api';
 import { buildApiConfigPayload, resolveModelConfig, resolveProviderModelId, resolveSelectedModel } from '@/shared/providers/model-routing';
@@ -283,7 +284,6 @@ export function useChat(
   getMemoryContext: () => string,
   refreshMemories: () => Promise<void>,
   scheduleExtraction: (msgs: { role: string; content: string }[], cid: string, model: string, base: string, key: string) => void,
-  tavilyApiKey: string,
   providerConfig?: ProviderConfig,
   _chatStreamingMode?: 'stream' | 'non-stream',
   _videoStreamingMode?: 'stream' | 'non-stream',
@@ -310,6 +310,8 @@ export function useChat(
   const backendConversationsLoadedRef = useRef(false);
   const backendAvailable = isBackendAvailable();
   const useAgentStreaming = backendAvailable;
+  const runtimeCapabilities = getCachedRuntimeCapabilities();
+  const runtimeSearchEnabled = runtimeCapabilities?.search.enabled ?? false;
 
   const activeIdResolved = activeId && convs.some((conv) => conv.id === activeId) ? activeId : convs[0]?.id || '';
   const conv = convs.find((item) => item.id === activeIdResolved) || convs[0] || createConversation(defaultModel, roles[0]?.id);
@@ -320,7 +322,7 @@ export function useChat(
   const currentModelConfig = resolveModelConfig(apiConfigs, currentModelInfo);
   const currentRole = roles.find((role) => role.id === conv.roleId) || roles[0] || { id: 'default', name: 'Default', icon: 'bot', systemPrompt: '', tools: [] };
   const currentModelDisabledReason = currentModel ? '' : 'Please configure a chat model in settings first.';
-  const canUseWebSearch = Boolean(tavilyApiKey);
+  const canUseWebSearch = runtimeSearchEnabled;
   const canSend = Boolean((input.trim() || pendingImages.length > 0 || pendingFiles.length > 0) && currentModel && !sendings.has(conv.id));
 
   useEffect(() => {
@@ -531,10 +533,10 @@ export function useChat(
     const args = parseToolArguments(toolCall.function?.arguments);
 
     if (name === 'web_search') {
-      if (!tavilyApiKey) return 'Tavily API key is not configured.';
+      if (!runtimeSearchEnabled) return '当前部署未启用联网搜索。';
       const query = String(args.query || '').trim();
       if (!query) return 'Missing search query.';
-      const data = await capabilityWebSearch({ query, maxResults: 5, includeAnswer: true, apiConfig: { tavilyApiKey } });
+      const data = await capabilityWebSearch({ query, maxResults: 5, includeAnswer: true });
       return data.content || JSON.stringify(data.raw ?? {});
     }
 
@@ -553,7 +555,7 @@ export function useChat(
     }
 
     return `Tool ${name || 'unknown'} is not available in the local chat fallback.`;
-  }, [conv.msgs, searchMemories, tavilyApiKey]);
+  }, [conv.msgs, runtimeSearchEnabled, searchMemories]);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -595,10 +597,10 @@ export function useChat(
             name: file.name,
             type: file.type,
           })),
-          options: {
-            stream: useAgentStreaming,
-            allowWebSearch: webSearchEnabled && Boolean(tavilyApiKey),
-          },
+            options: {
+              stream: useAgentStreaming,
+              allowWebSearch: webSearchEnabled && runtimeSearchEnabled,
+            },
           apiConfig: buildApiConfigPayload(currentModelConfig, { apiKey, baseUrl: base, providerConfig }),
           signal: controller.signal,
         };
@@ -740,11 +742,11 @@ export function useChat(
         }
       } else {
         const memoryContext = getMemoryContext();
-        const searchPrompt = webSearchEnabled && tavilyApiKey
+        const searchPrompt = webSearchEnabled && runtimeSearchEnabled
           ? 'Web search is enabled for this turn. If the task involves current facts, news, prices, versions, docs, or time-sensitive information, call web_search first and then answer from the results.'
           : '';
         const systemPrompt = [currentRole.systemPrompt, memoryContext, searchPrompt].filter(Boolean).join('\n\n');
-        const tools = buildTools(false, false, webSearchEnabled && Boolean(tavilyApiKey));
+        const tools = buildTools(false, false, webSearchEnabled && runtimeSearchEnabled);
         const provider = createProvider(currentModelConfig?.base || base, currentModelConfig?.apiKey || apiKey, currentModelConfig?.providerConfig || providerConfig);
         const result = await provider.chatCompletion({
           model: providerModel,
@@ -840,10 +842,10 @@ export function useChat(
     runToolCall,
     scheduleExtraction,
     setTokenUsageByConversation,
-    tavilyApiKey,
     updateConversation,
     addLog,
     webSearchEnabled,
+    runtimeSearchEnabled,
     useAgentStreaming,
   ]);
 

@@ -8,6 +8,7 @@ export type ApiConfigPayload = {
   configId?: string;
   apiKey?: string;
   tavilyApiKey?: string;
+  webSearchEnabled?: boolean;
   baseUrl?: string;
   projectModels?: ProjectModel[];
   providerConfig?: Partial<ProviderConfig>;

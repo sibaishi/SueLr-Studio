@@ -254,6 +254,16 @@ test('HTTP contract: runtime capabilities endpoint returns envelope-only payload
       canSelectDirectory: true,
       canRestartBackend: true,
       hasEmbeddedShell: false,
+      search: {
+        enabled: false,
+        provider: 'tavily',
+        disabledReason: '当前部署未启用联网搜索',
+      },
+      adminConsole: {
+        enabled: true,
+        requiresAccessKey: false,
+        configured: true,
+      },
     });
   } finally {
     await new Promise((resolve) => server.close(resolve));

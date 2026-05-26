@@ -1,4 +1,6 @@
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import http from 'node:http';
 import net from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +13,7 @@ export const logDir = resolve(rootDir, '.run-logs');
 const defaultHost = '127.0.0.1';
 const requiredNode = { major: 22, minor: 12, patch: 0 };
 const children = new Set();
+const servers = new Set();
 let shuttingDown = false;
 
 export function print(message = '') {
@@ -196,6 +199,10 @@ export function shutdown(code = 0) {
     }
   }
 
+  for (const server of servers) {
+    server.close();
+  }
+
   setTimeout(() => process.exit(code), 300);
 }
 
@@ -206,6 +213,8 @@ export function buildAllowedOrigins(frontendPort) {
   return [
     `http://localhost:${frontendPort}`,
     `http://${defaultHost}:${frontendPort}`,
+    `http://localhost:${frontendPort + 1}`,
+    `http://${defaultHost}:${frontendPort + 1}`,
     process.env.APP_ALLOWED_ORIGINS,
   ].filter(Boolean).join(',');
 }
@@ -216,4 +225,38 @@ export function getDefaultHost() {
 
 export function ensureLogDir() {
   mkdirSync(logDir, { recursive: true });
+}
+
+export async function startStaticSite(name, rootDirPath, port, host = defaultHost) {
+  const server = http.createServer(async (req, res) => {
+    try {
+      const requestPath = req.url && req.url !== '/' ? req.url.split('?')[0] : '/index.html';
+      const normalizedPath = requestPath === '/' ? '/index.html' : requestPath;
+      const targetPath = resolve(rootDirPath, `.${normalizedPath}`);
+      const fallbackPath = resolve(rootDirPath, 'admin.html');
+      const filePath = existsSync(targetPath) ? targetPath : fallbackPath;
+      const body = await readFile(filePath);
+      const contentType = filePath.endsWith('.html')
+        ? 'text/html; charset=utf-8'
+        : filePath.endsWith('.js')
+          ? 'text/javascript; charset=utf-8'
+          : filePath.endsWith('.css')
+            ? 'text/css; charset=utf-8'
+            : 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(body);
+    } catch {
+      res.writeHead(404);
+      res.end('Not Found');
+    }
+  });
+
+  await new Promise((resolvePromise, reject) => {
+    server.listen(port, host, () => resolvePromise());
+    server.on('error', reject);
+  });
+
+  servers.add(server);
+  print(`[${name}] http://${host}:${port}`);
+  return server;
 }

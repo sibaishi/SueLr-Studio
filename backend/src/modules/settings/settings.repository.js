@@ -21,6 +21,7 @@ import { getProviderAdapter } from '../../platform/providers/index.js';
 import { configureOutboundProxy, proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
 import { parseProviderErrorResponse, toProviderError } from '../../platform/providers/provider-http.js';
 import { assertSafeProviderBaseUrl } from '../../platform/security/network-guards.js';
+import { adminConfigRepository } from '../admin-config/admin-config.repository.js';
 import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.js';
 
 const SETTINGS_VERSION = 1;
@@ -420,7 +421,10 @@ function getActiveRuntimeConfig(settings = readSettingsInternal()) {
 
 function buildRuntimeApiConfigInternal(overrides = {}) {
   const settings = readSettingsInternal();
-  configureOutboundProxy(settings.runtime.outboundProxy);
+  const adminConfig = adminConfigRepository.readAdminConfig();
+  const adminSearch = adminConfigRepository.buildSearchConfig(adminConfig);
+  const adminNetwork = adminConfigRepository.buildNetworkConfig(adminConfig);
+  configureOutboundProxy(adminNetwork.outboundProxy);
   const overrideConfigs = sanitizeApiConfigList(overrides.configs);
   const storedConfigs = settings.runtime.configs || [];
   const configs = overrideConfigs.length > 0
@@ -444,8 +448,9 @@ function buildRuntimeApiConfigInternal(overrides = {}) {
 
   return {
     apiKey: cleanSecretOverride(overrides.apiKey, 4000) || active?.apiKey || '',
-    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || settings.runtime.tavilyApiKey || '',
-    outboundProxy: settings.runtime.outboundProxy,
+    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || adminSearch.tavilyApiKey || '',
+    webSearchEnabled: Boolean(adminSearch.enabled && adminSearch.tavilyApiKey),
+    outboundProxy: adminNetwork.outboundProxy,
     workflowExecution: settings.workflow.concurrency,
     baseUrl: cleanOptionalString(overrides.baseUrl, 2000) || active?.base || 'https://api.openai.com/v1',
     projectModels,

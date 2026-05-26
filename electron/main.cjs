@@ -7,6 +7,7 @@ const { startEmbeddedBackend } = require('./embedded-backend.cjs');
 
 let mainWindow = null;
 let backendServer = null;
+let adminServer = null;
 let relaunching = false;
 const { hasLock: hasSingleInstanceLock } = setupSingleInstance(app, () => focusMainWindow());
 
@@ -54,6 +55,7 @@ app.whenReady().then(async () => {
     relaunchApp,
   });
   backendServer = backend.server;
+  adminServer = backend.adminServer;
   createWindow(backend.url);
 
   app.on('activate', () => {
@@ -75,6 +77,10 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  if (adminServer) {
+    adminServer.close();
+    adminServer = null;
+  }
   if (backendServer) {
     backendServer.close();
     backendServer = null;

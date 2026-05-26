@@ -18,8 +18,6 @@ export type StudioSettingsPayload = {
   runtime: {
     configs: ApiConfig[];
     activeConfigId: string;
-    tavilyApiKey?: string;
-    tavilyApiKeySet?: boolean;
     outboundProxy?: OutboundProxySettingsPayload;
   };
   workflow?: {
@@ -148,10 +146,6 @@ export type SettingsPanelProps = {
   onDeleteMemory: (id: string) => void;
   onClearMemories: () => void;
   exportMemories: () => string;
-  tavilyApiKey: string;
-  tavilyApiKeySet: boolean;
-  setTavilyApiKey: (value: string) => void;
-  setTavilyApiKeySet: (value: boolean) => void;
   outboundProxy: OutboundProxySettingsPayload;
   setOutboundProxy: (value: OutboundProxySettingsPayload) => void;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;

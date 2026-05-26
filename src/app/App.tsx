@@ -164,7 +164,6 @@ export default function App() {
                     getMemoryContext={memory.getMemoryContext}
                     refreshMemories={memory.refreshMemories}
                     scheduleExtraction={memory.scheduleExtraction}
-                    tavilyApiKey={settings.tavilyApiKey}
                     providerConfig={settings.providerConfig}
                     chatStreamingMode={settings.chatStreamingMode}
                     imageStreamingMode={settings.imageStreamingMode}
@@ -248,10 +247,6 @@ export default function App() {
                     onDeleteMemory={memory.deleteMemory}
                     onClearMemories={memory.clearMemories}
                     exportMemories={memory.exportMemories}
-                    tavilyApiKey={settings.tavilyApiKey}
-                    tavilyApiKeySet={settings.tavilyApiKeySet}
-                    setTavilyApiKey={settings.setTavilyApiKey}
-                    setTavilyApiKeySet={settings.setTavilyApiKeySet}
                     outboundProxy={settings.outboundProxy}
                     setOutboundProxy={settings.setOutboundProxy}
                     workflowConcurrency={settings.workflowConcurrency}

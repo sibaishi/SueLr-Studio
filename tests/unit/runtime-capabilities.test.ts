@@ -9,6 +9,16 @@ describe('runtime capability cache', () => {
       canSelectDirectory: false,
       canRestartBackend: false,
       hasEmbeddedShell: false,
+      search: {
+        enabled: false,
+        provider: 'tavily',
+        disabledReason: '当前部署未启用联网搜索',
+      },
+      adminConsole: {
+        enabled: true,
+        requiresAccessKey: true,
+        configured: false,
+      },
     } as const;
 
     setCachedRuntimeCapabilities(snapshot);
@@ -24,6 +34,16 @@ describe('runtime capability cache', () => {
       canSelectDirectory: false,
       canRestartBackend: false,
       hasEmbeddedShell: false,
+      search: {
+        enabled: false,
+        provider: 'tavily',
+        disabledReason: '当前部署未启用联网搜索',
+      },
+      adminConsole: {
+        enabled: true,
+        requiresAccessKey: true,
+        configured: false,
+      },
     } as const;
 
     expect(formatRuntimeModeLabel(snapshot.mode)).toBe('服务器单用户');
