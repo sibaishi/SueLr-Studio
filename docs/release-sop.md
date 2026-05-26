@@ -1,23 +1,23 @@
 # Release SOP
 
-This document defines the standard release workflow for SueLr Studio variants. The detailed execution roadmap for the current `master` trunk plus `local-web`, `desktop`, and `server-web` lives in `docs/deployment-variants-plan.md`.
+This document defines the standard release workflow for SueLr Studio variants. The detailed execution roadmap for the current `main` trunk plus `local-web`, `desktop`, and `server-web` lives in `docs/deployment-variants-plan.md`.
 
 ## Branching
 
-- `master` is the shared long-lived source branch in this repository.
+- `main` is the shared long-lived source branch in this repository.
 - `release/local-web`, `release/desktop`, and `release/server-web` are long-lived release branches for variant-specific work.
-- shared behavior must land on `master` before it is promoted into a release branch unless the change is a release-only hotfix.
+- shared behavior must land on `main` before it is promoted into a release branch unless the change is a release-only hotfix.
 - GitHub Releases remains the official distribution channel for packaged desktop builds unless a variant-specific distribution process is defined later.
 - Packaged artifacts such as `.exe`, `dist/`, and `release/` outputs must not be committed to git.
 
 ## Standard Release Flow
 
-1. Finish shared feature work and fixes on `master`.
+1. Finish shared feature work and fixes on `main`.
 2. Merge or cherry-pick any required variant-specific release work into the target `release/*` branch.
 3. Pull the latest source for the branch you are releasing:
 
    ```powershell
-   git pull origin master
+   git pull origin main
    ```
 
    Or, for a variant release branch:
@@ -94,7 +94,7 @@ This document defines the standard release workflow for SueLr Studio variants. T
    git status
    git add .
    git commit -m "Describe the release changes"
-   git push origin master
+   git push origin main
    ```
 
 8. Create and push a version tag:
@@ -117,8 +117,8 @@ This document defines the standard release workflow for SueLr Studio variants. T
 ## Failure Handling
 
 - If validation fails, fix the issue and rerun the failed checks before continuing.
-- If a release candidate fails manual verification, fix the issue on `master` first unless it is truly release-branch-specific.
-- If a release-only fix is required on a `release/*` branch, merge the shared portion back to `master` as soon as practical.
+- If a release candidate fails manual verification, fix the issue on `main` first unless it is truly release-branch-specific.
+- If a release-only fix is required on a `release/*` branch, merge the shared portion back to `main` as soon as practical.
 
 ## Notes
 

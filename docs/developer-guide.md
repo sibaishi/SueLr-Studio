@@ -23,7 +23,7 @@ This document is the first place a maintainer should look before searching the w
 
 Repository note:
 
-- the active trunk in this repository is currently `master`
+- the active trunk in this repository is currently `main`
 - release-planning docs may still describe a future or cross-repo `main` model, but maintenance work in this repo should follow the actual local branch layout
 
 ## Encoding Baseline
@@ -483,16 +483,16 @@ Rules for future work:
 
 ## Variant Delivery Model
 
-SueLr Studio now follows the current `master` trunk plus three release variants:
+SueLr Studio now follows the current `main` trunk plus three release variants:
 
-- `master`: shared product trunk in this repository
+- `main`: shared product trunk in this repository
 - `release/local-web`: local browser deployment branch
 - `release/desktop`: Electron desktop branch
 - `release/server-web`: deployable server branch
 
 Working rules:
 
-- implement shared behavior on `master` first in this repository
+- implement shared behavior on `main` first in this repository
 - keep release branches focused on packaging, deployment, and shell-specific differences
 - use `docs/deployment-variants-plan.md` as the public execution reference for:
   - which shared-trunk files move first
@@ -581,7 +581,7 @@ Image-based host update flow:
 
 Variant release-surface rule:
 
-- `master` keeps the full development surface, including tests, e2e assets, docs, and maintenance tooling
+- `main` keeps the full development surface, including tests, e2e assets, docs, and maintenance tooling
 - release variants must ship only what their runtime actually needs
 - current `server-web` enforcement points are:
   - minimized `runtime/app` sync from the source checkout using `scripts/deploy/server-web/release-files.txt`

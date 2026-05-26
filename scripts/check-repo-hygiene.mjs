@@ -128,11 +128,11 @@ if (failures.length === 0) {
   }
 
   const documentChecks = [
-    { file: 'README.md', source: readme, snippets: ['SueLr Studio', '`master`', 'npm run install:all', 'npm run dev', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'CONTRIBUTING.md'] },
-    { file: 'CONTRIBUTING.md', source: contributing, snippets: ['npm run install:all', 'npm run dev', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'http://localhost:5173', 'http://127.0.0.1:3001', '## Branch Model', '`master`', '`release/local-web`', '`release/desktop`', '`release/server-web`', 'docs/deployment-variants-plan.md'] },
+    { file: 'README.md', source: readme, snippets: ['SueLr Studio', '`main`', 'npm run install:all', 'npm run dev', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'CONTRIBUTING.md'] },
+    { file: 'CONTRIBUTING.md', source: contributing, snippets: ['npm run install:all', 'npm run dev', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'http://localhost:5173', 'http://127.0.0.1:3001', '## Branch Model', '`main`', '`release/local-web`', '`release/desktop`', '`release/server-web`', 'docs/deployment-variants-plan.md'] },
     { file: 'docs/user-guide.md', source: userGuide, snippets: ['`文本输入`', '`文本清理`', '`文本逐项`', '`图像逐项`', 'Alt+G', 'Ctrl+Shift+Enter', 'Ctrl+C', 'Ctrl+V'] },
-    { file: 'docs/developer-guide.md', source: developerGuide, snippets: ['## Maintenance Workflow', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', '.private-docs/', 'UTF-8', '## Variant Delivery Model', '`master`', '`release/local-web`', '`release/desktop`', '`release/server-web`', 'docs/deployment-variants-plan.md'] },
-    { file: 'docs/release-sop.md', source: releaseSop, snippets: ['`master` is the shared long-lived source branch in this repository.', '`release/local-web`', '`release/desktop`', '`release/server-web`', 'docs/deployment-variants-plan.md', 'npm.cmd run check:docs'] },
+    { file: 'docs/developer-guide.md', source: developerGuide, snippets: ['## Maintenance Workflow', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', '.private-docs/', 'UTF-8', '## Variant Delivery Model', '`main`', '`release/local-web`', '`release/desktop`', '`release/server-web`', 'docs/deployment-variants-plan.md'] },
+    { file: 'docs/release-sop.md', source: releaseSop, snippets: ['`main` is the shared long-lived source branch in this repository.', '`release/local-web`', '`release/desktop`', '`release/server-web`', 'docs/deployment-variants-plan.md', 'npm.cmd run check:docs'] },
     { file: 'docs/deployment-variants-plan.md', source: deploymentPlan, snippets: ['## Branch Model', '## Mainline First Changes', '## Local-Web Variant', '## Server Single-User Variant', '## Milestones', 'scripts/start-local-web.mjs', 'release/server-web'] },
   ];
 

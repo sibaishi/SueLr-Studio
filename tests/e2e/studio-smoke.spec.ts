@@ -35,13 +35,13 @@ async function readPersistedStudioConfig(page: import('@playwright/test').Page) 
 }
 
 test.describe('studio smoke', () => {
-  test('public developer docs reflect the current master plus release branch model', async ({ page }) => {
+  test('public developer docs reflect the current main plus release branch model', async ({ page }) => {
     await page.goto('/docs/developer-guide.md');
     await expect(page.locator('body')).toContainText('## Variant Delivery Model');
-    await expect(page.locator('body')).toContainText('master');
+    await expect(page.locator('body')).toContainText('main');
     await expect(page.locator('body')).toContainText('release/local-web');
     await expect(page.locator('body')).toContainText('release/desktop');
-    await expect(page.locator('body')).toContainText('release/server');
+    await expect(page.locator('body')).toContainText('release/server-web');
   });
 
   test('settings fields persist after reload', async ({ page }) => {

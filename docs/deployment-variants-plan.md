@@ -1,8 +1,8 @@
 # Deployment Variants Execution Plan
 # 部署变体执行计划
 
-This document defines how SueLr Studio evolves from one shared codebase into the current `master` trunk plus three public release variants.
-本文定义 SueLr Studio 如何从一套共享代码库演进为当前的 `master` 主干加三个公开发布变体。
+This document defines how SueLr Studio evolves from one shared codebase into the current `main` trunk plus three public release variants.
+本文定义 SueLr Studio 如何从一套共享代码库演进为当前的 `main` 主干加三个公开发布变体。
 
 - `local-web`: frontend + backend running locally and opened in a browser
 - `local-web`：前后端都在本机运行，并通过浏览器打开
@@ -14,16 +14,16 @@ This document defines how SueLr Studio evolves from one shared codebase into the
 ## Delivery Rule
 ## 交付规则
 
-- Shared product logic belongs on `master`
-- 共享产品逻辑归属 `master`
+- Shared product logic belongs on `main`
+- 共享产品逻辑归属 `main`
 - Release branches carry shell, packaging, and deployment differences only
 - 发布分支只承载壳层、打包和部署差异
 
 ## Release Surface Rule
 ## 发布面规则
 
-- `master` keeps the full development surface, including tests, e2e assets, maintenance tooling, and documentation
-- `master` 保留完整开发面，包括测试、e2e 资源、维护工具和文档
+- `main` keeps the full development surface, including tests, e2e assets, maintenance tooling, and documentation
+- `main` 保留完整开发面，包括测试、e2e 资源、维护工具和文档
 - Each release variant must publish only the minimum runtime surface it actually needs
 - 每个发布变体只应发布其真实运行所需的最小运行面
 - Release-surface trimming must be enforced by scripts, build-context filters, and packaging rules rather than by manual operator discipline
@@ -163,8 +163,8 @@ Rules:
 ## Branch Model
 ## 分支模型
 
-- `master`: shared product trunk
-- `master`：共享产品主干
+- `main`: shared product trunk
+- `main`：共享产品主干
 - `release/local-web`: local browser distribution branch
 - `release/local-web`：本地浏览器版发布分支
 - `release/desktop`: desktop distribution branch
@@ -175,18 +175,18 @@ Rules:
 Branch rules:
 分支规则：
 
-- Shared feature work starts on `master`
-- 共享功能先落在 `master`
+- Shared feature work starts on `main`
+- 共享功能先落在 `main`
 - Release branches receive only variant-specific work, release hardening, or hotfixes
 - 发布分支只接收变体专属工作、发布加固或热修复
-- If behavior is needed by more than one variant, it must land on `master` first
-- 如果一个行为被多个变体需要，必须先落到 `master`
+- If behavior is needed by more than one variant, it must land on `main` first
+- 如果一个行为被多个变体需要，必须先落到 `main`
 
 ## Mainline First Changes
 ## 主干优先变更
 
-The following work should always be resolved on `master` before branches diverge further.
-以下工作应始终优先在 `master` 上完成，然后再允许分支进一步分化。
+The following work should always be resolved on `main` before branches diverge further.
+以下工作应始终优先在 `main` 上完成，然后再允许分支进一步分化。
 
 Completed on trunk:
 主干已完成：
@@ -253,8 +253,8 @@ Execution rule:
 
 - Electron must not become the owner of shared business logic
 - Electron 不能成为共享业务逻辑的归属层
-- Any feature needed by more than desktop belongs back on `master`
-- 任何超过桌面版独占需求的功能，都应回归 `master`
+- Any feature needed by more than desktop belongs back on `main`
+- 任何超过桌面版独占需求的功能，都应回归 `main`
 
 ## Server Single-User Variant
 ## 服务端单用户变体

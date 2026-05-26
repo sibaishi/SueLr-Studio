@@ -23,17 +23,17 @@ function collectSourceFiles(root: string, files: string[] = []) {
 }
 
 describe('repository documentation and branch hygiene', () => {
-  it('documents the current master trunk plus three release branches consistently', () => {
+  it('documents the current main trunk plus three release branches consistently', () => {
     const contributing = readUtf8('CONTRIBUTING.md');
     const developerGuide = readUtf8('docs/developer-guide.md');
     const releaseSop = readUtf8('docs/release-sop.md');
     const deploymentPlan = readUtf8('docs/deployment-variants-plan.md');
 
     for (const source of [contributing, developerGuide, releaseSop, deploymentPlan]) {
-      expect(source).toContain('master');
+      expect(source).toContain('main');
       expect(source).toContain('release/local-web');
       expect(source).toContain('release/desktop');
-      expect(source).toContain('release/server');
+      expect(source).toContain('release/server-web');
     }
   });
 

@@ -6,19 +6,19 @@ This project is maintained as a local-first multimodal studio. The main contribu
 
 ## Branch Model
 
-SueLr Studio now uses the current `master` trunk plus three long-lived release branches:
+SueLr Studio now uses the current `main` trunk plus three long-lived release branches:
 
-- `master`
+- `main`
 - `release/local-web`
 - `release/desktop`
 - `release/server-web`
 
 Contribution rules:
 
-- shared behavior belongs on `master` first in this repository
+- shared behavior belongs on `main` first in this repository
 - release branches are for variant-specific packaging, deployment, and shell work
 - if a change affects more than one variant, do not implement it only on a release branch
-- when a release branch needs a hotfix, keep the fix minimal and merge the shared portion back to `master`
+- when a release branch needs a hotfix, keep the fix minimal and merge the shared portion back to `main`
 
 ## Local Setup
 

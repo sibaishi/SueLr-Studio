@@ -8,7 +8,7 @@ SueLr-Studio: Electron 41 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4.
 
 - Chinese-first UI
 - All Chinese text must remain UTF-8
-- Current trunk in this repository is `master`; do not assume a `main` branch exists when doing maintenance here
+- Current trunk in this repository is `main`
 
 ## Repository Layout
 
@@ -110,7 +110,7 @@ Never hardcode app-data paths. Use the config-dir resolver:
 - Keep compose, Dockerfile, nginx site config, and host helper scripts aligned in the same change
 - Current helper scripts are `install.sh`, `update.sh`, and `uninstall.sh`
 - Keep the server-web Docker build context minimized; do not let `tests/`, `docs/`, repo-level `node_modules/`, or other development-only surfaces flow into `runtime/app` or the runtime image
-- `master` keeps the full development surface, but release variants such as `local-web`, `desktop`, and `server-web` must ship only their minimal release surface
+- `main` keeps the full development surface, but release variants such as `local-web`, `desktop`, and `server-web` must ship only their minimal release surface
 - If server rollout steps change, update:
   - `docs/user-guide.md`
   - `docs/developer-guide.md`

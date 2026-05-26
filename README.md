@@ -8,7 +8,7 @@ SueLr Studio 是一个本地优先的多模态 AI 工作台，用于对话、图
 - `desktop`：Electron 桌面壳
 - `server-web`：服务器部署版本，当前先以单用户阶段收口
 
-当前主干分支是 `master`。
+当前主干分支是 `main`。
 
 ## 仓库内容
 
