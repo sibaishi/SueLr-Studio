@@ -10,6 +10,7 @@ APP_DIR="${SUE_LR_APP_DIR:-${RUNTIME_DIR}/app}"
 COMPOSE_SOURCE="${SCRIPT_DIR}/compose.yaml"
 COMPOSE_TARGET="${RUNTIME_DIR}/compose.yaml"
 NGINX_SOURCE="${SCRIPT_DIR}/studio.suelr.com.nginx.conf"
+RELEASE_MANIFEST="${SCRIPT_DIR}/release-files.txt"
 NGINX_TARGET="${SUE_LR_NGINX_TARGET:-/etc/nginx/sites-available/studio.suelr.com}"
 NGINX_ENABLED_DIR="${SUE_LR_NGINX_ENABLED_DIR:-/etc/nginx/sites-enabled}"
 NGINX_ENABLED_LINK="${NGINX_ENABLED_DIR}/studio.suelr.com"
@@ -46,6 +47,7 @@ require_command nginx
 [ -f "${REPO_ROOT}/tsconfig.json" ] || fail "tsconfig not found: ${REPO_ROOT}/tsconfig.json"
 [ -d "${REPO_ROOT}/backend/src" ] || fail "backend sources not found: ${REPO_ROOT}/backend/src"
 [ -f "${REPO_ROOT}/scripts/deploy/server-web/app.dockerignore" ] || fail "server-web dockerignore not found: ${REPO_ROOT}/scripts/deploy/server-web/app.dockerignore"
+[ -f "${RELEASE_MANIFEST}" ] || fail "server-web release manifest not found: ${RELEASE_MANIFEST}"
 
 sync_release_tree() {
   copy_entry() {
@@ -61,18 +63,13 @@ sync_release_tree() {
 
   rm -rf "${APP_DIR}"
   mkdir -p "${APP_DIR}"
-  copy_entry "index.html" "index.html"
-  copy_entry "package.json" "package.json"
-  copy_entry "package-lock.json" "package-lock.json"
-  copy_entry "tsconfig.json" "tsconfig.json"
-  copy_entry "vite.config.ts" "vite.config.ts"
-  copy_entry "src" "src"
-  copy_entry "backend/package.json" "backend/package.json"
-  copy_entry "backend/package-lock.json" "backend/package-lock.json"
-  copy_entry "backend/server.js" "backend/server.js"
-  copy_entry "backend/src" "backend/src"
-  copy_entry "scripts/deploy/server-web/app.dockerignore" ".dockerignore"
-  copy_entry "scripts/deploy/server-web/Dockerfile" "scripts/deploy/server-web/Dockerfile"
+  while IFS='|' read -r source_relative target_relative; do
+    case "${source_relative}" in
+      ''|\#*) continue ;;
+    esac
+    [ -n "${target_relative}" ] || fail "invalid release manifest entry: ${source_relative}"
+    copy_entry "${source_relative}" "${target_relative}"
+  done < "${RELEASE_MANIFEST}"
 }
 
 if docker compose version >/dev/null 2>&1; then

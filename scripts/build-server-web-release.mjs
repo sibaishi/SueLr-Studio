@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -7,23 +7,21 @@ const __dirname = dirname(__filename);
 const repoRoot = resolve(__dirname, '..');
 const outputDir = resolve(repoRoot, '.server-web-release');
 const appDir = resolve(outputDir, 'app');
+const manifestPath = resolve(repoRoot, 'scripts/deploy/server-web/release-files.txt');
 
-const copies = [
-  ['index.html', 'index.html'],
-  ['admin.html', 'admin.html'],
-  ['src', 'src'],
-  ['tsconfig.json', 'tsconfig.json'],
-  ['vite.config.ts', 'vite.config.ts'],
-  ['backend/package.json', 'backend/package.json'],
-  ['backend/package-lock.json', 'backend/package-lock.json'],
-  ['backend/server.js', 'backend/server.js'],
-  ['backend/src', 'backend/src'],
-  ['scripts/serve-admin.mjs', 'scripts/serve-admin.mjs'],
-  ['scripts/deploy/server-web/app.dockerignore', '.dockerignore'],
-  ['package.json', 'package.json'],
-  ['package-lock.json', 'package-lock.json'],
-  ['scripts/deploy/server-web/Dockerfile', 'scripts/deploy/server-web/Dockerfile'],
-];
+function readReleaseManifest() {
+  return readFileSync(manifestPath, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => {
+      const [source, target] = line.split('|');
+      if (!source || !target) {
+        throw new Error(`invalid server-web release manifest entry: ${line}`);
+      }
+      return [source, target];
+    });
+}
 
 function ensureParent(targetPath) {
   mkdirSync(dirname(targetPath), { recursive: true });
@@ -42,7 +40,7 @@ function copyEntry(sourceRelative, targetRelative) {
 rmSync(outputDir, { recursive: true, force: true });
 mkdirSync(appDir, { recursive: true });
 
-for (const [source, target] of copies) {
+for (const [source, target] of readReleaseManifest()) {
   copyEntry(source, target);
 }
 

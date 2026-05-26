@@ -546,6 +546,8 @@ Server-web deployment assets:
   - backend plus static frontend image build with an explicit runtime-layer whitelist
 - `scripts/deploy/server-web/app.dockerignore`
   - server-web-specific Docker build-context filter; keeps tests, docs, logs, and other development-only surfaces out of the minimized runtime app tree
+- `scripts/deploy/server-web/release-files.txt`
+  - single source of truth for files copied into the minimized `runtime/app` release tree
 - `scripts/deploy/server-web/studio.suelr.com.nginx.conf`
   - example nginx reverse-proxy site file
 - `scripts/deploy/server-web/install.sh`
@@ -561,7 +563,7 @@ Variant release-surface rule:
 - `master` keeps the full development surface, including tests, e2e assets, docs, and maintenance tooling
 - release variants must ship only what their runtime actually needs
 - current `server-web` enforcement points are:
-  - minimized `runtime/app` sync from the source checkout
+  - minimized `runtime/app` sync from the source checkout using `scripts/deploy/server-web/release-files.txt`
   - server-web-specific `.dockerignore` copied from `scripts/deploy/server-web/app.dockerignore`
   - Docker runtime stage copying only `dist`, backend runtime files, backend production dependencies, and shared workflow contracts
 
