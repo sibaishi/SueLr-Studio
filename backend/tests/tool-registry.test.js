@@ -591,7 +591,65 @@ test('ToolRegistry exposes workflow_execute and forwards workflow execution to e
     signal: null,
     requestId: 'agent-session-workflow',
     onRunStarted: undefined,
+    scope: undefined,
   });
+});
+
+test('ToolRegistry forwards request scope to capability and workflow services', async () => {
+  const scope = { userId: 'user_123', workspaceId: 'workspace_abc', runtimeMode: 'server-multi-user' };
+  const calls = [];
+  const registry = createRegistry({
+    capabilitiesService: {
+      search: async (_payload, options) => {
+        calls.push(['search', options?.scope]);
+        return { structured: { type: 'web_search_result', query: 'demo', results: [] } };
+      },
+      image: async (_payload, options) => {
+        calls.push(['image', options?.scope]);
+        return { images: [] };
+      },
+      video: async (_payload, options) => {
+        calls.push(['video', options?.scope]);
+        return { video: [] };
+      },
+      chat: async (_payload, options) => {
+        calls.push(['chat', options?.scope]);
+        return { choices: [{ message: { content: 'summary' } }] };
+      },
+    },
+    executionService: {
+      async executeForAgent(payload) {
+        calls.push(['workflow', payload.scope]);
+        return { status: 'completed' };
+      },
+    },
+  });
+
+  const ctx = {
+    profile: { enabledTools: ['web_search', 'generate_image', 'video_generate', 'workflow_execute'] },
+    allowWebSearch: true,
+    apiConfig: {},
+    scope,
+    currentUserText: 'Run wf_saved with Updated prompt',
+    sessionId: 'session-scope',
+  };
+
+  await registry.execute('web_search', { query: 'demo' }, ctx);
+  await registry.execute('conversation_summarize', {}, { ...ctx, conversation: [{ role: 'user', content: 'hello' }] });
+  await registry.execute('generate_image', { prompt: 'draw' }, ctx);
+  await registry.execute('video_generate', { prompt: 'make video' }, ctx);
+  await registry.execute('workflow_execute', {
+    workflowId: 'wf_saved',
+    inputs: { prompt: 'Updated prompt' },
+  }, ctx);
+
+  assert.deepEqual(calls, [
+    ['search', scope],
+    ['chat', scope],
+    ['image', scope],
+    ['video', scope],
+    ['workflow', scope],
+  ]);
 });
 
 test('ToolRegistry rejects workflow execution targets that are not grounded in the current request', async () => {
@@ -677,6 +735,7 @@ test('ToolRegistry forwards workflow input overrides to executionService', async
     signal: null,
     requestId: 'session-2',
     onRunStarted: called.onRunStarted,
+    scope: undefined,
   });
   assert.equal(typeof called.onRunStarted, 'function');
 });

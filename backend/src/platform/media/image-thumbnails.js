@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 
-import { ensureDir, safeResolveWithin, STORAGE_PATHS } from '../storage/index.js';
+import { ensureDir, getScopedStoragePaths, safeResolveWithin, STORAGE_PATHS } from '../storage/index.js';
 
 const THUMBNAIL_MAX_WIDTH = 512;
 const THUMBNAIL_MAX_HEIGHT = 512;
@@ -23,17 +23,17 @@ function shouldGenerateThumbnail(mimeType, filename) {
   return /\.(png|jpe?g|webp|gif|svg)$/i.test(String(filename || ''));
 }
 
-export function getUploadThumbnailPath(filename) {
-  const thumbnailsDir = path.join(STORAGE_PATHS.uploadsDir, '.thumbnails');
+export function getUploadThumbnailPath(filename, options = {}) {
+  const thumbnailsDir = path.join(getScopedStoragePaths(options.scope).uploadsDir, '.thumbnails');
   ensureDir(thumbnailsDir);
   return safeResolveWithin(thumbnailsDir, getThumbnailName(filename));
 }
 
-export function getGeneratedThumbnailPath(relativePath) {
+export function getGeneratedThumbnailPath(relativePath, options = {}) {
   const normalized = String(relativePath || '').replace(/\\/g, '/');
   const parsed = path.posix.parse(normalized);
   const thumbnailRelativePath = path.posix.join(parsed.dir, '.thumbnails', `${parsed.name}__thumb.jpg`);
-  const absolutePath = safeResolveWithin(STORAGE_PATHS.generatedDir, thumbnailRelativePath);
+  const absolutePath = safeResolveWithin(getScopedStoragePaths(options.scope).generatedDir, thumbnailRelativePath);
   if (!absolutePath) return null;
   ensureDir(path.dirname(absolutePath));
   return {
@@ -57,10 +57,10 @@ export async function ensureUploadThumbnail({ filename, sourcePath, mimeType }) 
   return buildUrl('/api/files/.thumbnails', path.basename(thumbnailPath));
 }
 
-export async function ensureGeneratedThumbnailFromFile({ relativePath, absolutePath, mimeType }) {
+export async function ensureGeneratedThumbnailFromFile({ relativePath, absolutePath, mimeType, scope = undefined }) {
   if (!shouldGenerateThumbnail(mimeType, relativePath)) return '';
 
-  const target = getGeneratedThumbnailPath(relativePath);
+  const target = getGeneratedThumbnailPath(relativePath, { scope });
   if (!target?.absolutePath) return '';
 
   await sharp(absolutePath)
@@ -72,10 +72,10 @@ export async function ensureGeneratedThumbnailFromFile({ relativePath, absoluteP
   return buildUrl('/api/outputs', target.relativePath);
 }
 
-export async function ensureGeneratedThumbnailFromBuffer({ relativePath, buffer, mimeType }) {
+export async function ensureGeneratedThumbnailFromBuffer({ relativePath, buffer, mimeType, scope = undefined }) {
   if (!shouldGenerateThumbnail(mimeType, relativePath)) return '';
 
-  const target = getGeneratedThumbnailPath(relativePath);
+  const target = getGeneratedThumbnailPath(relativePath, { scope });
   if (!target?.absolutePath) return '';
 
   await sharp(buffer)
@@ -87,11 +87,11 @@ export async function ensureGeneratedThumbnailFromBuffer({ relativePath, buffer,
   return buildUrl('/api/outputs', target.relativePath);
 }
 
-export function resolveUploadOriginalFromThumbnailName(thumbnailName) {
+export function resolveUploadOriginalFromThumbnailName(thumbnailName, options = {}) {
   const match = String(thumbnailName || '').match(/^(.*)__thumb\.jpg$/i);
   if (!match) return null;
   const baseName = match[1];
-  const uploadsDir = STORAGE_PATHS.uploadsDir;
+  const uploadsDir = getScopedStoragePaths(options.scope).uploadsDir;
   if (!fs.existsSync(uploadsDir)) return null;
 
   for (const entry of fs.readdirSync(uploadsDir, { withFileTypes: true })) {
@@ -111,13 +111,13 @@ export function resolveUploadOriginalFromThumbnailName(thumbnailName) {
   return null;
 }
 
-export function resolveGeneratedOriginalFromThumbnailRelativePath(relativePath) {
+export function resolveGeneratedOriginalFromThumbnailRelativePath(relativePath, options = {}) {
   const normalized = String(relativePath || '').replace(/\\/g, '/');
   const match = normalized.match(/^(.*?)(?:\/)?\.thumbnails\/([^/]+)__thumb\.jpg$/i);
   if (!match) return null;
   const [, directory = '', baseName] = match;
   const originalDirectory = directory || '';
-  const absoluteDirectory = safeResolveWithin(STORAGE_PATHS.generatedDir, originalDirectory);
+  const absoluteDirectory = safeResolveWithin(getScopedStoragePaths(options.scope).generatedDir, originalDirectory);
   if (!absoluteDirectory || !fs.existsSync(absoluteDirectory)) return null;
 
   for (const entry of fs.readdirSync(absoluteDirectory, { withFileTypes: true })) {
@@ -125,7 +125,7 @@ export function resolveGeneratedOriginalFromThumbnailRelativePath(relativePath) 
     const parsed = path.parse(entry.name);
     if (parsed.name === baseName) {
       const originalRelativePath = path.posix.join(originalDirectory, entry.name).replace(/^\/+/, '');
-      const absolutePath = safeResolveWithin(STORAGE_PATHS.generatedDir, originalRelativePath);
+      const absolutePath = safeResolveWithin(getScopedStoragePaths(options.scope).generatedDir, originalRelativePath);
       if (!absolutePath) continue;
       return {
         absolutePath,

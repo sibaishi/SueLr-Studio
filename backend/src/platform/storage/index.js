@@ -5,6 +5,14 @@ export { ensureDir } from './ensure-dir.js';
 export { BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot, getStorageRoot } from './storage-root.js';
 export { ensureJsonFile, readJsonFile, writeJsonFile } from './json-store.js';
 export { safeResolveWithin } from './safe-path.js';
+export {
+  SCOPED_STORAGE_LAYOUT_VERSION,
+  createStorageNamespace,
+  ensureScopedStorageDirectories,
+  getScopedStoragePaths,
+  isDefaultStorageScope,
+  isResourceVisibleForScope,
+} from './scoped-storage.js';
 export { LEGACY_PATHS, migrateLegacyStorageIfNeeded } from './legacy-storage.js';
 export {
   clearStoredStorageRootOverride,

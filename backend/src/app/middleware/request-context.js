@@ -1,8 +1,10 @@
 import { randomUUID } from 'crypto';
 import { runWithRequestContext } from '../../platform/logging/request-context.js';
+import { createRequestScopeFromHeaders } from '../../platform/runtime/index.js';
 
 export function requestContextMiddleware(req, res, next) {
   const requestId = req.headers['x-request-id'] || randomUUID();
+  const scope = createRequestScopeFromHeaders(req.headers);
   const forwardedFor = typeof req.headers['x-forwarded-for'] === 'string'
     ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
     : '';
@@ -18,8 +20,10 @@ export function requestContextMiddleware(req, res, next) {
     origin,
     userAgent,
     clientIp,
+    scope,
   }, () => {
     req.requestId = requestId;
+    req.scope = scope;
     next();
   });
 }

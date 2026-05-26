@@ -3,7 +3,15 @@ import path from 'path';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
-import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.js';
+import {
+  STORAGE_PATHS,
+  ensureScopedStorageDirectories,
+  ensureStorageDirectories,
+  getScopedStoragePaths,
+  isResourceVisibleForScope,
+  safeResolveWithin,
+} from '../../platform/storage/index.js';
+import { ensureResourceOwnership } from '../../platform/runtime/index.js';
 import {
   ensureGeneratedThumbnailFromFile,
   deleteGeneratedThumbnail,
@@ -51,9 +59,9 @@ export class FilesRepository {
     ensureStorageDirectories();
   }
 
-  getUploadsDir() {
+  getUploadsDir(options = {}) {
     ensureStorageDirectories();
-    return STORAGE_PATHS.uploadsDir;
+    return ensureScopedStorageDirectories(options.scope).uploadsDir;
   }
 
   createUploadName(originalName) {
@@ -65,14 +73,14 @@ export class FilesRepository {
     return decodeMojibakeText(name);
   }
 
-  resolveUploadFile(filename) {
-    const filePath = safeResolveWithin(STORAGE_PATHS.uploadsDir, filename);
+  resolveUploadFile(filename, options = {}) {
+    const filePath = safeResolveWithin(getScopedStoragePaths(options.scope).uploadsDir, filename);
     if (!filePath) throw new ValidationError('FILE_ACCESS_DENIED', '非法路径');
     return filePath;
   }
 
-  deleteUpload(filename) {
-    const filePath = this.resolveUploadFile(filename);
+  deleteUpload(filename, options = {}) {
+    const filePath = this.resolveUploadFile(filename, options);
     if (!fs.existsSync(filePath)) {
       throw new NotFoundError('FILE_NOT_FOUND', '文件不存在');
     }
@@ -86,17 +94,17 @@ export class FilesRepository {
     fs.unlinkSync(resolved);
   }
 
-  uploadExists(filename) {
-    return fs.existsSync(this.resolveUploadFile(filename));
+  uploadExists(filename, options = {}) {
+    return fs.existsSync(this.resolveUploadFile(filename, options));
   }
 
   uploadedFileExists(filePath) {
     return Boolean(filePath && fs.existsSync(filePath));
   }
 
-  async listGeneratedOutputs() {
+  async listGeneratedOutputs(options = {}) {
     ensureStorageDirectories();
-    const root = STORAGE_PATHS.generatedDir;
+    const root = getScopedStoragePaths(options.scope).generatedDir;
     const items = [];
 
     const visit = async (dir) => {
@@ -126,7 +134,7 @@ export class FilesRepository {
         const dimensions = fileType.type === 'image'
           ? await readImageDimensions(filePath)
           : null;
-        items.push({
+        const output = {
           id: relativePath.split(path.sep).join('/'),
           name: entry.name,
           relativePath: relativePath.split(path.sep).join('/'),
@@ -138,8 +146,10 @@ export class FilesRepository {
           height: dimensions?.height,
           size: stat.size,
           modifiedAt: stat.mtimeMs,
-        });
-        if (fileType.type === 'image' && !items[items.length - 1].thumbnailUrl) {
+        };
+        if (!isResourceVisibleForScope(output, options.scope)) continue;
+        items.push(ensureResourceOwnership(output, options.scope));
+        if (fileType.type === 'image' && !output.thumbnailUrl) {
           void ensureGeneratedThumbnailFromFile({
             relativePath: relativePath.split(path.sep).join('/'),
             absolutePath: filePath,

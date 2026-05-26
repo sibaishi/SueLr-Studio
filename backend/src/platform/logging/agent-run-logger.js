@@ -48,7 +48,7 @@ export function ensureAgentLogDirectories() {
   return { root };
 }
 
-export function createAgentRunLogger({ sessionId, conversationId, profileId, model, requestId } = {}) {
+export function createAgentRunLogger({ sessionId, conversationId, profileId, model, requestId, scope } = {}) {
   const now = new Date();
   const dirs = ensureAgentLogDirectories();
   const dayDir = path.join(dirs.root, datePart(now));
@@ -68,6 +68,9 @@ export function createAgentRunLogger({ sessionId, conversationId, profileId, mod
       profileId,
       model,
       requestId,
+      ownerUserId: scope?.userId,
+      workspaceId: scope?.workspaceId,
+      ownershipScope: scope,
       processInstanceId: getProcessInstanceId(),
       data: sanitizeValue(data),
     };

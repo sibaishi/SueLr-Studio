@@ -14,7 +14,7 @@ export class CapabilitiesController {
   async chat(req, res, next) {
     try {
       if (req.query.stream === 'true' || req.body.stream === true) {
-        const upstream = await capabilitiesService.chatStream(req.body);
+        const upstream = await capabilitiesService.chatStream(req.body, { scope: req.scope });
         const contentType = upstream.headers.get('content-type') || '';
 
         res.writeHead(200, {
@@ -51,7 +51,7 @@ export class CapabilitiesController {
         return;
       }
 
-      res.json(successEnvelope(await capabilitiesService.chat(req.body)));
+      res.json(successEnvelope(await capabilitiesService.chat(req.body, { scope: req.scope })));
     } catch (error) {
       next(error);
     }
@@ -59,7 +59,7 @@ export class CapabilitiesController {
 
   async search(req, res, next) {
     try {
-      res.json(successEnvelope(await capabilitiesService.search(req.body)));
+      res.json(successEnvelope(await capabilitiesService.search(req.body, { scope: req.scope })));
     } catch (error) {
       next(error);
     }
@@ -69,6 +69,7 @@ export class CapabilitiesController {
     try {
       res.json(successEnvelope(await capabilitiesService.image(req.body, {
         signal: createRequestAbortSignal(req, res),
+        scope: req.scope,
       })));
     } catch (error) {
       next(error);
@@ -77,7 +78,7 @@ export class CapabilitiesController {
 
   async submitVideo(req, res, next) {
     try {
-      res.json(successEnvelope(await capabilitiesService.submitVideo(req.body)));
+      res.json(successEnvelope(await capabilitiesService.submitVideo(req.body, { scope: req.scope })));
     } catch (error) {
       next(error);
     }
@@ -85,7 +86,7 @@ export class CapabilitiesController {
 
   async getVideoStatus(req, res, next) {
     try {
-      res.json(successEnvelope(await capabilitiesService.getVideoStatus(req.params.taskId, req.body?.apiConfig || {})));
+      res.json(successEnvelope(await capabilitiesService.getVideoStatus(req.params.taskId, req.body?.apiConfig || {}, { scope: req.scope })));
     } catch (error) {
       next(error);
     }

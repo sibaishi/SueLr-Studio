@@ -361,6 +361,10 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
   - runtime probes used to diagnose stuck or invalid transitions
 - `backend/src/platform/logging/request-context.js`
   - request-scoped metadata carrier used by logs and future server-side ownership hooks
+- `backend/src/platform/runtime/request-scope.js`
+  - default single-user request scope model used by HTTP context, logging, diagnostics, and future ownership hooks
+- `backend/src/platform/runtime/resource-ownership.js`
+  - additive ownership metadata helpers for persisted resources; new records should carry `ownerUserId`, `workspaceId`, and `ownershipScope`
 - `backend/src/platform/logging/workflow-run-logger.js`
   - workflow run log persistence
 - `backend/src/platform/logging/workflow-log-sanitizer.js`
@@ -386,6 +390,12 @@ When the runtime is running as `server-web` in either its single-user or future 
 - backend restart controls must remain unavailable from the browser UI
 - workflow output results must not return absolute `savedPaths`
 - request-scoped metadata should be attached through `request-context`, not inferred from globals
+- single-user request scope defaults to `userId: single-user` and `workspaceId: default`; future multi-user work should extend that shared model instead of inventing route-local scope fields
+- internal scope headers are `X-SueLr-User-Id`, `X-SueLr-Workspace-Id`, and `X-SueLr-Runtime-Mode`; they are metadata carriers only and do not introduce authentication or authorization by themselves
+- persisted resources should use `ownerUserId`, `workspaceId`, and `ownershipScope` for ownership metadata; do not reuse domain fields such as memory `scope` for request ownership
+- missing ownership metadata on legacy single-user records should be filled through default fallback on read, not by forcing an immediate data migration
+- Milestone 5 is implemented and covered by `npm.cmd run check`, but remains pending manual smoke acceptance until representative local-web, desktop, and server-web behavior has been verified by a human
+- scoped storage preparation keeps `single-user/default` on the existing storage layout while reserving `scopes/v1/workspaces/<workspaceId>/users/<userId>/...` for future physical namespace moves
 
 If a new API needs to surface storage or generated outputs, prefer relative URLs or semantic state, never raw host paths.
 

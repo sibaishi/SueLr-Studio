@@ -1,4 +1,5 @@
 import { agentRepository } from './agent.repository.js';
+import { ensureResourceOwnership } from '../../platform/runtime/index.js';
 
 export class AgentSessionStore {
   constructor(repository = agentRepository) {
@@ -7,11 +8,11 @@ export class AgentSessionStore {
   }
 
   create(session) {
-    const next = {
+    const next = ensureResourceOwnership({
       ...session,
       createdAt: session.createdAt || Date.now(),
       updatedAt: session.updatedAt || Date.now(),
-    };
+    }, session.ownershipScope || session.scope);
     this.activeSessions.set(next.sessionId, next);
     this.repository.writeSessionFile(next.sessionId, next);
     return next;
@@ -20,18 +21,19 @@ export class AgentSessionStore {
   update(sessionId, patch) {
     const current = this.get(sessionId);
     if (!current) return null;
-    const next = {
+    const next = ensureResourceOwnership({
       ...current,
       ...patch,
       updatedAt: Date.now(),
-    };
+    }, current.ownershipScope || current.scope || patch.ownershipScope || patch.scope);
     this.activeSessions.set(sessionId, next);
     this.repository.writeSessionFile(sessionId, next);
     return next;
   }
 
   get(sessionId) {
-    return this.activeSessions.get(sessionId) || this.repository.readSessionFile(sessionId);
+    const session = this.activeSessions.get(sessionId) || this.repository.readSessionFile(sessionId);
+    return session ? ensureResourceOwnership(session, session.ownershipScope || session.scope) : null;
   }
 
   list() {

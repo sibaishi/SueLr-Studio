@@ -4,67 +4,67 @@ import { settingsService } from '../settings/settings.service.js';
 import { assistantService } from './assistant.service.js';
 
 export class AssistantController {
-  getStatus(_req, res) {
-    res.json(successEnvelope(assistantService.getStatus()));
+  getStatus(req, res) {
+    res.json(successEnvelope(assistantService.getStatus({ scope: req.scope })));
   }
 
-  getConversations(_req, res) {
-    res.json(successEnvelope(assistantService.getConversations()));
+  getConversations(req, res) {
+    res.json(successEnvelope(assistantService.getConversations({ scope: req.scope })));
   }
 
   saveConversations(req, res) {
-    assistantService.saveConversations(req.body);
+    assistantService.saveConversations(req.body, { scope: req.scope });
     res.json(successEnvelope(null));
   }
 
   deleteConversation(req, res) {
-    assistantService.deleteConversation(req.params.id);
+    assistantService.deleteConversation(req.params.id, { scope: req.scope });
     res.json(successEnvelope(null));
   }
 
-  getImages(_req, res) {
-    res.json(successEnvelope(assistantService.getImages()));
+  getImages(req, res) {
+    res.json(successEnvelope(assistantService.getImages({ scope: req.scope })));
   }
 
   async saveImage(req, res, next) {
     try {
-      const data = await assistantService.saveImage(req.body);
+      const data = await assistantService.saveImage(req.body, { scope: req.scope });
       res.json(successEnvelope(data));
     } catch (error) {
       next(error);
     }
   }
 
-  clearImages(_req, res) {
-    assistantService.clearImages();
+  clearImages(req, res) {
+    assistantService.clearImages({ scope: req.scope });
     res.json(successEnvelope(null));
   }
 
   deleteImage(req, res) {
-    assistantService.deleteImage(req.params.id);
+    assistantService.deleteImage(req.params.id, { scope: req.scope });
     res.json(successEnvelope(null));
   }
 
-  getVideos(_req, res) {
-    res.json(successEnvelope(assistantService.getVideos()));
+  getVideos(req, res) {
+    res.json(successEnvelope(assistantService.getVideos({ scope: req.scope })));
   }
 
   async saveVideo(req, res, next) {
     try {
-      const data = await assistantService.saveVideo(req.body);
+      const data = await assistantService.saveVideo(req.body, { scope: req.scope });
       res.json(successEnvelope(data));
     } catch (error) {
       next(error);
     }
   }
 
-  clearVideos(_req, res) {
-    assistantService.clearVideos();
+  clearVideos(req, res) {
+    assistantService.clearVideos({ scope: req.scope });
     res.json(successEnvelope(null));
   }
 
   deleteVideo(req, res) {
-    assistantService.deleteVideo(req.params.id);
+    assistantService.deleteVideo(req.params.id, { scope: req.scope });
     res.json(successEnvelope(null));
   }
 
@@ -79,7 +79,7 @@ export class AssistantController {
 
   streamFile(req, res, next) {
     try {
-      const file = assistantService.openGeneratedFile(req.params[0]);
+      const file = assistantService.openGeneratedFile(req.params[0], { scope: req.scope });
       res.writeHead(200, { 'Content-Type': file.contentType });
       fs.createReadStream(file.filePath).pipe(res);
     } catch (error) {

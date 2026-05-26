@@ -413,8 +413,33 @@ Status:
 - closed after rollout validation and release-surface hardening
 - 已在上线验证与发布面收紧后收口
 
-### Milestone 5A: Scope Foundation
-### 里程碑 5A：Scope 基础骨架
+### Milestone 5: Scope, Ownership, And Scoped Storage
+### 里程碑 5：Scope、归属与 Scoped 存储
+
+Status:
+状态：
+
+- Milestone 5A, 5B, and 5C are implemented in code and covered by `npm.cmd run check`
+- 里程碑 5A、5B 和 5C 已完成代码落地，并通过 `npm.cmd run check`
+- request scope, resource ownership metadata, and scoped storage preparation are now one Milestone 5 release candidate
+- request scope、资源归属元数据与 scoped 存储准备现在合并为一个里程碑 5 候选版本
+- remaining work before closing Milestone 5 is manual smoke testing and bug triage across local-web, desktop, and server-web
+- 关闭里程碑 5 前剩余工作是覆盖 local-web、desktop 和 server-web 的手动冒烟与 bug 排查
+
+Manual smoke checklist:
+手动冒烟清单：
+
+- local-web can boot, create/edit/run workflows, upload files, list outputs, and open output URLs
+- local-web 可以启动、创建/编辑/运行工作流、上传文件、列出输出并打开输出 URL
+- desktop can boot with the embedded backend, preserve single-window behavior, and use local-only settings actions
+- desktop 可以通过内嵌后端启动，保持单窗口行为，并可使用本地专属设置操作
+- server-web/server-single-user can boot from production-like environment variables, serve static frontend assets, block host-only actions, and avoid host-path leaks
+- server-web/server-single-user 可以通过近似生产环境变量启动、托管静态前端、阻止宿主机专属操作，并避免宿主机路径泄漏
+- representative persisted records and generated artifacts can be inspected for `ownerUserId`, `workspaceId`, `ownershipScope`, and scoped file resolution behavior
+- 代表性持久化记录和生成产物可检查 `ownerUserId`、`workspaceId`、`ownershipScope` 与 scoped 文件解析行为
+
+#### Milestone 5A: Scope Foundation
+#### 里程碑 5A：Scope 基础骨架
 
 Goal:
 目标：
@@ -456,8 +481,8 @@ Risk checklist:
 - keep current local and desktop behavior unchanged
 - 保持当前 local 和 desktop 行为不变
 
-### Milestone 5B: Resource Ownership
-### 里程碑 5B：资源归属模型
+#### Milestone 5B: Resource Ownership
+#### 里程碑 5B：资源归属模型
 
 Goal:
 目标：
@@ -501,8 +526,26 @@ Risk checklist:
 - keep ownership metadata additive before enforcing strict isolation
 - 在严格隔离前，归属元数据应以增量兼容方式引入
 
-### Milestone 5C: Scoped Storage Preparation
-### 里程碑 5C：Scoped 存储准备
+Current implementation notes:
+当前实现说明：
+
+- ownership metadata is additive only; strict user/workspace isolation remains future Milestone 6 work
+- 归属元数据目前仅为增量兼容字段；严格用户/工作区隔离仍属于后续里程碑 6
+- request metadata continues to use HTTP `scope`; persisted resource ownership uses `ownershipScope` to avoid colliding with domain fields such as memory `scope`
+- 请求元数据继续使用 HTTP `scope`；持久化资源归属使用 `ownershipScope`，避免与 memory `scope` 等业务字段冲突
+- covered resource families include workflows, workflow run logs, generated/upload metadata, assistant records, agent sessions, memory records, and runtime diagnostics
+- 已覆盖的资源类型包括工作流、工作流运行日志、生成/上传元数据、assistant 记录、agent 会话、memory 记录和运行时诊断
+
+#### Milestone 5C: Scoped Storage Preparation
+#### 里程碑 5C：Scoped 存储准备
+
+Status:
+状态：
+
+- default single-user scope still resolves to the existing storage layout; no physical data migration is required in this milestone
+- 默认单用户 scope 仍解析到现有存储布局；本里程碑不要求物理数据迁移
+- future scoped storage namespaces use `scopes/v1/workspaces/<workspaceId>/users/<userId>/...` as the prepared layout
+- 未来 scoped 存储命名空间预留为 `scopes/v1/workspaces/<workspaceId>/users/<userId>/...`
 
 Goal:
 目标：
@@ -543,6 +586,36 @@ Risk checklist:
 - 此阶段不要绑定强制数据库迁移
 - keep file URLs and API contracts stable while storage internals evolve
 - 在存储内部演进时保持文件 URL 与 API 契约稳定
+
+Current implementation notes:
+当前实现说明：
+
+- `backend/src/platform/storage/scoped-storage.js` provides namespace builders, scoped path resolution, scoped directory creation, and resource visibility checks
+- `backend/src/platform/storage/scoped-storage.js` 提供命名空间构造、带 scope 的路径解析、scoped 目录创建与资源可见性判断
+- single-user defaults continue to use the legacy root so existing workflows, uploads, generated outputs, assistant assets, and logs remain readable
+- 单用户默认值继续使用旧根目录，因此现有工作流、上传、生成输出、assistant 资产和日志仍可读取
+- workflow and generated-output listing paths now expose scope-aware filtering extension points based on ownership metadata and legacy fallback behavior
+- 工作流与生成输出列表路径已具备基于归属元数据和旧数据兜底行为的 scope 过滤扩展点
+- `/api/outputs/...` and `/api/files/...` URLs remain stable while storage internals gain future namespace inputs
+- `/api/outputs/...` 与 `/api/files/...` URL 保持稳定，同时存储内部获得未来命名空间输入能力
+- future physical namespace moves follow the migration strategy below
+- 未来物理命名空间迁移遵循下方迁移策略
+
+Migration strategy for later physical namespace moves:
+后续物理命名空间迁移策略：
+
+- inventory persisted records first: workflows, generated output metadata, upload metadata, assistant records, agent sessions, memory records, and workflow run logs
+- 先盘点持久化记录：工作流、生成输出元数据、上传元数据、assistant 记录、agent 会话、memory 记录和工作流运行日志
+- classify records by `ownerUserId`, `workspaceId`, and `ownershipScope`; records without ownership metadata remain legacy single-user records until explicitly migrated
+- 按 `ownerUserId`、`workspaceId` 和 `ownershipScope` 分类；没有归属元数据的记录在显式迁移前仍视为旧单用户记录
+- add a dry-run report before moving files, covering source paths, destination scoped paths, missing files, collisions, and unclassified records
+- 移动文件前增加 dry-run 报告，覆盖源路径、目标 scoped 路径、缺失文件、冲突和无法分类的记录
+- introduce dual-read fallback before physical moves: resolve scoped namespace first, then fall back to legacy single-user layout only for default scope or explicit legacy records
+- 物理迁移前先引入双读兜底：先解析 scoped 命名空间，再仅对默认 scope 或显式旧记录回退到旧单用户布局
+- migrate one resource family at a time and update metadata only after file moves succeed
+- 每次迁移一种资源类型，并且只有文件移动成功后才更新元数据
+- keep an inventory manifest for rollback, do not delete legacy files on the first migration pass, and keep public file URLs stable
+- 为回滚保留 inventory manifest，第一轮迁移不删除旧文件，并保持公共文件 URL 稳定
 
 ### Milestone 6: Multi-User Server Delivery
 ### 里程碑 6：多用户服务端交付

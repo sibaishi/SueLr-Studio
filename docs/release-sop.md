@@ -87,6 +87,7 @@ This document defines the standard release workflow for SueLr Studio variants. T
    - A second desktop launch focuses the existing instance instead of opening a second main window.
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
+   - For the Milestone 5 release candidate, confirm request scope diagnostics, representative ownership metadata, scoped storage behavior, and stable file URLs by inspecting real workflows, run logs, generated files, assistant/agent records, memory records, uploads, and `/api/outputs/...` responses. Automated `npm.cmd run check` is required but does not replace this manual acceptance.
 
 7. Commit and push source changes:
 

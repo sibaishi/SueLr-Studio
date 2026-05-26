@@ -32,15 +32,15 @@ export class AssistantRepository {
     writeJsonFile(DATA_FILE_MAP[type], data);
   }
 
-  writeAssistantFile(directoryName, filename, content) {
+  writeAssistantFile(directoryName, filename, content, _options = {}) {
     const dir = path.join(STORAGE_PATHS.generatedDir, directoryName);
     const filePath = path.join(dir, filename);
     fs.writeFileSync(filePath, content);
     return filePath;
   }
 
-  writeAssistantImage(filename, content) {
-    const filePath = this.writeAssistantFile('assistant-images', filename, content);
+  writeAssistantImage(filename, content, options = {}) {
+    const filePath = this.writeAssistantFile('assistant-images', filename, content, options);
     void ensureGeneratedThumbnailFromBuffer({
       relativePath: `assistant-images/${filename}`,
       buffer: content,
@@ -49,8 +49,8 @@ export class AssistantRepository {
     return filePath;
   }
 
-  writeAssistantVideo(filename, content) {
-    return this.writeAssistantFile('assistant-videos', filename, content);
+  writeAssistantVideo(filename, content, options = {}) {
+    return this.writeAssistantFile('assistant-videos', filename, content, options);
   }
 
   deleteGeneratedFile(relativePath) {

@@ -1,4 +1,5 @@
 import { agentRepository } from './agent.repository.js';
+import { ensureResourceOwnership } from '../../platform/runtime/index.js';
 import {
   isDuplicateMemory,
   isMalformedMemoryContent,
@@ -34,12 +35,12 @@ function dedupeMemories(memories) {
   return Array.from(byFingerprint.values()).sort((left, right) => left.createdAt - right.createdAt);
 }
 
-function normalizeMemory(memory) {
+function normalizeMemory(memory, scope) {
   if (!memory || typeof memory !== 'object' || Array.isArray(memory)) return null;
   const content = normalizeMemoryContent(memory.content, 12000);
   if (isMalformedMemoryContent(content)) return null;
   const now = Date.now();
-  return {
+  return ensureResourceOwnership({
     id: cleanString(memory.id, 120) || `mem_${now}_${Math.random().toString(16).slice(2, 8)}`,
     scope: ['global', 'conversation', 'workflow'].includes(memory.scope) ? memory.scope : 'global',
     source: ['chat', 'workflow', 'manual'].includes(memory.source) ? memory.source : 'manual',
@@ -50,7 +51,12 @@ function normalizeMemory(memory) {
     updatedAt: Number(memory.updatedAt) || now,
     conversationId: cleanString(memory.conversationId, 120) || undefined,
     workflowId: cleanString(memory.workflowId, 120) || undefined,
-  };
+  }, {
+    ...scope,
+    userId: memory.ownerUserId || memory.ownershipScope?.userId || scope?.userId,
+    workspaceId: memory.workspaceId || memory.ownershipScope?.workspaceId || scope?.workspaceId,
+    runtimeMode: memory.ownershipScope?.runtimeMode || scope?.runtimeMode,
+  });
 }
 
 function scoreMemory(memory, query) {
@@ -96,9 +102,9 @@ export class AgentMemoryService {
     this.repository = repository;
   }
 
-  list() {
+  list(options = {}) {
     const current = this.repository.loadMemories();
-    const normalized = current.map((item) => normalizeMemory(item)).filter(Boolean);
+    const normalized = current.map((item) => normalizeMemory(item, options.scope)).filter(Boolean);
     const deduped = dedupeMemories(normalized);
     if (deduped.length !== current.length || deduped.length !== normalized.length) {
       this.save(deduped);
@@ -111,11 +117,11 @@ export class AgentMemoryService {
     return list;
   }
 
-  import(records) {
-    const current = this.list();
+  import(records, options = {}) {
+    const current = this.list(options);
     const byId = new Map(current.map((item) => [item.id, item]));
     for (const item of records) {
-      const memory = normalizeMemory(item);
+      const memory = normalizeMemory(item, options.scope);
       if (memory) byId.set(memory.id, memory);
     }
     const next = dedupeMemories(Array.from(byId.values()));
@@ -123,8 +129,8 @@ export class AgentMemoryService {
     return next;
   }
 
-  write(memory) {
-    return this.import([memory]);
+  write(memory, options = {}) {
+    return this.import([memory], options);
   }
 
   writeFromTool({
@@ -133,6 +139,7 @@ export class AgentMemoryService {
     tags,
     importance,
     conversationId,
+    requestScope,
   } = {}) {
     const normalizedContent = normalizeMemoryContent(content, 500);
     if (isMalformedMemoryContent(normalizedContent)) {
@@ -152,7 +159,7 @@ export class AgentMemoryService {
       };
     }
 
-    const current = this.list();
+    const current = this.list({ scope: requestScope });
     const normalizedConversationId = cleanString(conversationId, 120) || undefined;
     if (isDuplicateMemory(current, normalizedContent, normalizedConversationId)) {
       return {
@@ -165,7 +172,7 @@ export class AgentMemoryService {
 
     const now = Date.now();
     const normalizedScope = scope === 'global' ? 'global' : (normalizedConversationId ? 'conversation' : 'global');
-    const memory = {
+    const memory = ensureResourceOwnership({
       id: `mem_${now}_${Math.random().toString(16).slice(2, 8)}`,
       scope: normalizedScope,
       source: 'chat',
@@ -175,9 +182,9 @@ export class AgentMemoryService {
       createdAt: now,
       updatedAt: now,
       conversationId: normalizedScope === 'conversation' ? normalizedConversationId : undefined,
-    };
+    }, requestScope);
 
-    this.import([memory]);
+    this.import([memory], { scope: requestScope });
     return {
       type: 'memory_write_result',
       status: 'written',
@@ -201,9 +208,9 @@ export class AgentMemoryService {
     return [];
   }
 
-  search(query, { limit = 5 } = {}) {
+  search(query, { limit = 5, scope = undefined } = {}) {
     const q = cleanString(query, 4000);
-    const matches = this.list()
+    const matches = this.list({ scope })
       .map((memory) => ({ ...memory, score: scoreMemory(memory, q) }))
       .filter((memory) => !q || memory.score > 0)
       .sort((left, right) => right.score - left.score || right.updatedAt - left.updatedAt)
@@ -213,8 +220,8 @@ export class AgentMemoryService {
     return matches;
   }
 
-  buildContext(query, limit = 5) {
-    const memories = this.search(query, { limit });
+  buildContext(query, limit = 5, options = {}) {
+    const memories = this.search(query, { limit, scope: options.scope });
     if (memories.length === 0) return '';
     return memories
       .map((memory, index) => `${index + 1}. [${memory.scope}/${memory.source}] ${memory.content}`)

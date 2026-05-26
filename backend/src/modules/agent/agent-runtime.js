@@ -438,7 +438,7 @@ export class AgentRuntime {
       });
   }
 
-  createSession({ sessionId, conversationId, profile, resolvedModel }) {
+  createSession({ sessionId, conversationId, profile, resolvedModel, scope }) {
     this.sessionStore.create({
       sessionId,
       conversationId: conversationId || '',
@@ -447,6 +447,7 @@ export class AgentRuntime {
       toolLoopCount: 0,
       lastRunStatus: 'running',
       status: 'running',
+      scope,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -463,6 +464,7 @@ export class AgentRuntime {
       ? this.memoryService.buildContext(
         normalizedMessages.map((message) => (typeof message.content === 'string' ? message.content : '')).join('\n'),
         5,
+        { scope: options.scope },
       )
       : '';
     const allowWebSearch = options.allowWebSearch !== false;
@@ -485,6 +487,7 @@ export class AgentRuntime {
       maxToolRounds: Number(options.maxToolRounds) || 5,
       maxToolCallsPerRound: Number(options.maxToolCallsPerRound) || 3,
       apiConfig: options.apiConfig || {},
+      scope: options.scope,
       conversationId: conversationId || '',
       memoryContextEnabled: memoryEnabled,
     };
@@ -509,6 +512,7 @@ export class AgentRuntime {
       maxToolRounds,
       maxToolCallsPerRound,
       apiConfig,
+      scope,
       conversationId: normalizedConversationId,
       currentUserText,
       currentUserImages,
@@ -516,7 +520,7 @@ export class AgentRuntime {
     let { conversation } = runCtx;
     const toolCalls = [];
     const toolTrace = [];
-    this.createSession({ sessionId, conversationId: normalizedConversationId, profile, resolvedModel });
+    this.createSession({ sessionId, conversationId: normalizedConversationId, profile, resolvedModel, scope });
 
     let lastAssistantMessage = { role: 'assistant', content: '', tool_calls: [] };
     let finalContent = '';
@@ -534,8 +538,9 @@ export class AgentRuntime {
         messages: conversation,
         tools,
         apiConfig,
+        scope,
         signal,
-      });
+      }, { scope });
       const parsed = extractChatResponse(response);
       const normalizedToolCalls = normalizeToolCalls(parsed.toolCalls);
       lastAssistantMessage = {
@@ -575,6 +580,7 @@ export class AgentRuntime {
           conversationId: normalizedConversationId,
           conversation,
           apiConfig,
+          scope,
           signal,
           currentUserText,
           currentUserImages,
@@ -615,6 +621,7 @@ export class AgentRuntime {
       assistantMessage: lastAssistantMessage,
       conversationId: normalizedConversationId,
       apiConfig,
+      scope,
       signal,
     });
 
@@ -666,13 +673,14 @@ export class AgentRuntime {
       maxToolRounds,
       maxToolCallsPerRound,
       apiConfig,
+      scope,
       conversationId: normalizedConversationId,
       currentUserText,
       currentUserImages,
     } = context;
     let { conversation } = context;
     const toolTrace = [];
-    this.createSession({ sessionId, conversationId: normalizedConversationId, profile, resolvedModel });
+    this.createSession({ sessionId, conversationId: normalizedConversationId, profile, resolvedModel, scope });
     handlers.onSessionStarted?.({
       sessionId,
       conversationId: normalizedConversationId,
@@ -696,8 +704,9 @@ export class AgentRuntime {
           messages: conversation,
           tools,
           apiConfig,
+          scope,
           signal,
-        }),
+        }, { scope }),
         {
           onToken: (delta) => handlers.onMessageDelta?.({ sessionId, delta }),
         },
@@ -741,6 +750,7 @@ export class AgentRuntime {
           conversationId: normalizedConversationId,
           conversation,
           apiConfig,
+          scope,
           signal,
           currentUserText,
           currentUserImages,
@@ -782,6 +792,7 @@ export class AgentRuntime {
       assistantMessage: lastAssistantMessage,
       conversationId: normalizedConversationId,
       apiConfig,
+      scope,
       signal,
     });
 

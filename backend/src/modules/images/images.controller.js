@@ -7,6 +7,7 @@ export class ImagesController {
     try {
       const result = await imagesService.generate(req.body, {
         signal: createRequestAbortSignal(req, res),
+        scope: req.scope,
       });
       res.json(successEnvelope(result));
     } catch (error) {

@@ -17,10 +17,12 @@ function write(level, entry) {
 
 function buildEntry(bindings, message, fields) {
   const context = getRequestContext();
+  const scope = context?.scope;
   return {
     ...bindings,
     ...(context?.requestId ? { requestId: context.requestId } : {}),
     ...(context?.runId ? { runId: context.runId } : {}),
+    ...(scope ? { scope } : {}),
     message,
     ...(fields || {}),
   };

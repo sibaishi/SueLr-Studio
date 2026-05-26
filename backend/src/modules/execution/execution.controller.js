@@ -63,7 +63,7 @@ export class ExecutionController {
         }
         return originalWrite(chunk, encoding, callback);
       };
-      await executionService.execute(workflowId, req.body, res, req.requestId);
+      await executionService.execute(workflowId, req.body, res, req.requestId, { scope: req.scope });
     } catch (error) {
       clearInterval(heartbeat);
       if (!res.writableEnded) {
@@ -78,11 +78,11 @@ export class ExecutionController {
   }
 
   getStatus(req, res) {
-    res.json(successEnvelope(executionService.getStatus(req.params.runId)));
+    res.json(successEnvelope(executionService.getStatus(req.params.runId, { scope: req.scope })));
   }
 
   cancel(req, res) {
-    const cancelled = executionService.cancel(req.params.runId);
+    const cancelled = executionService.cancel(req.params.runId, { scope: req.scope });
     res.json(successEnvelope({ runId: req.params.runId, message: cancelled ? '已取消执行' : '没有正在执行的任务' }));
   }
 }

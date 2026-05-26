@@ -17,6 +17,7 @@ export class ImagesService {
       return await this.runImageGeneration(body || {}, {
         ...runtimeConfig,
         abortSignal: options.signal || body?.signal,
+        scope: options.scope,
       });
     } catch (error) {
       logger.error('image generation failed', { code: error?.code, message: error?.message });

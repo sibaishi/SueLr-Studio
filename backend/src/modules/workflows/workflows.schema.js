@@ -1,5 +1,6 @@
 import { ValidationError } from '../../app/errors/index.js';
 import { getNodeContract, getNodeDataDefaults } from '../../engine/contracts/node-registry.js';
+import { ensureResourceOwnership } from '../../platform/runtime/index.js';
 import { CURRENT_WORKFLOW_SCHEMA_VERSION } from './workflow-migrations.js';
 
 function isPlainObject(value) {
@@ -130,7 +131,12 @@ export function normalizePersistedWorkflow(payload, options = {}) {
     normalized.metadata = body.metadata;
   }
 
-  return normalized;
+  return ensureResourceOwnership(normalized, {
+    ...options.scope,
+    userId: body.ownerUserId || body.ownershipScope?.userId || body.scope?.userId || options.scope?.userId,
+    workspaceId: body.workspaceId || body.ownershipScope?.workspaceId || body.scope?.workspaceId || options.scope?.workspaceId,
+    runtimeMode: body.ownershipScope?.runtimeMode || body.scope?.runtimeMode || options.scope?.runtimeMode,
+  });
 }
 
 export const sanitizeWorkflowPayload = normalizePersistedWorkflow;

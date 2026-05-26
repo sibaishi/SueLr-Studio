@@ -366,7 +366,7 @@ export class ExecutionService {
     return this.runningExecutions.get(runId) || null;
   }
 
-  getStatus(runId) {
+  getStatus(runId, _options = {}) {
     this.pruneRecentExecutions();
 
     const run = this.getRun(runId);
@@ -403,7 +403,7 @@ export class ExecutionService {
     };
   }
 
-  cancel(runId) {
+  cancel(runId, _options = {}) {
     const run = this.runningExecutions.get(runId);
     if (!run) {
       logger.warn('execution cancel ignored because run was missing', {
@@ -437,7 +437,7 @@ export class ExecutionService {
     });
   }
 
-  resolveWorkflowReference({ workflowId, workflowName }) {
+  resolveWorkflowReference({ workflowId, workflowName }, _options = {}) {
     const normalizedId = cleanString(workflowId, 120);
     if (normalizedId) {
       return this.repository.read(normalizedId).workflow;
@@ -466,12 +466,12 @@ export class ExecutionService {
     throw new Error(`Workflow "${workflowName}" was not found.`);
   }
 
-  async executeForAgent({ workflowId, workflowName, inputs, apiConfig = {}, signal, requestId = 'agent-workflow', onRunStarted = undefined }) {
-    const persistedWorkflow = this.resolveWorkflowReference({ workflowId, workflowName });
+  async executeForAgent({ workflowId, workflowName, inputs, apiConfig = {}, signal, requestId = 'agent-workflow', onRunStarted = undefined, scope = undefined }) {
+    const persistedWorkflow = this.resolveWorkflowReference({ workflowId, workflowName }, { scope });
     const overridden = applyAgentInputOverrides(persistedWorkflow, inputs);
     const draftWorkflow = overridden.workflow === persistedWorkflow ? undefined : overridden.workflow;
     const snapshot = createExecutionSnapshot({ persistedWorkflow, draftWorkflow });
-    const runLogger = createWorkflowRunLogger(snapshot, { requestId });
+    const runLogger = createWorkflowRunLogger(snapshot, { requestId, scope });
     const abortController = new AbortController();
     const completedNodes = [];
 
@@ -591,7 +591,8 @@ export class ExecutionService {
     }
   }
 
-  async execute(workflowId, body, res, requestId) {
+  async execute(workflowId, body, res, requestId, _options = {}) {
+    const scope = _options.scope;
     const persistedWorkflow = body.source === 'draft'
       ? (() => {
           try {
@@ -619,7 +620,7 @@ export class ExecutionService {
       : undefined;
     const snapshot = createExecutionSnapshot({ persistedWorkflow, draftWorkflow });
 
-    const runLogger = createWorkflowRunLogger(snapshot, { requestId });
+    const runLogger = createWorkflowRunLogger(snapshot, { requestId, scope });
     const abortController = new AbortController();
     this.runningExecutions.set(snapshot.runId, {
       runId: snapshot.runId,

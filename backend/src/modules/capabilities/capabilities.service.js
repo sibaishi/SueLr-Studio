@@ -19,11 +19,11 @@ export class CapabilitiesService {
     return this.settingsService.buildRuntimeConfig(apiConfig || {});
   }
 
-  getRuntimeCapabilities() {
+  getRuntimeCapabilities(_options = {}) {
     return getRuntimeCapabilities();
   }
 
-  async chat(body) {
+  async chat(body, _options = {}) {
     try {
       const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
       const response = await runChatCompletion({
@@ -44,7 +44,7 @@ export class CapabilitiesService {
     }
   }
 
-  async chatStream(body) {
+  async chatStream(body, _options = {}) {
     try {
       const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
       return await runChatCompletion({
@@ -64,7 +64,7 @@ export class CapabilitiesService {
     }
   }
 
-  async search(body) {
+  async search(body, _options = {}) {
     try {
       const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
       if (!runtimeConfig.webSearchEnabled) {
@@ -88,7 +88,7 @@ export class CapabilitiesService {
     return this.imagesService.generate(body, options);
   }
 
-  async submitVideo(body) {
+  async submitVideo(body, _options = {}) {
     try {
       const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
       return await submitVideoGeneration({
@@ -115,7 +115,7 @@ export class CapabilitiesService {
     }
   }
 
-  async video(body) {
+  async video(body, _options = {}) {
     try {
       const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
       return await executeVideoGeneration({
@@ -136,7 +136,7 @@ export class CapabilitiesService {
     }
   }
 
-  async getVideoStatus(taskId, apiConfig = {}) {
+  async getVideoStatus(taskId, apiConfig = {}, _options = {}) {
     if (!taskId) throw new ValidationError('VALIDATION_ERROR', 'taskId 不能为空');
     try {
       const runtimeConfig = this.buildRuntimeConfig(apiConfig || {});

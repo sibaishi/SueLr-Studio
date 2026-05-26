@@ -2,6 +2,8 @@ import multer from 'multer';
 import { createLogger } from '../../platform/logging/logger.js';
 import { filesRepository } from './files.repository.js';
 import { deleteUploadThumbnail } from '../../platform/media/image-thumbnails.js';
+import { ensureResourceOwnership } from '../../platform/runtime/index.js';
+import { isResourceVisibleForScope } from '../../platform/storage/index.js';
 import { uploadMetadataRepository } from './upload-metadata.repository.js';
 import { enqueueUploadImageProcessing, resumePendingUploadImageProcessing } from './upload-image-processor.js';
 
@@ -16,8 +18,8 @@ export class FilesService {
   createUploader() {
     const repository = this.repository;
     const storage = multer.diskStorage({
-      destination: (_req, _file, cb) => {
-        cb(null, repository.getUploadsDir());
+      destination: (req, _file, cb) => {
+        cb(null, repository.getUploadsDir({ scope: req.scope }));
       },
       filename: (_req, file, cb) => {
         cb(null, repository.createUploadName(file.originalname));
@@ -30,10 +32,10 @@ export class FilesService {
     });
   }
 
-  async buildUploadResponse(file) {
+  async buildUploadResponse(file, options = {}) {
     const isImage = String(file.mimetype || '').startsWith('image/');
     const now = Date.now();
-    const record = {
+    const record = ensureResourceOwnership({
       filename: file.filename,
       filePath: file.path,
       url: `/api/files/${file.filename}`,
@@ -48,7 +50,7 @@ export class FilesService {
       processingError: '',
       createdAt: now,
       updatedAt: now,
-    };
+    }, options.scope);
 
     uploadMetadataRepository.set(file.filename, record);
     if (isImage) {
@@ -73,12 +75,13 @@ export class FilesService {
     };
   }
 
-  getUploadMetadata(filename) {
+  getUploadMetadata(filename, _options = {}) {
     this.resumePendingUploadProcessingIfNeeded();
     const record = uploadMetadataRepository.get(filename);
     if (!record) return null;
 
-    const fileExists = record.filePath ? this.repository.uploadedFileExists(record.filePath) : this.repository.uploadExists(filename);
+    const visible = isResourceVisibleForScope(record, _options.scope);
+    const fileExists = visible && (record.filePath ? this.repository.uploadedFileExists(record.filePath) : this.repository.uploadExists(filename, _options));
     if (!fileExists) {
       uploadMetadataRepository.delete(filename);
       return null;
@@ -98,18 +101,18 @@ export class FilesService {
     };
   }
 
-  deleteUpload(filename) {
-    this.repository.deleteUpload(filename);
+  deleteUpload(filename, _options = {}) {
+    this.repository.deleteUpload(filename, _options);
     deleteUploadThumbnail(filename);
     uploadMetadataRepository.delete(filename);
     logger.info('file deleted', { filename });
   }
 
-  async listGeneratedOutputs() {
-    return await this.repository.listGeneratedOutputs();
+  async listGeneratedOutputs(_options = {}) {
+    return await this.repository.listGeneratedOutputs(_options);
   }
 
-  clearGeneratedOutputs() {
+  clearGeneratedOutputs(_options = {}) {
     const result = this.repository.clearGeneratedOutputs();
     logger.info('generated outputs cleared', result);
     return result;

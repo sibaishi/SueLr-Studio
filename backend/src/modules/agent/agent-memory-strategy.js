@@ -94,6 +94,7 @@ export class AgentMemoryStrategy {
     assistantMessage,
     conversationId,
     apiConfig,
+    scope,
     signal,
   }) {
     if (!this.isEnabled(profile)) return [];
@@ -107,15 +108,16 @@ export class AgentMemoryStrategy {
         { role: 'user', content: extractionText },
       ],
       apiConfig,
+      scope,
       signal,
-    });
+    }, { scope });
     const reply = response?.choices?.[0]?.message?.content;
     const candidates = parseExtractedMemories(typeof reply === 'string' ? reply : '[]')
       .map(normalizeCandidateMemory)
       .filter(Boolean);
     if (candidates.length === 0) return [];
 
-    const existingMemories = this.memoryService.list();
+    const existingMemories = this.memoryService.list({ scope });
     const writes = [];
     const now = Date.now();
 
@@ -136,7 +138,7 @@ export class AgentMemoryStrategy {
     }
 
     if (writes.length === 0) return [];
-    this.memoryService.import(writes);
+    this.memoryService.import(writes, { scope });
     return writes;
   }
 }

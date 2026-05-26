@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import path, { resolve } from 'node:path';
 import executeRoutes from '../modules/execution/execution.routes.js';
 import workflowRoutes from '../modules/workflows/workflows.routes.js';
 import assistantRoutes from '../modules/assistant/assistant.routes.js';
@@ -15,7 +15,13 @@ import { errorEnvelope, successEnvelope } from './http/envelope.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestContextMiddleware } from './middleware/request-context.js';
 import { requestLoggerMiddleware } from './middleware/request-logger.js';
-import { STORAGE_PATHS, ensureStorageDirectories, migrateLegacyStorageIfNeeded } from '../platform/storage/index.js';
+import {
+  STORAGE_PATHS,
+  ensureStorageDirectories,
+  getScopedStoragePaths,
+  migrateLegacyStorageIfNeeded,
+  safeResolveWithin,
+} from '../platform/storage/index.js';
 import {
   ensureGeneratedThumbnailFromFile,
   ensureUploadThumbnail,
@@ -26,7 +32,8 @@ import { getMimeType } from '../platform/media/media-resolver.js';
 import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js';
 import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.js';
 import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
-import { getRuntimeCapabilities } from '../platform/runtime/index.js';
+import { getRuntimeCapabilities, summarizeScopeFoundation } from '../platform/runtime/index.js';
+import { getRequestContext } from '../platform/logging/request-context.js';
 import { filesService } from '../modules/files/files.service.js';
 
 function buildAllowedOrigins() {
@@ -67,7 +74,14 @@ export function createApp() {
       callback(new Error('CORS origin not allowed'));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Access-Key'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Admin-Access-Key',
+      'X-SueLr-User-Id',
+      'X-SueLr-Workspace-Id',
+      'X-SueLr-Runtime-Mode',
+    ],
   }));
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -77,9 +91,11 @@ export function createApp() {
 
   app.get('/api/files/.thumbnails/:filename', async (req, res, next) => {
     try {
-      const targetPath = resolve(STORAGE_PATHS.uploadsDir, '.thumbnails', req.params.filename);
+      const storagePaths = getScopedStoragePaths(req.scope);
+      const targetPath = safeResolveWithin(path.join(storagePaths.uploadsDir, '.thumbnails'), req.params.filename);
+      if (!targetPath) return next();
       if (!existsSync(targetPath)) {
-        const original = resolveUploadOriginalFromThumbnailName(req.params.filename);
+        const original = resolveUploadOriginalFromThumbnailName(req.params.filename, { scope: req.scope });
         if (!original) return next();
         await ensureUploadThumbnail({
           filename: original.filename,
@@ -96,15 +112,18 @@ export function createApp() {
   app.get('/api/outputs/*', async (req, res, next) => {
     try {
       const relativePath = String(req.params[0] || '');
-      const absolutePath = resolve(STORAGE_PATHS.generatedDir, relativePath);
+      const storagePaths = getScopedStoragePaths(req.scope);
+      const absolutePath = safeResolveWithin(storagePaths.generatedDir, relativePath);
+      if (!absolutePath) return next();
       if (!relativePath.includes('/.thumbnails/') || existsSync(absolutePath)) return next();
 
-      const original = resolveGeneratedOriginalFromThumbnailRelativePath(relativePath);
+      const original = resolveGeneratedOriginalFromThumbnailRelativePath(relativePath, { scope: req.scope });
       if (!original) return next();
       await ensureGeneratedThumbnailFromFile({
         relativePath: original.relativePath,
         absolutePath: original.absolutePath,
         mimeType: getMimeType(original.absolutePath),
+        scope: req.scope,
       });
 
       if (!existsSync(absolutePath)) return next();
@@ -114,8 +133,18 @@ export function createApp() {
     }
   });
 
-  app.use('/api/outputs', express.static(STORAGE_PATHS.generatedDir));
-  app.use('/api/files', express.static(STORAGE_PATHS.uploadsDir));
+  app.get('/api/outputs/*', (req, res, next) => {
+    const relativePath = String(req.params[0] || '');
+    const filePath = safeResolveWithin(getScopedStoragePaths(req.scope).generatedDir, relativePath);
+    if (!filePath || !existsSync(filePath)) return next();
+    res.sendFile(filePath);
+  });
+  app.get('/api/files/*', (req, res, next) => {
+    const relativePath = String(req.params[0] || '');
+    const filePath = safeResolveWithin(getScopedStoragePaths(req.scope).uploadsDir, relativePath);
+    if (!filePath || !existsSync(filePath)) return next();
+    res.sendFile(filePath);
+  });
 
   app.use('/api/workflows', workflowRoutes);
   app.use('/api/execute', executeRoutes);
@@ -137,6 +166,7 @@ export function createApp() {
       version: '1.0.0',
       processInstanceId: getProcessInstanceId(),
       runtime: runtimeCapabilities,
+      scope: summarizeScopeFoundation(getRequestContext()?.scope),
     }));
   });
 

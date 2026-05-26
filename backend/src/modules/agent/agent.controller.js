@@ -7,40 +7,40 @@ function writeSse(res, event, data) {
 }
 
 export class AgentController {
-  getStatus(_req, res) {
-    res.json(successEnvelope(agentService.getStatus()));
+  getStatus(req, res) {
+    res.json(successEnvelope(agentService.getStatus({ scope: req.scope })));
   }
 
-  getProfiles(_req, res) {
-    res.json(successEnvelope(agentService.getProfiles()));
+  getProfiles(req, res) {
+    res.json(successEnvelope(agentService.getProfiles({ scope: req.scope })));
   }
 
   saveProfiles(req, res) {
-    res.json(successEnvelope(agentService.saveProfiles(req.body)));
+    res.json(successEnvelope(agentService.saveProfiles(req.body, { scope: req.scope })));
   }
 
-  getMemories(_req, res) {
-    res.json(successEnvelope(agentService.getMemories()));
+  getMemories(req, res) {
+    res.json(successEnvelope(agentService.getMemories({ scope: req.scope })));
   }
 
   importMemories(req, res) {
-    res.json(successEnvelope(agentService.importMemories(req.body.memories)));
+    res.json(successEnvelope(agentService.importMemories(req.body.memories, { scope: req.scope })));
   }
 
   deleteMemory(req, res) {
-    res.json(successEnvelope(agentService.deleteMemory(req.params.id)));
+    res.json(successEnvelope(agentService.deleteMemory(req.params.id, { scope: req.scope })));
   }
 
-  clearMemories(_req, res) {
-    res.json(successEnvelope(agentService.clearMemories()));
+  clearMemories(req, res) {
+    res.json(successEnvelope(agentService.clearMemories({ scope: req.scope })));
   }
 
   getSession(req, res) {
-    res.json(successEnvelope(agentService.getSession(req.params.sessionId)));
+    res.json(successEnvelope(agentService.getSession(req.params.sessionId, { scope: req.scope })));
   }
 
   cancelSession(req, res) {
-    res.json(successEnvelope(agentService.cancelSession(req.params.sessionId)));
+    res.json(successEnvelope(agentService.cancelSession(req.params.sessionId, { scope: req.scope })));
   }
 
   async chat(req, res, next) {
@@ -54,6 +54,7 @@ export class AgentController {
         });
 
         const cleanup = agentService.chatStream(req.body, {
+          scope: req.scope,
           onSessionStarted: (payload) => writeSse(res, 'agent_session_started', payload),
           onToolCallStarted: (payload) => writeSse(res, 'agent_tool_call_started', payload),
           onWorkflowRunStarted: (payload) => writeSse(res, 'agent_workflow_run_started', payload),
@@ -75,7 +76,7 @@ export class AgentController {
         return;
       }
 
-      const result = await agentService.chat(req.body);
+      const result = await agentService.chat(req.body, { scope: req.scope });
       res.json(successEnvelope(result));
     } catch (error) {
       if (res.headersSent) {

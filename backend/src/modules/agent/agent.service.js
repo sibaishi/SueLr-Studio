@@ -111,11 +111,11 @@ export class AgentService {
     return fromLegacyError(error);
   }
 
-  getStatus() {
+  getStatus(_options = {}) {
     return { ok: true, version: '1.0.0', sessions: this.sessionStore.list().length };
   }
 
-  getProfiles() {
+  getProfiles(_options = {}) {
     try {
       return this.profileService.getProfiles();
     } catch (error) {
@@ -123,7 +123,7 @@ export class AgentService {
     }
   }
 
-  saveProfiles(profiles) {
+  saveProfiles(profiles, _options = {}) {
     try {
       return this.profileService.saveProfiles(profiles);
     } catch (error) {
@@ -131,23 +131,23 @@ export class AgentService {
     }
   }
 
-  getMemories() {
+  getMemories(_options = {}) {
     try {
-      return this.memoryService.list();
+      return this.memoryService.list(_options);
     } catch (error) {
       throw fromLegacyError(error);
     }
   }
 
-  importMemories(memories) {
+  importMemories(memories, _options = {}) {
     try {
-      return this.memoryService.import(memories);
+      return this.memoryService.import(memories, _options);
     } catch (error) {
       throw fromLegacyError(error);
     }
   }
 
-  deleteMemory(id) {
+  deleteMemory(id, _options = {}) {
     try {
       return this.memoryService.delete(id);
     } catch (error) {
@@ -155,7 +155,7 @@ export class AgentService {
     }
   }
 
-  clearMemories() {
+  clearMemories(_options = {}) {
     try {
       return this.memoryService.clear();
     } catch (error) {
@@ -163,7 +163,7 @@ export class AgentService {
     }
   }
 
-  getSession(sessionId) {
+  getSession(sessionId, _options = {}) {
     try {
       return this.sessionStore.get(sessionId);
     } catch (error) {
@@ -171,7 +171,7 @@ export class AgentService {
     }
   }
 
-  cancelSession(sessionId) {
+  cancelSession(sessionId, _options = {}) {
     try {
       const runningSession = this.runningSessions.get(sessionId);
       if (runningSession) {
@@ -187,7 +187,7 @@ export class AgentService {
     }
   }
 
-  async chat(body) {
+  async chat(body, options = {}) {
     const sessionId = body.sessionId || randomUUID();
     const runningSession = this.createRunningSession(sessionId, body.options);
     const { abortController } = runningSession;
@@ -197,6 +197,7 @@ export class AgentService {
       profileId: body.profileId,
       model: body.model,
       requestId: getRequestContext()?.requestId,
+      scope: options.scope,
     });
     runLogger.log('agent_request_received', {
       messageCount: Array.isArray(body.messages) ? body.messages.length : 0,
@@ -213,6 +214,7 @@ export class AgentService {
           ...body.options,
           sessionId,
           apiConfig: this.settingsService.buildRuntimeConfig(body.apiConfig || {}),
+          scope: options.scope,
         },
         signal: abortController.signal,
       });
@@ -260,6 +262,7 @@ export class AgentService {
       profileId: body.profileId,
       model: body.model,
       requestId: getRequestContext()?.requestId,
+      scope: handlers.scope,
     });
     runLogger.log('agent_request_received', {
       messageCount: Array.isArray(body.messages) ? body.messages.length : 0,
@@ -331,6 +334,7 @@ export class AgentService {
         ...body.options,
         sessionId,
         apiConfig: this.settingsService.buildRuntimeConfig(body.apiConfig || {}),
+        scope: handlers.scope,
       },
       signal: abortController.signal,
       handlers: loggedHandlers,

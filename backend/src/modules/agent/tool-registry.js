@@ -286,7 +286,7 @@ export class ToolRegistry {
             query,
             maxResults,
             includeAnswer: args.includeAnswer !== false,
-          });
+          }, { scope: ctx.scope });
           return jsonOrText(data.structured || {
             type: 'web_search_result',
             provider: 'unknown',
@@ -349,6 +349,7 @@ export class ToolRegistry {
             tags: args.tags,
             importance: args.importance,
             conversationId: ctx.conversationId,
+            ...(ctx.scope ? { requestScope: ctx.scope } : {}),
           });
           return jsonOrText(result);
         },
@@ -402,7 +403,7 @@ export class ToolRegistry {
             ],
             apiConfig: ctx.apiConfig || {},
             signal: ctx.signal,
-          });
+          }, { scope: ctx.scope });
 
           const choice = response?.choices?.[0] || {};
           const summaryContent = typeof choice.message?.content === 'string' ? choice.message.content : '';
@@ -472,7 +473,7 @@ export class ToolRegistry {
                 : {}),
               n: args.n,
               output_format: normalizeImageOutputFormat(args.output_format),
-            });
+            }, { scope: ctx.scope });
             return jsonOrText(normalizeImageToolResult(data));
           } catch (error) {
             if (error?.code === 'IMAGE_MODEL_AMBIGUOUS') {
@@ -556,7 +557,7 @@ export class ToolRegistry {
             input_audio: audioUrls[0] || '',
             input_audios: audioUrls,
             signal: ctx.signal,
-          });
+          }, { scope: ctx.scope });
           return jsonOrText(normalizeVideoToolResult(data, request));
         },
       },
@@ -582,6 +583,7 @@ export class ToolRegistry {
             signal: ctx.signal,
             requestId: ctx.sessionId || 'agent-workflow',
             onRunStarted: ctx.onWorkflowRunStarted,
+            scope: ctx.scope,
           });
           return jsonOrText(result);
         },
