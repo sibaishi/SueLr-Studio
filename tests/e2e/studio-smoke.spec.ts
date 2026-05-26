@@ -267,6 +267,7 @@ test.describe('studio smoke', () => {
 
     await page.goto('/');
     await expect(page.locator('.splash-overlay')).toHaveCount(0);
+    await expect(page.getByTestId('settings-module-account_details')).toHaveCount(0);
     await page.getByTestId('settings-module-defaults').click();
 
     await expect(page.getByTestId('settings-runtime-storage-mode')).toContainText('服务器单用户');
@@ -281,6 +282,11 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('settings-runtime-diagnostics')).toContainText('server-single-user');
     await expect(page.getByTestId('settings-capability-select-directory')).toContainText('禁用');
     await expect(page.getByTestId('settings-capability-restart-backend')).toContainText('禁用');
+  });
+
+  test('settings keeps account details module in local runtime mode', async ({ page }) => {
+    await clearLocalState(page);
+    await expect(page.getByTestId('settings-module-account_details')).toBeVisible();
   });
 
   test('workflow saveFile node switches to browser download authorization in server runtime mode', async ({ page }) => {

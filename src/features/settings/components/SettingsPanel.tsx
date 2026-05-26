@@ -497,14 +497,16 @@ export function SettingsPanel({
     { id: 'diagnostics', label: '诊断', desc: '运行态可见性与快速检查', icon: Gauge, accent: T.green, stat: `${logs.length} 条` },
   ];
 
-  modules.splice(2, 0, {
-    id: 'account_details',
-    label: '账号明细',
-    desc: '账号登录、余额与调用日志',
-    icon: Wallet,
-    accent: T.purple,
-    stat: accountDetails?.balance ? accountDetails.balance.balance.toFixed(2) : accountDetails?.configured ? '已配置' : '未配置',
-  });
+  if (!isServerRuntime) {
+    modules.splice(2, 0, {
+      id: 'account_details',
+      label: '账号明细',
+      desc: '账号登录、余额与调用日志',
+      icon: Wallet,
+      accent: T.purple,
+      stat: accountDetails?.balance ? accountDetails.balance.balance.toFixed(2) : accountDetails?.configured ? '已配置' : '未配置',
+    });
+  }
 
   const activeModuleMeta = modules.find((module) => module.id === activeModule) || modules[0];
 
