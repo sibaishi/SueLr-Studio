@@ -547,11 +547,11 @@ Server-web deployment assets:
 - `scripts/deploy/server-web/studio.suelr.com.nginx.conf`
   - example nginx reverse-proxy site file
 - `scripts/deploy/server-web/install.sh`
-  - first-time host setup for repository-checkout deployments
+  - first-time host setup; builds a minimized release tree and syncs it into `runtime/app` before compose startup
 - `scripts/deploy/server-web/update.sh`
-  - host-side update flow for pull, rebuild, and nginx reload
+  - host-side update flow for pull, release-tree sync, rebuild, and nginx reload
 - `scripts/deploy/server-web/uninstall.sh`
-  - host-side removal flow for stopping containers and removing nginx wiring
+  - host-side removal flow for stopping containers, removing nginx wiring, and deleting the synced `runtime/app` release tree
   - keeps runtime data by default unless `SUE_LR_REMOVE_DATA=1` is set
 
 Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.

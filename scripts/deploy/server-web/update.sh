@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 RUNTIME_DIR="${SUE_LR_RUNTIME_DIR:-${REPO_ROOT}/../runtime}"
+APP_DIR="${SUE_LR_APP_DIR:-${RUNTIME_DIR}/app}"
 COMPOSE_SOURCE="${SCRIPT_DIR}/compose.yaml"
 COMPOSE_TARGET="${RUNTIME_DIR}/compose.yaml"
 NGINX_SOURCE="${SCRIPT_DIR}/studio.suelr.com.nginx.conf"
@@ -13,6 +14,8 @@ NGINX_ENABLED_DIR="${SUE_LR_NGINX_ENABLED_DIR:-/etc/nginx/sites-enabled}"
 NGINX_ENABLED_LINK="${NGINX_ENABLED_DIR}/studio.suelr.com"
 GIT_REMOTE="${SUE_LR_GIT_REMOTE:-origin}"
 GIT_BRANCH="${SUE_LR_GIT_BRANCH:-$(git -C "${REPO_ROOT}" branch --show-current)}"
+RELEASE_DIR="${REPO_ROOT}/.server-web-release"
+RELEASE_APP_SOURCE="${RELEASE_DIR}/app"
 
 log() {
   printf '[server-web:update] %s\n' "$*"
@@ -40,6 +43,7 @@ run_as_root() {
 require_command git
 require_command docker
 require_command nginx
+require_command node
 
 if docker compose version >/dev/null 2>&1; then
   DOCKER_COMPOSE=(docker compose)
@@ -54,11 +58,23 @@ git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "r
 [ -f "${NGINX_SOURCE}" ] || fail "nginx config source not found: ${NGINX_SOURCE}"
 
 log "repo root: ${REPO_ROOT}"
+log "runtime dir: ${RUNTIME_DIR}"
+log "app dir: ${APP_DIR}"
 log "pulling ${GIT_REMOTE}/${GIT_BRANCH}"
 git -C "${REPO_ROOT}" fetch "${GIT_REMOTE}" "${GIT_BRANCH}"
 git -C "${REPO_ROOT}" pull --ff-only "${GIT_REMOTE}" "${GIT_BRANCH}"
 
 mkdir -p "${RUNTIME_DIR}"
+mkdir -p "${APP_DIR}"
+
+node "${REPO_ROOT}/scripts/build-server-web-release.mjs"
+[ -d "${RELEASE_APP_SOURCE}" ] || fail "release app source not found: ${RELEASE_APP_SOURCE}"
+
+rm -rf "${APP_DIR}"
+mkdir -p "${APP_DIR}"
+cp -R "${RELEASE_APP_SOURCE}/." "${APP_DIR}/"
+log "synced release app directory to ${APP_DIR}"
+
 cp "${COMPOSE_SOURCE}" "${COMPOSE_TARGET}"
 log "copied compose file to ${COMPOSE_TARGET}"
 

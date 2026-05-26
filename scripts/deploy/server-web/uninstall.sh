@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 RUNTIME_DIR="${SUE_LR_RUNTIME_DIR:-${REPO_ROOT}/../runtime}"
 DATA_DIR="${SUE_LR_DATA_DIR:-${RUNTIME_DIR}/data}"
+APP_DIR="${SUE_LR_APP_DIR:-${RUNTIME_DIR}/app}"
 COMPOSE_TARGET="${RUNTIME_DIR}/compose.yaml"
 NGINX_TARGET="${SUE_LR_NGINX_TARGET:-/etc/nginx/sites-available/studio.suelr.com}"
 NGINX_ENABLED_DIR="${SUE_LR_NGINX_ENABLED_DIR:-/etc/nginx/sites-enabled}"
@@ -73,6 +74,11 @@ log "nginx reloaded"
 if [ -f "${COMPOSE_TARGET}" ]; then
   rm -f "${COMPOSE_TARGET}"
   log "removed runtime compose file"
+fi
+
+if [ -d "${APP_DIR}" ]; then
+  rm -rf "${APP_DIR}"
+  log "removed runtime app directory"
 fi
 
 if [ "${REMOVE_DATA}" = "1" ] && [ -d "${DATA_DIR}" ]; then

@@ -130,6 +130,8 @@ Server-web repository deployment:
 - later updates on the same host can use `bash ./scripts/deploy/server-web/update.sh`
 - removal can use `bash ./scripts/deploy/server-web/uninstall.sh`
 - the scripts refresh docker compose and nginx config together, so browser routing and app container stay aligned
+- the scripts now sync a minimized runtime app directory under `runtime/app` before rebuilding, so the deployed host no longer needs to keep the full repository checkout as the live build context
+- if the host was already deployed with the older repository-checkout flow, running `update.sh` once will migrate the live compose build context to the minimized `runtime/app` directory automatically
 - `uninstall.sh` keeps runtime data by default; set `SUE_LR_REMOVE_DATA=1` if you really want to delete stored files and settings
 
 Default local addresses:

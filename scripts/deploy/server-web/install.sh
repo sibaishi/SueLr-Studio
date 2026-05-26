@@ -6,12 +6,15 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 RUNTIME_DIR="${SUE_LR_RUNTIME_DIR:-${REPO_ROOT}/../runtime}"
 DATA_DIR="${SUE_LR_DATA_DIR:-${RUNTIME_DIR}/data}"
+APP_DIR="${SUE_LR_APP_DIR:-${RUNTIME_DIR}/app}"
 COMPOSE_SOURCE="${SCRIPT_DIR}/compose.yaml"
 COMPOSE_TARGET="${RUNTIME_DIR}/compose.yaml"
 NGINX_SOURCE="${SCRIPT_DIR}/studio.suelr.com.nginx.conf"
 NGINX_TARGET="${SUE_LR_NGINX_TARGET:-/etc/nginx/sites-available/studio.suelr.com}"
 NGINX_ENABLED_DIR="${SUE_LR_NGINX_ENABLED_DIR:-/etc/nginx/sites-enabled}"
 NGINX_ENABLED_LINK="${NGINX_ENABLED_DIR}/studio.suelr.com"
+RELEASE_DIR="${REPO_ROOT}/.server-web-release"
+RELEASE_APP_SOURCE="${RELEASE_DIR}/app"
 
 log() {
   printf '[server-web:install] %s\n' "$*"
@@ -38,6 +41,7 @@ run_as_root() {
 
 require_command docker
 require_command nginx
+require_command node
 
 if docker compose version >/dev/null 2>&1; then
   DOCKER_COMPOSE=(docker compose)
@@ -52,9 +56,19 @@ fi
 
 log "repo root: ${REPO_ROOT}"
 log "runtime dir: ${RUNTIME_DIR}"
+log "app dir: ${APP_DIR}"
 
 mkdir -p "${RUNTIME_DIR}"
 mkdir -p "${DATA_DIR}"
+mkdir -p "${APP_DIR}"
+
+node "${REPO_ROOT}/scripts/build-server-web-release.mjs"
+[ -d "${RELEASE_APP_SOURCE}" ] || fail "release app source not found: ${RELEASE_APP_SOURCE}"
+
+rm -rf "${APP_DIR}"
+mkdir -p "${APP_DIR}"
+cp -R "${RELEASE_APP_SOURCE}/." "${APP_DIR}/"
+log "synced release app directory to ${APP_DIR}"
 
 cp "${COMPOSE_SOURCE}" "${COMPOSE_TARGET}"
 log "copied compose file to ${COMPOSE_TARGET}"
