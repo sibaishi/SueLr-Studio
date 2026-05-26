@@ -56,8 +56,12 @@ This document defines the standard release workflow for SueLr Studio variants. T
 
    ```bash
    SUE_LR_IMAGE=git.example.com/owner/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
-   SUE_LR_IMAGE=git.example.com/owner/suelr-studio:server-web bash ./scripts/deploy/server-web/update-image.sh
+   cd /srv/suelr-studio/runtime
+   sudo docker compose -f compose.yaml pull
+   sudo docker compose -f compose.yaml up -d --no-build
    ```
+
+   Use `update-image.sh` when the server has a current source checkout and should refresh `compose.image.yaml` or nginx from the repository. For an already migrated image deployment under `/srv/suelr-studio/runtime`, the normal rollout is only `docker compose pull` plus `up -d --no-build`.
 
    `server-web` release rule:
 
@@ -65,6 +69,8 @@ This document defines the standard release workflow for SueLr Studio variants. T
    - treat `runtime/app` as the minimized live build context
    - keep `scripts/deploy/server-web/release-files.txt` aligned with every frontend entry, backend runtime file, and server-web helper script needed by Docker
    - prefer `update-image.sh` on low-resource hosts so production frontend builds happen on a workstation or CI runner; this path pulls the prebuilt image and skips source checkout updates unless `SUE_LR_PULL_SOURCE=1` is set
+   - for image-based host rollouts, preserve `/srv/suelr-studio/runtime/compose.yaml` settings such as `APP_ALLOWED_ORIGINS`, `APP_ADMIN_ACCESS_KEY`, ports, and data volumes
+   - when exposing the independent admin console, route a separate origin such as `https://admin.studio.suelr.com` to `127.0.0.1:3002` and add that exact origin to `APP_ALLOWED_ORIGINS`
    - do not deploy repository `tests/`, `e2e`, `docs/`, or other development-only surfaces into the server-web runtime app tree
    - keep the server-web Docker runtime image limited to built frontend assets, backend runtime files, backend production dependencies, and shared workflow contracts
 
