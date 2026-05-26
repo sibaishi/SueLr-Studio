@@ -14,8 +14,6 @@ NGINX_ENABLED_DIR="${SUE_LR_NGINX_ENABLED_DIR:-/etc/nginx/sites-enabled}"
 NGINX_ENABLED_LINK="${NGINX_ENABLED_DIR}/studio.suelr.com"
 GIT_REMOTE="${SUE_LR_GIT_REMOTE:-origin}"
 GIT_BRANCH="${SUE_LR_GIT_BRANCH:-$(git -C "${REPO_ROOT}" branch --show-current)}"
-RELEASE_DIR="${REPO_ROOT}/.server-web-release"
-RELEASE_APP_SOURCE="${RELEASE_DIR}/app"
 
 log() {
   printf '[server-web:update] %s\n' "$*"
@@ -43,7 +41,24 @@ run_as_root() {
 require_command git
 require_command docker
 require_command nginx
-require_command node
+
+[ -d "${REPO_ROOT}/dist" ] || fail "frontend dist not found: ${REPO_ROOT}/dist"
+[ -d "${REPO_ROOT}/backend/src" ] || fail "backend sources not found: ${REPO_ROOT}/backend/src"
+[ -d "${REPO_ROOT}/src/shared/workflow" ] || fail "shared workflow sources not found: ${REPO_ROOT}/src/shared/workflow"
+
+sync_release_tree() {
+  rm -rf "${APP_DIR}"
+  mkdir -p "${APP_DIR}/backend" "${APP_DIR}/src/shared" "${APP_DIR}/scripts/deploy/server-web"
+  cp -R "${REPO_ROOT}/dist" "${APP_DIR}/dist"
+  cp "${REPO_ROOT}/package.json" "${APP_DIR}/package.json"
+  cp "${REPO_ROOT}/package-lock.json" "${APP_DIR}/package-lock.json"
+  cp "${REPO_ROOT}/backend/package.json" "${APP_DIR}/backend/package.json"
+  cp "${REPO_ROOT}/backend/package-lock.json" "${APP_DIR}/backend/package-lock.json"
+  cp "${REPO_ROOT}/backend/server.js" "${APP_DIR}/backend/server.js"
+  cp -R "${REPO_ROOT}/backend/src" "${APP_DIR}/backend/src"
+  cp -R "${REPO_ROOT}/src/shared/workflow" "${APP_DIR}/src/shared/workflow"
+  cp "${REPO_ROOT}/scripts/deploy/server-web/Dockerfile" "${APP_DIR}/scripts/deploy/server-web/Dockerfile"
+}
 
 if docker compose version >/dev/null 2>&1; then
   DOCKER_COMPOSE=(docker compose)
@@ -67,12 +82,7 @@ git -C "${REPO_ROOT}" pull --ff-only "${GIT_REMOTE}" "${GIT_BRANCH}"
 mkdir -p "${RUNTIME_DIR}"
 mkdir -p "${APP_DIR}"
 
-node "${REPO_ROOT}/scripts/build-server-web-release.mjs"
-[ -d "${RELEASE_APP_SOURCE}" ] || fail "release app source not found: ${RELEASE_APP_SOURCE}"
-
-rm -rf "${APP_DIR}"
-mkdir -p "${APP_DIR}"
-cp -R "${RELEASE_APP_SOURCE}/." "${APP_DIR}/"
+sync_release_tree
 log "synced release app directory to ${APP_DIR}"
 
 cp "${COMPOSE_SOURCE}" "${COMPOSE_TARGET}"
