@@ -121,6 +121,12 @@ Rules:
 - `src/providers/`：React 上下文提供者
 - `src/shared/`: shared API, UI, hooks, runtime helpers, workflow infrastructure
 - `src/shared/`：共享 API、UI、Hooks、运行时辅助、工作流基础设施
+- `src/shared/runtime/`: browser/runtime adapters and storage helpers
+- `src/shared/runtime/`：浏览器/运行时适配与存储辅助
+- `src/shared/providers/`: shared provider adapters and model routing
+- `src/shared/providers/`：共享服务商适配与模型路由
+- `src/shared/types/`: shared frontend contracts and common types
+- `src/shared/types/`：共享前端契约与通用类型
 
 ### Frontend compatibility surface
 ### 前端兼容层

@@ -104,6 +104,10 @@ npm.cmd run dev:frontend
 ## 常用校验命令
 
 ```bash
+npm run dev
+npm run check
+npm run test:e2e
+npm run test:e2e:install
 npm.cmd run typecheck
 npm.cmd run test:backend
 npm.cmd run test:unit -- runtime-capabilities
