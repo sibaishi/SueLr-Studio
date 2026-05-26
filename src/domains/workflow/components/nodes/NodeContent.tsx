@@ -1509,7 +1509,7 @@ function InteractiveValue({ value }: { value: unknown }) {
   if (typeof value === 'string') {
     if (isRenderableOutputMediaUrl(value)) {
       if (getMediaKindFromOutputValue(value) === 'image') {
-        return <MediaPreview value={value} previewValue={inferImageThumbnailUrl(value) || value} fill inertImage kindOverride="image" />;
+        return <MediaCard value={value} fill />;
       }
       return <MediaCard value={value} fill />;
     }
@@ -1519,14 +1519,9 @@ function InteractiveValue({ value }: { value: unknown }) {
   if (isRenderableOutputMediaObject(value)) {
     if (value.type === 'image' && isRenderableOutputMediaUrl(value.url)) {
       return (
-        <MediaPreview
+        <MediaCard
           value={value.url}
-          previewValue={value.thumbnailUrl || inferImageThumbnailUrl(value.url) || value.url}
-          imageWidth={typeof value.width === 'number' ? value.width : undefined}
-          imageHeight={typeof value.height === 'number' ? value.height : undefined}
           fill
-          inertImage
-          kindOverride="image"
         />
       );
     }
@@ -1540,7 +1535,7 @@ function InteractiveValue({ value }: { value: unknown }) {
     if (mediaValues.length === value.length && mediaValues.length > 0) {
       if (mediaValues.length === 1) {
         if (getMediaKindFromOutputValue(mediaValues[0]) === 'image') {
-          return <MediaPreview value={mediaValues[0]} previewValue={inferImageThumbnailUrl(mediaValues[0]) || mediaValues[0]} fill inertImage kindOverride="image" />;
+          return <MediaCard value={mediaValues[0]} fill />;
         }
         return <MediaCard value={mediaValues[0]} fill />;
       }
@@ -1549,7 +1544,7 @@ function InteractiveValue({ value }: { value: unknown }) {
         <div className="node-media-grid">
           {mediaValues.map((item, index) => (
             getMediaKindFromOutputValue(item) === 'image'
-              ? <MediaPreview key={String(index)} value={item} previewValue={inferImageThumbnailUrl(item) || item} compact fill inertImage kindOverride="image" />
+              ? <MediaCard key={String(index)} value={item} compact fill />
               : <MediaCard key={String(index)} value={item} compact fill />
           ))}
         </div>

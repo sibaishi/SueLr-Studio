@@ -26,6 +26,45 @@ type WorkflowStoreExecutionActions = Pick<
 const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
 const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
 
+function sanitizeSavedFile(file: unknown) {
+  if (!file || typeof file !== 'object') return file;
+  const record = file as Record<string, unknown>;
+  return {
+    type: typeof record.type === 'string' ? record.type : '',
+    name: typeof record.name === 'string' ? record.name : '',
+    url: typeof record.url === 'string' ? record.url : '',
+    thumbnailUrl: typeof record.thumbnailUrl === 'string' ? record.thumbnailUrl : '',
+    mimeType: typeof record.mimeType === 'string' ? record.mimeType : '',
+    width: typeof record.width === 'number' ? record.width : undefined,
+    height: typeof record.height === 'number' ? record.height : undefined,
+  };
+}
+
+function sanitizeNodeOutputValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeNodeOutputValue(item));
+  }
+
+  if (!value || typeof value !== 'object') return value;
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.url === 'string') {
+    return sanitizeSavedFile(record);
+  }
+
+  const sanitizedEntries = Object.entries(record)
+    .filter(([key]) => !['rawData', 'rawImages', 'request'].includes(key))
+    .map(([key, entryValue]) => [key, sanitizeNodeOutputValue(entryValue)] as const);
+  return Object.fromEntries(sanitizedEntries);
+}
+
+function sanitizeNodeOutputs(outputs: Record<string, unknown>) {
+  const sanitized = sanitizeNodeOutputValue(outputs);
+  return sanitized && typeof sanitized === 'object' && !Array.isArray(sanitized)
+    ? sanitized as Record<string, unknown>
+    : outputs;
+}
+
 function extractDownloadableFiles(outputs: Record<string, unknown>) {
   const savedFiles = Array.isArray(outputs.savedFiles) ? outputs.savedFiles : [];
   return savedFiles
@@ -328,15 +367,16 @@ export function createWorkflowExecutionActions(
         },
         onNodeComplete: (data) => {
           const nodeLabel = getNodeDisplayNameById(data.nodeId, get().nodes);
+          const sanitizedOutputs = sanitizeNodeOutputs(data.outputs);
           get().addExecutionLog({
             level: 'success',
             message: `节点完成：${nodeLabel} (${data.duration} ms)`,
             nodeId: data.nodeId,
-            details: formatLogDetails(data.logOutputs ?? data.outputs),
+            details: formatLogDetails(data.logOutputs ?? sanitizedOutputs),
           });
           const runtime = getCachedRuntimeCapabilities();
           if (runtime?.mode?.startsWith('server')) {
-            const files = extractDownloadableFiles(data.outputs);
+            const files = extractDownloadableFiles(sanitizedOutputs);
             if (files.length > 0) {
               void autoDownloadGeneratedFiles(files)
                 .then((results) => {
@@ -359,8 +399,8 @@ export function createWorkflowExecutionActions(
             }
           }
           set((currentState) => {
-            const persistTextOutput = shouldPersistTextInputOutput(currentState, data.nodeId, data.outputs);
-            const persistTextSplitOutput = shouldPersistTextSplitOutput(currentState, data.nodeId, data.outputs);
+            const persistTextOutput = shouldPersistTextInputOutput(currentState, data.nodeId, sanitizedOutputs);
+            const persistTextSplitOutput = shouldPersistTextSplitOutput(currentState, data.nodeId, sanitizedOutputs);
             const activeCount = Math.max(0, (currentState.nodeExecutionActiveCounts[data.nodeId] || 0) - 1);
             const completedCount = (currentState.nodeExecutionCompletedCounts[data.nodeId] || 0) + 1;
             const expectedCount = Math.max(
@@ -372,8 +412,8 @@ export function createWorkflowExecutionActions(
             const startedAt = currentState.nodeExecutionStartedAt[data.nodeId];
             const aggregateDuration = startedAt ? Math.max(0, Date.now() - startedAt) : data.duration;
             const mergedNodeOutputs = data.iteration
-              ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], data.outputs)
-              : data.outputs;
+              ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], sanitizedOutputs)
+              : sanitizedOutputs;
             return {
               executionMessage: `${nodeLabel} 执行完成`,
               nodes: persistTextOutput || persistTextSplitOutput
@@ -383,8 +423,8 @@ export function createWorkflowExecutionActions(
                           ...node,
                           data: {
                             ...node.data,
-                            ...(persistTextOutput ? { text: data.outputs.text } : {}),
-                            ...(persistTextSplitOutput ? { segments: buildTextSplitSegmentsFromOutputs(data.outputs) } : {}),
+                            ...(persistTextOutput ? { text: sanitizedOutputs.text } : {}),
+                            ...(persistTextSplitOutput ? { segments: buildTextSplitSegmentsFromOutputs(sanitizedOutputs) } : {}),
                           },
                         }
                       : node
