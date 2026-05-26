@@ -1,5 +1,5 @@
-import { agentRepository } from './agent.repository.js';
 import { ensureResourceOwnership } from '../../platform/runtime/index.js';
+import { agentRepository } from './agent.repository.js';
 
 export class AgentSessionStore {
   constructor(repository = agentRepository) {
@@ -8,11 +8,14 @@ export class AgentSessionStore {
   }
 
   create(session) {
-    const next = ensureResourceOwnership({
-      ...session,
-      createdAt: session.createdAt || Date.now(),
-      updatedAt: session.updatedAt || Date.now(),
-    }, session.ownershipScope || session.scope);
+    const next = ensureResourceOwnership(
+      {
+        ...session,
+        createdAt: session.createdAt || Date.now(),
+        updatedAt: session.updatedAt || Date.now(),
+      },
+      session.ownershipScope || session.scope,
+    );
     this.activeSessions.set(next.sessionId, next);
     this.repository.writeSessionFile(next.sessionId, next);
     return next;
@@ -21,11 +24,14 @@ export class AgentSessionStore {
   update(sessionId, patch) {
     const current = this.get(sessionId);
     if (!current) return null;
-    const next = ensureResourceOwnership({
-      ...current,
-      ...patch,
-      updatedAt: Date.now(),
-    }, current.ownershipScope || current.scope || patch.ownershipScope || patch.scope);
+    const next = ensureResourceOwnership(
+      {
+        ...current,
+        ...patch,
+        updatedAt: Date.now(),
+      },
+      current.ownershipScope || current.scope || patch.ownershipScope || patch.scope,
+    );
     this.activeSessions.set(sessionId, next);
     this.repository.writeSessionFile(sessionId, next);
     return next;

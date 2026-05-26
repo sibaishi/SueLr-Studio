@@ -25,15 +25,23 @@ function normalizeNode(node, index) {
     throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}] 必须为对象`, { path: `nodes[${index}]` });
   }
   if (typeof node.id !== 'string' || !node.id.trim()) {
-    throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}].id 不能为空`, { path: `nodes[${index}].id` });
+    throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}].id 不能为空`, {
+      path: `nodes[${index}].id`,
+    });
   }
   if (typeof node.type !== 'string' || !node.type.trim()) {
-    throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}].type 不能为空`, { path: `nodes[${index}].type`, nodeId: node.id });
+    throw new ValidationError('VALIDATION_ERROR', `workflow.nodes[${index}].type 不能为空`, {
+      path: `nodes[${index}].type`,
+      nodeId: node.id,
+    });
   }
 
   const contract = getNodeContract(node.type);
   if (!contract) {
-    throw new ValidationError('WORKFLOW_NODE_TYPE_UNSUPPORTED', `不支持的节点类型: ${node.type}`, { path: `nodes[${index}].type`, nodeId: node.id });
+    throw new ValidationError('WORKFLOW_NODE_TYPE_UNSUPPORTED', `不支持的节点类型: ${node.type}`, {
+      path: `nodes[${index}].type`,
+      nodeId: node.id,
+    });
   }
 
   const position = isPlainObject(node.position) ? node.position : {};
@@ -66,13 +74,21 @@ function normalizeEdge(edge, index, nodeIds) {
     throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}] 必须为对象`, { path: `edges[${index}]` });
   }
   if (typeof edge.id !== 'string' || !edge.id.trim()) {
-    throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}].id 不能为空`, { path: `edges[${index}].id` });
+    throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}].id 不能为空`, {
+      path: `edges[${index}].id`,
+    });
   }
   if (typeof edge.source !== 'string' || !nodeIds.has(edge.source)) {
-    throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}].source 引用了不存在的节点`, { path: `edges[${index}].source`, edgeId: edge.id });
+    throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}].source 引用了不存在的节点`, {
+      path: `edges[${index}].source`,
+      edgeId: edge.id,
+    });
   }
   if (typeof edge.target !== 'string' || !nodeIds.has(edge.target)) {
-    throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}].target 引用了不存在的节点`, { path: `edges[${index}].target`, edgeId: edge.id });
+    throw new ValidationError('VALIDATION_ERROR', `workflow.edges[${index}].target 引用了不存在的节点`, {
+      path: `edges[${index}].target`,
+      edgeId: edge.id,
+    });
   }
 
   return {
@@ -87,17 +103,24 @@ function normalizeEdge(edge, index, nodeIds) {
 export function normalizePersistedWorkflow(payload, options = {}) {
   const body = ensureWorkflowBody(payload);
   const id = validateWorkflowId(body.id, 'workflow.id');
-  const name = String(body.name || '').trim().slice(0, 200);
+  const name = String(body.name || '')
+    .trim()
+    .slice(0, 200);
 
   if (!name) throw new ValidationError('VALIDATION_ERROR', 'workflow.name 不能为空', { path: 'name' });
-  if (!Array.isArray(body.nodes)) throw new ValidationError('VALIDATION_ERROR', 'workflow.nodes 必须为数组', { path: 'nodes' });
-  if (!Array.isArray(body.edges)) throw new ValidationError('VALIDATION_ERROR', 'workflow.edges 必须为数组', { path: 'edges' });
+  if (!Array.isArray(body.nodes))
+    throw new ValidationError('VALIDATION_ERROR', 'workflow.nodes 必须为数组', { path: 'nodes' });
+  if (!Array.isArray(body.edges))
+    throw new ValidationError('VALIDATION_ERROR', 'workflow.edges 必须为数组', { path: 'edges' });
 
   const nodes = body.nodes.map((node, index) => normalizeNode(node, index));
   const nodeIds = new Set();
   for (const node of nodes) {
     if (nodeIds.has(node.id)) {
-      throw new ValidationError('VALIDATION_ERROR', `存在重复的节点 ID: ${node.id}`, { path: 'nodes', nodeId: node.id });
+      throw new ValidationError('VALIDATION_ERROR', `存在重复的节点 ID: ${node.id}`, {
+        path: 'nodes',
+        nodeId: node.id,
+      });
     }
     nodeIds.add(node.id);
   }
@@ -106,19 +129,22 @@ export function normalizePersistedWorkflow(payload, options = {}) {
   const edgeIds = new Set();
   for (const edge of edges) {
     if (edgeIds.has(edge.id)) {
-      throw new ValidationError('VALIDATION_ERROR', `存在重复的连线 ID: ${edge.id}`, { path: 'edges', edgeId: edge.id });
+      throw new ValidationError('VALIDATION_ERROR', `存在重复的连线 ID: ${edge.id}`, {
+        path: 'edges',
+        edgeId: edge.id,
+      });
     }
     edgeIds.add(edge.id);
   }
 
-  const createdAt = options.preserveCreatedAt === false
-    ? Date.now()
-    : Number(body.createdAt) || Date.now();
+  const createdAt = options.preserveCreatedAt === false ? Date.now() : Number(body.createdAt) || Date.now();
 
   const normalized = {
     id,
     name,
-    description: String(body.description || '').trim().slice(0, 4000),
+    description: String(body.description || '')
+      .trim()
+      .slice(0, 4000),
     version: CURRENT_WORKFLOW_SCHEMA_VERSION,
     createdAt,
     updatedAt: Number(options.updatedAt) || Date.now(),
@@ -134,7 +160,8 @@ export function normalizePersistedWorkflow(payload, options = {}) {
   return ensureResourceOwnership(normalized, {
     ...options.scope,
     userId: body.ownerUserId || body.ownershipScope?.userId || body.scope?.userId || options.scope?.userId,
-    workspaceId: body.workspaceId || body.ownershipScope?.workspaceId || body.scope?.workspaceId || options.scope?.workspaceId,
+    workspaceId:
+      body.workspaceId || body.ownershipScope?.workspaceId || body.scope?.workspaceId || options.scope?.workspaceId,
     runtimeMode: body.ownershipScope?.runtimeMode || body.scope?.runtimeMode || options.scope?.runtimeMode,
   });
 }

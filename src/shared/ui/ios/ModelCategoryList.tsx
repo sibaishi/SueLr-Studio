@@ -24,7 +24,12 @@ export function ModelCategoryList({ models, searchQuery = '' }: { models: ModelI
         if (searchQuery && categoryModels.length === 0) return null;
 
         return (
-          <CollapsibleSection key={category.key} title={category.label} count={categoryModels.length} defaultOpen={false}>
+          <CollapsibleSection
+            key={category.key}
+            title={category.label}
+            count={categoryModels.length}
+            defaultOpen={false}
+          >
             {categoryModels.map((model) => (
               <div key={model.id} style={{ fontSize: 12, color: T.text2, padding: '3px 0' }}>
                 {model.id}

@@ -1,5 +1,5 @@
-import { Component, type ReactNode, type ErrorInfo } from 'react';
 import { DARK, LIGHT } from '@/app/theme/constants';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -48,7 +48,16 @@ export class ErrorBoundary extends Component<Props, State> {
         >
           <div style={{ fontSize: 48, marginBottom: 16 }}>!</div>
           <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: T.red }}>页面出现错误</div>
-          <div style={{ fontSize: 13, color: T.text2, marginBottom: 20, textAlign: 'center', maxWidth: 400, lineHeight: 1.5 }}>
+          <div
+            style={{
+              fontSize: 13,
+              color: T.text2,
+              marginBottom: 20,
+              textAlign: 'center',
+              maxWidth: 400,
+              lineHeight: 1.5,
+            }}
+          >
             {this.state.error?.message || '未知错误'}
           </div>
           <button

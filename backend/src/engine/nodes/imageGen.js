@@ -1,5 +1,5 @@
-import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
 import { runImageGeneration } from '../../platform/ai/image-service.js';
+import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
 
 export async function execute(node, inputs, apiConfig, sendProgress) {
   const runtimeConfig = resolveRuntimeApiConfig(inputs, apiConfig, node.data?.model);

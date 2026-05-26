@@ -1,18 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PRESET_ROLES } from '@/domains/chat/constants';
-import type { AgentRole, ApiConfig, LogEntry, ModelInfo } from '@/shared/types';
-import type { ProviderConfig } from '@/shared/providers';
-import { ftime, gid, loadJSON } from '@/shared/runtime';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { isBackendAvailable } from '@/shared/api';
-import { loadAgentProfiles, saveAgentProfiles, type AgentProfile } from '@/shared/api/agent';
+import { type AgentProfile, loadAgentProfiles, saveAgentProfiles } from '@/shared/api/agent';
+import type { ProviderConfig } from '@/shared/providers';
+import { ftime, gid, loadJSON } from '@/shared/runtime';
+import type { AgentRole, ApiConfig, LogEntry, ModelInfo } from '@/shared/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { OutboundProxySettingsPayload, StreamMode, WorkflowConcurrencySettingsPayload } from './types';
 
 const MAX_LOGS = 500;
 
-export const mapLegacyStreamingMode = (value: unknown): StreamMode => (
-  value === 'real' || value === 'stream' ? 'stream' : 'non-stream'
-);
+export const mapLegacyStreamingMode = (value: unknown): StreamMode =>
+  value === 'real' || value === 'stream' ? 'stream' : 'non-stream';
 
 function getConfigLabel(config: ApiConfig, index: number) {
   return config.name?.trim() || config.base?.trim() || `API 配置 ${index + 1}`;
@@ -53,7 +52,8 @@ function toLegacyRole(profile: AgentProfile): AgentRole {
     tools: enabledTools
       .map((tool) => {
         if (tool === 'image.generate' || tool === 'generate_image') return 'generate_image';
-        if (tool === 'video.generate' || tool === 'generate_video' || tool === 'video_generate') return 'generate_video';
+        if (tool === 'video.generate' || tool === 'generate_video' || tool === 'video_generate')
+          return 'generate_video';
         if (tool === 'web.search' || tool === 'web_search') return 'web_search';
         if (tool === 'workflow.execute' || tool === 'workflow_execute') return null;
         return null;
@@ -108,37 +108,46 @@ export function useStudioSettingsState() {
     enabled: false,
     maxConcurrency: 5,
   });
-  const [chatStreamingMode, setChatStreamingMode] = useState<StreamMode>(() => mapLegacyStreamingMode(loadJSON('ai_chat_streaming_mode', loadJSON('ai_streaming_mode', 'non-stream'))));
-  const [imageStreamingMode, setImageStreamingMode] = useState<StreamMode>(() => mapLegacyStreamingMode(loadJSON('ai_image_streaming_mode', 'stream')));
-  const [videoStreamingMode, setVideoStreamingMode] = useState<StreamMode>(() => mapLegacyStreamingMode(loadJSON('ai_video_streaming_mode', 'stream')));
+  const [chatStreamingMode, setChatStreamingMode] = useState<StreamMode>(() =>
+    mapLegacyStreamingMode(loadJSON('ai_chat_streaming_mode', loadJSON('ai_streaming_mode', 'non-stream'))),
+  );
+  const [imageStreamingMode, setImageStreamingMode] = useState<StreamMode>(() =>
+    mapLegacyStreamingMode(loadJSON('ai_image_streaming_mode', 'stream')),
+  );
+  const [videoStreamingMode, setVideoStreamingMode] = useState<StreamMode>(() =>
+    mapLegacyStreamingMode(loadJSON('ai_video_streaming_mode', 'stream')),
+  );
 
   const customRoles = useMemo(
     () => agentProfiles.filter((profile) => profile.isCustom).map(toLegacyRole),
     [agentProfiles],
   );
-  const roles = useMemo(
-    () => agentProfiles.map(toLegacyRole),
-    [agentProfiles],
-  );
-  const customAgentProfiles = useMemo(
-    () => agentProfiles.filter((profile) => profile.isCustom),
-    [agentProfiles],
+  const roles = useMemo(() => agentProfiles.map(toLegacyRole), [agentProfiles]);
+  const customAgentProfiles = useMemo(() => agentProfiles.filter((profile) => profile.isCustom), [agentProfiles]);
+
+  const activeConfig = useMemo(
+    () => apiConfigs.find((item) => item.id === activeConfigId),
+    [apiConfigs, activeConfigId],
   );
 
-  const activeConfig = useMemo(() => apiConfigs.find((item) => item.id === activeConfigId), [apiConfigs, activeConfigId]);
-
-  const providerConfig = useMemo<ProviderConfig | undefined>(() => activeConfig?.providerConfig, [activeConfig?.providerConfig]);
+  const providerConfig = useMemo<ProviderConfig | undefined>(
+    () => activeConfig?.providerConfig,
+    [activeConfig?.providerConfig],
+  );
 
   const configuredProjectModels = useMemo(() => buildConfiguredProjectModels(apiConfigs), [apiConfigs]);
 
-  const applyConfig = useCallback((id: string) => {
-    const config = apiConfigs.find((item) => item.id === id);
-    if (!config) return;
-    setBase(config.base);
-    setApiKey(config.apiKey);
-    setModels(config.models);
-    setActiveConfigId(id);
-  }, [apiConfigs]);
+  const applyConfig = useCallback(
+    (id: string) => {
+      const config = apiConfigs.find((item) => item.id === id);
+      if (!config) return;
+      setBase(config.base);
+      setApiKey(config.apiKey);
+      setModels(config.models);
+      setActiveConfigId(id);
+    },
+    [apiConfigs],
+  );
 
   const addNewConfig = useCallback(() => {
     const id = gid();
@@ -146,14 +155,17 @@ export function useStudioSettingsState() {
     return id;
   }, []);
 
-  const deleteConfig = useCallback((id: string) => {
-    setApiConfigs((prev) => {
-      const next = prev.filter((config) => config.id !== id);
-      const nextActiveId = id === activeConfigId ? next[0]?.id : null;
-      if (nextActiveId) setTimeout(() => applyConfig(nextActiveId), 0);
-      return next;
-    });
-  }, [activeConfigId, applyConfig]);
+  const deleteConfig = useCallback(
+    (id: string) => {
+      setApiConfigs((prev) => {
+        const next = prev.filter((config) => config.id !== id);
+        const nextActiveId = id === activeConfigId ? next[0]?.id : null;
+        if (nextActiveId) setTimeout(() => applyConfig(nextActiveId), 0);
+        return next;
+      });
+    },
+    [activeConfigId, applyConfig],
+  );
 
   const addLog = useCallback((level: string, msg: string) => {
     const time = ftime(Date.now());
@@ -182,45 +194,57 @@ export function useStudioSettingsState() {
     };
   }, []);
 
-  const persistAgentProfiles = useCallback(async (updater: AgentProfile[] | ((prev: AgentProfile[]) => AgentProfile[])) => {
-    let nextProfiles: AgentProfile[] = [];
-    setAgentProfiles((prev) => {
-      nextProfiles = typeof updater === 'function' ? updater(prev) : updater;
-      return nextProfiles;
-    });
+  const persistAgentProfiles = useCallback(
+    async (updater: AgentProfile[] | ((prev: AgentProfile[]) => AgentProfile[])) => {
+      let nextProfiles: AgentProfile[] = [];
+      setAgentProfiles((prev) => {
+        nextProfiles = typeof updater === 'function' ? updater(prev) : updater;
+        return nextProfiles;
+      });
 
-    if (!isBackendAvailable()) return;
+      if (!isBackendAvailable()) return;
 
-    try {
-      await saveAgentProfiles(nextProfiles);
-    } catch {
-      // Keep optimistic UI state even if backend persistence fails.
-    }
-  }, []);
+      try {
+        await saveAgentProfiles(nextProfiles);
+      } catch {
+        // Keep optimistic UI state even if backend persistence fails.
+      }
+    },
+    [],
+  );
 
-  const upsertAgentProfile = useCallback(async (profile: AgentProfile) => {
-    await persistAgentProfiles((prev) => {
-      const next = prev.some((item) => item.id === profile.id)
-        ? prev.map((item) => (item.id === profile.id ? profile : item))
-        : [...prev, profile];
-      return next;
-    });
-  }, [persistAgentProfiles]);
+  const upsertAgentProfile = useCallback(
+    async (profile: AgentProfile) => {
+      await persistAgentProfiles((prev) => {
+        const next = prev.some((item) => item.id === profile.id)
+          ? prev.map((item) => (item.id === profile.id ? profile : item))
+          : [...prev, profile];
+        return next;
+      });
+    },
+    [persistAgentProfiles],
+  );
 
-  const deleteAgentProfile = useCallback(async (profileId: string) => {
-    await persistAgentProfiles((prev) => prev.filter((item) => item.id !== profileId));
-  }, [persistAgentProfiles]);
+  const deleteAgentProfile = useCallback(
+    async (profileId: string) => {
+      await persistAgentProfiles((prev) => prev.filter((item) => item.id !== profileId));
+    },
+    [persistAgentProfiles],
+  );
 
-  const setCustomRoles = useCallback(async (updater: AgentRole[] | ((prev: AgentRole[]) => AgentRole[])) => {
-    await persistAgentProfiles((prev) => {
-      const currentCustomRoles = prev.filter((profile) => profile.isCustom).map(toLegacyRole);
-      const nextRoles = typeof updater === 'function' ? updater(currentCustomRoles) : updater;
-      return [
-        ...prev.filter((profile) => !profile.isCustom),
-        ...nextRoles.map((role) => ({ ...toAgentProfile(role), isCustom: true })),
-      ];
-    });
-  }, [persistAgentProfiles]);
+  const setCustomRoles = useCallback(
+    async (updater: AgentRole[] | ((prev: AgentRole[]) => AgentRole[])) => {
+      await persistAgentProfiles((prev) => {
+        const currentCustomRoles = prev.filter((profile) => profile.isCustom).map(toLegacyRole);
+        const nextRoles = typeof updater === 'function' ? updater(currentCustomRoles) : updater;
+        return [
+          ...prev.filter((profile) => !profile.isCustom),
+          ...nextRoles.map((role) => ({ ...toAgentProfile(role), isCustom: true })),
+        ];
+      });
+    },
+    [persistAgentProfiles],
+  );
 
   return {
     activeConfig,

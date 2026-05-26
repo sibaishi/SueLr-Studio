@@ -8,9 +8,7 @@ export async function execute(_node, inputs, _apiConfig, sendProgress) {
     .sort(([keyA], [keyB]) => getInputIndex(keyA) - getInputIndex(keyB))
     .flatMap(([, value]) => {
       if (Array.isArray(value)) {
-        return value
-          .map((item) => String(item ?? '').trim())
-          .filter((item) => item.length > 0);
+        return value.map((item) => String(item ?? '').trim()).filter((item) => item.length > 0);
       }
       const image = String(value ?? '').trim();
       return image ? [image] : [];

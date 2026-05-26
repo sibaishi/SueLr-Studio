@@ -1,3 +1,5 @@
+import type { NodeExecStatus } from '@/domains/workflow/lib/store';
+import type { ProviderConfig } from '@/shared/providers';
 import {
   Bot,
   Clapperboard,
@@ -6,20 +8,18 @@ import {
   FileImage,
   Film,
   FolderDown,
-  Scan,
   KeyRound,
   Merge,
   Music2,
   PenTool,
-  Sparkles,
   Repeat,
+  Scan,
   ScanLine,
   Search,
+  Sparkles,
   SplitSquareVertical,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
-import type { ProviderConfig } from '@/shared/providers';
-import type { NodeExecStatus } from '@/domains/workflow/lib/store';
 
 type NodeIconComponent = ComponentType<{ size?: number | string; strokeWidth?: number; className?: string }>;
 

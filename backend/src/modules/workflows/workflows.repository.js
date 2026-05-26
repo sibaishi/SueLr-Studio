@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
 import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.js';
 import { BUILTIN_WORKFLOW_TEMPLATES } from './workflow-templates.js';

@@ -1,9 +1,9 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.js';
 import { STORAGE_PATHS, ensureStorageDirectories } from '../../platform/storage/index.js';
+import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.js';
 
 const UPLOADS_DIR = STORAGE_PATHS.uploadsDir;
 

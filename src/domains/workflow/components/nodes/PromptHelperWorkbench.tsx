@@ -1,18 +1,18 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
-import { createPortal } from 'react-dom';
-import { Camera, Lightbulb, Plus, Rows3, SquareMousePointer, Trash2, X } from 'lucide-react';
-import * as THREE from 'three';
 import {
+  PROMPT_HELPER_TOOLS,
+  type PromptHelperData,
+  type PromptHelperTool,
+  STORYBOARD_LAYOUT_PRESETS,
+  STORYBOARD_STYLE_PRESETS,
   buildPromptHelperPrompt,
   getPromptHelperToolLabel,
   normalizePromptHelperData,
-  PROMPT_HELPER_TOOLS,
-  STORYBOARD_LAYOUT_PRESETS,
-  STORYBOARD_STYLE_PRESETS,
   summarizePromptHelper,
-  type PromptHelperData,
-  type PromptHelperTool,
 } from '@/shared/workflow/prompt-helper';
+import { Camera, Lightbulb, Plus, Rows3, SquareMousePointer, Trash2, X } from 'lucide-react';
+import { type CSSProperties, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import * as THREE from 'three';
 
 type PromptHelperPatch = Partial<PromptHelperData>;
 type PromptHelperPoint = PromptHelperData['cameraConfig']['position'];
@@ -94,9 +94,15 @@ export function PromptHelperWorkbenchModal({
   const patch = (next: PromptHelperPatch) => onPatch(next as Record<string, unknown>);
 
   return createPortal(
-    <div className="prompt-helper-workbench" role="dialog" aria-modal="true" aria-label="辅助提示词工作台" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
+    <div
+      className="prompt-helper-workbench"
+      role="dialog"
+      aria-modal="true"
+      aria-label="辅助提示词工作台"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="prompt-helper-workbench__dialog" onMouseDown={(event) => event.stopPropagation()}>
         <header className="prompt-helper-workbench__header">
           <div>
@@ -115,7 +121,9 @@ export function PromptHelperWorkbenchModal({
               <button
                 key={tool.id}
                 type="button"
-                className={['prompt-helper-workbench__tab', normalized.activeTool === tool.id ? 'is-active' : ''].filter(Boolean).join(' ')}
+                className={['prompt-helper-workbench__tab', normalized.activeTool === tool.id ? 'is-active' : '']
+                  .filter(Boolean)
+                  .join(' ')}
                 onClick={() => patch({ activeTool: tool.id })}
               >
                 <Icon size={15} />
@@ -188,27 +196,78 @@ function CameraTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
 
   return (
     <div className="prompt-helper-tool">
-      <ThreeScene
-        cameraConfig={config}
-        interactionMode="camera"
-        onCameraPositionChange={patchPositionFromScene}
-      />
+      <ThreeScene cameraConfig={config} interactionMode="camera" onCameraPositionChange={patchPositionFromScene} />
       <div className="prompt-helper-controls">
         <label className="prompt-helper-field">
           <span>景别</span>
           <select value={config.shotSize} onChange={(event) => patchCamera({ shotSize: event.target.value })}>
-            {['远景', '全景', '中景', '近景', '特写'].map((item) => <option key={item} value={item}>{item}</option>)}
+            {['远景', '全景', '中景', '近景', '特写'].map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
           </select>
         </label>
-        <NumberField label="焦距 mm" value={config.focalLength} min={12} max={120} onChange={(value) => patchCamera({ focalLength: value })} />
-        <NumberField label="距离 m" value={config.distance} min={1} max={20} step={0.5} onChange={(value) => patchOrbit({ distance: value })} />
-        <NumberField label="角度 °" value={config.angle} min={-180} max={180} onChange={(value) => patchOrbit({ angle: value })} />
-        <NumberField label="高度 m" value={config.height} min={0} max={6} step={0.1} onChange={(value) => patchOrbit({ height: value })} />
-        <NumberField label="X" value={config.position.x} min={-8} max={8} step={0.1} onChange={(value) => patchPosition('x', value)} />
-        <NumberField label="Y" value={config.position.y} min={0} max={8} step={0.1} onChange={(value) => patchPosition('y', value)} />
-        <NumberField label="Z" value={config.position.z} min={-8} max={8} step={0.1} onChange={(value) => patchPosition('z', value)} />
+        <NumberField
+          label="焦距 mm"
+          value={config.focalLength}
+          min={12}
+          max={120}
+          onChange={(value) => patchCamera({ focalLength: value })}
+        />
+        <NumberField
+          label="距离 m"
+          value={config.distance}
+          min={1}
+          max={20}
+          step={0.5}
+          onChange={(value) => patchOrbit({ distance: value })}
+        />
+        <NumberField
+          label="角度 °"
+          value={config.angle}
+          min={-180}
+          max={180}
+          onChange={(value) => patchOrbit({ angle: value })}
+        />
+        <NumberField
+          label="高度 m"
+          value={config.height}
+          min={0}
+          max={6}
+          step={0.1}
+          onChange={(value) => patchOrbit({ height: value })}
+        />
+        <NumberField
+          label="X"
+          value={config.position.x}
+          min={-8}
+          max={8}
+          step={0.1}
+          onChange={(value) => patchPosition('x', value)}
+        />
+        <NumberField
+          label="Y"
+          value={config.position.y}
+          min={0}
+          max={8}
+          step={0.1}
+          onChange={(value) => patchPosition('y', value)}
+        />
+        <NumberField
+          label="Z"
+          value={config.position.z}
+          min={-8}
+          max={8}
+          step={0.1}
+          onChange={(value) => patchPosition('z', value)}
+        />
         <label className="prompt-helper-check">
-          <input type="checkbox" checked={config.preserveSubject} onChange={(event) => patchCamera({ preserveSubject: event.target.checked })} />
+          <input
+            type="checkbox"
+            checked={config.preserveSubject}
+            onChange={(event) => patchCamera({ preserveSubject: event.target.checked })}
+          />
           <span>保持主体一致</span>
         </label>
       </div>
@@ -222,7 +281,7 @@ function LightingTool({ data, onPatch }: { data: PromptHelperData; onPatch: (pat
   const patchLighting = (patch: Partial<typeof config>) => onPatch({ lightingConfig: { ...config, ...patch } });
   const updateLight = (index: number, patch: Record<string, unknown>) => {
     patchLighting({
-      lights: config.lights.map((light, lightIndex) => lightIndex === index ? { ...light, ...patch } : light),
+      lights: config.lights.map((light, lightIndex) => (lightIndex === index ? { ...light, ...patch } : light)),
     });
   };
   const directionToTarget = (position: PromptHelperPoint): PromptHelperPoint => {
@@ -277,8 +336,20 @@ function LightingTool({ data, onPatch }: { data: PromptHelperData; onPatch: (pat
       />
       <div className="prompt-helper-controls prompt-helper-controls--lights">
         <div className="prompt-helper-segmented">
-          <button type="button" className={config.mode === 'add' ? 'is-active' : ''} onClick={() => patchLighting({ mode: 'add' })}>增加光线</button>
-          <button type="button" className={config.mode === 'reshape' ? 'is-active' : ''} onClick={() => patchLighting({ mode: 'reshape' })}>重塑光线</button>
+          <button
+            type="button"
+            className={config.mode === 'add' ? 'is-active' : ''}
+            onClick={() => patchLighting({ mode: 'add' })}
+          >
+            增加光线
+          </button>
+          <button
+            type="button"
+            className={config.mode === 'reshape' ? 'is-active' : ''}
+            onClick={() => patchLighting({ mode: 'reshape' })}
+          >
+            重塑光线
+          </button>
         </div>
         <button type="button" className="prompt-helper-secondary" onClick={addLight}>
           <Plus size={14} /> 新增灯光
@@ -288,7 +359,12 @@ function LightingTool({ data, onPatch }: { data: PromptHelperData; onPatch: (pat
             <div key={light.id} className="prompt-helper-light-card">
               <div className="prompt-helper-light-card__header">
                 <input value={light.name} onChange={(event) => updateLight(index, { name: event.target.value })} />
-                <button type="button" onClick={() => patchLighting({ lights: config.lights.filter((_, lightIndex) => lightIndex !== index) })}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    patchLighting({ lights: config.lights.filter((_, lightIndex) => lightIndex !== index) })
+                  }
+                >
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -296,15 +372,34 @@ function LightingTool({ data, onPatch }: { data: PromptHelperData; onPatch: (pat
                 <label className="prompt-helper-field">
                   <span>类型</span>
                   <select value={light.type} onChange={(event) => updateLight(index, { type: event.target.value })}>
-                    {Object.entries(LIGHT_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    {Object.entries(LIGHT_TYPE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
                 </label>
-                <NumberField label="强度" value={light.intensity} min={0} max={5} step={0.1} onChange={(value) => updateLight(index, { intensity: value })} />
+                <NumberField
+                  label="强度"
+                  value={light.intensity}
+                  min={0}
+                  max={5}
+                  step={0.1}
+                  onChange={(value) => updateLight(index, { intensity: value })}
+                />
                 <label className="prompt-helper-field">
                   <span>颜色</span>
-                  <input type="color" value={light.color} onChange={(event) => updateLight(index, { color: event.target.value })} />
+                  <input
+                    type="color"
+                    value={light.color}
+                    onChange={(event) => updateLight(index, { color: event.target.value })}
+                  />
                 </label>
-                <button type="button" className="prompt-helper-secondary" onClick={() => updateLight(index, { direction: directionToTarget(light.position) })}>
+                <button
+                  type="button"
+                  className="prompt-helper-secondary"
+                  onClick={() => updateLight(index, { direction: directionToTarget(light.position) })}
+                >
                   指向主体
                 </button>
                 {(['x', 'y', 'z'] as const).map((axis) => (
@@ -345,20 +440,27 @@ function StoryboardTool({ data, onPatch }: { data: PromptHelperData; onPatch: (p
     const nextCount = Math.max(1, Math.min(12, Math.trunc(shotCount)));
     patchStoryboard({
       shotCount: nextCount,
-      shots: Array.from({ length: nextCount }, (_, index) => config.shots[index] || {
-        id: `shot-${index + 1}`,
-        duration: '',
-        content: '',
-        note: '',
-      }),
+      shots: Array.from(
+        { length: nextCount },
+        (_, index) =>
+          config.shots[index] || {
+            id: `shot-${index + 1}`,
+            duration: '',
+            content: '',
+            note: '',
+          },
+      ),
     });
   };
   const updateShot = (index: number, patch: Partial<PromptHelperData['storyboardConfig']['shots'][number]>) => {
-    patchStoryboard({ shots: config.shots.map((shot, shotIndex) => shotIndex === index ? { ...shot, ...patch } : shot) });
+    patchStoryboard({
+      shots: config.shots.map((shot, shotIndex) => (shotIndex === index ? { ...shot, ...patch } : shot)),
+    });
   };
   const layoutSpec = getStoryboardLayoutPreset(config.layoutPreset);
   const isCustomLayout = config.layoutPreset === 'custom';
-  const previewColumns = layoutSpec.columns || STORYBOARD_GRID_COLUMNS[config.layoutPreset] || Math.min(3, config.shotCount);
+  const previewColumns =
+    layoutSpec.columns || STORYBOARD_GRID_COLUMNS[config.layoutPreset] || Math.min(3, config.shotCount);
   const previewRatio = getStoryboardPreviewRatio(config.aspectRatio);
   const setLayoutPreset = (layoutPreset: string) => {
     const nextSpec = getStoryboardLayoutPreset(layoutPreset);
@@ -371,12 +473,16 @@ function StoryboardTool({ data, onPatch }: { data: PromptHelperData; onPatch: (p
       layoutPreset,
       shotCount: nextCount,
       aspectRatio: nextSpec.aspectRatio || config.aspectRatio,
-      shots: Array.from({ length: nextCount }, (_, index) => config.shots[index] || {
-        id: `shot-${index + 1}`,
-        duration: '',
-        content: '',
-        note: '',
-      }),
+      shots: Array.from(
+        { length: nextCount },
+        (_, index) =>
+          config.shots[index] || {
+            id: `shot-${index + 1}`,
+            duration: '',
+            content: '',
+            note: '',
+          },
+      ),
     });
   };
 
@@ -386,42 +492,85 @@ function StoryboardTool({ data, onPatch }: { data: PromptHelperData; onPatch: (p
         <label className="prompt-helper-field">
           <span>分镜图版式</span>
           <select value={config.layoutPreset} onChange={(event) => setLayoutPreset(event.target.value)}>
-            {STORYBOARD_LAYOUT_PRESETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            {STORYBOARD_LAYOUT_PRESETS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
           </select>
         </label>
-        <NumberField label="镜头数" value={config.shotCount} min={1} max={12} disabled={!isCustomLayout} onChange={setShotCount} />
+        <NumberField
+          label="镜头数"
+          value={config.shotCount}
+          min={1}
+          max={12}
+          disabled={!isCustomLayout}
+          onChange={setShotCount}
+        />
         <label className="prompt-helper-field">
           <span>整图画幅比例</span>
-          <select value={config.aspectRatio} disabled={!isCustomLayout} onChange={(event) => patchStoryboard({ aspectRatio: event.target.value })}>
-            {STORYBOARD_ASPECT_RATIOS.map((item) => <option key={item} value={item}>{item}</option>)}
+          <select
+            value={config.aspectRatio}
+            disabled={!isCustomLayout}
+            onChange={(event) => patchStoryboard({ aspectRatio: event.target.value })}
+          >
+            {STORYBOARD_ASPECT_RATIOS.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
           </select>
         </label>
         <label className="prompt-helper-field">
           <span>视觉风格</span>
           <select value={config.stylePreset} onChange={(event) => patchStoryboard({ stylePreset: event.target.value })}>
-            {STORYBOARD_STYLE_PRESETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            {STORYBOARD_STYLE_PRESETS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
           </select>
         </label>
-        <TextField label="自定义风格" value={config.customStyle} onChange={(value) => patchStoryboard({ customStyle: value, stylePreset: value.trim() ? 'custom' : config.stylePreset })} />
+        <TextField
+          label="自定义风格"
+          value={config.customStyle}
+          onChange={(value) =>
+            patchStoryboard({ customStyle: value, stylePreset: value.trim() ? 'custom' : config.stylePreset })
+          }
+        />
         <label className="prompt-helper-check">
-          <input type="checkbox" checked={config.continuity} onChange={(event) => patchStoryboard({ continuity: event.target.checked })} />
+          <input
+            type="checkbox"
+            checked={config.continuity}
+            onChange={(event) => patchStoryboard({ continuity: event.target.checked })}
+          />
           <span>保持连续性</span>
         </label>
         <label className="prompt-helper-check">
-          <input type="checkbox" checked={config.noText} onChange={(event) => patchStoryboard({ noText: event.target.checked })} />
+          <input
+            type="checkbox"
+            checked={config.noText}
+            onChange={(event) => patchStoryboard({ noText: event.target.checked })}
+          />
           <span>画面无文字</span>
         </label>
         <label className="prompt-helper-check">
-          <input type="checkbox" checked={config.includeShotNumbers} onChange={(event) => patchStoryboard({ includeShotNumbers: event.target.checked })} />
+          <input
+            type="checkbox"
+            checked={config.includeShotNumbers}
+            onChange={(event) => patchStoryboard({ includeShotNumbers: event.target.checked })}
+          />
           <span>允许镜头编号</span>
         </label>
       </div>
       <div
         className="prompt-helper-storyboard-sheet"
-        style={{
-          '--storyboard-columns': previewColumns,
-          '--storyboard-ratio': previewRatio,
-        } as CSSProperties}
+        style={
+          {
+            '--storyboard-columns': previewColumns,
+            '--storyboard-ratio': previewRatio,
+          } as CSSProperties
+        }
       >
         <div className="prompt-helper-shot-grid">
           {config.shots.map((shot, index) => (
@@ -431,15 +580,27 @@ function StoryboardTool({ data, onPatch }: { data: PromptHelperData; onPatch: (p
                 <div className="prompt-helper-shot-fields">
                   <label className="prompt-helper-shot-field prompt-helper-shot-field--duration">
                     <span>时长</span>
-                    <input value={shot.duration} onChange={(event) => updateShot(index, { duration: event.target.value })} placeholder="可空" />
+                    <input
+                      value={shot.duration}
+                      onChange={(event) => updateShot(index, { duration: event.target.value })}
+                      placeholder="可空"
+                    />
                   </label>
                   <label className="prompt-helper-shot-field">
                     <span>内容</span>
-                    <input value={shot.content} onChange={(event) => updateShot(index, { content: event.target.value })} placeholder="可空，让 AI 自由发挥" />
+                    <input
+                      value={shot.content}
+                      onChange={(event) => updateShot(index, { content: event.target.value })}
+                      placeholder="可空，让 AI 自由发挥"
+                    />
                   </label>
                   <label className="prompt-helper-shot-field">
                     <span>备注</span>
-                    <input value={shot.note} onChange={(event) => updateShot(index, { note: event.target.value })} placeholder="可空" />
+                    <input
+                      value={shot.note}
+                      onChange={(event) => updateShot(index, { note: event.target.value })}
+                      placeholder="可空"
+                    />
                   </label>
                 </div>
               </div>
@@ -455,12 +616,17 @@ function LayoutTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
   const config = data.layoutConfig;
   const patchLayout = (patch: Partial<typeof config>) => onPatch({ layoutConfig: { ...config, ...patch } });
   const updateBlock = (index: number, patch: Record<string, unknown>) => {
-    patchLayout({ blocks: config.blocks.map((block, blockIndex) => blockIndex === index ? { ...block, ...patch } : block) });
+    patchLayout({
+      blocks: config.blocks.map((block, blockIndex) => (blockIndex === index ? { ...block, ...patch } : block)),
+    });
   };
   const addBlock = () => {
     const index = config.blocks.length + 1;
     patchLayout({
-      blocks: [...config.blocks, { id: `block-${Date.now()}`, kind: 'portrait', label: `内容 ${index}`, x: 8, y: 8, w: 22, h: 28 }],
+      blocks: [
+        ...config.blocks,
+        { id: `block-${Date.now()}`, kind: 'portrait', label: `内容 ${index}`, x: 8, y: 8, w: 22, h: 28 },
+      ],
     });
   };
 
@@ -489,22 +655,53 @@ function LayoutTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
           <Plus size={14} /> 新增内容块
         </button>
         <label className="prompt-helper-check">
-          <input type="checkbox" checked={config.consistency} onChange={(event) => patchLayout({ consistency: event.target.checked })} />
+          <input
+            type="checkbox"
+            checked={config.consistency}
+            onChange={(event) => patchLayout({ consistency: event.target.checked })}
+          />
           <span>保持设计一致</span>
         </label>
         {config.blocks.map((block, index) => (
           <div key={block.id} className="prompt-helper-layout-card">
             <div className="prompt-helper-light-card__header">
               <input value={block.label} onChange={(event) => updateBlock(index, { label: event.target.value })} />
-              <button type="button" onClick={() => patchLayout({ blocks: config.blocks.filter((_, blockIndex) => blockIndex !== index) })}>
+              <button
+                type="button"
+                onClick={() => patchLayout({ blocks: config.blocks.filter((_, blockIndex) => blockIndex !== index) })}
+              >
                 <Trash2 size={14} />
               </button>
             </div>
             <div className="prompt-helper-light-card__grid">
-              <NumberField label="X %" value={block.x} min={0} max={92} onChange={(value) => updateBlock(index, { x: value })} />
-              <NumberField label="Y %" value={block.y} min={0} max={92} onChange={(value) => updateBlock(index, { y: value })} />
-              <NumberField label="宽 %" value={block.w} min={8} max={100} onChange={(value) => updateBlock(index, { w: value })} />
-              <NumberField label="高 %" value={block.h} min={8} max={100} onChange={(value) => updateBlock(index, { h: value })} />
+              <NumberField
+                label="X %"
+                value={block.x}
+                min={0}
+                max={92}
+                onChange={(value) => updateBlock(index, { x: value })}
+              />
+              <NumberField
+                label="Y %"
+                value={block.y}
+                min={0}
+                max={92}
+                onChange={(value) => updateBlock(index, { y: value })}
+              />
+              <NumberField
+                label="宽 %"
+                value={block.w}
+                min={8}
+                max={100}
+                onChange={(value) => updateBlock(index, { w: value })}
+              />
+              <NumberField
+                label="高 %"
+                value={block.h}
+                min={8}
+                max={100}
+                onChange={(value) => updateBlock(index, { h: value })}
+              />
             </div>
           </div>
         ))}
@@ -609,16 +806,25 @@ function ThreeScene({
       if (vector.lengthSq() < 0.0001) vector.set(0, -1, 0);
       return vector.normalize();
     };
-    const createSpotConeGeometry = (radius: number, length: number) => new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0), new THREE.Vector3(radius, length, radius),
-      new THREE.Vector3(0, 0, 0), new THREE.Vector3(-radius, length, radius),
-      new THREE.Vector3(0, 0, 0), new THREE.Vector3(radius, length, -radius),
-      new THREE.Vector3(0, 0, 0), new THREE.Vector3(-radius, length, -radius),
-      new THREE.Vector3(radius, length, radius), new THREE.Vector3(-radius, length, radius),
-      new THREE.Vector3(-radius, length, radius), new THREE.Vector3(-radius, length, -radius),
-      new THREE.Vector3(-radius, length, -radius), new THREE.Vector3(radius, length, -radius),
-      new THREE.Vector3(radius, length, -radius), new THREE.Vector3(radius, length, radius),
-    ]);
+    const createSpotConeGeometry = (radius: number, length: number) =>
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(radius, length, radius),
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(-radius, length, radius),
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(radius, length, -radius),
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(-radius, length, -radius),
+        new THREE.Vector3(radius, length, radius),
+        new THREE.Vector3(-radius, length, radius),
+        new THREE.Vector3(-radius, length, radius),
+        new THREE.Vector3(-radius, length, -radius),
+        new THREE.Vector3(-radius, length, -radius),
+        new THREE.Vector3(radius, length, -radius),
+        new THREE.Vector3(radius, length, -radius),
+        new THREE.Vector3(radius, length, radius),
+      ]);
     const orientAlongAxis = (object: THREE.Object3D, axis: MoveAxis) => {
       if (axis === 'x') object.rotation.z = -Math.PI / 2;
       if (axis === 'z') object.rotation.x = Math.PI / 2;
@@ -655,9 +861,21 @@ function ThreeScene({
       const axes = new THREE.Group();
       const targetType = owner.type === 'camera' ? 'cameraAxis' : 'lightAxis';
       const baseTarget = owner.type === 'camera' ? {} : { lightId: owner.lightId };
-      const xAxis = createAxisHandle('x', length, 0xef4444, { ...baseTarget, type: targetType, axis: 'x' } as MoveTarget);
-      const yAxis = createAxisHandle('y', length, 0x22c55e, { ...baseTarget, type: targetType, axis: 'y' } as MoveTarget);
-      const zAxis = createAxisHandle('z', length, 0x3b82f6, { ...baseTarget, type: targetType, axis: 'z' } as MoveTarget);
+      const xAxis = createAxisHandle('x', length, 0xef4444, {
+        ...baseTarget,
+        type: targetType,
+        axis: 'x',
+      } as MoveTarget);
+      const yAxis = createAxisHandle('y', length, 0x22c55e, {
+        ...baseTarget,
+        type: targetType,
+        axis: 'y',
+      } as MoveTarget);
+      const zAxis = createAxisHandle('z', length, 0x3b82f6, {
+        ...baseTarget,
+        type: targetType,
+        axis: 'z',
+      } as MoveTarget);
       axes.add(xAxis, yAxis, zAxis);
       return axes;
     };
@@ -675,14 +893,22 @@ function ThreeScene({
     cameraLens.position.z = 0.46;
     const cameraFrustum = new THREE.LineSegments(
       new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0.48), new THREE.Vector3(-0.38, -0.24, 1.28),
-        new THREE.Vector3(0, 0, 0.48), new THREE.Vector3(0.38, -0.24, 1.28),
-        new THREE.Vector3(0, 0, 0.48), new THREE.Vector3(-0.38, 0.24, 1.28),
-        new THREE.Vector3(0, 0, 0.48), new THREE.Vector3(0.38, 0.24, 1.28),
-        new THREE.Vector3(-0.38, -0.24, 1.28), new THREE.Vector3(0.38, -0.24, 1.28),
-        new THREE.Vector3(0.38, -0.24, 1.28), new THREE.Vector3(0.38, 0.24, 1.28),
-        new THREE.Vector3(0.38, 0.24, 1.28), new THREE.Vector3(-0.38, 0.24, 1.28),
-        new THREE.Vector3(-0.38, 0.24, 1.28), new THREE.Vector3(-0.38, -0.24, 1.28),
+        new THREE.Vector3(0, 0, 0.48),
+        new THREE.Vector3(-0.38, -0.24, 1.28),
+        new THREE.Vector3(0, 0, 0.48),
+        new THREE.Vector3(0.38, -0.24, 1.28),
+        new THREE.Vector3(0, 0, 0.48),
+        new THREE.Vector3(-0.38, 0.24, 1.28),
+        new THREE.Vector3(0, 0, 0.48),
+        new THREE.Vector3(0.38, 0.24, 1.28),
+        new THREE.Vector3(-0.38, -0.24, 1.28),
+        new THREE.Vector3(0.38, -0.24, 1.28),
+        new THREE.Vector3(0.38, -0.24, 1.28),
+        new THREE.Vector3(0.38, 0.24, 1.28),
+        new THREE.Vector3(0.38, 0.24, 1.28),
+        new THREE.Vector3(-0.38, 0.24, 1.28),
+        new THREE.Vector3(-0.38, 0.24, 1.28),
+        new THREE.Vector3(-0.38, -0.24, 1.28),
       ]),
       new THREE.LineBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.8 }),
     );
@@ -720,11 +946,54 @@ function ThreeScene({
     const cameraDragMeshes = [cameraBody, cameraLens, cameraHitTarget];
     type DragState =
       | { type: 'orbit'; pointerId: number; x: number; y: number }
-      | { type: 'camera'; pointerId: number; planeY: number; startClientY: number; startPosition: THREE.Vector3; offset: THREE.Vector3 }
-      | { type: 'light'; pointerId: number; lightId: string; planeY: number; startClientY: number; startPosition: THREE.Vector3; offset: THREE.Vector3 }
-      | { type: 'cameraAxis'; pointerId: number; axis: MoveAxis; startX: number; startY: number; startPosition: THREE.Vector3; pixelsPerUnit: number; screenAxis: THREE.Vector2; worldAxis: THREE.Vector3 }
-      | { type: 'lightAxis'; pointerId: number; lightId: string; axis: MoveAxis; startX: number; startY: number; startPosition: THREE.Vector3; pixelsPerUnit: number; screenAxis: THREE.Vector2; worldAxis: THREE.Vector3 }
-      | { type: 'lightDirection'; pointerId: number; lightId: string; position: THREE.Vector3; startClientY: number; startDirection: THREE.Vector3 }
+      | {
+          type: 'camera';
+          pointerId: number;
+          planeY: number;
+          startClientY: number;
+          startPosition: THREE.Vector3;
+          offset: THREE.Vector3;
+        }
+      | {
+          type: 'light';
+          pointerId: number;
+          lightId: string;
+          planeY: number;
+          startClientY: number;
+          startPosition: THREE.Vector3;
+          offset: THREE.Vector3;
+        }
+      | {
+          type: 'cameraAxis';
+          pointerId: number;
+          axis: MoveAxis;
+          startX: number;
+          startY: number;
+          startPosition: THREE.Vector3;
+          pixelsPerUnit: number;
+          screenAxis: THREE.Vector2;
+          worldAxis: THREE.Vector3;
+        }
+      | {
+          type: 'lightAxis';
+          pointerId: number;
+          lightId: string;
+          axis: MoveAxis;
+          startX: number;
+          startY: number;
+          startPosition: THREE.Vector3;
+          pixelsPerUnit: number;
+          screenAxis: THREE.Vector2;
+          worldAxis: THREE.Vector3;
+        }
+      | {
+          type: 'lightDirection';
+          pointerId: number;
+          lightId: string;
+          position: THREE.Vector3;
+          startClientY: number;
+          startDirection: THREE.Vector3;
+        }
       | null;
     let dragState: DragState = null;
     let hoveredTarget: MoveTarget | null = null;
@@ -745,7 +1014,8 @@ function ThreeScene({
     const getHitTarget = (event: PointerEvent) => {
       setPointerFromEvent(event);
       raycaster.setFromCamera(pointer, camera);
-      const axisHit = raycaster.intersectObjects([cameraAxes, ...Array.from(lightMarkers.values())], true)
+      const axisHit = raycaster
+        .intersectObjects([cameraAxes, ...Array.from(lightMarkers.values())], true)
         .find((hit) => hit.object.userData.moveTarget);
       if (axisHit?.object.userData.moveTarget) return axisHit.object.userData.moveTarget as MoveTarget;
       const cameraHit = raycaster.intersectObjects(cameraDragMeshes, false)[0];
@@ -753,7 +1023,8 @@ function ThreeScene({
       const lightObjects = Array.from(lightMarkers.values());
       const lightHit = raycaster.intersectObjects(lightObjects, true)[0];
       let lightObject: THREE.Object3D | null | undefined = lightHit?.object;
-      while (lightObject && !lightObject.userData.lightId && !lightObject.userData.moveTarget) lightObject = lightObject.parent;
+      while (lightObject && !lightObject.userData.lightId && !lightObject.userData.moveTarget)
+        lightObject = lightObject.parent;
       if (lightObject?.userData.moveTarget) return lightObject.userData.moveTarget as MoveTarget;
       while (lightObject && !lightObject.userData.lightId) lightObject = lightObject.parent;
       if (lightObject?.userData.lightId) {
@@ -795,8 +1066,29 @@ function ThreeScene({
       const pixelsPerUnit = Math.max(1, screenDelta.length());
       const screenAxis = screenDelta.normalize();
       return target.type === 'cameraAxis'
-        ? { type: 'cameraAxis', pointerId, axis: target.axis, startX: clientX, startY: clientY, startPosition, pixelsPerUnit, screenAxis, worldAxis: axisVector }
-        : { type: 'lightAxis', pointerId, lightId: target.lightId, axis: target.axis, startX: clientX, startY: clientY, startPosition, pixelsPerUnit, screenAxis, worldAxis: axisVector };
+        ? {
+            type: 'cameraAxis',
+            pointerId,
+            axis: target.axis,
+            startX: clientX,
+            startY: clientY,
+            startPosition,
+            pixelsPerUnit,
+            screenAxis,
+            worldAxis: axisVector,
+          }
+        : {
+            type: 'lightAxis',
+            pointerId,
+            lightId: target.lightId,
+            axis: target.axis,
+            startX: clientX,
+            startY: clientY,
+            startPosition,
+            pixelsPerUnit,
+            screenAxis,
+            worldAxis: axisVector,
+          };
     };
 
     const clampPoint = (point: THREE.Vector3) => ({
@@ -875,7 +1167,8 @@ function ThreeScene({
     const onPointerMove = (event: PointerEvent) => {
       const target = getHitTarget(event);
       hoveredTarget = target;
-      renderer.domElement.style.cursor = dragState && dragState.type !== 'orbit' ? 'grabbing' : target ? 'grab' : dragState ? 'grabbing' : 'move';
+      renderer.domElement.style.cursor =
+        dragState && dragState.type !== 'orbit' ? 'grabbing' : target ? 'grab' : dragState ? 'grabbing' : 'move';
       if (!dragState || dragState.pointerId !== event.pointerId) return;
 
       if (dragState.type === 'orbit') {
@@ -935,11 +1228,13 @@ function ThreeScene({
 
       if (event.shiftKey) {
         const dy = dragState.startClientY - event.clientY;
-        const next = clampPoint(new THREE.Vector3(
-          dragState.startPosition.x,
-          dragState.startPosition.y + dy * 0.025,
-          dragState.startPosition.z,
-        ));
+        const next = clampPoint(
+          new THREE.Vector3(
+            dragState.startPosition.x,
+            dragState.startPosition.y + dy * 0.025,
+            dragState.startPosition.z,
+          ),
+        );
         if (dragState.type === 'camera') callbacksRef.current.onCameraPositionChange?.(next);
         else callbacksRef.current.onLightPositionChange?.(dragState.lightId, next);
         event.preventDefault();
@@ -987,10 +1282,11 @@ function ThreeScene({
         markerGroup.userData.lightId = light.id;
         markerGroup.position.set(light.position.x, light.position.y, light.position.z);
         markerGroup.quaternion.copy(getDirectionQuaternion(light.direction));
-        const isActive = (dragState && dragState.type === 'light' && dragState.lightId === light.id)
-          || (hoveredTarget?.type === 'light' && hoveredTarget.lightId === light.id)
-          || (dragState && dragState.type === 'lightDirection' && dragState.lightId === light.id)
-          || (hoveredTarget?.type === 'lightDirection' && hoveredTarget.lightId === light.id);
+        const isActive =
+          (dragState && dragState.type === 'light' && dragState.lightId === light.id) ||
+          (hoveredTarget?.type === 'light' && hoveredTarget.lightId === light.id) ||
+          (dragState && dragState.type === 'lightDirection' && dragState.lightId === light.id) ||
+          (hoveredTarget?.type === 'lightDirection' && hoveredTarget.lightId === light.id);
         const marker = new THREE.Mesh(
           light.type === 'spot' ? new THREE.ConeGeometry(0.22, 0.46, 16) : new THREE.SphereGeometry(0.22, 16, 16),
           new THREE.MeshBasicMaterial({ color }),
@@ -1070,9 +1366,10 @@ function ThreeScene({
       const config = cameraConfigRef.current;
       cameraRig.position.set(config.position.x, config.position.y, config.position.z);
       cameraRig.lookAt(config.target.x, config.target.y, config.target.z);
-      const cameraActive = (dragState && (dragState.type === 'camera' || dragState.type === 'cameraAxis'))
-        || hoveredTarget?.type === 'camera'
-        || hoveredTarget?.type === 'cameraAxis';
+      const cameraActive =
+        (dragState && (dragState.type === 'camera' || dragState.type === 'cameraAxis')) ||
+        hoveredTarget?.type === 'camera' ||
+        hoveredTarget?.type === 'cameraAxis';
       (cameraGlow.material as THREE.MeshBasicMaterial).opacity = cameraActive ? 0.28 : 0.14;
       cameraBody.scale.setScalar(cameraActive ? 1.18 : 1);
       cameraLens.scale.setScalar(cameraActive ? 1.18 : 1);
@@ -1136,7 +1433,15 @@ function NumberField({
   return (
     <label className="prompt-helper-field">
       <span>{label}</span>
-      <input type="number" value={value} min={min} max={max} step={step} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} />
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
     </label>
   );
 }

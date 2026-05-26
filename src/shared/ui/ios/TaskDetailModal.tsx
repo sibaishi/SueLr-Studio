@@ -1,10 +1,10 @@
-import { X } from 'lucide-react';
 import { useT } from '@/providers/ThemeContext';
-import type { ImgTask } from '@/shared/types';
 import { ftime } from '@/shared/runtime';
+import type { ImgTask, VTask } from '@/shared/types';
 import { taskStatusColor, taskStatusLabel } from '@/shared/ui/status';
-import { glass, lightOverlay } from './glass';
+import { X } from 'lucide-react';
 import { IOSButton } from './IOSButton';
+import { glass, lightOverlay } from './glass';
 
 export function TaskDetailModal({
   task,
@@ -12,21 +12,22 @@ export function TaskDetailModal({
   onClose,
   onApply,
 }: {
-  task: ImgTask | null;
+  task: ImgTask | VTask | null;
   type: 'image' | 'video';
   onClose: () => void;
-  onApply: (task: ImgTask) => void;
+  onApply: (task: ImgTask | VTask) => void;
 }) {
   const T = useT();
 
   if (!task) return null;
 
   const isImage = type === 'image';
+  const imageTask = isImage ? (task as ImgTask) : null;
   const sizeLabel =
-    task.width && task.height
-      ? `${task.width} x ${task.height}${task.sizeSource === 'dimensions' ? '（已优先使用）' : ''}`
-      : task.ratio !== 'auto'
-        ? `${task.ratio}（按比例）`
+    imageTask?.width && imageTask.height
+      ? `${imageTask.width} x ${imageTask.height}${imageTask.sizeSource === 'dimensions' ? '（已优先使用）' : ''}`
+      : imageTask && imageTask.ratio !== 'auto'
+        ? `${imageTask.ratio}（按比例）`
         : '自动';
 
   return (
@@ -94,7 +95,7 @@ export function TaskDetailModal({
             {isImage && (
               <div>
                 <div style={{ fontSize: 11, color: T.text3, marginBottom: 4 }}>比例</div>
-                <div style={{ fontSize: 13, color: T.text }}>{task.ratio}</div>
+                <div style={{ fontSize: 13, color: T.text }}>{imageTask?.ratio}</div>
               </div>
             )}
           </div>
@@ -107,15 +108,15 @@ export function TaskDetailModal({
               </div>
               <div>
                 <div style={{ fontSize: 11, color: T.text3, marginBottom: 4 }}>质量</div>
-                <div style={{ fontSize: 13, color: T.text }}>{task.quality || '默认'}</div>
+                <div style={{ fontSize: 13, color: T.text }}>{imageTask?.quality || '默认'}</div>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: T.text3, marginBottom: 4 }}>张数</div>
-                <div style={{ fontSize: 13, color: T.text }}>{task.n || 1}</div>
+                <div style={{ fontSize: 13, color: T.text }}>{imageTask?.n || 1}</div>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: T.text3, marginBottom: 4 }}>格式</div>
-                <div style={{ fontSize: 13, color: T.text }}>{task.output_format || 'png'}</div>
+                <div style={{ fontSize: 13, color: T.text }}>{imageTask?.output_format || 'png'}</div>
               </div>
             </div>
           )}
@@ -133,32 +134,44 @@ export function TaskDetailModal({
             </div>
           </div>
 
-          {task.refImages && task.refImages.length > 0 && (
+          {imageTask && imageTask.refImages.length > 0 && (
             <div>
               <div style={{ fontSize: 11, color: T.text3, marginBottom: 8 }}>参考图片</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {task.refImages.map((image, index) => (
+                {imageTask.refImages.map((image, index) => (
                   <img
                     key={index}
                     src={image}
                     alt=""
-                    style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `1px solid ${T.border}` }}
+                    style={{
+                      width: 64,
+                      height: 64,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      border: `1px solid ${T.border}`,
+                    }}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {task.images && task.images.length > 0 && (
+          {imageTask && imageTask.images.length > 0 && (
             <div>
               <div style={{ fontSize: 11, color: T.text3, marginBottom: 8 }}>生成结果</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {task.images.map((image, index) => (
+                {imageTask.images.map((image, index) => (
                   <img
                     key={index}
                     src={image}
                     alt=""
-                    style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 10, border: `1px solid ${T.border}` }}
+                    style={{
+                      width: 100,
+                      height: 100,
+                      objectFit: 'cover',
+                      borderRadius: 10,
+                      border: `1px solid ${T.border}`,
+                    }}
                   />
                 ))}
               </div>

@@ -38,7 +38,9 @@ export function getDroppedFileNodeType(file: File) {
   if (
     mime.startsWith('text/') ||
     mime === 'application/json' ||
-    /\.(txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml)$/i.test(name)
+    /\.(txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml)$/i.test(
+      name,
+    )
   ) {
     return 'textInput';
   }

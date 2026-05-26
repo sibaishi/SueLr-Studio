@@ -1,7 +1,7 @@
-import { fileToBase64 } from '../helpers/fileHelper.js';
-import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
 import { runChatCompletion } from '../../platform/ai/chat-service.js';
 import { formatWebSearchResult, runWebSearch } from '../../platform/ai/search-service.js';
+import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
+import { fileToBase64 } from '../helpers/fileHelper.js';
 
 function normalizeTextInput(value) {
   if (Array.isArray(value)) {
@@ -186,7 +186,9 @@ export async function execute(node, inputs, apiConfig, sendProgress) {
         content: [
           systemPrompt,
           '已为你提供联网搜索结果。请优先基于这些结果回答；若结果不足或互相冲突，请明确说明不确定性，不要编造。',
-        ].filter(Boolean).join('\n\n'),
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
       },
       {
         role: 'user',

@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
-import { AutoTextarea, IOSButton, IOSInput, IOSLabel, IOSSelect, RoleIcon } from '@/shared/ui/ios';
 import { useT } from '@/providers/ThemeContext';
 import type { AgentProfile } from '@/shared/api/agent';
+import { AutoTextarea, IOSButton, IOSInput, IOSLabel, IOSSelect, RoleIcon } from '@/shared/ui/ios';
+import { useMemo, useState } from 'react';
 import { AGENT_TOOL_OPTIONS, MEMORY_MODE_OPTIONS, ROLE_ICONS } from './shared';
 
 type Props = {
@@ -133,14 +133,20 @@ export function AgentProfileEditor({ profile, onSave, onCancel }: Props) {
             value={draft.behavior?.memoryMode || 'auto'}
             onChange={(value) => setDraft((prev) => ({ ...prev, behavior: { ...prev.behavior, memoryMode: value } }))}
           >
-            {MEMORY_MODE_OPTIONS.map((option) => <option key={option.v} value={option.v}>{option.l}</option>)}
+            {MEMORY_MODE_OPTIONS.map((option) => (
+              <option key={option.v} value={option.v}>
+                {option.l}
+              </option>
+            ))}
           </IOSSelect>
         </div>
         <div>
           <IOSLabel>回复风格</IOSLabel>
           <IOSInput
             value={draft.behavior?.responseStyle || ''}
-            onChange={(value) => setDraft((prev) => ({ ...prev, behavior: { ...prev.behavior, responseStyle: value || 'balanced' } }))}
+            onChange={(value) =>
+              setDraft((prev) => ({ ...prev, behavior: { ...prev.behavior, responseStyle: value || 'balanced' } }))
+            }
             placeholder="例如 balanced"
           />
         </div>

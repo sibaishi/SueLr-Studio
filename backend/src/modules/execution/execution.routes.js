@@ -12,7 +12,15 @@ router.post(
   executionController.execute.bind(executionController),
 );
 
-router.get('/runs/:runId/status', validateParam('runId', validateExecutionRunId), executionController.getStatus.bind(executionController));
-router.post('/runs/:runId/cancel', validateParam('runId', validateExecutionRunId), executionController.cancel.bind(executionController));
+router.get(
+  '/runs/:runId/status',
+  validateParam('runId', validateExecutionRunId),
+  executionController.getStatus.bind(executionController),
+);
+router.post(
+  '/runs/:runId/cancel',
+  validateParam('runId', validateExecutionRunId),
+  executionController.cancel.bind(executionController),
+);
 
 export default router;

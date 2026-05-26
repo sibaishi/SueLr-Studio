@@ -98,5 +98,8 @@ export type PromptHelperData = {
 
 export function getPromptHelperToolLabel(tool: string): string;
 export function normalizePromptHelperData(data?: Record<string, unknown>): PromptHelperData;
-export function buildPromptHelperPrompt(data?: Record<string, unknown> | PromptHelperData, inputs?: Record<string, unknown>): string;
+export function buildPromptHelperPrompt(
+  data?: Record<string, unknown> | PromptHelperData,
+  inputs?: Record<string, unknown>,
+): string;
 export function summarizePromptHelper(data?: Record<string, unknown> | PromptHelperData): string;

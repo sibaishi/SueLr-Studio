@@ -1,10 +1,21 @@
+import type {
+  OutboundProxySettingsPayload,
+  StreamMode,
+  StudioSettingsPayload,
+  WorkflowConcurrencySettingsPayload,
+} from '@/features/settings';
+import type { StudioSettingsState } from '@/features/settings';
+import {
+  checkSettingsServer,
+  loadRuntimeCapabilities,
+  loadStudioSettings,
+  saveStudioSettings,
+  testSettingsConnection,
+} from '@/features/settings';
+import { debouncedSaveJSON } from '@/shared/runtime';
+import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/shared/types';
 import type { DependencyList, MutableRefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/shared/types';
-import type { OutboundProxySettingsPayload, StreamMode, StudioSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
-import type { StudioSettingsState } from '@/features/settings';
-import { checkSettingsServer, loadRuntimeCapabilities, loadStudioSettings, saveStudioSettings, testSettingsConnection } from '@/features/settings';
-import { debouncedSaveJSON } from '@/shared/runtime';
 
 type UseAppBootstrapParams = {
   hydratedRef: MutableRefObject<boolean>;
@@ -153,13 +164,19 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
           if (Array.isArray(loadedSettings.ui?.customRoles) && loadedSettings.ui.customRoles.length > 0) {
             params.settings.setCustomRoles(loadedSettings.ui.customRoles);
           }
-          if (loadedSettings.runtime?.outboundProxy) params.settings.setOutboundProxy(loadedSettings.runtime.outboundProxy);
-          if (loadedSettings.workflow?.concurrency) params.settings.setWorkflowConcurrency(loadedSettings.workflow.concurrency);
+          if (loadedSettings.runtime?.outboundProxy)
+            params.settings.setOutboundProxy(loadedSettings.runtime.outboundProxy);
+          if (loadedSettings.workflow?.concurrency)
+            params.settings.setWorkflowConcurrency(loadedSettings.workflow.concurrency);
           if (loadedSettings.ui?.lastTab) params.setTab(loadedSettings.ui.lastTab as Tab);
-          if (typeof loadedSettings.ui?.sidebarCollapsed === 'boolean') params.setSidebarCollapsed(loadedSettings.ui.sidebarCollapsed);
-          if (loadedSettings.ui?.chatStreamingMode) params.settings.setChatStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.chatStreamingMode));
-          if (loadedSettings.ui?.imageStreamingMode) params.settings.setImageStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.imageStreamingMode));
-          if (loadedSettings.ui?.videoStreamingMode) params.settings.setVideoStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.videoStreamingMode));
+          if (typeof loadedSettings.ui?.sidebarCollapsed === 'boolean')
+            params.setSidebarCollapsed(loadedSettings.ui.sidebarCollapsed);
+          if (loadedSettings.ui?.chatStreamingMode)
+            params.settings.setChatStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.chatStreamingMode));
+          if (loadedSettings.ui?.imageStreamingMode)
+            params.settings.setImageStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.imageStreamingMode));
+          if (loadedSettings.ui?.videoStreamingMode)
+            params.settings.setVideoStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.videoStreamingMode));
           params.settings.addLog('success', '已从本地存储恢复设置');
         }
       } else {
@@ -183,7 +200,9 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
             const nextModels = result.models;
             if (nextModels.length > 0) {
               params.settings.setModels(nextModels);
-              params.settings.setApiConfigs((prev) => prev.map((item) => (item.id === config.id ? { ...item, models: nextModels } : item)));
+              params.settings.setApiConfigs((prev) =>
+                prev.map((item) => (item.id === config.id ? { ...item, models: nextModels } : item)),
+              );
             }
             params.settings.addLog('success', `启动时自动加载 ${nextModels.length} 个模型`);
           } catch {

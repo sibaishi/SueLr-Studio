@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Copy, Download, ImagePlus } from 'lucide-react';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
+import { ChevronLeft, ChevronRight, Copy, Download, ImagePlus } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface PreviewImageItem {
   src: string;
@@ -32,9 +32,13 @@ export function ImagePreviewModal({
       .map((item) => ({ src: item.src, name: item.name || imageNameFromUrl(item.src) }));
     return normalized.length > 0 ? normalized : [{ src, name: imageNameFromUrl(src) }];
   }, [images, src]);
-  const resolvedInitialIndex = typeof initialIndex === 'number' && initialIndex >= 0 && initialIndex < gallery.length
-    ? initialIndex
-    : Math.max(0, gallery.findIndex((item) => item.src === src));
+  const resolvedInitialIndex =
+    typeof initialIndex === 'number' && initialIndex >= 0 && initialIndex < gallery.length
+      ? initialIndex
+      : Math.max(
+          0,
+          gallery.findIndex((item) => item.src === src),
+        );
   const [activeIndex, setActiveIndex] = useState(resolvedInitialIndex);
   const [copyStatus, setCopyStatus] = useState('');
   const activeImage = gallery[activeIndex] || gallery[0];
@@ -67,9 +71,7 @@ export function ImagePreviewModal({
       }
 
       const blob = await buildClipboardImageBlob(activeImage.src);
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob }),
-      ]);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setCopyStatus('已复制图片');
     } catch {
       setCopyStatus('复制图片失败');
@@ -149,20 +151,25 @@ export function ImagePreviewModal({
             </span>
           )}
           {onBackfillImage && (
-            <ImagePreviewActionButton icon={<ImagePlus size={14} />} label="回填到画布" onClick={() => onBackfillImage(activeImage)} />
+            <ImagePreviewActionButton
+              icon={<ImagePlus size={14} />}
+              label="回填到画布"
+              onClick={() => onBackfillImage(activeImage)}
+            />
           )}
-          <ImagePreviewActionButton icon={<Copy size={14} />} label="复制图片" onClick={() => { void handleCopyImage(); }} />
+          <ImagePreviewActionButton
+            icon={<Copy size={14} />}
+            label="复制图片"
+            onClick={() => {
+              void handleCopyImage();
+            }}
+          />
           <ImagePreviewActionButton icon={<Download size={14} />} label="另存为" onClick={handleSaveAs} />
         </div>
-        <img
-          src={activeImage.src}
-          alt={alt}
-          className="h-full w-full object-contain"
-          draggable={false}
-        />
+        <img src={activeImage.src} alt={alt} className="h-full w-full object-contain" draggable={false} />
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 

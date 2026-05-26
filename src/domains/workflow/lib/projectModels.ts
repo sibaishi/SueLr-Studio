@@ -55,9 +55,8 @@ export function normalizeProjectModel(value: unknown): ProjectModel | null {
   const modelId = cleanText(record.modelId || record.id);
   if (!id || !modelId) return null;
 
-  const type: ProjectModelType = record.type === 'chat' || record.type === 'image' || record.type === 'video'
-    ? record.type
-    : '';
+  const type: ProjectModelType =
+    record.type === 'chat' || record.type === 'image' || record.type === 'video' ? record.type : '';
   const endpointMode: ProjectModelEndpointMode = record.endpointMode === 'custom' ? 'custom' : 'category';
   const endpointCategory: ProjectModelEndpointCategory =
     record.endpointCategory === 'chat' ||
@@ -71,8 +70,8 @@ export function normalizeProjectModel(value: unknown): ProjectModel | null {
   const enabled = record.enabled !== false;
   const configured = Boolean(
     enabled &&
-    type &&
-    ((endpointMode === 'category' && endpointCategory) || (endpointMode === 'custom' && customEndpoint))
+      type &&
+      ((endpointMode === 'category' && endpointCategory) || (endpointMode === 'custom' && customEndpoint)),
   );
 
   return {

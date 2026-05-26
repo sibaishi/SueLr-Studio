@@ -4,6 +4,7 @@
 
 import type { ProviderConfig as SharedProviderConfig } from '@/shared/providers';
 import { DEFAULT_PROVIDER_CONFIG as SHARED_DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
+import type { ContentPart, ToolCallDef, ToolDefinition } from '@/shared/types';
 import type { ModelInfo } from '../types';
 
 type WorkflowModelOverride = {
@@ -22,14 +23,14 @@ export const DEFAULT_PROVIDER_CONFIG: ProviderConfig = {
 
 export interface ChatCompletionParams {
   model: string;
-  messages: Array<{ role: string; content: string | any[] }>;
-  tools?: any[];
+  messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: ToolCallDef[] }>;
+  tools?: ToolDefinition[];
   signal?: AbortSignal;
 }
 
 export interface ChatCompletionResult {
   content: string;
-  toolCalls: any[] | null;
+  toolCalls: ToolCallDef[] | null;
   finishReason: string;
 }
 

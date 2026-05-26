@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'node:fs';
 import sharp from 'sharp';
 import { createLogger } from '../../platform/logging/logger.js';
 import { ensureUploadThumbnail } from '../../platform/media/image-thumbnails.js';

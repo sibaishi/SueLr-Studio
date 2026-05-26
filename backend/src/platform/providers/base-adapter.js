@@ -20,7 +20,9 @@ export class BaseProviderAdapter {
   }
 
   buildHeaders(apiKey, providerConfig = {}) {
-    const key = String(apiKey || '').replace(/[^\x20-\x7E]/g, '').trim();
+    const key = String(apiKey || '')
+      .replace(/[^\x20-\x7E]/g, '')
+      .trim();
     const headers = { 'Content-Type': 'application/json' };
 
     switch (providerConfig.authType) {
@@ -28,7 +30,8 @@ export class BaseProviderAdapter {
         headers['X-API-Key'] = key;
         break;
       case 'custom':
-        headers[providerConfig.customHeaderName || 'Authorization'] = `${providerConfig.customPrefix ?? 'Bearer '}${key}`;
+        headers[providerConfig.customHeaderName || 'Authorization'] =
+          `${providerConfig.customPrefix ?? 'Bearer '}${key}`;
         break;
       default:
         headers.Authorization = `Bearer ${key}`;
@@ -67,6 +70,11 @@ export class BaseProviderAdapter {
 
   normalizeError(error, fallbackCode = 'PROVIDER_REQUEST_FAILED') {
     if (error?.status) return error;
-    return new ProviderError(fallbackCode, error instanceof Error ? error.message : '上游 Provider 请求失败', undefined, error);
+    return new ProviderError(
+      fallbackCode,
+      error instanceof Error ? error.message : '上游 Provider 请求失败',
+      undefined,
+      error,
+    );
   }
 }

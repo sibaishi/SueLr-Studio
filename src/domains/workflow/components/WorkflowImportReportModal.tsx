@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { AlertTriangle, CheckCircle2, GitBranch, RefreshCw } from 'lucide-react';
 import { buildImportReportSections, getImportModeLabel } from '@/domains/workflow/lib/importExport';
 import type { WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
+import { AlertTriangle, CheckCircle2, GitBranch, RefreshCw } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface WorkflowImportReportModalProps {
   fileName: string;
@@ -38,7 +38,9 @@ export default function WorkflowImportReportModal({
             <div className="workflow-panel__title">{fileName || 'workflow.json'}</div>
             <div className="workflow-panel__desc">查看迁移、警告和字段处理结果。</div>
           </div>
-          <div className={`workflow-import-modal__status ${hasWarnings ? 'workflow-import-modal__status--warning' : 'workflow-import-modal__status--success'}`}>
+          <div
+            className={`workflow-import-modal__status ${hasWarnings ? 'workflow-import-modal__status--warning' : 'workflow-import-modal__status--success'}`}
+          >
             {hasWarnings ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
             <span>{hasWarnings ? '已导入，含提示' : '导入成功'}</span>
           </div>
@@ -50,7 +52,9 @@ export default function WorkflowImportReportModal({
               <div className="workflow-results__section-title">{section.title}</div>
               <div className="workflow-import-modal__list">
                 {section.lines.map((line, index) => (
-                  <div key={`${section.title}-${index}`} className="workflow-import-modal__item">{line}</div>
+                  <div key={`${section.title}-${index}`} className="workflow-import-modal__item">
+                    {line}
+                  </div>
                 ))}
               </div>
             </section>
@@ -80,7 +84,11 @@ export default function WorkflowImportReportModal({
         )}
 
         <div className="workflow-import-modal__footer">
-          <button type="button" className="workflow-import-modal__button workflow-import-modal__button--primary" onClick={onClose}>
+          <button
+            type="button"
+            className="workflow-import-modal__button workflow-import-modal__button--primary"
+            onClick={onClose}
+          >
             关闭
           </button>
         </div>

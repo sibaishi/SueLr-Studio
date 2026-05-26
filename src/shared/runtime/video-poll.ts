@@ -69,11 +69,7 @@ function getVideoUrls(result: VideoPollResponse): string[] {
     'downloadUrl',
     'url',
   ]);
-  const fallbackCandidates = [
-    discovered,
-    extended.result_url,
-    extended.data?.result_url,
-  ];
+  const fallbackCandidates = [discovered, extended.result_url, extended.data?.result_url];
 
   const seen = new Set<string>();
   return [...directCandidates, ...fallbackCandidates]
@@ -86,9 +82,8 @@ function getVideoUrls(result: VideoPollResponse): string[] {
 }
 
 function getTaskError(result: VideoPollResponse, fallback: string): string {
-  const rawError = result.error
-    ?? result.data?.error
-    ?? findFirstStringByKeys(result, ['error', 'message', 'detail', 'reason']);
+  const rawError =
+    result.error ?? result.data?.error ?? findFirstStringByKeys(result, ['error', 'message', 'detail', 'reason']);
   if (!rawError) return fallback;
   if (typeof rawError === 'string') return rawError;
   if (typeof rawError === 'object') {
@@ -102,8 +97,14 @@ function readRawTaskStatus(result: VideoPollResponse): string | undefined {
   return findFirstStringByKeys(result, ['status', 'state', 'phase']);
 }
 
-export function normalizeVideoTaskStatus(rawStatus: string | undefined, hasVideoUrl = false, hasError = false): NormalizedVideoTaskStatus | undefined {
-  const normalized = String(rawStatus || '').trim().toLowerCase();
+export function normalizeVideoTaskStatus(
+  rawStatus: string | undefined,
+  hasVideoUrl = false,
+  hasError = false,
+): NormalizedVideoTaskStatus | undefined {
+  const normalized = String(rawStatus || '')
+    .trim()
+    .toLowerCase();
 
   if (['queued', 'pending', 'submitted', 'created'].includes(normalized)) return 'queued';
   if (['processing', 'running', 'in_progress', 'in-progress', 'progressing'].includes(normalized)) return 'processing';
@@ -115,7 +116,10 @@ export function normalizeVideoTaskStatus(rawStatus: string | undefined, hasVideo
   return undefined;
 }
 
-async function pollTask(taskId: string, apiConfig?: ApiConfigPayload): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; urls?: string[]; error?: string }> {
+async function pollTask(
+  taskId: string,
+  apiConfig?: ApiConfigPayload,
+): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; urls?: string[]; error?: string }> {
   const result = await capabilityPollVideoTask(taskId, apiConfig);
   const urls = getVideoUrls(result);
   const url = urls[0];
@@ -136,7 +140,7 @@ async function pollTaskWithCandidates(
   apiConfig?: ApiConfigPayload,
   apiConfigCandidates?: ApiConfigPayload[],
 ): Promise<{ status?: NormalizedVideoTaskStatus; rawStatus?: string; url?: string; urls?: string[]; error?: string }> {
-  const candidates = apiConfigCandidates?.length ? apiConfigCandidates : (apiConfig ? [apiConfig] : []);
+  const candidates = apiConfigCandidates?.length ? apiConfigCandidates : apiConfig ? [apiConfig] : [];
   if (candidates.length === 0) return pollTask(taskId);
 
   const errors: string[] = [];
@@ -153,7 +157,18 @@ async function pollTaskWithCandidates(
 }
 
 export function startVideoPoll(opts: PollOptions): () => void {
-  const { taskId, pollKey, pollRefs, apiConfig, apiConfigCandidates, onSuccess, onNoUrl, onFailure, onPollError, onStatusUpdate } = opts;
+  const {
+    taskId,
+    pollKey,
+    pollRefs,
+    apiConfig,
+    apiConfigCandidates,
+    onSuccess,
+    onNoUrl,
+    onFailure,
+    onPollError,
+    onStatusUpdate,
+  } = opts;
 
   const cleanup = () => {
     if (pollRefs.current[pollKey]) {
@@ -182,7 +197,7 @@ export function startVideoPoll(opts: PollOptions): () => void {
         cleanup();
         onFailure(result.error || 'Video generation failed');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (apiConfigCandidates?.length) {
         cleanup();
@@ -201,7 +216,17 @@ export function startVideoPoll(opts: PollOptions): () => void {
 export async function waitForVideoCompletion(
   opts: Omit<PollOptions, 'pollRefs' | 'pollKey'> & { intervalMs?: number },
 ): Promise<string> {
-  const { taskId, apiConfig, apiConfigCandidates, onSuccess, onNoUrl, onFailure, onPollError, onStatusUpdate, intervalMs = 5000 } = opts;
+  const {
+    taskId,
+    apiConfig,
+    apiConfigCandidates,
+    onSuccess,
+    onNoUrl,
+    onFailure,
+    onPollError,
+    onStatusUpdate,
+    intervalMs = 5000,
+  } = opts;
 
   while (true) {
     try {
@@ -226,7 +251,7 @@ export async function waitForVideoCompletion(
         onFailure(error);
         throw new Error(error);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (apiConfigCandidates?.length) {
         onFailure(message);

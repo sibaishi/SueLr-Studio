@@ -1,8 +1,15 @@
-import type { NodeTypeDef } from './types';
 import { NODE_REGISTRY as WORKFLOW_NODE_DEFS, getNodeDef as getSharedNodeDef } from '@/domains/workflow/nodes/registry';
+import type { NodeTypeDef } from './types';
 
 export const GRID_SIZE = 28;
-const VARIABLE_INPUT_MERGE_TYPES = new Set(['iterateRun', 'iterateImageRun', 'textMerge', 'imageMerge', 'videoMerge', 'audioMerge']);
+const VARIABLE_INPUT_MERGE_TYPES = new Set([
+  'iterateRun',
+  'iterateImageRun',
+  'textMerge',
+  'imageMerge',
+  'videoMerge',
+  'audioMerge',
+]);
 const DEFAULT_NODE_SIZE_UNITS = { w: 10, h: 6 };
 
 export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {

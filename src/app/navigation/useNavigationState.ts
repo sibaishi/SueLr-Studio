@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import type { Tab } from '@/shared/types';
 import { loadJSON } from '@/shared/runtime';
+import type { Tab } from '@/shared/types';
+import { useEffect, useState } from 'react';
 
 const SHORTCUT_TABS: Tab[] = ['chat', 'image', 'video', 'workflow', 'settings'];
 

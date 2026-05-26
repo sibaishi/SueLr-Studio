@@ -1,16 +1,16 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Memory } from '@/shared/types';
 import { MEMORY_PROMPT } from '@/domains/chat/constants';
-import { cleanKey, debouncedSaveJSON, gid, loadJSON } from '@/shared/runtime';
+import { isBackendAvailable } from '@/shared/api';
 import {
+  type AgentMemory,
   clearAgentMemories,
   deleteAgentMemory,
   importAgentMemories,
   loadAgentMemories,
-  type AgentMemory,
 } from '@/shared/api/agent';
-import { isBackendAvailable } from '@/shared/api';
 import { capabilityChatCompletion } from '@/shared/api/capabilities';
+import { cleanKey, debouncedSaveJSON, gid, loadJSON } from '@/shared/runtime';
+import type { Memory } from '@/shared/types';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const MAX_MEMORIES = 200;
 const MAX_MEMORY_CONTEXT_ITEMS = 30;
@@ -72,7 +72,10 @@ function buildMemoryContext(memories: Memory[]): string {
 function buildExtractionText(messages: { role: string; content: string }[]): string {
   return messages
     .slice(-MAX_EXTRACTION_MESSAGES)
-    .map((message) => `${message.role === 'user' ? 'User' : 'AI'}: ${message.content.slice(0, MAX_EXTRACTION_MESSAGE_LENGTH)}`)
+    .map(
+      (message) =>
+        `${message.role === 'user' ? 'User' : 'AI'}: ${message.content.slice(0, MAX_EXTRACTION_MESSAGE_LENGTH)}`,
+    )
     .join('\n');
 }
 
@@ -82,22 +85,26 @@ function parseExtractedMemories(reply: string): string[] {
     if (!match) return [];
     const items: unknown = JSON.parse(match[0]);
     if (!Array.isArray(items)) return [];
-    return items.filter((item): item is string => typeof item === 'string' && item.length > 0 && item.length < MAX_EXTRACTED_MEMORY_LENGTH);
+    return items.filter(
+      (item): item is string =>
+        typeof item === 'string' && item.length > 0 && item.length < MAX_EXTRACTED_MEMORY_LENGTH,
+    );
   } catch {
     return [];
   }
 }
 
-function toFrontendMemory(record: any): Memory | null {
+function toFrontendMemory(record: unknown): Memory | null {
   if (!record || typeof record !== 'object') return null;
-  const id = String(record.id || '').trim();
-  const content = String(record.content || '').trim();
+  const memoryRecord = record as Record<string, unknown>;
+  const id = String(memoryRecord.id || '').trim();
+  const content = String(memoryRecord.content || '').trim();
   if (!id || isMalformedMemoryContent(content)) return null;
   return {
     id,
     content,
-    convId: String(record.conversationId || record.convId || ''),
-    ts: Number(record.updatedAt || record.createdAt || record.ts || Date.now()),
+    convId: String(memoryRecord.conversationId || memoryRecord.convId || ''),
+    ts: Number(memoryRecord.updatedAt || memoryRecord.createdAt || memoryRecord.ts || Date.now()),
   };
 }
 
@@ -132,13 +139,16 @@ export function useMemory() {
       setMemories(dedupeFrontendMemories(normalized));
 
       const migrationDone = loadJSON<boolean>(MIGRATION_FLAG_KEY, false);
-      const legacyMemories = loadJSON<Memory[]>('ai_memories', [])
-        .filter((memory) => !isMalformedMemoryContent(memory?.content || ''));
+      const legacyMemories = loadJSON<Memory[]>('ai_memories', []).filter(
+        (memory) => !isMalformedMemoryContent(memory?.content || ''),
+      );
       if (!migrationDone && legacyMemories.length > 0) {
         await importAgentMemories(legacyMemories.map(toAgentMemory));
         debouncedSaveJSON(MIGRATION_FLAG_KEY, true);
         const refreshed = await loadAgentMemories();
-        setMemories(dedupeFrontendMemories(refreshed.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory))));
+        setMemories(
+          dedupeFrontendMemories(refreshed.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory))),
+        );
       }
     } catch {
       // Keep local fallback state when backend sync fails.
@@ -182,41 +192,52 @@ export function useMemory() {
     };
   }, []);
 
-  const addMemories = useCallback(async (items: string[], convId: string) => {
-    if (items.length === 0) return;
+  const addMemories = useCallback(
+    async (items: string[], convId: string) => {
+      if (items.length === 0) return;
 
-    const applyLocal = (prev: Memory[]) => {
-      const existing = prev.map((memory) => memory.content);
-      const newItems = items.filter((item) => !existing.some((entry) => entry.includes(item) || item.includes(entry)));
-      if (newItems.length === 0) return prev;
-      const now = Date.now();
-      const newMemories: Memory[] = newItems.map((content, index) => ({
-        id: gid(),
-        content,
-        convId,
-        ts: now + index,
-      }));
-      return [...newMemories, ...prev].slice(0, MAX_MEMORIES);
-    };
+      const applyLocal = (prev: Memory[]) => {
+        const existing = prev.map((memory) => memory.content);
+        const newItems = items.filter(
+          (item) => !existing.some((entry) => entry.includes(item) || item.includes(entry)),
+        );
+        if (newItems.length === 0) return prev;
+        const now = Date.now();
+        const newMemories: Memory[] = newItems.map((content, index) => ({
+          id: gid(),
+          content,
+          convId,
+          ts: now + index,
+        }));
+        return [...newMemories, ...prev].slice(0, MAX_MEMORIES);
+      };
 
-    if (isBackendAvailable()) {
-      const nextLocal = applyLocal(memories);
-      const diff = nextLocal.filter((memory) => !memories.some((existing) => existing.id === memory.id));
-      if (diff.length > 0) {
-        await importAgentMemories(diff.map(toAgentMemory));
-        const refreshed = await loadAgentMemories();
-        setMemories(dedupeFrontendMemories(refreshed.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory))));
+      if (isBackendAvailable()) {
+        const nextLocal = applyLocal(memories);
+        const diff = nextLocal.filter((memory) => !memories.some((existing) => existing.id === memory.id));
+        if (diff.length > 0) {
+          await importAgentMemories(diff.map(toAgentMemory));
+          const refreshed = await loadAgentMemories();
+          setMemories(
+            dedupeFrontendMemories(
+              refreshed.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory)),
+            ),
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    setMemories((prev) => dedupeFrontendMemories(applyLocal(prev)));
-  }, [memories]);
+      setMemories((prev) => dedupeFrontendMemories(applyLocal(prev)));
+    },
+    [memories],
+  );
 
   const deleteMemory = useCallback(async (id: string) => {
     if (isBackendAvailable()) {
       const next = await deleteAgentMemory(id);
-      setMemories(dedupeFrontendMemories(next.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory))));
+      setMemories(
+        dedupeFrontendMemories(next.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory))),
+      );
       return;
     }
     setMemories((prev) => dedupeFrontendMemories(prev.filter((memory) => memory.id !== id)));
@@ -232,13 +253,7 @@ export function useMemory() {
   const getMemoryContext = useCallback(() => buildMemoryContext(memories), [memories]);
 
   const scheduleExtraction = useCallback(
-    (
-      messages: { role: string; content: string }[],
-      convId: string,
-      model: string,
-      base: string,
-      apiKey: string,
-    ) => {
+    (messages: { role: string; content: string }[], convId: string, model: string, base: string, apiKey: string) => {
       if (messages.length < 2) return;
       if (extractTimer.current) clearTimeout(extractTimer.current);
       extractTimer.current = setTimeout(async () => {
@@ -273,14 +288,14 @@ export function useMemory() {
     try {
       const data = JSON.parse(json);
       if (!Array.isArray(data)) return;
-      const next = data
-        .map(toFrontendMemory)
-        .filter((memory): memory is Memory => Boolean(memory));
+      const next = data.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory));
 
       if (isBackendAvailable()) {
         await importAgentMemories(next.map(toAgentMemory));
         const refreshed = await loadAgentMemories();
-        setMemories(dedupeFrontendMemories(refreshed.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory))));
+        setMemories(
+          dedupeFrontendMemories(refreshed.map(toFrontendMemory).filter((memory): memory is Memory => Boolean(memory))),
+        );
         return;
       }
 

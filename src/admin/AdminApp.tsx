@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Gauge, Globe, KeyRound, Network } from 'lucide-react';
-import { useT, TCtx } from '@/providers/ThemeContext';
 import { DARK, LIGHT } from '@/app/theme/constants';
+import { TCtx, useT } from '@/providers/ThemeContext';
+import { Gauge, Globe, KeyRound, Network } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import '@/index.css';
-import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
 import {
+  type AdminSettingsPayload,
   loadAdminSettings,
   saveAdminSettings,
   testAdminSearch,
   validateAdminAccess,
-  type AdminSettingsPayload,
 } from '@/shared/api/admin';
+import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
 
 type AccessState = 'checking' | 'required' | 'ready' | 'denied';
 
@@ -54,7 +54,18 @@ function Section({
   return (
     <section style={{ ...panelStyle(), padding: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 14, background: 'rgba(0,122,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t-blue)' }}>
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 14,
+            background: 'rgba(0,122,255,0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--t-blue)',
+          }}
+        >
           {icon}
         </div>
         <div>
@@ -112,7 +123,10 @@ function AccessGate({
           />
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <IOSButton label={accessState === 'checking' ? '校验中...' : '进入管理端'} onClick={() => void handleAccessSubmit()} />
+          <IOSButton
+            label={accessState === 'checking' ? '校验中...' : '进入管理端'}
+            onClick={() => void handleAccessSubmit()}
+          />
         </div>
         {message ? <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c' }}>{message}</div> : null}
       </div>
@@ -183,24 +197,27 @@ function AdminScreen() {
     setSaving(true);
     setMessage('');
     try {
-      const next = await saveAdminSettings({
-        search: {
-          enabled: searchEnabled,
-          provider: searchProvider,
-          providerConfig: {
-            ...(tavilyApiKey ? { tavilyApiKey } : {}),
+      const next = await saveAdminSettings(
+        {
+          search: {
+            enabled: searchEnabled,
+            provider: searchProvider,
+            providerConfig: {
+              ...(tavilyApiKey ? { tavilyApiKey } : {}),
+            },
+          },
+          network: {
+            outboundProxy: {
+              mode: proxyMode,
+              ...(proxyMode === 'custom' ? { httpProxy, httpsProxy, noProxy } : { noProxy }),
+            },
+          },
+          features: {
+            adminConsoleEnabled: featureEnabled,
           },
         },
-        network: {
-          outboundProxy: {
-            mode: proxyMode,
-            ...(proxyMode === 'custom' ? { httpProxy, httpsProxy, noProxy } : { noProxy }),
-          },
-        },
-        features: {
-          adminConsoleEnabled: featureEnabled,
-        },
-      }, accessKey || undefined);
+        accessKey || undefined,
+      );
       setSettings(next);
       setMessage('管理员配置已保存');
     } catch (error) {
@@ -213,10 +230,11 @@ function AdminScreen() {
   const handleTestSearch = async () => {
     setMessage('');
     const result = await testAdminSearch(accessKey || undefined);
-    const successMessage = result.success && result.data && typeof result.data === 'object' && 'message' in result.data
-      ? String((result.data as { message?: string }).message || '搜索测试成功')
-      : '搜索测试成功';
-    setMessage(result.success ? successMessage : (result.error || '搜索测试失败'));
+    const successMessage =
+      result.success && result.data && typeof result.data === 'object' && 'message' in result.data
+        ? String((result.data as { message?: string }).message || '搜索测试成功')
+        : '搜索测试成功';
+    setMessage(result.success ? successMessage : result.error || '搜索测试失败');
   };
 
   if (accessState !== 'ready') {
@@ -235,16 +253,40 @@ function AdminScreen() {
     <TCtx.Provider value={theme}>
       <div data-theme={themeMode} style={{ minHeight: '100vh', padding: 24, overflow: 'auto' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
-          <header style={{ ...panelStyle(), padding: 22, display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <header
+            style={{
+              ...panelStyle(),
+              padding: 22,
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 16,
+              flexWrap: 'wrap',
+            }}
+          >
             <div>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t-text2)' }}>Separate Admin Console</div>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--t-text2)',
+                }}
+              >
+                Separate Admin Console
+              </div>
               <div style={{ fontSize: 30, fontWeight: 900, color: 'var(--t-text)', marginTop: 6 }}>部署级统一配置</div>
               <div style={{ fontSize: 13, color: 'var(--t-text2)', marginTop: 8, maxWidth: 620 }}>
-                这里控制联网搜索总闸、统一搜索凭据、代理配置和少量部署开关。用户自己的 Base URL、API Key、模型发现与启停仍留在主应用设置页。
+                这里控制联网搜索总闸、统一搜索凭据、代理配置和少量部署开关。用户自己的 Base URL、API
+                Key、模型发现与启停仍留在主应用设置页。
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignSelf: 'flex-start' }}>
-              {statusChips.map((item) => <span key={item.label} style={chipStyle(item.color)}>{item.label}</span>)}
+              {statusChips.map((item) => (
+                <span key={item.label} style={chipStyle(item.color)}>
+                  {item.label}
+                </span>
+              ))}
             </div>
           </header>
 
@@ -254,7 +296,10 @@ function AdminScreen() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <IOSLabel>联网搜索总开关</IOSLabel>
-                    <IOSSelect value={searchEnabled ? 'on' : 'off'} onChange={(value) => setSearchEnabled(value === 'on')}>
+                    <IOSSelect
+                      value={searchEnabled ? 'on' : 'off'}
+                      onChange={(value) => setSearchEnabled(value === 'on')}
+                    >
                       <option value="on">启用</option>
                       <option value="off">关闭</option>
                     </IOSSelect>
@@ -268,7 +313,14 @@ function AdminScreen() {
                 </div>
                 <div>
                   <IOSLabel>Tavily API Key</IOSLabel>
-                  <IOSInput value={tavilyApiKey} onChange={setTavilyApiKey} type="password" placeholder={settings?.search.providerConfig.tavilyApiKeySet ? '已配置，留空表示沿用已存储密钥' : 'tvly-...'} />
+                  <IOSInput
+                    value={tavilyApiKey}
+                    onChange={setTavilyApiKey}
+                    type="password"
+                    placeholder={
+                      settings?.search.providerConfig.tavilyApiKeySet ? '已配置，留空表示沿用已存储密钥' : 'tvly-...'
+                    }
+                  />
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <IOSButton label="测试搜索" onClick={() => void handleTestSearch()} />
@@ -283,7 +335,10 @@ function AdminScreen() {
               <div style={{ display: 'grid', gap: 12 }}>
                 <div>
                   <IOSLabel>代理模式</IOSLabel>
-                  <IOSSelect value={proxyMode} onChange={(value) => setProxyMode(value as 'system' | 'direct' | 'custom')}>
+                  <IOSSelect
+                    value={proxyMode}
+                    onChange={(value) => setProxyMode(value as 'system' | 'direct' | 'custom')}
+                  >
                     <option value="system">跟随系统</option>
                     <option value="direct">直连</option>
                     <option value="custom">自定义</option>
@@ -309,11 +364,17 @@ function AdminScreen() {
             </Section>
           </div>
 
-          <Section title="部署能力" description="第一版只保留少量部署级开关，为后续管理员后台扩展预留位置。" icon={<Gauge size={18} />}>
+          <Section
+            title="部署能力"
+            description="第一版只保留少量部署级开关，为后续管理员后台扩展预留位置。"
+            icon={<Gauge size={18} />}
+          >
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t-text)' }}>管理端可用</div>
-                <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 4 }}>关闭后可保留后端接口能力，但管理端入口会标记为禁用。</div>
+                <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 4 }}>
+                  关闭后可保留后端接口能力，但管理端入口会标记为禁用。
+                </div>
               </div>
               <IOSSelect value={featureEnabled ? 'on' : 'off'} onChange={(value) => setFeatureEnabled(value === 'on')}>
                 <option value="on">启用</option>
@@ -322,9 +383,30 @@ function AdminScreen() {
             </div>
           </Section>
 
-          <footer style={{ ...panelStyle(), padding: 18, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <footer
+            style={{
+              ...panelStyle(),
+              padding: 18,
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 12,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(52,199,89,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t-green)' }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  background: 'rgba(52,199,89,0.14)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--t-green)',
+                }}
+              >
                 <KeyRound size={16} />
               </div>
               <div style={{ fontSize: 12, color: 'var(--t-text2)' }}>

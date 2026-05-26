@@ -22,7 +22,7 @@ export async function compressImage(file: File, maxDim = 2048): Promise<string> 
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(width * scale);
       canvas.height = Math.round(height * scale);
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL('image/jpeg', 0.9));
     };
     img.src = url;

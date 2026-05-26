@@ -1,3 +1,12 @@
+import {
+  capabilityChatCompletion,
+  capabilityChatCompletionStream,
+  capabilityGenerateImage,
+  capabilitySubmitVideoGeneration,
+} from '@/shared/api/capabilities';
+import { cleanKey } from '@/shared/runtime';
+import type { ChatCompletionResponse, ModelInfo, ToolCallDef } from '@/shared/types';
+import { catModel } from './model-family';
 import type {
   AIProvider,
   ChatCompletionParams,
@@ -9,16 +18,7 @@ import type {
   VideoSubmitParams,
   VideoSubmitResult,
 } from './types';
-import type { ChatCompletionResponse, ModelInfo } from '@/shared/types';
 import { DEFAULT_PROVIDER_CONFIG } from './types';
-import { cleanKey } from '@/shared/runtime';
-import { catModel } from './model-family';
-import {
-  capabilityChatCompletion,
-  capabilityChatCompletionStream,
-  capabilityGenerateImage,
-  capabilitySubmitVideoGeneration,
-} from '@/shared/api/capabilities';
 
 type ModelsResponse = {
   data?: Array<{ id?: string }>;
@@ -116,7 +116,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
   }
 
   function chatCompletionStream(params: ChatCompletionParams, callbacks: StreamCallbacks): void {
-    let aborted = false;
+    const aborted = false;
 
     (async () => {
       try {
@@ -133,7 +133,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
         });
         const contentType = res.headers.get('content-type') || '';
         if (!res.body || contentType.includes('application/json')) {
-          const data = await res.json() as ChatCompletionResponse;
+          const data = (await res.json()) as ChatCompletionResponse;
           emitChatCompletionResult(buildChatResult(data), callbacks, aborted);
           return;
         }
@@ -142,7 +142,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
         const decoder = new TextDecoder('utf-8');
         let buffer = '';
         let fullContent = '';
-        let toolCalls: any[] | null = null;
+        let toolCalls: ToolCallDef[] | null = null;
         let finishReason = 'stop';
         let emittedFullMessage = false;
 
@@ -192,8 +192,8 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
             finishReason,
           });
         }
-      } catch (err: any) {
-        if (!aborted) callbacks.onError(err);
+      } catch (err: unknown) {
+        if (!aborted) callbacks.onError(err instanceof Error ? err : new Error(String(err)));
       }
     })();
   }
@@ -203,7 +203,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
     const res = await fetch(`${base}${endpoint}`, {
       headers: buildHeaders(),
     });
-    const data = await res.json() as ModelsResponse;
+    const data = (await res.json()) as ModelsResponse;
     return (data.data || [])
       .filter((model): model is { id: string } => typeof model.id === 'string')
       .map((model) => ({ id: model.id, cat: catModel(model.id) }));

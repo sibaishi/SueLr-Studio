@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type FocusEvent } from 'react';
+import { getNodeDef } from '@/domains/workflow/lib/constants';
+import type { ModelOption } from '@/domains/workflow/lib/projectModels';
+import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import type { ParamDef } from '@/domains/workflow/lib/types';
 import { selectDirectory } from '@/shared/api';
 import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import { pickBrowserDownloadDirectory } from '@/shared/runtime/browserDownload';
-import { getNodeDef } from '@/domains/workflow/lib/constants';
-import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import type { ParamDef } from '@/domains/workflow/lib/types';
-import type { ModelOption } from '@/domains/workflow/lib/projectModels';
+import { type FocusEvent, useEffect, useRef, useState } from 'react';
 import { LongTextEditorModal } from './LongTextEditorModal';
 import { useBufferedStringField } from './useBufferedStringField';
 
@@ -42,15 +42,16 @@ export function NodeParamFields({
 
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
-  const imageResizeSourceType = nodeId && nodeType === 'imageResize'
-    ? (() => {
-        const imageEdge = edges.find((edge) => edge.target === nodeId && edge.targetHandle === 'image');
-        if (!imageEdge?.sourceHandle) return null;
-        const sourceNode = nodes.find((node) => node.id === imageEdge.source);
-        const sourceDef = getNodeDef(sourceNode?.type || '');
-        return sourceDef?.outputs.find((output) => output.id === imageEdge.sourceHandle)?.type || null;
-      })()
-    : null;
+  const imageResizeSourceType =
+    nodeId && nodeType === 'imageResize'
+      ? (() => {
+          const imageEdge = edges.find((edge) => edge.target === nodeId && edge.targetHandle === 'image');
+          if (!imageEdge?.sourceHandle) return null;
+          const sourceNode = nodes.find((node) => node.id === imageEdge.source);
+          const sourceDef = getNodeDef(sourceNode?.type || '');
+          return sourceDef?.outputs.find((output) => output.id === imageEdge.sourceHandle)?.type || null;
+        })()
+      : null;
   const hasImageGroupInput = imageResizeSourceType === 'image[]';
 
   useEffect(() => {
@@ -77,17 +78,23 @@ export function NodeParamFields({
           'node-param-row',
           nodeType === 'aiChat' && row.some((item) => item.group === 'aiChatTop') ? 'node-param-row--ai-chat-top' : '',
           row.some((item) => item.type === 'textarea') ? 'node-param-row--textarea' : '',
-        ].filter(Boolean).join(' ');
-        const gridClassName = row.length > 1
-          ? [
-              'node-param-grid',
-              row.length === 3 ? 'node-param-grid--three' : '',
-              nodeType === 'aiChat' && row.some((item) => item.group === 'aiChatTop') ? 'node-param-grid--ai-chat-top' : '',
-            ].filter(Boolean).join(' ')
-          : [
-              'node-param-single',
-              row.some((item) => item.type === 'textarea') ? 'node-param-single--textarea' : '',
-            ].filter(Boolean).join(' ');
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const gridClassName =
+          row.length > 1
+            ? [
+                'node-param-grid',
+                row.length === 3 ? 'node-param-grid--three' : '',
+                nodeType === 'aiChat' && row.some((item) => item.group === 'aiChatTop')
+                  ? 'node-param-grid--ai-chat-top'
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+            : ['node-param-single', row.some((item) => item.type === 'textarea') ? 'node-param-single--textarea' : '']
+                .filter(Boolean)
+                .join(' ');
         return (
           <div key={`${row.map((item) => item.id).join('_')}_${index}`} className={rowClassName}>
             <div className={gridClassName}>
@@ -162,9 +169,12 @@ function ParamEditor({
   const handleBlur = (event: FocusEvent<HTMLElement>) => {
     event.currentTarget.classList.remove('node-field--focused');
   };
-  const textField = useBufferedStringField(String((value as string) ?? (param.default as string) ?? ''), (nextValue) => {
-    onChange(nextValue);
-  });
+  const textField = useBufferedStringField(
+    String((value as string) ?? (param.default as string) ?? ''),
+    (nextValue) => {
+      onChange(nextValue);
+    },
+  );
   const [isTextareaEditing, setIsTextareaEditing] = useState(false);
   const [isFullscreenTextEditing, setIsFullscreenTextEditing] = useState(false);
   const previewClickTimerRef = useRef<number | null>(null);
@@ -215,7 +225,7 @@ function ParamEditor({
   };
 
   switch (param.type) {
-    case 'textarea':
+    case 'textarea': {
       const lineCount = textField.value ? textField.value.split(/\r\n|\r|\n/).length : 0;
       const showLongTextHint = textField.value.length > 1000;
 
@@ -228,7 +238,6 @@ function ParamEditor({
               onChange={(event) => textField.onChange(event.target.value)}
               className="node-text-editor node-param-text-editor nodrag"
               placeholder="粘贴/输入文本..."
-              autoFocus
               onDoubleClick={() => setIsFullscreenTextEditing(true)}
               onFocus={(event) => {
                 textField.onFocus();
@@ -258,7 +267,9 @@ function ParamEditor({
           )}
           <div className="node-text-meta">
             <span>
-              {showLongTextHint ? `${lineCount} 行 · ${textField.value.length} 字符 · 双击可全屏编辑` : `${lineCount} 行 · ${textField.value.length} 字符`}
+              {showLongTextHint
+                ? `${lineCount} 行 · ${textField.value.length} 字符 · 双击可全屏编辑`
+                : `${lineCount} 行 · ${textField.value.length} 字符`}
             </span>
           </div>
           {isFullscreenTextEditing && (
@@ -273,6 +284,7 @@ function ParamEditor({
           )}
         </div>
       );
+    }
 
     case 'text':
       return (
@@ -304,17 +316,23 @@ function ParamEditor({
                 <button
                   type="button"
                   className="node-secondary-button node-param__picker-button"
-                  onClick={() => { void handlePickDirectory(); }}
+                  onClick={() => {
+                    void handlePickDirectory();
+                  }}
                   disabled={!canSelectDirectory && !isServerRuntime}
-                  title={isServerRuntime ? '授权浏览器自动下载目录' : (canSelectDirectory ? '选择文件夹' : '当前运行模式不支持目录选择器')}
+                  title={
+                    isServerRuntime
+                      ? '授权浏览器自动下载目录'
+                      : canSelectDirectory
+                        ? '选择文件夹'
+                        : '当前运行模式不支持目录选择器'
+                  }
                 >
                   {isServerRuntime ? '授权下载目录' : '选择文件夹'}
                 </button>
               </div>
               {!canSelectDirectory && !isServerRuntime ? (
-                <div className="node-param__hint">
-                  当前运行模式不支持目录选择器，请直接输入可访问的绝对路径。
-                </div>
+                <div className="node-param__hint">当前运行模式不支持目录选择器，请直接输入可访问的绝对路径。</div>
               ) : null}
               {isServerRuntime ? (
                 <div className="node-param__hint">
@@ -361,9 +379,14 @@ function ParamEditor({
           if (nodeType === 'aiChat') modelsForType = connectedApiModelGroups.chat || [];
           else if (nodeType === 'imageGen') modelsForType = connectedApiModelGroups.image || [];
           else if (nodeType === 'videoGen') modelsForType = connectedApiModelGroups.video || [];
-          else modelsForType = Array.isArray(connectedApiKeyNode.data?.apiModels)
-            ? connectedApiKeyNode.data.apiModels.map((id) => ({ label: String(id), value: String(id), modelId: String(id) }))
-            : [];
+          else
+            modelsForType = Array.isArray(connectedApiKeyNode.data?.apiModels)
+              ? connectedApiKeyNode.data.apiModels.map((id) => ({
+                  label: String(id),
+                  value: String(id),
+                  modelId: String(id),
+                }))
+              : [];
         } else if (nodeType === 'aiChat') modelsForType = availableModels.chat;
         else if (nodeType === 'imageGen') modelsForType = availableModels.image;
         else if (nodeType === 'videoGen') modelsForType = availableModels.video;
@@ -376,15 +399,17 @@ function ParamEditor({
 
       const currentValue = String(value ?? param.default ?? '');
       const displayedValue = modelLockedByApiKey && connectedApiModel ? connectedApiModel : currentValue;
-      const hasValidOption = displayedValue && selectOptions.some(
-        (option) => String(option.value) === displayedValue
-      );
+      const hasValidOption = displayedValue && selectOptions.some((option) => String(option.value) === displayedValue);
       const showCombinedModelHint = nodeType === 'aiChat' && param.group === 'aiChatTop' && param.id === 'model';
       const wrapperClassName = [
         'node-param',
         nodeType === 'aiChat' && param.group === 'aiChatTop' && param.id === 'model' ? 'node-param--ai-chat-model' : '',
-        nodeType === 'aiChat' && param.group === 'aiChatTop' && param.id === 'enableWebSearch' ? 'node-param--ai-chat-toggle' : '',
-      ].filter(Boolean).join(' ');
+        nodeType === 'aiChat' && param.group === 'aiChatTop' && param.id === 'enableWebSearch'
+          ? 'node-param--ai-chat-toggle'
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
 
       return (
         <div className={wrapperClassName}>
@@ -402,17 +427,21 @@ function ParamEditor({
             onBlur={handleBlur}
           >
             <option value="" disabled>
-              {modelLockedByApiKey ? (connectedApiModel || '由 API Key 节点指定') : (selectOptions.length === 0 ? '还没有可用模型，请先配置或检测' : '请选择...')}
+              {modelLockedByApiKey
+                ? connectedApiModel || '由 API Key 节点指定'
+                : selectOptions.length === 0
+                  ? '还没有可用模型，请先配置或检测'
+                  : '请选择...'}
             </option>
-            {displayedValue && !hasValidOption && (
-              <option value={displayedValue}>{displayedValue}</option>
-            )}
-            {Object.entries(selectOptions.reduce<Record<string, typeof selectOptions>>((groups, option) => {
-              const group = String((option as { group?: string }).group || '');
-              groups[group] = groups[group] || [];
-              groups[group].push(option);
-              return groups;
-            }, {})).map(([group, options]) => (
+            {displayedValue && !hasValidOption && <option value={displayedValue}>{displayedValue}</option>}
+            {Object.entries(
+              selectOptions.reduce<Record<string, typeof selectOptions>>((groups, option) => {
+                const group = String((option as { group?: string }).group || '');
+                groups[group] = groups[group] || [];
+                groups[group].push(option);
+                return groups;
+              }, {}),
+            ).map(([group, options]) =>
               group ? (
                 <optgroup key={group} label={group}>
                   {options.map((option) => (
@@ -421,12 +450,14 @@ function ParamEditor({
                     </option>
                   ))}
                 </optgroup>
-              ) : options.map((option) => (
-                <option key={String(option.value)} value={String(option.value)}>
-                  {option.label}
-                </option>
-              ))
-            ))}
+              ) : (
+                options.map((option) => (
+                  <option key={String(option.value)} value={String(option.value)}>
+                    {option.label}
+                  </option>
+                ))
+              ),
+            )}
           </select>
           {isModelParam && !modelLockedByApiKey && !suppressModelHint && !showCombinedModelHint && (
             <div className="node-param__hint">
@@ -488,9 +519,7 @@ function ParamEditor({
         <div className="node-param">
           <div className="node-param__row">
             <label className="node-param__label">{param.label}</label>
-            <span className="node-param__value">
-              {sliderValue.toFixed((param.step ?? 1) < 1 ? 1 : 0)}
-            </span>
+            <span className="node-param__value">{sliderValue.toFixed((param.step ?? 1) < 1 ? 1 : 0)}</span>
           </div>
           <input
             type="range"
@@ -515,7 +544,9 @@ function ParamEditor({
         'node-param',
         'node-param--toggle',
         nodeType === 'aiChat' && param.group === 'aiChatTop' ? 'node-param--ai-chat-toggle' : '',
-      ].filter(Boolean).join(' ');
+      ]
+        .filter(Boolean)
+        .join(' ');
       return (
         <div className={wrapperClassName}>
           <label className="node-param__label">{param.label}</label>
@@ -532,9 +563,7 @@ function ParamEditor({
           >
             <span className="node-toggle__thumb" />
           </button>
-          {searchToggleDisabled ? (
-            <div className="node-param__hint">{runtimeSearchDisabledReason}</div>
-          ) : null}
+          {searchToggleDisabled ? <div className="node-param__hint">{runtimeSearchDisabledReason}</div> : null}
         </div>
       );
     }

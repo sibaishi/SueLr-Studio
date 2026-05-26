@@ -2,17 +2,17 @@
 // Flow Studio - Workflow Store
 // ============================================================
 
-import { create } from 'zustand';
 import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
-import { loadLocalDraft } from '@/domains/workflow/lib/store/persistence';
-import type { WorkflowState } from '@/domains/workflow/lib/store/types';
 import { createWorkflowDocumentActions } from '@/domains/workflow/lib/store/document';
-import { createWorkflowExecutionActions } from '@/domains/workflow/lib/store/execution';
 import { createWorkflowEditorActions } from '@/domains/workflow/lib/store/editor';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
+import { createWorkflowExecutionActions } from '@/domains/workflow/lib/store/execution';
 import { gid } from '@/domains/workflow/lib/store/helpers';
 import { normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
+import { loadLocalDraft } from '@/domains/workflow/lib/store/persistence';
+import type { WorkflowState } from '@/domains/workflow/lib/store/types';
+import { create } from 'zustand';
 
 export type {
   ActiveRunSnapshot,
@@ -76,4 +76,3 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   ...createWorkflowExecutionActions(set, get),
   ...createWorkflowDocumentActions(set, get, { initialDraft }),
 }));
-

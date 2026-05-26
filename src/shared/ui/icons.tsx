@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -55,8 +54,14 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
+import type React from 'react';
 
-type LucideIcon = React.ComponentType<{ size?: number | string; style?: React.CSSProperties; className?: string; strokeWidth?: number }>;
+type LucideIcon = React.ComponentType<{
+  size?: number | string;
+  style?: React.CSSProperties;
+  className?: string;
+  strokeWidth?: number;
+}>;
 
 const ICON_MAP: Record<string, LucideIcon> = {
   bot: Bot,
@@ -115,25 +120,76 @@ const ICON_MAP: Record<string, LucideIcon> = {
   workflow: Workflow,
 };
 
-export function Icon({ name, size = 16, style, className, strokeWidth }: { name: string; size?: number; style?: React.CSSProperties; className?: string; strokeWidth?: number }) {
+export function Icon({
+  name,
+  size = 16,
+  style,
+  className,
+  strokeWidth,
+}: { name: string; size?: number; style?: React.CSSProperties; className?: string; strokeWidth?: number }) {
   const Comp = ICON_MAP[name];
-  if (!Comp) return <span style={{ fontSize: size, ...style }} className={className}>?</span>;
+  if (!Comp)
+    return (
+      <span style={{ fontSize: size, ...style }} className={className}>
+        ?
+      </span>
+    );
   return <Comp size={size} style={style} className={className} strokeWidth={strokeWidth || 2} />;
 }
 
 export const I = {
-  bot: 'bot', palette: 'palette', clapperboard: 'clapperboard', settings: 'settings',
-  moon: 'moon', sun: 'sun', monitor: 'monitor', message: 'message',
-  paperclip: 'paperclip', clipboard: 'clipboard', download: 'download',
-  refresh: 'refresh', trash: 'trash', search: 'search', zap: 'zap',
-  brain: 'brain', lightbulb: 'lightbulb', folder: 'folder', eye: 'eye', eyeoff: 'eyeoff',
-  music: 'music', filetext: 'filetext', sparkles: 'sparkles', code: 'code',
-  globe: 'globe', pen: 'pen', camera: 'camera', target: 'target',
-  chart: 'chart', flask: 'flask', chef: 'chef', game: 'game',
-  book: 'book', upload: 'upload', chevronright: 'chevronright',
-  warning: 'warning', check: 'check', xcircle: 'xcircle',
-  info: 'info', alertcircle: 'alertcircle', star: 'star', database: 'database',
-  chevrondown: 'chevrondown', plus: 'plus', send: 'send', image: 'image',
-  video: 'video', mic: 'mic', play: 'play', x: 'x', copy: 'copy', rotateccw: 'rotateccw',
-  wand: 'wand', workflow: 'workflow',
+  bot: 'bot',
+  palette: 'palette',
+  clapperboard: 'clapperboard',
+  settings: 'settings',
+  moon: 'moon',
+  sun: 'sun',
+  monitor: 'monitor',
+  message: 'message',
+  paperclip: 'paperclip',
+  clipboard: 'clipboard',
+  download: 'download',
+  refresh: 'refresh',
+  trash: 'trash',
+  search: 'search',
+  zap: 'zap',
+  brain: 'brain',
+  lightbulb: 'lightbulb',
+  folder: 'folder',
+  eye: 'eye',
+  eyeoff: 'eyeoff',
+  music: 'music',
+  filetext: 'filetext',
+  sparkles: 'sparkles',
+  code: 'code',
+  globe: 'globe',
+  pen: 'pen',
+  camera: 'camera',
+  target: 'target',
+  chart: 'chart',
+  flask: 'flask',
+  chef: 'chef',
+  game: 'game',
+  book: 'book',
+  upload: 'upload',
+  chevronright: 'chevronright',
+  warning: 'warning',
+  check: 'check',
+  xcircle: 'xcircle',
+  info: 'info',
+  alertcircle: 'alertcircle',
+  star: 'star',
+  database: 'database',
+  chevrondown: 'chevrondown',
+  plus: 'plus',
+  send: 'send',
+  image: 'image',
+  video: 'video',
+  mic: 'mic',
+  play: 'play',
+  x: 'x',
+  copy: 'copy',
+  rotateccw: 'rotateccw',
+  wand: 'wand',
+  workflow: 'workflow',
 } as const;

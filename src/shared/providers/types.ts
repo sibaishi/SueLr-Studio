@@ -1,6 +1,6 @@
-import type { ContentPart, ToolCallDef, ToolDefinition, ModelInfo } from '@/shared/types';
-import type { ProviderConfig } from './provider-config';
 import type { ApiConfigPayload } from '@/shared/api/capabilities';
+import type { ContentPart, ModelInfo, ToolCallDef, ToolDefinition } from '@/shared/types';
+import type { ProviderConfig } from './provider-config';
 
 export type { ProviderConfig } from './provider-config';
 
@@ -17,7 +17,7 @@ export const DEFAULT_PROVIDER_CONFIG: ProviderConfig = {
 
 export interface ChatCompletionParams {
   model: string;
-  messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: any[] }>;
+  messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: ToolCallDef[] }>;
   tools?: ToolDefinition[];
   signal?: AbortSignal;
 }

@@ -1,6 +1,6 @@
+import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 
 interface LongTextEditorModalProps {
   title: string;
@@ -57,14 +57,18 @@ export function LongTextEditorModal({
           <div>
             <div className="long-text-editor-modal__title">{title}</div>
           </div>
-          <button type="button" className="long-text-editor-modal__close" onClick={onClose} aria-label={readOnly ? '关闭全屏查看' : '关闭全屏编辑'}>
+          <button
+            type="button"
+            className="long-text-editor-modal__close"
+            onClick={onClose}
+            aria-label={readOnly ? '关闭全屏查看' : '关闭全屏编辑'}
+          >
             <X size={18} />
           </button>
         </div>
         {segments ? (
           <div
             className="long-text-editor-modal__segments"
-            tabIndex={0}
             onKeyDown={(event) => {
               event.stopPropagation();
               if (event.key === 'Escape') onClose();

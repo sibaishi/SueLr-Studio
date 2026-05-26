@@ -1,6 +1,6 @@
 import { apiRequestOrThrow, isBackendAvailable } from '@/shared/api';
-import type { ContentPart } from '@/shared/types';
 import type { ApiConfigPayload } from '@/shared/api/capabilities';
+import type { ContentPart, ToolCallDef } from '@/shared/types';
 
 const API = '/api/agent';
 
@@ -35,7 +35,7 @@ export type AgentMemory = {
 export type AgentChatMessage = {
   role: string;
   content: string | ContentPart[];
-  tool_calls?: any[];
+  tool_calls?: ToolCallDef[];
 };
 
 export type AgentChatResult = {
@@ -49,7 +49,7 @@ export type AgentChatResult = {
   assistantMessage: {
     role: string;
     content: string;
-    tool_calls?: any[];
+    tool_calls?: ToolCallDef[];
   };
   toolTrace: Array<{
     name: string;
@@ -155,7 +155,7 @@ export async function sendAgentChatStream(params: {
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     try {
-      const payload = await response.json() as { error?: { message?: string } };
+      const payload = (await response.json()) as { error?: { message?: string } };
       if (payload?.error?.message) {
         message = payload.error.message;
       }

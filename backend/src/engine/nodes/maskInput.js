@@ -1,9 +1,9 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.js';
 import { STORAGE_PATHS, ensureStorageDirectories } from '../../platform/storage/index.js';
+import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.js';
 
 const UPLOADS_DIR = STORAGE_PATHS.uploadsDir;
 
@@ -89,9 +89,7 @@ export async function execute(node, _inputs, _apiConfig, sendProgress) {
   const hasAlpha = Boolean(metadata.hasAlpha);
   sendProgress?.(hasAlpha ? '检测到透明通道，按 Alpha 转遮罩...' : '未检测到透明通道，按灰度转遮罩...');
 
-  const maskSource = hasAlpha
-    ? sourceImage.ensureAlpha().extractChannel('alpha')
-    : sourceImage.grayscale();
+  const maskSource = hasAlpha ? sourceImage.ensureAlpha().extractChannel('alpha') : sourceImage.grayscale();
 
   const binaryMaskBuffer = await maskSource
     .threshold(threshold, { grayscale: true })

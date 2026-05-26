@@ -1,7 +1,7 @@
-import type { Edge, Node } from '@xyflow/react';
 import { getExpandedNodeOutputs, getNodeDef } from '@/domains/workflow/lib/constants';
 import { gid } from '@/domains/workflow/lib/store/helpers';
 import type { PortDataType } from '@/shared/workflow/types';
+import type { Edge, Node } from '@xyflow/react';
 
 export type GroupPortSide = 'input' | 'output';
 
@@ -114,11 +114,7 @@ function getOutsideLinkLimit(side: GroupPortSide) {
   return side === 'input' ? 1 : Number.POSITIVE_INFINITY;
 }
 
-function resolvePortTypeFromInsideLinks(
-  side: GroupPortSide,
-  links: GroupPortLink[],
-  nodeMap?: Map<string, Node>,
-) {
+function resolvePortTypeFromInsideLinks(side: GroupPortSide, links: GroupPortLink[], nodeMap?: Map<string, Node>) {
   if (!nodeMap || links.length === 0) return null;
 
   if (side === 'input') {
@@ -130,12 +126,7 @@ function resolvePortTypeFromInsideLinks(
   return getNodeHandleType(nodeMap.get(link.nodeId), link.handleId, 'output');
 }
 
-function resolvePortLinksFromEdges(
-  groupId: string,
-  portId: string,
-  side: GroupPortSide,
-  edges: Edge[],
-) {
+function resolvePortLinksFromEdges(groupId: string, portId: string, side: GroupPortSide, edges: Edge[]) {
   const insideLinks: GroupPortLink[] = [];
   const outsideLinks: GroupPortLink[] = [];
   let matched = false;
@@ -146,11 +137,11 @@ function resolvePortLinksFromEdges(
 
     if (side === 'input') {
       if (
-        edge.target === groupId
-        && targetDescriptor?.side === 'input'
-        && targetDescriptor.role === 'external'
-        && targetDescriptor.portId === portId
-        && edge.sourceHandle
+        edge.target === groupId &&
+        targetDescriptor?.side === 'input' &&
+        targetDescriptor.role === 'external' &&
+        targetDescriptor.portId === portId &&
+        edge.sourceHandle
       ) {
         matched = true;
         outsideLinks.push({
@@ -160,11 +151,11 @@ function resolvePortLinksFromEdges(
       }
 
       if (
-        edge.source === groupId
-        && sourceDescriptor?.side === 'input'
-        && sourceDescriptor.role === 'internal'
-        && sourceDescriptor.portId === portId
-        && edge.targetHandle
+        edge.source === groupId &&
+        sourceDescriptor?.side === 'input' &&
+        sourceDescriptor.role === 'internal' &&
+        sourceDescriptor.portId === portId &&
+        edge.targetHandle
       ) {
         matched = true;
         insideLinks.push({
@@ -176,11 +167,11 @@ function resolvePortLinksFromEdges(
     }
 
     if (
-      edge.target === groupId
-      && targetDescriptor?.side === 'output'
-      && targetDescriptor.role === 'internal'
-      && targetDescriptor.portId === portId
-      && edge.sourceHandle
+      edge.target === groupId &&
+      targetDescriptor?.side === 'output' &&
+      targetDescriptor.role === 'internal' &&
+      targetDescriptor.portId === portId &&
+      edge.sourceHandle
     ) {
       matched = true;
       insideLinks.push({
@@ -190,11 +181,11 @@ function resolvePortLinksFromEdges(
     }
 
     if (
-      edge.source === groupId
-      && sourceDescriptor?.side === 'output'
-      && sourceDescriptor.role === 'external'
-      && sourceDescriptor.portId === portId
-      && edge.targetHandle
+      edge.source === groupId &&
+      sourceDescriptor?.side === 'output' &&
+      sourceDescriptor.role === 'external' &&
+      sourceDescriptor.portId === portId &&
+      edge.targetHandle
     ) {
       matched = true;
       outsideLinks.push({
@@ -211,14 +202,8 @@ function resolvePortLinksFromEdges(
   };
 }
 
-export function buildGroupHandleId(
-  side: GroupPortSide,
-  portId: string,
-  role?: 'external' | 'internal',
-) {
-  return role
-    ? `${GROUP_HANDLE_PREFIX}:${side}:${role}:${portId}`
-    : `${GROUP_HANDLE_PREFIX}:${side}:${portId}`;
+export function buildGroupHandleId(side: GroupPortSide, portId: string, role?: 'external' | 'internal') {
+  return role ? `${GROUP_HANDLE_PREFIX}:${side}:${role}:${portId}` : `${GROUP_HANDLE_PREFIX}:${side}:${portId}`;
 }
 
 export function parseGroupHandleId(handleId: string | null | undefined): GroupHandleDescriptor | null {
@@ -283,7 +268,9 @@ export function getNodeHandleType(
     return def.inputs.find((port) => port.id === handleId)?.type || null;
   }
 
-  const outputs = def.maxOutputs ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>) : def.outputs;
+  const outputs = def.maxOutputs
+    ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>)
+    : def.outputs;
   return outputs.find((port) => port.id === handleId)?.type || null;
 }
 
@@ -297,11 +284,7 @@ function createEmptyGroupPort(side: GroupPortSide, index: number): GroupPort {
   };
 }
 
-function normalizeGroupPortRecord(
-  value: unknown,
-  side: GroupPortSide,
-  index: number,
-): GroupPort | null {
+function normalizeGroupPortRecord(value: unknown, side: GroupPortSide, index: number): GroupPort | null {
   if (!value || typeof value !== 'object') return null;
 
   const record = value as Record<string, unknown>;
@@ -310,7 +293,7 @@ function normalizeGroupPortRecord(
   return {
     id: normalizePortId(record.id),
     label: normalizePortLabel(record.label, side, index),
-    type: typeof record.type === 'string' ? record.type as PortDataType : null,
+    type: typeof record.type === 'string' ? (record.type as PortDataType) : null,
     insideLinks: normalizePortLinks(record.insideLinks ?? (legacyBinding ? [legacyBinding] : [])),
     outsideLinks: normalizePortLinks(record.outsideLinks),
   };
@@ -336,35 +319,23 @@ function normalizeGroupPortListInternal(
   const empty: GroupPort[] = [];
 
   for (const parsedPort of parsed) {
-    const derivedLinks = edges && groupId
-      ? resolvePortLinksFromEdges(groupId, parsedPort.id, side, edges)
-      : null;
-    const resolvedInsideLinksSource = derivedLinks?.matched
-      ? derivedLinks.insideLinks
-      : parsedPort.insideLinks;
-    const resolvedOutsideLinksSource = derivedLinks?.matched
-      ? derivedLinks.outsideLinks
-      : parsedPort.outsideLinks;
+    const derivedLinks = edges && groupId ? resolvePortLinksFromEdges(groupId, parsedPort.id, side, edges) : null;
+    const resolvedInsideLinksSource = derivedLinks?.matched ? derivedLinks.insideLinks : parsedPort.insideLinks;
+    const resolvedOutsideLinksSource = derivedLinks?.matched ? derivedLinks.outsideLinks : parsedPort.outsideLinks;
 
     const insideLinks = takeLimitedLinks(
-      normalizePortLinks(
-        resolvedInsideLinksSource,
-        descendantIds || undefined,
-      ),
+      normalizePortLinks(resolvedInsideLinksSource, descendantIds || undefined),
       getInsideLinkLimit(side),
     );
 
-    const outsideLinks = takeLimitedLinks(
-      normalizePortLinks(resolvedOutsideLinksSource),
-      getOutsideLinkLimit(side),
-    );
+    const outsideLinks = takeLimitedLinks(normalizePortLinks(resolvedOutsideLinksSource), getOutsideLinkLimit(side));
 
     const resolvedType = resolvePortTypeFromInsideLinks(side, insideLinks, nodeMap || undefined);
     const hasLinks = insideLinks.length > 0 || outsideLinks.length > 0;
     const nextPort: GroupPort = {
       ...parsedPort,
       label: normalizePortLabel(parsedPort.label, side, occupied.length + empty.length + 1),
-      type: hasLinks ? (resolvedType || parsedPort.type || null) : null,
+      type: hasLinks ? resolvedType || parsedPort.type || null : null,
       insideLinks,
       outsideLinks,
     };
@@ -402,10 +373,7 @@ function normalizeGroupPortListInternal(
 }
 
 export function getGroupPorts(data: Record<string, unknown>, side: GroupPortSide) {
-  return normalizeGroupPortListInternal(
-    side === 'input' ? data.groupInputs : data.groupOutputs,
-    side,
-  );
+  return normalizeGroupPortListInternal(side === 'input' ? data.groupInputs : data.groupOutputs, side);
 }
 
 export function updateGroupPortList(
@@ -415,9 +383,7 @@ export function updateGroupPortList(
 ) {
   const current = getGroupPorts(data, side);
   const next = normalizeGroupPortListInternal(updater(current), side);
-  return side === 'input'
-    ? { groupInputs: next }
-    : { groupOutputs: next };
+  return side === 'input' ? { groupInputs: next } : { groupOutputs: next };
 }
 
 function shouldIgnoreBoundaryEdge(edge: Edge, options?: BoundaryPortBuildOptions) {
@@ -437,19 +403,22 @@ function buildAutoExposedInputPorts(
 
   for (const edge of edges) {
     if (shouldIgnoreBoundaryEdge(edge, options)) continue;
-    if (selectedIds.has(edge.source) || !selectedIds.has(edge.target) || !edge.sourceHandle || !edge.targetHandle) continue;
+    if (selectedIds.has(edge.source) || !selectedIds.has(edge.target) || !edge.sourceHandle || !edge.targetHandle)
+      continue;
 
     const targetType = getNodeHandleType(nodeMap.get(edge.target), edge.targetHandle, 'input');
     if (!targetType) continue;
 
     const key = `${edge.source}:${edge.sourceHandle}:${targetType}`;
-    const current = groups.get(key) || {
-      id: `group_port_${gid()}`,
-      label: getDefaultGroupPortLabel('input', groups.size + 1),
-      type: targetType,
-      insideLinks: [],
-      outsideLinks: [{ nodeId: edge.source, handleId: edge.sourceHandle }],
-    } satisfies GroupPort;
+    const current =
+      groups.get(key) ||
+      ({
+        id: `group_port_${gid()}`,
+        label: getDefaultGroupPortLabel('input', groups.size + 1),
+        type: targetType,
+        insideLinks: [],
+        outsideLinks: [{ nodeId: edge.source, handleId: edge.sourceHandle }],
+      } satisfies GroupPort);
 
     current.insideLinks = normalizePortLinks([
       ...current.insideLinks,
@@ -472,19 +441,22 @@ function buildAutoExposedOutputPorts(
 
   for (const edge of edges) {
     if (shouldIgnoreBoundaryEdge(edge, options)) continue;
-    if (!selectedIds.has(edge.source) || selectedIds.has(edge.target) || !edge.sourceHandle || !edge.targetHandle) continue;
+    if (!selectedIds.has(edge.source) || selectedIds.has(edge.target) || !edge.sourceHandle || !edge.targetHandle)
+      continue;
 
     const sourceType = getNodeHandleType(nodeMap.get(edge.source), edge.sourceHandle, 'output');
     if (!sourceType) continue;
 
     const key = `${edge.source}:${edge.sourceHandle}:${sourceType}`;
-    const current = groups.get(key) || {
-      id: `group_port_${gid()}`,
-      label: getDefaultGroupPortLabel('output', groups.size + 1),
-      type: sourceType,
-      insideLinks: [{ nodeId: edge.source, handleId: edge.sourceHandle }],
-      outsideLinks: [],
-    } satisfies GroupPort;
+    const current =
+      groups.get(key) ||
+      ({
+        id: `group_port_${gid()}`,
+        label: getDefaultGroupPortLabel('output', groups.size + 1),
+        type: sourceType,
+        insideLinks: [{ nodeId: edge.source, handleId: edge.sourceHandle }],
+        outsideLinks: [],
+      } satisfies GroupPort);
 
     current.outsideLinks = normalizePortLinks([
       ...current.outsideLinks,
@@ -539,10 +511,13 @@ export function findGroupPortByLink(
   const linkKey = getLinkKey(link);
   if (!linkKey) return null;
 
-  return getGroupPorts(data, side).find((port) => (
-    (location === 'inside' ? port.insideLinks : port.outsideLinks)
-      .some((portLink) => getLinkKey(portLink) === linkKey)
-  )) || null;
+  return (
+    getGroupPorts(data, side).find((port) =>
+      (location === 'inside' ? port.insideLinks : port.outsideLinks).some(
+        (portLink) => getLinkKey(portLink) === linkKey,
+      ),
+    ) || null
+  );
 }
 
 export function findGroupPortByBinding(
@@ -563,11 +538,11 @@ export function normalizeGroupPortNodes(nodes: Node[], edges: Edge[]) {
     });
     const mergeAutoExposedPorts = (side: GroupPortSide, currentValue: unknown, autoValue: unknown) => {
       const currentPorts = normalizeGroupPortListInternal(currentValue, side, nodes, node.id, edges);
-      const autoPortsForSide = normalizeGroupPortListInternal(autoValue, side).filter((port) => !isGroupPortEmpty(port));
+      const autoPortsForSide = normalizeGroupPortListInternal(autoValue, side).filter(
+        (port) => !isGroupPortEmpty(port),
+      );
       const seenInsideLinks = new Set(
-        currentPorts
-          .flatMap((port) => port.insideLinks.map((link) => getLinkKey(link)))
-          .filter(Boolean),
+        currentPorts.flatMap((port) => port.insideLinks.map((link) => getLinkKey(link))).filter(Boolean),
       );
       const nextPorts = [...currentPorts];
 
@@ -610,8 +585,8 @@ export function pruneGroupPortEdges(nodes: Node[], edges: Edge[]) {
       }
 
       if (
-        (sourceDescriptor.side === 'input' && sourceDescriptor.role !== 'internal')
-        || (sourceDescriptor.side === 'output' && sourceDescriptor.role !== 'external')
+        (sourceDescriptor.side === 'input' && sourceDescriptor.role !== 'internal') ||
+        (sourceDescriptor.side === 'output' && sourceDescriptor.role !== 'external')
       ) {
         return false;
       }
@@ -624,14 +599,12 @@ export function pruneGroupPortEdges(nodes: Node[], edges: Edge[]) {
       if (!sourcePort) return false;
 
       if (sourceDescriptor.side === 'input') {
-        return sourcePort.insideLinks.some((link) => (
-          edge.target === link.nodeId && edge.targetHandle === link.handleId
-        ));
+        return sourcePort.insideLinks.some(
+          (link) => edge.target === link.nodeId && edge.targetHandle === link.handleId,
+        );
       }
 
-      return sourcePort.outsideLinks.some((link) => (
-        edge.target === link.nodeId && edge.targetHandle === link.handleId
-      ));
+      return sourcePort.outsideLinks.some((link) => edge.target === link.nodeId && edge.targetHandle === link.handleId);
     }
 
     if (targetDescriptor) {
@@ -640,8 +613,8 @@ export function pruneGroupPortEdges(nodes: Node[], edges: Edge[]) {
       }
 
       if (
-        (targetDescriptor.side === 'input' && targetDescriptor.role !== 'external')
-        || (targetDescriptor.side === 'output' && targetDescriptor.role !== 'internal')
+        (targetDescriptor.side === 'input' && targetDescriptor.role !== 'external') ||
+        (targetDescriptor.side === 'output' && targetDescriptor.role !== 'internal')
       ) {
         return false;
       }
@@ -654,14 +627,12 @@ export function pruneGroupPortEdges(nodes: Node[], edges: Edge[]) {
       if (!targetPort) return false;
 
       if (targetDescriptor.side === 'input') {
-        return targetPort.outsideLinks.some((link) => (
-          edge.source === link.nodeId && edge.sourceHandle === link.handleId
-        ));
+        return targetPort.outsideLinks.some(
+          (link) => edge.source === link.nodeId && edge.sourceHandle === link.handleId,
+        );
       }
 
-      return targetPort.insideLinks.some((link) => (
-        edge.source === link.nodeId && edge.sourceHandle === link.handleId
-      ));
+      return targetPort.insideLinks.some((link) => edge.source === link.nodeId && edge.sourceHandle === link.handleId);
     }
 
     return true;

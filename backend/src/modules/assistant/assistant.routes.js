@@ -13,7 +13,11 @@ const router = Router();
 
 router.get('/status', assistantController.getStatus.bind(assistantController));
 router.get('/conversations', assistantController.getConversations.bind(assistantController));
-router.post('/conversations', validateBody(validateConversationList), assistantController.saveConversations.bind(assistantController));
+router.post(
+  '/conversations',
+  validateBody(validateConversationList),
+  assistantController.saveConversations.bind(assistantController),
+);
 router.delete(
   '/conversations/:id',
   validateParam('id', (value) => validateAssistantRecordId(value, 'conversation.id'), decodeURIComponent),
@@ -37,6 +41,10 @@ router.delete(
 );
 router.get('/settings', assistantController.getSettings.bind(assistantController));
 router.post('/settings', assistantController.updateSettings.bind(assistantController));
-router.get('/files/*', validateParam('0', validateAssistantFilePath), assistantController.streamFile.bind(assistantController));
+router.get(
+  '/files/*',
+  validateParam('0', validateAssistantFilePath),
+  assistantController.streamFile.bind(assistantController),
+);
 
 export default router;

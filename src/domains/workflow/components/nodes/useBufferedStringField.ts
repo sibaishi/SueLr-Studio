@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export function useBufferedStringField(
-  value: string,
-  onCommit: (value: string) => void,
-  delay = 180,
-) {
+export function useBufferedStringField(value: string, onCommit: (value: string) => void, delay = 180) {
   const [draft, setDraft] = useState(value);
   const focusedRef = useRef(false);
   const composingRef = useRef(false);
@@ -22,19 +18,25 @@ export function useBufferedStringField(
     }
   }, []);
 
-  const flush = useCallback((nextValue?: string) => {
-    clearPending();
-    commitRef.current(nextValue ?? draft);
-  }, [clearPending, draft]);
+  const flush = useCallback(
+    (nextValue?: string) => {
+      clearPending();
+      commitRef.current(nextValue ?? draft);
+    },
+    [clearPending, draft],
+  );
 
-  const scheduleCommit = useCallback((nextValue: string) => {
-    clearPending();
-    if (composingRef.current) return;
-    timeoutRef.current = window.setTimeout(() => {
-      timeoutRef.current = null;
-      commitRef.current(nextValue);
-    }, delay);
-  }, [clearPending, delay]);
+  const scheduleCommit = useCallback(
+    (nextValue: string) => {
+      clearPending();
+      if (composingRef.current) return;
+      timeoutRef.current = window.setTimeout(() => {
+        timeoutRef.current = null;
+        commitRef.current(nextValue);
+      }, delay);
+    },
+    [clearPending, delay],
+  );
 
   useEffect(() => {
     if (!focusedRef.current && !composingRef.current) {

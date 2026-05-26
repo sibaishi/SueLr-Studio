@@ -26,9 +26,9 @@ export async function execute(node) {
     throw new Error('API Key 节点缺少必填项：模型');
   }
   if (!endpoint) {
-    throw new Error(endpointMode === 'custom'
-      ? 'API Key 节点缺少必填项：自定义接口路径'
-      : 'API Key 节点缺少必填项：接口类型');
+    throw new Error(
+      endpointMode === 'custom' ? 'API Key 节点缺少必填项：自定义接口路径' : 'API Key 节点缺少必填项：接口类型',
+    );
   }
 
   return {

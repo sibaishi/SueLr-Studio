@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { fileToBase64 } from './fileHelper.js';
-import { resolveModelRuntime } from './apiConfig.js';
-import { findProjectModel, normalizeProjectModels } from './projectModels.js';
-import { getProviderAdapter } from '../../platform/providers/index.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { ValidationError } from '../../app/errors/index.js';
 import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
+import { getProviderAdapter } from '../../platform/providers/index.js';
 import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.js';
 import { STORAGE_PATHS } from '../../platform/storage/index.js';
-import { ValidationError } from '../../app/errors/index.js';
+import { resolveModelRuntime } from './apiConfig.js';
+import { fileToBase64 } from './fileHelper.js';
+import { findProjectModel, normalizeProjectModels } from './projectModels.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,7 +26,8 @@ const SIZE_BY_RATIO = {
 
 const SUPPORTED_RATIOS = new Set(Object.keys(SIZE_BY_RATIO));
 const PROMPT_RATIO_REGEX = /(^|[^\d])((?:1:1|16:9|9:16|4:3|3:4|3:2|2:3))(?![\d])/;
-const PROMPT_DIMENSIONS_REGEX = /(^|[\s,，;；:：([{（【])(?:图片尺寸|画布尺寸|输出尺寸|分辨率|尺寸|大小|画布|宽高)?\s*(\d{2,5})\s*(?:px)?\s*(?:x|X|×|\*|by)\s*(\d{2,5})\s*(?:px)?(?=$|[\s,，.;；:：。！？!?、)\]}）】])/i;
+const PROMPT_DIMENSIONS_REGEX =
+  /(^|[\s,，;；:：([{（【])(?:图片尺寸|画布尺寸|输出尺寸|分辨率|尺寸|大小|画布|宽高)?\s*(\d{2,5})\s*(?:px)?\s*(?:x|X|×|\*|by)\s*(\d{2,5})\s*(?:px)?(?=$|[\s,，.;；:：。！？!?、)\]}）】])/i;
 const PROMPT_VERTICAL_REGEX = /(竖版|竖图|纵向|手机壁纸|手机海报|portrait|vertical|story|reels?|shorts?)/i;
 const PROMPT_HORIZONTAL_REGEX = /(横版|横图|横向|宽屏|横幅|banner|landscape|widescreen|wide)/i;
 const PROMPT_SQUARE_REGEX = /(方图|方形|头像|正方形|square|avatar)/i;
@@ -56,9 +57,10 @@ const DEFAULT_IMAGE_GENERATION_CONCURRENCY = {
 function normalizeWorkflowConcurrency(value) {
   const enabled = value?.enabled === true;
   const parsedMaxConcurrency = Number(value?.maxConcurrency);
-  const maxConcurrency = Number.isFinite(parsedMaxConcurrency) && parsedMaxConcurrency > 0
-    ? Math.max(1, Math.round(parsedMaxConcurrency))
-    : DEFAULT_IMAGE_GENERATION_CONCURRENCY.maxConcurrency;
+  const maxConcurrency =
+    Number.isFinite(parsedMaxConcurrency) && parsedMaxConcurrency > 0
+      ? Math.max(1, Math.round(parsedMaxConcurrency))
+      : DEFAULT_IMAGE_GENERATION_CONCURRENCY.maxConcurrency;
   return {
     enabled,
     maxConcurrency: enabled ? maxConcurrency : 1,
@@ -197,7 +199,9 @@ function getArkSeedreamMinimumPixels(modelId) {
 }
 
 function parsePixelSize(size) {
-  const match = cleanText(size).toLowerCase().match(/^(\d+)x(\d+)$/);
+  const match = cleanText(size)
+    .toLowerCase()
+    .match(/^(\d+)x(\d+)$/);
   if (!match) return null;
   const width = Number(match[1]);
   const height = Number(match[2]);
@@ -364,7 +368,7 @@ function resolveModelRuntimeAllowingResolutionSuffix(runtimeConfig, modelId, opt
     if (requestedResolution && requestedResolution !== 'auto' && !getImageResolutionFromModel(modelId)) {
       const suffixModel = `${stripImageResolutionSuffix(modelId)}-${requestedResolution}`;
       const resolvedSuffix = resolveModelRuntime(runtimeConfig, suffixModel, options);
-      if (resolvedSuffix.endpoint && resolvedSuffix.endpoint.includes(encodeURIComponent(suffixModel))) {
+      if (resolvedSuffix.endpoint?.includes(encodeURIComponent(suffixModel))) {
         return {
           ...resolvedSuffix,
           endpoint: resolvedSuffix.endpoint.replace(encodeURIComponent(suffixModel), encodeURIComponent(modelId)),
@@ -376,7 +380,7 @@ function resolveModelRuntimeAllowingResolutionSuffix(runtimeConfig, modelId, opt
     const fallbackModel = getImageResolutionFallbackModel(modelId);
     if (!fallbackModel) throw error;
     const resolved = resolveModelRuntime(runtimeConfig, fallbackModel, options);
-    if (resolved.endpoint && resolved.endpoint.includes(encodeURIComponent(fallbackModel))) {
+    if (resolved.endpoint?.includes(encodeURIComponent(fallbackModel))) {
       return {
         ...resolved,
         endpoint: resolved.endpoint.replace(encodeURIComponent(fallbackModel), encodeURIComponent(modelId)),
@@ -463,7 +467,10 @@ function validateSize(size) {
   if (!/^\d+x\d+$/i.test(size)) {
     throw new Error('size 必须是类似 1024x1024 的宽高字符串');
   }
-  const [width, height] = size.toLowerCase().split('x').map((item) => Number(item));
+  const [width, height] = size
+    .toLowerCase()
+    .split('x')
+    .map((item) => Number(item));
   if (!Number.isFinite(width) || !Number.isFinite(height)) {
     throw new Error('size width and height must be numbers');
   }
@@ -527,7 +534,9 @@ export function normalizeImageGenerationRequest(request = {}) {
   const sizing = getSizing({ ratio, roundedWidth, roundedHeight });
   const size = sizing.size;
   const quality = cleanText(request.quality);
-  const resolution = normalizeImageResolution(request.resolution || request.outputResolution || request.output_resolution);
+  const resolution = normalizeImageResolution(
+    request.resolution || request.outputResolution || request.output_resolution,
+  );
   const outputFormat = cleanText(request.output_format || request.outputFormat);
   const n = request.n === undefined || request.n === null || request.n === '' ? 1 : parseInteger(request.n);
 
@@ -566,14 +575,18 @@ function endpointSupportsImageOperation(model, operation) {
   if (operation === 'generate') return true;
   if (model.endpointMode === 'custom') {
     const endpoint = cleanText(model.customEndpoint).toLowerCase();
-    return endpoint.includes('/chat/completions')
-      || endpoint.includes('/images/edits')
-      || endpoint.includes(':generatecontent');
+    return (
+      endpoint.includes('/chat/completions') ||
+      endpoint.includes('/images/edits') ||
+      endpoint.includes(':generatecontent')
+    );
   }
-  return model.endpointCategory === 'image'
-    || model.endpointCategory === 'image-edit'
-    || model.endpointCategory === 'chat'
-    || model.endpointCategory === 'gemini-generate-content';
+  return (
+    model.endpointCategory === 'image' ||
+    model.endpointCategory === 'image-edit' ||
+    model.endpointCategory === 'chat' ||
+    model.endpointCategory === 'gemini-generate-content'
+  );
 }
 
 export function resolveImageGenerationModel(request, runtimeConfig = {}) {
@@ -581,7 +594,11 @@ export function resolveImageGenerationModel(request, runtimeConfig = {}) {
   if (requestedModel) {
     const configuredModel = findProjectModel(runtimeConfig.projectModels || [], requestedModel);
     if (configuredModel?.configured && configuredModel.type === 'image') {
-      return resolveImageResolutionModel(configuredModel.modelId, request.resolution, runtimeConfig.projectModels || []);
+      return resolveImageResolutionModel(
+        configuredModel.modelId,
+        request.resolution,
+        runtimeConfig.projectModels || [],
+      );
     }
     return resolveImageResolutionModel(requestedModel, request.resolution, runtimeConfig.projectModels || []);
   }
@@ -603,9 +620,7 @@ export function resolveImageGenerationModel(request, runtimeConfig = {}) {
     );
   }
 
-  const candidateSummary = candidates
-    .map((model) => model.modelId)
-    .join(', ');
+  const candidateSummary = candidates.map((model) => model.modelId).join(', ');
   throw new ValidationError(
     'IMAGE_MODEL_AMBIGUOUS',
     `Multiple image models are available for ${operation === 'edit' ? 'image editing' : 'image generation'}; please specify one: ${candidateSummary}`,
@@ -706,16 +721,22 @@ function isRetryableImageRequestError(error) {
 }
 
 function isChatCompletionsEndpoint(endpoint) {
-  return String(endpoint || '').toLowerCase().includes('/chat/completions');
+  return String(endpoint || '')
+    .toLowerCase()
+    .includes('/chat/completions');
 }
 
 function isGeminiGenerateContentEndpoint(endpoint) {
-  return String(endpoint || '').toLowerCase().includes(':generatecontent');
+  return String(endpoint || '')
+    .toLowerCase()
+    .includes(':generatecontent');
 }
 
 function buildGeminiGenerateContentUrl(adapter, baseUrl, endpoint, apiKey) {
   const rawUrl = adapter.buildEndpoint(baseUrl, endpoint);
-  const key = String(apiKey || '').replace(/[^\x20-\x7E]/g, '').trim();
+  const key = String(apiKey || '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .trim();
   if (!key) return rawUrl;
 
   try {
@@ -732,14 +753,22 @@ function buildGeminiGenerateContentUrl(adapter, baseUrl, endpoint, apiKey) {
 
 function shouldRetryWithoutResponseFormat(error) {
   const message = String(error?.message || error || '');
-  return /response_format/i.test(message)
-    && /(unsupported|not supported|unknown|unrecognized|invalid|extra|cannot unmarshal|type|required|requ|不支持|未知|无效)/i.test(message);
+  return (
+    /response_format/i.test(message) &&
+    /(unsupported|not supported|unknown|unrecognized|invalid|extra|cannot unmarshal|type|required|requ|不支持|未知|无效)/i.test(
+      message,
+    )
+  );
 }
 
 function shouldRetryWithoutOutputFormat(error) {
   const message = String(error?.message || error || '');
-  return /output_format/i.test(message)
-    && /(unsupported|not supported|unknown|unrecognized|invalid|extra|cannot unmarshal|type|required|requ|不支持|未知|无效)/i.test(message);
+  return (
+    /output_format/i.test(message) &&
+    /(unsupported|not supported|unknown|unrecognized|invalid|extra|cannot unmarshal|type|required|requ|不支持|未知|无效)/i.test(
+      message,
+    )
+  );
 }
 
 function shouldRetryOptionalImageParamsOnGatewayError(error) {
@@ -763,15 +792,16 @@ async function fetchWithImageTimeout(url, options, timeoutMs, externalSignal, se
       });
     } catch (error) {
       lastError = error;
-      const shouldRetry = !signal.aborted
-        && isRetryableImageRequestError(error)
-        && attempt < IMAGE_REQUEST_RETRY_DELAYS_MS.length;
+      const shouldRetry =
+        !signal.aborted && isRetryableImageRequestError(error) && attempt < IMAGE_REQUEST_RETRY_DELAYS_MS.length;
       if (!shouldRetry) {
         throw error;
       }
 
       const retryDelayMs = IMAGE_REQUEST_RETRY_DELAYS_MS[attempt];
-      sendProgress?.(`图像请求连接异常，${retryDelayMs}ms 后重试第 ${attempt + 2}/${attempts} 次: ${describeFetchError(error)}`);
+      sendProgress?.(
+        `图像请求连接异常，${retryDelayMs}ms 后重试第 ${attempt + 2}/${attempts} 次: ${describeFetchError(error)}`,
+      );
       await sleep(retryDelayMs);
     }
   }
@@ -829,7 +859,10 @@ function extractImagesFromResponse(data) {
   const collectNestedImages = (value, key = '') => {
     if (value === undefined || value === null) return;
     const normalizedKey = cleanText(key).toLowerCase();
-    const isImageKey = /^(url|image|images|image_url|imageurl|output|outputs|output_url|outputurl|artifact|artifacts)$/.test(normalizedKey);
+    const isImageKey =
+      /^(url|image|images|image_url|imageurl|output|outputs|output_url|outputurl|artifact|artifacts)$/.test(
+        normalizedKey,
+      );
     const isBase64Key = /^(b64_json|base64|image_base64|imagebase64)$/.test(normalizedKey);
 
     if (typeof value === 'string') {
@@ -893,16 +926,19 @@ function extractImagesFromResponse(data) {
   const content = data?.choices?.[0]?.message?.content;
   if (typeof content === 'string') {
     const markdownImageRegex = /!\[.*?\]\((data:image\/[^)]+|https?:\/\/[^)]+)\)/g;
-    let match;
-    while ((match = markdownImageRegex.exec(content)) !== null) {
+    let match = markdownImageRegex.exec(content);
+    while (match !== null) {
       pushImage(match[1]);
+      match = markdownImageRegex.exec(content);
     }
 
     const base64Regex = /(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/g;
-    while ((match = base64Regex.exec(content)) !== null) {
+    match = base64Regex.exec(content);
+    while (match !== null) {
       if (!images.includes(match[1])) {
         pushImage(match[1]);
       }
+      match = base64Regex.exec(content);
     }
   } else if (Array.isArray(content)) {
     for (const part of content) {
@@ -923,7 +959,9 @@ async function parseImageApiResponse(response, context, sendProgress) {
   const readStart = Date.now();
   let responseText = '';
 
-  sendProgress?.(`${context}响应头已收到: status=${response.status}; contentType=${contentType}; contentLength=${contentLength}`);
+  sendProgress?.(
+    `${context}响应头已收到: status=${response.status}; contentType=${contentType}; contentLength=${contentLength}`,
+  );
 
   try {
     responseText = await response.text();
@@ -960,9 +998,13 @@ async function parseApiError(response) {
   const errorText = await response.text().catch(() => '未知错误');
   try {
     const payload = JSON.parse(errorText);
-    return String(payload.error?.message || payload.message || '上游服务返回错误').replace(/\s+/g, ' ').slice(0, 120);
+    return String(payload.error?.message || payload.message || '上游服务返回错误')
+      .replace(/\s+/g, ' ')
+      .slice(0, 120);
   } catch {
-    return String(errorText || '上游服务返回错误').replace(/\s+/g, ' ').slice(0, 120);
+    return String(errorText || '上游服务返回错误')
+      .replace(/\s+/g, ' ')
+      .slice(0, 120);
   }
 }
 
@@ -1050,13 +1092,7 @@ async function callImageGenerationApiWithAdapter(adapter, request, payload, time
 
   let response;
   try {
-    response = await fetchWithImageTimeout(
-      request.url,
-      request.options,
-      timeoutMs,
-      externalSignal,
-      sendProgress,
-    );
+    response = await fetchWithImageTimeout(request.url, request.options, timeoutMs, externalSignal, sendProgress);
   } catch (error) {
     throw new Error(`图像生成请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
   }
@@ -1069,7 +1105,14 @@ async function callImageGenerationApiWithAdapter(adapter, request, payload, time
   return parseImageApiResponse(response, '图像生成', sendProgress);
 }
 
-async function callImageGenerationViaChatApiWithAdapter(adapter, request, payload, timeoutMs, sendProgress, externalSignal) {
+async function callImageGenerationViaChatApiWithAdapter(
+  adapter,
+  request,
+  payload,
+  timeoutMs,
+  sendProgress,
+  externalSignal,
+) {
   sendProgress?.(`正在通过对话接口生成图片: ${request.url}`);
   logOutgoingRequest(sendProgress, {
     type: 'json',
@@ -1080,13 +1123,7 @@ async function callImageGenerationViaChatApiWithAdapter(adapter, request, payloa
 
   let response;
   try {
-    response = await fetchWithImageTimeout(
-      request.url,
-      request.options,
-      timeoutMs,
-      externalSignal,
-      sendProgress,
-    );
+    response = await fetchWithImageTimeout(request.url, request.options, timeoutMs, externalSignal, sendProgress);
   } catch (error) {
     throw new Error(`对话生图请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
   }
@@ -1097,7 +1134,16 @@ async function callImageGenerationViaChatApiWithAdapter(adapter, request, payloa
   return parseImageApiResponse(response, '对话生图', sendProgress);
 }
 
-async function callGeminiGenerateContentApi(adapter, baseUrl, endpoint, apiKey, payload, timeoutMs, sendProgress, externalSignal) {
+async function callGeminiGenerateContentApi(
+  adapter,
+  baseUrl,
+  endpoint,
+  apiKey,
+  payload,
+  timeoutMs,
+  sendProgress,
+  externalSignal,
+) {
   const url = buildGeminiGenerateContentUrl(adapter, baseUrl, endpoint, apiKey);
   const safeUrl = url.replace(/([?&]key=)[^&]+/i, '$1***');
   sendProgress?.(`正在通过 Gemini generateContent 接口生成图片: ${safeUrl}`);
@@ -1144,13 +1190,7 @@ async function callImageEditApiWithAdapter(adapter, request, payload, timeoutMs,
 
   let response;
   try {
-    response = await fetchWithImageTimeout(
-      request.url,
-      request.options,
-      timeoutMs,
-      externalSignal,
-      sendProgress,
-    );
+    response = await fetchWithImageTimeout(request.url, request.options, timeoutMs, externalSignal, sendProgress);
   } catch (error) {
     throw new Error(`图像编辑请求失败: model=${payload.model}; timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
   }
@@ -1223,7 +1263,7 @@ async function callImageEditApi(url, headers, payload, timeoutMs, sendProgress, 
   }
 
   const requestHeaders = { ...headers };
-  delete requestHeaders['Content-Type'];
+  requestHeaders['Content-Type'] = undefined;
   logOutgoingRequest(sendProgress, {
     type: 'form-data',
     url,
@@ -1274,11 +1314,14 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
   }
   const mask = normalized.mask ? await fileToBase64(normalized.mask) : '';
 
-  const payload = normalizeProviderImageSizing({
-    ...normalized,
-    image: referenceImages,
-    mask,
-  }, runtimeConfig);
+  const payload = normalizeProviderImageSizing(
+    {
+      ...normalized,
+      image: referenceImages,
+      mask,
+    },
+    runtimeConfig,
+  );
   const includeResolutionInBody = shouldSendResolutionInBody(payload.model, payload.resolution);
 
   const requestCount = payload.n || 1;
@@ -1304,11 +1347,13 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
     const imageEndpoint = resolveImageEndpoint(payload.model);
     const usesGeminiGenerateContent = isGeminiGenerateContentEndpoint(imageEndpoint);
     const usesChatPayload = isChatCompletionsEndpoint(imageEndpoint);
-    const usesArkImageGenerationPayload = isVolcengineArkRuntime(baseUrl) && !usesChatPayload && !usesGeminiGenerateContent;
-    const shouldUseEditEndpoint = (payload.image.length > 0 || payload.mask)
-      && !usesArkImageGenerationPayload
-      && !usesChatPayload
-      && !usesGeminiGenerateContent;
+    const usesArkImageGenerationPayload =
+      isVolcengineArkRuntime(baseUrl) && !usesChatPayload && !usesGeminiGenerateContent;
+    const shouldUseEditEndpoint =
+      (payload.image.length > 0 || payload.mask) &&
+      !usesArkImageGenerationPayload &&
+      !usesChatPayload &&
+      !usesGeminiGenerateContent;
 
     const attemptData = shouldUseEditEndpoint
       ? await (async () => {
@@ -1345,7 +1390,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
               headers: { 'Content-Type': undefined },
               body: form,
             });
-            delete requestConfig.options.headers['Content-Type'];
+            requestConfig.options.headers['Content-Type'] = undefined;
             return callImageEditApiWithAdapter(
               adapter,
               requestConfig,
@@ -1373,16 +1418,17 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
                 ...(generationConfig ? { generationConfig } : {}),
               };
             };
-            const callWithModel = (model) => callGeminiGenerateContentApi(
-              adapter,
-              baseUrl,
-              resolveImageEndpoint(model),
-              apiKey,
-              buildRequestBody(),
-              timeoutMs,
-              sendProgress,
-              abortSignal,
-            );
+            const callWithModel = (model) =>
+              callGeminiGenerateContentApi(
+                adapter,
+                baseUrl,
+                resolveImageEndpoint(model),
+                apiKey,
+                buildRequestBody(),
+                timeoutMs,
+                sendProgress,
+                abortSignal,
+              );
             return callWithModel(payload.model);
           }
 
@@ -1433,21 +1479,27 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
             };
 
             try {
-              return await callWithRequestBody(buildRequestBody(true, true, {
-                includeResolution: includeResolutionInBody,
-              }));
+              return await callWithRequestBody(
+                buildRequestBody(true, true, {
+                  includeResolution: includeResolutionInBody,
+                }),
+              );
             } catch (error) {
               if (shouldRetryWithoutOutputFormat(error)) {
                 sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
-                return callWithRequestBody(buildRequestBody(true, false, {
-                  includeResolution: includeResolutionInBody,
-                }));
+                return callWithRequestBody(
+                  buildRequestBody(true, false, {
+                    includeResolution: includeResolutionInBody,
+                  }),
+                );
               }
               if (shouldRetryWithoutResponseFormat(error)) {
                 sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
-                return callWithRequestBody(buildRequestBody(false, true, {
-                  includeResolution: includeResolutionInBody,
-                }));
+                return callWithRequestBody(
+                  buildRequestBody(false, true, {
+                    includeResolution: includeResolutionInBody,
+                  }),
+                );
               }
               throw error;
             }
@@ -1485,33 +1537,45 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
           };
 
           try {
-            return await callWithRequestBody(buildRequestBody(true, true, {
-              includeResolution: includeResolutionInBody,
-            }));
+            return await callWithRequestBody(
+              buildRequestBody(true, true, {
+                includeResolution: includeResolutionInBody,
+              }),
+            );
           } catch (error) {
-            const canRetryOutputFormat = Boolean(payload.output_format)
-              && (shouldRetryWithoutOutputFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error));
+            const canRetryOutputFormat =
+              Boolean(payload.output_format) &&
+              (shouldRetryWithoutOutputFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error));
             if (canRetryOutputFormat) {
               sendProgress?.('Image endpoint retry: drop output_format after first failure');
               try {
-                return await callWithRequestBody(buildRequestBody(true, false, {
-                  includeResolution: includeResolutionInBody,
-                }));
-              } catch (retryError) {
-                if (shouldRetryWithoutResponseFormat(retryError) || shouldRetryOptionalImageParamsOnGatewayError(retryError)) {
-                  sendProgress?.('Image endpoint retry: drop response_format after second failure');
-                  return callWithRequestBody(buildRequestBody(false, false, {
+                return await callWithRequestBody(
+                  buildRequestBody(true, false, {
                     includeResolution: includeResolutionInBody,
-                  }));
+                  }),
+                );
+              } catch (retryError) {
+                if (
+                  shouldRetryWithoutResponseFormat(retryError) ||
+                  shouldRetryOptionalImageParamsOnGatewayError(retryError)
+                ) {
+                  sendProgress?.('Image endpoint retry: drop response_format after second failure');
+                  return callWithRequestBody(
+                    buildRequestBody(false, false, {
+                      includeResolution: includeResolutionInBody,
+                    }),
+                  );
                 }
                 throw retryError;
               }
             }
             if (shouldRetryWithoutResponseFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error)) {
               sendProgress?.('Image endpoint retry: drop response_format after first failure');
-              return callWithRequestBody(buildRequestBody(false, true, {
-                includeResolution: includeResolutionInBody,
-              }));
+              return callWithRequestBody(
+                buildRequestBody(false, true, {
+                  includeResolution: includeResolutionInBody,
+                }),
+              );
             }
             throw error;
           }
@@ -1534,9 +1598,7 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
       .join('; ');
     sendProgress?.(`部分图片生成失败: ${failedAttempts.length}/${requestCount}; ${failures}`);
   }
-  const rawData = attemptResults
-    .filter((result) => result.status === 'fulfilled')
-    .map((result) => result.value);
+  const rawData = attemptResults.filter((result) => result.status === 'fulfilled').map((result) => result.value);
   const rawImages = rawData.flatMap((attemptData) => extractImagesFromResponse(attemptData));
 
   if (rawImages.length === 0) {
@@ -1567,7 +1629,8 @@ export async function generateImages(request, runtimeConfig, sendProgress) {
         return imageStr;
       }
       return undefined;
-    } else if (imageStr.startsWith('http://') || imageStr.startsWith('https://')) {
+    }
+    if (imageStr.startsWith('http://') || imageStr.startsWith('https://')) {
       try {
         const downloaded = await downloadRemoteImage(image, sendProgress, abortSignal);
         try {

@@ -1,6 +1,8 @@
 export type WorkflowShortcutAction = 'undo' | 'redo' | 'run' | 'group' | null;
 
-export function resolveWorkflowShortcutAction(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>): WorkflowShortcutAction {
+export function resolveWorkflowShortcutAction(
+  event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>,
+): WorkflowShortcutAction {
   const key = event.key.toLowerCase();
 
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && key === 'g') {

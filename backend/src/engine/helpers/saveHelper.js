@@ -1,9 +1,9 @@
-import fs from 'fs';
-import path from 'path';
-import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.js';
-import { isServerRuntimeMode } from '../../platform/runtime/mode.js';
+import fs from 'node:fs';
+import path from 'node:path';
 import { ensureGeneratedThumbnailFromFile } from '../../platform/media/image-thumbnails.js';
 import { getMimeType } from '../../platform/media/media-resolver.js';
+import { isServerRuntimeMode } from '../../platform/runtime/mode.js';
+import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.js';
 
 const TYPE_DIRS = {
   image: 'images',
@@ -34,18 +34,18 @@ function ensureDir(dir) {
 }
 
 function safeSegment(value, fallback) {
-  return String(value || fallback)
-    .replace(/[\\/:*?"<>|]/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || fallback;
+  return (
+    String(value || fallback)
+      .replace(/[\\/:*?"<>|]/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || fallback
+  );
 }
 
 function resolveBaseDir(customPath) {
   if (!customPath) return STORAGE_PATHS.generatedDir;
-  return path.isAbsolute(customPath)
-    ? customPath
-    : path.join(PROJECT_ROOT, customPath);
+  return path.isAbsolute(customPath) ? customPath : path.join(PROJECT_ROOT, customPath);
 }
 
 function targetPath(type, options = {}, ext = 'txt') {
@@ -111,9 +111,12 @@ function detectUrlType(value) {
 }
 
 function resolveLocalApiPath(value) {
-  if (value.startsWith('/api/outputs/')) return safeResolveWithin(STORAGE_PATHS.generatedDir, value.replace('/api/outputs/', ''));
-  if (value.startsWith('/api/files/')) return safeResolveWithin(STORAGE_PATHS.uploadsDir, value.replace('/api/files/', ''));
-  if (value.startsWith('/api/assistant/files/')) return safeResolveWithin(STORAGE_PATHS.generatedDir, value.replace('/api/assistant/files/', ''));
+  if (value.startsWith('/api/outputs/'))
+    return safeResolveWithin(STORAGE_PATHS.generatedDir, value.replace('/api/outputs/', ''));
+  if (value.startsWith('/api/files/'))
+    return safeResolveWithin(STORAGE_PATHS.uploadsDir, value.replace('/api/files/', ''));
+  if (value.startsWith('/api/assistant/files/'))
+    return safeResolveWithin(STORAGE_PATHS.generatedDir, value.replace('/api/assistant/files/', ''));
   return null;
 }
 
@@ -122,7 +125,8 @@ async function saveString(value, options) {
     const match = value.match(/^data:([^;]+);base64,(.+)$/);
     if (match) {
       const type = detectUrlType(value);
-      const ext = MIME_EXT[match[1]] || (type === 'image' ? 'png' : type === 'video' ? 'mp4' : type === 'audio' ? 'mp3' : 'bin');
+      const ext =
+        MIME_EXT[match[1]] || (type === 'image' ? 'png' : type === 'video' ? 'mp4' : type === 'audio' ? 'mp3' : 'bin');
       const filePath = targetPath(type, options, ext);
       fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
       return { type, path: filePath };
@@ -151,7 +155,7 @@ export async function saveContentByType(content, options = {}) {
 
   if (Array.isArray(content)) {
     const results = [];
-    for (const item of content) results.push(...await saveContentByType(item, options));
+    for (const item of content) results.push(...(await saveContentByType(item, options)));
     return results;
   }
 

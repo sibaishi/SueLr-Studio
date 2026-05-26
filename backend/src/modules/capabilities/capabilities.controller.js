@@ -67,10 +67,14 @@ export class CapabilitiesController {
 
   async image(req, res, next) {
     try {
-      res.json(successEnvelope(await capabilitiesService.image(req.body, {
-        signal: createRequestAbortSignal(req, res),
-        scope: req.scope,
-      })));
+      res.json(
+        successEnvelope(
+          await capabilitiesService.image(req.body, {
+            signal: createRequestAbortSignal(req, res),
+            scope: req.scope,
+          }),
+        ),
+      );
     } catch (error) {
       next(error);
     }
@@ -86,7 +90,11 @@ export class CapabilitiesController {
 
   async getVideoStatus(req, res, next) {
     try {
-      res.json(successEnvelope(await capabilitiesService.getVideoStatus(req.params.taskId, req.body?.apiConfig || {}, { scope: req.scope })));
+      res.json(
+        successEnvelope(
+          await capabilitiesService.getVideoStatus(req.params.taskId, req.body?.apiConfig || {}, { scope: req.scope }),
+        ),
+      );
     } catch (error) {
       next(error);
     }

@@ -1,12 +1,17 @@
-import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import * as api from '@/domains/workflow/lib/api';
+import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
 import { normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
-import { clearActiveRunSnapshot, saveLocalDraft } from '@/domains/workflow/lib/store/persistence';
 import { formatLogDetails, gid, sanitizeLogMessage } from '@/domains/workflow/lib/store/helpers';
-import type { WorkflowEditorSnapshot, WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
+import { clearActiveRunSnapshot, saveLocalDraft } from '@/domains/workflow/lib/store/persistence';
+import type {
+  WorkflowEditorSnapshot,
+  WorkflowState,
+  WorkflowStoreGet,
+  WorkflowStoreSet,
+} from '@/domains/workflow/lib/store/types';
 
 type WorkflowStoreEditorSessionActions = Pick<
   WorkflowState,
@@ -32,34 +37,37 @@ export function createWorkflowEditorSessionActions(
     setNodeExecStatus: (nodeId, status, error) => {
       set((state) => ({
         nodeExecStatus: { ...state.nodeExecStatus, [nodeId]: status },
-        nodeExecutionStartedAt: status === 'running'
-          ? { ...state.nodeExecutionStartedAt, [nodeId]: Date.now() }
-          : state.nodeExecutionStartedAt,
-        nodeExecutionActiveCounts: status === 'running'
-          ? { ...state.nodeExecutionActiveCounts, [nodeId]: 1 }
-          : state.nodeExecutionActiveCounts,
-        nodeExecutionStartedCounts: status === 'running'
-          ? { ...state.nodeExecutionStartedCounts, [nodeId]: 1 }
-          : state.nodeExecutionStartedCounts,
-        nodeExecutionExpectedCounts: status === 'running'
-          ? { ...state.nodeExecutionExpectedCounts, [nodeId]: 1 }
-          : state.nodeExecutionExpectedCounts,
+        nodeExecutionStartedAt:
+          status === 'running'
+            ? { ...state.nodeExecutionStartedAt, [nodeId]: Date.now() }
+            : state.nodeExecutionStartedAt,
+        nodeExecutionActiveCounts:
+          status === 'running' ? { ...state.nodeExecutionActiveCounts, [nodeId]: 1 } : state.nodeExecutionActiveCounts,
+        nodeExecutionStartedCounts:
+          status === 'running'
+            ? { ...state.nodeExecutionStartedCounts, [nodeId]: 1 }
+            : state.nodeExecutionStartedCounts,
+        nodeExecutionExpectedCounts:
+          status === 'running'
+            ? { ...state.nodeExecutionExpectedCounts, [nodeId]: 1 }
+            : state.nodeExecutionExpectedCounts,
         nodeErrors: error ? { ...state.nodeErrors, [nodeId]: error } : state.nodeErrors,
       }));
     },
 
-    clearAllExecStatus: () => set({
-      nodeExecStatus: {},
-      nodeExecutionTime: {},
-      nodeExecutionStartedAt: {},
-      nodeExecutionActiveCounts: {},
-      nodeExecutionStartedCounts: {},
-      nodeExecutionCompletedCounts: {},
-      nodeExecutionExpectedCounts: {},
-      nodeErrors: {},
-      nodeWarnings: {},
-      workflowWarningMessage: null,
-    }),
+    clearAllExecStatus: () =>
+      set({
+        nodeExecStatus: {},
+        nodeExecutionTime: {},
+        nodeExecutionStartedAt: {},
+        nodeExecutionActiveCounts: {},
+        nodeExecutionStartedCounts: {},
+        nodeExecutionCompletedCounts: {},
+        nodeExecutionExpectedCounts: {},
+        nodeErrors: {},
+        nodeWarnings: {},
+        workflowWarningMessage: null,
+      }),
 
     setExecuting: (executing, progress) => {
       set({
@@ -204,10 +212,11 @@ export function createWorkflowEditorSessionActions(
 
     setAvailableModels: (models) => set({ availableModels: models }),
 
-    setProjectModels: (models) => set({
-      projectModels: normalizeProjectModels(models),
-      availableModels: groupConfiguredProjectModels(normalizeProjectModels(models)),
-    }),
+    setProjectModels: (models) =>
+      set({
+        projectModels: normalizeProjectModels(models),
+        availableModels: groupConfiguredProjectModels(normalizeProjectModels(models)),
+      }),
 
     persistLocalDraft: () => {
       const state = get();

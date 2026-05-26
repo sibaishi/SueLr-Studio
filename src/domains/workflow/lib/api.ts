@@ -1,4 +1,3 @@
-import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 import type {
   PersistedWorkflow,
   WorkflowImportConflictDetails,
@@ -6,6 +5,7 @@ import type {
   WorkflowImportMode,
   WorkflowImportReport,
 } from '@/domains/workflow/lib/persistenceTypes';
+import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 import { apiRequest } from '@/shared/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
@@ -36,7 +36,10 @@ function normalizeImportConflictDetails(details: unknown): WorkflowImportConflic
   const record = details as Record<string, unknown>;
   const workflowId = typeof record.workflowId === 'string' ? record.workflowId : undefined;
   const suggestedModes = Array.isArray(record.suggestedModes)
-    ? record.suggestedModes.filter((mode): mode is WorkflowImportMode => mode === 'generate_new_id' || mode === 'preserve_id' || mode === 'overwrite')
+    ? record.suggestedModes.filter(
+        (mode): mode is WorkflowImportMode =>
+          mode === 'generate_new_id' || mode === 'preserve_id' || mode === 'overwrite',
+      )
     : undefined;
   return workflowId || suggestedModes?.length ? { workflowId, suggestedModes } : undefined;
 }
@@ -75,12 +78,18 @@ export async function exportWorkflow(id: string) {
   return apiFetch<PersistedWorkflow>(`/workflows/${id}/export`);
 }
 
-export async function importWorkflow(data: Record<string, unknown>, mode: WorkflowImportMode = 'generate_new_id'): Promise<WorkflowImportResult> {
+export async function importWorkflow(
+  data: Record<string, unknown>,
+  mode: WorkflowImportMode = 'generate_new_id',
+): Promise<WorkflowImportResult> {
   const generateNewId = mode === 'generate_new_id';
-  const result = await apiFetch<{ workflow: PersistedWorkflow; report: WorkflowImportReport }>(`/workflows/import?generateNewId=${generateNewId ? 'true' : 'false'}&mode=${mode}`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const result = await apiFetch<{ workflow: PersistedWorkflow; report: WorkflowImportReport }>(
+    `/workflows/import?generateNewId=${generateNewId ? 'true' : 'false'}&mode=${mode}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+  );
 
   const normalized: WorkflowImportResult = {
     success: result.success,
@@ -114,8 +123,19 @@ export interface WorkflowIterationContext {
 }
 
 export interface SSECallbacks {
-  onNodeStart?: (data: { nodeId: string; nodeType: string; index: number; total: number; iteration?: WorkflowIterationContext }) => void;
-  onNodeProgress?: (data: { nodeId: string; progress: number; message: string; iteration?: WorkflowIterationContext }) => void;
+  onNodeStart?: (data: {
+    nodeId: string;
+    nodeType: string;
+    index: number;
+    total: number;
+    iteration?: WorkflowIterationContext;
+  }) => void;
+  onNodeProgress?: (data: {
+    nodeId: string;
+    progress: number;
+    message: string;
+    iteration?: WorkflowIterationContext;
+  }) => void;
   onNodeComplete?: (data: {
     nodeId: string;
     outputs: Record<string, unknown>;
@@ -126,7 +146,13 @@ export interface SSECallbacks {
   onNodeError?: (data: { nodeId: string; error: string; iteration?: WorkflowIterationContext }) => void;
   onWorkflowLog?: (data: Record<string, unknown>) => void;
   onSnapshotBuilt?: (data: Record<string, unknown>) => void;
-  onRunStarted?: (data: { runId: string; workflowId: string; workflowVersion: number; snapshotVersion: number; source: 'persisted' | 'draft' }) => void;
+  onRunStarted?: (data: {
+    runId: string;
+    workflowId: string;
+    workflowVersion: number;
+    snapshotVersion: number;
+    source: 'persisted' | 'draft';
+  }) => void;
   onWorkflowComplete?: (data: { totalDuration: number; successCount: number; failCount: number }) => void;
   onWorkflowError?: (data: { error: string }) => void;
 }
@@ -261,11 +287,7 @@ export async function resetSettings() {
   });
 }
 
-export async function testApiConnection(
-  apiKey: string,
-  baseUrl: string,
-  providerConfig?: Record<string, unknown>,
-) {
+export async function testApiConnection(apiKey: string, baseUrl: string, providerConfig?: Record<string, unknown>) {
   return apiFetch<{
     message: string;
     models: string[];
@@ -370,18 +392,18 @@ export async function uploadFile(file: File): Promise<UploadResult> {
     });
 
     if (result.success && result.data) {
-        return {
-          success: true,
-          url: result.data.url,
-          thumbnailUrl: result.data.thumbnailUrl,
-          fileName: result.data.fileName,
-          fileSize: result.data.fileSize,
-          mimeType: result.data.mimeType,
-          width: result.data.width,
-          height: result.data.height,
-          processing: result.data.processing,
-          processingStatus: result.data.processingStatus,
-          processingError: result.data.processingError,
+      return {
+        success: true,
+        url: result.data.url,
+        thumbnailUrl: result.data.thumbnailUrl,
+        fileName: result.data.fileName,
+        fileSize: result.data.fileSize,
+        mimeType: result.data.mimeType,
+        width: result.data.width,
+        height: result.data.height,
+        processing: result.data.processing,
+        processingStatus: result.data.processingStatus,
+        processingError: result.data.processingError,
       };
     }
 

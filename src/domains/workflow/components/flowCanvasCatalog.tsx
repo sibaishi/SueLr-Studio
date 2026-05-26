@@ -1,4 +1,4 @@
-import { NODE_REGISTRY } from '@/domains/workflow/lib/constants';
+import type { NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import { FLOW_DISABLED_NODE_REASON } from './flowCanvasConfig';
 import { NODE_ICONS } from './nodes/nodeConstants';
 
@@ -31,7 +31,9 @@ export function ContextMenuButton({
         danger ? 'workflow-context-menu__item--danger' : '',
         active ? 'workflow-context-menu__item--active' : '',
         disabled ? 'workflow-context-menu__item--disabled' : '',
-      ].filter(Boolean).join(' ')}
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onMouseEnter={() => {
         if (!disabled) onHover?.();
       }}
@@ -54,12 +56,7 @@ export function NodeCatalogButton({
   const outputCount = String(nodeDef.outputs.length);
 
   return (
-    <button
-      type="button"
-      className="workflow-context-menu__node-card"
-      onClick={onClick}
-      title={nodeDef.label}
-    >
+    <button type="button" className="workflow-context-menu__node-card" onClick={onClick} title={nodeDef.label}>
       <span
         className="workflow-context-menu__node-icon"
         style={{
@@ -73,7 +70,9 @@ export function NodeCatalogButton({
       </span>
       <span className="workflow-context-menu__node-copy">
         <span className="workflow-context-menu__node-label">{nodeDef.label}</span>
-        <span className="workflow-context-menu__node-meta">{inputCount} 入 / {outputCount} 出</span>
+        <span className="workflow-context-menu__node-meta">
+          {inputCount} 入 / {outputCount} 出
+        </span>
       </span>
     </button>
   );

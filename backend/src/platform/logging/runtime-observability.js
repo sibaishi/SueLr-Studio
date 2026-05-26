@@ -1,9 +1,9 @@
-import fs from 'fs';
-import path from 'path';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { createDefaultRequestScope } from '../runtime/index.js';
 import { createLogger } from './logger.js';
 import { ensureLogDirectories } from './workflow-run-logger.js';
-import { createDefaultRequestScope } from '../runtime/index.js';
 
 const logger = createLogger({ module: 'runtime-observability' });
 const processInstanceId = randomUUID();

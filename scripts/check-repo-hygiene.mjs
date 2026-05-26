@@ -50,6 +50,7 @@ const allowedRootFiles = new Set([
   '.gitignore',
   'AGENTS.md',
   'admin.html',
+  'biome.json',
   'CONTRIBUTING.md',
   'README.md',
   'index.html',

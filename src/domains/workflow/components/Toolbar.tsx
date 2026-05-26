@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import type { WorkflowListItem } from '@/domains/workflow/lib/api';
 import {
   AlignStartVertical,
   Copy,
@@ -19,7 +19,7 @@ import {
   Upload,
   Workflow,
 } from 'lucide-react';
-import type { WorkflowListItem } from '@/domains/workflow/lib/api';
+import { type ReactNode, useMemo } from 'react';
 
 interface ToolbarProps {
   workflowId: string;
@@ -200,25 +200,22 @@ export default function Toolbar(props: ToolbarProps) {
         </div>
 
         <div className="workflow-toolbar__group workflow-toolbar__group--actions">
-          <button
-            onClick={onExecute}
-            disabled={isExecuting}
-            className="workflow-toolbar__primary-action"
-          >
+          <button onClick={onExecute} disabled={isExecuting} className="workflow-toolbar__primary-action">
             <Play size={14} fill="currentColor" />
             执行
           </button>
 
-          <button
-            onClick={onCancelExecution}
-            disabled={!isExecuting}
-            className="workflow-toolbar__danger-action"
-          >
+          <button onClick={onCancelExecution} disabled={!isExecuting} className="workflow-toolbar__danger-action">
             <Square size={13} fill="currentColor" />
             停止
           </button>
 
-          <ToolbarIconButton icon={<Settings2 size={15} />} label="设置" onClick={onSettings} testId="workflow-open-settings" />
+          <ToolbarIconButton
+            icon={<Settings2 size={15} />}
+            label="设置"
+            onClick={onSettings}
+            testId="workflow-open-settings"
+          />
         </div>
       </div>
     </div>
@@ -248,7 +245,11 @@ function ToolbarIconButton({
       className="workflow-toolbar__icon-button"
       style={{
         opacity: disabled ? 0.45 : 1,
-        color: active ? 'var(--color-accent)' : disabled ? 'var(--color-text-quaternary)' : 'var(--color-text-secondary)',
+        color: active
+          ? 'var(--color-accent)'
+          : disabled
+            ? 'var(--color-text-quaternary)'
+            : 'var(--color-text-secondary)',
         background: active ? 'rgba(10,132,255,0.12)' : 'transparent',
       }}
       title={label}

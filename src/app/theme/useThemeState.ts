@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import type { ThemeMode } from '@/shared/types';
 import { loadJSON } from '@/shared/runtime';
+import type { ThemeMode } from '@/shared/types';
+import { useEffect, useState } from 'react';
 import { DARK, LIGHT } from './constants';
 
 export function useThemeState() {

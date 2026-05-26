@@ -1,9 +1,9 @@
 import { ProviderError } from '../../../app/errors/index.js';
-import { CompatibleProviderAdapter } from './compatible-adapter.js';
 import { proxyAwareFetch } from '../../http/proxy-aware-fetch.js';
-import { parseProviderErrorResponse, toProviderError } from '../provider-http.js';
-import { assertSafeProviderBaseUrl } from '../../security/network-guards.js';
 import { createLogger } from '../../logging/logger.js';
+import { assertSafeProviderBaseUrl } from '../../security/network-guards.js';
+import { parseProviderErrorResponse, toProviderError } from '../provider-http.js';
+import { CompatibleProviderAdapter } from './compatible-adapter.js';
 
 const logger = createLogger({ module: 'compatible-provider' });
 
@@ -26,7 +26,16 @@ async function readResponseSnippet(response) {
 }
 
 export class CompatibleHttpAdapter extends CompatibleProviderAdapter {
-  async jsonRequest({ apiKey, providerConfig, baseUrl, endpoint, method = 'POST', body, signal, errorCode = 'PROVIDER_REQUEST_FAILED' }) {
+  async jsonRequest({
+    apiKey,
+    providerConfig,
+    baseUrl,
+    endpoint,
+    method = 'POST',
+    body,
+    signal,
+    errorCode = 'PROVIDER_REQUEST_FAILED',
+  }) {
     await assertSafeProviderBaseUrl(baseUrl, 'Base URL');
     const request = this.buildJsonRequest({ apiKey, providerConfig, baseUrl, endpoint, method, body, signal });
 
@@ -51,7 +60,17 @@ export class CompatibleHttpAdapter extends CompatibleProviderAdapter {
     return response;
   }
 
-  async rawRequest({ apiKey, providerConfig, baseUrl, endpoint, method = 'GET', headers = {}, body, signal, errorCode = 'PROVIDER_REQUEST_FAILED' }) {
+  async rawRequest({
+    apiKey,
+    providerConfig,
+    baseUrl,
+    endpoint,
+    method = 'GET',
+    headers = {},
+    body,
+    signal,
+    errorCode = 'PROVIDER_REQUEST_FAILED',
+  }) {
     await assertSafeProviderBaseUrl(baseUrl, 'Base URL');
     const request = this.buildRawRequest({ apiKey, providerConfig, baseUrl, endpoint, method, headers, body, signal });
 

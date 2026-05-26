@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
+import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
+import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
+import { NODE_ICONS } from '@/domains/workflow/components/nodes/nodeConstants';
+import { type GeneratedOutputFile, clearGeneratedOutputs, fetchGeneratedOutputs } from '@/domains/workflow/lib/api';
+import { getNodeDef } from '@/domains/workflow/lib/constants';
+import { formatDurationSeconds, getExecutionStatusLabel } from '@/domains/workflow/lib/executionFormat';
+import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -13,15 +20,8 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import { getNodeDef } from '@/domains/workflow/lib/constants';
-import { NODE_ICONS } from '@/domains/workflow/components/nodes/nodeConstants';
-import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
-import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
-import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
-import { formatDurationSeconds, getExecutionStatusLabel } from '@/domains/workflow/lib/executionFormat';
-import { clearGeneratedOutputs, fetchGeneratedOutputs, type GeneratedOutputFile } from '@/domains/workflow/lib/api';
-import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type PanelTab = 'results' | 'logs';
 const LOG_MESSAGE_PREVIEW_LIMIT = 600;
@@ -77,7 +77,9 @@ export default function ResultsPanel({
   }, [isExecuting, refreshGeneratedOutputs]);
 
   const handleClearGeneratedOutputs = useCallback(async () => {
-    const confirmed = window.confirm('确定要清除服务器后端当前保留的历史输出吗？此操作会直接删除服务器上的临时输出文件，且无法撤回。');
+    const confirmed = window.confirm(
+      '确定要清除服务器后端当前保留的历史输出吗？此操作会直接删除服务器上的临时输出文件，且无法撤回。',
+    );
     if (!confirmed) return;
 
     setIsClearingOutputs(true);
@@ -111,9 +113,8 @@ export default function ResultsPanel({
     if (!node || node.type !== 'imageInput') return null;
     const maskFileUrl = typeof node.data.maskFileUrl === 'string' ? node.data.maskFileUrl : '';
     const maskPreviewUrl = typeof node.data.maskPreviewUrl === 'string' ? node.data.maskPreviewUrl : '';
-    const maskSrc = maskPreviewUrl && !(maskPreviewUrl.startsWith('blob:') && maskFileUrl)
-      ? maskPreviewUrl
-      : maskFileUrl;
+    const maskSrc =
+      maskPreviewUrl && !(maskPreviewUrl.startsWith('blob:') && maskFileUrl) ? maskPreviewUrl : maskFileUrl;
     return {
       label: getNodeDef(node.type || '')?.label || '图像输入',
       src: maskSrc,
@@ -130,9 +131,7 @@ export default function ResultsPanel({
         name: file.name,
       }));
   }, [generatedOutputs]);
-  const previewImageIndex = previewImage
-    ? imageGallery.findIndex((item) => item.src === previewImage)
-    : -1;
+  const previewImageIndex = previewImage ? imageGallery.findIndex((item) => item.src === previewImage) : -1;
 
   return (
     <aside className="workflow-panel workflow-results glass">
@@ -161,14 +160,20 @@ export default function ResultsPanel({
 
       <div className="workflow-results__tabs">
         <TabButton active={tab === 'results'} onClick={() => setTab('results')} label="结果" />
-        <TabButton active={tab === 'logs'} onClick={() => setTab('logs')} label={`日志 ${executionLogs.length ? executionLogs.length : ''}`} />
+        <TabButton
+          active={tab === 'logs'}
+          onClick={() => setTab('logs')}
+          label={`日志 ${executionLogs.length ? executionLogs.length : ''}`}
+        />
       </div>
 
       {isServerRuntime && tab === 'results' && generatedOutputs.length > 0 ? (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
           <button
             type="button"
-            onClick={() => { void handleClearGeneratedOutputs(); }}
+            onClick={() => {
+              void handleClearGeneratedOutputs();
+            }}
             className="workflow-results__mini-action"
             disabled={isClearingOutputs}
           >
@@ -188,7 +193,9 @@ export default function ResultsPanel({
         {selectedMaskInfo && (
           <div className="workflow-results__banner workflow-results__banner--mask">
             <CheckCircle2 size={14} />
-            <span>{selectedMaskInfo.label}：{selectedMaskInfo.hasMask ? '当前节点已附带遮罩输出' : '当前节点还没有遮罩输出'}</span>
+            <span>
+              {selectedMaskInfo.label}：{selectedMaskInfo.hasMask ? '当前节点已附带遮罩输出' : '当前节点还没有遮罩输出'}
+            </span>
           </div>
         )}
 
@@ -289,7 +296,17 @@ function ResultsList({
     label: file.name,
     color: file.type === 'video' ? '#AF52DE' : '#FF9500',
     outputLabels: { content: file.relativePath },
-    outputs: { content: { url: file.url, thumbnailUrl: file.thumbnailUrl, type: file.type, name: file.name, mimeType: file.mimeType, width: file.width, height: file.height } },
+    outputs: {
+      content: {
+        url: file.url,
+        thumbnailUrl: file.thumbnailUrl,
+        type: file.type,
+        name: file.name,
+        mimeType: file.mimeType,
+        width: file.width,
+        height: file.height,
+      },
+    },
   }));
 
   if (error) {
@@ -297,11 +314,20 @@ function ResultsList({
   }
 
   if (files.length === 0 && !selectedMaskInfo?.hasMask && isLoading) {
-    return <EmptyState icon={<ImageIcon size={20} />} title="正在读取生成文件" body="正在从外部文件存储生成目录同步结果。" />;
+    return (
+      <EmptyState icon={<ImageIcon size={20} />} title="正在读取生成文件" body="正在从外部文件存储生成目录同步结果。" />
+    );
   }
 
   if (files.length === 0 && !selectedMaskInfo?.hasMask) {
-    return <EmptyState icon={<ImageIcon size={20} />} title="还没有 AI 输出" body="执行后，这里会集中显示文本、图片和视频结果。" action="先运行一次工作流，或检查节点是否具备可输出内容。" />;
+    return (
+      <EmptyState
+        icon={<ImageIcon size={20} />}
+        title="还没有 AI 输出"
+        body="执行后，这里会集中显示文本、图片和视频结果。"
+        action="先运行一次工作流，或检查节点是否具备可输出内容。"
+      />
+    );
   }
 
   return (
@@ -317,24 +343,30 @@ function ResultsList({
           <ImageResult src={selectedMaskInfo.src} onPreviewImage={onPreviewImage} />
         </div>
       )}
-      {resultItems.map((item) => item && (
-        <div key={item.id} className="workflow-results__card">
-          <div className="workflow-results__card-header">
-            <span className="workflow-results__node-badge" style={{ background: `${item.color}18`, color: item.color }}>
-              <NodeBadgeIcon nodeType={item.type} />
-            </span>
-            <span className="workflow-results__node-title" style={{ color: item.color }}>
-              {item.label}
-            </span>
-          </div>
-          <AiOutputGroup
-            outputs={item.outputs}
-            outputLabels={item.outputLabels}
-            onPreviewImage={onPreviewImage}
-            onBackfillText={onBackfillText}
-          />
-        </div>
-      ))}
+      {resultItems.map(
+        (item) =>
+          item && (
+            <div key={item.id} className="workflow-results__card">
+              <div className="workflow-results__card-header">
+                <span
+                  className="workflow-results__node-badge"
+                  style={{ background: `${item.color}18`, color: item.color }}
+                >
+                  <NodeBadgeIcon nodeType={item.type} />
+                </span>
+                <span className="workflow-results__node-title" style={{ color: item.color }}>
+                  {item.label}
+                </span>
+              </div>
+              <AiOutputGroup
+                outputs={item.outputs}
+                outputLabels={item.outputLabels}
+                onPreviewImage={onPreviewImage}
+                onBackfillText={onBackfillText}
+              />
+            </div>
+          ),
+      )}
     </div>
   );
 }
@@ -363,17 +395,28 @@ function AiOutputGroup({
     .map(([key, value]) => {
       const unwrapped = unwrapOutputValue(value);
       if (
-        typeof unwrapped === 'string'
-        && unwrapped.startsWith('/api/outputs/')
-        && isRenderableOutputImageUrl(unwrapped)
+        typeof unwrapped === 'string' &&
+        unwrapped.startsWith('/api/outputs/') &&
+        isRenderableOutputImageUrl(unwrapped)
       ) {
-        const matched = savedFiles.find((file) => (
-          file
-          && typeof file === 'object'
-          && typeof (file as { url?: unknown }).url === 'string'
-          && (file as { url: string }).url === unwrapped
-          && (file as { type?: unknown }).type === 'image'
-        )) as { url: string; thumbnailUrl?: string; type: string; name?: string; mimeType?: string; width?: number; height?: number } | undefined;
+        const matched = savedFiles.find(
+          (file) =>
+            file &&
+            typeof file === 'object' &&
+            typeof (file as { url?: unknown }).url === 'string' &&
+            (file as { url: string }).url === unwrapped &&
+            (file as { type?: unknown }).type === 'image',
+        ) as
+          | {
+              url: string;
+              thumbnailUrl?: string;
+              type: string;
+              name?: string;
+              mimeType?: string;
+              width?: number;
+              height?: number;
+            }
+          | undefined;
         if (matched) {
           return [key, unwrapOutputValue(matched)] as const;
         }
@@ -409,7 +452,16 @@ function AiOutputValue({
   onBackfillText?: (text: string) => void;
 }) {
   if (isGeneratedOutputValue(value)) {
-    if (value.type === 'image') return <ImageResult src={value.url} thumbnailSrc={value.thumbnailUrl || inferImageThumbnailUrl(value.url) || value.url} width={value.width} height={value.height} onPreviewImage={onPreviewImage} />;
+    if (value.type === 'image')
+      return (
+        <ImageResult
+          src={value.url}
+          thumbnailSrc={value.thumbnailUrl || inferImageThumbnailUrl(value.url) || value.url}
+          width={value.width}
+          height={value.height}
+          onPreviewImage={onPreviewImage}
+        />
+      );
     if (value.type === 'video') return <VideoResult src={value.url} />;
     if (value.type === 'audio') return <audio src={value.url} controls className="w-full" />;
     if (isPreviewableTextOutput(value)) {
@@ -442,10 +494,22 @@ function AiOutputValue({
       );
     }
     if (values.length === normalized.length && values.every(isRenderableOutputVideoUrl)) {
-      return <div className="space-y-2">{values.map((src) => <VideoResult key={src} src={src} compact />)}</div>;
+      return (
+        <div className="space-y-2">
+          {values.map((src) => (
+            <VideoResult key={src} src={src} compact />
+          ))}
+        </div>
+      );
     }
     if (values.length === normalized.length && values.every(isRenderableOutputAudioUrl)) {
-      return <div className="space-y-2">{values.map((src) => <audio key={src} src={src} controls className="w-full" />)}</div>;
+      return (
+        <div className="space-y-2">
+          {values.map((src) => (
+            <audio key={src} src={src} controls className="w-full" />
+          ))}
+        </div>
+      );
     }
     return <TextResult text={JSON.stringify(normalized, null, 2)} mono />;
   }
@@ -472,9 +536,7 @@ function TextResult({
           复制
         </button>
       </div>
-      <div className={`workflow-results__text ${mono ? 'workflow-results__text--mono' : ''}`}>
-        {text || '(空内容)'}
-      </div>
+      <div className={`workflow-results__text ${mono ? 'workflow-results__text--mono' : ''}`}>{text || '(空内容)'}</div>
     </div>
   );
 }
@@ -495,9 +557,18 @@ function ImageResult({
   compact?: boolean;
 }) {
   return (
-    <button type="button" onClick={() => onPreviewImage(src)} className={`workflow-results__media ${compact ? 'workflow-results__media--compact' : ''}`}>
+    <button
+      type="button"
+      onClick={() => onPreviewImage(src)}
+      className={`workflow-results__media ${compact ? 'workflow-results__media--compact' : ''}`}
+    >
       <img src={thumbnailSrc || src} alt="" className="h-full w-full object-cover" />
-      <ImageSizeLabel src={thumbnailSrc || src} width={width} height={height} className="workflow-results__media-size" />
+      <ImageSizeLabel
+        src={thumbnailSrc || src}
+        width={width}
+        height={height}
+        className="workflow-results__media-size"
+      />
     </button>
   );
 }
@@ -526,7 +597,14 @@ function LogsList({
   onClear: () => void;
 }) {
   if (logs.length === 0) {
-    return <EmptyState icon={<TerminalSquare size={20} />} title="还没有运行日志" body="工作流开始执行后，这里会显示节点级运行日志。" action="先执行工作流；如果执行失败，也可以回到画布检查启动前校验。" />;
+    return (
+      <EmptyState
+        icon={<TerminalSquare size={20} />}
+        title="还没有运行日志"
+        body="工作流开始执行后，这里会显示节点级运行日志。"
+        action="先执行工作流；如果执行失败，也可以回到画布检查启动前校验。"
+      />
+    );
   }
 
   const orderedLogs = [...logs].reverse();
@@ -542,9 +620,17 @@ function LogsList({
         <div key={log.id} className="workflow-results__log-item">
           <div className="workflow-results__log-head">
             <span className={`workflow-results__log-level workflow-results__log-level--${log.level}`}>{log.level}</span>
-            <span>{new Date(log.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+            <span>
+              {new Date(log.timestamp).toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })}
+            </span>
           </div>
-          <div className="workflow-results__log-message">{buildLogPreview(String(log.message), LOG_MESSAGE_PREVIEW_LIMIT)}</div>
+          <div className="workflow-results__log-message">
+            {buildLogPreview(String(log.message), LOG_MESSAGE_PREVIEW_LIMIT)}
+          </div>
           {Boolean(log.details) && (
             <pre className="workflow-results__text workflow-results__text--mono mt-2 whitespace-pre-wrap">
               {buildLogPreview(String(log.details), LOG_DETAILS_PREVIEW_LIMIT)}
@@ -642,7 +728,11 @@ function TextPreviewModal({
           <div className="min-w-0">
             <div className="workflow-text-preview-modal__title">{title}</div>
             <div className="workflow-text-preview-modal__meta">
-              {isLoading ? '读取中...' : error ? '读取失败' : `${text ? text.split(/\r\n|\r|\n/).length : 0} 行 · ${text.length} 字符`}
+              {isLoading
+                ? '读取中...'
+                : error
+                  ? '读取失败'
+                  : `${text ? text.split(/\r\n|\r|\n/).length : 0} 行 · ${text.length} 字符`}
             </div>
           </div>
           <div className="workflow-text-preview-modal__actions">
@@ -668,7 +758,12 @@ function TextPreviewModal({
                 回填到画布
               </button>
             )}
-            <button type="button" onClick={onClose} className="workflow-text-preview-modal__close" aria-label="关闭文本预览">
+            <button
+              type="button"
+              onClick={onClose}
+              className="workflow-text-preview-modal__close"
+              aria-label="关闭文本预览"
+            >
               <X size={16} />
             </button>
           </div>
@@ -681,13 +776,9 @@ function TextPreviewModal({
             </div>
           )}
           {!isLoading && error && (
-            <div className="workflow-text-preview-modal__state workflow-text-preview-modal__state--error">
-              {error}
-            </div>
+            <div className="workflow-text-preview-modal__state workflow-text-preview-modal__state--error">{error}</div>
           )}
-          {!isLoading && !error && (
-            <pre className="workflow-text-preview-modal__text">{text || '(空内容)'}</pre>
-          )}
+          {!isLoading && !error && <pre className="workflow-text-preview-modal__text">{text || '(空内容)'}</pre>}
         </div>
       </div>
     </div>,
@@ -728,15 +819,15 @@ function unwrapOutputValue(value: unknown): unknown {
     const record = value as Record<string, unknown>;
     const url = record.url;
     const type = record.type;
-      if (typeof url === 'string' && typeof type === 'string') {
-        return {
-          url,
-          thumbnailUrl: typeof record.thumbnailUrl === 'string' ? record.thumbnailUrl : '',
-          type,
-          name: typeof record.name === 'string' ? record.name : '',
-          mimeType: typeof record.mimeType === 'string' ? record.mimeType : '',
-          width: typeof record.width === 'number' ? record.width : undefined,
-          height: typeof record.height === 'number' ? record.height : undefined,
+    if (typeof url === 'string' && typeof type === 'string') {
+      return {
+        url,
+        thumbnailUrl: typeof record.thumbnailUrl === 'string' ? record.thumbnailUrl : '',
+        type,
+        name: typeof record.name === 'string' ? record.name : '',
+        mimeType: typeof record.mimeType === 'string' ? record.mimeType : '',
+        width: typeof record.width === 'number' ? record.width : undefined,
+        height: typeof record.height === 'number' ? record.height : undefined,
       };
     }
     if (typeof record.url === 'string') return record.url;
@@ -744,12 +835,20 @@ function unwrapOutputValue(value: unknown): unknown {
   return value;
 }
 
-function isGeneratedOutputValue(value: unknown): value is { url: string; thumbnailUrl?: string; type: string; name: string; mimeType?: string; width?: number; height?: number } {
+function isGeneratedOutputValue(value: unknown): value is {
+  url: string;
+  thumbnailUrl?: string;
+  type: string;
+  name: string;
+  mimeType?: string;
+  width?: number;
+  height?: number;
+} {
   return Boolean(
-    value
-    && typeof value === 'object'
-    && typeof (value as Record<string, unknown>).url === 'string'
-    && typeof (value as Record<string, unknown>).type === 'string',
+    value &&
+      typeof value === 'object' &&
+      typeof (value as Record<string, unknown>).url === 'string' &&
+      typeof (value as Record<string, unknown>).type === 'string',
   );
 }
 
@@ -773,7 +872,12 @@ function isRenderableOutputAudioUrl(value: string) {
 }
 
 function isLocalOrInlineMediaUrl(value: string) {
-  return value.startsWith('data:') || value.startsWith('blob:') || value.startsWith('/api/files/') || value.startsWith('/api/outputs/');
+  return (
+    value.startsWith('data:') ||
+    value.startsWith('blob:') ||
+    value.startsWith('/api/files/') ||
+    value.startsWith('/api/outputs/')
+  );
 }
 
 function isVideoUrl(value: string) {

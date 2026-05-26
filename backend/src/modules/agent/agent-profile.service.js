@@ -8,7 +8,15 @@ const DEFAULT_PROFILE = {
   icon: 'bot',
   description: 'General purpose assistant',
   instruction: 'You are a helpful assistant.',
-  enabledTools: ['web_search', 'search_memory', 'memory_write', 'get_current_time', 'generate_image', 'video_generate', 'workflow_execute'],
+  enabledTools: [
+    'web_search',
+    'search_memory',
+    'memory_write',
+    'get_current_time',
+    'generate_image',
+    'video_generate',
+    'workflow_execute',
+  ],
   defaultModel: '',
   behavior: {
     responseStyle: 'balanced',
@@ -41,9 +49,7 @@ const TOOL_NAME_ALIASES = {
 
 function normalizeToolList(value) {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => TOOL_NAME_ALIASES[cleanString(item, 80)] || cleanString(item, 80))
-    .filter(Boolean);
+  return value.map((item) => TOOL_NAME_ALIASES[cleanString(item, 80)] || cleanString(item, 80)).filter(Boolean);
 }
 
 function normalizeProfile(profile) {
@@ -72,14 +78,18 @@ function normalizeProfile(profile) {
 
 function mapLegacyRoles(settings) {
   const roles = Array.isArray(settings?.ui?.customRoles) ? settings.ui.customRoles : [];
-  return roles.map((role) => normalizeProfile({
-    id: role.id,
-    name: role.name,
-    icon: role.icon,
-    instruction: role.systemPrompt,
-    enabledTools: role.tools,
-    isCustom: true,
-  })).filter(Boolean);
+  return roles
+    .map((role) =>
+      normalizeProfile({
+        id: role.id,
+        name: role.name,
+        icon: role.icon,
+        instruction: role.systemPrompt,
+        enabledTools: role.tools,
+        isCustom: true,
+      }),
+    )
+    .filter(Boolean);
 }
 
 export class AgentProfileService {

@@ -1,4 +1,3 @@
-import { agentRepository } from './agent.repository.js';
 import { ensureResourceOwnership } from '../../platform/runtime/index.js';
 import {
   isDuplicateMemory,
@@ -9,6 +8,7 @@ import {
   normalizeMemoryImportance,
   normalizeMemoryTags,
 } from './agent-memory-policy.js';
+import { agentRepository } from './agent.repository.js';
 
 function cleanString(value, maxLength = 5000) {
   if (value === undefined || value === null) return '';
@@ -25,7 +25,9 @@ function tokenizeMemoryText(value) {
 
 function dedupeMemories(memories) {
   const byFingerprint = new Map();
-  const ordered = [...memories].sort((left, right) => right.updatedAt - left.updatedAt || right.createdAt - left.createdAt);
+  const ordered = [...memories].sort(
+    (left, right) => right.updatedAt - left.updatedAt || right.createdAt - left.createdAt,
+  );
   for (const memory of ordered) {
     const fingerprint = `${memory.scope}:${memory.conversationId || ''}:${normalizeMemoryFingerprint(memory.content)}`;
     if (!fingerprint.endsWith(':') && !byFingerprint.has(fingerprint)) {
@@ -40,27 +42,30 @@ function normalizeMemory(memory, scope) {
   const content = normalizeMemoryContent(memory.content, 12000);
   if (isMalformedMemoryContent(content)) return null;
   const now = Date.now();
-  return ensureResourceOwnership({
-    id: cleanString(memory.id, 120) || `mem_${now}_${Math.random().toString(16).slice(2, 8)}`,
-    scope: ['global', 'conversation', 'workflow'].includes(memory.scope) ? memory.scope : 'global',
-    source: ['chat', 'workflow', 'manual'].includes(memory.source) ? memory.source : 'manual',
-    content,
-    tags: normalizeMemoryTags(memory.tags),
-    importance: normalizeMemoryImportance(memory.importance),
-    createdAt: Number(memory.createdAt) || now,
-    updatedAt: Number(memory.updatedAt) || now,
-    conversationId: cleanString(memory.conversationId, 120) || undefined,
-    workflowId: cleanString(memory.workflowId, 120) || undefined,
-  }, {
-    ...scope,
-    userId: memory.ownerUserId || memory.ownershipScope?.userId || scope?.userId,
-    workspaceId: memory.workspaceId || memory.ownershipScope?.workspaceId || scope?.workspaceId,
-    runtimeMode: memory.ownershipScope?.runtimeMode || scope?.runtimeMode,
-  });
+  return ensureResourceOwnership(
+    {
+      id: cleanString(memory.id, 120) || `mem_${now}_${Math.random().toString(16).slice(2, 8)}`,
+      scope: ['global', 'conversation', 'workflow'].includes(memory.scope) ? memory.scope : 'global',
+      source: ['chat', 'workflow', 'manual'].includes(memory.source) ? memory.source : 'manual',
+      content,
+      tags: normalizeMemoryTags(memory.tags),
+      importance: normalizeMemoryImportance(memory.importance),
+      createdAt: Number(memory.createdAt) || now,
+      updatedAt: Number(memory.updatedAt) || now,
+      conversationId: cleanString(memory.conversationId, 120) || undefined,
+      workflowId: cleanString(memory.workflowId, 120) || undefined,
+    },
+    {
+      ...scope,
+      userId: memory.ownerUserId || memory.ownershipScope?.userId || scope?.userId,
+      workspaceId: memory.workspaceId || memory.ownershipScope?.workspaceId || scope?.workspaceId,
+      runtimeMode: memory.ownershipScope?.runtimeMode || scope?.runtimeMode,
+    },
+  );
 }
 
 function scoreMemory(memory, query) {
-  const recency = Math.max(0, 1 - ((Date.now() - memory.updatedAt) / (1000 * 60 * 60 * 24 * 30)));
+  const recency = Math.max(0, 1 - (Date.now() - memory.updatedAt) / (1000 * 60 * 60 * 24 * 30));
   if (!query) return memory.importance + recency;
 
   const haystack = [memory.content, memory.tags.join(' '), memory.conversationId, memory.workflowId].join(' ');
@@ -69,9 +74,12 @@ function scoreMemory(memory, query) {
   const exactPhraseMatch = normalizedHaystack.includes(query.toLowerCase()) ? 1 : 0;
   const termMatches = terms.reduce((score, term) => score + (normalizedHaystack.includes(term) ? 1 : 0), 0);
   const tagMatches = memory.tags.reduce((score, tag) => score + (terms.includes(tag.toLowerCase()) ? 1 : 0), 0);
-  const characterOverlap = terms.length === 0 && query
-    ? cleanString(query, 200).split('').filter((char) => normalizedHaystack.includes(char.toLowerCase())).length
-    : 0;
+  const characterOverlap =
+    terms.length === 0 && query
+      ? cleanString(query, 200)
+          .split('')
+          .filter((char) => normalizedHaystack.includes(char.toLowerCase())).length
+      : 0;
   const matches = exactPhraseMatch * 3 + termMatches + tagMatches + Math.min(characterOverlap / 4, 2);
   return matches > 0 ? matches * 10 + memory.importance + recency : 0;
 }
@@ -133,14 +141,7 @@ export class AgentMemoryService {
     return this.import([memory], options);
   }
 
-  writeFromTool({
-    content,
-    scope,
-    tags,
-    importance,
-    conversationId,
-    requestScope,
-  } = {}) {
+  writeFromTool({ content, scope, tags, importance, conversationId, requestScope } = {}) {
     const normalizedContent = normalizeMemoryContent(content, 500);
     if (isMalformedMemoryContent(normalizedContent)) {
       return {
@@ -171,18 +172,21 @@ export class AgentMemoryService {
     }
 
     const now = Date.now();
-    const normalizedScope = scope === 'global' ? 'global' : (normalizedConversationId ? 'conversation' : 'global');
-    const memory = ensureResourceOwnership({
-      id: `mem_${now}_${Math.random().toString(16).slice(2, 8)}`,
-      scope: normalizedScope,
-      source: 'chat',
-      content: normalizedContent,
-      tags: normalizeMemoryTags(tags),
-      importance: normalizeMemoryImportance(importance),
-      createdAt: now,
-      updatedAt: now,
-      conversationId: normalizedScope === 'conversation' ? normalizedConversationId : undefined,
-    }, requestScope);
+    const normalizedScope = scope === 'global' ? 'global' : normalizedConversationId ? 'conversation' : 'global';
+    const memory = ensureResourceOwnership(
+      {
+        id: `mem_${now}_${Math.random().toString(16).slice(2, 8)}`,
+        scope: normalizedScope,
+        source: 'chat',
+        content: normalizedContent,
+        tags: normalizeMemoryTags(tags),
+        importance: normalizeMemoryImportance(importance),
+        createdAt: now,
+        updatedAt: now,
+        conversationId: normalizedScope === 'conversation' ? normalizedConversationId : undefined,
+      },
+      requestScope,
+    );
 
     this.import([memory], { scope: requestScope });
     return {

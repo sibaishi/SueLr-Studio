@@ -1,5 +1,6 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import { deleteGeneratedThumbnail, ensureGeneratedThumbnailFromBuffer } from '../../platform/media/image-thumbnails.js';
 import {
   STORAGE_PATHS,
   ensureJsonFile,
@@ -8,7 +9,6 @@ import {
   safeResolveWithin,
   writeJsonFile,
 } from '../../platform/storage/index.js';
-import { ensureGeneratedThumbnailFromBuffer, deleteGeneratedThumbnail } from '../../platform/media/image-thumbnails.js';
 
 const DATA_FILE_MAP = {
   conversations: STORAGE_PATHS.conversationsFile,

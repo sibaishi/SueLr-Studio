@@ -1,5 +1,5 @@
-import { errorEnvelope } from '../http/envelope.js';
 import { createLogger } from '../../platform/logging/logger.js';
+import { errorEnvelope } from '../http/envelope.js';
 
 const errorLogger = createLogger({ module: 'error-handler' });
 const EXPOSE_DETAILS = process.env.APP_EXPOSE_ERROR_DETAILS === 'true';
@@ -10,9 +10,7 @@ function toSafeClientError(error, status) {
   if (status >= 500) {
     return {
       code,
-      message: status === 502
-        ? '上游服务请求失败，请检查配置或稍后重试'
-        : '服务器内部错误，请稍后重试',
+      message: status === 502 ? '上游服务请求失败，请检查配置或稍后重试' : '服务器内部错误，请稍后重试',
     };
   }
 

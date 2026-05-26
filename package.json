@@ -28,6 +28,10 @@
     "check:repo-hygiene": "node scripts/check-repo-hygiene.mjs",
     "check:encoding": "node scripts/check-encoding.mjs",
     "fix:encoding": "node scripts/fix-encoding.mjs",
+    "lint": "biome check src/ backend/src/",
+    "lint:fix": "biome check --write src/ backend/src/",
+    "format": "biome format --write src/ backend/src/",
+    "format:check": "biome format src/ backend/src/",
     "typecheck": "npx tsc --noEmit",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
@@ -53,6 +57,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@playwright/test": "^1.54.2",
     "@tailwindcss/vite": "4.1.17",
     "@types/node": "22.19.17",

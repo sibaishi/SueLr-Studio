@@ -33,15 +33,17 @@ export class SettingsController {
   async testApi(req, res, next) {
     try {
       const { models } = await settingsService.discoverModels(req.body);
-      res.json(successEnvelope({
-        message: `连接成功，已加载 ${models.all.length} 个模型`,
-        models: models.all,
-        categorized: {
-          chat: models.chat,
-          image: models.image,
-          video: models.video,
-        },
-      }));
+      res.json(
+        successEnvelope({
+          message: `连接成功，已加载 ${models.all.length} 个模型`,
+          models: models.all,
+          categorized: {
+            chat: models.chat,
+            image: models.image,
+            video: models.video,
+          },
+        }),
+      );
     } catch (error) {
       next(error);
     }

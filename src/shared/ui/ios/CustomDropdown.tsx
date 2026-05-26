@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { useT } from '@/providers/ThemeContext';
+import { ChevronDown } from 'lucide-react';
+import React, { useRef, useState } from 'react';
 
 interface DropdownOption {
   label: string;
@@ -60,8 +60,16 @@ export function CustomDropdown({
           boxShadow: open ? `0 0 0 2px ${T.blue}40` : 'none',
         }}
       >
-        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-        <ChevronDown size={12} color={T.text3} style={{ flexShrink: 0, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0)' }} />
+        <span
+          style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {label}
+        </span>
+        <ChevronDown
+          size={12}
+          color={T.text3}
+          style={{ flexShrink: 0, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0)' }}
+        />
       </button>
       {open && (
         <>
@@ -78,7 +86,7 @@ export function CustomDropdown({
               borderRadius: 12,
               padding: 4,
               border: `1px solid ${T.border}`,
-              boxShadow: `0 8px 24px rgba(15,23,42,0.14), 0 1px 2px rgba(15,23,42,0.08)`,
+              boxShadow: '0 8px 24px rgba(15,23,42,0.14), 0 1px 2px rgba(15,23,42,0.08)',
               maxHeight: 280,
               overflowY: 'auto',
             }}
@@ -86,7 +94,15 @@ export function CustomDropdown({
             {groups.map((group, groupIndex) => (
               <React.Fragment key={groupIndex}>
                 {group.name && (
-                  <div style={{ padding: '8px 12px 4px', fontSize: 11, color: T.text3, fontWeight: 600, letterSpacing: 0.5 }}>
+                  <div
+                    style={{
+                      padding: '8px 12px 4px',
+                      fontSize: 11,
+                      color: T.text3,
+                      fontWeight: 600,
+                      letterSpacing: 0.5,
+                    }}
+                  >
                     {group.name}
                   </div>
                 )}
@@ -120,7 +136,9 @@ export function CustomDropdown({
                     {option.label}
                   </button>
                 ))}
-                {groupIndex < groups.length - 1 && <div style={{ height: 1, background: T.border, margin: '4px 8px' }} />}
+                {groupIndex < groups.length - 1 && (
+                  <div style={{ height: 1, background: T.border, margin: '4px 8px' }} />
+                )}
               </React.Fragment>
             ))}
           </div>

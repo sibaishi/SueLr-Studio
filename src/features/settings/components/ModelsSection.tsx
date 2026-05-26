@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
-import { Check, Database, Search, UploadCloud, X } from 'lucide-react';
-import type { ModelInfo, ProjectModel } from '@/shared/types';
 import { inferEndpointCategory } from '@/domains/workflow/lib/projectModels';
+import type { ModelInfo, ProjectModel } from '@/shared/types';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
+import { Check, Database, Search, UploadCloud, X } from 'lucide-react';
+import { useMemo } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';
+import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 
 type Props = {
   T: Record<string, string>;
@@ -36,8 +36,12 @@ export function ModelsSection({ T, actions, view }: Props) {
     if (!query) return view.importableModels;
     return view.importableModels.filter((model) => model.id.toLowerCase().includes(query));
   }, [view.importableModels, view.projectModelSearch]);
-  const allVisibleSelected = filteredImportableModels.length > 0 && filteredImportableModels.every((model) => isSelected(model.id, view.selectedImports));
-  const selectedVisibleCount = filteredImportableModels.filter((model) => isSelected(model.id, view.selectedImports)).length;
+  const allVisibleSelected =
+    filteredImportableModels.length > 0 &&
+    filteredImportableModels.every((model) => isSelected(model.id, view.selectedImports));
+  const selectedVisibleCount = filteredImportableModels.filter((model) =>
+    isSelected(model.id, view.selectedImports),
+  ).length;
 
   const toggleImport = (id: string) => {
     actions.setSelectedImports(
@@ -53,7 +57,9 @@ export function ModelsSection({ T, actions, view }: Props) {
       actions.setSelectedImports(view.selectedImports.filter((id) => !visible.has(id)));
       return;
     }
-    actions.setSelectedImports([...new Set([...view.selectedImports, ...filteredImportableModels.map((model) => model.id)])]);
+    actions.setSelectedImports([
+      ...new Set([...view.selectedImports, ...filteredImportableModels.map((model) => model.id)]),
+    ]);
   };
 
   return (
@@ -61,21 +67,66 @@ export function ModelsSection({ T, actions, view }: Props) {
       <SectionCard title="项目模型库" description="管理当前工作室在对话、图像、视频等场景下可用的模型资产。">
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-tertiary)', pointerEvents: 'none' }} />
-            <IOSInput value={view.projectModelSearch} onChange={actions.setProjectModelSearch} placeholder="搜索模型名称" style={{ paddingLeft: 38 }} />
+            <Search
+              size={15}
+              style={{
+                position: 'absolute',
+                left: 13,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--color-text-tertiary)',
+                pointerEvents: 'none',
+              }}
+            />
+            <IOSInput
+              value={view.projectModelSearch}
+              onChange={actions.setProjectModelSearch}
+              placeholder="搜索模型名称"
+              style={{ paddingLeft: 38 }}
+            />
           </div>
 
           {view.importableModels.length > 0 && (
-            <div data-testid="settings-importable-models-panel" style={{ ...mutedPanelStyle(), overflow: 'hidden', borderColor: `${T.blue}36`, background: `linear-gradient(180deg, ${T.blue}12, var(--color-bg-secondary) 42%)` }}>
-              <div style={{ padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid var(--color-border)' }}>
+            <div
+              data-testid="settings-importable-models-panel"
+              style={{
+                ...mutedPanelStyle(),
+                overflow: 'hidden',
+                borderColor: `${T.blue}36`,
+                background: `linear-gradient(180deg, ${T.blue}12, var(--color-bg-secondary) 42%)`,
+              }}
+            >
+              <div
+                style={{
+                  padding: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  borderBottom: '1px solid var(--color-border)',
+                }}
+              >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-                    <div style={{ width: 30, height: 30, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${T.blue}20`, color: T.blue }}>
+                    <div
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: `${T.blue}20`,
+                        color: T.blue,
+                      }}
+                    >
                       <Database size={15} />
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' }}>待导入模型</div>
                     <span style={chipStyle(T.blue)}>{filteredImportableModels.length} 个可见</span>
-                    {view.selectedImports.length > 0 && <span style={chipStyle(T.green)}>已选择 {view.selectedImports.length}</span>}
+                    {view.selectedImports.length > 0 && (
+                      <span style={chipStyle(T.green)}>已选择 {view.selectedImports.length}</span>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 8 }}>
                     从连接测试发现的模型中挑选要纳入当前项目模型库的条目。
@@ -134,11 +185,33 @@ export function ModelsSection({ T, actions, view }: Props) {
                         textAlign: 'left',
                       }}
                     >
-                      <span style={{ width: 20, height: 20, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${selected ? T.blue : 'var(--color-border)'}`, background: selected ? T.blue : 'transparent', color: '#fff' }}>
+                      <span
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 7,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: `1px solid ${selected ? T.blue : 'var(--color-border)'}`,
+                          background: selected ? T.blue : 'transparent',
+                          color: '#fff',
+                        }}
+                      >
                         {selected && <Check size={13} />}
                       </span>
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{id}</span>
+                        <span
+                          style={{
+                            display: 'block',
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            lineHeight: 1.35,
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {id}
+                        </span>
                       </span>
                       <span style={chipStyle(modelTypeColor(type, T))}>{modelTypeLabel(type)}</span>
                     </button>
@@ -153,9 +226,22 @@ export function ModelsSection({ T, actions, view }: Props) {
                 )}
               </div>
 
-              <div style={{ padding: 12, borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', background: 'var(--color-bg-secondary)' }}>
+              <div
+                style={{
+                  padding: 12,
+                  borderTop: '1px solid var(--color-border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                  background: 'var(--color-bg-secondary)',
+                }}
+              >
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                  当前视图已选择 <strong style={{ color: 'var(--color-text-primary)' }}>{selectedVisibleCount}</strong> 个，全部已选择 <strong style={{ color: 'var(--color-text-primary)' }}>{view.selectedImports.length}</strong> 个
+                  当前视图已选择 <strong style={{ color: 'var(--color-text-primary)' }}>{selectedVisibleCount}</strong>{' '}
+                  个，全部已选择{' '}
+                  <strong style={{ color: 'var(--color-text-primary)' }}>{view.selectedImports.length}</strong> 个
                 </div>
                 <button
                   type="button"
@@ -185,31 +271,72 @@ export function ModelsSection({ T, actions, view }: Props) {
 
           <div className="flex-col" style={{ gap: 10 }}>
             {view.filteredProjectModels.map((model) => (
-              <IOSCard key={model.modelId} data-testid={`settings-project-model-card-${model.modelId}`} style={{ borderRadius: 18, boxShadow: 'none', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+              <IOSCard
+                key={model.modelId}
+                data-testid={`settings-project-model-card-${model.modelId}`}
+                style={{
+                  borderRadius: 18,
+                  boxShadow: 'none',
+                  background: 'var(--color-bg-tertiary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
                 <div className="flex-col" style={{ gap: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ color: 'var(--color-text-primary)', fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{model.modelId}</div>
-                      <div style={{ fontSize: 11, color: model.configured ? T.green : T.orange, marginTop: 4 }}>{model.configured ? '已配置，可用' : '配置还不完整'}</div>
+                      <div
+                        style={{
+                          color: 'var(--color-text-primary)',
+                          fontFamily: 'monospace',
+                          overflowWrap: 'anywhere',
+                        }}
+                      >
+                        {model.modelId}
+                      </div>
+                      <div style={{ fontSize: 11, color: model.configured ? T.green : T.orange, marginTop: 4 }}>
+                        {model.configured ? '已配置，可用' : '配置还不完整'}
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        <input type="checkbox" checked={model.enabled} onChange={(event) => actions.updateProjectModel(model.modelId, { enabled: event.target.checked })} />
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontSize: 12,
+                          color: 'var(--color-text-secondary)',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={model.enabled}
+                          onChange={(event) =>
+                            actions.updateProjectModel(model.modelId, { enabled: event.target.checked })
+                          }
+                        />
                         启用
                       </label>
-                      <IOSButton small label="移除" color={T.red} onClick={() => actions.removeProjectModel(model.modelId)} />
+                      <IOSButton
+                        small
+                        label="移除"
+                        color={T.red}
+                        onClick={() => actions.removeProjectModel(model.modelId)}
+                      />
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
                     <div>
                       <IOSLabel>模型类型</IOSLabel>
-                      <IOSSelect value={model.type} onChange={(value) => {
-                        const type = value as ProjectModel['type'];
-                        actions.updateProjectModel(model.modelId, {
-                          type,
-                          endpointCategory: inferEndpointCategory(type),
-                        });
-                      }}>
+                      <IOSSelect
+                        value={model.type}
+                        onChange={(value) => {
+                          const type = value as ProjectModel['type'];
+                          actions.updateProjectModel(model.modelId, {
+                            type,
+                            endpointCategory: inferEndpointCategory(type),
+                          });
+                        }}
+                      >
                         <option value="">未设置</option>
                         <option value="chat">对话</option>
                         <option value="image">图像</option>
@@ -218,7 +345,14 @@ export function ModelsSection({ T, actions, view }: Props) {
                     </div>
                     <div>
                       <IOSLabel>接口模式</IOSLabel>
-                      <IOSSelect value={model.endpointMode} onChange={(value) => actions.updateProjectModel(model.modelId, { endpointMode: value as ProjectModel['endpointMode'] })}>
+                      <IOSSelect
+                        value={model.endpointMode}
+                        onChange={(value) =>
+                          actions.updateProjectModel(model.modelId, {
+                            endpointMode: value as ProjectModel['endpointMode'],
+                          })
+                        }
+                      >
                         <option value="category">按类别接口</option>
                         <option value="custom">自定义接口</option>
                       </IOSSelect>
@@ -226,7 +360,14 @@ export function ModelsSection({ T, actions, view }: Props) {
                     {model.endpointMode === 'category' ? (
                       <div>
                         <IOSLabel>接口类别</IOSLabel>
-                        <IOSSelect value={model.endpointCategory} onChange={(value) => actions.updateProjectModel(model.modelId, { endpointCategory: value as ProjectModel['endpointCategory'] })}>
+                        <IOSSelect
+                          value={model.endpointCategory}
+                          onChange={(value) =>
+                            actions.updateProjectModel(model.modelId, {
+                              endpointCategory: value as ProjectModel['endpointCategory'],
+                            })
+                          }
+                        >
                           <option value="">未设置</option>
                           <option value="chat">chat</option>
                           <option value="image">image</option>
@@ -238,7 +379,11 @@ export function ModelsSection({ T, actions, view }: Props) {
                     ) : (
                       <div>
                         <IOSLabel>自定义接口路径</IOSLabel>
-                        <IOSInput value={model.customEndpoint} onChange={(value) => actions.updateProjectModel(model.modelId, { customEndpoint: value })} placeholder="/v1/your/custom/path" />
+                        <IOSInput
+                          value={model.customEndpoint}
+                          onChange={(value) => actions.updateProjectModel(model.modelId, { customEndpoint: value })}
+                          placeholder="/v1/your/custom/path"
+                        />
                       </div>
                     )}
                   </div>
@@ -249,7 +394,11 @@ export function ModelsSection({ T, actions, view }: Props) {
               <EmptyStateCard
                 title="当前没有匹配的项目模型"
                 body="项目模型库里还没有符合当前筛选条件的模型。"
-                action={view.projectModelSearch ? '可以调整搜索词，或先测试连接并导入发现到的模型。' : '先测试连接发现模型，再把需要的模型导入到项目模型库。'}
+                action={
+                  view.projectModelSearch
+                    ? '可以调整搜索词，或先测试连接并导入发现到的模型。'
+                    : '先测试连接发现模型，再把需要的模型导入到项目模型库。'
+                }
               />
             )}
           </div>

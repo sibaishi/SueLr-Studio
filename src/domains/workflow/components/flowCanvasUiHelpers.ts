@@ -1,9 +1,8 @@
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
-import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import { getExpandedNodeOutputs, getNodeDef } from '@/domains/workflow/lib/constants';
 import { parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
+import type { Edge, Node as FlowNodeType } from '@xyflow/react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { getNodeRenderRect } from './flowCanvasClipboard';
-import { getEdgeApproximateSegment, pointToSegmentDistance } from './flowCanvasGeometry';
 import {
   canNodeTypesConnect,
   getInputHandleCandidatesForNode,
@@ -11,6 +10,7 @@ import {
   getOutputType,
   getParentId,
 } from './flowCanvasConnections';
+import { getEdgeApproximateSegment, pointToSegmentDistance } from './flowCanvasGeometry';
 import type { ContextMenuKind, EdgeInsertionCandidate, MenuHorizontalDirection } from './flowCanvasTypes';
 
 export const PORT_TYPE_COLORS: Record<string, string> = {
@@ -45,11 +45,11 @@ export function isPaneBackgroundTarget(target: EventTarget | null) {
   const element = target instanceof Element ? target : null;
   if (!element) return false;
   return Boolean(
-    element.closest('.react-flow__pane')
-    && !element.closest('.react-flow__node')
-    && !element.closest('.react-flow__edge')
-    && !element.closest('.react-flow__selection')
-    && !element.closest('.workflow-context-menu'),
+    element.closest('.react-flow__pane') &&
+      !element.closest('.react-flow__node') &&
+      !element.closest('.react-flow__edge') &&
+      !element.closest('.react-flow__selection') &&
+      !element.closest('.workflow-context-menu'),
   );
 }
 
@@ -72,8 +72,12 @@ export function getDecoratedGroupEdge(
   sourceDescriptor: ReturnType<typeof parseGroupHandleId>,
   targetDescriptor: ReturnType<typeof parseGroupHandleId>,
 ): Edge {
-  const isInternal = sourceDescriptor?.role === 'internal' || targetDescriptor?.role === 'internal' || edge.id.startsWith('group-binding:');
-  const isExternal = sourceDescriptor?.role === 'external' || targetDescriptor?.role === 'external' || edge.id.startsWith('virtual:');
+  const isInternal =
+    sourceDescriptor?.role === 'internal' ||
+    targetDescriptor?.role === 'internal' ||
+    edge.id.startsWith('group-binding:');
+  const isExternal =
+    sourceDescriptor?.role === 'external' || targetDescriptor?.role === 'external' || edge.id.startsWith('virtual:');
 
   if (isInternal) {
     return {
@@ -98,12 +102,7 @@ export function getDecoratedGroupEdge(
   return edge;
 }
 
-function resolveNodeBridgeHandles(
-  node: FlowNodeType,
-  edge: Edge,
-  nodeMap: Map<string, FlowNodeType>,
-  edges: Edge[],
-) {
+function resolveNodeBridgeHandles(node: FlowNodeType, edge: Edge, nodeMap: Map<string, FlowNodeType>, edges: Edge[]) {
   if (node.type === 'group') return null;
   if (edge.source === node.id || edge.target === node.id) return null;
   if (!edge.sourceHandle || !edge.targetHandle) return null;
@@ -122,29 +121,20 @@ function resolveNodeBridgeHandles(
       .map((item) => `${item.target}:${item.targetHandle}`),
   );
   const inputHandle = getInputHandleCandidatesForNode(node).find((handleId) => {
-    const inputType = def.maxInputs
-      ? def.inputs[0]?.type
-      : def.inputs.find((input) => input.id === handleId)?.type;
+    const inputType = def.maxInputs ? def.inputs[0]?.type : def.inputs.find((input) => input.id === handleId)?.type;
     return Boolean(
-      inputType
-      && !occupiedTargetHandles.has(`${node.id}:${handleId}`)
-      && canNodeTypesConnect(sourceType, inputType),
+      inputType && !occupiedTargetHandles.has(`${node.id}:${handleId}`) && canNodeTypesConnect(sourceType, inputType),
     );
   });
-  const outputs = def.maxOutputs ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>) : def.outputs;
-  const outputHandle = outputs.find((output) => (
-    canNodeTypesConnect(output.type, targetType)
-  ))?.id;
+  const outputs = def.maxOutputs
+    ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>)
+    : def.outputs;
+  const outputHandle = outputs.find((output) => canNodeTypesConnect(output.type, targetType))?.id;
 
   return inputHandle && outputHandle ? { inputHandle, outputHandle } : null;
 }
 
-function canNodeBridgeEdge(
-  node: FlowNodeType,
-  edge: Edge,
-  nodeMap: Map<string, FlowNodeType>,
-  edges: Edge[],
-) {
+function canNodeBridgeEdge(node: FlowNodeType, edge: Edge, nodeMap: Map<string, FlowNodeType>, edges: Edge[]) {
   return Boolean(resolveNodeBridgeHandles(node, edge, nodeMap, edges));
 }
 
@@ -154,11 +144,7 @@ export function getEdgeDataTypeColor(edge: Edge, nodeMap: Map<string, FlowNodeTy
   return PORT_TYPE_COLORS[sourceType || ''] || PORT_TYPE_COLORS[targetType || ''] || 'var(--color-accent)';
 }
 
-export function findEdgeInsertionCandidate(
-  draggedNode: FlowNodeType,
-  nodes: FlowNodeType[],
-  edges: Edge[],
-) {
+export function findEdgeInsertionCandidate(draggedNode: FlowNodeType, nodes: FlowNodeType[], edges: Edge[]) {
   if (draggedNode.type === 'group' || getParentId(draggedNode)) return null;
 
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
@@ -243,14 +229,11 @@ export function buildEdgeInsertionPreviewEdges(
   ] as Edge[];
 }
 
-export function getLocalPoint(
-  event: MouseEvent | TouchEvent | ReactMouseEvent,
-  container: HTMLDivElement | null,
-) {
+export function getLocalPoint(event: MouseEvent | TouchEvent | ReactMouseEvent, container: HTMLDivElement | null) {
   const rect = container?.getBoundingClientRect();
   const touch = 'touches' in event ? event.touches[0] || event.changedTouches[0] : null;
-  const clientX = touch ? touch.clientX : ('clientX' in event ? event.clientX : 0);
-  const clientY = touch ? touch.clientY : ('clientY' in event ? event.clientY : 0);
+  const clientX = touch ? touch.clientX : 'clientX' in event ? event.clientX : 0;
+  const clientY = touch ? touch.clientY : 'clientY' in event ? event.clientY : 0;
 
   return {
     clientX,

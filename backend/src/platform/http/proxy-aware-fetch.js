@@ -185,9 +185,10 @@ export function resolveProxyStrategy(targetUrl, env = process.env, platform = pr
       };
     }
 
-    const proxyUrl = protocol === 'https:'
-      ? configuredProxy.httpsProxy || configuredProxy.httpProxy
-      : configuredProxy.httpProxy || configuredProxy.httpsProxy;
+    const proxyUrl =
+      protocol === 'https:'
+        ? configuredProxy.httpsProxy || configuredProxy.httpProxy
+        : configuredProxy.httpProxy || configuredProxy.httpsProxy;
     return {
       mode: proxyUrl ? 'app-custom' : 'direct',
       proxyUrl,

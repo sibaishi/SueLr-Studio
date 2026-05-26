@@ -1,8 +1,8 @@
+import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 import { apiRequestOrThrow } from '@/shared/api';
 import type { ProviderConfig } from '@/shared/providers';
 import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { ChatCompletionResponse, ContentPart, ToolDefinition } from '@/shared/types';
-import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
+import type { ChatCompletionResponse, ContentPart, ToolCallDef, ToolDefinition } from '@/shared/types';
 
 export type ApiConfigPayload = {
   configId?: string;
@@ -42,7 +42,7 @@ function omitSignal<T extends { signal?: AbortSignal }>(params: T): Omit<T, 'sig
 
 export async function capabilityChatCompletion(params: {
   model: string;
-  messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: any[] }>;
+  messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: ToolCallDef[] }>;
   tools?: ToolDefinition[];
   apiConfig?: ApiConfigPayload;
 }) {
@@ -51,7 +51,7 @@ export async function capabilityChatCompletion(params: {
 
 export async function capabilityChatCompletionStream(params: {
   model: string;
-  messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: any[] }>;
+  messages: Array<{ role: string; content: string | ContentPart[]; tool_calls?: ToolCallDef[] }>;
   tools?: ToolDefinition[];
   apiConfig?: ApiConfigPayload;
   signal?: AbortSignal;
@@ -67,7 +67,7 @@ export async function capabilityChatCompletionStream(params: {
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     try {
-      const payload = await response.json() as { error?: { message?: string } };
+      const payload = (await response.json()) as { error?: { message?: string } };
       if (payload?.error?.message) {
         message = payload.error.message;
       }
@@ -86,7 +86,7 @@ export async function capabilityWebSearch(params: {
   includeAnswer?: boolean;
   apiConfig?: ApiConfigPayload;
 }) {
-  return apiRequestOrThrow<{ raw: any; content: string; structured?: any }>(
+  return apiRequestOrThrow<{ raw: unknown; content: string; structured?: unknown }>(
     '/api/capabilities/search',
     createJsonRequestInit(params),
   );

@@ -1,7 +1,7 @@
-import { Settings } from 'lucide-react';
 import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
+import { Settings } from 'lucide-react';
 import type { SettingsActions, SettingsViewModel } from './shared';
+import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 
 type Props = {
   T: Record<string, string>;
@@ -56,9 +56,21 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <IOSButton small label="测试连接" onClick={() => void actions.testConnection()} data-testid="settings-test-connection" />
+            <IOSButton
+              small
+              label="测试连接"
+              onClick={() => void actions.testConnection()}
+              data-testid="settings-test-connection"
+            />
             <IOSButton small label="添加配置" onClick={actions.addConfig} color={T.green} />
-            {view.apiConfigs.length > 1 && <IOSButton small label="删除当前" color={T.red} onClick={() => actions.deleteConfig(view.activeConfigId)} />}
+            {view.apiConfigs.length > 1 && (
+              <IOSButton
+                small
+                label="删除当前"
+                color={T.red}
+                onClick={() => actions.deleteConfig(view.activeConfigId)}
+              />
+            )}
           </div>
         </div>
       </SectionCard>
@@ -77,7 +89,11 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             <EmptyStateCard
               title="连接信息还不完整"
               body="测试连接前需要先补齐接口地址和 API 密钥。"
-              action={view.base ? '当前还缺少 API 密钥，填写后即可校验模型发现能力。' : '先填写可访问的接口地址，再补充 API 密钥并执行连接测试。'}
+              action={
+                view.base
+                  ? '当前还缺少 API 密钥，填写后即可校验模型发现能力。'
+                  : '先填写可访问的接口地址，再补充 API 密钥并执行连接测试。'
+              }
             />
           )}
         </div>
@@ -104,14 +120,21 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             </div>
             <div>
               <IOSLabel>模型列表接口</IOSLabel>
-              <IOSInput value={view.providerConfig.modelsEndpoint ?? ''} onChange={actions.setProviderModelsEndpoint} data-testid="settings-provider-models-endpoint" />
+              <IOSInput
+                value={view.providerConfig.modelsEndpoint ?? ''}
+                onChange={actions.setProviderModelsEndpoint}
+                data-testid="settings-provider-models-endpoint"
+              />
             </div>
           </div>
           {view.providerConfig.authType === 'custom' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
               <div>
                 <IOSLabel>Header 名称</IOSLabel>
-                <IOSInput value={view.providerConfig.customHeaderName ?? ''} onChange={actions.setProviderCustomHeaderName} />
+                <IOSInput
+                  value={view.providerConfig.customHeaderName ?? ''}
+                  onChange={actions.setProviderCustomHeaderName}
+                />
               </div>
               <div>
                 <IOSLabel>Header 前缀</IOSLabel>

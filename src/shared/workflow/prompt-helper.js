@@ -8,11 +8,46 @@ export const PROMPT_HELPER_TOOLS = {
 export const STORYBOARD_LAYOUT_PRESETS = [
   { id: 'grid-4', label: '4格横版', description: '2 x 2 白底统一网格', shotCount: 4, aspectRatio: '16:9', columns: 2 },
   { id: 'grid-6', label: '6格横版', description: '3 x 2 白底统一网格', shotCount: 6, aspectRatio: '16:9', columns: 3 },
-  { id: 'grid-9', label: '9格横版', description: '3 x 3 横向白底统一网格', shotCount: 9, aspectRatio: '16:9', columns: 3 },
-  { id: 'vertical-3', label: '3格竖版', description: '单列竖向白底分镜', shotCount: 3, aspectRatio: '9:16', columns: 1 },
-  { id: 'vertical-6', label: '6格竖版', description: '双列竖向白底分镜', shotCount: 6, aspectRatio: '9:16', columns: 2 },
-  { id: 'vertical-9', label: '9格竖版', description: '3 x 3 竖向白底统一网格', shotCount: 9, aspectRatio: '9:16', columns: 3 },
-  { id: 'custom', label: '自定义', description: '自定义镜头数与整张分镜图画幅比例', shotCount: null, aspectRatio: null, columns: null },
+  {
+    id: 'grid-9',
+    label: '9格横版',
+    description: '3 x 3 横向白底统一网格',
+    shotCount: 9,
+    aspectRatio: '16:9',
+    columns: 3,
+  },
+  {
+    id: 'vertical-3',
+    label: '3格竖版',
+    description: '单列竖向白底分镜',
+    shotCount: 3,
+    aspectRatio: '9:16',
+    columns: 1,
+  },
+  {
+    id: 'vertical-6',
+    label: '6格竖版',
+    description: '双列竖向白底分镜',
+    shotCount: 6,
+    aspectRatio: '9:16',
+    columns: 2,
+  },
+  {
+    id: 'vertical-9',
+    label: '9格竖版',
+    description: '3 x 3 竖向白底统一网格',
+    shotCount: 9,
+    aspectRatio: '9:16',
+    columns: 3,
+  },
+  {
+    id: 'custom',
+    label: '自定义',
+    description: '自定义镜头数与整张分镜图画幅比例',
+    shotCount: null,
+    aspectRatio: null,
+    columns: null,
+  },
 ];
 
 export const STORYBOARD_STYLE_PRESETS = [
@@ -134,7 +169,9 @@ export function getPromptHelperToolLabel(tool) {
 
 export function normalizePromptHelperData(data = {}) {
   const source = asObject(data);
-  const activeTool = Object.values(PROMPT_HELPER_TOOLS).includes(source.activeTool) ? source.activeTool : PROMPT_HELPER_TOOLS.camera;
+  const activeTool = Object.values(PROMPT_HELPER_TOOLS).includes(source.activeTool)
+    ? source.activeTool
+    : PROMPT_HELPER_TOOLS.camera;
   const cameraSource = asObject(source.cameraConfig);
   const lightingSource = asObject(source.lightingConfig);
   const storyboardSource = asObject(source.storyboardConfig);
@@ -174,7 +211,9 @@ export function normalizePromptHelperData(data = {}) {
   const hasExplicitStoryboardSize = storyboardSource.shotCount != null || storyboardSource.aspectRatio != null;
   const layoutPreset = STORYBOARD_LAYOUT_PRESETS.some((item) => item.id === storyboardSource.layoutPreset)
     ? storyboardSource.layoutPreset
-    : (hasExplicitStoryboardSize ? 'custom' : DEFAULT_STORYBOARD_CONFIG.layoutPreset);
+    : hasExplicitStoryboardSize
+      ? 'custom'
+      : DEFAULT_STORYBOARD_CONFIG.layoutPreset;
   const layoutSpec = STORYBOARD_LAYOUT_PRESETS.find((item) => item.id === layoutPreset) || STORYBOARD_LAYOUT_PRESETS[0];
   const isCustomLayout = layoutPreset === 'custom';
   const shotCount = isCustomLayout
@@ -185,13 +224,18 @@ export function normalizePromptHelperData(data = {}) {
     : layoutSpec.aspectRatio;
   const stylePreset = STORYBOARD_STYLE_PRESETS.some((item) => item.id === storyboardSource.stylePreset)
     ? storyboardSource.stylePreset
-    : (storyboardSource.style ? 'custom' : DEFAULT_STORYBOARD_CONFIG.stylePreset);
+    : storyboardSource.style
+      ? 'custom'
+      : DEFAULT_STORYBOARD_CONFIG.stylePreset;
   const storyboardConfig = {
     shotCount,
     layoutPreset,
     aspectRatio,
     stylePreset,
-    customStyle: asText(storyboardSource.customStyle, asText(storyboardSource.style, DEFAULT_STORYBOARD_CONFIG.customStyle)),
+    customStyle: asText(
+      storyboardSource.customStyle,
+      asText(storyboardSource.style, DEFAULT_STORYBOARD_CONFIG.customStyle),
+    ),
     includeShotNumbers: storyboardSource.includeShotNumbers === true,
     noText: storyboardSource.noText !== false,
     continuity: storyboardSource.continuity !== false,
@@ -248,18 +292,23 @@ function buildCameraPrompt(config) {
     '辅助类型：转换视角 / camera view transformation.',
     `将画面转换为${config.shotSize}，摄像机位置为 ${formatPoint(config.position)}，朝向主体目标点 ${formatPoint(config.target)}。`,
     `镜头焦距感约 ${config.focalLength}mm，机位距离约 ${config.distance}m，高度约 ${config.height}m，水平角度约 ${config.angle}°。`,
-    config.preserveSubject ? '保持主体身份、服装、材质、比例和关键特征一致，只改变观看视角与镜头语言。' : '允许根据新视角重构主体可见轮廓。',
+    config.preserveSubject
+      ? '保持主体身份、服装、材质、比例和关键特征一致，只改变观看视角与镜头语言。'
+      : '允许根据新视角重构主体可见轮廓。',
     'English keywords: consistent subject, camera angle, focal length, perspective, composition, stable identity.',
   ];
 }
 
 function buildLightingPrompt(config) {
-  const modeText = config.mode === 'reshape' ? '重塑光线，替换原有主要光照关系' : '增加光线，在原有光照基础上叠加新的灯光';
-  const lightLines = config.lights.length > 0
-    ? config.lights.map((light, index) => (
-      `${index + 1}. ${light.name}: ${light.type} light, intensity ${light.intensity.toFixed(1)}, color ${light.color}, position ${formatPoint(light.position)}, direction ${formatPoint(light.direction)}.`
-    ))
-    : ['无新增灯光对象，保持柔和自然光。'];
+  const modeText =
+    config.mode === 'reshape' ? '重塑光线，替换原有主要光照关系' : '增加光线，在原有光照基础上叠加新的灯光';
+  const lightLines =
+    config.lights.length > 0
+      ? config.lights.map(
+          (light, index) =>
+            `${index + 1}. ${light.name}: ${light.type} light, intensity ${light.intensity.toFixed(1)}, color ${light.color}, position ${formatPoint(light.position)}, direction ${formatPoint(light.direction)}.`,
+        )
+      : ['无新增灯光对象，保持柔和自然光。'];
   return [
     '辅助类型：调整光照 / lighting design.',
     `光照模式：${modeText}。`,
@@ -272,9 +321,10 @@ function buildLightingPrompt(config) {
 
 function buildStoryboardPrompt(config) {
   const layoutText = getOptionLabel(STORYBOARD_LAYOUT_PRESETS, config.layoutPreset, '4格横版');
-  const styleText = config.stylePreset === 'custom'
-    ? asText(config.customStyle, '电影感写实')
-    : getOptionLabel(STORYBOARD_STYLE_PRESETS, config.stylePreset, '电影感写实');
+  const styleText =
+    config.stylePreset === 'custom'
+      ? asText(config.customStyle, '电影感写实')
+      : getOptionLabel(STORYBOARD_STYLE_PRESETS, config.stylePreset, '电影感写实');
   const textPolicy = config.noText
     ? '画面内不要出现字幕、编号、文字标签、对白气泡或水印。'
     : '允许画面内保留必要的简短文字，但不要添加大段说明。';
@@ -312,10 +362,13 @@ function buildLayoutPrompt(config) {
     '辅助类型：生成三视图 / character or object reference sheet.',
     '固定版面要求：纯白背景，无文字内容，无标注，无水印。',
     '按以下内容块拼成参考图版面：',
-    ...config.blocks.map((block, index) => (
-      `${index + 1}. ${block.label}，位置 ${block.x.toFixed(0)}%/${block.y.toFixed(0)}%，尺寸 ${block.w.toFixed(0)}% x ${block.h.toFixed(0)}%。`
-    )),
-    config.consistency ? '所有内容块保持同一角色/物体的比例、服装、材质、颜色和设计细节一致。' : '允许每个内容块根据用途略微调整表现。',
+    ...config.blocks.map(
+      (block, index) =>
+        `${index + 1}. ${block.label}，位置 ${block.x.toFixed(0)}%/${block.y.toFixed(0)}%，尺寸 ${block.w.toFixed(0)}% x ${block.h.toFixed(0)}%。`,
+    ),
+    config.consistency
+      ? '所有内容块保持同一角色/物体的比例、服装、材质、颜色和设计细节一致。'
+      : '允许每个内容块根据用途略微调整表现。',
     'English keywords: pure white background, no text, reference sheet, front view, side view, back view, consistent design.',
   ];
 }

@@ -15,7 +15,9 @@ function cleanText(value) {
 }
 
 function canonicalModelKey(value) {
-  return cleanText(value).replace(/\s*-\s*/g, '-').toLowerCase();
+  return cleanText(value)
+    .replace(/\s*-\s*/g, '-')
+    .toLowerCase();
 }
 
 function cleanTimestamp(value) {
@@ -60,11 +62,8 @@ export function normalizeProjectModel(value) {
   const updatedAt = cleanTimestamp(value.updatedAt);
   const configured = Boolean(
     enabled &&
-    type &&
-    (
-      (endpointMode === 'category' && endpointCategory) ||
-      (endpointMode === 'custom' && customEndpoint)
-    )
+      type &&
+      ((endpointMode === 'category' && endpointCategory) || (endpointMode === 'custom' && customEndpoint)),
   );
 
   return {
@@ -100,7 +99,9 @@ export function createProjectModelFromLegacy(modelId, override = {}, fallbackTyp
 
   const type = MODEL_TYPES.has(override.type)
     ? override.type
-    : (MODEL_TYPES.has(fallbackType) ? fallbackType : categorizeLegacyModel(id));
+    : MODEL_TYPES.has(fallbackType)
+      ? fallbackType
+      : categorizeLegacyModel(id);
   const customEndpoint = cleanText(override.endpoint);
   const endpointMode = customEndpoint ? 'custom' : 'category';
 
@@ -145,9 +146,11 @@ export function findProjectModel(projectModels, modelId) {
   const id = cleanText(modelId);
   if (!id) return null;
   const canonicalId = canonicalModelKey(id);
-  return normalizeProjectModels(projectModels)
-    .find((item) => item.modelId === id || canonicalModelKey(item.modelId) === canonicalId)
-    || null;
+  return (
+    normalizeProjectModels(projectModels).find(
+      (item) => item.modelId === id || canonicalModelKey(item.modelId) === canonicalId,
+    ) || null
+  );
 }
 
 export function resolveProjectModelRuntime({ projectModels, modelId, expectedType, purpose }) {
@@ -166,7 +169,7 @@ export function resolveProjectModelRuntime({ projectModels, modelId, expectedTyp
   const resolvedCategory =
     purpose === 'image-edit' && model.endpointCategory === 'image'
       ? 'image-edit'
-      : (model.endpointCategory || purpose || inferEndpointCategory(model.type));
+      : model.endpointCategory || purpose || inferEndpointCategory(model.type);
 
   const endpoint = DEFAULT_ENDPOINTS[resolvedCategory];
   if (resolvedCategory === 'gemini-generate-content') {

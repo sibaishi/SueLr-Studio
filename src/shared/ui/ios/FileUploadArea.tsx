@@ -1,6 +1,6 @@
-import { useState, useRef, type DragEvent } from 'react';
-import { Folder } from 'lucide-react';
 import { useT } from '@/providers/ThemeContext';
+import { Folder } from 'lucide-react';
+import { type DragEvent, useRef, useState } from 'react';
 
 export function FileUploadArea({
   onUpload,

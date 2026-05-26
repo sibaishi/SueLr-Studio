@@ -52,14 +52,21 @@ export default function StatusBar({
           {!isExecuting && lastExecutionStatus === 'success' && (
             <span className="workflow-statusbar__tone workflow-statusbar__tone--success">
               运行成功
-              {lastExecutionSummary ? ` 路 ${lastExecutionSummary.successCount} 成功 / ${lastExecutionSummary.failCount} 失败` : ''}
+              {lastExecutionSummary
+                ? ` 路 ${lastExecutionSummary.successCount} 成功 / ${lastExecutionSummary.failCount} 失败`
+                : ''}
               {lastExecutionTime ? ` 路 ${formatDurationSeconds(lastExecutionTime)}` : ''}
             </span>
           )}
           {!isExecuting && lastExecutionStatus === 'error' && (
-            <span className="workflow-statusbar__tone workflow-statusbar__tone--danger" title={lastExecutionError || undefined}>
+            <span
+              className="workflow-statusbar__tone workflow-statusbar__tone--danger"
+              title={lastExecutionError || undefined}
+            >
               运行失败
-              {lastExecutionSummary ? ` 路 ${lastExecutionSummary.successCount} 成功 / ${lastExecutionSummary.failCount} 失败` : ''}
+              {lastExecutionSummary
+                ? ` 路 ${lastExecutionSummary.successCount} 成功 / ${lastExecutionSummary.failCount} 失败`
+                : ''}
               {lastExecutionError ? ` 路 请检查节点配置或运行日志：${lastExecutionError}` : ''}
             </span>
           )}

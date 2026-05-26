@@ -1,7 +1,7 @@
-import { createLogger } from '../../platform/logging/logger.js';
 import { ProviderError } from '../../app/errors/index.js';
-import { settingsService } from '../settings/settings.service.js';
 import { runImageGeneration } from '../../platform/ai/image-service.js';
+import { createLogger } from '../../platform/logging/logger.js';
+import { settingsService } from '../settings/settings.service.js';
 
 const logger = createLogger({ module: 'images-service' });
 
@@ -21,7 +21,9 @@ export class ImagesService {
       });
     } catch (error) {
       logger.error('image generation failed', { code: error?.code, message: error?.message });
-      throw error?.status ? error : new ProviderError('IMAGE_GENERATION_FAILED', error instanceof Error ? error.message : '图片生成失败');
+      throw error?.status
+        ? error
+        : new ProviderError('IMAGE_GENERATION_FAILED', error instanceof Error ? error.message : '图片生成失败');
     }
   }
 }

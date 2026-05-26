@@ -12,7 +12,7 @@ function buildUrl(path: string) {
 
 async function parseJson<T>(response: Response): Promise<T | null> {
   try {
-    return await response.json() as T;
+    return (await response.json()) as T;
   } catch {
     return null;
   }
@@ -20,7 +20,7 @@ async function parseJson<T>(response: Response): Promise<T | null> {
 
 function parseJsonText<T>(text: string): T | null {
   try {
-    return text ? JSON.parse(text) as T : null;
+    return text ? (JSON.parse(text) as T) : null;
   } catch {
     return null;
   }

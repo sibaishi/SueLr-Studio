@@ -1,9 +1,9 @@
-import React from 'react';
-import { ClipboardList } from 'lucide-react';
 import { useT } from '@/providers/ThemeContext';
 import type { LogEntry } from '@/shared/types';
-import { glass } from './glass';
+import { ClipboardList } from 'lucide-react';
+import type React from 'react';
 import { CollapsibleSection } from './CollapsibleSection';
+import { glass } from './glass';
 
 function EmptyLogState() {
   const T = useT();
@@ -30,7 +30,9 @@ export function LogPanel({
   const T = useT();
 
   const copyLogs = () => {
-    void navigator.clipboard.writeText(logs.map((log) => `[${log.time}] ${log.level.toUpperCase()} > ${log.msg}`).join('\n'));
+    void navigator.clipboard.writeText(
+      logs.map((log) => `[${log.time}] ${log.level.toUpperCase()} > ${log.msg}`).join('\n'),
+    );
   };
 
   const logContent = (
@@ -79,10 +81,16 @@ export function LogPanel({
     return (
       <CollapsibleSection title="日志" count={logs.length} defaultOpen={false}>
         <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-          <button onClick={onClear} style={{ background: 'none', border: 'none', color: T.text3, fontSize: 11, cursor: 'pointer' }}>
+          <button
+            onClick={onClear}
+            style={{ background: 'none', border: 'none', color: T.text3, fontSize: 11, cursor: 'pointer' }}
+          >
             清空
           </button>
-          <button onClick={copyLogs} style={{ background: 'none', border: 'none', color: T.blue, fontSize: 11, cursor: 'pointer' }}>
+          <button
+            onClick={copyLogs}
+            style={{ background: 'none', border: 'none', color: T.blue, fontSize: 11, cursor: 'pointer' }}
+          >
             复制
           </button>
         </div>
@@ -107,10 +115,16 @@ export function LogPanel({
           <ClipboardList size={14} /> 日志
         </span>
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={onClear} style={{ background: 'none', border: 'none', color: T.text3, fontSize: 11, cursor: 'pointer' }}>
+          <button
+            onClick={onClear}
+            style={{ background: 'none', border: 'none', color: T.text3, fontSize: 11, cursor: 'pointer' }}
+          >
             清空
           </button>
-          <button onClick={copyLogs} style={{ background: 'none', border: 'none', color: T.blue, fontSize: 11, cursor: 'pointer' }}>
+          <button
+            onClick={copyLogs}
+            style={{ background: 'none', border: 'none', color: T.blue, fontSize: 11, cursor: 'pointer' }}
+          >
             复制全部
           </button>
         </div>

@@ -1,8 +1,8 @@
-import { useMemo, useState, type DragEvent } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
 import { NODE_ICONS } from '@/domains/workflow/components/nodes/nodeConstants';
 import { NODE_CATEGORIES, NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import type { NodeTypeDef } from '@/domains/workflow/lib/types';
+import { ChevronDown, Search } from 'lucide-react';
+import { type DragEvent, useMemo, useState } from 'react';
 
 const DISABLED_NEW_NODE_TYPES = new Set<string>();
 const DISABLED_NODE_REASON = '暂时停用，无法新建';
@@ -34,7 +34,9 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
   const filteredRegistry = useMemo(() => {
     if (!normalizedKeyword) return NODE_REGISTRY;
     return NODE_REGISTRY.filter((node) => {
-      return node.label.toLowerCase().includes(normalizedKeyword) || node.type.toLowerCase().includes(normalizedKeyword);
+      return (
+        node.label.toLowerCase().includes(normalizedKeyword) || node.type.toLowerCase().includes(normalizedKeyword)
+      );
     });
   }, [normalizedKeyword]);
 

@@ -1,6 +1,6 @@
-import type { Node } from '@xyflow/react';
-import { getNodeDefaultSize, GRID_SIZE } from '@/domains/workflow/lib/constants';
+import { GRID_SIZE, getNodeDefaultSize } from '@/domains/workflow/lib/constants';
 import { getGroupPorts } from '@/domains/workflow/lib/groupPorts';
+import type { Node } from '@xyflow/react';
 
 export const GROUP_SAFE_MARGIN = GRID_SIZE;
 export const GROUP_HEADER_HEIGHT = GRID_SIZE * 2;
@@ -65,7 +65,9 @@ function getGroupVisiblePortRowCount(groupNode?: Pick<Node, 'data'>) {
 
 function getGroupPortSectionHeight(groupNode?: Pick<Node, 'data'>) {
   const rowCount = getGroupVisiblePortRowCount(groupNode);
-  return GROUP_PORT_SECTION_PADDING * 2 + rowCount * GROUP_PORT_ROW_HEIGHT + Math.max(0, rowCount - 1) * GROUP_PORT_ROW_GAP;
+  return (
+    GROUP_PORT_SECTION_PADDING * 2 + rowCount * GROUP_PORT_ROW_HEIGHT + Math.max(0, rowCount - 1) * GROUP_PORT_ROW_GAP
+  );
 }
 
 export function getGroupTopInset(groupNode?: Pick<Node, 'data'>) {
@@ -78,18 +80,18 @@ export function getGroupTopInset(groupNode?: Pick<Node, 'data'>) {
 export function getCollapsedGroupNodeSize(node: Pick<Node, 'data'>) {
   const visibleRows = getGroupVisiblePortRowCount(node);
   const portSectionHeight =
-    GROUP_COLLAPSED_PORT_SECTION_BORDER
-    + GROUP_COLLAPSED_PORT_SECTION_PADDING * 2
-    + visibleRows * GROUP_COLLAPSED_PORT_ROW_HEIGHT
-    + Math.max(0, visibleRows - 1) * GROUP_COLLAPSED_PORT_ROW_GAP;
+    GROUP_COLLAPSED_PORT_SECTION_BORDER +
+    GROUP_COLLAPSED_PORT_SECTION_PADDING * 2 +
+    visibleRows * GROUP_COLLAPSED_PORT_ROW_HEIGHT +
+    Math.max(0, visibleRows - 1) * GROUP_COLLAPSED_PORT_ROW_GAP;
   const contentHeight =
-    GROUP_COLLAPSED_FRAME_PADDING * 2
-    + GROUP_COLLAPSED_HEADER_HEIGHT
-    + portSectionHeight
-    + GROUP_COLLAPSED_META_HEIGHT
-    + GROUP_COLLAPSED_META_MARGIN_TOP
-    + GROUP_COLLAPSED_BOTTOM_SAFE_GAP
-    + GROUP_COLLAPSED_STACK_GAP * 2;
+    GROUP_COLLAPSED_FRAME_PADDING * 2 +
+    GROUP_COLLAPSED_HEADER_HEIGHT +
+    portSectionHeight +
+    GROUP_COLLAPSED_META_HEIGHT +
+    GROUP_COLLAPSED_META_MARGIN_TOP +
+    GROUP_COLLAPSED_BOTTOM_SAFE_GAP +
+    GROUP_COLLAPSED_STACK_GAP * 2;
 
   return {
     width: GRID_SIZE * 12,
@@ -170,9 +172,9 @@ export function pushRootNodeOutsideGroupAreas<T extends Node>(node: T, nodes: No
 
     if (!overlaps) continue;
 
-    const moveLeft = Math.abs((nextPosition.x + nodeSize.width) - left);
+    const moveLeft = Math.abs(nextPosition.x + nodeSize.width - left);
     const moveRight = Math.abs(right - nextPosition.x);
-    const moveUp = Math.abs((nextPosition.y + nodeSize.height) - top);
+    const moveUp = Math.abs(nextPosition.y + nodeSize.height - top);
     const moveDown = Math.abs(bottom - nextPosition.y);
     const minMove = Math.min(moveLeft, moveRight, moveUp, moveDown);
 

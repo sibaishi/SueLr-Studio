@@ -69,7 +69,7 @@ function normalizeVideoToolResult(data, request = {}) {
   return {
     type: 'video_generation_result',
     tool: 'video_generate',
-    status: videos.length > 0 ? 'completed' : (taskId ? 'submitted' : 'unknown'),
+    status: videos.length > 0 ? 'completed' : taskId ? 'submitted' : 'unknown',
     taskId: taskId || undefined,
     videos,
     request,
@@ -146,19 +146,21 @@ function normalizeVideoResolution(value) {
 
 function isLocalOrInlineImageRef(value) {
   const str = String(value || '').trim();
-  return str.startsWith('data:')
-    || str.startsWith('/api/files/')
-    || str.startsWith('/api/outputs/')
-    || str.startsWith('/api/assistant/files/');
+  return (
+    str.startsWith('data:') ||
+    str.startsWith('/api/files/') ||
+    str.startsWith('/api/outputs/') ||
+    str.startsWith('/api/assistant/files/')
+  );
 }
 
 function resolveImageRefsForToolArgs(args, ctx) {
   const argImages = Array.isArray(args.image)
     ? args.image.filter(Boolean)
-    : (args.reference_image_url ? [args.reference_image_url] : []);
-  const currentImages = Array.isArray(ctx.currentUserImages)
-    ? ctx.currentUserImages.filter(Boolean)
-    : [];
+    : args.reference_image_url
+      ? [args.reference_image_url]
+      : [];
+  const currentImages = Array.isArray(ctx.currentUserImages) ? ctx.currentUserImages.filter(Boolean) : [];
 
   if (argImages.length === 0) return currentImages;
   if (currentImages.length > 0 && argImages.every((image) => !isLocalOrInlineImageRef(image))) {
@@ -177,7 +179,7 @@ async function resolveImageInputForTool(value) {
   if (str.startsWith('http://') || str.startsWith('https://')) return str;
 
   const viaOutputs = await fileToBase64(`/api/outputs/${str}`);
-  if (viaOutputs && viaOutputs.startsWith('data:')) return viaOutputs;
+  if (viaOutputs?.startsWith('data:')) return viaOutputs;
   const viaFiles = await fileToBase64(`/api/files/${str}`);
   return viaFiles || str;
 }
@@ -187,7 +189,8 @@ async function resolveMediaInputForTool(value) {
 }
 
 function buildCurrentTimeResult(timezoneInput) {
-  const timezone = cleanString(timezoneInput, 120) || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
+  const timezone =
+    cleanString(timezoneInput, 120) || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
   const now = new Date();
   let local;
 
@@ -243,15 +246,22 @@ function assertWorkflowExecutionGrounded(args, ctx) {
 
   const workflowId = cleanString(args.workflowId, 120);
   const workflowName = cleanString(args.workflowName, 200);
-  const hasGroundedTarget = [workflowId, workflowName].some((value) => isGroundedInCurrentRequest(value, ctx.currentUserText));
+  const hasGroundedTarget = [workflowId, workflowName].some((value) =>
+    isGroundedInCurrentRequest(value, ctx.currentUserText),
+  );
   if (!hasGroundedTarget) {
-    throw new Error('Workflow execution must be grounded in the current user request; memory or prior context cannot choose the workflow target.');
+    throw new Error(
+      'Workflow execution must be grounded in the current user request; memory or prior context cannot choose the workflow target.',
+    );
   }
 
-  const ungroundedInputs = collectWorkflowInputStrings(args.inputs)
-    .filter((value) => !isGroundedInCurrentRequest(value, ctx.currentUserText));
+  const ungroundedInputs = collectWorkflowInputStrings(args.inputs).filter(
+    (value) => !isGroundedInCurrentRequest(value, ctx.currentUserText),
+  );
   if (ungroundedInputs.length > 0) {
-    throw new Error('Workflow input overrides must come from the current user request; memory or prior context cannot supply workflow inputs.');
+    throw new Error(
+      'Workflow input overrides must come from the current user request; memory or prior context cannot supply workflow inputs.',
+    );
   }
 }
 
@@ -259,7 +269,9 @@ function hasTool(profile, toolName) {
   const normalizedName = normalizeToolName(toolName);
   if (normalizedName === 'conversation_summarize') return true;
   if (normalizedName === 'memory_write' && profile?.behavior?.memoryMode === 'off') return false;
-  return !profile?.enabledTools?.length || profile.enabledTools.some((item) => normalizeToolName(item) === normalizedName);
+  return (
+    !profile?.enabledTools?.length || profile.enabledTools.some((item) => normalizeToolName(item) === normalizedName)
+  );
 }
 
 export class ToolRegistry {
@@ -272,41 +284,52 @@ export class ToolRegistry {
         name: 'web_search',
         description: 'Search the web for current information.',
         sideEffectLevel: 'low',
-        inputSchema: schemaObject({
-          query: { type: 'string' },
-          maxResults: { type: 'number' },
-          includeAnswer: { type: 'boolean' },
-        }, ['query']),
+        inputSchema: schemaObject(
+          {
+            query: { type: 'string' },
+            maxResults: { type: 'number' },
+            includeAnswer: { type: 'boolean' },
+          },
+          ['query'],
+        ),
         handler: async (args, ctx) => {
           if (!ctx.allowWebSearch) return 'Web search is disabled for this request.';
           const query = cleanString(args.query, 4000);
           const maxResults = normalizePositiveInteger(args.maxResults, 5);
-          const data = await this.capabilitiesService.search({
-            apiConfig: ctx.apiConfig || {},
-            query,
-            maxResults,
-            includeAnswer: args.includeAnswer !== false,
-          }, { scope: ctx.scope });
-          return jsonOrText(data.structured || {
-            type: 'web_search_result',
-            provider: 'unknown',
-            query,
-            answer: '',
-            resultCount: 0,
-            results: [],
-            content: data.content || '',
-            raw: data.raw ?? data,
-          });
+          const data = await this.capabilitiesService.search(
+            {
+              apiConfig: ctx.apiConfig || {},
+              query,
+              maxResults,
+              includeAnswer: args.includeAnswer !== false,
+            },
+            { scope: ctx.scope },
+          );
+          return jsonOrText(
+            data.structured || {
+              type: 'web_search_result',
+              provider: 'unknown',
+              query,
+              answer: '',
+              resultCount: 0,
+              results: [],
+              content: data.content || '',
+              raw: data.raw ?? data,
+            },
+          );
         },
       },
       {
         name: 'search_memory',
         description: 'Search agent memories.',
         sideEffectLevel: 'low',
-        inputSchema: schemaObject({
-          query: { type: 'string' },
-          limit: { type: 'number' },
-        }, ['query']),
+        inputSchema: schemaObject(
+          {
+            query: { type: 'string' },
+            limit: { type: 'number' },
+          },
+          ['query'],
+        ),
         handler: async (args) => {
           const query = cleanString(args.query, 4000);
           const matches = this.memoryService.search(query, { limit: Number(args.limit) || 5 });
@@ -325,20 +348,24 @@ export class ToolRegistry {
       },
       {
         name: 'memory_write',
-        description: 'Persist a short, stable memory about the user preference or current conversation. Do not store workflow targets, workflow inputs, run IDs, temporary debug details, or external facts.',
+        description:
+          'Persist a short, stable memory about the user preference or current conversation. Do not store workflow targets, workflow inputs, run IDs, temporary debug details, or external facts.',
         sideEffectLevel: 'medium',
-        inputSchema: schemaObject({
-          content: { type: 'string' },
-          scope: {
-            type: 'string',
-            enum: ['global', 'conversation'],
+        inputSchema: schemaObject(
+          {
+            content: { type: 'string' },
+            scope: {
+              type: 'string',
+              enum: ['global', 'conversation'],
+            },
+            tags: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            importance: { type: 'number' },
           },
-          tags: {
-            type: 'array',
-            items: { type: 'string' },
-          },
-          importance: { type: 'number' },
-        }, ['content']),
+          ['content'],
+        ),
         handler: async (args, ctx) => {
           if (ctx.profile?.behavior?.memoryMode === 'off') {
             throw new Error('Memory is disabled for this profile.');
@@ -358,23 +385,31 @@ export class ToolRegistry {
         name: 'get_current_time',
         description: 'Get the current local time.',
         sideEffectLevel: 'low',
-        inputSchema: schemaObject({
-          timezone: { type: 'string' },
-        }, []),
+        inputSchema: schemaObject(
+          {
+            timezone: { type: 'string' },
+          },
+          [],
+        ),
         handler: async (args) => {
           return jsonOrText(buildCurrentTimeResult(args.timezone));
         },
       },
       {
         name: 'conversation_summarize',
-        description: 'Summarize the current conversation to compress context when it becomes long. Use this to retain key information while freeing up context space for continued reasoning. Call this proactively when the conversation is getting lengthy.',
+        description:
+          'Summarize the current conversation to compress context when it becomes long. Use this to retain key information while freeing up context space for continued reasoning. Call this proactively when the conversation is getting lengthy.',
         sideEffectLevel: 'low',
-        inputSchema: schemaObject({
-          instruction: { type: 'string' },
-        }, []),
+        inputSchema: schemaObject(
+          {
+            instruction: { type: 'string' },
+          },
+          [],
+        ),
         handler: async (args, ctx) => {
-          const instruction = cleanString(args.instruction, 500)
-            || 'Summarize the key points, decisions, and current state of this conversation concisely. Retain important details and omit redundancy.';
+          const instruction =
+            cleanString(args.instruction, 500) ||
+            'Summarize the key points, decisions, and current state of this conversation concisely. Retain important details and omit redundancy.';
           const conversation = Array.isArray(ctx.conversation) ? ctx.conversation : [];
           if (conversation.length === 0) {
             return jsonOrText({
@@ -388,22 +423,27 @@ export class ToolRegistry {
           const conversationText = conversation
             .map((msg) => {
               const role = cleanString(msg.role, 20) || 'unknown';
-              const content = typeof msg.content === 'string'
-                ? msg.content
-                : JSON.stringify(msg.content);
+              const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
               return `[${role}]: ${cleanString(content, 4000)}`;
             })
             .join('\n');
 
-          const response = await this.capabilitiesService.chat({
-            model: ctx.model || 'deepseek-v4-flash',
-            messages: [
-              { role: 'system', content: 'You are a conversation summarizer. Output only the summary text in a single paragraph, no extra commentary or formatting.' },
-              { role: 'user', content: `${instruction}\n\nConversation:\n${conversationText}` },
-            ],
-            apiConfig: ctx.apiConfig || {},
-            signal: ctx.signal,
-          }, { scope: ctx.scope });
+          const response = await this.capabilitiesService.chat(
+            {
+              model: ctx.model || 'deepseek-v4-flash',
+              messages: [
+                {
+                  role: 'system',
+                  content:
+                    'You are a conversation summarizer. Output only the summary text in a single paragraph, no extra commentary or formatting.',
+                },
+                { role: 'user', content: `${instruction}\n\nConversation:\n${conversationText}` },
+              ],
+              apiConfig: ctx.apiConfig || {},
+              signal: ctx.signal,
+            },
+            { scope: ctx.scope },
+          );
 
           const choice = response?.choices?.[0] || {};
           const summaryContent = typeof choice.message?.content === 'string' ? choice.message.content : '';
@@ -419,61 +459,73 @@ export class ToolRegistry {
       },
       {
         name: 'generate_image',
-        description: 'Generate or edit images. If model is omitted, the backend auto-selects only when exactly one image model is configured. To edit a previously generated image, pass its "ref" (e.g. "abc123.png") from the images array in the last generate_image result via the image or reference_image_url parameter. Only pass refs for images you intend to edit; each one will be uploaded as base64.',
+        description:
+          'Generate or edit images. If model is omitted, the backend auto-selects only when exactly one image model is configured. To edit a previously generated image, pass its "ref" (e.g. "abc123.png") from the images array in the last generate_image result via the image or reference_image_url parameter. Only pass refs for images you intend to edit; each one will be uploaded as base64.',
         sideEffectLevel: 'medium',
-        inputSchema: schemaObject({
-          model: { type: 'string' },
-          prompt: { type: 'string' },
-          image: {
-            type: 'array',
-            items: { type: 'string' },
+        inputSchema: schemaObject(
+          {
+            model: { type: 'string' },
+            prompt: { type: 'string' },
+            image: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            reference_image_url: { type: 'string' },
+            mask: { type: 'string' },
+            ratio: {
+              type: 'string',
+              enum: ['auto', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
+            },
+            width: { type: 'number' },
+            height: { type: 'number' },
+            quality: {
+              type: 'string',
+              enum: ['low', 'medium', 'high', 'auto'],
+              description: 'Use medium instead of standard, and high instead of hd.',
+            },
+            resolution: {
+              type: 'string',
+              enum: ['auto', '512px', '1k', '2k', '4k'],
+              description:
+                'Preferred output tier. Prefer this over quality for image models with -512px, -1k, -2k, or -4k variants.',
+            },
+            n: { type: 'number' },
+            output_format: {
+              type: 'string',
+              enum: ['png', 'jpeg', 'webp'],
+            },
           },
-          reference_image_url: { type: 'string' },
-          mask: { type: 'string' },
-          ratio: {
-            type: 'string',
-            enum: ['auto', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
-          },
-          width: { type: 'number' },
-          height: { type: 'number' },
-          quality: {
-            type: 'string',
-            enum: ['low', 'medium', 'high', 'auto'],
-            description: 'Use medium instead of standard, and high instead of hd.',
-          },
-          resolution: {
-            type: 'string',
-            enum: ['auto', '512px', '1k', '2k', '4k'],
-            description: 'Preferred output tier. Prefer this over quality for image models with -512px, -1k, -2k, or -4k variants.',
-          },
-          n: { type: 'number' },
-          output_format: {
-            type: 'string',
-            enum: ['png', 'jpeg', 'webp'],
-          },
-        }, ['prompt']),
+          ['prompt'],
+        ),
         handler: async (args, ctx) => {
           let images = resolveImageRefsForToolArgs(args, ctx);
           if (images.length > 0) {
             images = await Promise.all(images.map(resolveImageInputForTool));
           }
           try {
-            const data = await this.capabilitiesService.image({
-              apiConfig: ctx.apiConfig || {},
-              model: cleanString(args.model, 200),
-              prompt: cleanString(args.prompt, 12000),
-              image: images,
-              mask: args.mask ? await resolveImageInputForTool(args.mask) : '',
-              ratio: normalizeImageRatio(args.ratio ?? args.aspect_ratio),
-              width: args.width,
-              height: args.height,
-              quality: normalizeImageQuality(args.quality),
-              ...(normalizeImageResolution(args.resolution || args.output_resolution || args.outputResolution)
-                ? { resolution: normalizeImageResolution(args.resolution || args.output_resolution || args.outputResolution) }
-                : {}),
-              n: args.n,
-              output_format: normalizeImageOutputFormat(args.output_format),
-            }, { scope: ctx.scope });
+            const data = await this.capabilitiesService.image(
+              {
+                apiConfig: ctx.apiConfig || {},
+                model: cleanString(args.model, 200),
+                prompt: cleanString(args.prompt, 12000),
+                image: images,
+                mask: args.mask ? await resolveImageInputForTool(args.mask) : '',
+                ratio: normalizeImageRatio(args.ratio ?? args.aspect_ratio),
+                width: args.width,
+                height: args.height,
+                quality: normalizeImageQuality(args.quality),
+                ...(normalizeImageResolution(args.resolution || args.output_resolution || args.outputResolution)
+                  ? {
+                      resolution: normalizeImageResolution(
+                        args.resolution || args.output_resolution || args.outputResolution,
+                      ),
+                    }
+                  : {}),
+                n: args.n,
+                output_format: normalizeImageOutputFormat(args.output_format),
+              },
+              { scope: ctx.scope },
+            );
             return jsonOrText(normalizeImageToolResult(data));
           } catch (error) {
             if (error?.code === 'IMAGE_MODEL_AMBIGUOUS') {
@@ -499,40 +551,44 @@ export class ToolRegistry {
       },
       {
         name: 'video_generate',
-        description: 'Generate a video from text, image, video, and optional audio inputs. Local refs from prior tool results can be passed through image_url, video_url, or input_audio.',
+        description:
+          'Generate a video from text, image, video, and optional audio inputs. Local refs from prior tool results can be passed through image_url, video_url, or input_audio.',
         sideEffectLevel: 'medium',
-        inputSchema: schemaObject({
-          model: { type: 'string' },
-          prompt: { type: 'string' },
-          image_url: { type: 'string' },
-          image_urls: {
-            type: 'array',
-            items: { type: 'string' },
+        inputSchema: schemaObject(
+          {
+            model: { type: 'string' },
+            prompt: { type: 'string' },
+            image_url: { type: 'string' },
+            image_urls: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            video_url: { type: 'string' },
+            video_urls: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            input_audio: { type: 'string' },
+            input_audios: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            duration: {
+              type: 'number',
+              enum: [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+              description: '-1 means automatic duration; otherwise use an integer from 4 to 15 seconds.',
+            },
+            aspect_ratio: {
+              type: 'string',
+              enum: ['auto', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
+            },
+            resolution: {
+              type: 'string',
+              enum: ['480p', '720p', '1080p', '2k', '4k'],
+            },
           },
-          video_url: { type: 'string' },
-          video_urls: {
-            type: 'array',
-            items: { type: 'string' },
-          },
-          input_audio: { type: 'string' },
-          input_audios: {
-            type: 'array',
-            items: { type: 'string' },
-          },
-          duration: {
-            type: 'number',
-            enum: [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-            description: '-1 means automatic duration; otherwise use an integer from 4 to 15 seconds.',
-          },
-          aspect_ratio: {
-            type: 'string',
-            enum: ['auto', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
-          },
-          resolution: {
-            type: 'string',
-            enum: ['480p', '720p', '1080p', '2k', '4k'],
-          },
-        }, ['prompt']),
+          ['prompt'],
+        ),
         handler: async (args, ctx) => {
           const imageValues = Array.isArray(args.image_urls) ? args.image_urls : [args.image_url];
           const videoValues = Array.isArray(args.video_urls) ? args.video_urls : [args.video_url];
@@ -547,47 +603,58 @@ export class ToolRegistry {
             aspect_ratio: normalizeVideoRatio(args.aspect_ratio ?? args.ratio) || 'auto',
             resolution: normalizeVideoResolution(args.resolution) || '720p',
           };
-          const data = await this.capabilitiesService.video({
-            apiConfig: ctx.apiConfig || {},
-            ...request,
-            image_url: imageUrls[0] || '',
-            image_urls: imageUrls,
-            video_url: videoUrls[0] || '',
-            video_urls: videoUrls,
-            input_audio: audioUrls[0] || '',
-            input_audios: audioUrls,
-            signal: ctx.signal,
-          }, { scope: ctx.scope });
+          const data = await this.capabilitiesService.video(
+            {
+              apiConfig: ctx.apiConfig || {},
+              ...request,
+              image_url: imageUrls[0] || '',
+              image_urls: imageUrls,
+              video_url: videoUrls[0] || '',
+              video_urls: videoUrls,
+              input_audio: audioUrls[0] || '',
+              input_audios: audioUrls,
+              signal: ctx.signal,
+            },
+            { scope: ctx.scope },
+          );
           return jsonOrText(normalizeVideoToolResult(data, request));
         },
       },
-      ...(this.executionService ? [{
-        name: 'workflow_execute',
-        description: 'Execute a saved workflow by workflowId or workflowName. Optional inputs can override input nodes by nodeId for this run only.',
-        sideEffectLevel: 'medium',
-        inputSchema: schemaObject({
-          workflowId: { type: 'string' },
-          workflowName: { type: 'string' },
-          inputs: {
-            type: 'object',
-            additionalProperties: true,
-          },
-        }, []),
-        handler: async (args, ctx) => {
-          assertWorkflowExecutionGrounded(args, ctx);
-          const result = await this.executionService.executeForAgent({
-            workflowId: cleanString(args.workflowId, 120),
-            workflowName: cleanString(args.workflowName, 200),
-            inputs: args.inputs,
-            apiConfig: ctx.apiConfig || {},
-            signal: ctx.signal,
-            requestId: ctx.sessionId || 'agent-workflow',
-            onRunStarted: ctx.onWorkflowRunStarted,
-            scope: ctx.scope,
-          });
-          return jsonOrText(result);
-        },
-      }] : []),
+      ...(this.executionService
+        ? [
+            {
+              name: 'workflow_execute',
+              description:
+                'Execute a saved workflow by workflowId or workflowName. Optional inputs can override input nodes by nodeId for this run only.',
+              sideEffectLevel: 'medium',
+              inputSchema: schemaObject(
+                {
+                  workflowId: { type: 'string' },
+                  workflowName: { type: 'string' },
+                  inputs: {
+                    type: 'object',
+                    additionalProperties: true,
+                  },
+                },
+                [],
+              ),
+              handler: async (args, ctx) => {
+                assertWorkflowExecutionGrounded(args, ctx);
+                const result = await this.executionService.executeForAgent({
+                  workflowId: cleanString(args.workflowId, 120),
+                  workflowName: cleanString(args.workflowName, 200),
+                  inputs: args.inputs,
+                  apiConfig: ctx.apiConfig || {},
+                  signal: ctx.signal,
+                  requestId: ctx.sessionId || 'agent-workflow',
+                  onRunStarted: ctx.onWorkflowRunStarted,
+                  scope: ctx.scope,
+                });
+                return jsonOrText(result);
+              },
+            },
+          ]
+        : []),
     ];
   }
 

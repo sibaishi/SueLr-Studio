@@ -1,10 +1,10 @@
 import { executeWorkflow } from '../../engine/executor.js';
 import { createLogger } from '../../platform/logging/logger.js';
+import { runWithRequestContext } from '../../platform/logging/request-context.js';
+import { getProcessInstanceId } from '../../platform/logging/runtime-observability.js';
+import { WORKFLOW_SSE_EVENTS } from '../../platform/logging/workflow-events.js';
 import { sanitizeNodeOutputsForLogs } from '../../platform/logging/workflow-log-sanitizer.js';
 import { createWorkflowRunLogger } from '../../platform/logging/workflow-run-logger.js';
-import { runWithRequestContext } from '../../platform/logging/request-context.js';
-import { WORKFLOW_SSE_EVENTS } from '../../platform/logging/workflow-events.js';
-import { getProcessInstanceId } from '../../platform/logging/runtime-observability.js';
 import { settingsService } from '../settings/settings.service.js';
 import { workflowsRepository } from '../workflows/workflows.repository.js';
 import { createExecutionSnapshot } from './execution-snapshot.js';
@@ -81,11 +81,12 @@ function collectWorkflowArtifacts(value, bucket = [], seen = new Set()) {
   if (typeof value === 'string') {
     const url = cleanString(value, 4000);
     if (!url) return bucket;
-    const isArtifactUrl = url.startsWith('/api/outputs/')
-      || url.startsWith('/api/files/')
-      || url.startsWith('data:image/')
-      || url.startsWith('data:video/')
-      || url.startsWith('data:audio/');
+    const isArtifactUrl =
+      url.startsWith('/api/outputs/') ||
+      url.startsWith('/api/files/') ||
+      url.startsWith('data:image/') ||
+      url.startsWith('data:video/') ||
+      url.startsWith('data:audio/');
     if (!isArtifactUrl || seen.has(url)) return bucket;
     seen.add(url);
     bucket.push({
@@ -139,7 +140,9 @@ function isPlainObject(value) {
 }
 
 function normalizeLookupKey(value) {
-  return cleanString(value, 500).toLowerCase().replace(/[\s\-_.:：、，,()[\]{}"'`]/g, '');
+  return cleanString(value, 500)
+    .toLowerCase()
+    .replace(/[\s\-_.:：、，,()[\]{}"'`]/g, '');
 }
 
 function getInputNodeAliases(node, ordinal = 1) {
@@ -190,7 +193,10 @@ function resolveInputTarget(availableTargets, rawKey) {
 
 function buildAvailableInputHint(availableTargets) {
   return availableTargets
-    .map((target) => `${target.node.id}${target.ordinal ? ` (候选别名: ${Array.from(target.aliases).slice(0, 4).join(', ')})` : ''}`)
+    .map(
+      (target) =>
+        `${target.node.id}${target.ordinal ? ` (候选别名: ${Array.from(target.aliases).slice(0, 4).join(', ')})` : ''}`,
+    )
     .slice(0, 8)
     .join('; ');
 }
@@ -293,7 +299,9 @@ function applyAgentInputOverrides(persistedWorkflow, rawInputs) {
   }
 
   if (appliedInputs.length === 0 && unmatchedInputs.length > 0) {
-    throw new Error(`workflow.execute inputs did not match any input nodes. Unmatched: ${unmatchedInputs.join(', ')}. Available inputs: ${buildAvailableInputHint(availableTargets)}`);
+    throw new Error(
+      `workflow.execute inputs did not match any input nodes. Unmatched: ${unmatchedInputs.join(', ')}. Available inputs: ${buildAvailableInputHint(availableTargets)}`,
+    );
   }
 
   return {
@@ -320,8 +328,12 @@ function buildAgentWorkflowSummary(snapshot, terminalStatus, completedNodes, ext
     Number.isFinite(terminalStatus.successCount) ? `successCount: ${terminalStatus.successCount}.` : '',
     Number.isFinite(terminalStatus.failCount) ? `failCount: ${terminalStatus.failCount}.` : '',
     extras.appliedInputs?.length ? `appliedInputs: ${extras.appliedInputs.map((item) => item.nodeId).join(', ')}.` : '',
-    keyOutputs.length > 0 ? `keyOutputs: ${keyOutputs.map((item) => `${item.nodeId} (${item.nodeType}) => ${item.summary}`).join(' | ')}.` : '',
-  ].filter(Boolean).join(' ');
+    keyOutputs.length > 0
+      ? `keyOutputs: ${keyOutputs.map((item) => `${item.nodeId} (${item.nodeType}) => ${item.summary}`).join(' | ')}.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return {
     runId: terminalStatus.runId,
@@ -342,10 +354,10 @@ function buildAgentWorkflowSummary(snapshot, terminalStatus, completedNodes, ext
 
 function buildRunLogData(event, data) {
   if (
-    event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
-    && data
-    && typeof data === 'object'
-    && data.logOutputs !== undefined
+    event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED &&
+    data &&
+    typeof data === 'object' &&
+    data.logOutputs !== undefined
   ) {
     return {
       ...data,
@@ -460,13 +472,27 @@ export class ExecutionService {
 
     if (partialMatches.length === 1) return partialMatches[0];
     if (partialMatches.length > 1) {
-      throw new Error(`Multiple workflows matched "${workflowName}". Candidates: ${partialMatches.slice(0, 5).map((workflow) => workflow.name || workflow.id).join(', ')}`);
+      throw new Error(
+        `Multiple workflows matched "${workflowName}". Candidates: ${partialMatches
+          .slice(0, 5)
+          .map((workflow) => workflow.name || workflow.id)
+          .join(', ')}`,
+      );
     }
 
     throw new Error(`Workflow "${workflowName}" was not found.`);
   }
 
-  async executeForAgent({ workflowId, workflowName, inputs, apiConfig = {}, signal, requestId = 'agent-workflow', onRunStarted = undefined, scope = undefined }) {
+  async executeForAgent({
+    workflowId,
+    workflowName,
+    inputs,
+    apiConfig = {},
+    signal,
+    requestId = 'agent-workflow',
+    onRunStarted = undefined,
+    scope = undefined,
+  }) {
     const persistedWorkflow = this.resolveWorkflowReference({ workflowId, workflowName }, { scope });
     const overridden = applyAgentInputOverrides(persistedWorkflow, inputs);
     const draftWorkflow = overridden.workflow === persistedWorkflow ? undefined : overridden.workflow;
@@ -544,16 +570,11 @@ export class ExecutionService {
 
     try {
       await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
-        await executeWorkflow(
-          snapshot,
-          { ...apiConfig, abortSignal: abortController.signal },
-          sendSSE,
-          {
-            getNodeLogOutputs(outputs) {
-              return sanitizeNodeOutputsForLogs(outputs, runLogger);
-            },
+        await executeWorkflow(snapshot, { ...apiConfig, abortSignal: abortController.signal }, sendSSE, {
+          getNodeLogOutputs(outputs) {
+            return sanitizeNodeOutputsForLogs(outputs, runLogger);
           },
-        );
+        });
       });
       if (!terminalStatus) {
         terminalStatus = {
@@ -593,31 +614,33 @@ export class ExecutionService {
 
   async execute(workflowId, body, res, requestId, _options = {}) {
     const scope = _options.scope;
-    const persistedWorkflow = body.source === 'draft'
-      ? (() => {
-          try {
-            return this.repository.read(workflowId).workflow;
-          } catch {
-            return null;
-          }
-        })()
-      : this.repository.read(workflowId).workflow;
-    const draftWorkflow = body.source === 'draft'
-      ? {
-          ...(persistedWorkflow || {
+    const persistedWorkflow =
+      body.source === 'draft'
+        ? (() => {
+            try {
+              return this.repository.read(workflowId).workflow;
+            } catch {
+              return null;
+            }
+          })()
+        : this.repository.read(workflowId).workflow;
+    const draftWorkflow =
+      body.source === 'draft'
+        ? {
+            ...(persistedWorkflow || {
+              id: workflowId,
+              name: cleanString(body.name, 200) || workflowId,
+              version: 1,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              settings: {},
+            }),
             id: workflowId,
-            name: cleanString(body.name, 200) || workflowId,
-            version: 1,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            settings: {},
-          }),
-          id: workflowId,
-          name: cleanString(body.name, 200) || persistedWorkflow?.name || workflowId,
-          nodes: body.nodes,
-          edges: body.edges,
-        }
-      : undefined;
+            name: cleanString(body.name, 200) || persistedWorkflow?.name || workflowId,
+            nodes: body.nodes,
+            edges: body.edges,
+          }
+        : undefined;
     const snapshot = createExecutionSnapshot({ persistedWorkflow, draftWorkflow });
 
     const runLogger = createWorkflowRunLogger(snapshot, { requestId, scope });
@@ -704,28 +727,20 @@ export class ExecutionService {
 
     try {
       await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
-        await executeWorkflow(
-          snapshot,
-          { ...apiConfig, abortSignal: abortController.signal },
-          sendSSE,
-          {
-            getNodeLogOutputs(outputs) {
-              return sanitizeNodeOutputsForLogs(outputs, runLogger);
-            },
+        await executeWorkflow(snapshot, { ...apiConfig, abortSignal: abortController.signal }, sendSSE, {
+          getNodeLogOutputs(outputs) {
+            return sanitizeNodeOutputsForLogs(outputs, runLogger);
           },
-        );
+        });
       });
       runLogger.close('completed');
     } catch (error) {
       const message = error instanceof Error ? error.message : '执行引擎内部错误';
-      sendSSE(
-        abortController.signal.aborted ? WORKFLOW_SSE_EVENTS.RUN_CANCELLED : WORKFLOW_SSE_EVENTS.RUN_FAILED,
-        {
-          runId: snapshot.runId,
-          status: abortController.signal.aborted ? 'cancelled' : 'error',
-          error: message,
-        },
-      );
+      sendSSE(abortController.signal.aborted ? WORKFLOW_SSE_EVENTS.RUN_CANCELLED : WORKFLOW_SSE_EVENTS.RUN_FAILED, {
+        runId: snapshot.runId,
+        status: abortController.signal.aborted ? 'cancelled' : 'error',
+        error: message,
+      });
       runLogger.close(abortController.signal.aborted ? 'cancelled' : 'error', { error: message });
     } finally {
       this.runningExecutions.delete(snapshot.runId);

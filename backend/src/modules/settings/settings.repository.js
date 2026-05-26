@@ -1,26 +1,26 @@
+import { ProviderError, ValidationError } from '../../app/errors/index.js';
 import {
   categorizeLegacyModel,
   groupConfiguredProjectModels,
   migrateProjectModels,
   normalizeProjectModels,
 } from '../../engine/helpers/projectModels.js';
-import { ProviderError, ValidationError } from '../../app/errors/index.js';
-import {
-  clearStoredStorageRootOverride,
-  getEffectiveStorageRootInfo,
-  LEGACY_PATHS,
-  STORAGE_PATHS,
-  ensureJsonFile,
-  ensureStorageDirectories,
-  migrateLegacyStorageIfNeeded,
-  readJsonFile,
-  writeStoredStorageRootOverride,
-  writeJsonFile,
-} from '../../platform/storage/index.js';
-import { getProviderAdapter } from '../../platform/providers/index.js';
 import { configureOutboundProxy, proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
+import { getProviderAdapter } from '../../platform/providers/index.js';
 import { parseProviderErrorResponse, toProviderError } from '../../platform/providers/provider-http.js';
 import { assertSafeProviderBaseUrl } from '../../platform/security/network-guards.js';
+import {
+  LEGACY_PATHS,
+  STORAGE_PATHS,
+  clearStoredStorageRootOverride,
+  ensureJsonFile,
+  ensureStorageDirectories,
+  getEffectiveStorageRootInfo,
+  migrateLegacyStorageIfNeeded,
+  readJsonFile,
+  writeJsonFile,
+  writeStoredStorageRootOverride,
+} from '../../platform/storage/index.js';
 import { adminConfigRepository } from '../admin-config/admin-config.repository.js';
 import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.js';
 
@@ -248,7 +248,10 @@ function buildRuntimeSectionFromLegacyAssistant(settings) {
   const activeConfig = getActiveLegacyConfig(settings);
   const configs = sanitizeApiConfigList(settings.ai_configs);
   const mergedConfigs = activeConfig
-    ? sanitizeApiConfigList([{ ...activeConfig, id: activeConfig.id || settings.ai_active_config || 'default' }, ...configs])
+    ? sanitizeApiConfigList([
+        { ...activeConfig, id: activeConfig.id || settings.ai_active_config || 'default' },
+        ...configs,
+      ])
     : configs;
   return {
     activeConfigId: cleanOptionalString(settings.ai_active_config, 120),
@@ -262,11 +265,24 @@ function buildUiSectionFromLegacyAssistant(settings) {
   return {
     theme: validateEnum(settings.ai_theme, ['dark', 'light', 'system'], DEFAULT_SETTINGS.ui.theme),
     sidebarCollapsed: validateBoolean(settings.ai_sidebar_collapsed, DEFAULT_SETTINGS.ui.sidebarCollapsed),
-    lastTab: validateEnum(settings.ai_tab, ['chat', 'image', 'video', 'workflow', 'settings'], DEFAULT_SETTINGS.ui.lastTab),
+    lastTab: validateEnum(
+      settings.ai_tab,
+      ['chat', 'image', 'video', 'workflow', 'settings'],
+      DEFAULT_SETTINGS.ui.lastTab,
+    ),
     customRoles: sanitizeRoleList(settings.ai_custom_roles),
-    chatStreamingMode: normalizeStreamingMode(settings.ai_chat_streaming_mode ?? settings.ai_streaming_mode, DEFAULT_SETTINGS.ui.chatStreamingMode),
-    imageStreamingMode: normalizeStreamingMode(settings.ai_image_streaming_mode, DEFAULT_SETTINGS.ui.imageStreamingMode),
-    videoStreamingMode: normalizeStreamingMode(settings.ai_video_streaming_mode, DEFAULT_SETTINGS.ui.videoStreamingMode),
+    chatStreamingMode: normalizeStreamingMode(
+      settings.ai_chat_streaming_mode ?? settings.ai_streaming_mode,
+      DEFAULT_SETTINGS.ui.chatStreamingMode,
+    ),
+    imageStreamingMode: normalizeStreamingMode(
+      settings.ai_image_streaming_mode,
+      DEFAULT_SETTINGS.ui.imageStreamingMode,
+    ),
+    videoStreamingMode: normalizeStreamingMode(
+      settings.ai_video_streaming_mode,
+      DEFAULT_SETTINGS.ui.videoStreamingMode,
+    ),
   };
 }
 
@@ -290,7 +306,12 @@ function buildRuntimeSectionFromLegacyBackend(settings) {
 }
 
 function mergeRuntimeSections(...sections) {
-  const merged = { activeConfigId: '', tavilyApiKey: '', outboundProxy: { ...DEFAULT_SETTINGS.runtime.outboundProxy }, configs: [] };
+  const merged = {
+    activeConfigId: '',
+    tavilyApiKey: '',
+    outboundProxy: { ...DEFAULT_SETTINGS.runtime.outboundProxy },
+    configs: [],
+  };
   const byId = new Map();
 
   for (const section of sections) {
@@ -358,7 +379,11 @@ function sanitizeSettingsShape(input) {
   settings.ui = {
     theme: validateEnum(value.ui?.theme, ['dark', 'light', 'system'], DEFAULT_SETTINGS.ui.theme),
     sidebarCollapsed: validateBoolean(value.ui?.sidebarCollapsed, DEFAULT_SETTINGS.ui.sidebarCollapsed),
-    lastTab: validateEnum(value.ui?.lastTab, ['chat', 'image', 'video', 'workflow', 'settings'], DEFAULT_SETTINGS.ui.lastTab),
+    lastTab: validateEnum(
+      value.ui?.lastTab,
+      ['chat', 'image', 'video', 'workflow', 'settings'],
+      DEFAULT_SETTINGS.ui.lastTab,
+    ),
     customRoles: sanitizeRoleList(value.ui?.customRoles),
     chatStreamingMode: normalizeStreamingMode(value.ui?.chatStreamingMode, DEFAULT_SETTINGS.ui.chatStreamingMode),
     imageStreamingMode: normalizeStreamingMode(value.ui?.imageStreamingMode, DEFAULT_SETTINGS.ui.imageStreamingMode),
@@ -427,18 +452,20 @@ function buildRuntimeApiConfigInternal(overrides = {}) {
   configureOutboundProxy(adminNetwork.outboundProxy);
   const overrideConfigs = sanitizeApiConfigList(overrides.configs);
   const storedConfigs = settings.runtime.configs || [];
-  const configs = overrideConfigs.length > 0
-    ? overrideConfigs.map((config) => {
-        const stored = storedConfigs.find((item) => item.id === config.id);
-        return {
-          ...config,
-          apiKey: cleanSecretOverride(config.apiKey, 4000) || stored?.apiKey || '',
-        };
-      })
-    : storedConfigs;
+  const configs =
+    overrideConfigs.length > 0
+      ? overrideConfigs.map((config) => {
+          const stored = storedConfigs.find((item) => item.id === config.id);
+          return {
+            ...config,
+            apiKey: cleanSecretOverride(config.apiKey, 4000) || stored?.apiKey || '',
+          };
+        })
+      : storedConfigs;
   const requestedConfigId = cleanOptionalString(overrides.configId, 120);
-  const active = (requestedConfigId ? configs.find((config) => config.id === requestedConfigId) : null)
-    || getActiveRuntimeConfig({ ...settings, runtime: { ...settings.runtime, configs } });
+  const active =
+    (requestedConfigId ? configs.find((config) => config.id === requestedConfigId) : null) ||
+    getActiveRuntimeConfig({ ...settings, runtime: { ...settings.runtime, configs } });
   const providerConfig = sanitizeProviderConfig({
     ...DEFAULT_PROVIDER_CONFIG,
     ...(active?.providerConfig || {}),
@@ -661,7 +688,7 @@ export class SettingsRepository {
       headers: { 'Content-Type': undefined },
       signal: AbortSignal.timeout(15000),
     });
-    delete request.options.headers['Content-Type'];
+    request.options.headers['Content-Type'] = undefined;
 
     let response;
     try {

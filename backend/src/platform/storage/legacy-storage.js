@@ -1,8 +1,8 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { STORAGE_PATHS, ensureStorageDirectories } from './index.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ensureDir } from './ensure-dir.js';
+import { STORAGE_PATHS, ensureStorageDirectories } from './index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,7 +59,10 @@ export function migrateLegacyStorageIfNeeded() {
   copyFileIfMissing(path.join(LEGACY_PATHS.backendAssistantDir, 'conversations.json'), STORAGE_PATHS.conversationsFile);
   copyFileIfMissing(path.join(LEGACY_PATHS.backendAssistantDir, 'gallery.json'), STORAGE_PATHS.galleryFile);
   copyFileIfMissing(path.join(LEGACY_PATHS.backendAssistantDir, 'videos.json'), STORAGE_PATHS.videosFile);
-  copyDirectoryFilesIfMissing(path.join(LEGACY_PATHS.backendAssistantFilesDir, 'images'), path.join(STORAGE_PATHS.generatedDir, 'assistant-images'));
+  copyDirectoryFilesIfMissing(
+    path.join(LEGACY_PATHS.backendAssistantFilesDir, 'images'),
+    path.join(STORAGE_PATHS.generatedDir, 'assistant-images'),
+  );
   copyDirectoryFilesIfMissing(LEGACY_PATHS.backendUploadsDir, STORAGE_PATHS.uploadsDir);
   copyDirectoryFilesIfMissing(LEGACY_PATHS.backendOutputsDir, STORAGE_PATHS.generatedDir);
   copyDirectoryFilesIfMissing(LEGACY_PATHS.projectOutputsDir, STORAGE_PATHS.generatedDir);

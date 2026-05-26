@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { testApiConnection, uploadFile } from '@/domains/workflow/lib/api';
+import type { getNodeDef } from '@/domains/workflow/lib/constants';
 import { GROUP_SAFE_MARGIN } from '@/domains/workflow/lib/groupLayout';
 import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
-import { getNodeDef } from '@/domains/workflow/lib/constants';
+import { type CSSProperties, type PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { LongTextEditorModal } from './LongTextEditorModal';
 import { MediaCard, MediaPreview, TextCard, inferImageThumbnailUrl, isMediaUrl } from './NodeMedia';
 import { NodeParamFields } from './NodeParamFields';
-import { NODE_API_PROVIDER_CONFIG } from './nodeConstants';
-import { LongTextEditorModal } from './LongTextEditorModal';
 import { PromptHelperNodeCard, PromptHelperWorkbenchModal } from './PromptHelperWorkbench';
+import { NODE_API_PROVIDER_CONFIG } from './nodeConstants';
 import { useBufferedStringField } from './useBufferedStringField';
 
 type NodeDef = ReturnType<typeof getNodeDef>;
@@ -23,19 +23,22 @@ function getBoolean(value: unknown, fallback: boolean) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
-function removeDelimitedRanges(sourceText: string, {
-  startToken,
-  endToken,
-  removeStartToken,
-  removeEndToken,
-  removeAllRanges,
-}: {
-  startToken: string;
-  endToken: string;
-  removeStartToken: boolean;
-  removeEndToken: boolean;
-  removeAllRanges: boolean;
-}) {
+function removeDelimitedRanges(
+  sourceText: string,
+  {
+    startToken,
+    endToken,
+    removeStartToken,
+    removeEndToken,
+    removeAllRanges,
+  }: {
+    startToken: string;
+    endToken: string;
+    removeStartToken: boolean;
+    removeEndToken: boolean;
+    removeAllRanges: boolean;
+  },
+) {
   if (!startToken || !endToken) return sourceText;
 
   let output = '';
@@ -131,13 +134,15 @@ function getUploadStatusClassName({
 function buildTextCleanPreview(data: Record<string, unknown>, outputs?: Record<string, unknown>) {
   if (typeof outputs?.text === 'string') return outputs.text;
   const text = String(data.previewText ?? data.text ?? '');
-  return trimBoundaryBlankLines(removeDelimitedRanges(text, {
-    startToken: String(data.startToken ?? '<think>'),
-    endToken: String(data.endToken ?? '</think>'),
-    removeStartToken: getBoolean(data.removeStartToken, true),
-    removeEndToken: getBoolean(data.removeEndToken, true),
-    removeAllRanges: getBoolean(data.removeAllRanges, true),
-  }));
+  return trimBoundaryBlankLines(
+    removeDelimitedRanges(text, {
+      startToken: String(data.startToken ?? '<think>'),
+      endToken: String(data.endToken ?? '</think>'),
+      removeStartToken: getBoolean(data.removeStartToken, true),
+      removeEndToken: getBoolean(data.removeEndToken, true),
+      removeAllRanges: getBoolean(data.removeAllRanges, true),
+    }),
+  );
 }
 
 function trimSeparatorAdjacentNewlines(text: string) {
@@ -199,7 +204,9 @@ function buildTextSplitPreview(data: Record<string, unknown>, outputs?: Record<s
     .sort(([keyA], [keyB]) => Number(keyA.replace('part', '')) - Number(keyB.replace('part', '')))
     .map(([, value]) => String(value ?? ''));
 
-  return outputEntries.length > 0 ? normalizeTextSplitSegments(outputEntries, outputCount) : buildTextSplitLocalSegments(data);
+  return outputEntries.length > 0
+    ? normalizeTextSplitSegments(outputEntries, outputCount)
+    : buildTextSplitLocalSegments(data);
 }
 
 interface NodeContentProps {
@@ -238,26 +245,44 @@ export function NodeContent({
     case 'textInput':
       return <TextInputContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outerStyle={outerStyle} />;
     case 'imageInput':
-      return <FileInputContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outerStyle={outerStyle} accept="image/*" placeholder="选择图片..." label="图片" />;
+      return (
+        <FileInputContent
+          data={data}
+          nodeId={nodeId}
+          updateNodeData={updateNodeData}
+          outerStyle={outerStyle}
+          accept="image/*"
+          placeholder="选择图片..."
+          label="图片"
+        />
+      );
     case 'maskInput':
       return <MaskInputContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outerStyle={outerStyle} />;
     case 'imageResize':
     case 'imageCompare':
-      return type === 'imageCompare'
-        ? <ImageCompareContent outputs={outputs} outerStyle={outerStyle} />
-        : (
-          <NodeSettingsContent
-            params={def?.params || []}
-            nodeType={type}
-            nodeId={nodeId}
-            data={data}
-            outerStyle={outerStyle}
-            onChange={(paramId, value) => updateNodeData(nodeId, { [paramId]: value })}
-            onPatch={(patch) => updateNodeData(nodeId, patch)}
-          />
-        );
+      return type === 'imageCompare' ? (
+        <ImageCompareContent outputs={outputs} outerStyle={outerStyle} />
+      ) : (
+        <NodeSettingsContent
+          params={def?.params || []}
+          nodeType={type}
+          nodeId={nodeId}
+          data={data}
+          outerStyle={outerStyle}
+          onChange={(paramId, value) => updateNodeData(nodeId, { [paramId]: value })}
+          onPatch={(patch) => updateNodeData(nodeId, patch)}
+        />
+      );
     case 'promptHelper':
-      return <PromptHelperContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outputs={outputs} outerStyle={outerStyle} />;
+      return (
+        <PromptHelperContent
+          data={data}
+          nodeId={nodeId}
+          updateNodeData={updateNodeData}
+          outputs={outputs}
+          outerStyle={outerStyle}
+        />
+      );
     case 'aiChat':
     case 'imageGen':
     case 'videoGen':
@@ -302,20 +327,60 @@ export function NodeContent({
         />
       );
     case 'videoInput':
-      return <FileInputContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outerStyle={outerStyle} accept="video/*" placeholder="选择视频..." label="视频" />;
+      return (
+        <FileInputContent
+          data={data}
+          nodeId={nodeId}
+          updateNodeData={updateNodeData}
+          outerStyle={outerStyle}
+          accept="video/*"
+          placeholder="选择视频..."
+          label="视频"
+        />
+      );
     case 'audioInput':
-      return <FileInputContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outerStyle={outerStyle} accept="audio/*" placeholder="选择音频..." label="音频" />;
+      return (
+        <FileInputContent
+          data={data}
+          nodeId={nodeId}
+          updateNodeData={updateNodeData}
+          outerStyle={outerStyle}
+          accept="audio/*"
+          placeholder="选择音频..."
+          label="音频"
+        />
+      );
     case 'apiKeyInput':
       return <ApiKeyContent data={data} nodeId={nodeId} updateNodeData={updateNodeData} outerStyle={outerStyle} />;
     case 'textMerge':
     case 'imageMerge':
     case 'videoMerge':
     case 'audioMerge':
-      return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} />;
+      return (
+        <MergeContent
+          connectedCount={connectedInputCount || 0}
+          maxInputs={def?.maxInputs || 9}
+          outerStyle={outerStyle}
+        />
+      );
     case 'iterateRun':
-      return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} note="按端口顺序逐项运行" />;
+      return (
+        <MergeContent
+          connectedCount={connectedInputCount || 0}
+          maxInputs={def?.maxInputs || 9}
+          outerStyle={outerStyle}
+          note="按端口顺序逐项运行"
+        />
+      );
     case 'iterateImageRun':
-      return <MergeContent connectedCount={connectedInputCount || 0} maxInputs={def?.maxInputs || 9} outerStyle={outerStyle} note="按端口顺序逐张运行" />;
+      return (
+        <MergeContent
+          connectedCount={connectedInputCount || 0}
+          maxInputs={def?.maxInputs || 9}
+          outerStyle={outerStyle}
+          note="按端口顺序逐张运行"
+        />
+      );
     case 'output':
       return <OutputContent outputs={outputs} outerStyle={outerStyle} isLastSection={!showBottomBorder} />;
     default:
@@ -379,9 +444,7 @@ function GroupContent({ outerStyle }: { outerStyle: CSSProperties }) {
         padding: GROUP_SAFE_MARGIN,
       }}
     >
-      <div className="node-group-content">
-        组内节点会跟随一起移动，可整体复制、禁用、删除或解组。
-      </div>
+      <div className="node-group-content">组内节点会跟随一起移动，可整体复制、禁用、删除或解组。</div>
     </div>
   );
 }
@@ -443,7 +506,6 @@ function TextInputContent({
             editor.onBlur(event.target.value);
             setIsEditing(false);
           }}
-          autoFocus
           onFocus={() => editor.onFocus()}
           onCompositionStart={() => editor.onCompositionStart()}
           onCompositionEnd={(event) => editor.onCompositionEnd(event.currentTarget.value)}
@@ -467,7 +529,9 @@ function TextInputContent({
       )}
       <div className="node-text-meta">
         <span>
-          {showLongTextHint ? `${lineCount} 行 · ${text.length} 字符 · 双击可全屏编辑` : `${lineCount} 行 · ${text.length} 字符`}
+          {showLongTextHint
+            ? `${lineCount} 行 · ${text.length} 字符 · 双击可全屏编辑`
+            : `${lineCount} 行 · ${text.length} 字符`}
         </span>
       </div>
       {isFullscreenEditing && (
@@ -504,7 +568,8 @@ function FileInputContent({
   const fileUrl = (data.fileUrl as string) || '';
   const thumbnailUrl = (data.thumbnailUrl as string) || '';
   const storedPreviewUrl = (data.previewUrl as string) || '';
-  const previewUrl = storedPreviewUrl && !(storedPreviewUrl.startsWith('blob:') && fileUrl) ? storedPreviewUrl : fileUrl;
+  const previewUrl =
+    storedPreviewUrl && !(storedPreviewUrl.startsWith('blob:') && fileUrl) ? storedPreviewUrl : fileUrl;
   const fileName = (data.fileName as string) || '';
   const localPath = (data.localPath as string) || '';
   const imageWidth = typeof data.width === 'number' ? data.width : undefined;
@@ -517,10 +582,10 @@ function FileInputContent({
   const maskUploadError = (data._maskUploadError as string) || '';
   const maskUploading = Boolean(data._maskUploading);
   const mediaKind = accept.startsWith('image') ? 'image' : accept.startsWith('video') ? 'video' : 'audio';
-  const previewDisplayUrl = mediaKind === 'image'
-    ? (thumbnailUrl || inferImageThumbnailUrl(fileUrl || previewUrl) || previewUrl)
-    : previewUrl;
-  const maskSource = maskPreviewUrl && !(maskPreviewUrl.startsWith('blob:') && maskFileUrl) ? maskPreviewUrl : maskFileUrl;
+  const previewDisplayUrl =
+    mediaKind === 'image' ? thumbnailUrl || inferImageThumbnailUrl(fileUrl || previewUrl) || previewUrl : previewUrl;
+  const maskSource =
+    maskPreviewUrl && !(maskPreviewUrl.startsWith('blob:') && maskFileUrl) ? maskPreviewUrl : maskFileUrl;
   const [maskContentState, setMaskContentState] = useState<'empty' | 'present'>('empty');
   const hasGeneratedMask = maskContentState === 'present';
   const hasOriginalCanvasImage = Boolean(data.canvasOriginalFileUrl || data.canvasOriginalPreviewUrl);
@@ -557,91 +622,97 @@ function FileInputContent({
       : '上传没有完成，请检查文件格式、大小或稍后重试。';
   }, []);
 
-  const uploadSelectedFile = useCallback(async (file: File) => {
-    if (!file) return;
+  const uploadSelectedFile = useCallback(
+    async (file: File) => {
+      if (!file) return;
 
-    const localPreview = URL.createObjectURL(file);
-    updateNodeData(nodeId, {
-      fileUrl: '',
-      thumbnailUrl: '',
-      previewUrl: localPreview,
-      localPath: file.webkitRelativePath || file.name,
-      fileName: file.name,
-      fileKind: mediaKind,
-      fileSize: file.size,
-      width: undefined,
-      height: undefined,
-      _uploading: true,
-      _uploadError: '',
-      _fileProcessingStatus: '',
-      _fileProcessingError: '',
-      canvasOriginalFileUrl: '',
-      canvasOriginalPreviewUrl: '',
-      canvasOriginalFileName: '',
-      canvasOriginalFileSize: undefined,
-    });
+      const localPreview = URL.createObjectURL(file);
+      updateNodeData(nodeId, {
+        fileUrl: '',
+        thumbnailUrl: '',
+        previewUrl: localPreview,
+        localPath: file.webkitRelativePath || file.name,
+        fileName: file.name,
+        fileKind: mediaKind,
+        fileSize: file.size,
+        width: undefined,
+        height: undefined,
+        _uploading: true,
+        _uploadError: '',
+        _fileProcessingStatus: '',
+        _fileProcessingError: '',
+        canvasOriginalFileUrl: '',
+        canvasOriginalPreviewUrl: '',
+        canvasOriginalFileName: '',
+        canvasOriginalFileSize: undefined,
+      });
 
-    try {
-      const result = await uploadFile(file);
-      if (result.success && result.url) {
-        updateNodeData(nodeId, {
-          fileUrl: result.url,
-          thumbnailUrl: result.thumbnailUrl || '',
-          previewUrl: result.thumbnailUrl || localPreview,
-          fileName: result.fileName || file.name,
-          fileSize: result.fileSize || file.size,
-          width: result.width,
-          height: result.height,
-          _uploading: false,
-          _uploadError: '',
-          _fileProcessingStatus: result.processing ? 'processing' : (result.processingStatus || ''),
-          _fileProcessingError: result.processingError || '',
-        });
-        if (result.processing && result.url) {
-          void waitForUploadedImageMetadata(result.url, (metadata) => {
-            if (metadata.thumbnailUrl || metadata.url) {
-              URL.revokeObjectURL(localPreview);
-            }
-            updateNodeData(nodeId, {
-              fileUrl: metadata.url || result.url,
-              thumbnailUrl: metadata.thumbnailUrl || '',
-              previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
-              width: metadata.width,
-              height: metadata.height,
-              _fileProcessingStatus: metadata.processingStatus || '',
-              _fileProcessingError: metadata.processingError || '',
-            });
+      try {
+        const result = await uploadFile(file);
+        if (result.success && result.url) {
+          updateNodeData(nodeId, {
+            fileUrl: result.url,
+            thumbnailUrl: result.thumbnailUrl || '',
+            previewUrl: result.thumbnailUrl || localPreview,
+            fileName: result.fileName || file.name,
+            fileSize: result.fileSize || file.size,
+            width: result.width,
+            height: result.height,
+            _uploading: false,
+            _uploadError: '',
+            _fileProcessingStatus: result.processing ? 'processing' : result.processingStatus || '',
+            _fileProcessingError: result.processingError || '',
           });
-        } else if (result.thumbnailUrl || result.url) {
+          if (result.processing && result.url) {
+            void waitForUploadedImageMetadata(result.url, (metadata) => {
+              if (metadata.thumbnailUrl || metadata.url) {
+                URL.revokeObjectURL(localPreview);
+              }
+              updateNodeData(nodeId, {
+                fileUrl: metadata.url || result.url,
+                thumbnailUrl: metadata.thumbnailUrl || '',
+                previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
+                width: metadata.width,
+                height: metadata.height,
+                _fileProcessingStatus: metadata.processingStatus || '',
+                _fileProcessingError: metadata.processingError || '',
+              });
+            });
+          } else if (result.thumbnailUrl || result.url) {
+            URL.revokeObjectURL(localPreview);
+          }
+        } else {
           URL.revokeObjectURL(localPreview);
+          updateNodeData(nodeId, {
+            previewUrl: '',
+            _uploading: false,
+            _uploadError: formatUploadError(result.error),
+            _fileProcessingStatus: '',
+            _fileProcessingError: '',
+          });
         }
-      } else {
+      } catch (error) {
         URL.revokeObjectURL(localPreview);
         updateNodeData(nodeId, {
           previewUrl: '',
           _uploading: false,
-          _uploadError: formatUploadError(result.error),
+          _uploadError: formatUploadError(error instanceof Error ? error.message : ''),
           _fileProcessingStatus: '',
           _fileProcessingError: '',
         });
       }
-    } catch (error) {
-      URL.revokeObjectURL(localPreview);
-      updateNodeData(nodeId, {
-        previewUrl: '',
-        _uploading: false,
-        _uploadError: formatUploadError(error instanceof Error ? error.message : ''),
-        _fileProcessingStatus: '',
-        _fileProcessingError: '',
-      });
-    }
-  }, [formatUploadError, mediaKind, nodeId, updateNodeData]);
+    },
+    [formatUploadError, mediaKind, nodeId, updateNodeData],
+  );
 
-  const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) await uploadSelectedFile(file);
-    event.target.value = '';
-  }, [uploadSelectedFile]);
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) await uploadSelectedFile(file);
+      event.target.value = '';
+    },
+    [uploadSelectedFile],
+  );
 
   const restoreOriginalCanvasImage = useCallback(() => {
     const originalFileUrl = (data.canvasOriginalFileUrl as string) || '';
@@ -702,14 +773,22 @@ function FileInputContent({
   return (
     <div className="node-content-shell node-content-shell--file" style={outerStyle}>
       <input ref={fileInputRef} type="file" accept={accept} onChange={handleFileChange} className="hidden" />
-        {previewDisplayUrl ? (
-          <>
-          <MediaPreview value={previewUrl || previewDisplayUrl} previewValue={previewDisplayUrl} imageWidth={imageWidth} imageHeight={imageHeight} compact fill inertImage kindOverride={mediaKind} minHeightOverride={mediaKind === 'audio' ? 48 : 82} />
-            <div className="node-file-status">
+      {previewDisplayUrl ? (
+        <>
+          <MediaPreview
+            value={previewUrl || previewDisplayUrl}
+            previewValue={previewDisplayUrl}
+            imageWidth={imageWidth}
+            imageHeight={imageHeight}
+            compact
+            fill
+            inertImage
+            kindOverride={mediaKind}
+            minHeightOverride={mediaKind === 'audio' ? 48 : 82}
+          />
+          <div className="node-file-status">
             <span className="node-file-status__name">{fileName}</span>
-            <span className={statusClassName}>
-              {statusText}
-            </span>
+            <span className={statusClassName}>{statusText}</span>
           </div>
           {mediaKind === 'image' && (
             <div className="node-file-badges">
@@ -755,7 +834,7 @@ function FileInputContent({
           onBlur={(event) => localPathField.onBlur(event.target.value)}
           onCompositionStart={() => localPathField.onCompositionStart()}
           onCompositionEnd={(event) => localPathField.onCompositionEnd(event.currentTarget.value)}
-          placeholder={label + '本地路径'}
+          placeholder={`${label}本地路径`}
           className="nodrag node-file-path-input"
           onClick={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
@@ -794,7 +873,8 @@ function MaskInputContent({
   const uploading = Boolean(data._uploading);
   const uploadError = (data._uploadError as string) || '';
   const { processingStatus, processingError } = getUploadProcessingState(data);
-  const previewUrl = storedPreviewUrl && !(storedPreviewUrl.startsWith('blob:') && fileUrl) ? storedPreviewUrl : fileUrl;
+  const previewUrl =
+    storedPreviewUrl && !(storedPreviewUrl.startsWith('blob:') && fileUrl) ? storedPreviewUrl : fileUrl;
   const threshold = Number(data.threshold ?? 128);
   const invertMask = Boolean(data.invertMask);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState('');
@@ -808,103 +888,112 @@ function MaskInputContent({
       : '上传没有完成，请检查文件格式、大小或稍后重试。';
   }, []);
 
-  const uploadSelectedFile = useCallback(async (file: File) => {
-    if (!file) return;
+  const uploadSelectedFile = useCallback(
+    async (file: File) => {
+      if (!file) return;
 
-    const localPreview = URL.createObjectURL(file);
-    updateNodeData(nodeId, {
-      fileUrl: '',
-      thumbnailUrl: '',
-      previewUrl: localPreview,
-      localPath: file.webkitRelativePath || file.name,
-      fileName: file.name,
-      fileKind: 'image',
-      fileSize: file.size,
-      _uploading: true,
-      _uploadError: '',
-      _fileProcessingStatus: '',
-      _fileProcessingError: '',
-    });
-
-    try {
-      const result = await uploadFile(file);
-      if (result.success && result.url) {
-        updateNodeData(nodeId, {
-          fileUrl: result.url,
-          thumbnailUrl: result.thumbnailUrl || '',
-          previewUrl: result.thumbnailUrl || localPreview,
-          fileName: result.fileName || file.name,
-          fileSize: result.fileSize || file.size,
-          _uploading: false,
-          _uploadError: '',
-          _fileProcessingStatus: result.processing ? 'processing' : (result.processingStatus || ''),
-          _fileProcessingError: result.processingError || '',
-        });
-        if (result.processing && result.url) {
-          void waitForUploadedImageMetadata(result.url, (metadata) => {
-            if (metadata.thumbnailUrl || metadata.url) {
-              URL.revokeObjectURL(localPreview);
-            }
-            updateNodeData(nodeId, {
-              fileUrl: metadata.url || result.url,
-              thumbnailUrl: metadata.thumbnailUrl || '',
-              previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
-              width: metadata.width,
-              height: metadata.height,
-              _fileProcessingStatus: metadata.processingStatus || '',
-              _fileProcessingError: metadata.processingError || '',
-            });
-          });
-        } else if (result.thumbnailUrl || result.url) {
-          URL.revokeObjectURL(localPreview);
-        }
-      } else {
-        URL.revokeObjectURL(localPreview);
-        updateNodeData(nodeId, {
-          previewUrl: '',
-          _uploading: false,
-          _uploadError: formatUploadError(result.error),
-          _fileProcessingStatus: '',
-          _fileProcessingError: '',
-        });
-      }
-    } catch (error) {
-      URL.revokeObjectURL(localPreview);
+      const localPreview = URL.createObjectURL(file);
       updateNodeData(nodeId, {
-        previewUrl: '',
-        _uploading: false,
-        _uploadError: formatUploadError(error instanceof Error ? error.message : ''),
-        _fileProcessingStatus: '',
-        _fileProcessingError: '',
-      });
-    }
-  }, [formatUploadError, nodeId, updateNodeData]);
-
-  const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) await uploadSelectedFile(file);
-    event.target.value = '';
-  }, [uploadSelectedFile]);
-
-  const handlePathChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextPath = event.target.value;
-    if (!nextPath) {
-      updateNodeData(nodeId, {
-        localPath: '',
         fileUrl: '',
-        previewUrl: '',
-        fileName: '',
-        fileSize: undefined,
-        _uploading: false,
+        thumbnailUrl: '',
+        previewUrl: localPreview,
+        localPath: file.webkitRelativePath || file.name,
+        fileName: file.name,
+        fileKind: 'image',
+        fileSize: file.size,
+        _uploading: true,
         _uploadError: '',
         _fileProcessingStatus: '',
         _fileProcessingError: '',
       });
-      return;
-    }
 
-    updateNodeData(nodeId, { localPath: nextPath });
-  }, [nodeId, updateNodeData]);
+      try {
+        const result = await uploadFile(file);
+        if (result.success && result.url) {
+          updateNodeData(nodeId, {
+            fileUrl: result.url,
+            thumbnailUrl: result.thumbnailUrl || '',
+            previewUrl: result.thumbnailUrl || localPreview,
+            fileName: result.fileName || file.name,
+            fileSize: result.fileSize || file.size,
+            _uploading: false,
+            _uploadError: '',
+            _fileProcessingStatus: result.processing ? 'processing' : result.processingStatus || '',
+            _fileProcessingError: result.processingError || '',
+          });
+          if (result.processing && result.url) {
+            void waitForUploadedImageMetadata(result.url, (metadata) => {
+              if (metadata.thumbnailUrl || metadata.url) {
+                URL.revokeObjectURL(localPreview);
+              }
+              updateNodeData(nodeId, {
+                fileUrl: metadata.url || result.url,
+                thumbnailUrl: metadata.thumbnailUrl || '',
+                previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
+                width: metadata.width,
+                height: metadata.height,
+                _fileProcessingStatus: metadata.processingStatus || '',
+                _fileProcessingError: metadata.processingError || '',
+              });
+            });
+          } else if (result.thumbnailUrl || result.url) {
+            URL.revokeObjectURL(localPreview);
+          }
+        } else {
+          URL.revokeObjectURL(localPreview);
+          updateNodeData(nodeId, {
+            previewUrl: '',
+            _uploading: false,
+            _uploadError: formatUploadError(result.error),
+            _fileProcessingStatus: '',
+            _fileProcessingError: '',
+          });
+        }
+      } catch (error) {
+        URL.revokeObjectURL(localPreview);
+        updateNodeData(nodeId, {
+          previewUrl: '',
+          _uploading: false,
+          _uploadError: formatUploadError(error instanceof Error ? error.message : ''),
+          _fileProcessingStatus: '',
+          _fileProcessingError: '',
+        });
+      }
+    },
+    [formatUploadError, nodeId, updateNodeData],
+  );
+
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) await uploadSelectedFile(file);
+      event.target.value = '';
+    },
+    [uploadSelectedFile],
+  );
+
+  const handlePathChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const nextPath = event.target.value;
+      if (!nextPath) {
+        updateNodeData(nodeId, {
+          localPath: '',
+          fileUrl: '',
+          previewUrl: '',
+          fileName: '',
+          fileSize: undefined,
+          _uploading: false,
+          _uploadError: '',
+          _fileProcessingStatus: '',
+          _fileProcessingError: '',
+        });
+        return;
+      }
+
+      updateNodeData(nodeId, { localPath: nextPath });
+    },
+    [nodeId, updateNodeData],
+  );
 
   useEffect(() => {
     let revokedUrl = '';
@@ -936,9 +1025,7 @@ function MaskInputContent({
           const g = pixels[index + 1];
           const b = pixels[index + 2];
           const alpha = pixels[index + 3];
-          const sourceValue = alpha < 255
-            ? alpha
-            : Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+          const sourceValue = alpha < 255 ? alpha : Math.round(0.299 * r + 0.587 * g + 0.114 * b);
           const whitePixel = sourceValue >= threshold;
           const shouldEdit = invertMask ? !whitePixel : whitePixel;
           const previewAlpha = shouldEdit ? 0 : 255;
@@ -1090,9 +1177,7 @@ function MergeContent({
       <span className="node-merge-count">
         已连接 {connectedCount} / {maxInputs}
       </span>
-      <span className="node-merge-note">
-        {note || '按端口顺序合并为一组'}
-      </span>
+      <span className="node-merge-note">{note || '按端口顺序合并为一组'}</span>
     </div>
   );
 }
@@ -1120,19 +1205,25 @@ function ApiKeyContent({
   const modelsError = String(data._modelsError || '');
   const modelsUpdatedAt = Number(data._modelsUpdatedAt || 0);
 
-  const update = useCallback((patch: Record<string, unknown>) => {
-    updateNodeData(nodeId, patch);
-  }, [nodeId, updateNodeData]);
+  const update = useCallback(
+    (patch: Record<string, unknown>) => {
+      updateNodeData(nodeId, patch);
+    },
+    [nodeId, updateNodeData],
+  );
 
-  const clearDetectedModels = useCallback((patch: Record<string, unknown>) => {
-    update({
-      ...patch,
-      apiModels: [],
-      apiModelGroups: undefined,
-      _modelsError: '',
-      _modelsUpdatedAt: 0,
-    });
-  }, [update]);
+  const clearDetectedModels = useCallback(
+    (patch: Record<string, unknown>) => {
+      update({
+        ...patch,
+        apiModels: [],
+        apiModelGroups: undefined,
+        _modelsError: '',
+        _modelsUpdatedAt: 0,
+      });
+    },
+    [update],
+  );
 
   const detectModels = useCallback(async () => {
     if (!apiKey.trim()) {
@@ -1151,7 +1242,7 @@ function ApiKeyContent({
     update({
       apiModels: models,
       apiModelGroups: result.data.categorized || { chat: [], image: [], video: [] },
-      selectedModel: models.includes(selectedModel) ? selectedModel : (models[0] || selectedModel),
+      selectedModel: models.includes(selectedModel) ? selectedModel : models[0] || selectedModel,
       _modelsLoading: false,
       _modelsError: '',
       _modelsUpdatedAt: Date.now(),
@@ -1182,9 +1273,7 @@ function ApiKeyContent({
       />
       <div className="node-api-section">
         <div className="node-api-section__header">
-          <label className="node-api-label">
-            模型列表
-          </label>
+          <label className="node-api-label">模型列表</label>
           <button
             type="button"
             onClick={detectModels}
@@ -1201,7 +1290,9 @@ function ApiKeyContent({
         >
           <option value="">{modelOptions.length ? '从本节点检测结果中选择...' : '请先检测模型，或手动输入'}</option>
           {modelOptions.map((model) => (
-            <option key={model} value={model}>{model}</option>
+            <option key={model} value={model}>
+              {model}
+            </option>
           ))}
         </select>
         <input
@@ -1212,9 +1303,10 @@ function ApiKeyContent({
           className="node-api-input"
         />
         <div className={modelsError ? 'node-api-hint node-api-hint--error' : 'node-api-hint'}>
-          {modelsError || (modelsUpdatedAt
-            ? ('已检测 ' + String(modelOptions.length) + ' 个模型')
-            : '模型列表只来自当前 API Key 节点的检测结果，不依赖项目模型库')}
+          {modelsError ||
+            (modelsUpdatedAt
+              ? `已检测 ${String(modelOptions.length)} 个模型`
+              : '模型列表只来自当前 API Key 节点的检测结果，不依赖项目模型库')}
         </div>
       </div>
       <ApiKeyField
@@ -1250,7 +1342,8 @@ function ApiKeyContent({
         />
       )}
       <div className="node-api-note">
-        只会影响与这个 API Key 节点直接相连的 AI 节点。接口模式可选择内置类型或自定义路径；缺少任意必填项都会直接中断执行。
+        只会影响与这个 API Key 节点直接相连的 AI
+        节点。接口模式可选择内置类型或自定义路径；缺少任意必填项都会直接中断执行。
       </div>
     </div>
   );
@@ -1277,17 +1370,13 @@ function ApiKeyField({
 
   return (
     <div className="node-api-section">
-      <label className="node-api-label">
-        {label}
-      </label>
+      <label className="node-api-label">{label}</label>
       {kind === 'select' ? (
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="node-api-input"
-        >
+        <select value={value} onChange={(event) => onChange(event.target.value)} className="node-api-input">
           {options.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
       ) : (
@@ -1328,7 +1417,14 @@ function NodeSettingsContent({
   return (
     <div className="node-content-shell node-settings-content" style={{ ...outerStyle, overflow: 'auto' }}>
       <div className="node-settings-content__inner">
-        <NodeParamFields params={params} nodeType={nodeType} nodeId={nodeId} values={data} onChange={onChange} onPatch={onPatch} />
+        <NodeParamFields
+          params={params}
+          nodeType={nodeType}
+          nodeId={nodeId}
+          values={data}
+          onChange={onChange}
+          onPatch={onPatch}
+        />
       </div>
     </div>
   );
@@ -1355,14 +1451,26 @@ function TextResultPreviewContent({
   onPatch: (patch: Record<string, unknown>) => void;
   mode: 'clean' | 'split';
 }) {
-  const [fullscreenValue, setFullscreenValue] = useState<{ title: string; value: string; segments?: string[] } | null>(null);
+  const [fullscreenValue, setFullscreenValue] = useState<{ title: string; value: string; segments?: string[] } | null>(
+    null,
+  );
   const cleanPreview = mode === 'clean' ? buildTextCleanPreview(data, outputs) : '';
   const splitPreview = mode === 'split' ? buildTextSplitPreview(data, outputs) : [];
   const hasRuntimeOutput = Boolean(outputs && Object.keys(outputs).length > 0);
   return (
-    <div className="node-content-shell node-settings-content node-settings-content--with-preview" style={{ ...outerStyle, overflow: 'auto' }}>
+    <div
+      className="node-content-shell node-settings-content node-settings-content--with-preview"
+      style={{ ...outerStyle, overflow: 'auto' }}
+    >
       <div className="node-settings-content__inner">
-        <NodeParamFields params={params} nodeType={nodeType} nodeId={nodeId} values={data} onChange={onChange} onPatch={onPatch} />
+        <NodeParamFields
+          params={params}
+          nodeType={nodeType}
+          nodeId={nodeId}
+          values={data}
+          onChange={onChange}
+          onPatch={onPatch}
+        />
         <div className="node-result-preview">
           <div className="node-result-preview__header">
             <span>{mode === 'clean' ? '清理后预览' : '拆分预览'}</span>
@@ -1371,7 +1479,9 @@ function TextResultPreviewContent({
           {mode === 'clean' ? (
             <button
               type="button"
-              className={['node-result-preview__text', cleanPreview ? '' : 'node-result-preview__text--empty'].filter(Boolean).join(' ')}
+              className={['node-result-preview__text', cleanPreview ? '' : 'node-result-preview__text--empty']
+                .filter(Boolean)
+                .join(' ')}
               onDoubleClick={() => cleanPreview && setFullscreenValue({ title: '查看清理后文本', value: cleanPreview })}
               title={cleanPreview ? '双击全屏查看' : undefined}
             >
@@ -1381,11 +1491,13 @@ function TextResultPreviewContent({
             <button
               type="button"
               className="node-result-preview__open"
-              onClick={() => setFullscreenValue({
-                title: '查看拆分预览',
-                value: splitPreview.some((item) => item.trim()) ? splitPreview.join('\n\n') : '暂无可预览内容。',
-                segments: splitPreview,
-              })}
+              onClick={() =>
+                setFullscreenValue({
+                  title: '查看拆分预览',
+                  value: splitPreview.some((item) => item.trim()) ? splitPreview.join('\n\n') : '暂无可预览内容。',
+                  segments: splitPreview,
+                })
+              }
             >
               拆分预览
             </button>
@@ -1400,15 +1512,15 @@ function TextResultPreviewContent({
           placeholder=""
           onChange={() => undefined}
           onSegmentsChange={(nextSegments) => {
-            setFullscreenValue((current) => (
+            setFullscreenValue((current) =>
               current
                 ? {
                     ...current,
                     segments: nextSegments,
                     value: nextSegments.join('\n\n'),
                   }
-                : current
-            ));
+                : current,
+            );
             onPatch({ segments: nextSegments });
           }}
           onClose={() => setFullscreenValue(null)}
@@ -1431,17 +1543,18 @@ function OutputContent({
   const rawContent = outputs?.content;
   const content = (() => {
     if (
-      typeof rawContent === 'string'
-      && rawContent.startsWith('/api/outputs/')
-      && isRenderableOutputMediaUrl(rawContent)
+      typeof rawContent === 'string' &&
+      rawContent.startsWith('/api/outputs/') &&
+      isRenderableOutputMediaUrl(rawContent)
     ) {
-      const matched = savedFiles.find((file) => (
-        file
-        && typeof file === 'object'
-        && typeof (file as { url?: unknown }).url === 'string'
-        && (file as { url: string }).url === rawContent
-        && (file as { type?: unknown }).type === 'image'
-      )) as { url: string; thumbnailUrl?: string; type?: string; width?: number; height?: number } | undefined;
+      const matched = savedFiles.find(
+        (file) =>
+          file &&
+          typeof file === 'object' &&
+          typeof (file as { url?: unknown }).url === 'string' &&
+          (file as { url: string }).url === rawContent &&
+          (file as { type?: unknown }).type === 'image',
+      ) as { url: string; thumbnailUrl?: string; type?: string; width?: number; height?: number } | undefined;
       if (matched) return matched;
     }
     return rawContent;
@@ -1526,12 +1639,7 @@ function InteractiveValue({ value }: { value: unknown }) {
 
   if (isRenderableOutputMediaObject(value)) {
     if (value.type === 'image' && isRenderableOutputMediaUrl(value.url)) {
-      return (
-        <MediaCard
-          value={value.url}
-          fill
-        />
-      );
+      return <MediaCard value={value.url} fill />;
     }
     if (isRenderableOutputMediaUrl(value.url)) {
       return <MediaCard value={value.url} fill />;
@@ -1539,7 +1647,9 @@ function InteractiveValue({ value }: { value: unknown }) {
   }
 
   if (Array.isArray(value)) {
-    const mediaValues = value.filter((item): item is string => typeof item === 'string' && isRenderableOutputMediaUrl(item));
+    const mediaValues = value.filter(
+      (item): item is string => typeof item === 'string' && isRenderableOutputMediaUrl(item),
+    );
     if (mediaValues.length === value.length && mediaValues.length > 0) {
       if (mediaValues.length === 1) {
         if (getMediaKindFromOutputValue(mediaValues[0]) === 'image') {
@@ -1550,11 +1660,13 @@ function InteractiveValue({ value }: { value: unknown }) {
 
       return (
         <div className="node-media-grid">
-          {mediaValues.map((item, index) => (
-            getMediaKindFromOutputValue(item) === 'image'
-              ? <MediaCard key={String(index)} value={item} compact fill />
-              : <MediaCard key={String(index)} value={item} compact fill />
-          ))}
+          {mediaValues.map((item, index) =>
+            getMediaKindFromOutputValue(item) === 'image' ? (
+              <MediaCard key={String(index)} value={item} compact fill />
+            ) : (
+              <MediaCard key={String(index)} value={item} compact fill />
+            ),
+          )}
         </div>
       );
     }
@@ -1570,12 +1682,15 @@ function isRenderableOutputMediaUrl(value: string) {
   return false;
 }
 
-function isRenderableOutputMediaObject(value: unknown): value is { url: string; thumbnailUrl?: string; type?: string; width?: number; height?: number } {
+function isRenderableOutputMediaObject(
+  value: unknown,
+): value is { url: string; thumbnailUrl?: string; type?: string; width?: number; height?: number } {
   return Boolean(value && typeof value === 'object' && typeof (value as { url?: unknown }).url === 'string');
 }
 
 function getMediaKindFromOutputValue(value: string) {
-  if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(value) || value.startsWith('data:image/') || value.startsWith('blob:')) return 'image';
+  if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(value) || value.startsWith('data:image/') || value.startsWith('blob:'))
+    return 'image';
   if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(value) || value.startsWith('data:video/')) return 'video';
   if (/\.(mp3|wav|ogg|m4a|aac)(\?.*)?$/i.test(value) || value.startsWith('data:audio/')) return 'audio';
   return 'unknown';

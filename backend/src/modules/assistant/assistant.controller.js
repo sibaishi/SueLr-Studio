@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'node:fs';
 import { successEnvelope } from '../../app/http/envelope.js';
 import { settingsService } from '../settings/settings.service.js';
 import { assistantService } from './assistant.service.js';

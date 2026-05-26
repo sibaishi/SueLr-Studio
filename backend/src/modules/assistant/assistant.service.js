@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
 import { createLogger } from '../../platform/logging/logger.js';
 import { applyOwnershipToList, ensureResourceOwnership } from '../../platform/runtime/index.js';
@@ -116,9 +116,7 @@ export class AssistantService {
   }
 
   async materializeRemoteVideoCandidates({ id, candidateUrls = [], scope = undefined }) {
-    const candidates = candidateUrls
-      .map((value) => String(value || '').trim())
-      .filter(Boolean);
+    const candidates = candidateUrls.map((value) => String(value || '').trim()).filter(Boolean);
 
     const seen = new Set();
     for (const candidate of candidates) {
@@ -130,7 +128,11 @@ export class AssistantService {
         const ext = VIDEO_MIME_EXT[contentType] || 'mp4';
         const filename = `${id}.${ext}`;
         this.repository.writeAssistantVideo(filename, buffer, { scope });
-        logger.info('assistant video downloaded from remote candidate', { videoId: id, sourceUrl: candidate, contentType });
+        logger.info('assistant video downloaded from remote candidate', {
+          videoId: id,
+          sourceUrl: candidate,
+          contentType,
+        });
         return buildAssistantLocalUrl('assistant-videos', filename);
       } catch (error) {
         logger.warn('assistant video candidate rejected', {
@@ -185,16 +187,19 @@ export class AssistantService {
       scope: options.scope,
     });
 
-    const record = ensureResourceOwnership({
-      ...body,
-      url: body.url || '',
-      localUrl: localUrl || body.url || body.localUrl || null,
-      thumbnailUrl: localUrl?.startsWith('/api/assistant/files/')
-        ? buildAssistantThumbnailUrl('assistant-images', path.basename(localUrl))
-        : '',
-      storedAt: Date.now(),
-    }, options.scope);
-    delete record.data;
+    const record = ensureResourceOwnership(
+      {
+        ...body,
+        url: body.url || '',
+        localUrl: localUrl || body.url || body.localUrl || null,
+        thumbnailUrl: localUrl?.startsWith('/api/assistant/files/')
+          ? buildAssistantThumbnailUrl('assistant-images', path.basename(localUrl))
+          : '',
+        storedAt: Date.now(),
+      },
+      options.scope,
+    );
+    record.data = undefined;
 
     gallery.push(record);
     this.repository.save('gallery', gallery);
@@ -213,7 +218,10 @@ export class AssistantService {
       const rel = item.localUrl.replace('/api/assistant/files/', '');
       this.repository.deleteGeneratedFile(rel);
     }
-    this.repository.save('gallery', gallery.filter((entry) => entry.id !== id));
+    this.repository.save(
+      'gallery',
+      gallery.filter((entry) => entry.id !== id),
+    );
     logger.info('assistant image deleted', { imageId: id });
   }
 
@@ -243,13 +251,16 @@ export class AssistantService {
       });
     }
 
-    const record = ensureResourceOwnership({
-      ...video,
-      url: video.url || '',
-      localUrl: localUrl || video.url || video.localUrl || null,
-      storedAt: Date.now(),
-    }, options.scope);
-    delete record.data;
+    const record = ensureResourceOwnership(
+      {
+        ...video,
+        url: video.url || '',
+        localUrl: localUrl || video.url || video.localUrl || null,
+        storedAt: Date.now(),
+      },
+      options.scope,
+    );
+    record.data = undefined;
 
     videos.push(record);
     this.repository.save('videos', videos);
@@ -268,7 +279,10 @@ export class AssistantService {
       const rel = item.localUrl.replace('/api/assistant/files/', '');
       this.repository.deleteGeneratedFile(rel);
     }
-    this.repository.save('videos', videos.filter((video) => video.id !== id));
+    this.repository.save(
+      'videos',
+      videos.filter((video) => video.id !== id),
+    );
     logger.info('assistant video deleted', { videoId: id });
   }
 

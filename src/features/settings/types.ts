@@ -1,7 +1,7 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { AgentProfile } from '@/shared/api/agent';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/shared/types';
-import type { AgentProfile } from '@/shared/api/agent';
+import type { Dispatch, SetStateAction } from 'react';
 
 export type StreamMode = 'stream' | 'non-stream';
 

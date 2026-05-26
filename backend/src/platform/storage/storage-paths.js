@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { getStorageRoot } from './storage-root.js';
 
 export function getStoragePaths() {

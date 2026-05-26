@@ -46,12 +46,15 @@ export function getRequiredInputsFromIndex(registryByType, type) {
  */
 export function getNodeDataDefaultsFromIndex(registryByType, type) {
   const params = getNodeDefFromIndex(registryByType, type)?.params || [];
-  return params.reduce((accumulator, param) => {
-    if (param.default !== undefined) {
-      accumulator[param.id] = param.default;
-    }
-    return accumulator;
-  }, /** @type {Record<string, unknown>} */ ({}));
+  return params.reduce(
+    (accumulator, param) => {
+      if (param.default !== undefined) {
+        accumulator[param.id] = param.default;
+      }
+      return accumulator;
+    },
+    /** @type {Record<string, unknown>} */ ({}),
+  );
 }
 
 /**

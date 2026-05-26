@@ -55,7 +55,9 @@ function buildTokenUsage({
   source = 'estimate',
 } = {}) {
   const upstreamPromptTokens = normalizeUsageNumber(upstreamUsage?.prompt_tokens ?? upstreamUsage?.input_tokens);
-  const upstreamCompletionTokens = normalizeUsageNumber(upstreamUsage?.completion_tokens ?? upstreamUsage?.output_tokens);
+  const upstreamCompletionTokens = normalizeUsageNumber(
+    upstreamUsage?.completion_tokens ?? upstreamUsage?.output_tokens,
+  );
   const upstreamTotalTokens = normalizeUsageNumber(upstreamUsage?.total_tokens);
   const promptTokens = upstreamPromptTokens ?? estimateMessagesTokens(promptMessages);
   const completionTokens = upstreamCompletionTokens ?? estimateMessageTokens(completionMessage);
@@ -132,7 +134,8 @@ function mergeToolCalls(target, incoming = []) {
     current.type = item?.type || current.type || 'function';
     current.function = current.function || { name: '', arguments: '' };
     if (item?.function?.name) current.function.name = item.function.name;
-    if (item?.function?.arguments) current.function.arguments = `${current.function.arguments || ''}${item.function.arguments}`;
+    if (item?.function?.arguments)
+      current.function.arguments = `${current.function.arguments || ''}${item.function.arguments}`;
     target[index] = current;
   }
   return target;
@@ -167,20 +170,23 @@ function compactToolResultForModel(name, result) {
     const mediaUrls = Array.isArray(parsed[`${mediaType}s`])
       ? parsed[`${mediaType}s`].filter((u) => typeof u === 'string')
       : Array.isArray(parsed.artifacts)
-        ? parsed.artifacts.filter((a) => a?.type === mediaType).map((a) => a.url).filter(Boolean)
+        ? parsed.artifacts
+            .filter((a) => a?.type === mediaType)
+            .map((a) => a.url)
+            .filter(Boolean)
         : [];
     const mediaCount = mediaUrls.length;
     const mediaRefs = mediaUrls.map((url, i) => {
       const source = String(url);
       const fileName = source.startsWith('data:')
         ? `inline-${mediaType}-${i + 1}`
-        : (source.split('/').pop()?.split('?')[0] || `${mediaType}-${i}`);
+        : source.split('/').pop()?.split('?')[0] || `${mediaType}-${i}`;
       return { ref: fileName, label: `generated-${mediaType}-${i + 1}` };
     });
     return JSON.stringify({
       type: `${mediaType}_generation_result`,
       tool: name,
-      status: mediaCount > 0 ? 'completed' : (parsed.status || 'unknown'),
+      status: mediaCount > 0 ? 'completed' : parsed.status || 'unknown',
       [`${mediaType}Count`]: mediaCount,
       [`${mediaType}s`]: mediaRefs,
       request: {
@@ -208,9 +214,7 @@ function buildToolFallbackContent(toolTrace = []) {
       const candidates = Array.isArray(parsed.candidates)
         ? parsed.candidates.map((candidate) => candidate?.model).filter(Boolean)
         : [];
-      return candidates.length
-        ? `请选择要使用的图像模型：${candidates.join('、')}`
-        : '请选择要使用的图像模型。';
+      return candidates.length ? `请选择要使用的图像模型：${candidates.join('、')}` : '请选择要使用的图像模型。';
     }
     if (parsed?.type === 'tool_needs_configuration') {
       return '当前没有可用的图像模型，请先在设置中配置图像模型。';
@@ -240,10 +244,12 @@ function shouldStopAfterToolResult(name, result) {
     return Array.isArray(parsed.images) || Array.isArray(parsed.artifacts);
   }
   if (name === 'video_generate') {
-    return parsed.status === 'submitted'
-      || Array.isArray(parsed.videos)
-      || Array.isArray(parsed.video)
-      || Array.isArray(parsed.artifacts);
+    return (
+      parsed.status === 'submitted' ||
+      Array.isArray(parsed.videos) ||
+      Array.isArray(parsed.video) ||
+      Array.isArray(parsed.artifacts)
+    );
   }
   return true;
 }
@@ -406,10 +412,12 @@ export class AgentRuntime {
     this.memoryService = memoryService;
     this.toolRegistry = toolRegistry;
     this.sessionStore = sessionStore;
-    this.memoryStrategy = memoryStrategy || new AgentMemoryStrategy({
-      capabilitiesService,
-      memoryService,
-    });
+    this.memoryStrategy =
+      memoryStrategy ||
+      new AgentMemoryStrategy({
+        capabilitiesService,
+        memoryService,
+      });
   }
 
   buildSystemPrompt(profile, memoryContext) {
@@ -462,15 +470,17 @@ export class AgentRuntime {
     const memoryEnabled = this.memoryStrategy.isEnabled?.(profile) !== false && !workflowExecutionEnabled;
     const memoryContext = memoryEnabled
       ? this.memoryService.buildContext(
-        normalizedMessages.map((message) => (typeof message.content === 'string' ? message.content : '')).join('\n'),
-        5,
-        { scope: options.scope },
-      )
+          normalizedMessages.map((message) => (typeof message.content === 'string' ? message.content : '')).join('\n'),
+          5,
+          { scope: options.scope },
+        )
       : '';
     const allowWebSearch = options.allowWebSearch !== false;
     const tools = this.toolRegistry.toModelTools(profile, { allowWebSearch });
     const conversation = [
-      ...(this.buildSystemPrompt(profile, memoryContext) ? [{ role: 'system', content: this.buildSystemPrompt(profile, memoryContext) }] : []),
+      ...(this.buildSystemPrompt(profile, memoryContext)
+        ? [{ role: 'system', content: this.buildSystemPrompt(profile, memoryContext) }]
+        : []),
       ...normalizedMessages,
     ];
 
@@ -493,14 +503,7 @@ export class AgentRuntime {
     };
   }
 
-  async run({
-    conversationId,
-    profileId,
-    model,
-    messages,
-    options = {},
-    signal,
-  }) {
+  async run({ conversationId, profileId, model, messages, options = {}, signal }) {
     const runCtx = this.buildRunContext({ conversationId, profileId, model, messages, options });
     const {
       sessionId,
@@ -533,14 +536,17 @@ export class AgentRuntime {
       round += 1;
       this.sessionStore.update(sessionId, { toolLoopCount: round });
       const promptMessages = conversation.slice();
-      const response = await this.capabilitiesService.chat({
-        model: resolvedModel,
-        messages: conversation,
-        tools,
-        apiConfig,
-        scope,
-        signal,
-      }, { scope });
+      const response = await this.capabilitiesService.chat(
+        {
+          model: resolvedModel,
+          messages: conversation,
+          tools,
+          apiConfig,
+          scope,
+          signal,
+        },
+        { scope },
+      );
       const parsed = extractChatResponse(response);
       const normalizedToolCalls = normalizeToolCalls(parsed.toolCalls);
       lastAssistantMessage = {
@@ -653,15 +659,7 @@ export class AgentRuntime {
     };
   }
 
-  async runStream({
-    conversationId,
-    profileId,
-    model,
-    messages,
-    options = {},
-    signal,
-    handlers = {},
-  }) {
+  async runStream({ conversationId, profileId, model, messages, options = {}, signal, handlers = {} }) {
     const context = this.buildRunContext({ conversationId, profileId, model, messages, options });
     const {
       sessionId,
@@ -699,14 +697,17 @@ export class AgentRuntime {
       this.sessionStore.update(sessionId, { toolLoopCount: round });
       const promptMessages = conversation.slice();
       const parsed = await consumeStreamingChatResponse(
-        await this.capabilitiesService.chatStream({
-          model: resolvedModel,
-          messages: conversation,
-          tools,
-          apiConfig,
-          scope,
-          signal,
-        }, { scope }),
+        await this.capabilitiesService.chatStream(
+          {
+            model: resolvedModel,
+            messages: conversation,
+            tools,
+            apiConfig,
+            scope,
+            signal,
+          },
+          { scope },
+        ),
         {
           onToken: (delta) => handlers.onMessageDelta?.({ sessionId, delta }),
         },
@@ -781,7 +782,10 @@ export class AgentRuntime {
       }
     }
 
-    if (!lastAssistantMessage.content && (!lastAssistantMessage.tool_calls || lastAssistantMessage.tool_calls.length === 0)) {
+    if (
+      !lastAssistantMessage.content &&
+      (!lastAssistantMessage.tool_calls || lastAssistantMessage.tool_calls.length === 0)
+    ) {
       throw new Error('Agent returned an empty response');
     }
 

@@ -1,16 +1,16 @@
+import { Check, Eraser, Eye, EyeOff, Hand, Pencil, RotateCcw, RotateCw, Trash2, X } from 'lucide-react';
 import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Eye, EyeOff, Eraser, Hand, Pencil, RotateCcw, RotateCw, Trash2, X } from 'lucide-react';
 
 type EditorMode = 'paint' | 'mask';
 type ToolMode = 'brush' | 'eraser';
@@ -41,9 +41,7 @@ const MAX_ZOOM = 4;
 
 function formatCanvasEditorError(message?: string | null) {
   const detail = String(message || '').trim();
-  return detail
-    ? `保存没有完成，请稍后重试。${detail}`
-    : '保存没有完成，请稍后重试。';
+  return detail ? `保存没有完成，请稍后重试。${detail}` : '保存没有完成，请稍后重试。';
 }
 
 function createEmptyHistory(): HistoryMap {
@@ -118,11 +116,18 @@ export function NodeCanvasEditorModal({
   const activeCanvasRef = mode === 'paint' ? paintCanvasRef : maskCanvasRef;
   const currentHistory = histories[mode];
   const canSavePaint = Boolean(onSavePaint);
-  const brushCursorColor = mode === 'paint'
-    ? (tool === 'eraser' ? '#ffffff' : paintColor)
-    : tool === 'eraser'
-      ? (maskInverted ? '#ffffff' : '#000000')
-      : (maskInverted ? '#000000' : '#ffffff');
+  const brushCursorColor =
+    mode === 'paint'
+      ? tool === 'eraser'
+        ? '#ffffff'
+        : paintColor
+      : tool === 'eraser'
+        ? maskInverted
+          ? '#ffffff'
+          : '#000000'
+        : maskInverted
+          ? '#000000'
+          : '#ffffff';
 
   const revokePreviewUrls = useCallback(() => {
     if (paintPreviewUrlRef.current) {
@@ -146,10 +151,13 @@ export function NodeCanvasEditorModal({
     }, 700);
   }, []);
 
-  const handleBrushSizeChange = useCallback((nextSize: number) => {
-    setBrushSize(nextSize);
-    showBrushPreviewTemporarily();
-  }, [showBrushPreviewTemporarily]);
+  const handleBrushSizeChange = useCallback(
+    (nextSize: number) => {
+      setBrushSize(nextSize);
+      showBrushPreviewTemporarily();
+    },
+    [showBrushPreviewTemporarily],
+  );
 
   useEffect(() => {
     return () => {
@@ -231,16 +239,19 @@ export function NodeCanvasEditorModal({
     dirtyRef.current = isDirty;
   }, [isDirty]);
 
-  const beginPan = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
-    panPointerIdRef.current = event.pointerId;
-    panStartRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      originX: pan.x,
-      originY: pan.y,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }, [pan.x, pan.y]);
+  const beginPan = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      panPointerIdRef.current = event.pointerId;
+      panStartRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        originX: pan.x,
+        originY: pan.y,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [pan.x, pan.y],
+  );
 
   const updatePan = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
     if (panPointerIdRef.current !== event.pointerId || !panStartRef.current) return;
@@ -326,9 +337,7 @@ export function NodeCanvasEditorModal({
     };
 
     updateViewportSize();
-    const observer = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(() => updateViewportSize())
-      : null;
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => updateViewportSize()) : null;
     observer?.observe(viewport);
     window.addEventListener('resize', updateViewportSize);
 
@@ -405,8 +414,8 @@ export function NodeCanvasEditorModal({
       setHistories(nextHistories);
       setIsDirty(false);
       setMaskInverted(false);
-        fitViewport();
-        return;
+      fitViewport();
+      return;
     }
 
     let cancelled = false;
@@ -461,76 +470,85 @@ export function NodeCanvasEditorModal({
     };
   }, [imageDimensions, pan.x, pan.y, zoom]);
 
-  const drawSegment = useCallback((from: { x: number; y: number }, to: { x: number; y: number }) => {
-    const canvas = activeCanvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext('2d');
-    if (!context) return;
+  const drawSegment = useCallback(
+    (from: { x: number; y: number }, to: { x: number; y: number }) => {
+      const canvas = activeCanvasRef.current;
+      if (!canvas) return;
+      const context = canvas.getContext('2d');
+      if (!context) return;
 
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    context.lineWidth = brushSize;
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+      context.lineWidth = brushSize;
 
-    if (mode === 'paint') {
-      context.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
-      context.strokeStyle = paintColor;
-      context.fillStyle = paintColor;
-    } else {
-      context.globalCompositeOperation = 'source-over';
-      const activeColor = maskInverted ? '#000000' : '#ffffff';
-      const eraseColor = maskInverted ? '#ffffff' : '#000000';
-      context.strokeStyle = tool === 'eraser' ? eraseColor : activeColor;
-      context.fillStyle = tool === 'eraser' ? eraseColor : activeColor;
-    }
+      if (mode === 'paint') {
+        context.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+        context.strokeStyle = paintColor;
+        context.fillStyle = paintColor;
+      } else {
+        context.globalCompositeOperation = 'source-over';
+        const activeColor = maskInverted ? '#000000' : '#ffffff';
+        const eraseColor = maskInverted ? '#ffffff' : '#000000';
+        context.strokeStyle = tool === 'eraser' ? eraseColor : activeColor;
+        context.fillStyle = tool === 'eraser' ? eraseColor : activeColor;
+      }
 
-    context.beginPath();
-    context.moveTo(from.x, from.y);
-    context.lineTo(to.x, to.y);
-    context.stroke();
-    context.beginPath();
-    context.arc(to.x, to.y, brushSize / 2, 0, Math.PI * 2);
-    context.fill();
-  }, [activeCanvasRef, brushSize, maskInverted, mode, paintColor, tool]);
+      context.beginPath();
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
+      context.stroke();
+      context.beginPath();
+      context.arc(to.x, to.y, brushSize / 2, 0, Math.PI * 2);
+      context.fill();
+    },
+    [activeCanvasRef, brushSize, maskInverted, mode, paintColor, tool],
+  );
 
-  const getPointerPosition = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
-    const canvas = activeCanvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return null;
-    return {
-      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
-      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
-    };
-  }, [activeCanvasRef]);
+  const getPointerPosition = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      const canvas = activeCanvasRef.current;
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return null;
+      return {
+        x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+        y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+      };
+    },
+    [activeCanvasRef],
+  );
 
-  const handleViewportWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (!imageDimensions) return;
-    const canvas = activeCanvasRef.current;
-    if (!canvas) return;
+  const handleViewportWheel = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (!imageDimensions) return;
+      const canvas = activeCanvasRef.current;
+      if (!canvas) return;
 
-    const direction = event.deltaY > 0 ? -0.12 : 0.12;
-    const canvasRect = canvas.getBoundingClientRect();
-    const renderedCenterX = canvasRect.left + canvasRect.width / 2;
-    const renderedCenterY = canvasRect.top + canvasRect.height / 2;
-    const pointerOffsetX = event.clientX - renderedCenterX;
-    const pointerOffsetY = event.clientY - renderedCenterY;
+      const direction = event.deltaY > 0 ? -0.12 : 0.12;
+      const canvasRect = canvas.getBoundingClientRect();
+      const renderedCenterX = canvasRect.left + canvasRect.width / 2;
+      const renderedCenterY = canvasRect.top + canvasRect.height / 2;
+      const pointerOffsetX = event.clientX - renderedCenterX;
+      const pointerOffsetY = event.clientY - renderedCenterY;
 
-    setZoom((current) => {
-      const nextZoom = clampZoom(Number((current + direction).toFixed(3)));
-      if (nextZoom === current) return current;
-      const zoomRatio = nextZoom / current;
+      setZoom((current) => {
+        const nextZoom = clampZoom(Number((current + direction).toFixed(3)));
+        if (nextZoom === current) return current;
+        const zoomRatio = nextZoom / current;
 
-      setPan((currentPan) => {
-        return {
-          x: currentPan.x + pointerOffsetX - pointerOffsetX * zoomRatio,
-          y: currentPan.y + pointerOffsetY - pointerOffsetY * zoomRatio,
-        };
+        setPan((currentPan) => {
+          return {
+            x: currentPan.x + pointerOffsetX - pointerOffsetX * zoomRatio,
+            y: currentPan.y + pointerOffsetY - pointerOffsetY * zoomRatio,
+          };
+        });
+
+        return nextZoom;
       });
-
-      return nextZoom;
-    });
-  }, [activeCanvasRef, clampZoom, imageDimensions]);
+    },
+    [activeCanvasRef, clampZoom, imageDimensions],
+  );
 
   const finishDrawing = useCallback(() => {
     if (!isDrawing) return;
@@ -604,44 +622,47 @@ export function NodeCanvasEditorModal({
     return exportCanvas;
   }, []);
 
-  const saveCurrentMode = useCallback(async (closeAfterSave: boolean) => {
-    try {
-      setIsSaving(true);
-      setError('');
+  const saveCurrentMode = useCallback(
+    async (closeAfterSave: boolean) => {
+      try {
+        setIsSaving(true);
+        setError('');
 
-      if (mode === 'paint') {
-        if (!onSavePaint) throw new Error('当前节点暂不支持回写原图，请改为保存遮罩。');
-        const exportCanvas = buildPaintComposite();
-        if (!exportCanvas) throw new Error('无法导出当前绘制结果，请稍后重试。');
-        const { file, previewUrl } = await exportCanvasToFile(exportCanvas, 'painted-image.png');
-        if (paintPreviewUrlRef.current) URL.revokeObjectURL(paintPreviewUrlRef.current);
-        paintPreviewUrlRef.current = previewUrl;
-        await onSavePaint(file, previewUrl);
-      } else {
-        const maskCanvas = maskCanvasRef.current;
-        if (!maskCanvas) throw new Error('无法导出当前遮罩结果，请稍后重试。');
-        if (isBlankMaskCanvas(maskCanvas)) {
-          await onClearMask?.();
-          setIsDirty(false);
-          dirtyRef.current = false;
-          if (closeAfterSave) onClose();
-          return;
+        if (mode === 'paint') {
+          if (!onSavePaint) throw new Error('当前节点暂不支持回写原图，请改为保存遮罩。');
+          const exportCanvas = buildPaintComposite();
+          if (!exportCanvas) throw new Error('无法导出当前绘制结果，请稍后重试。');
+          const { file, previewUrl } = await exportCanvasToFile(exportCanvas, 'painted-image.png');
+          if (paintPreviewUrlRef.current) URL.revokeObjectURL(paintPreviewUrlRef.current);
+          paintPreviewUrlRef.current = previewUrl;
+          await onSavePaint(file, previewUrl);
+        } else {
+          const maskCanvas = maskCanvasRef.current;
+          if (!maskCanvas) throw new Error('无法导出当前遮罩结果，请稍后重试。');
+          if (isBlankMaskCanvas(maskCanvas)) {
+            await onClearMask?.();
+            setIsDirty(false);
+            dirtyRef.current = false;
+            if (closeAfterSave) onClose();
+            return;
+          }
+          const { file, previewUrl } = await exportCanvasToFile(maskCanvas, 'mask-image.png');
+          if (maskPreviewUrlRef.current) URL.revokeObjectURL(maskPreviewUrlRef.current);
+          maskPreviewUrlRef.current = previewUrl;
+          await onSaveMask(file, previewUrl);
         }
-        const { file, previewUrl } = await exportCanvasToFile(maskCanvas, 'mask-image.png');
-        if (maskPreviewUrlRef.current) URL.revokeObjectURL(maskPreviewUrlRef.current);
-        maskPreviewUrlRef.current = previewUrl;
-        await onSaveMask(file, previewUrl);
-      }
 
-      setIsDirty(false);
-      dirtyRef.current = false;
-      if (closeAfterSave) onClose();
-    } catch (nextError) {
-      setError(formatCanvasEditorError(nextError instanceof Error ? nextError.message : ''));
-    } finally {
-      setIsSaving(false);
-    }
-  }, [buildPaintComposite, exportCanvasToFile, mode, onClose, onSaveMask, onSavePaint]);
+        setIsDirty(false);
+        dirtyRef.current = false;
+        if (closeAfterSave) onClose();
+      } catch (nextError) {
+        setError(formatCanvasEditorError(nextError instanceof Error ? nextError.message : ''));
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [buildPaintComposite, exportCanvasToFile, mode, onClose, onSaveMask, onSavePaint],
+  );
 
   const handleSave = useCallback(async () => {
     await saveCurrentMode(true);
@@ -661,7 +682,12 @@ export function NodeCanvasEditorModal({
             <div className="node-canvas-editor-modal__eyebrow">节点画板</div>
             <div className="node-canvas-editor-modal__title">{nodeLabel}</div>
           </div>
-          <button type="button" onClick={handleClose} className="node-canvas-editor-modal__icon-button" aria-label="关闭画板">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="node-canvas-editor-modal__icon-button"
+            aria-label="关闭画板"
+          >
             <X size={16} />
           </button>
         </div>
@@ -671,7 +697,12 @@ export function NodeCanvasEditorModal({
             <button type="button" className={mode === 'mask' ? 'is-active' : ''} onClick={() => setMode('mask')}>
               遮罩绘制
             </button>
-            <button type="button" className={mode === 'paint' ? 'is-active' : ''} onClick={() => setMode('paint')} disabled={!canSavePaint}>
+            <button
+              type="button"
+              className={mode === 'paint' ? 'is-active' : ''}
+              onClick={() => setMode('paint')}
+              disabled={!canSavePaint}
+            >
               原图绘制
             </button>
           </div>
@@ -683,7 +714,11 @@ export function NodeCanvasEditorModal({
             <button type="button" className={tool === 'eraser' ? 'is-active' : ''} onClick={() => setTool('eraser')}>
               <Eraser size={14} /> 橡皮
             </button>
-            <button type="button" className={viewMode === 'pan' ? 'is-active' : ''} onClick={() => setViewMode((current) => current === 'pan' ? 'draw' : 'pan')}>
+            <button
+              type="button"
+              className={viewMode === 'pan' ? 'is-active' : ''}
+              onClick={() => setViewMode((current) => (current === 'pan' ? 'draw' : 'pan'))}
+            >
               <Hand size={14} /> 平移
             </button>
           </div>
@@ -691,22 +726,26 @@ export function NodeCanvasEditorModal({
           <div className="node-canvas-editor-modal__tool-group">
             <button
               type="button"
-              onClick={() => setHistories((current) => {
-                const history = current[mode];
-                if (history.index <= 0) return current;
-                return { ...current, [mode]: { ...history, index: history.index - 1 } };
-              })}
+              onClick={() =>
+                setHistories((current) => {
+                  const history = current[mode];
+                  if (history.index <= 0) return current;
+                  return { ...current, [mode]: { ...history, index: history.index - 1 } };
+                })
+              }
               disabled={currentHistory.index <= 0}
             >
               <RotateCcw size={14} /> 撤销
             </button>
             <button
               type="button"
-              onClick={() => setHistories((current) => {
-                const history = current[mode];
-                if (history.index >= history.entries.length - 1) return current;
-                return { ...current, [mode]: { ...history, index: history.index + 1 } };
-              })}
+              onClick={() =>
+                setHistories((current) => {
+                  const history = current[mode];
+                  if (history.index >= history.entries.length - 1) return current;
+                  return { ...current, [mode]: { ...history, index: history.index + 1 } };
+                })
+              }
               disabled={currentHistory.index >= currentHistory.entries.length - 1}
             >
               <RotateCw size={14} /> 重做
@@ -732,7 +771,10 @@ export function NodeCanvasEditorModal({
           {mode === 'paint' && (
             <label className="node-canvas-editor-modal__color-picker">
               <span>颜色</span>
-              <span className="node-canvas-editor-modal__color-swatch" style={{ '--paint-color': paintColor } as CSSProperties}>
+              <span
+                className="node-canvas-editor-modal__color-swatch"
+                style={{ '--paint-color': paintColor } as CSSProperties}
+              >
                 <input type="color" value={paintColor} onChange={(event) => setPaintColor(event.target.value)} />
               </span>
             </label>
@@ -748,13 +790,19 @@ export function NodeCanvasEditorModal({
                   max={80}
                   step={1}
                   value={Math.round(maskBackgroundOpacity * 100)}
-                  style={{ '--range-progress': `${(Math.round(maskBackgroundOpacity * 100) / 80) * 100}%` } as CSSProperties}
+                  style={
+                    { '--range-progress': `${(Math.round(maskBackgroundOpacity * 100) / 80) * 100}%` } as CSSProperties
+                  }
                   onChange={(event) => setMaskBackgroundOpacity(Number(event.target.value) / 100)}
                   disabled={!showReferenceImage}
                 />
               </label>
               <div className="node-canvas-editor-modal__tool-group">
-                <button type="button" className={showReferenceImage ? 'is-active' : ''} onClick={() => setShowReferenceImage((current) => !current)}>
+                <button
+                  type="button"
+                  className={showReferenceImage ? 'is-active' : ''}
+                  onClick={() => setShowReferenceImage((current) => !current)}
+                >
                   {showReferenceImage ? <Eye size={14} /> : <EyeOff size={14} />} 参考图
                 </button>
                 <button type="button" onClick={invertMaskCanvas}>
@@ -765,10 +813,18 @@ export function NodeCanvasEditorModal({
           )}
 
           <div className="node-canvas-editor-modal__tool-group">
-            <button type="button" onClick={() => setZoom((current) => clampZoom(Number((current - 0.15).toFixed(3))))}>缩小</button>
-            <button type="button" onClick={fitViewport}>适合视图</button>
-            <button type="button" onClick={resetViewport}>重置视图</button>
-            <button type="button" onClick={() => setZoom((current) => clampZoom(Number((current + 0.15).toFixed(3))))}>放大</button>
+            <button type="button" onClick={() => setZoom((current) => clampZoom(Number((current - 0.15).toFixed(3))))}>
+              缩小
+            </button>
+            <button type="button" onClick={fitViewport}>
+              适合视图
+            </button>
+            <button type="button" onClick={resetViewport}>
+              重置视图
+            </button>
+            <button type="button" onClick={() => setZoom((current) => clampZoom(Number((current + 0.15).toFixed(3))))}>
+              放大
+            </button>
           </div>
         </div>
 
@@ -780,7 +836,9 @@ export function NodeCanvasEditorModal({
 
         <div ref={viewportRef} className="node-canvas-editor-modal__viewport" onWheel={handleViewportWheel}>
           {!hasSourceImage ? (
-            <div className="node-canvas-editor-modal__loading">当前节点还没有可编辑的图片，请先上传图片，再打开画板。</div>
+            <div className="node-canvas-editor-modal__loading">
+              当前节点还没有可编辑的图片，请先上传图片，再打开画板。
+            </div>
           ) : loadedImage ? (
             <div className="node-canvas-editor-modal__canvas-stack" style={canvasStyle}>
               <div className={`node-canvas-editor-modal__mask-base ${mode === 'mask' ? 'is-visible' : ''}`} />
@@ -792,25 +850,29 @@ export function NodeCanvasEditorModal({
               {cursorPoint && viewMode === 'draw' && (
                 <div
                   className="node-canvas-editor-modal__brush-cursor"
-                  style={{
-                    left: `${(cursorPoint.x / (activeCanvasRef.current?.width || 1)) * 100}%`,
-                    top: `${(cursorPoint.y / (activeCanvasRef.current?.height || 1)) * 100}%`,
-                    width: brushSize,
-                    height: brushSize,
-                    '--brush-color': brushCursorColor,
-                  } as CSSProperties}
+                  style={
+                    {
+                      left: `${(cursorPoint.x / (activeCanvasRef.current?.width || 1)) * 100}%`,
+                      top: `${(cursorPoint.y / (activeCanvasRef.current?.height || 1)) * 100}%`,
+                      width: brushSize,
+                      height: brushSize,
+                      '--brush-color': brushCursorColor,
+                    } as CSSProperties
+                  }
                 />
               )}
               {showBrushSizePreview && viewMode === 'draw' && (
                 <div
                   className="node-canvas-editor-modal__brush-cursor node-canvas-editor-modal__brush-cursor--preview"
-                  style={{
-                    left: '50%',
-                    top: '50%',
-                    width: brushSize,
-                    height: brushSize,
-                    '--brush-color': brushCursorColor,
-                  } as CSSProperties}
+                  style={
+                    {
+                      left: '50%',
+                      top: '50%',
+                      width: brushSize,
+                      height: brushSize,
+                      '--brush-color': brushCursorColor,
+                    } as CSSProperties
+                  }
                 />
               )}
               <canvas
@@ -944,13 +1006,32 @@ export function NodeCanvasEditorModal({
         </div>
 
         <div className="node-canvas-editor-modal__footer">
-          <div className="node-canvas-editor-modal__status">{error || (isDirty ? '有未保存修改' : '当前内容已同步')}</div>
+          <div className="node-canvas-editor-modal__status">
+            {error || (isDirty ? '有未保存修改' : '当前内容已同步')}
+          </div>
           <div className="node-canvas-editor-modal__actions">
-            <button type="button" className="node-canvas-editor-modal__secondary" onClick={handleClose} disabled={isSaving}>取消</button>
-            <button type="button" className="node-canvas-editor-modal__secondary" onClick={handleSaveAndContinue} disabled={isSaving || !isCanvasEditorAvailable}>
+            <button
+              type="button"
+              className="node-canvas-editor-modal__secondary"
+              onClick={handleClose}
+              disabled={isSaving}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="node-canvas-editor-modal__secondary"
+              onClick={handleSaveAndContinue}
+              disabled={isSaving || !isCanvasEditorAvailable}
+            >
               <Check size={14} /> 仅保存
             </button>
-            <button type="button" className="node-canvas-editor-modal__primary" onClick={handleSave} disabled={isSaving || !isCanvasEditorAvailable}>
+            <button
+              type="button"
+              className="node-canvas-editor-modal__primary"
+              onClick={handleSave}
+              disabled={isSaving || !isCanvasEditorAvailable}
+            >
               {isSaving ? '保存中...' : mode === 'mask' ? '保存遮罩' : '保存图片'}
             </button>
           </div>

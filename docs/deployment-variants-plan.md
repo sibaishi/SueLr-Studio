@@ -88,6 +88,7 @@ Rules:
 - `CONTRIBUTING.md`
 - `AGENTS.md`
 - `index.html`
+- `biome.json`
 - `vite.config.ts`
 - `vitest.config.ts`
 - `playwright.config.ts`
@@ -128,16 +129,16 @@ Rules:
 - `src/shared/types/`: shared frontend contracts and common types
 - `src/shared/types/`：共享前端契约与通用类型
 
-### Frontend compatibility surface
+### Removed frontend compatibility surface
 ### 前端兼容层
 
-- `src/lib/`: compatibility layer only
+- root `src/lib/` has been removed after the shared helper migration
 - `src/lib/`：仅保留为兼容层
 
 Rules:
 规则：
 
-- Do not add new modules casually to `src/lib/`
+- Do not recreate root `src/lib/` or add new `@/lib/*` imports
 - 不要随意向 `src/lib/` 新增模块
 - Canonical ownership should move into `src/app/`, `src/shared/*`, or the owning domain tree
 - 规范归属应转入 `src/app/`、`src/shared/*` 或所属领域目录
@@ -198,6 +199,9 @@ Completed on trunk:
 - settings capability-aware UI for local-only actions
 - 对本地专属操作具备能力感知的设置页 UI
 - public trunk and release-branch structure documentation
+- Biome lint and format baseline for frontend and backend source
+- root `src/lib/` removal and migration to `src/shared/*`, `src/app/`, and domain-owned helpers
+- frontend top-level lazy loading plus stable vendor chunk splitting for normal Vite builds
 - 公开的主干与发布分支结构文档
 
 Still pending for long-term cleanup:

@@ -32,7 +32,11 @@ export function formatProviderFetchError(error, url) {
   if (causeCode === 'UND_ERR_SOCKET') {
     return '上游 API 连接中断，请检查网络、代理或上游稳定性。';
   }
-  if (causeCode === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || causeCode === 'CERT_HAS_EXPIRED' || causeCode === 'SELF_SIGNED_CERT_IN_CHAIN') {
+  if (
+    causeCode === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+    causeCode === 'CERT_HAS_EXPIRED' ||
+    causeCode === 'SELF_SIGNED_CERT_IN_CHAIN'
+  ) {
     return 'TLS/SSL 证书校验失败，请检查 HTTPS 证书链配置。';
   }
   if (fallback === 'fetch failed') {

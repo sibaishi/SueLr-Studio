@@ -25,9 +25,10 @@ export function importWorkflowDocument(payload, options = {}) {
   });
 
   const importMode = options.mode || (options.generateNewId ? 'generate_new_id' : 'preserve_id');
-  const targetId = importMode === 'generate_new_id'
-    ? `wf_${Date.now()}`
-    : validateWorkflowId(options.id || normalized.id, 'workflow.id');
+  const targetId =
+    importMode === 'generate_new_id'
+      ? `wf_${Date.now()}`
+      : validateWorkflowId(options.id || normalized.id, 'workflow.id');
 
   if (!['generate_new_id', 'preserve_id', 'overwrite'].includes(importMode)) {
     throw new ValidationError('WORKFLOW_IMPORT_MODE_INVALID', '不支持的导入模式');

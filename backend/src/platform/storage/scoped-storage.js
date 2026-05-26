@@ -1,16 +1,13 @@
-import path from 'path';
-import {
-  DEFAULT_SCOPE_USER_ID,
-  DEFAULT_SCOPE_WORKSPACE_ID,
-  normalizeRequestScope,
-} from '../runtime/request-scope.js';
+import path from 'node:path';
+import { DEFAULT_SCOPE_USER_ID, DEFAULT_SCOPE_WORKSPACE_ID, normalizeRequestScope } from '../runtime/request-scope.js';
 import { ensureDir } from './ensure-dir.js';
 import { getStoragePaths } from './storage-paths.js';
 
 export const SCOPED_STORAGE_LAYOUT_VERSION = 'v1';
 
 function cleanNamespaceSegment(value, fallback) {
-  const cleaned = String(value || '').trim()
+  const cleaned = String(value || '')
+    .trim()
     .replace(/[^a-zA-Z0-9._-]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 120);
@@ -19,8 +16,7 @@ function cleanNamespaceSegment(value, fallback) {
 
 export function isDefaultStorageScope(scope = {}) {
   const normalized = normalizeRequestScope(scope);
-  return normalized.userId === DEFAULT_SCOPE_USER_ID
-    && normalized.workspaceId === DEFAULT_SCOPE_WORKSPACE_ID;
+  return normalized.userId === DEFAULT_SCOPE_USER_ID && normalized.workspaceId === DEFAULT_SCOPE_WORKSPACE_ID;
 }
 
 export function createStorageNamespace(scope = {}) {
@@ -43,9 +39,7 @@ export function createStorageNamespace(scope = {}) {
 
 export function getScopedStoragePaths(scope = {}, basePaths = getStoragePaths()) {
   const namespace = createStorageNamespace(scope);
-  const root = namespace.namespacePath
-    ? path.join(basePaths.root, namespace.namespacePath)
-    : basePaths.root;
+  const root = namespace.namespacePath ? path.join(basePaths.root, namespace.namespacePath) : basePaths.root;
 
   return {
     ...basePaths,
@@ -99,11 +93,11 @@ export function ensureScopedStorageDirectories(scope = {}, basePaths = getStorag
 
 export function isResourceVisibleForScope(resource, scope = {}) {
   const normalized = normalizeRequestScope(scope);
-  const existingScope = resource?.ownershipScope || (
-    resource?.scope && typeof resource.scope === 'object' && !Array.isArray(resource.scope)
+  const existingScope =
+    resource?.ownershipScope ||
+    (resource?.scope && typeof resource.scope === 'object' && !Array.isArray(resource.scope)
       ? resource.scope
-      : undefined
-  );
+      : undefined);
   const ownerUserId = resource?.ownerUserId || existingScope?.userId;
   const workspaceId = resource?.workspaceId || existingScope?.workspaceId;
 

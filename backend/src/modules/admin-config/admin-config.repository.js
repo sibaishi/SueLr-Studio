@@ -1,10 +1,10 @@
 import { ValidationError } from '../../app/errors/index.js';
 import {
+  STORAGE_PATHS,
   ensureJsonFile,
   ensureStorageDirectories,
   migrateLegacyStorageIfNeeded,
   readJsonFile,
-  STORAGE_PATHS,
   writeJsonFile,
 } from '../../platform/storage/index.js';
 

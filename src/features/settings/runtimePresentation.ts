@@ -12,7 +12,10 @@ export function formatRuntimeModeLabel(mode?: RuntimeMode | null) {
   return RUNTIME_MODE_LABELS[mode] || mode;
 }
 
-export function getRuntimeActionHint(runtime: RuntimeCapabilities | null, capability: 'canSelectDirectory' | 'canRestartBackend') {
+export function getRuntimeActionHint(
+  runtime: RuntimeCapabilities | null,
+  capability: 'canSelectDirectory' | 'canRestartBackend',
+) {
   if (!runtime) {
     return '运行时能力尚未加载，请稍后重试。';
   }

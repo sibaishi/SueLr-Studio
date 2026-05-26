@@ -1,7 +1,7 @@
 function sortInputHandles(keys) {
   return [...keys].sort((keyA, keyB) => {
-    const idxA = parseInt(String(keyA).replace('item', ''), 10);
-    const idxB = parseInt(String(keyB).replace('item', ''), 10);
+    const idxA = Number.parseInt(String(keyA).replace('item', ''), 10);
+    const idxB = Number.parseInt(String(keyB).replace('item', ''), 10);
     return idxA - idxB;
   });
 }

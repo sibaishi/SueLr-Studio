@@ -81,6 +81,13 @@ Run the repository quality gate before opening a pull request:
 npm run check
 ```
 
+During implementation, use the faster Biome checks for source-only feedback:
+
+```bash
+npm run lint
+npm run format:check
+```
+
 Run end-to-end smoke coverage when your change touches user-facing flows:
 
 ```bash
@@ -134,7 +141,7 @@ Use these ownership buckets when you need a home for non-product files:
 - keep private plans, migration notes, and temporary implementation records in `.private-docs/`
 - keep `development/` drained instead of treating it as a second documentation area
 
-`src/lib/` is now a migration surface only. Do not add new shared helpers there, and do not introduce new `@/lib/*` imports outside `src/lib/`. Place new shared runtime and provider-facing helpers under `src/shared/runtime/` or `src/shared/providers/`, place shared contracts under `src/shared/types/`, and place feature-local helpers under the owning feature tree.
+Root `src/lib/` has been removed after the shared helper migration. Do not recreate it, and do not introduce new `@/lib/*` imports. Place new shared runtime and provider-facing helpers under `src/shared/runtime/` or `src/shared/providers/`, place shared contracts under `src/shared/types/`, and place feature-local helpers under the owning feature tree.
 
 ## Pull Request Notes
 

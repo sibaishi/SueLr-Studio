@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { Boxes } from 'lucide-react';
-import Toolbar from '@/domains/workflow/components/Toolbar';
-import Sidebar from '@/domains/workflow/components/Sidebar';
-import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
-import type { PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
-import StatusBar from '@/domains/workflow/components/StatusBar';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
+import type { PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
+import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
+import Sidebar from '@/domains/workflow/components/Sidebar';
+import StatusBar from '@/domains/workflow/components/StatusBar';
+import Toolbar from '@/domains/workflow/components/Toolbar';
 import WorkflowImportConflictModal from '@/domains/workflow/components/WorkflowImportConflictModal';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
-import { getNodeDefaultSize, getNodeDef } from '@/domains/workflow/lib/constants';
+import { getNodeDef, getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
 import {
   buildImportConflictMessage,
   getSuggestedImportModes,
   parseWorkflowImport,
   serializeWorkflowExport,
 } from '@/domains/workflow/lib/importExport';
-import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
-import { useWorkflowStore, type WorkflowEditorSnapshot } from '@/domains/workflow/lib/store';
+import type { WorkflowImportError, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
+import { type WorkflowEditorSnapshot, useWorkflowStore } from '@/domains/workflow/lib/store';
 import { useWorkflowPageStore } from '@/domains/workflow/lib/store/selectors';
 import type { NodeTypeDef } from '@/domains/workflow/lib/types';
-import type { WorkflowImportError, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
+import { Boxes } from 'lucide-react';
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const DISABLED_NEW_NODE_TYPES = new Set<string>();
 
@@ -27,7 +27,9 @@ interface WorkflowPageProps {
   onOpenStudioSettings?: () => void;
 }
 
-function buildSnapshot(store: Pick<WorkflowEditorSnapshot, 'workflowId' | 'workflowName' | 'nodes' | 'edges' | 'selectedNodeId'>): WorkflowEditorSnapshot {
+function buildSnapshot(
+  store: Pick<WorkflowEditorSnapshot, 'workflowId' | 'workflowName' | 'nodes' | 'edges' | 'selectedNodeId'>,
+): WorkflowEditorSnapshot {
   return {
     workflowId: store.workflowId,
     workflowName: store.workflowName,
@@ -56,9 +58,7 @@ function formatWorkflowImportError(message?: string | null) {
 
 function formatWorkflowActionError(action: string, message?: string | null) {
   const detail = String(message || '').trim();
-  return detail
-    ? `${action}没有完成，请稍后重试。${detail}`
-    : `${action}没有完成，请稍后重试。`;
+  return detail ? `${action}没有完成，请稍后重试。${detail}` : `${action}没有完成，请稍后重试。`;
 }
 
 export default function WorkflowPage({ onOpenStudioSettings }: WorkflowPageProps) {
@@ -78,7 +78,9 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
   const [importErrorMessage, setImportErrorMessage] = useState<string | null>(null);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
-  const pendingImportRef = useRef<{ payload: Record<string, unknown>; fallbackName: string; fileName: string } | null>(null);
+  const pendingImportRef = useRef<{ payload: Record<string, unknown>; fallbackName: string; fileName: string } | null>(
+    null,
+  );
   const historyPastRef = useRef<WorkflowEditorSnapshot[]>([]);
   const historyFutureRef = useRef<WorkflowEditorSnapshot[]>([]);
   const currentSnapshotRef = useRef<WorkflowEditorSnapshot | null>(null);
@@ -240,40 +242,54 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     viewportCenterRef.current = position;
   }, []);
 
-  const handleBackfillImageToCanvas = useCallback((image: PreviewImageItem) => {
-    const center = viewportCenterRef.current || { x: 300, y: 200 };
-    const size = getNodeDefaultSize('imageInput');
-    const stagger = (store.nodes.length % 5) * 24;
-    const name = image.name || 'image';
-    store.addNode('imageInput', {
-      x: center.x - size.w / 2 + stagger,
-      y: center.y - size.h / 2 + stagger,
-    }, {
-      fileUrl: image.src,
-      previewUrl: image.src,
-      localPath: name,
-      fileName: name,
-      fileKind: 'image',
-      _uploading: false,
-      _uploadError: '',
-      canvasOriginalFileUrl: '',
-      canvasOriginalPreviewUrl: '',
-      canvasOriginalFileName: '',
-      canvasOriginalFileSize: undefined,
-    });
-  }, [store]);
+  const handleBackfillImageToCanvas = useCallback(
+    (image: PreviewImageItem) => {
+      const center = viewportCenterRef.current || { x: 300, y: 200 };
+      const size = getNodeDefaultSize('imageInput');
+      const stagger = (store.nodes.length % 5) * 24;
+      const name = image.name || 'image';
+      store.addNode(
+        'imageInput',
+        {
+          x: center.x - size.w / 2 + stagger,
+          y: center.y - size.h / 2 + stagger,
+        },
+        {
+          fileUrl: image.src,
+          previewUrl: image.src,
+          localPath: name,
+          fileName: name,
+          fileKind: 'image',
+          _uploading: false,
+          _uploadError: '',
+          canvasOriginalFileUrl: '',
+          canvasOriginalPreviewUrl: '',
+          canvasOriginalFileName: '',
+          canvasOriginalFileSize: undefined,
+        },
+      );
+    },
+    [store],
+  );
 
-  const handleBackfillTextToCanvas = useCallback((text: string) => {
-    const center = viewportCenterRef.current || { x: 300, y: 200 };
-    const size = getNodeDefaultSize('textInput');
-    const stagger = (store.nodes.length % 5) * 24;
-    store.addNode('textInput', {
-      x: center.x - size.w / 2 + stagger,
-      y: center.y - size.h / 2 + stagger,
-    }, {
-      text,
-    });
-  }, [store]);
+  const handleBackfillTextToCanvas = useCallback(
+    (text: string) => {
+      const center = viewportCenterRef.current || { x: 300, y: 200 };
+      const size = getNodeDefaultSize('textInput');
+      const stagger = (store.nodes.length % 5) * 24;
+      store.addNode(
+        'textInput',
+        {
+          x: center.x - size.w / 2 + stagger,
+          y: center.y - size.h / 2 + stagger,
+        },
+        {
+          text,
+        },
+      );
+    },
+    [store],
+  );
 
   const handleSave = useCallback(async () => {
     const success = await store.saveWorkflow();
@@ -436,7 +452,9 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
         setImportReportFileName(file.name);
         resetHistory();
       } catch (error) {
-        setImportErrorMessage(formatWorkflowImportError(error instanceof Error ? error.message : '无法读取或解析 JSON 文件。'));
+        setImportErrorMessage(
+          formatWorkflowImportError(error instanceof Error ? error.message : '无法读取或解析 JSON 文件。'),
+        );
       }
     },
     [resetHistory, store],
@@ -510,10 +528,7 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
         </div>
 
         {!rightPanelCollapsed && (
-          <ResultsPanel
-            onBackfillImage={handleBackfillImageToCanvas}
-            onBackfillText={handleBackfillTextToCanvas}
-          />
+          <ResultsPanel onBackfillImage={handleBackfillImageToCanvas} onBackfillText={handleBackfillTextToCanvas} />
         )}
       </div>
 

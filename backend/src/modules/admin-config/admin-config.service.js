@@ -1,6 +1,6 @@
 import { ValidationError, fromLegacyError } from '../../app/errors/index.js';
-import { adminConfigRepository } from './admin-config.repository.js';
 import { runWebSearch } from '../../platform/ai/search-service.js';
+import { adminConfigRepository } from './admin-config.repository.js';
 
 export class AdminConfigService {
   constructor(repository = adminConfigRepository) {

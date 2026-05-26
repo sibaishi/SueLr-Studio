@@ -1,23 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, Wallet } from 'lucide-react';
-import { LogPanel } from '@/shared/ui/ios';
-import { useToast } from '@/providers/ToastContext';
-import { useT } from '@/providers/ThemeContext';
 import { THEME_LABELS } from '@/app/theme/constants';
-import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
+import { createImportedProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import {
   checkSettingsServer,
   clearAccountDetails,
-  getRuntimeCapabilitiesSnapshot,
   getBackendStatus,
+  getRuntimeCapabilitiesSnapshot,
   loadAccountDetails,
   loadAccountDetailsLogs,
   loadClientDownloadDirectoryState,
   loadStorageSettings,
   pickClientDownloadDirectory,
   pickStorageDirectory,
-  resetClientDownloadDirectory,
   refreshAccountDetails,
+  resetClientDownloadDirectory,
   resetStorageSettings,
   restartBackendRequest,
   saveAccountDetails,
@@ -26,16 +21,29 @@ import {
   waitForBackendReady,
 } from '@/features/settings';
 import type { ClientDownloadDirectoryState, SettingsPanelProps, StorageSettingsPayload } from '@/features/settings';
-import { createImportedProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
-import { AgentMemorySection } from './MemorySection';
-import { AgentPersonaSection } from './AgentPersonaSection';
+import { useT } from '@/providers/ThemeContext';
+import { useToast } from '@/providers/ToastContext';
+import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
+import { LogPanel } from '@/shared/ui/ios';
+import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, Wallet } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { AccountDetailsSection } from './AccountDetailsSection';
+import { AgentPersonaSection } from './AgentPersonaSection';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
 import { DefaultsSection } from './DefaultsSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
+import { AgentMemorySection } from './MemorySection';
 import { ModelsSection } from './ModelsSection';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
-import { EmptyStateCard, chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, panelStyle, sectionTitleStyle } from './styles';
+import {
+  EmptyStateCard,
+  chipStyle,
+  eyebrowStyle,
+  fuzzyMatch,
+  mutedPanelStyle,
+  panelStyle,
+  sectionTitleStyle,
+} from './styles';
 
 export function SettingsPanel({
   apiConfigs,
@@ -121,11 +129,23 @@ export function SettingsPanel({
     setModels,
   });
 
-  const projectModels = useMemo(() => normalizeProjectModels(activeConfig?.projectModels || []), [activeConfig?.projectModels]);
+  const projectModels = useMemo(
+    () => normalizeProjectModels(activeConfig?.projectModels || []),
+    [activeConfig?.projectModels],
+  );
   const importedIds = useMemo(() => new Set(projectModels.map((model) => model.modelId)), [projectModels]);
-  const importableModels = useMemo(() => discoveredModels.filter((model) => !importedIds.has(model.id)), [discoveredModels, importedIds]);
-  const filteredProjectModels = useMemo(() => projectModels.filter((model) => fuzzyMatch(model.modelId, projectModelSearch)), [projectModelSearch, projectModels]);
-  const filteredMemories = useMemo(() => memories.filter((memory) => fuzzyMatch(memory.content, memoryQuery)), [memories, memoryQuery]);
+  const importableModels = useMemo(
+    () => discoveredModels.filter((model) => !importedIds.has(model.id)),
+    [discoveredModels, importedIds],
+  );
+  const filteredProjectModels = useMemo(
+    () => projectModels.filter((model) => fuzzyMatch(model.modelId, projectModelSearch)),
+    [projectModelSearch, projectModels],
+  );
+  const filteredMemories = useMemo(
+    () => memories.filter((memory) => fuzzyMatch(memory.content, memoryQuery)),
+    [memories, memoryQuery],
+  );
   const themeOptions = Object.entries(THEME_LABELS).map(([value, label]) => ({ l: label, v: value }));
   const logSummary = useMemo(() => logs.slice(0, 5), [logs]);
   const runtimeCapabilities = getRuntimeCapabilitiesSnapshot();
@@ -250,7 +270,12 @@ export function SettingsPanel({
   const importSelectedModels = () => {
     if (selectedImports.length === 0) return;
     const selected = new Set(selectedImports);
-    setProjectModels(createImportedProjectModels(discoveredModels.filter((model) => selected.has(model.id)), projectModels));
+    setProjectModels(
+      createImportedProjectModels(
+        discoveredModels.filter((model) => selected.has(model.id)),
+        projectModels,
+      ),
+    );
     setSelectedImports([]);
     addLog('success', `已导入 ${selectedImports.length} 个模型条目`);
   };
@@ -471,12 +496,54 @@ export function SettingsPanel({
   };
 
   const modules: SettingsModuleMeta[] = [
-    { id: 'connection', label: '连接', desc: 'Provider、鉴权与接口地址', icon: KeyRound, accent: T.blue, stat: base ? '已配置' : '待配置' },
-    { id: 'models', label: '模型', desc: '项目模型库与导入管理', icon: Database, accent: T.green, stat: `${projectModels.length} 项` },
-    { id: 'defaults', label: '默认项', desc: '主题与工作室基础偏好', icon: CircleDot, accent: T.orange, stat: themeMode },
-    { id: 'agent_persona', label: 'Agent Persona', desc: '统一管理 Profile 身份与指令模板', icon: Bot, accent: T.purple, stat: `${agentProfiles.length} 个` },
-    { id: 'agent_memory', label: 'Agent Memory', desc: '检索、导出与清理长期记忆', icon: Brain, accent: T.blue, stat: `${memories.length} 条` },
-    { id: 'diagnostics', label: '诊断', desc: '运行态可见性与快速检查', icon: Gauge, accent: T.green, stat: `${logs.length} 条` },
+    {
+      id: 'connection',
+      label: '连接',
+      desc: 'Provider、鉴权与接口地址',
+      icon: KeyRound,
+      accent: T.blue,
+      stat: base ? '已配置' : '待配置',
+    },
+    {
+      id: 'models',
+      label: '模型',
+      desc: '项目模型库与导入管理',
+      icon: Database,
+      accent: T.green,
+      stat: `${projectModels.length} 项`,
+    },
+    {
+      id: 'defaults',
+      label: '默认项',
+      desc: '主题与工作室基础偏好',
+      icon: CircleDot,
+      accent: T.orange,
+      stat: themeMode,
+    },
+    {
+      id: 'agent_persona',
+      label: 'Agent Persona',
+      desc: '统一管理 Profile 身份与指令模板',
+      icon: Bot,
+      accent: T.purple,
+      stat: `${agentProfiles.length} 个`,
+    },
+    {
+      id: 'agent_memory',
+      label: 'Agent Memory',
+      desc: '检索、导出与清理长期记忆',
+      icon: Brain,
+      accent: T.blue,
+      stat: `${memories.length} 条`,
+    },
+    {
+      id: 'diagnostics',
+      label: '诊断',
+      desc: '运行态可见性与快速检查',
+      icon: Gauge,
+      accent: T.green,
+      stat: `${logs.length} 条`,
+    },
   ];
 
   if (!isServerRuntime) {
@@ -486,7 +553,11 @@ export function SettingsPanel({
       desc: '账号登录、余额与调用日志',
       icon: Wallet,
       accent: T.purple,
-      stat: accountDetails?.balance ? accountDetails.balance.balance.toFixed(2) : accountDetails?.configured ? '已配置' : '未配置',
+      stat: accountDetails?.balance
+        ? accountDetails.balance.balance.toFixed(2)
+        : accountDetails?.configured
+          ? '已配置'
+          : '未配置',
     });
   }
 
@@ -607,7 +678,14 @@ export function SettingsPanel({
     <div
       className="workflow-page"
       data-testid="settings-page"
-      style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, overflow: 'hidden' }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        width: '100%',
+        minWidth: 0,
+        overflow: 'hidden',
+      }}
     >
       <div className="workflow-toolbar glass" style={{ marginBottom: 0 }}>
         <div className="workflow-toolbar__frame" style={{ alignItems: 'stretch', flexWrap: 'wrap', rowGap: 12 }}>
@@ -617,7 +695,9 @@ export function SettingsPanel({
             </div>
             <div>
               <div style={eyebrowStyle()}>Agent 设置</div>
-              <div className="workflow-toolbar__title" style={{ fontSize: 18 }}>工作室设置</div>
+              <div className="workflow-toolbar__title" style={{ fontSize: 18 }}>
+                工作室设置
+              </div>
               <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 4 }}>
                 将连接、Persona、Memory 和诊断收拢到统一的 Agent 设置区域中。
               </div>
@@ -642,8 +722,19 @@ export function SettingsPanel({
         </div>
       </div>
 
-      <div className="workflow-shell" style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr) 320px', minHeight: 0, flex: 1, overflow: 'hidden' }}>
-        <aside style={{ ...panelStyle(), padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
+      <div
+        className="workflow-shell"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '260px minmax(0, 1fr) 320px',
+          minHeight: 0,
+          flex: 1,
+          overflow: 'hidden',
+        }}
+      >
+        <aside
+          style={{ ...panelStyle(), padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}
+        >
           <div>
             <div style={eyebrowStyle()}>模块</div>
             <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>导航</h2>
@@ -689,13 +780,26 @@ export function SettingsPanel({
                         <Icon size={16} />
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{module.label}</div>
-                        <div style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--color-text-secondary)', marginTop: 3, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                          {module.label}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            lineHeight: 1.45,
+                            color: 'var(--color-text-secondary)',
+                            marginTop: 3,
+                            whiteSpace: 'normal',
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
                           {module.desc}
                         </div>
                       </div>
                     </div>
-                    <span style={{ ...chipStyle(active ? module.accent : undefined), padding: '5px 8px' }}>{module.stat}</span>
+                    <span style={{ ...chipStyle(active ? module.accent : undefined), padding: '5px 8px' }}>
+                      {module.stat}
+                    </span>
                   </div>
                 </button>
               );
@@ -715,7 +819,15 @@ export function SettingsPanel({
 
         <main style={{ ...panelStyle(), padding: 18, overflow: 'auto', minWidth: 0 }}>
           <div className="flex-col" style={{ gap: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 12,
+                flexWrap: 'wrap',
+              }}
+            >
               <div>
                 <div style={eyebrowStyle()}>{activeModuleMeta.label}</div>
                 <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>{activeModuleMeta.desc}</h2>
@@ -733,22 +845,32 @@ export function SettingsPanel({
             <div className="flex-col" style={{ gap: 12, marginTop: 14 }}>
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>已配置模型</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>{projectModels.length}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {projectModels.length}
+                </div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>已纳入项目模型库</div>
               </div>
 
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>主题模式</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>{THEME_LABELS[themeMode]}</div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>当前工作室显示风格</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {THEME_LABELS[themeMode]}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
+                  当前工作室显示风格
+                </div>
               </div>
 
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Agent 覆盖情况</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                  <span style={chipStyle(agentProfiles.length > 0 ? T.purple : undefined)}>{agentProfiles.length} 个 Persona</span>
+                  <span style={chipStyle(agentProfiles.length > 0 ? T.purple : undefined)}>
+                    {agentProfiles.length} 个 Persona
+                  </span>
                   <span style={chipStyle(memories.length > 0 ? T.blue : undefined)}>{memories.length} 条记忆</span>
-                  <span style={chipStyle(customAgentProfiles.length > 0 ? T.green : undefined)}>{customAgentProfiles.length} 个自定义</span>
+                  <span style={chipStyle(customAgentProfiles.length > 0 ? T.green : undefined)}>
+                    {customAgentProfiles.length} 个自定义
+                  </span>
                 </div>
               </div>
 
@@ -763,7 +885,10 @@ export function SettingsPanel({
                     />
                   )}
                   {logSummary.map((log, index) => (
-                    <div key={`${log.time}-${index}`} style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)' }}>
+                    <div
+                      key={`${log.time}-${index}`}
+                      style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)' }}
+                    >
                       <span style={{ color: 'var(--color-text-tertiary)' }}>[{log.time}] </span>
                       {log.msg}
                     </div>
@@ -773,7 +898,11 @@ export function SettingsPanel({
             </div>
           </div>
 
-          <LogPanel logs={logs} onClear={onClearLogs} style={{ ...panelStyle(), height: '100%', minHeight: 340, overflow: 'hidden' }} />
+          <LogPanel
+            logs={logs}
+            onClear={onClearLogs}
+            style={{ ...panelStyle(), height: '100%', minHeight: 340, overflow: 'hidden' }}
+          />
         </aside>
       </div>
     </div>

@@ -1,6 +1,6 @@
+import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { AppError } from '../../app/errors/index.js';
 import { getRuntimeCapabilities } from '../runtime/index.js';

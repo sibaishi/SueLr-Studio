@@ -2,13 +2,10 @@ function getBoolean(value, fallback) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
-function removeDelimitedRanges(sourceText, {
-  startToken,
-  endToken,
-  removeStartToken,
-  removeEndToken,
-  removeAllRanges,
-}) {
+function removeDelimitedRanges(
+  sourceText,
+  { startToken, endToken, removeStartToken, removeEndToken, removeAllRanges },
+) {
   if (!startToken || !endToken) return sourceText;
 
   let output = '';
@@ -58,12 +55,12 @@ export async function execute(node, inputs, apiConfig, onProgress) {
   const endToken = String(data.endToken ?? '</think>');
 
   const cleanedText = removeDelimitedRanges(text, {
-      startToken,
-      endToken,
-      removeStartToken: getBoolean(data.removeStartToken, true),
-      removeEndToken: getBoolean(data.removeEndToken, true),
-      removeAllRanges: getBoolean(data.removeAllRanges, true),
-    });
+    startToken,
+    endToken,
+    removeStartToken: getBoolean(data.removeStartToken, true),
+    removeEndToken: getBoolean(data.removeEndToken, true),
+    removeAllRanges: getBoolean(data.removeAllRanges, true),
+  });
 
   return {
     text: trimBoundaryBlankLines(cleanedText),

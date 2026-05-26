@@ -1,15 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentRole, ApiConfig, BridgeRef, ChatMsg, Conv, ModelInfo, ToolCallState } from '@/shared/types';
+import { cancelExecution } from '@/domains/workflow/lib/api';
+import { capabilityWebSearch, isBackendAvailable } from '@/shared/api';
+import { type AgentChatResult, cancelAgentSession, sendAgentChat, sendAgentChatStream } from '@/shared/api/agent';
+import { deleteConversation, loadConversations, saveConversations, saveImage, saveVideo } from '@/shared/api/assistant';
+import { uploadFile } from '@/shared/api/files';
+import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import type { ProviderConfig } from '@/shared/providers';
 import { createProvider } from '@/shared/providers';
+import {
+  buildApiConfigPayload,
+  resolveModelConfig,
+  resolveProviderModelId,
+  resolveSelectedModel,
+} from '@/shared/providers/model-routing';
 import { debouncedSaveJSON, gid, loadJSON } from '@/shared/runtime';
-import { cancelAgentSession, sendAgentChat, sendAgentChatStream, type AgentChatResult } from '@/shared/api/agent';
-import { deleteConversation, loadConversations, saveConversations, saveImage, saveVideo } from '@/shared/api/assistant';
-import { capabilityWebSearch, isBackendAvailable } from '@/shared/api';
-import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
-import { uploadFile } from '@/shared/api/files';
-import { cancelExecution } from '@/domains/workflow/lib/api';
-import { buildApiConfigPayload, resolveModelConfig, resolveProviderModelId, resolveSelectedModel } from '@/shared/providers/model-routing';
+import type { AgentRole, ApiConfig, BridgeRef, ChatMsg, Conv, ModelInfo, ToolCallState } from '@/shared/types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildTools } from '../constants';
 
 type PendingFile = {
@@ -89,7 +94,12 @@ function fileToText(file: File): Promise<string> {
 
 function canReadAsText(file: File) {
   const lowerName = file.name.toLowerCase();
-  return file.type.startsWith('text/') || /\.(md|markdown|txt|csv|json|xml|html|css|js|jsx|ts|tsx|py|java|go|rs|c|cpp|h|hpp|yaml|yml|toml|ini|log)$/i.test(lowerName);
+  return (
+    file.type.startsWith('text/') ||
+    /\.(md|markdown|txt|csv|json|xml|html|css|js|jsx|ts|tsx|py|java|go|rs|c|cpp|h|hpp|yaml|yml|toml|ini|log)$/i.test(
+      lowerName,
+    )
+  );
 }
 
 function parseToolArguments(raw: string | undefined) {
@@ -101,7 +111,12 @@ function parseToolArguments(raw: string | undefined) {
   }
 }
 
-function mergeServerConversations(serverConvs: Conv[], localConvs: Conv[], fallbackModel: string, fallbackRoleId?: string) {
+function mergeServerConversations(
+  serverConvs: Conv[],
+  localConvs: Conv[],
+  fallbackModel: string,
+  fallbackRoleId?: string,
+) {
   if (serverConvs.length > 0) return serverConvs;
   if (localConvs.length > 0) return localConvs;
   return [createConversation(fallbackModel, fallbackRoleId)];
@@ -185,7 +200,9 @@ function buildToolStartDetail(name: string, args: Record<string, unknown>): stri
     case 'generate_image': {
       const prompt = typeof args.prompt === 'string' ? args.prompt : '';
       const n = typeof args.n === 'number' ? args.n : 1;
-      return prompt ? `生成 ${n} 张图片 · "${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}"` : `生成 ${n} 张图片`;
+      return prompt
+        ? `生成 ${n} 张图片 · "${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}"`
+        : `生成 ${n} 张图片`;
     }
     case 'video_generate': {
       const prompt = typeof args.prompt === 'string' ? args.prompt : '';
@@ -224,9 +241,13 @@ function buildToolDetail(name: string, result: Record<string, unknown> | null): 
     case 'conversation_summarize':
       return `已压缩 ${result.originalMessageCount ?? 0} 条消息 → ${typeof result.summary === 'string' ? result.summary.length : 0} 字符摘要`;
     case 'generate_image':
-      return typeof result.status === 'string' ? `状态: ${result.status} · ${result.imageCount ?? 0} 张图片` : undefined;
+      return typeof result.status === 'string'
+        ? `状态: ${result.status} · ${result.imageCount ?? 0} 张图片`
+        : undefined;
     case 'video_generate':
-      return typeof result.status === 'string' ? `状态: ${result.status} · ${Array.isArray(result.artifacts) ? result.artifacts.length : 0} 个视频` : undefined;
+      return typeof result.status === 'string'
+        ? `状态: ${result.status} · ${Array.isArray(result.artifacts) ? result.artifacts.length : 0} 个视频`
+        : undefined;
     case 'workflow_execute':
       return typeof result.summary === 'string' ? result.summary : undefined;
     default:
@@ -245,16 +266,20 @@ function updateAssistantToolCallState(
     msgs: item.msgs.map((msg) => {
       if (msg.id !== assistantId) return msg;
       const currentToolCall = msg.toolCall;
-      const keepCompletedImageTool = currentToolCall?.type === 'image'
-        && currentToolCall.status === 'done'
-        && patch.status === 'failed'
-        && !patch.name;
+      const keepCompletedImageTool =
+        currentToolCall?.type === 'image' &&
+        currentToolCall.status === 'done' &&
+        patch.status === 'failed' &&
+        !patch.name;
       const nextStatus = keepCompletedImageTool
         ? currentToolCall.status
         : patch.status || currentToolCall?.status || 'processing';
       const nextName = patch.name || msg.toolCall?.name || '';
       const nextWorkflowName = patch.workflowName || msg.toolCall?.workflowName;
-      const nextType = patch.type || msg.toolCall?.type || (nextName === 'workflow_execute' ? 'workflow' : nextName === 'video_generate' ? 'video' : 'tool');
+      const nextType =
+        patch.type ||
+        msg.toolCall?.type ||
+        (nextName === 'workflow_execute' ? 'workflow' : nextName === 'video_generate' ? 'video' : 'tool');
       return {
         ...msg,
         toolCall: {
@@ -263,7 +288,7 @@ function updateAssistantToolCallState(
           type: nextType,
           name: nextName,
           status: nextStatus,
-          error: keepCompletedImageTool ? currentToolCall?.error : patch.error ?? currentToolCall?.error,
+          error: keepCompletedImageTool ? currentToolCall?.error : (patch.error ?? currentToolCall?.error),
           label: keepCompletedImageTool
             ? msg.toolCall?.label || buildToolLabel(nextName, nextStatus, nextWorkflowName)
             : patch.label || buildToolLabel(nextName, nextStatus, nextWorkflowName),
@@ -283,7 +308,13 @@ export function useChat(
   roles: AgentRole[],
   getMemoryContext: () => string,
   refreshMemories: () => Promise<void>,
-  scheduleExtraction: (msgs: { role: string; content: string }[], cid: string, model: string, base: string, key: string) => void,
+  scheduleExtraction: (
+    msgs: { role: string; content: string }[],
+    cid: string,
+    model: string,
+    base: string,
+    key: string,
+  ) => void,
   providerConfig?: ProviderConfig,
   _chatStreamingMode?: 'stream' | 'non-stream',
   _videoStreamingMode?: 'stream' | 'non-stream',
@@ -314,16 +345,20 @@ export function useChat(
   const runtimeSearchEnabled = runtimeCapabilities?.search.enabled ?? false;
 
   const activeIdResolved = activeId && convs.some((conv) => conv.id === activeId) ? activeId : convs[0]?.id || '';
-  const conv = convs.find((item) => item.id === activeIdResolved) || convs[0] || createConversation(defaultModel, roles[0]?.id);
+  const conv =
+    convs.find((item) => item.id === activeIdResolved) || convs[0] || createConversation(defaultModel, roles[0]?.id);
   const savedModelIsChat = chatModels.some((model) => model.id === conv.model || model.modelId === conv.model);
   const currentModel = savedModelIsChat ? conv.model : defaultModel;
   const currentModelInfo = resolveSelectedModel(chatModels, currentModel);
   const providerModel = resolveProviderModelId(chatModels, currentModel);
   const currentModelConfig = resolveModelConfig(apiConfigs, currentModelInfo);
-  const currentRole = roles.find((role) => role.id === conv.roleId) || roles[0] || { id: 'default', name: 'Default', icon: 'bot', systemPrompt: '', tools: [] };
+  const currentRole = roles.find((role) => role.id === conv.roleId) ||
+    roles[0] || { id: 'default', name: 'Default', icon: 'bot', systemPrompt: '', tools: [] };
   const currentModelDisabledReason = currentModel ? '' : 'Please configure a chat model in settings first.';
   const canUseWebSearch = runtimeSearchEnabled;
-  const canSend = Boolean((input.trim() || pendingImages.length > 0 || pendingFiles.length > 0) && currentModel && !sendings.has(conv.id));
+  const canSend = Boolean(
+    (input.trim() || pendingImages.length > 0 || pendingFiles.length > 0) && currentModel && !sendings.has(conv.id),
+  );
 
   useEffect(() => {
     if (!activeIdResolved && convs.length > 0) setActiveIdState(convs[0].id);
@@ -356,11 +391,10 @@ export function useChat(
       return;
     }
 
-    void loadConversations()
-      .then((serverConvs) => {
-        setConvs((current) => mergeServerConversations(serverConvs, current, defaultModel, roles[0]?.id));
-        backendConversationsLoadedRef.current = true;
-      });
+    void loadConversations().then((serverConvs) => {
+      setConvs((current) => mergeServerConversations(serverConvs, current, defaultModel, roles[0]?.id));
+      backendConversationsLoadedRef.current = true;
+    });
   }, [backendAvailable, defaultModel, roles]);
 
   const setActiveId = useCallback((id: string) => setActiveIdState(id), []);
@@ -375,50 +409,66 @@ export function useChat(
     setActiveIdState(next.id);
   }, [defaultModel, roles]);
 
-  const delConv = useCallback((id: string) => {
-    setConvs((prev) => {
-      const next = prev.filter((item) => item.id !== id);
-      if (activeIdResolved === id) setActiveIdState(next[0]?.id || '');
-      return next.length > 0 ? next : [createConversation(defaultModel, roles[0]?.id)];
-    });
-    if (isBackendAvailable()) void deleteConversation(id);
-  }, [activeIdResolved, defaultModel, roles]);
+  const delConv = useCallback(
+    (id: string) => {
+      setConvs((prev) => {
+        const next = prev.filter((item) => item.id !== id);
+        if (activeIdResolved === id) setActiveIdState(next[0]?.id || '');
+        return next.length > 0 ? next : [createConversation(defaultModel, roles[0]?.id)];
+      });
+      if (isBackendAvailable()) void deleteConversation(id);
+    },
+    [activeIdResolved, defaultModel, roles],
+  );
 
-  const setConvModel = useCallback((model: string, id = activeIdResolved) => {
-    if (!chatModels.some((item) => item.id === model || item.modelId === model)) return;
-    updateConversation(id, (item) => ({ ...item, model }));
-  }, [activeIdResolved, chatModels, updateConversation]);
+  const setConvModel = useCallback(
+    (model: string, id = activeIdResolved) => {
+      if (!chatModels.some((item) => item.id === model || item.modelId === model)) return;
+      updateConversation(id, (item) => ({ ...item, model }));
+    },
+    [activeIdResolved, chatModels, updateConversation],
+  );
 
-  const setRole = useCallback((roleId: string) => {
-    updateConversation(activeIdResolved, (item) => ({ ...item, roleId }));
-  }, [activeIdResolved, updateConversation]);
+  const setRole = useCallback(
+    (roleId: string) => {
+      updateConversation(activeIdResolved, (item) => ({ ...item, roleId }));
+    },
+    [activeIdResolved, updateConversation],
+  );
 
-  const deleteMessage = useCallback((id: string) => {
-    updateConversation(activeIdResolved, (item) => ({ ...item, msgs: item.msgs.filter((msg) => msg.id !== id) }));
-  }, [activeIdResolved, updateConversation]);
+  const deleteMessage = useCallback(
+    (id: string) => {
+      updateConversation(activeIdResolved, (item) => ({ ...item, msgs: item.msgs.filter((msg) => msg.id !== id) }));
+    },
+    [activeIdResolved, updateConversation],
+  );
 
-  const cancel = useCallback((id: string) => {
-    abortControllers.current[id]?.abort();
-    const sessionId = backendSessionIds.current[id];
-    const targetConversation = convs.find((item) => item.id === id);
-    const activeWorkflowRunId = [...(targetConversation?.msgs || [])]
-      .reverse()
-      .find((msg) => msg.role === 'assistant' && msg.toolCall?.type === 'workflow' && msg.toolCall.runId)?.toolCall?.runId;
+  const cancel = useCallback(
+    (id: string) => {
+      abortControllers.current[id]?.abort();
+      const sessionId = backendSessionIds.current[id];
+      const targetConversation = convs.find((item) => item.id === id);
+      const activeWorkflowRunId = [...(targetConversation?.msgs || [])]
+        .reverse()
+        .find((msg) => msg.role === 'assistant' && msg.toolCall?.type === 'workflow' && msg.toolCall.runId)
+        ?.toolCall?.runId;
 
-    if (sessionId && isBackendAvailable()) {
-      void cancelAgentSession(sessionId).catch(() => {});
-      delete backendSessionIds.current[id];
-    }
-    if (activeWorkflowRunId) {
-      void cancelExecution(activeWorkflowRunId).catch(() => {});
-    }
-    delete abortControllers.current[id];
-    setSendings((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-  }, [convs]);
+      if (sessionId && isBackendAvailable()) {
+        void cancelAgentSession(sessionId).catch(() => {});
+        delete backendSessionIds.current[id];
+      }
+      if (activeWorkflowRunId) {
+        void cancelExecution(activeWorkflowRunId).catch(() => {});
+      }
+      delete abortControllers.current[id];
+      setSendings((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    },
+    [convs],
+  );
 
   const addPendingImages = useCallback((urls: string[]) => {
     setPendingImages((prev) => Array.from(new Set([...prev, ...urls])));
@@ -429,133 +479,170 @@ export function useChat(
   }, [addPendingImages, bridgeRef]);
 
   const removePendingImage = useCallback((target: string | number) => {
-    setPendingImages((prev) => typeof target === 'number' ? prev.filter((_, index) => index !== target) : prev.filter((item) => item !== target));
+    setPendingImages((prev) =>
+      typeof target === 'number' ? prev.filter((_, index) => index !== target) : prev.filter((item) => item !== target),
+    );
   }, []);
 
   const removePendingFile = useCallback((id: string) => {
     setPendingFiles((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  const persistToolArtifacts = useCallback(async (
-    toolName: string,
-    resultObj: Record<string, unknown> | null,
-    artifacts: ToolCallState['artifacts'] | undefined,
-  ): Promise<ToolCallState['artifacts'] | undefined> => {
-    if (!artifacts || artifacts.length === 0) return artifacts;
+  const persistToolArtifacts = useCallback(
+    async (
+      toolName: string,
+      resultObj: Record<string, unknown> | null,
+      artifacts: ToolCallState['artifacts'] | undefined,
+    ): Promise<ToolCallState['artifacts'] | undefined> => {
+      if (!artifacts || artifacts.length === 0) return artifacts;
 
-    const prompt = getToolResultPrompt(resultObj);
-    const artifactModel = getToolResultModel(resultObj, currentModel);
+      const prompt = getToolResultPrompt(resultObj);
+      const artifactModel = getToolResultModel(resultObj, currentModel);
 
-    if (toolName === 'generate_image') {
-      type ImageArtifact = NonNullable<ToolCallState['artifacts']>[number] & { thumbnailUrl?: string };
-      const persistedItems: Array<NonNullable<ToolCallState['artifacts']>[number] | ImageArtifact> = await Promise.all(artifacts.map(async (artifact, index) => {
-        if (artifact.type !== 'image' || !artifact.url) return artifact;
-        const ts = Date.now() + index;
-        const id = gid();
-          const persisted = await saveImage(
-            artifact.url.startsWith('data:image/')
-              ? { id, data: artifact.url, prompt, model: artifactModel, ts }
-              : { id, url: artifact.url, prompt, model: artifactModel, ts },
+      if (toolName === 'generate_image') {
+        type ImageArtifact = NonNullable<ToolCallState['artifacts']>[number] & { thumbnailUrl?: string };
+        const persistedItems: Array<NonNullable<ToolCallState['artifacts']>[number] | ImageArtifact> =
+          await Promise.all(
+            artifacts.map(async (artifact, index) => {
+              if (artifact.type !== 'image' || !artifact.url) return artifact;
+              const ts = Date.now() + index;
+              const id = gid();
+              const persisted = await saveImage(
+                artifact.url.startsWith('data:image/')
+                  ? { id, data: artifact.url, prompt, model: artifactModel, ts }
+                  : { id, url: artifact.url, prompt, model: artifactModel, ts },
+              );
+              return {
+                ...artifact,
+                url: persisted.localUrl || artifact.url,
+                thumbnailUrl:
+                  persisted.thumbnailUrl || ('thumbnailUrl' in artifact ? artifact.thumbnailUrl : undefined),
+              };
+            }),
           );
-          return {
-            ...artifact,
-            url: persisted.localUrl || artifact.url,
-            thumbnailUrl: persisted.thumbnailUrl || ('thumbnailUrl' in artifact ? artifact.thumbnailUrl : undefined),
-          };
-        }));
 
-      const galleryItems = persistedItems
-        .filter((artifact): artifact is ImageArtifact => Boolean(artifact && artifact.type === 'image' && artifact.url))
-        .map((artifact, index) => ({
-          id: `${Date.now()}_${index}`,
-          url: artifact.url,
-          thumbnailUrl: artifact.thumbnailUrl,
-          prompt,
-          model: artifactModel,
-          ts: Date.now() + index,
-        }));
-      if (galleryItems.length > 0) {
-        bridgeRef.current.addToImageGallery(galleryItems);
+        const galleryItems = persistedItems
+          .filter((artifact): artifact is ImageArtifact =>
+            Boolean(artifact && artifact.type === 'image' && artifact.url),
+          )
+          .map((artifact, index) => ({
+            id: `${Date.now()}_${index}`,
+            url: artifact.url,
+            thumbnailUrl: artifact.thumbnailUrl,
+            prompt,
+            model: artifactModel,
+            ts: Date.now() + index,
+          }));
+        if (galleryItems.length > 0) {
+          bridgeRef.current.addToImageGallery(galleryItems);
+        }
+        return persistedItems;
       }
-      return persistedItems;
-    }
 
-    if (toolName === 'video_generate') {
-      const persistedItems = await Promise.all(artifacts.map(async (artifact, index) => {
-        if (artifact.type !== 'video' || !artifact.url) return artifact;
-        const ts = Date.now() + index;
-        const id = gid();
-        const localUrl = await saveVideo({ id, url: artifact.url, prompt, model: artifactModel, ts });
-        const nextUrl = localUrl || artifact.url;
-        bridgeRef.current.addToVideoGallery({ id, url: nextUrl, prompt, model: artifactModel, ts });
-        return { ...artifact, url: nextUrl };
-      }));
-      return persistedItems;
-    }
+      if (toolName === 'video_generate') {
+        const persistedItems = await Promise.all(
+          artifacts.map(async (artifact, index) => {
+            if (artifact.type !== 'video' || !artifact.url) return artifact;
+            const ts = Date.now() + index;
+            const id = gid();
+            const localUrl = await saveVideo({ id, url: artifact.url, prompt, model: artifactModel, ts });
+            const nextUrl = localUrl || artifact.url;
+            bridgeRef.current.addToVideoGallery({ id, url: nextUrl, prompt, model: artifactModel, ts });
+            return { ...artifact, url: nextUrl };
+          }),
+        );
+        return persistedItems;
+      }
 
-    return artifacts;
-  }, [bridgeRef, currentModel]);
+      return artifacts;
+    },
+    [bridgeRef, currentModel],
+  );
 
-  const handleFileUpload = useCallback((files: FileList | File[]) => {
-    const items = Array.from(files);
-    const imageFiles = items.filter((file) => file.type.startsWith('image/'));
-    const textFiles = items.filter((file) => !file.type.startsWith('image/') && canReadAsText(file) && file.size <= 1024 * 1024);
-    const skippedFiles = items.filter((file) => !file.type.startsWith('image/') && (!canReadAsText(file) || file.size > 1024 * 1024));
+  const handleFileUpload = useCallback(
+    (files: FileList | File[]) => {
+      const items = Array.from(files);
+      const imageFiles = items.filter((file) => file.type.startsWith('image/'));
+      const textFiles = items.filter(
+        (file) => !file.type.startsWith('image/') && canReadAsText(file) && file.size <= 1024 * 1024,
+      );
+      const skippedFiles = items.filter(
+        (file) => !file.type.startsWith('image/') && (!canReadAsText(file) || file.size > 1024 * 1024),
+      );
 
-    if (imageFiles.length > 0) {
-      void Promise.all(imageFiles.map(async (file) => {
-        if (!isBackendAvailable()) return fileToDataUrl(file);
-        const uploaded = await uploadFile(file);
-        return uploaded.url;
-      }))
-        .then(addPendingImages)
-        .catch((error) => addLog('error', `Image upload failed: ${error instanceof Error ? error.message : String(error)}`));
-    }
+      if (imageFiles.length > 0) {
+        void Promise.all(
+          imageFiles.map(async (file) => {
+            if (!isBackendAvailable()) return fileToDataUrl(file);
+            const uploaded = await uploadFile(file);
+            return uploaded.url;
+          }),
+        )
+          .then(addPendingImages)
+          .catch((error) =>
+            addLog('error', `Image upload failed: ${error instanceof Error ? error.message : String(error)}`),
+          );
+      }
 
-    if (textFiles.length > 0) {
-      void Promise.all(textFiles.map(async (file) => ({
-        id: gid(),
-        name: file.name,
-        type: file.type || 'text/plain',
-        content: await fileToText(file),
-      })))
-        .then((nextFiles) => setPendingFiles((prev) => [...prev, ...nextFiles]))
-        .catch((error) => addLog('error', `File read failed: ${error instanceof Error ? error.message : String(error)}`));
-    }
+      if (textFiles.length > 0) {
+        void Promise.all(
+          textFiles.map(async (file) => ({
+            id: gid(),
+            name: file.name,
+            type: file.type || 'text/plain',
+            content: await fileToText(file),
+          })),
+        )
+          .then((nextFiles) => setPendingFiles((prev) => [...prev, ...nextFiles]))
+          .catch((error) =>
+            addLog('error', `File read failed: ${error instanceof Error ? error.message : String(error)}`),
+          );
+      }
 
-    if (skippedFiles.length > 0) {
-      addLog('warn', `These files are not supported for direct reading: ${skippedFiles.map((file) => file.name).join(', ')}`);
-    }
-  }, [addLog, addPendingImages]);
+      if (skippedFiles.length > 0) {
+        addLog(
+          'warn',
+          `These files are not supported for direct reading: ${skippedFiles.map((file) => file.name).join(', ')}`,
+        );
+      }
+    },
+    [addLog, addPendingImages],
+  );
 
-  const runToolCall = useCallback(async (toolCall: { id?: string; function?: { name?: string; arguments?: string } }) => {
-    const name = toolCall.function?.name || '';
-    const args = parseToolArguments(toolCall.function?.arguments);
+  const runToolCall = useCallback(
+    async (toolCall: { id?: string; function?: { name?: string; arguments?: string } }) => {
+      const name = toolCall.function?.name || '';
+      const args = parseToolArguments(toolCall.function?.arguments);
 
-    if (name === 'web_search') {
-      if (!runtimeSearchEnabled) return '当前部署未启用联网搜索。';
-      const query = String(args.query || '').trim();
-      if (!query) return 'Missing search query.';
-      const data = await capabilityWebSearch({ query, maxResults: 5, includeAnswer: true });
-      return data.content || JSON.stringify(data.raw ?? {});
-    }
+      if (name === 'web_search') {
+        if (!runtimeSearchEnabled) return '当前部署未启用联网搜索。';
+        const query = String(args.query || '').trim();
+        if (!query) return 'Missing search query.';
+        const data = await capabilityWebSearch({ query, maxResults: 5, includeAnswer: true });
+        return data.content || JSON.stringify(data.raw ?? {});
+      }
 
-    if (name === 'search_memory') {
-      const query = String(args.query || '').trim();
-      return searchMemories?.(query) || 'No related memory found.';
-    }
+      if (name === 'search_memory') {
+        const query = String(args.query || '').trim();
+        return searchMemories?.(query) || 'No related memory found.';
+      }
 
-    if (name === 'get_current_time') {
-      const timezone = String(args.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai');
-      return new Date().toLocaleString('zh-CN', { timeZone: timezone });
-    }
+      if (name === 'get_current_time') {
+        const timezone = String(args.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai');
+        return new Date().toLocaleString('zh-CN', { timeZone: timezone });
+      }
 
-    if (name === 'summarize_conversation') {
-      return conv.msgs.map((msg) => `${msg.role}: ${msg.content}`).join('\n').slice(-6000);
-    }
+      if (name === 'summarize_conversation') {
+        return conv.msgs
+          .map((msg) => `${msg.role}: ${msg.content}`)
+          .join('\n')
+          .slice(-6000);
+      }
 
-    return `Tool ${name || 'unknown'} is not available in the local chat fallback.`;
-  }, [conv.msgs, runtimeSearchEnabled, searchMemories]);
+      return `Tool ${name || 'unknown'} is not available in the local chat fallback.`;
+    },
+    [conv.msgs, runtimeSearchEnabled, searchMemories],
+  );
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -563,7 +650,13 @@ export function useChat(
 
     const fileContext = pendingFiles.map((file) => `\n\n[Attachment: ${file.name}]\n${file.content}`).join('');
     const userContent = `${text}${fileContext}`;
-    const userMessage: ChatMsg = { id: gid(), role: 'user', content: userContent, images: pendingImages, ts: Date.now() };
+    const userMessage: ChatMsg = {
+      id: gid(),
+      role: 'user',
+      content: userContent,
+      images: pendingImages,
+      ts: Date.now(),
+    };
     const assistantId = gid();
     const assistantMessage: ChatMsg = { id: assistantId, role: 'assistant', content: '', images: [], ts: Date.now() };
     const controller = new AbortController();
@@ -597,10 +690,10 @@ export function useChat(
             name: file.name,
             type: file.type,
           })),
-            options: {
-              stream: useAgentStreaming,
-              allowWebSearch: webSearchEnabled && runtimeSearchEnabled,
-            },
+          options: {
+            stream: useAgentStreaming,
+            allowWebSearch: webSearchEnabled && runtimeSearchEnabled,
+          },
           apiConfig: buildApiConfigPayload(currentModelConfig, { apiKey, baseUrl: base, providerConfig }),
           signal: controller.signal,
         };
@@ -623,7 +716,10 @@ export function useChat(
             buffer = events.pop() || '';
 
             for (const eventBlock of events) {
-              const lines = eventBlock.split('\n').map((line) => line.trim()).filter(Boolean);
+              const lines = eventBlock
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean);
               const eventName = lines.find((line) => line.startsWith('event: '))?.slice(7) || 'message';
               const dataLine = lines.find((line) => line.startsWith('data: '));
               if (!dataLine) continue;
@@ -637,7 +733,8 @@ export function useChat(
               }
               if (eventName === 'agent_tool_call_started') {
                 const toolName = typeof payload.name === 'string' ? payload.name : 'tool';
-                const args = payload.args && typeof payload.args === 'object' ? payload.args as Record<string, unknown> : {};
+                const args =
+                  payload.args && typeof payload.args === 'object' ? (payload.args as Record<string, unknown>) : {};
                 updateAssistantToolCallState(activeIdResolved, assistantId, updateConversation, {
                   type: toolName === 'workflow_execute' ? 'workflow' : toolName === 'video_generate' ? 'video' : 'tool',
                   name: toolName,
@@ -653,10 +750,14 @@ export function useChat(
                   runId: typeof payload.runId === 'string' ? payload.runId : undefined,
                   workflowId: typeof payload.workflowId === 'string' ? payload.workflowId : undefined,
                   workflowName: typeof payload.workflowName === 'string' ? payload.workflowName : undefined,
-                  source: payload.source === 'draft' ? 'draft' : payload.source === 'persisted' ? 'persisted' : undefined,
-                  detail: typeof payload.source === 'string'
-                    ? `runId: ${payload.runId || '-'} · source: ${payload.source}`
-                    : (typeof payload.runId === 'string' ? `runId: ${payload.runId}` : undefined),
+                  source:
+                    payload.source === 'draft' ? 'draft' : payload.source === 'persisted' ? 'persisted' : undefined,
+                  detail:
+                    typeof payload.source === 'string'
+                      ? `runId: ${payload.runId || '-'} · source: ${payload.source}`
+                      : typeof payload.runId === 'string'
+                        ? `runId: ${payload.runId}`
+                        : undefined,
                 });
               }
               if (eventName === 'agent_message_delta' && typeof payload.delta === 'string') {
@@ -668,23 +769,44 @@ export function useChat(
               }
               if (eventName === 'agent_tool_call_completed') {
                 const toolName = typeof payload.name === 'string' ? payload.name : 'tool';
-                const parsedResult = parseJsonIfPossible(payload.result) as Record<string, unknown> | string | undefined;
+                const parsedResult = parseJsonIfPossible(payload.result) as
+                  | Record<string, unknown>
+                  | string
+                  | undefined;
                 const workflowResult = parsedResult && typeof parsedResult === 'object' ? parsedResult : null;
-                const artifacts = await persistToolArtifacts(toolName, workflowResult, getToolResultArtifacts(workflowResult));
-                const status = workflowResult?.status === 'cancelled'
-                  ? 'cancelled'
-                  : workflowResult?.status === 'failed'
-                    ? 'failed'
-                    : 'done';
+                const artifacts = await persistToolArtifacts(
+                  toolName,
+                  workflowResult,
+                  getToolResultArtifacts(workflowResult),
+                );
+                const status =
+                  workflowResult?.status === 'cancelled'
+                    ? 'cancelled'
+                    : workflowResult?.status === 'failed'
+                      ? 'failed'
+                      : 'done';
                 const toolDetail = buildToolDetail(toolName, workflowResult);
                 updateAssistantToolCallState(activeIdResolved, assistantId, updateConversation, {
-                  type: toolName === 'workflow_execute' ? 'workflow' : toolName === 'generate_image' ? 'image' : toolName === 'video_generate' ? 'video' : 'tool',
+                  type:
+                    toolName === 'workflow_execute'
+                      ? 'workflow'
+                      : toolName === 'generate_image'
+                        ? 'image'
+                        : toolName === 'video_generate'
+                          ? 'video'
+                          : 'tool',
                   name: toolName,
                   status,
                   runId: typeof workflowResult?.runId === 'string' ? workflowResult.runId : undefined,
                   workflowId: typeof workflowResult?.workflowId === 'string' ? workflowResult.workflowId : undefined,
-                  workflowName: typeof workflowResult?.workflowName === 'string' ? workflowResult.workflowName : undefined,
-                  source: workflowResult?.source === 'draft' ? 'draft' : workflowResult?.source === 'persisted' ? 'persisted' : undefined,
+                  workflowName:
+                    typeof workflowResult?.workflowName === 'string' ? workflowResult.workflowName : undefined,
+                  source:
+                    workflowResult?.source === 'draft'
+                      ? 'draft'
+                      : workflowResult?.source === 'persisted'
+                        ? 'persisted'
+                        : undefined,
                   artifacts,
                   detail: toolDetail,
                   error: typeof workflowResult?.error === 'string' ? workflowResult.error : undefined,
@@ -695,7 +817,10 @@ export function useChat(
                 backendSessionIds.current[activeIdResolved] = result.sessionId;
                 finalContent = readAssistantContent(result) || finalContent;
                 if (result.tokenUsage) {
-                  setTokenUsageByConversation((prev) => ({ ...prev, [activeIdResolved]: result.tokenUsage as AgentTokenUsage }));
+                  setTokenUsageByConversation((prev) => ({
+                    ...prev,
+                    [activeIdResolved]: result.tokenUsage as AgentTokenUsage,
+                  }));
                 }
                 if (result.memoryWrites?.length) {
                   void refreshMemories();
@@ -721,13 +846,22 @@ export function useChat(
             const artifacts = await persistToolArtifacts(trace.name, resultObj, getToolResultArtifacts(resultObj));
             const toolDetail = buildToolDetail(trace.name, resultObj);
             updateAssistantToolCallState(activeIdResolved, assistantId, updateConversation, {
-              type: trace.name === 'workflow_execute' ? 'workflow' : trace.name === 'generate_image' ? 'image' : trace.name === 'video_generate' ? 'video' : 'tool',
+              type:
+                trace.name === 'workflow_execute'
+                  ? 'workflow'
+                  : trace.name === 'generate_image'
+                    ? 'image'
+                    : trace.name === 'video_generate'
+                      ? 'video'
+                      : 'tool',
               name: trace.name,
-              status: resultObj.status === 'cancelled' ? 'cancelled' : resultObj.status === 'failed' ? 'failed' : 'done',
+              status:
+                resultObj.status === 'cancelled' ? 'cancelled' : resultObj.status === 'failed' ? 'failed' : 'done',
               runId: typeof resultObj.runId === 'string' ? resultObj.runId : undefined,
               workflowId: typeof resultObj.workflowId === 'string' ? resultObj.workflowId : undefined,
               workflowName: typeof resultObj.workflowName === 'string' ? resultObj.workflowName : undefined,
-              source: resultObj.source === 'draft' ? 'draft' : resultObj.source === 'persisted' ? 'persisted' : undefined,
+              source:
+                resultObj.source === 'draft' ? 'draft' : resultObj.source === 'persisted' ? 'persisted' : undefined,
               artifacts,
               detail: toolDetail,
               error: typeof resultObj.error === 'string' ? resultObj.error : undefined,
@@ -737,23 +871,28 @@ export function useChat(
             void refreshMemories();
           }
           if (agentResult.tokenUsage) {
-            setTokenUsageByConversation((prev) => ({ ...prev, [activeIdResolved]: agentResult.tokenUsage as AgentTokenUsage }));
+            setTokenUsageByConversation((prev) => ({
+              ...prev,
+              [activeIdResolved]: agentResult.tokenUsage as AgentTokenUsage,
+            }));
           }
         }
       } else {
         const memoryContext = getMemoryContext();
-        const searchPrompt = webSearchEnabled && runtimeSearchEnabled
-          ? 'Web search is enabled for this turn. If the task involves current facts, news, prices, versions, docs, or time-sensitive information, call web_search first and then answer from the results.'
-          : '';
+        const searchPrompt =
+          webSearchEnabled && runtimeSearchEnabled
+            ? 'Web search is enabled for this turn. If the task involves current facts, news, prices, versions, docs, or time-sensitive information, call web_search first and then answer from the results.'
+            : '';
         const systemPrompt = [currentRole.systemPrompt, memoryContext, searchPrompt].filter(Boolean).join('\n\n');
         const tools = buildTools(false, false, webSearchEnabled && runtimeSearchEnabled);
-        const provider = createProvider(currentModelConfig?.base || base, currentModelConfig?.apiKey || apiKey, currentModelConfig?.providerConfig || providerConfig);
+        const provider = createProvider(
+          currentModelConfig?.base || base,
+          currentModelConfig?.apiKey || apiKey,
+          currentModelConfig?.providerConfig || providerConfig,
+        );
         const result = await provider.chatCompletion({
           model: providerModel,
-          messages: [
-            ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-            ...sourceMessages,
-          ],
+          messages: [...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []), ...sourceMessages],
           tools,
           signal: controller.signal,
         });
@@ -761,11 +900,13 @@ export function useChat(
         finalContent = result.content;
 
         if (result.toolCalls && result.toolCalls.length > 0) {
-          const toolMessages = await Promise.all(result.toolCalls.map(async (toolCall) => ({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: await runToolCall(toolCall),
-          })));
+          const toolMessages = await Promise.all(
+            result.toolCalls.map(async (toolCall) => ({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: await runToolCall(toolCall),
+            })),
+          );
           const toolResult = await provider.chatCompletion({
             model: providerModel,
             messages: [
@@ -789,7 +930,13 @@ export function useChat(
         const extractionMessages = [...conv.msgs, userMessage]
           .map((msg) => ({ role: msg.role, content: msg.content }))
           .concat({ role: 'assistant', content: finalContent });
-        scheduleExtraction(extractionMessages, activeIdResolved, providerModel, currentModelConfig?.base || base, currentModelConfig?.apiKey || apiKey);
+        scheduleExtraction(
+          extractionMessages,
+          activeIdResolved,
+          providerModel,
+          currentModelConfig?.base || base,
+          currentModelConfig?.apiKey || apiKey,
+        );
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -800,7 +947,9 @@ export function useChat(
         });
         updateConversation(activeIdResolved, (item) => ({
           ...item,
-          msgs: item.msgs.map((msg) => (msg.id === assistantId ? { ...msg, content: finalContent || '已停止生成。' } : msg)),
+          msgs: item.msgs.map((msg) =>
+            msg.id === assistantId ? { ...msg, content: finalContent || '已停止生成。' } : msg,
+          ),
         }));
         return;
       }
@@ -849,12 +998,18 @@ export function useChat(
     useAgentStreaming,
   ]);
 
-  const regenerate = useCallback((id?: unknown) => {
-    const messageId = typeof id === 'string' ? id : conv.msgs[conv.msgs.length - 1]?.id;
-    const index = conv.msgs.findIndex((msg) => msg.id === messageId);
-    const previousUser = conv.msgs.slice(0, index).reverse().find((msg) => msg.role === 'user');
-    if (previousUser) setInput(previousUser.content);
-  }, [conv.msgs]);
+  const regenerate = useCallback(
+    (id?: unknown) => {
+      const messageId = typeof id === 'string' ? id : conv.msgs[conv.msgs.length - 1]?.id;
+      const index = conv.msgs.findIndex((msg) => msg.id === messageId);
+      const previousUser = conv.msgs
+        .slice(0, index)
+        .reverse()
+        .find((msg) => msg.role === 'user');
+      if (previousUser) setInput(previousUser.content);
+    },
+    [conv.msgs],
+  );
 
   return {
     convs,

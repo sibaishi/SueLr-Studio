@@ -1,10 +1,10 @@
-import type { Tab, ThemeMode } from '@/shared/types';
-import { useT } from '@/providers/ThemeContext';
 import { THEME_ICONS, THEME_LABELS } from '@/app/theme/constants';
+import { useT } from '@/providers/ThemeContext';
+import type { Colors, Tab, ThemeMode } from '@/shared/types';
 import { Icon } from '@/shared/ui/icons';
 import { NAV_ITEMS } from './constants';
 
-const glass = (T: any) => ({
+const glass = (T: Colors) => ({
   background: T.card,
   backdropFilter: 'blur(40px) saturate(180%)',
   WebkitBackdropFilter: 'blur(40px) saturate(180%)',
@@ -50,7 +50,7 @@ export function DesktopSidebar({
       style={{
         width: collapsed ? 42 : 108,
         ...glass(T),
-        borderRight: `1px solid var(--glass-border)`,
+        borderRight: '1px solid var(--glass-border)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -94,7 +94,8 @@ export function DesktopSidebar({
               width: logoSize,
               height: logoSize,
               borderRadius: logoRadius,
-              background: 'linear-gradient(135deg, rgba(94, 234, 212, 0.95), rgba(59, 130, 246, 0.92) 52%, rgba(139, 92, 246, 0.92))',
+              background:
+                'linear-gradient(135deg, rgba(94, 234, 212, 0.95), rgba(59, 130, 246, 0.92) 52%, rgba(139, 92, 246, 0.92))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -108,12 +109,18 @@ export function DesktopSidebar({
 
           {!collapsed && (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.text3 }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: T.text3,
+                }}
+              >
                 Studio
               </div>
-              <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: T.text }}>
-                Workbench
-              </div>
+              <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: T.text }}>Workbench</div>
             </div>
           )}
         </div>
@@ -228,12 +235,18 @@ export function DesktopSidebar({
 
         {!collapsed && (
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.text3 }}>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: T.text3,
+              }}
+            >
               Status
             </div>
-            <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.45, color: T.text2 }}>
-              {statusCopy}
-            </div>
+            <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.45, color: T.text2 }}>{statusCopy}</div>
           </div>
         )}
       </div>

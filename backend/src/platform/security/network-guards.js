@@ -1,6 +1,6 @@
-import { URL } from 'node:url';
-import net from 'node:net';
 import dns from 'node:dns/promises';
+import net from 'node:net';
+import { URL } from 'node:url';
 
 import { ProviderError, ValidationError } from '../../app/errors/index.js';
 
@@ -36,7 +36,9 @@ function isBlockedIpv4(ip) {
 }
 
 function isBlockedIpv6(ip) {
-  const normalized = String(ip || '').trim().toLowerCase();
+  const normalized = String(ip || '')
+    .trim()
+    .toLowerCase();
   if (!normalized) return true;
   if (normalized === '::1') return true;
   return BLOCKED_IPV6_PREFIXES.some((prefix) => normalized.startsWith(prefix));
@@ -56,12 +58,16 @@ function assertProtocol(url, fieldName, { allowHttp = false } = {}) {
 }
 
 function isLoopbackHostname(hostname) {
-  const normalized = String(hostname || '').trim().toLowerCase();
+  const normalized = String(hostname || '')
+    .trim()
+    .toLowerCase();
   return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
 }
 
 function isLoopbackAppHost() {
-  const host = String(process.env.APP_HOST || '127.0.0.1').trim().toLowerCase();
+  const host = String(process.env.APP_HOST || '127.0.0.1')
+    .trim()
+    .toLowerCase();
   return host === 'localhost' || host === '127.0.0.1' || host === '::1';
 }
 
@@ -74,7 +80,9 @@ function allowsPrivateRemoteDownloadUrls() {
 }
 
 function assertHostname(hostname, fieldName, { allowPrivate = false } = {}) {
-  const normalized = String(hostname || '').trim().toLowerCase();
+  const normalized = String(hostname || '')
+    .trim()
+    .toLowerCase();
   if (!normalized) {
     throw new ValidationError('INVALID_REMOTE_URL', `${fieldName} 缺少主机名`);
   }
@@ -96,7 +104,10 @@ function assertIpAddressAllowed(ip, fieldName, { allowPrivate = false } = {}) {
 function assertHttpAllowedForTarget(url, fieldName, isPrivateTarget) {
   if (url.protocol !== 'http:') return;
   if (isPrivateTarget) return;
-  throw new ValidationError('INVALID_REMOTE_URL', `${fieldName} 仅允许公网使用 HTTPS 地址，HTTP 仅可用于本机或内网服务`);
+  throw new ValidationError(
+    'INVALID_REMOTE_URL',
+    `${fieldName} 仅允许公网使用 HTTPS 地址，HTTP 仅可用于本机或内网服务`,
+  );
 }
 
 async function resolveHostname(hostname) {

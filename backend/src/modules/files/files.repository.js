@@ -1,8 +1,14 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import { NotFoundError, ValidationError } from '../../app/errors/index.js';
+import {
+  deleteGeneratedThumbnail,
+  ensureGeneratedThumbnailFromFile,
+  getGeneratedThumbnailPath,
+} from '../../platform/media/image-thumbnails.js';
+import { ensureResourceOwnership } from '../../platform/runtime/index.js';
 import {
   STORAGE_PATHS,
   ensureScopedStorageDirectories,
@@ -11,12 +17,6 @@ import {
   isResourceVisibleForScope,
   safeResolveWithin,
 } from '../../platform/storage/index.js';
-import { ensureResourceOwnership } from '../../platform/runtime/index.js';
-import {
-  ensureGeneratedThumbnailFromFile,
-  deleteGeneratedThumbnail,
-  getGeneratedThumbnailPath,
-} from '../../platform/media/image-thumbnails.js';
 
 const OUTPUT_FILE_TYPES = new Map([
   ['.png', { type: 'image', mimeType: 'image/png' }],
@@ -125,15 +125,13 @@ export class FilesRepository {
 
         const extension = path.extname(entry.name).toLowerCase();
         const fileType = OUTPUT_FILE_TYPES.get(extension) || { type: 'file', mimeType: 'application/octet-stream' };
-        const thumbnailTarget = fileType.type === 'image'
-          ? getGeneratedThumbnailPath(relativePath.split(path.sep).join('/'))
-          : null;
-        const thumbnailUrl = thumbnailTarget?.absolutePath && fs.existsSync(thumbnailTarget.absolutePath)
-          ? toOutputUrl(thumbnailTarget.relativePath)
-          : '';
-        const dimensions = fileType.type === 'image'
-          ? await readImageDimensions(filePath)
-          : null;
+        const thumbnailTarget =
+          fileType.type === 'image' ? getGeneratedThumbnailPath(relativePath.split(path.sep).join('/')) : null;
+        const thumbnailUrl =
+          thumbnailTarget?.absolutePath && fs.existsSync(thumbnailTarget.absolutePath)
+            ? toOutputUrl(thumbnailTarget.relativePath)
+            : '';
+        const dimensions = fileType.type === 'image' ? await readImageDimensions(filePath) : null;
         const output = {
           id: relativePath.split(path.sep).join('/'),
           name: entry.name,

@@ -1,12 +1,17 @@
-import { useState, useEffect, useRef, useCallback, useMemo, type MutableRefObject } from 'react';
-import type { ApiConfig, ModelInfo, ImgTask, GalleryItem, BridgeRef } from '@/shared/types';
+import { useToast } from '@/providers/ToastContext';
+import { clearGallery as clearStoredGallery, loadGallery, saveImage } from '@/shared/api/assistant';
 import type { ProviderConfig } from '@/shared/providers';
+import { createProvider } from '@/shared/providers';
+import {
+  buildApiConfigPayload,
+  resolveModelConfig,
+  resolveProviderModelId,
+  resolveSelectedModel,
+} from '@/shared/providers/model-routing';
 import { gid } from '@/shared/runtime';
 import { compressImage } from '@/shared/runtime/image';
-import { createProvider } from '@/shared/providers';
-import { buildApiConfigPayload, resolveModelConfig, resolveProviderModelId, resolveSelectedModel } from '@/shared/providers/model-routing';
-import { clearGallery as clearStoredGallery, loadGallery, saveImage } from '@/shared/api/assistant';
-import { useToast } from '@/providers/ToastContext';
+import type { ApiConfig, BridgeRef, GalleryItem, ImgTask, ModelInfo } from '@/shared/types';
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function roundToNearest16(value: string) {
   const numeric = Number(value);
@@ -48,9 +53,7 @@ function resolveSizing(ratio: string, width: string, height: string) {
 function formatImageGenerationError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || 'Unknown error');
   const detail = message.trim().slice(0, 80);
-  return detail
-    ? `图片生成失败，请检查模型配置或稍后重试。${detail}`
-    : '图片生成失败，请检查模型配置或稍后重试。';
+  return detail ? `图片生成失败，请检查模型配置或稍后重试。${detail}` : '图片生成失败，请检查模型配置或稍后重试。';
 }
 
 function toErrorMessage(error: unknown) {
@@ -140,9 +143,7 @@ export function useImageGen(
 
     processingRef.current = true;
     setTasks((prev) =>
-      prev.map((item) => (
-        item.id === nextTaskId ? { ...item, status: 'processing' as const } : item
-      )),
+      prev.map((item) => (item.id === nextTaskId ? { ...item, status: 'processing' as const } : item)),
     );
 
     const controller = new AbortController();
@@ -203,9 +204,7 @@ export function useImageGen(
         );
 
         setTasks((prev) =>
-          prev.map((item) => (
-            item.id === nextTaskId ? { ...item, status: 'done' as const, images } : item
-          )),
+          prev.map((item) => (item.id === nextTaskId ? { ...item, status: 'done' as const, images } : item)),
         );
         setGallery((prev) => [...newItems, ...prev]);
       })
@@ -213,9 +212,7 @@ export function useImageGen(
         if (controller.signal.aborted) {
           addLogRef.current('warn', '[Image] 任务已取消');
           setTasks((prev) =>
-            prev.map((item) => (
-              item.id === nextTaskId ? { ...item, status: 'cancelled' as const } : item
-            )),
+            prev.map((item) => (item.id === nextTaskId ? { ...item, status: 'cancelled' as const } : item)),
           );
           return;
         }
@@ -224,9 +221,7 @@ export function useImageGen(
         addLogRef.current('error', `[Image] 生成失败: ${message}`);
         toast(formatImageGenerationError(error), 'error');
         setTasks((prev) =>
-          prev.map((item) => (
-            item.id === nextTaskId ? { ...item, status: 'failed' as const, error: message } : item
-          )),
+          prev.map((item) => (item.id === nextTaskId ? { ...item, status: 'failed' as const, error: message } : item)),
         );
       })
       .finally(() => {
@@ -265,7 +260,22 @@ export function useImageGen(
     queueRef.current.push(task.id);
     addLog('info', `[Image] 任务已提交 ${task.prompt.slice(0, 30)}...`);
     setTimeout(() => processNext(), 0);
-  }, [prompt, model, ratio, width, height, quality, resolution, count, outputFormat, mode, refImages, addLog, processNext, imgModels]);
+  }, [
+    prompt,
+    model,
+    ratio,
+    width,
+    height,
+    quality,
+    resolution,
+    count,
+    outputFormat,
+    mode,
+    refImages,
+    addLog,
+    processNext,
+    imgModels,
+  ]);
 
   const cancelTask = useCallback((id: string) => {
     queueRef.current = queueRef.current.filter((queuedId) => queuedId !== id);
@@ -275,11 +285,11 @@ export function useImageGen(
     }
 
     setTasks((prev) =>
-      prev.map((item) => (
+      prev.map((item) =>
         item.id === id && (item.status === 'queued' || item.status === 'processing')
           ? { ...item, status: 'cancelled' as const }
-          : item
-      )),
+          : item,
+      ),
     );
   }, []);
 
@@ -298,7 +308,7 @@ export function useImageGen(
     anchor.click();
   }, []);
 
-  const handleFileUpload = useCallback(async (files: FileList | null) => {
+  const handleFileUpload = useCallback(async (files: File[] | FileList | null) => {
     if (!files) return;
 
     for (const file of Array.from(files)) {

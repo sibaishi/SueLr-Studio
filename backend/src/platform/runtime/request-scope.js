@@ -47,8 +47,9 @@ export function summarizeScopeFoundation(scope = createDefaultRequestScope()) {
     userId: normalized.userId,
     workspaceId: normalized.workspaceId,
     runtimeMode: normalized.runtimeMode,
-    source: normalized.userId === DEFAULT_SCOPE_USER_ID && normalized.workspaceId === DEFAULT_SCOPE_WORKSPACE_ID
-      ? 'single-user-default'
-      : 'request',
+    source:
+      normalized.userId === DEFAULT_SCOPE_USER_ID && normalized.workspaceId === DEFAULT_SCOPE_WORKSPACE_ID
+        ? 'single-user-default'
+        : 'request',
   };
 }

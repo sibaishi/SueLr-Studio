@@ -1,6 +1,6 @@
-import { saveContentByType } from '../helpers/saveHelper.js';
-import path from 'path';
+import path from 'node:path';
 import { isServerRuntimeMode } from '../../platform/runtime/mode.js';
+import { saveContentByType } from '../helpers/saveHelper.js';
 
 export async function execute(node, inputs, _apiConfig, sendProgress) {
   const content = inputs.content;

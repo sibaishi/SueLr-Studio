@@ -1,5 +1,5 @@
-import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import { getCollapsedGroupNodeSize } from '@/domains/workflow/lib/groupLayout';
 import {
   buildGroupHandleId,
   collectDescendantNodeIds,
@@ -7,13 +7,9 @@ import {
   getGroupPorts,
   parseGroupHandleId,
 } from '@/domains/workflow/lib/groupPorts';
-import { getCollapsedGroupNodeSize } from '@/domains/workflow/lib/groupLayout';
+import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import { getVisibleCollapsedAncestorId } from './flowCanvasConnections';
-import {
-  DEFAULT_WORKFLOW_EDGE_STYLE,
-  getDecoratedGroupEdge,
-  getNearestGroupAncestorId,
-} from './flowCanvasUiHelpers';
+import { DEFAULT_WORKFLOW_EDGE_STYLE, getDecoratedGroupEdge, getNearestGroupAncestorId } from './flowCanvasUiHelpers';
 
 const GROUP_INTERNAL_EDGE_STYLE = {
   ...DEFAULT_WORKFLOW_EDGE_STYLE,
@@ -28,10 +24,7 @@ type BuildFlowCanvasRenderModelInput = {
   edges: Edge[];
 };
 
-export function buildFlowCanvasRenderModel({
-  nodes,
-  edges,
-}: BuildFlowCanvasRenderModelInput) {
+export function buildFlowCanvasRenderModel({ nodes, edges }: BuildFlowCanvasRenderModelInput) {
   const collapsedGroups = nodes.filter((node) => node.type === 'group' && node.data?.collapsed);
   const collapsedGroupIds = new Set(collapsedGroups.map((node) => node.id));
   const collapsedDescendantIds = new Set<string>();
@@ -48,15 +41,17 @@ export function buildFlowCanvasRenderModel({
     .map((node) => {
       const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
       const size = getNodeDefaultSize(node.type || '', inputCount);
-      const collapsedSize = node.type === 'group' && node.data?.collapsed
-        ? getCollapsedGroupNodeSize(node)
-        : null;
+      const collapsedSize = node.type === 'group' && node.data?.collapsed ? getCollapsedGroupNodeSize(node) : null;
       const width = collapsedSize
         ? collapsedSize.width
-        : typeof node.width === 'number' ? Math.max(node.width, size.w) : size.w;
+        : typeof node.width === 'number'
+          ? Math.max(node.width, size.w)
+          : size.w;
       const height = collapsedSize
         ? collapsedSize.height
-        : typeof node.height === 'number' ? Math.max(node.height, size.h) : size.h;
+        : typeof node.height === 'number'
+          ? Math.max(node.height, size.h)
+          : size.h;
       const minWidth = collapsedSize ? collapsedSize.width : size.w;
       const minHeight = collapsedSize ? collapsedSize.height : size.h;
 
@@ -128,19 +123,19 @@ export function buildFlowCanvasRenderModel({
     const sourceNodeForEdge = nodeMap.get(edge.source);
     const targetNodeForEdge = nodeMap.get(edge.target);
     const sourceIsCollapsedGroupExternal =
-      sourceNodeForEdge?.type === 'group'
-      && collapsedGroupIds.has(edge.source)
-      && sourceDescriptor?.role === 'external';
+      sourceNodeForEdge?.type === 'group' &&
+      collapsedGroupIds.has(edge.source) &&
+      sourceDescriptor?.role === 'external';
     const targetIsCollapsedGroupExternal =
-      targetNodeForEdge?.type === 'group'
-      && collapsedGroupIds.has(edge.target)
-      && targetDescriptor?.role === 'external';
+      targetNodeForEdge?.type === 'group' &&
+      collapsedGroupIds.has(edge.target) &&
+      targetDescriptor?.role === 'external';
 
     if (
-      sourceDescriptor
-      && sourceNodeForEdge?.type === 'group'
-      && sourceDescriptor.side === 'input'
-      && sourceDescriptor.role === 'internal'
+      sourceDescriptor &&
+      sourceNodeForEdge?.type === 'group' &&
+      sourceDescriptor.side === 'input' &&
+      sourceDescriptor.role === 'internal'
     ) {
       const port = findGroupPort(
         (sourceNodeForEdge.data || {}) as Record<string, unknown>,
@@ -153,10 +148,10 @@ export function buildFlowCanvasRenderModel({
     }
 
     if (
-      targetDescriptor
-      && targetNodeForEdge?.type === 'group'
-      && targetDescriptor.side === 'output'
-      && targetDescriptor.role === 'internal'
+      targetDescriptor &&
+      targetNodeForEdge?.type === 'group' &&
+      targetDescriptor.side === 'output' &&
+      targetDescriptor.role === 'internal'
     ) {
       const port = findGroupPort(
         (targetNodeForEdge.data || {}) as Record<string, unknown>,
@@ -195,7 +190,9 @@ export function buildFlowCanvasRenderModel({
     if (!visibleSourceGroupId && visibleTargetGroupId) {
       const groupNode = nodeMap.get(visibleTargetGroupId);
       const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'input') : [];
-      const port = ports.find((item) => item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle));
+      const port = ports.find((item) =>
+        item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle),
+      );
       if (!port) continue;
       virtualEdges.push({
         id: `virtual:${edge.id}`,
@@ -213,7 +210,9 @@ export function buildFlowCanvasRenderModel({
     if (visibleSourceGroupId && !visibleTargetGroupId) {
       const groupNode = nodeMap.get(visibleSourceGroupId);
       const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'output') : [];
-      const port = ports.find((item) => item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle));
+      const port = ports.find((item) =>
+        item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle),
+      );
       if (!port) continue;
       virtualEdges.push({
         id: `virtual:${edge.id}`,
@@ -231,10 +230,18 @@ export function buildFlowCanvasRenderModel({
     if (visibleSourceGroupId && visibleTargetGroupId) {
       const sourceGroupNode = nodeMap.get(visibleSourceGroupId);
       const targetGroupNode = nodeMap.get(visibleTargetGroupId);
-      const sourcePorts = sourceGroupNode ? getGroupPorts((sourceGroupNode.data || {}) as Record<string, unknown>, 'output') : [];
-      const targetPorts = targetGroupNode ? getGroupPorts((targetGroupNode.data || {}) as Record<string, unknown>, 'input') : [];
-      const sourcePort = sourcePorts.find((item) => item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle));
-      const targetPort = targetPorts.find((item) => item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle));
+      const sourcePorts = sourceGroupNode
+        ? getGroupPorts((sourceGroupNode.data || {}) as Record<string, unknown>, 'output')
+        : [];
+      const targetPorts = targetGroupNode
+        ? getGroupPorts((targetGroupNode.data || {}) as Record<string, unknown>, 'input')
+        : [];
+      const sourcePort = sourcePorts.find((item) =>
+        item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle),
+      );
+      const targetPort = targetPorts.find((item) =>
+        item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle),
+      );
       if (!sourcePort || !targetPort) continue;
       virtualEdges.push({
         id: `virtual:${edge.id}`,

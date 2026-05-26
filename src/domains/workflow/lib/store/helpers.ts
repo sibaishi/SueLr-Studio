@@ -1,6 +1,6 @@
-import type { Edge, Node } from '@xyflow/react';
 import { GRID_SIZE, NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
+import type { Edge, Node } from '@xyflow/react';
 
 const AI_TYPES = ['aiChat', 'imageGen', 'videoGen'];
 const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile', 'textInput']);
@@ -50,7 +50,10 @@ export function getNodeDisplayName(node: Pick<Node, 'id' | 'type'> | undefined, 
 }
 
 export function getNodeDisplayNameById(nodeId: string, nodes: Node[]): string {
-  return getNodeDisplayName(nodes.find((node) => node.id === nodeId), nodes);
+  return getNodeDisplayName(
+    nodes.find((node) => node.id === nodeId),
+    nodes,
+  );
 }
 
 function summarizeInlineDataUrl(value: string): string {
@@ -86,9 +89,7 @@ function sanitizeLogValue(value: unknown, depth = 0): unknown {
   if (depth >= LOG_MAX_DEPTH) return `[truncated depth=${LOG_MAX_DEPTH}]`;
 
   if (Array.isArray(value)) {
-    const items = value
-      .slice(0, LOG_MAX_ARRAY_ITEMS)
-      .map((item) => sanitizeLogValue(item, depth + 1));
+    const items = value.slice(0, LOG_MAX_ARRAY_ITEMS).map((item) => sanitizeLogValue(item, depth + 1));
     if (value.length > LOG_MAX_ARRAY_ITEMS) {
       items.push(`[+${value.length - LOG_MAX_ARRAY_ITEMS} more items truncated]`);
     }
@@ -124,7 +125,7 @@ export function sanitizeNodeData(nodeType: string, data: Record<string, unknown>
   if (!data || typeof data !== 'object') return getDefaultData(nodeType);
 
   const nextData = { ...getDefaultData(nodeType), ...data };
-  delete nextData.videoMode;
+  nextData.videoMode = undefined;
   if (FORCE_DISABLED_NODE_TYPES.has(nodeType)) nextData.disabled = true;
   return nextData;
 }
@@ -143,37 +144,46 @@ export function normalizeNodes(input: unknown): Node[] {
     const x = typeof positionRecord?.x === 'number' ? positionRecord.x : 0;
     const y = typeof positionRecord?.y === 'number' ? positionRecord.y : 0;
 
-    return [{
-      id: record.id,
-      type: record.type,
-      position: { x, y },
-      width: typeof uiRecord?.width === 'number'
-        ? uiRecord.width as number
-        : typeof record.width === 'number' ? record.width : undefined,
-      height: typeof uiRecord?.height === 'number'
-        ? uiRecord.height as number
-        : typeof record.height === 'number' ? record.height : undefined,
-      parentId: typeof uiRecord?.parentId === 'string'
-        ? uiRecord.parentId as string
-        : typeof record.parentId === 'string' ? record.parentId : undefined,
-      extent:
-        uiRecord?.extent === 'parent' ||
-        record.extent === 'parent' ||
-        (
-          Array.isArray(record.extent) &&
-          record.extent.length === 2 &&
-          Array.isArray(record.extent[0]) &&
-          Array.isArray(record.extent[1])
-        )
-          ? record.extent as Node['extent']
-          : undefined,
-      data: {
-        ...sanitizeNodeData(
-          record.type,
-          record.data && typeof record.data === 'object' ? record.data as Record<string, unknown> : {},
-        ),
+    return [
+      {
+        id: record.id,
+        type: record.type,
+        position: { x, y },
+        width:
+          typeof uiRecord?.width === 'number'
+            ? (uiRecord.width as number)
+            : typeof record.width === 'number'
+              ? record.width
+              : undefined,
+        height:
+          typeof uiRecord?.height === 'number'
+            ? (uiRecord.height as number)
+            : typeof record.height === 'number'
+              ? record.height
+              : undefined,
+        parentId:
+          typeof uiRecord?.parentId === 'string'
+            ? (uiRecord.parentId as string)
+            : typeof record.parentId === 'string'
+              ? record.parentId
+              : undefined,
+        extent:
+          uiRecord?.extent === 'parent' ||
+          record.extent === 'parent' ||
+          (Array.isArray(record.extent) &&
+            record.extent.length === 2 &&
+            Array.isArray(record.extent[0]) &&
+            Array.isArray(record.extent[1]))
+            ? (record.extent as Node['extent'])
+            : undefined,
+        data: {
+          ...sanitizeNodeData(
+            record.type,
+            record.data && typeof record.data === 'object' ? (record.data as Record<string, unknown>) : {},
+          ),
+        },
       },
-    }];
+    ];
   });
 }
 
@@ -195,16 +205,18 @@ export function normalizeEdges(input: unknown, validNodeIds: Set<string>): Edge[
     }
     seenIds.add(id);
 
-    return [{
-      id,
-      source: record.source,
-      sourceHandle: typeof record.sourceHandle === 'string' ? record.sourceHandle : null,
-      target: record.target,
-      targetHandle: typeof record.targetHandle === 'string' ? record.targetHandle : null,
-      type: 'smoothstep',
-      animated: false,
-      style: { strokeWidth: 2 },
-    }];
+    return [
+      {
+        id,
+        source: record.source,
+        sourceHandle: typeof record.sourceHandle === 'string' ? record.sourceHandle : null,
+        target: record.target,
+        targetHandle: typeof record.targetHandle === 'string' ? record.targetHandle : null,
+        type: 'smoothstep',
+        animated: false,
+        style: { strokeWidth: 2 },
+      },
+    ];
   });
 }
 
@@ -248,8 +260,12 @@ export function buildWorkflowPayload(
       ui: {
         ...(typeof node.width === 'number' ? { width: node.width } : {}),
         ...(typeof node.height === 'number' ? { height: node.height } : {}),
-        ...((node as Node & { parentId?: string }).parentId ? { parentId: (node as Node & { parentId?: string }).parentId } : {}),
-        ...(typeof (node as Node & { extent?: unknown }).extent === 'string' ? { extent: (node as Node & { extent?: string }).extent } : {}),
+        ...((node as Node & { parentId?: string }).parentId
+          ? { parentId: (node as Node & { parentId?: string }).parentId }
+          : {}),
+        ...(typeof (node as Node & { extent?: unknown }).extent === 'string'
+          ? { extent: (node as Node & { extent?: string }).extent }
+          : {}),
       },
     })),
     edges: persistedEdges,
@@ -267,7 +283,7 @@ export function getAiNodesMissingValidOutputs(nodes: Node[], edges: Edge[]) {
     adjacency.set(edge.source, current);
   }
 
-  const activeAiNodes = nodes.filter((node) => AI_TYPES.includes(node.type || '') && !Boolean(node.data?.disabled));
+  const activeAiNodes = nodes.filter((node) => AI_TYPES.includes(node.type || '') && !node.data?.disabled);
 
   return activeAiNodes.filter((aiNode) => {
     const visited = new Set<string>();
@@ -281,7 +297,7 @@ export function getAiNodesMissingValidOutputs(nodes: Node[], edges: Edge[]) {
       const currentNode = nodeById.get(currentId);
       if (!currentNode) continue;
 
-      if (OUTPUT_NODE_TYPES.has(currentNode.type || '') && !Boolean(currentNode.data?.disabled)) {
+      if (OUTPUT_NODE_TYPES.has(currentNode.type || '') && !currentNode.data?.disabled) {
         return false;
       }
 

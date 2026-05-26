@@ -1,6 +1,6 @@
-import { useEffect, useState, type CSSProperties } from 'react';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
+import { type CSSProperties, useEffect, useState } from 'react';
 import { LongTextEditorModal } from './LongTextEditorModal';
 
 export function inferImageThumbnailUrl(value: string) {
@@ -50,7 +50,9 @@ export function TextCard({ text, mono = false }: { text: string; mono?: boolean 
         {displayText}
       </div>
       <div className="node-value-card__meta">
-        <span>{lineCount} 行 · {text.length} 字符</span>
+        <span>
+          {lineCount} 行 · {text.length} 字符
+        </span>
       </div>
       {fullscreenOpen && (
         <LongTextEditorModal
@@ -66,7 +68,11 @@ export function TextCard({ text, mono = false }: { text: string; mono?: boolean 
   );
 }
 
-export function MediaCard({ value, compact = false, fill = false }: { value: string; compact?: boolean; fill?: boolean }) {
+export function MediaCard({
+  value,
+  compact = false,
+  fill = false,
+}: { value: string; compact?: boolean; fill?: boolean }) {
   const kind = getMediaKind(value);
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -146,7 +152,12 @@ export function MediaPreview({
             background: 'var(--node-card-field)',
           }}
         />
-        <ImageSizeLabel src={resolvedPreviewValue} width={imageWidth} height={imageHeight} className="node-media-preview__size" />
+        <ImageSizeLabel
+          src={resolvedPreviewValue}
+          width={imageWidth}
+          height={imageHeight}
+          className="node-media-preview__size"
+        />
       </button>
     );
   }
@@ -192,9 +203,11 @@ export function ParamBadge({ color, label }: { color: string; label: string }) {
   return (
     <span
       className="node-param-badge"
-      style={{
-        '--badge-color': color,
-      } as CSSProperties}
+      style={
+        {
+          '--badge-color': color,
+        } as CSSProperties
+      }
     >
       {label}
     </span>

@@ -1,18 +1,14 @@
-import type { Node as FlowNodeType } from '@xyflow/react';
-import {
-  getExpandedNodeOutputs,
-  getNodeDef,
-  PORT_COMPATIBILITY,
-} from '@/domains/workflow/lib/constants';
+import { PORT_COMPATIBILITY, getExpandedNodeOutputs, getNodeDef } from '@/domains/workflow/lib/constants';
 import {
   buildGroupHandleId,
   findGroupPort,
   isGroupPortExternallyConnectable,
   parseGroupHandleId,
 } from '@/domains/workflow/lib/groupPorts';
+import type { Node as FlowNodeType } from '@xyflow/react';
 
 export function getParentId(node: FlowNodeType | undefined) {
-  return (node as FlowNodeType & { parentId?: string } | undefined)?.parentId;
+  return (node as (FlowNodeType & { parentId?: string }) | undefined)?.parentId;
 }
 
 function getGroupPortType(node: FlowNodeType | undefined, handleId: string | null | undefined) {
@@ -27,7 +23,9 @@ export function getOutputType(node: FlowNodeType | undefined, handleId: string |
   if (node.type === 'group') return getGroupPortType(node, handleId);
 
   const def = getNodeDef(node.type || '');
-  const outputs = def?.maxOutputs ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>) : def?.outputs;
+  const outputs = def?.maxOutputs
+    ? getExpandedNodeOutputs(node.type || '', (node.data || {}) as Record<string, unknown>)
+    : def?.outputs;
   return outputs?.find((port) => port.id === handleId)?.type || null;
 }
 

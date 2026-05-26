@@ -1,13 +1,9 @@
-import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import { GRID_SIZE, getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import { getCenteredPosition } from './flowCanvasHelpers';
 import type { ClipboardSnapshot } from './flowCanvasTypes';
 
-export function getDropNodePosition(
-  nodeType: string,
-  flowPosition: { x: number; y: number },
-  index: number,
-) {
+export function getDropNodePosition(nodeType: string, flowPosition: { x: number; y: number }, index: number) {
   const base = getCenteredPosition(nodeType, flowPosition);
   return {
     x: base.x + index * 28,
@@ -98,9 +94,7 @@ export function buildClipboardSnapshot(
     .map((node) => {
       const absolutePosition = getAbsoluteNodePosition(node.id, nodeMap, positionMemo);
       const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-      const nextPosition = parentId && selectedSet.has(parentId)
-        ? { ...node.position }
-        : absolutePosition;
+      const nextPosition = parentId && selectedSet.has(parentId) ? { ...node.position } : absolutePosition;
       minX = Math.min(minX, absolutePosition.x);
       minY = Math.min(minY, absolutePosition.y);
       return {
@@ -153,12 +147,10 @@ export function getNodeRenderRect(node: FlowNodeType, nodeMap: Map<string, FlowN
   const inputCount = typeof node.data?.inputCount === 'number' ? node.data.inputCount : 1;
   const fallbackSize = getNodeDefaultSize(node.type || '', inputCount);
   const style = (node.style || {}) as Record<string, unknown>;
-  const width = typeof node.width === 'number'
-    ? node.width
-    : typeof style.width === 'number' ? style.width : fallbackSize.w;
-  const height = typeof node.height === 'number'
-    ? node.height
-    : typeof style.height === 'number' ? style.height : fallbackSize.h;
+  const width =
+    typeof node.width === 'number' ? node.width : typeof style.width === 'number' ? style.width : fallbackSize.w;
+  const height =
+    typeof node.height === 'number' ? node.height : typeof style.height === 'number' ? style.height : fallbackSize.h;
   const position = getAbsoluteNodePosition(node.id, nodeMap);
 
   return {

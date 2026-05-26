@@ -63,9 +63,11 @@ export function isDuplicateMemory(existingMemories, content, conversationId) {
     const existingContent = normalizeMemoryContent(memory?.content, 12000);
     const sameConversation = !conversationId || !memory?.conversationId || memory.conversationId === conversationId;
     if (!sameConversation || !existingContent) return false;
-    return existingContent.includes(text)
-      || text.includes(existingContent)
-      || normalizeMemoryFingerprint(existingContent) === targetFingerprint;
+    return (
+      existingContent.includes(text) ||
+      text.includes(existingContent) ||
+      normalizeMemoryFingerprint(existingContent) === targetFingerprint
+    );
   });
 }
 

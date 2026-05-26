@@ -2,8 +2,8 @@ import type { OutboundProxyMode } from '@/features/settings';
 import type { ThemeMode } from '@/shared/types';
 import { IOSButton, IOSInput, IOSLabel, IOSSegmentedControl } from '@/shared/ui/ios';
 import { formatRuntimeModeLabel, getRuntimeActionHint } from '../runtimePresentation';
-import { SectionCard, eyebrowStyle, mutedPanelStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';
+import { SectionCard, eyebrowStyle, mutedPanelStyle } from './styles';
 
 type Props = {
   actions: SettingsActions;
@@ -35,27 +35,30 @@ export function DefaultsSection({ actions, view }: Props) {
   };
 
   const selectDirectoryHint = getRuntimeActionHint(view.runtimeCapabilities, 'canSelectDirectory');
-  const restartBackendHint = getRuntimeActionHint(view.runtimeCapabilities, 'canRestartBackend');
   const canManageStoragePath = isServerRuntime
     ? true
     : (view.storageSettings?.canManagePath ?? view.canSelectDirectory);
 
   const effectiveRootLabel = isServerRuntime
-    ? (view.clientDownloadDirectory?.label || '未设置浏览器自动下载目录，将回退到手动下载')
+    ? view.clientDownloadDirectory?.label || '未设置浏览器自动下载目录，将回退到手动下载'
     : view.storageSettings?.pathsRedacted
       ? '服务器托管存储目录（路径已隐藏）'
-      : (view.storageSettings?.effectiveRoot || '未获取到路径信息');
+      : view.storageSettings?.effectiveRoot || '未获取到路径信息';
 
   const defaultRootLabel = isServerRuntime
-    ? (view.clientDownloadDirectory?.supported ? '浏览器默认下载位置' : '当前浏览器不支持自动下载目录授权')
+    ? view.clientDownloadDirectory?.supported
+      ? '浏览器默认下载位置'
+      : '当前浏览器不支持自动下载目录授权'
     : view.storageSettings?.pathsRedacted
       ? '服务器托管存储目录（路径已隐藏）'
-      : (view.storageSettings?.defaultRoot || '未获取');
+      : view.storageSettings?.defaultRoot || '未获取';
 
   const pathTitle = isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径';
   const pathPlaceholder = isServerRuntime
     ? '选择后，server-web 输出会优先自动保存到该目录'
-    : (view.storageSettings?.pathsRedacted ? '服务器模式下不开放路径编辑' : '例如：D:\\SueLr-Studio-Data');
+    : view.storageSettings?.pathsRedacted
+      ? '服务器模式下不开放路径编辑'
+      : '例如：D:\\SueLr-Studio-Data';
   const pathDescription = isServerRuntime
     ? '该设置只影响当前浏览器用户接收 server-web 输出时的本地自动下载位置，不会修改服务器宿主机存储路径。'
     : `留空时可点击“恢复默认”。默认路径：${defaultRootLabel}`;
@@ -88,10 +91,12 @@ export function DefaultsSection({ actions, view }: Props) {
               <IOSSegmentedControl
                 options={concurrencyModeOptions}
                 value={view.workflowConcurrency.enabled ? 'on' : 'off'}
-                onChange={(value) => actions.setWorkflowConcurrency({
-                  ...view.workflowConcurrency,
-                  enabled: value === 'on',
-                })}
+                onChange={(value) =>
+                  actions.setWorkflowConcurrency({
+                    ...view.workflowConcurrency,
+                    enabled: value === 'on',
+                  })
+                }
               />
             </div>
           </div>
@@ -104,7 +109,9 @@ export function DefaultsSection({ actions, view }: Props) {
                 const parsed = Number(value);
                 actions.setWorkflowConcurrency({
                   ...view.workflowConcurrency,
-                  maxConcurrency: Number.isFinite(parsed) ? Math.max(1, Math.round(parsed)) : view.workflowConcurrency.maxConcurrency,
+                  maxConcurrency: Number.isFinite(parsed)
+                    ? Math.max(1, Math.round(parsed))
+                    : view.workflowConcurrency.maxConcurrency,
                 });
               }}
               placeholder="5"
@@ -118,9 +125,11 @@ export function DefaultsSection({ actions, view }: Props) {
 
       <SectionCard
         title="外部数据路径"
-        description={isServerRuntime
-          ? '在 server-web 中，这里表示当前浏览器用户接收输出时的本地自动下载目录，不代表服务器宿主机路径。'
-          : '配置工作流、日志、上传文件等数据的存放位置。保存后可能需要重启后端生效。'}
+        description={
+          isServerRuntime
+            ? '在 server-web 中，这里表示当前浏览器用户接收输出时的本地自动下载目录，不代表服务器宿主机路径。'
+            : '配置工作流、日志、上传文件等数据的存放位置。保存后可能需要重启后端生效。'
+        }
       >
         <div className="flex-col" style={{ gap: 12 }}>
           <div data-testid="settings-runtime-storage-mode" style={{ ...mutedPanelStyle(), padding: 14 }}>
@@ -173,11 +182,16 @@ export function DefaultsSection({ actions, view }: Props) {
                 disabled={isServerRuntime || !canManageStoragePath}
               />
               <IOSButton
-                label={view.storagePathPicking ? '选择中...' : (isServerRuntime ? '授权目录' : '选择文件夹')}
+                label={view.storagePathPicking ? '选择中...' : isServerRuntime ? '授权目录' : '选择文件夹'}
                 onClick={() => {
                   void actions.pickStoragePath();
                 }}
-                disabled={view.storagePathPicking || view.storageSettingsSaving || view.storageSettingsLoading || (!isServerRuntime && (!view.canSelectDirectory || !canManageStoragePath))}
+                disabled={
+                  view.storagePathPicking ||
+                  view.storageSettingsSaving ||
+                  view.storageSettingsLoading ||
+                  (!isServerRuntime && (!view.canSelectDirectory || !canManageStoragePath))
+                }
                 data-testid="settings-pick-storage-path"
                 small
                 style={{ width: 'auto', whiteSpace: 'nowrap' }}
@@ -204,17 +218,20 @@ export function DefaultsSection({ actions, view }: Props) {
           >
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <IOSButton
-                label={view.storageSettingsSaving ? '保存中...' : (isServerRuntime ? '应用目录' : '保存路径')}
+                label={view.storageSettingsSaving ? '保存中...' : isServerRuntime ? '应用目录' : '保存路径'}
                 onClick={() => {
                   void actions.saveStoragePath();
                 }}
-                disabled={view.storageSettingsSaving || (!isServerRuntime && (!view.storagePathDraft.trim() || !canManageStoragePath))}
+                disabled={
+                  view.storageSettingsSaving ||
+                  (!isServerRuntime && (!view.storagePathDraft.trim() || !canManageStoragePath))
+                }
                 data-testid="settings-save-storage-path"
                 small
                 style={{ width: 'auto' }}
               />
               <IOSButton
-                label={view.storageSettingsSaving ? '处理中...' : (isServerRuntime ? '清除授权' : '恢复默认')}
+                label={view.storageSettingsSaving ? '处理中...' : isServerRuntime ? '清除授权' : '恢复默认'}
                 onClick={() => {
                   void actions.resetStoragePath();
                 }}
@@ -229,29 +246,26 @@ export function DefaultsSection({ actions, view }: Props) {
                 }}
               />
             </div>
-            <IOSButton
-              label={view.backendRestarting ? '重启中...' : '重启后端'}
-              onClick={() => {
-                void actions.restartBackend();
-              }}
-              disabled={view.backendRestarting || !view.canRestartBackend}
-              data-testid="settings-restart-backend"
-              small
-              style={{
-                width: 'auto',
-                whiteSpace: 'nowrap',
-                background: '#D92D20',
-                color: '#fff',
-                border: '1px solid rgba(217, 45, 32, 0.55)',
-                boxShadow: '0 10px 22px rgba(217, 45, 32, 0.18)',
-              }}
-            />
+            {view.canRestartBackend ? (
+              <IOSButton
+                label={view.backendRestarting ? '重启中...' : '重启后端'}
+                onClick={() => {
+                  void actions.restartBackend();
+                }}
+                disabled={view.backendRestarting}
+                data-testid="settings-restart-backend"
+                small
+                style={{
+                  width: 'auto',
+                  whiteSpace: 'nowrap',
+                  background: '#D92D20',
+                  color: '#fff',
+                  border: '1px solid rgba(217, 45, 32, 0.55)',
+                  boxShadow: '0 10px 22px rgba(217, 45, 32, 0.18)',
+                }}
+              />
+            ) : null}
           </div>
-          {!view.canRestartBackend ? (
-            <div data-testid="settings-restart-backend-hint" style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>
-              {restartBackendHint}
-            </div>
-          ) : null}
         </div>
       </SectionCard>
 
@@ -272,7 +286,8 @@ export function DefaultsSection({ actions, view }: Props) {
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>
             <div style={eyebrowStyle()}>当前策略</div>
             <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              {view.outboundProxy.mode === 'system' && '优先使用 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY 环境变量；Windows 下未设置环境变量时读取系统代理。'}
+              {view.outboundProxy.mode === 'system' &&
+                '优先使用 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY 环境变量；Windows 下未设置环境变量时读取系统代理。'}
               {view.outboundProxy.mode === 'direct' && '后端出站请求将直连，不使用环境变量代理或 Windows 系统代理。'}
               {view.outboundProxy.mode === 'custom' && '后端出站请求优先使用下方自定义代理，并按绕过列表直连匹配目标。'}
             </div>
@@ -283,11 +298,19 @@ export function DefaultsSection({ actions, view }: Props) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
                 <div>
                   <IOSLabel>HTTP 代理</IOSLabel>
-                  <IOSInput value={view.outboundProxy.httpProxy} onChange={(value) => updateProxy({ httpProxy: value })} placeholder="http://127.0.0.1:7890" />
+                  <IOSInput
+                    value={view.outboundProxy.httpProxy}
+                    onChange={(value) => updateProxy({ httpProxy: value })}
+                    placeholder="http://127.0.0.1:7890"
+                  />
                 </div>
                 <div>
                   <IOSLabel>HTTPS 代理</IOSLabel>
-                  <IOSInput value={view.outboundProxy.httpsProxy} onChange={(value) => updateProxy({ httpsProxy: value })} placeholder="http://127.0.0.1:7897" />
+                  <IOSInput
+                    value={view.outboundProxy.httpsProxy}
+                    onChange={(value) => updateProxy({ httpsProxy: value })}
+                    placeholder="http://127.0.0.1:7897"
+                  />
                 </div>
               </div>
               <div>

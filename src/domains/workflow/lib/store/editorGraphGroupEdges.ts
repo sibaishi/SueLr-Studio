@@ -1,10 +1,10 @@
-import type { Edge, Node } from '@xyflow/react';
 import {
   buildGroupHandleId,
   findGroupPort,
   parseGroupHandleId,
   updateGroupPortList,
 } from '@/domains/workflow/lib/groupPorts';
+import type { Edge, Node } from '@xyflow/react';
 
 export function collectCascadeRemovedGroupEdgeIds(nodes: Node[], edges: Edge[], removedEdges: Edge[]) {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
@@ -13,24 +13,25 @@ export function collectCascadeRemovedGroupEdgeIds(nodes: Node[], edges: Edge[], 
   for (const removedEdge of removedEdges) {
     const sourceDescriptor = parseGroupHandleId(removedEdge.sourceHandle);
     if (
-      sourceDescriptor
-      && removedEdge.source
-      && sourceDescriptor.side === 'input'
-      && sourceDescriptor.role === 'internal'
+      sourceDescriptor &&
+      removedEdge.source &&
+      sourceDescriptor.side === 'input' &&
+      sourceDescriptor.role === 'internal'
     ) {
       const groupNode = nodeMap.get(removedEdge.source);
-      const port = groupNode?.type === 'group'
-        ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, 'input', sourceDescriptor.portId)
-        : null;
-      const remainingInsideLinks = (port?.insideLinks || []).filter((link) => !(
-        link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle
-      ));
+      const port =
+        groupNode?.type === 'group'
+          ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, 'input', sourceDescriptor.portId)
+          : null;
+      const remainingInsideLinks = (port?.insideLinks || []).filter(
+        (link) => !(link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle),
+      );
 
       if (port && remainingInsideLinks.length === 0) {
         for (const edge of edges) {
           if (
-            edge.target === removedEdge.source
-            && edge.targetHandle === buildGroupHandleId('input', port.id, 'external')
+            edge.target === removedEdge.source &&
+            edge.targetHandle === buildGroupHandleId('input', port.id, 'external')
           ) {
             removedEdgeIds.add(edge.id);
           }
@@ -40,24 +41,25 @@ export function collectCascadeRemovedGroupEdgeIds(nodes: Node[], edges: Edge[], 
 
     const targetDescriptor = parseGroupHandleId(removedEdge.targetHandle);
     if (
-      targetDescriptor
-      && removedEdge.target
-      && targetDescriptor.side === 'output'
-      && targetDescriptor.role === 'internal'
+      targetDescriptor &&
+      removedEdge.target &&
+      targetDescriptor.side === 'output' &&
+      targetDescriptor.role === 'internal'
     ) {
       const groupNode = nodeMap.get(removedEdge.target);
-      const port = groupNode?.type === 'group'
-        ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, 'output', targetDescriptor.portId)
-        : null;
-      const remainingInsideLinks = (port?.insideLinks || []).filter((link) => !(
-        link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle
-      ));
+      const port =
+        groupNode?.type === 'group'
+          ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, 'output', targetDescriptor.portId)
+          : null;
+      const remainingInsideLinks = (port?.insideLinks || []).filter(
+        (link) => !(link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle),
+      );
 
       if (port && remainingInsideLinks.length === 0) {
         for (const edge of edges) {
           if (
-            edge.source === removedEdge.target
-            && edge.sourceHandle === buildGroupHandleId('output', port.id, 'external')
+            edge.source === removedEdge.target &&
+            edge.sourceHandle === buildGroupHandleId('output', port.id, 'external')
           ) {
             removedEdgeIds.add(edge.id);
           }
@@ -83,89 +85,97 @@ export function removeGroupPortLinksFromNodes(nodes: Node[], removedEdges: Edge[
       const targetDescriptor = parseGroupHandleId(removedEdge.targetHandle);
 
       if (
-        sourceDescriptor
-        && removedEdge.source === node.id
-        && sourceDescriptor.side === 'input'
-        && sourceDescriptor.role === 'internal'
+        sourceDescriptor &&
+        removedEdge.source === node.id &&
+        sourceDescriptor.side === 'input' &&
+        sourceDescriptor.role === 'internal'
       ) {
         nextData = {
           ...nextData,
-          ...updateGroupPortList(nextData, 'input', (ports) => ports.map((port) => (
-            port.id !== sourceDescriptor.portId
-              ? port
-              : {
-                  ...port,
-                  insideLinks: port.insideLinks.filter((link) => !(
-                    link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle
-                  )),
-                }
-          ))),
+          ...updateGroupPortList(nextData, 'input', (ports) =>
+            ports.map((port) =>
+              port.id !== sourceDescriptor.portId
+                ? port
+                : {
+                    ...port,
+                    insideLinks: port.insideLinks.filter(
+                      (link) => !(link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle),
+                    ),
+                  },
+            ),
+          ),
         };
         didChange = true;
       }
 
       if (
-        targetDescriptor
-        && removedEdge.target === node.id
-        && targetDescriptor.side === 'output'
-        && targetDescriptor.role === 'internal'
+        targetDescriptor &&
+        removedEdge.target === node.id &&
+        targetDescriptor.side === 'output' &&
+        targetDescriptor.role === 'internal'
       ) {
         nextData = {
           ...nextData,
-          ...updateGroupPortList(nextData, 'output', (ports) => ports.map((port) => (
-            port.id !== targetDescriptor.portId
-              ? port
-              : {
-                  ...port,
-                  insideLinks: port.insideLinks.filter((link) => !(
-                    link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle
-                  )),
-                }
-          ))),
+          ...updateGroupPortList(nextData, 'output', (ports) =>
+            ports.map((port) =>
+              port.id !== targetDescriptor.portId
+                ? port
+                : {
+                    ...port,
+                    insideLinks: port.insideLinks.filter(
+                      (link) => !(link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle),
+                    ),
+                  },
+            ),
+          ),
         };
         didChange = true;
       }
 
       if (
-        targetDescriptor
-        && removedEdge.target === node.id
-        && targetDescriptor.side === 'input'
-        && targetDescriptor.role === 'external'
+        targetDescriptor &&
+        removedEdge.target === node.id &&
+        targetDescriptor.side === 'input' &&
+        targetDescriptor.role === 'external'
       ) {
         nextData = {
           ...nextData,
-          ...updateGroupPortList(nextData, 'input', (ports) => ports.map((port) => (
-            port.id !== targetDescriptor.portId
-              ? port
-              : {
-                  ...port,
-                  outsideLinks: port.outsideLinks.filter((link) => !(
-                    link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle
-                  )),
-                }
-          ))),
+          ...updateGroupPortList(nextData, 'input', (ports) =>
+            ports.map((port) =>
+              port.id !== targetDescriptor.portId
+                ? port
+                : {
+                    ...port,
+                    outsideLinks: port.outsideLinks.filter(
+                      (link) => !(link.nodeId === removedEdge.source && link.handleId === removedEdge.sourceHandle),
+                    ),
+                  },
+            ),
+          ),
         };
         didChange = true;
       }
 
       if (
-        sourceDescriptor
-        && removedEdge.source === node.id
-        && sourceDescriptor.side === 'output'
-        && sourceDescriptor.role === 'external'
+        sourceDescriptor &&
+        removedEdge.source === node.id &&
+        sourceDescriptor.side === 'output' &&
+        sourceDescriptor.role === 'external'
       ) {
         nextData = {
           ...nextData,
-          ...updateGroupPortList(nextData, 'output', (ports) => ports.map((port) => (
-            port.id !== sourceDescriptor.portId
-              ? port
-              : {
-                  ...port,
-                  outsideLinks: port.outsideLinks.filter((link) => !(
-                    link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle
-                  )),
-                }
-          ))),
+          ...updateGroupPortList(nextData, 'output', (ports) =>
+            ports.map((port) =>
+              port.id !== sourceDescriptor.portId
+                ? port
+                : {
+                    ...port,
+                    outsideLinks: port.outsideLinks.filter(
+                      (link) => !(link.nodeId === removedEdge.target && link.handleId === removedEdge.targetHandle),
+                    ),
+                  },
+            ),
+          ),
         };
         didChange = true;
       }
@@ -191,21 +201,22 @@ export function removeGroupPortLinksReferencingNodes(nodes: Node[], removedNodeI
     for (const side of ['input', 'output'] as const) {
       nextData = {
         ...nextData,
-        ...updateGroupPortList(nextData, side, (ports) => ports.map((port) => {
-          const insideLinks = port.insideLinks.filter((link) => !removedNodeIds.has(link.nodeId));
-          const outsideLinks = insideLinks.length === 0
-            ? []
-            : port.outsideLinks.filter((link) => !removedNodeIds.has(link.nodeId));
-          if (insideLinks.length === port.insideLinks.length && outsideLinks.length === port.outsideLinks.length) {
-            return port;
-          }
-          didChange = true;
-          return {
-            ...port,
-            insideLinks,
-            outsideLinks,
-          };
-        })),
+        ...updateGroupPortList(nextData, side, (ports) =>
+          ports.map((port) => {
+            const insideLinks = port.insideLinks.filter((link) => !removedNodeIds.has(link.nodeId));
+            const outsideLinks =
+              insideLinks.length === 0 ? [] : port.outsideLinks.filter((link) => !removedNodeIds.has(link.nodeId));
+            if (insideLinks.length === port.insideLinks.length && outsideLinks.length === port.outsideLinks.length) {
+              return port;
+            }
+            didChange = true;
+            return {
+              ...port,
+              insideLinks,
+              outsideLinks,
+            };
+          }),
+        ),
       };
     }
 

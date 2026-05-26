@@ -11,11 +11,11 @@ export function createOwnershipMetadata(scope) {
 
 export function ensureResourceOwnership(resource, scope) {
   if (!resource || typeof resource !== 'object' || Array.isArray(resource)) return resource;
-  const existingScope = resource.ownershipScope || (
-    resource.scope && typeof resource.scope === 'object' && !Array.isArray(resource.scope)
+  const existingScope =
+    resource.ownershipScope ||
+    (resource.scope && typeof resource.scope === 'object' && !Array.isArray(resource.scope)
       ? resource.scope
-      : undefined
-  );
+      : undefined);
   const ownership = createOwnershipMetadata({
     ...scope,
     userId: resource.ownerUserId || existingScope?.userId || scope?.userId,
@@ -26,9 +26,7 @@ export function ensureResourceOwnership(resource, scope) {
     ...resource,
     ownerUserId: resource.ownerUserId || ownership.ownerUserId,
     workspaceId: resource.workspaceId || ownership.workspaceId,
-    ownershipScope: existingScope
-      ? normalizeRequestScope(existingScope, ownership.scope)
-      : ownership.scope,
+    ownershipScope: existingScope ? normalizeRequestScope(existingScope, ownership.scope) : ownership.scope,
   };
 }
 

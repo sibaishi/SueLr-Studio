@@ -1,10 +1,10 @@
-import { createLogger } from '../../platform/logging/logger.js';
 import { AppError, ConflictError, fromLegacyError } from '../../app/errors/index.js';
-import { settingsRepository } from './settings.repository.js';
-import { selectDirectory as selectSystemDirectory } from '../../platform/system/select-directory.js';
-import { scheduleBackendRestart } from '../../platform/system/restart-backend.js';
-import { executionService } from '../execution/execution.service.js';
+import { createLogger } from '../../platform/logging/logger.js';
 import { getRuntimeCapabilities } from '../../platform/runtime/index.js';
+import { scheduleBackendRestart } from '../../platform/system/restart-backend.js';
+import { selectDirectory as selectSystemDirectory } from '../../platform/system/select-directory.js';
+import { executionService } from '../execution/execution.service.js';
+import { settingsRepository } from './settings.repository.js';
 
 const logger = createLogger({ module: 'settings-service' });
 const REDACTED_STORAGE_LABEL = '[server-managed]';
@@ -83,7 +83,11 @@ export class SettingsService {
   }
 
   updateStorageSettings(patch) {
-    this.assertCapability('canSelectDirectory', 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE', '当前运行模式不支持修改存储路径');
+    this.assertCapability(
+      'canSelectDirectory',
+      'STORAGE_PATH_MANAGEMENT_UNAVAILABLE',
+      '当前运行模式不支持修改存储路径',
+    );
     try {
       const updated = this.repository.updateStorageSettings(patch);
       logger.info('storage settings updated', { source: updated.source });
@@ -94,7 +98,11 @@ export class SettingsService {
   }
 
   resetStorageSettings() {
-    this.assertCapability('canSelectDirectory', 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE', '当前运行模式不支持修改存储路径');
+    this.assertCapability(
+      'canSelectDirectory',
+      'STORAGE_PATH_MANAGEMENT_UNAVAILABLE',
+      '当前运行模式不支持修改存储路径',
+    );
     try {
       const updated = this.repository.resetStorageSettings();
       logger.info('storage settings reset', { source: updated.source });

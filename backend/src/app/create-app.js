@@ -1,27 +1,21 @@
-import express from 'express';
-import cors from 'cors';
 import { existsSync } from 'node:fs';
 import path, { resolve } from 'node:path';
-import executeRoutes from '../modules/execution/execution.routes.js';
-import workflowRoutes from '../modules/workflows/workflows.routes.js';
-import assistantRoutes from '../modules/assistant/assistant.routes.js';
-import agentRoutes from '../modules/agent/agent.routes.js';
-import imageRoutes from '../modules/images/images.routes.js';
-import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.js';
-import settingsRoutes from '../modules/settings/settings.routes.js';
+import cors from 'cors';
+import express from 'express';
 import adminConfigRoutes from '../modules/admin-config/admin-config.routes.js';
+import agentRoutes from '../modules/agent/agent.routes.js';
+import assistantRoutes from '../modules/assistant/assistant.routes.js';
+import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.js';
+import executeRoutes from '../modules/execution/execution.routes.js';
 import storageRoutes from '../modules/files/files.routes.js';
-import { errorEnvelope, successEnvelope } from './http/envelope.js';
-import { errorHandler } from './middleware/error-handler.js';
-import { requestContextMiddleware } from './middleware/request-context.js';
-import { requestLoggerMiddleware } from './middleware/request-logger.js';
-import {
-  STORAGE_PATHS,
-  ensureStorageDirectories,
-  getScopedStoragePaths,
-  migrateLegacyStorageIfNeeded,
-  safeResolveWithin,
-} from '../platform/storage/index.js';
+import { filesService } from '../modules/files/files.service.js';
+import imageRoutes from '../modules/images/images.routes.js';
+import settingsRoutes from '../modules/settings/settings.routes.js';
+import workflowRoutes from '../modules/workflows/workflows.routes.js';
+import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.js';
+import { getRequestContext } from '../platform/logging/request-context.js';
+import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
+import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js';
 import {
   ensureGeneratedThumbnailFromFile,
   ensureUploadThumbnail,
@@ -29,12 +23,18 @@ import {
   resolveUploadOriginalFromThumbnailName,
 } from '../platform/media/image-thumbnails.js';
 import { getMimeType } from '../platform/media/media-resolver.js';
-import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js';
-import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.js';
-import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
 import { getRuntimeCapabilities, summarizeScopeFoundation } from '../platform/runtime/index.js';
-import { getRequestContext } from '../platform/logging/request-context.js';
-import { filesService } from '../modules/files/files.service.js';
+import {
+  STORAGE_PATHS,
+  ensureStorageDirectories,
+  getScopedStoragePaths,
+  migrateLegacyStorageIfNeeded,
+  safeResolveWithin,
+} from '../platform/storage/index.js';
+import { errorEnvelope, successEnvelope } from './http/envelope.js';
+import { errorHandler } from './middleware/error-handler.js';
+import { requestContextMiddleware } from './middleware/request-context.js';
+import { requestLoggerMiddleware } from './middleware/request-logger.js';
 
 function buildAllowedOrigins() {
   const configured = String(process.env.APP_ALLOWED_ORIGINS || '')
@@ -65,24 +65,26 @@ export function createApp() {
   const allowedOrigins = buildAllowedOrigins();
   const runtimeCapabilities = getRuntimeCapabilities();
 
-  app.use(cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error('CORS origin not allowed'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Admin-Access-Key',
-      'X-SueLr-User-Id',
-      'X-SueLr-Workspace-Id',
-      'X-SueLr-Runtime-Mode',
-    ],
-  }));
+  app.use(
+    cors({
+      origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error('CORS origin not allowed'));
+      },
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Admin-Access-Key',
+        'X-SueLr-User-Id',
+        'X-SueLr-Workspace-Id',
+        'X-SueLr-Runtime-Mode',
+      ],
+    }),
+  );
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.locals.runtimeCapabilities = runtimeCapabilities;
@@ -161,13 +163,15 @@ export function createApp() {
   });
 
   app.get('/api/status', (_req, res) => {
-    res.json(successEnvelope({
-      ok: true,
-      version: '1.0.0',
-      processInstanceId: getProcessInstanceId(),
-      runtime: runtimeCapabilities,
-      scope: summarizeScopeFoundation(getRequestContext()?.scope),
-    }));
+    res.json(
+      successEnvelope({
+        ok: true,
+        version: '1.0.0',
+        processInstanceId: getProcessInstanceId(),
+        runtime: runtimeCapabilities,
+        scope: summarizeScopeFoundation(getRequestContext()?.scope),
+      }),
+    );
   });
 
   const frontendDist = process.env.APP_FRONTEND_DIST ? resolve(process.env.APP_FRONTEND_DIST) : '';

@@ -103,7 +103,12 @@ function getDirectoryMetaLabel(handle: BrowserDirectoryHandle) {
 
 function sanitizeFilename(value: string, fallback = 'download') {
   const trimmed = String(value || fallback).trim();
-  return trimmed.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').slice(0, 180) || fallback;
+  return (
+    trimmed
+      .replace(/[\\/:*?"<>|]/g, '-')
+      .replace(/\s+/g, ' ')
+      .slice(0, 180) || fallback
+  );
 }
 
 async function ensureDirectoryPermission(handle: BrowserDirectoryHandle, options?: { interactive?: boolean }) {

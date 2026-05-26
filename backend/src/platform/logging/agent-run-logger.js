@@ -1,7 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { STORAGE_PATHS } from '../storage/index.js';
+import fs from 'node:fs';
+import path from 'node:path';
 import { ensureDir } from '../storage/ensure-dir.js';
+import { STORAGE_PATHS } from '../storage/index.js';
 import { getProcessInstanceId } from './runtime-observability.js';
 
 const MAX_STRING_LENGTH = 2000;
@@ -33,9 +33,7 @@ function sanitizeValue(value, depth = 0) {
   }
   if (Array.isArray(value)) return value.map((item) => sanitizeValue(item, depth + 1));
   if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, sanitizeValue(item, depth + 1)]),
-    );
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeValue(item, depth + 1)]));
   }
   return value;
 }

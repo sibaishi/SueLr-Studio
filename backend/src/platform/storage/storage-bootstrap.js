@@ -1,7 +1,7 @@
-import path from 'path';
+import path from 'node:path';
 import { ValidationError } from '../../app/errors/index.js';
 import { readJsonFile, writeJsonFile } from './json-store.js';
-import { getDefaultConfigRoot, PROJECT_ROOT } from './storage-base.js';
+import { PROJECT_ROOT, getDefaultConfigRoot } from './storage-base.js';
 
 const BOOTSTRAP_CONFIG_VERSION = 1;
 

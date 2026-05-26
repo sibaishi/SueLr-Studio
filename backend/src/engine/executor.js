@@ -1,3 +1,4 @@
+import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.js';
 import { getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.js';
 import {
   collectInputs,
@@ -7,7 +8,6 @@ import {
   validateWorkflow,
 } from './executor-helpers.js';
 import { NODE_EXECUTORS } from './nodes/index.js';
-import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.js';
 
 const ITERATE_RUN_NODE_TYPE = 'iterateRun';
 const ITERATE_IMAGE_RUN_NODE_TYPE = 'iterateImageRun';
@@ -19,9 +19,10 @@ const DEFAULT_WORKFLOW_CONCURRENCY = {
 function normalizeWorkflowConcurrency(value) {
   const enabled = value?.enabled === true;
   const parsedMaxConcurrency = Number(value?.maxConcurrency);
-  const maxConcurrency = Number.isFinite(parsedMaxConcurrency) && parsedMaxConcurrency > 0
-    ? Math.max(1, Math.round(parsedMaxConcurrency))
-    : DEFAULT_WORKFLOW_CONCURRENCY.maxConcurrency;
+  const maxConcurrency =
+    Number.isFinite(parsedMaxConcurrency) && parsedMaxConcurrency > 0
+      ? Math.max(1, Math.round(parsedMaxConcurrency))
+      : DEFAULT_WORKFLOW_CONCURRENCY.maxConcurrency;
   return {
     enabled,
     maxConcurrency: enabled ? maxConcurrency : 1,
@@ -67,16 +68,12 @@ function isIterateControlNodeType(type) {
 }
 
 function getIterateMissingInputError(type) {
-  return type === ITERATE_IMAGE_RUN_NODE_TYPE
-    ? '图像逐项运行没有可用的图片输入'
-    : '逐项运行没有可用的文本输入';
+  return type === ITERATE_IMAGE_RUN_NODE_TYPE ? '图像逐项运行没有可用的图片输入' : '逐项运行没有可用的文本输入';
 }
 
 function getReachableNodeIds(sourceId, edges) {
   const reachable = new Set();
-  const queue = edges
-    .filter((edge) => edge.source === sourceId)
-    .map((edge) => edge.target);
+  const queue = edges.filter((edge) => edge.source === sourceId).map((edge) => edge.target);
 
   while (queue.length > 0) {
     const nodeId = queue.shift();
@@ -97,9 +94,7 @@ function getIterateInputIndex(handleId) {
 
 function normalizeIterationItems(value) {
   if (Array.isArray(value)) {
-    return value
-      .map((item) => normalizeIterationItems(item))
-      .flat();
+    return value.flatMap((item) => normalizeIterationItems(item));
   }
 
   if (value === undefined || value === null) return [];
@@ -141,7 +136,9 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
 
   const executableNodes = nodes.filter((node) => isExecutableNodeType(node.type) && !node.data?.disabled);
   const executableNodeIds = new Set(executableNodes.map((node) => node.id));
-  const executableEdges = edges.filter((edge) => executableNodeIds.has(edge.source) && executableNodeIds.has(edge.target));
+  const executableEdges = edges.filter(
+    (edge) => executableNodeIds.has(edge.source) && executableNodeIds.has(edge.target),
+  );
 
   if (executableNodes.length === 0) {
     sendSSE(WORKFLOW_SSE_EVENTS.VALIDATION_FAILED, { error: '工作流中没有可执行节点' });
@@ -291,9 +288,7 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
 
     const getOperationDependencies = (node) => {
       const dependencies = new Set(
-        executableEdges
-          .filter((edge) => edge.target === node.id)
-          .map((edge) => edge.source),
+        executableEdges.filter((edge) => edge.target === node.id).map((edge) => edge.source),
       );
 
       if (isIterateControlNodeType(node.type)) {
@@ -308,12 +303,11 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
       return dependencies;
     };
 
-    const dependenciesReady = (dependencies) => (
+    const dependenciesReady = (dependencies) =>
       [...dependencies].every((nodeId) => {
         if (runnableNodeIds.has(nodeId)) return completedNodeIds.has(nodeId);
         return Object.prototype.hasOwnProperty.call(scopedOutputs, nodeId);
-      })
-    );
+      });
 
     const runIterateNode = async (node) => {
       const index = getNodeIndex(node.id);
@@ -332,38 +326,42 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
         });
       }
 
-      await runWithConcurrency(iterationItems, async (item, iterationIndex) => {
-        const iteration = {
-          sourceNodeId: node.id,
-          index: iterationIndex + 1,
-          total: iterationItems.length,
-          inputHandle: item.inputHandle,
-          sourceInputNodeId: item.sourceNodeId,
-          sourceHandle: item.sourceHandle,
-          ...(parentIteration ? { parent: parentIteration } : {}),
-        };
-        const iterationOutputs = {
-          ...scopedOutputs,
-          [node.id]: { [item.outputKey]: item.value },
-        };
+      await runWithConcurrency(
+        iterationItems,
+        async (item, iterationIndex) => {
+          const iteration = {
+            sourceNodeId: node.id,
+            index: iterationIndex + 1,
+            total: iterationItems.length,
+            inputHandle: item.inputHandle,
+            sourceInputNodeId: item.sourceNodeId,
+            sourceHandle: item.sourceHandle,
+            ...(parentIteration ? { parent: parentIteration } : {}),
+          };
+          const iterationOutputs = {
+            ...scopedOutputs,
+            [node.id]: { [item.outputKey]: item.value },
+          };
 
-        sendSSE(WORKFLOW_SSE_EVENTS.NODE_STARTED, {
-          nodeId: node.id,
-          nodeType: node.type,
-          index,
-          total: sorted.length,
-          iteration,
-        });
-        sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
-          nodeId: node.id,
-          outputs: { [item.outputKey]: item.value },
-          logOutputs: { [item.outputKey]: item.value },
-          duration: 0,
-          iteration,
-        });
+          sendSSE(WORKFLOW_SSE_EVENTS.NODE_STARTED, {
+            nodeId: node.id,
+            nodeType: node.type,
+            index,
+            total: sorted.length,
+            iteration,
+          });
+          sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
+            nodeId: node.id,
+            outputs: { [item.outputKey]: item.value },
+            logOutputs: { [item.outputKey]: item.value },
+            duration: 0,
+            iteration,
+          });
 
-        await runSegment(downstreamNodes, iterationOutputs, iteration);
-      }, workflowConcurrency.maxConcurrency);
+          await runSegment(downstreamNodes, iterationOutputs, iteration);
+        },
+        workflowConcurrency.maxConcurrency,
+      );
     };
 
     const runOperation = async (node) => {
@@ -399,7 +397,9 @@ export async function executeWorkflow(workflow, apiConfig, sendSSE, executionCon
         if (firstError) throw firstError;
         const blockedNodeId = pendingNodeIds.values().next().value;
         const blockedNode = segmentNodesById.get(blockedNodeId);
-        throw new Error(`Workflow execution could not resolve dependencies for node: ${blockedNode?.id || blockedNodeId}`);
+        throw new Error(
+          `Workflow execution could not resolve dependencies for node: ${blockedNode?.id || blockedNodeId}`,
+        );
       }
 
       const settled = await Promise.race(running.values());

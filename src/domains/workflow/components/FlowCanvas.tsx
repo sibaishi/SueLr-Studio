@@ -1,54 +1,57 @@
+import { uploadFile } from '@/domains/workflow/lib/api';
 import {
-  Background,
-  BackgroundVariant,
-  ConnectionMode,
-  Controls,
-  MiniMap,
-  ReactFlow,
-  ReactFlowProvider,
-  useReactFlow,
-  type Connection,
-  type CoordinateExtent,
-  type Edge,
-  type EdgeChange,
-  type EdgeMouseHandler,
-  type Node as FlowNodeType,
-  type NodeChange,
-  type NodeMouseHandler,
-} from '@xyflow/react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type DragEvent,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-} from 'react';
-import {
-  getExpandedNodeOutputs,
-  getNodeDef,
   GRID_SIZE,
   NODE_REGISTRY,
   PORT_COMPATIBILITY,
+  getExpandedNodeOutputs,
+  getNodeDef,
 } from '@/domains/workflow/lib/constants';
-import { uploadFile } from '@/domains/workflow/lib/api';
-import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
-import {
-  findGroupPort,
-  isGroupPortExternallyConnectable,
-  parseGroupHandleId,
-} from '@/domains/workflow/lib/groupPorts';
 import {
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
   pushRootNodeOutsideGroupAreas,
 } from '@/domains/workflow/lib/groupLayout';
+import { findGroupPort, isGroupPortExternallyConnectable, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/domains/workflow/lib/store/selectors';
+import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
+import {
+  Background,
+  BackgroundVariant,
+  type Connection,
+  ConnectionMode,
+  Controls,
+  type CoordinateExtent,
+  type Edge,
+  type EdgeChange,
+  type EdgeMouseHandler,
+  type Node as FlowNodeType,
+  MiniMap,
+  type NodeChange,
+  type NodeMouseHandler,
+  ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
+} from '@xyflow/react';
+import {
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
+import {
+  buildClipboardSnapshot,
+  getAbsoluteNodePosition,
+  getDropNodePosition,
+  snapNodeBox,
+  snapValue,
+} from './flowCanvasClipboard';
 import {
   FLOW_CATEGORY_LABELS,
   FLOW_CATEGORY_ORDER,
@@ -59,35 +62,14 @@ import {
   FLOW_NODE_TYPES,
 } from './flowCanvasConfig';
 import {
-  buildDefaultData,
-  getCenteredPosition,
-  getDroppedFileNodeType,
-} from './flowCanvasHelpers';
-import {
   canConnectToGroupHandleExternally,
   getInputType,
   getOutputType,
   getParentId,
   resolveDirectionalGroupConnection,
 } from './flowCanvasConnections';
-import {
-  buildClipboardSnapshot,
-  getAbsoluteNodePosition,
-  getDropNodePosition,
-  snapNodeBox,
-  snapValue,
-} from './flowCanvasClipboard';
 import { findCuttableEdgesAlongSegment } from './flowCanvasGeometry';
-import {
-  buildEdgeInsertionPreviewEdges,
-  findEdgeInsertionCandidate,
-  getContextMenuLayout,
-  getEdgeDataTypeColor,
-  getLocalPoint,
-  getNearestGroupAncestorId,
-  isPaneBackgroundTarget,
-  DEFAULT_WORKFLOW_EDGE_STYLE,
-} from './flowCanvasUiHelpers';
+import { buildDefaultData, getCenteredPosition, getDroppedFileNodeType } from './flowCanvasHelpers';
 import { buildFlowCanvasRenderModel } from './flowCanvasRenderModel';
 import { formatCanvasUploadError, isEditableElement } from './flowCanvasText';
 import type {
@@ -97,6 +79,16 @@ import type {
   EdgeInsertionCandidate,
   PendingConnection,
 } from './flowCanvasTypes';
+import {
+  DEFAULT_WORKFLOW_EDGE_STYLE,
+  buildEdgeInsertionPreviewEdges,
+  findEdgeInsertionCandidate,
+  getContextMenuLayout,
+  getEdgeDataTypeColor,
+  getLocalPoint,
+  getNearestGroupAncestorId,
+  isPaneBackgroundTarget,
+} from './flowCanvasUiHelpers';
 import { NODE_ICONS } from './nodes/nodeConstants';
 import './contextMenu.css';
 
@@ -131,10 +123,12 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    onViewportCenterChange?.(reactFlow.screenToFlowPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    }));
+    onViewportCenterChange?.(
+      reactFlow.screenToFlowPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      }),
+    );
   }, [onViewportCenterChange, reactFlow]);
 
   useEffect(() => {
@@ -188,17 +182,21 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     };
   }, [store, wasContextMenuJustOpened]);
 
-  const renderModel = useMemo(() => buildFlowCanvasRenderModel({
-    nodes: store.nodes as FlowNodeType[],
-    edges: store.edges,
-  }), [store.edges, store.nodes]);
+  const renderModel = useMemo(
+    () =>
+      buildFlowCanvasRenderModel({
+        nodes: store.nodes as FlowNodeType[],
+        edges: store.edges,
+      }),
+    [store.edges, store.nodes],
+  );
 
   const renderNodes = renderModel.nodes;
   const renderEdges = useMemo(() => {
     const previewEdges = buildEdgeInsertionPreviewEdges(edgeInsertionCandidate, renderNodes, renderModel.edges);
     const renderNodeMap = new Map(renderNodes.map((node) => [node.id, node]));
     return [
-      ...renderModel.edges.map((edge) => (
+      ...renderModel.edges.map((edge) =>
         edge.id !== edgeInsertionCandidate?.edgeId
           ? edge
           : {
@@ -210,8 +208,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
                 stroke: getEdgeDataTypeColor(edge, renderNodeMap),
                 strokeWidth: 2,
               },
-            }
-      )),
+            },
+      ),
       ...previewEdges,
     ];
   }, [edgeInsertionCandidate, renderModel.edges, renderNodes]);
@@ -224,20 +222,21 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
       if (!node || !groupNode || groupNode.type !== 'group') return {};
 
       const groupPosition = getAbsoluteNodePosition(groupId, nodeMap);
-      const nextNode = constrainChildNodeToGroupContent({
-        ...node,
-        parentId: groupId,
-        extent: 'parent',
-        position: {
-          x: node.position.x - groupPosition.x,
-          y: node.position.y - groupPosition.y,
+      const nextNode = constrainChildNodeToGroupContent(
+        {
+          ...node,
+          parentId: groupId,
+          extent: 'parent',
+          position: {
+            x: node.position.x - groupPosition.x,
+            y: node.position.y - groupPosition.y,
+          },
         },
-      }, groupNode);
+        groupNode,
+      );
 
       return {
-        nodes: enforceGroupLayout(state.nodes.map((item) => (
-          item.id === nodeId ? nextNode : item
-        ))),
+        nodes: enforceGroupLayout(state.nodes.map((item) => (item.id === nodeId ? nextNode : item))),
         hasUnsavedChanges: true,
       };
     });
@@ -269,10 +268,10 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     }
 
     if (
-      targetGroupHandle
-      && targetNode.type === 'group'
-      && targetGroupHandle.side === 'output'
-      && targetGroupHandle.role === 'internal'
+      targetGroupHandle &&
+      targetNode.type === 'group' &&
+      targetGroupHandle.side === 'output' &&
+      targetGroupHandle.role === 'internal'
     ) {
       currentStore.addEdge(
         resolvedConnection.source,
@@ -284,10 +283,10 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     }
 
     if (
-      sourceGroupHandle
-      && sourceNode.type === 'group'
-      && sourceGroupHandle.side === 'input'
-      && sourceGroupHandle.role === 'internal'
+      sourceGroupHandle &&
+      sourceNode.type === 'group' &&
+      sourceGroupHandle.side === 'input' &&
+      sourceGroupHandle.role === 'internal'
     ) {
       currentStore.addEdge(
         resolvedConnection.source,
@@ -299,12 +298,16 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     }
 
     if (
-      sourceGroupHandle
-      && sourceNode.type === 'group'
-      && sourceGroupHandle.side === 'output'
-      && sourceGroupHandle.role === 'external'
+      sourceGroupHandle &&
+      sourceNode.type === 'group' &&
+      sourceGroupHandle.side === 'output' &&
+      sourceGroupHandle.role === 'external'
     ) {
-      const sourcePort = findGroupPort((sourceNode.data || {}) as Record<string, unknown>, 'output', sourceGroupHandle.portId);
+      const sourcePort = findGroupPort(
+        (sourceNode.data || {}) as Record<string, unknown>,
+        'output',
+        sourceGroupHandle.portId,
+      );
       if (sourcePort && isGroupPortExternallyConnectable(sourcePort)) {
         currentStore.addEdge(
           resolvedConnection.source,
@@ -317,12 +320,16 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     }
 
     if (
-      targetGroupHandle
-      && targetNode.type === 'group'
-      && targetGroupHandle.side === 'input'
-      && targetGroupHandle.role === 'external'
+      targetGroupHandle &&
+      targetNode.type === 'group' &&
+      targetGroupHandle.side === 'input' &&
+      targetGroupHandle.role === 'external'
     ) {
-      const targetPort = findGroupPort((targetNode.data || {}) as Record<string, unknown>, 'input', targetGroupHandle.portId);
+      const targetPort = findGroupPort(
+        (targetNode.data || {}) as Record<string, unknown>,
+        'input',
+        targetGroupHandle.portId,
+      );
       if (targetPort && isGroupPortExternallyConnectable(targetPort)) {
         currentStore.addEdge(
           resolvedConnection.source,
@@ -339,22 +346,28 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     setActiveCategory(null);
   }, []);
 
-  const resolveRenderableEdgeId = useCallback((edge: Edge) => {
-    if (edge.id.startsWith('virtual:')) {
-      return edge.id.slice('virtual:'.length);
-    }
+  const resolveRenderableEdgeId = useCallback(
+    (edge: Edge) => {
+      if (edge.id.startsWith('virtual:')) {
+        return edge.id.slice('virtual:'.length);
+      }
 
-    if (edge.id.startsWith('group-binding:')) {
-      return store.edges.find((candidate) => (
-        candidate.source === edge.source
-        && candidate.sourceHandle === edge.sourceHandle
-        && candidate.target === edge.target
-        && candidate.targetHandle === edge.targetHandle
-      ))?.id || null;
-    }
+      if (edge.id.startsWith('group-binding:')) {
+        return (
+          store.edges.find(
+            (candidate) =>
+              candidate.source === edge.source &&
+              candidate.sourceHandle === edge.sourceHandle &&
+              candidate.target === edge.target &&
+              candidate.targetHandle === edge.targetHandle,
+          )?.id || null
+        );
+      }
 
-    return edge.id;
-  }, [store.edges]);
+      return edge.id;
+    },
+    [store.edges],
+  );
 
   const endEdgeCutting = useCallback(() => {
     edgeCutPreviousPointRef.current = null;
@@ -362,233 +375,271 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     setEdgeCuttingActive(false);
   }, []);
 
-  const cutEdgesAlongPointerSegment = useCallback((
-    start: { x: number; y: number },
-    end: { x: number; y: number },
-  ) => {
-    const cuttableEdges = findCuttableEdgesAlongSegment(start, end, renderNodes, renderModel.edges, 14);
+  const cutEdgesAlongPointerSegment = useCallback(
+    (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const cuttableEdges = findCuttableEdgesAlongSegment(start, end, renderNodes, renderModel.edges, 14);
 
-    for (const edge of cuttableEdges) {
-      const edgeId = resolveRenderableEdgeId(edge);
-      if (!edgeId || edgeCutRemovedIdsRef.current.has(edgeId)) continue;
-      edgeCutRemovedIdsRef.current.add(edgeId);
-      store.removeEdge(edgeId);
-    }
-  }, [renderModel.edges, renderNodes, resolveRenderableEdgeId, store]);
-
-  const getPointerFlowPosition = useCallback((event: ReactPointerEvent<HTMLDivElement>) => (
-    reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY })
-  ), [reactFlow]);
-
-  const onCanvasPointerDownCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!event.altKey || event.button !== 0 || isEditableElement(event.target)) return;
-
-    const position = getPointerFlowPosition(event);
-    edgeCutPreviousPointRef.current = position;
-    edgeCutRemovedIdsRef.current.clear();
-    setEdgeCuttingActive(true);
-    closeContextMenu();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    event.preventDefault();
-    event.stopPropagation();
-  }, [closeContextMenu, getPointerFlowPosition]);
-
-  const onCanvasPointerMoveCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!edgeCuttingActive) return;
-
-    if (!event.altKey || (event.buttons & 1) !== 1) {
-      endEdgeCutting();
-      return;
-    }
-
-    const current = getPointerFlowPosition(event);
-    const previous = edgeCutPreviousPointRef.current || current;
-    cutEdgesAlongPointerSegment(previous, current);
-    edgeCutPreviousPointRef.current = current;
-    event.preventDefault();
-    event.stopPropagation();
-  }, [cutEdgesAlongPointerSegment, edgeCuttingActive, endEdgeCutting, getPointerFlowPosition]);
-
-  const onCanvasPointerUpCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!edgeCuttingActive) return;
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    endEdgeCutting();
-    event.preventDefault();
-    event.stopPropagation();
-  }, [edgeCuttingActive, endEdgeCutting]);
-
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    store.onNodesChange(changes);
-  }, [store]);
-
-  const onNodeDrag = useCallback<NodeMouseHandler>((_, node) => {
-    if (isNodeLockedWithAncestors(node.id, store.nodes)) {
-      setEdgeInsertionCandidate(null);
-      return;
-    }
-
-    const candidate = findEdgeInsertionCandidate(node as FlowNodeType, renderNodes, renderModel.edges);
-    setEdgeInsertionCandidate(candidate ? { edgeId: candidate.id, node: node as FlowNodeType } : null);
-  }, [renderModel.edges, renderNodes, store.nodes]);
-
-  const onNodeDragStop = useCallback<NodeMouseHandler>((_, node) => {
-    if (isNodeLockedWithAncestors(node.id, store.nodes)) return;
-    const corrected = pushRootNodeOutsideGroupAreas(node as FlowNodeType, renderNodes);
-    let snapped = store.snapToGridEnabled ? snapNodeBox(corrected as FlowNodeType) : corrected;
-    const parentId = (snapped as FlowNodeType & { parentId?: string }).parentId;
-    if (parentId) {
-      const parentNode = renderNodes.find((item) => item.id === parentId);
-      if (parentNode?.type === 'group') {
-        snapped = constrainChildNodeToGroupContent(snapped as FlowNodeType, parentNode);
+      for (const edge of cuttableEdges) {
+        const edgeId = resolveRenderableEdgeId(edge);
+        if (!edgeId || edgeCutRemovedIdsRef.current.has(edgeId)) continue;
+        edgeCutRemovedIdsRef.current.add(edgeId);
+        store.removeEdge(edgeId);
       }
-    }
-    useWorkflowStore.setState((state) => ({
-      nodes: enforceGroupLayout(state.nodes.map((item) => (
-        item.id === node.id
-          ? {
-              ...item,
-              position: snapped.position,
-              width: snapped.width,
-              height: snapped.height,
-            }
-          : item
-      ))),
+    },
+    [renderModel.edges, renderNodes, resolveRenderableEdgeId, store],
+  );
+
+  const getPointerFlowPosition = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) =>
+      reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+    [reactFlow],
+  );
+
+  const onCanvasPointerDownCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!event.altKey || event.button !== 0 || isEditableElement(event.target)) return;
+
+      const position = getPointerFlowPosition(event);
+      edgeCutPreviousPointRef.current = position;
+      edgeCutRemovedIdsRef.current.clear();
+      setEdgeCuttingActive(true);
+      closeContextMenu();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [closeContextMenu, getPointerFlowPosition],
+  );
+
+  const onCanvasPointerMoveCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!edgeCuttingActive) return;
+
+      if (!event.altKey || (event.buttons & 1) !== 1) {
+        endEdgeCutting();
+        return;
+      }
+
+      const current = getPointerFlowPosition(event);
+      const previous = edgeCutPreviousPointRef.current || current;
+      cutEdgesAlongPointerSegment(previous, current);
+      edgeCutPreviousPointRef.current = current;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [cutEdgesAlongPointerSegment, edgeCuttingActive, endEdgeCutting, getPointerFlowPosition],
+  );
+
+  const onCanvasPointerUpCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!edgeCuttingActive) return;
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      endEdgeCutting();
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [edgeCuttingActive, endEdgeCutting],
+  );
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      store.onNodesChange(changes);
+    },
+    [store],
+  );
+
+  const onNodeDrag = useCallback<NodeMouseHandler>(
+    (_, node) => {
+      if (isNodeLockedWithAncestors(node.id, store.nodes)) {
+        setEdgeInsertionCandidate(null);
+        return;
+      }
+
+      const candidate = findEdgeInsertionCandidate(node as FlowNodeType, renderNodes, renderModel.edges);
+      setEdgeInsertionCandidate(candidate ? { edgeId: candidate.id, node: node as FlowNodeType } : null);
+    },
+    [renderModel.edges, renderNodes, store.nodes],
+  );
+
+  const onNodeDragStop = useCallback<NodeMouseHandler>(
+    (_, node) => {
+      if (isNodeLockedWithAncestors(node.id, store.nodes)) return;
+      const corrected = pushRootNodeOutsideGroupAreas(node as FlowNodeType, renderNodes);
+      let snapped = store.snapToGridEnabled ? snapNodeBox(corrected as FlowNodeType) : corrected;
+      const parentId = (snapped as FlowNodeType & { parentId?: string }).parentId;
+      if (parentId) {
+        const parentNode = renderNodes.find((item) => item.id === parentId);
+        if (parentNode?.type === 'group') {
+          snapped = constrainChildNodeToGroupContent(snapped as FlowNodeType, parentNode);
+        }
+      }
+      useWorkflowStore.setState((state) => ({
+        nodes: enforceGroupLayout(
+          state.nodes.map((item) =>
+            item.id === node.id
+              ? {
+                  ...item,
+                  position: snapped.position,
+                  width: snapped.width,
+                  height: snapped.height,
+                }
+              : item,
+          ),
+        ),
         hasUnsavedChanges: true,
       }));
 
-    const candidate = findEdgeInsertionCandidate(snapped as FlowNodeType, renderNodes, renderModel.edges);
-    const edgeId = candidate?.id || edgeInsertionCandidate?.edgeId;
-    setEdgeInsertionCandidate(null);
-    if (edgeId) {
-      store.insertNodeOnEdge(node.id, edgeId);
-    }
-  }, [edgeInsertionCandidate?.edgeId, renderModel.edges, renderNodes, store]);
-
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    store.onEdgesChange(changes);
-  }, [store]);
-
-  const onEdgeDoubleClick = useCallback<EdgeMouseHandler>((event, edge) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (edge.id.startsWith('group-binding:')) {
-      const actualEdge = store.edges.find((candidate) => (
-        candidate.source === edge.source
-        && candidate.sourceHandle === edge.sourceHandle
-        && candidate.target === edge.target
-        && candidate.targetHandle === edge.targetHandle
-      ));
-      if (actualEdge) {
-        store.removeEdge(actualEdge.id);
-        return;
+      const candidate = findEdgeInsertionCandidate(snapped as FlowNodeType, renderNodes, renderModel.edges);
+      const edgeId = candidate?.id || edgeInsertionCandidate?.edgeId;
+      setEdgeInsertionCandidate(null);
+      if (edgeId) {
+        store.insertNodeOnEdge(node.id, edgeId);
       }
-    }
+    },
+    [edgeInsertionCandidate?.edgeId, renderModel.edges, renderNodes, store],
+  );
 
-    store.removeEdge(edge.id);
-  }, [store]);
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      store.onEdgesChange(changes);
+    },
+    [store],
+  );
 
-  const onConnect = useCallback((connection: Connection) => {
-    commitConnection(connection);
-  }, [commitConnection]);
+  const onEdgeDoubleClick = useCallback<EdgeMouseHandler>(
+    (event, edge) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-  const isValidConnection = useCallback((connection: {
-    source: string | null;
-    target: string | null;
-    sourceHandle?: string | null;
-    targetHandle?: string | null;
-  }) => {
-    if (!connection.source || !connection.target) return false;
-    if (connection.source === connection.target) return false;
+      if (edge.id.startsWith('group-binding:')) {
+        const actualEdge = store.edges.find(
+          (candidate) =>
+            candidate.source === edge.source &&
+            candidate.sourceHandle === edge.sourceHandle &&
+            candidate.target === edge.target &&
+            candidate.targetHandle === edge.targetHandle,
+        );
+        if (actualEdge) {
+          store.removeEdge(actualEdge.id);
+          return;
+        }
+      }
 
-    const sourceNode = renderModel.nodeMap.get(connection.source);
-    const targetNode = renderModel.nodeMap.get(connection.target);
-    if (!sourceNode || !targetNode) return false;
+      store.removeEdge(edge.id);
+    },
+    [store],
+  );
 
-    const resolvedConnection = resolveDirectionalGroupConnection(connection, renderModel.nodeMap);
-    if (!resolvedConnection) return false;
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      commitConnection(connection);
+    },
+    [commitConnection],
+  );
 
-    const sourceDescriptor = parseGroupHandleId(resolvedConnection.sourceHandle);
-    const targetDescriptor = parseGroupHandleId(resolvedConnection.targetHandle);
-    const sourceGroupId = getNearestGroupAncestorId(connection.source, renderModel.nodeMap);
-    const targetGroupId = getNearestGroupAncestorId(connection.target, renderModel.nodeMap);
+  const isValidConnection = useCallback(
+    (connection: {
+      source: string | null;
+      target: string | null;
+      sourceHandle?: string | null;
+      targetHandle?: string | null;
+    }) => {
+      if (!connection.source || !connection.target) return false;
+      if (connection.source === connection.target) return false;
 
-    if (!sourceDescriptor && !targetDescriptor && sourceGroupId !== targetGroupId) {
-      return false;
-    }
+      const sourceNode = renderModel.nodeMap.get(connection.source);
+      const targetNode = renderModel.nodeMap.get(connection.target);
+      if (!sourceNode || !targetNode) return false;
 
-    if (
-      sourceDescriptor
-      && sourceNode.type === 'group'
-      && sourceDescriptor.side === 'input'
-      && sourceDescriptor.role === 'internal'
-    ) {
-      const sourcePort = findGroupPort(
-        (sourceNode.data || {}) as Record<string, unknown>,
-        'input',
-        sourceDescriptor.portId,
-      );
-      if (!sourcePort || sourceNode.id !== getParentId(targetNode) || !resolvedConnection.targetHandle) return false;
+      const resolvedConnection = resolveDirectionalGroupConnection(connection, renderModel.nodeMap);
+      if (!resolvedConnection) return false;
 
-      const targetType = getInputType(targetNode, resolvedConnection.targetHandle);
-      if (!targetType) return false;
+      const sourceDescriptor = parseGroupHandleId(resolvedConnection.sourceHandle);
+      const targetDescriptor = parseGroupHandleId(resolvedConnection.targetHandle);
+      const sourceGroupId = getNearestGroupAncestorId(connection.source, renderModel.nodeMap);
+      const targetGroupId = getNearestGroupAncestorId(connection.target, renderModel.nodeMap);
 
-      if (!sourcePort.type) return true;
-      const compatibleTargets = PORT_COMPATIBILITY[sourcePort.type];
-      return compatibleTargets?.includes(targetType) ?? false;
-    }
+      if (!sourceDescriptor && !targetDescriptor && sourceGroupId !== targetGroupId) {
+        return false;
+      }
 
-    if (
-      targetDescriptor
-      && targetNode.type === 'group'
-      && targetDescriptor.side === 'output'
-      && targetDescriptor.role === 'internal'
-    ) {
-      const targetPort = findGroupPort(
-        (targetNode.data || {}) as Record<string, unknown>,
-        'output',
-        targetDescriptor.portId,
-      );
-      if (!targetPort || targetNode.id !== getParentId(sourceNode) || !resolvedConnection.sourceHandle) return false;
-      if (targetPort.insideLinks.length > 0) return false;
+      if (
+        sourceDescriptor &&
+        sourceNode.type === 'group' &&
+        sourceDescriptor.side === 'input' &&
+        sourceDescriptor.role === 'internal'
+      ) {
+        const sourcePort = findGroupPort(
+          (sourceNode.data || {}) as Record<string, unknown>,
+          'input',
+          sourceDescriptor.portId,
+        );
+        if (!sourcePort || sourceNode.id !== getParentId(targetNode) || !resolvedConnection.targetHandle) return false;
+
+        const targetType = getInputType(targetNode, resolvedConnection.targetHandle);
+        if (!targetType) return false;
+
+        if (!sourcePort.type) return true;
+        const compatibleTargets = PORT_COMPATIBILITY[sourcePort.type];
+        return compatibleTargets?.includes(targetType) ?? false;
+      }
+
+      if (
+        targetDescriptor &&
+        targetNode.type === 'group' &&
+        targetDescriptor.side === 'output' &&
+        targetDescriptor.role === 'internal'
+      ) {
+        const targetPort = findGroupPort(
+          (targetNode.data || {}) as Record<string, unknown>,
+          'output',
+          targetDescriptor.portId,
+        );
+        if (!targetPort || targetNode.id !== getParentId(sourceNode) || !resolvedConnection.sourceHandle) return false;
+        if (targetPort.insideLinks.length > 0) return false;
+
+        const sourceType = getOutputType(sourceNode, resolvedConnection.sourceHandle);
+        if (!sourceType) return false;
+
+        if (!targetPort.type) return true;
+        const compatibleTargets = PORT_COMPATIBILITY[sourceType];
+        return compatibleTargets?.includes(targetPort.type) ?? false;
+      }
 
       const sourceType = getOutputType(sourceNode, resolvedConnection.sourceHandle);
-      if (!sourceType) return false;
+      const targetType = getInputType(targetNode, resolvedConnection.targetHandle);
+      if (!sourceType || !targetType) return false;
 
-      if (!targetPort.type) return true;
+      if (sourceDescriptor) {
+        if (sourceDescriptor.side !== 'output' || sourceDescriptor.role !== 'external') return false;
+        if (!canConnectToGroupHandleExternally(sourceNode, resolvedConnection.sourceHandle)) return false;
+      }
+
+      if (targetDescriptor) {
+        if (targetDescriptor.side !== 'input' || targetDescriptor.role !== 'external') return false;
+        if (!canConnectToGroupHandleExternally(targetNode, resolvedConnection.targetHandle)) return false;
+      }
+
       const compatibleTargets = PORT_COMPATIBILITY[sourceType];
-      return compatibleTargets?.includes(targetPort.type) ?? false;
-    }
+      return compatibleTargets?.includes(targetType) ?? false;
+    },
+    [renderModel.nodeMap],
+  );
 
-    const sourceType = getOutputType(sourceNode, resolvedConnection.sourceHandle);
-    const targetType = getInputType(targetNode, resolvedConnection.targetHandle);
-    if (!sourceType || !targetType) return false;
-
-    if (sourceDescriptor) {
-      if (sourceDescriptor.side !== 'output' || sourceDescriptor.role !== 'external') return false;
-      if (!canConnectToGroupHandleExternally(sourceNode, resolvedConnection.sourceHandle)) return false;
-    }
-
-    if (targetDescriptor) {
-      if (targetDescriptor.side !== 'input' || targetDescriptor.role !== 'external') return false;
-      if (!canConnectToGroupHandleExternally(targetNode, resolvedConnection.targetHandle)) return false;
-    }
-
-    const compatibleTargets = PORT_COMPATIBILITY[sourceType];
-    return compatibleTargets?.includes(targetType) ?? false;
-  }, [renderModel.nodeMap]);
-
-  const onNodeClick = useCallback((event: ReactMouseEvent, node: { id: string }) => {
-    if (!event.metaKey && !event.ctrlKey && !event.shiftKey) {
-      store.selectNode(node.id);
-    } else {
-      store.selectNode(node.id);
-    }
-    closeContextMenu();
-  }, [closeContextMenu, store]);
+  const onNodeClick = useCallback(
+    (event: ReactMouseEvent, node: { id: string }) => {
+      if (!event.metaKey && !event.ctrlKey && !event.shiftKey) {
+        store.selectNode(node.id);
+      } else {
+        store.selectNode(node.id);
+      }
+      closeContextMenu();
+    },
+    [closeContextMenu, store],
+  );
 
   const onPaneClick = useCallback(() => {
     if (wasContextMenuJustOpened()) return;
@@ -596,280 +647,329 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     closeContextMenu();
   }, [closeContextMenu, store, wasContextMenuJustOpened]);
 
-  const openContextMenuAtPoint = useCallback((
-    kind: ContextMenuKind,
-    event: MouseEvent | TouchEvent | ReactMouseEvent,
-    extras?: Partial<ContextMenuState>,
-  ) => {
-    const point = getLocalPoint(event, containerRef.current);
-    const flowPosition = reactFlow.screenToFlowPosition({ x: point.clientX, y: point.clientY });
-    const layout = getContextMenuLayout(kind, containerRef.current, point.localX, point.localY);
-    setContextMenu({
-      kind,
-      x: layout.x,
-      y: layout.y,
-      flowPosition,
-      horizontalDirection: layout.horizontalDirection,
-      ...extras,
-    });
-    contextMenuOpenedAtRef.current = Date.now();
-    setActiveCategory(null);
-  }, [reactFlow]);
+  const openContextMenuAtPoint = useCallback(
+    (kind: ContextMenuKind, event: MouseEvent | TouchEvent | ReactMouseEvent, extras?: Partial<ContextMenuState>) => {
+      const point = getLocalPoint(event, containerRef.current);
+      const flowPosition = reactFlow.screenToFlowPosition({ x: point.clientX, y: point.clientY });
+      const layout = getContextMenuLayout(kind, containerRef.current, point.localX, point.localY);
+      setContextMenu({
+        kind,
+        x: layout.x,
+        y: layout.y,
+        flowPosition,
+        horizontalDirection: layout.horizontalDirection,
+        ...extras,
+      });
+      contextMenuOpenedAtRef.current = Date.now();
+      setActiveCategory(null);
+    },
+    [reactFlow],
+  );
 
-  const onNodeContextMenu = useCallback<NodeMouseHandler>((event, node) => {
-    event.preventDefault();
-    event.stopPropagation();
-    store.selectNode(node.id);
-    const selectedIds = store.nodes.filter((item) => item.selected).map((item) => item.id);
-    const nextSelectedIds =
-      selectedIds.includes(node.id) && selectedIds.length > 1 ? selectedIds : [node.id];
-    openContextMenuAtPoint('node', event, { nodeId: node.id, selectedNodeIds: nextSelectedIds });
-  }, [openContextMenuAtPoint, store]);
+  const onNodeContextMenu = useCallback<NodeMouseHandler>(
+    (event, node) => {
+      event.preventDefault();
+      event.stopPropagation();
+      store.selectNode(node.id);
+      const selectedIds = store.nodes.filter((item) => item.selected).map((item) => item.id);
+      const nextSelectedIds = selectedIds.includes(node.id) && selectedIds.length > 1 ? selectedIds : [node.id];
+      openContextMenuAtPoint('node', event, { nodeId: node.id, selectedNodeIds: nextSelectedIds });
+    },
+    [openContextMenuAtPoint, store],
+  );
 
-  const onPaneContextMenu = useCallback((event: MouseEvent | ReactMouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const selectedIds = store.nodes.filter((item) => item.selected).map((item) => item.id);
-    if (selectedIds.length > 0) {
-      openContextMenuAtPoint('node', event, { selectedNodeIds: selectedIds });
-      return;
-    }
+  const onPaneContextMenu = useCallback(
+    (event: MouseEvent | ReactMouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const selectedIds = store.nodes.filter((item) => item.selected).map((item) => item.id);
+      if (selectedIds.length > 0) {
+        openContextMenuAtPoint('node', event, { selectedNodeIds: selectedIds });
+        return;
+      }
 
-    store.selectNode(null);
-    openContextMenuAtPoint('paneActions', event);
-  }, [openContextMenuAtPoint, store]);
+      store.selectNode(null);
+      openContextMenuAtPoint('paneActions', event);
+    },
+    [openContextMenuAtPoint, store],
+  );
 
-  const onPaneDoubleClickOpenMenu = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    if (!isPaneBackgroundTarget(event.target)) return;
+  const onPaneDoubleClickOpenMenu = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      if (!isPaneBackgroundTarget(event.target)) return;
 
-    event.preventDefault();
-    event.stopPropagation();
-    window.getSelection()?.removeAllRanges();
-    store.selectNode(null);
-    openContextMenuAtPoint('pane', event);
-  }, [openContextMenuAtPoint, store]);
+      event.preventDefault();
+      event.stopPropagation();
+      window.getSelection()?.removeAllRanges();
+      store.selectNode(null);
+      openContextMenuAtPoint('pane', event);
+    },
+    [openContextMenuAtPoint, store],
+  );
 
-  const updateLastPointerFlowPosition = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+  const updateLastPointerFlowPosition = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
 
-    if (
-      event.clientX < rect.left ||
-      event.clientX > rect.right ||
-      event.clientY < rect.top ||
-      event.clientY > rect.bottom
-    ) {
-      return;
-    }
+      if (
+        event.clientX < rect.left ||
+        event.clientX > rect.right ||
+        event.clientY < rect.top ||
+        event.clientY > rect.bottom
+      ) {
+        return;
+      }
 
-    lastPointerFlowPositionRef.current = reactFlow.screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
-  }, [reactFlow]);
+      lastPointerFlowPositionRef.current = reactFlow.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [reactFlow],
+  );
 
   const onDragOver = useCallback((event: DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files') ? 'copy' : 'move';
   }, []);
 
-  const addFilesToCanvas = useCallback((files: File[], position: { x: number; y: number }) => {
-    files.forEach((file, index) => {
-      const droppedNodeType = getDroppedFileNodeType(file);
-      if (!droppedNodeType || FLOW_DISABLED_NEW_NODE_TYPES.has(droppedNodeType)) return;
+  const addFilesToCanvas = useCallback(
+    (files: File[], position: { x: number; y: number }) => {
+      files.forEach((file, index) => {
+        const droppedNodeType = getDroppedFileNodeType(file);
+        if (!droppedNodeType || FLOW_DISABLED_NEW_NODE_TYPES.has(droppedNodeType)) return;
 
-      const nodeId = store.addNode(
-        droppedNodeType,
-        getDropNodePosition(droppedNodeType, position, index),
-        buildDefaultData(droppedNodeType),
-      );
+        const nodeId = store.addNode(
+          droppedNodeType,
+          getDropNodePosition(droppedNodeType, position, index),
+          buildDefaultData(droppedNodeType),
+        );
 
-      if (droppedNodeType === 'textInput') {
-        void file.text()
-          .then((text) => {
-            store.updateNodeData(nodeId, { text });
+        if (droppedNodeType === 'textInput') {
+          void file
+            .text()
+            .then((text) => {
+              store.updateNodeData(nodeId, { text });
+            })
+            .catch((error) => {
+              store.updateNodeData(nodeId, {
+                text: `导入文本没有完成，请检查文件编码或稍后重试。${error instanceof Error ? error.message : ''}`,
+              });
+            });
+          return;
+        }
+
+        const localPreview = URL.createObjectURL(file);
+        store.updateNodeData(nodeId, {
+          fileUrl: '',
+          thumbnailUrl: '',
+          previewUrl: localPreview,
+          localPath: file.webkitRelativePath || file.name,
+          fileName: file.name,
+          fileKind: droppedNodeType === 'imageInput' ? 'image' : droppedNodeType === 'videoInput' ? 'video' : 'audio',
+          fileSize: file.size,
+          _uploading: true,
+          _uploadError: '',
+          _fileProcessingStatus: '',
+          _fileProcessingError: '',
+          canvasOriginalFileUrl: '',
+          canvasOriginalPreviewUrl: '',
+          canvasOriginalFileName: '',
+          canvasOriginalFileSize: undefined,
+        });
+
+        void uploadFile(file)
+          .then((result) => {
+            if (result.success && result.url) {
+              store.updateNodeData(nodeId, {
+                fileUrl: result.url,
+                thumbnailUrl: result.thumbnailUrl || '',
+                previewUrl: result.thumbnailUrl || localPreview,
+                fileName: result.fileName || file.name,
+                fileSize: result.fileSize || file.size,
+                _uploading: false,
+                _uploadError: '',
+                _fileProcessingStatus: result.processing ? 'processing' : '',
+                _fileProcessingError: result.processingError || '',
+              });
+              if (result.processing && result.url) {
+                void waitForUploadedImageMetadata(result.url, (metadata) => {
+                  if (metadata.thumbnailUrl || metadata.url) {
+                    URL.revokeObjectURL(localPreview);
+                  }
+                  store.updateNodeData(nodeId, {
+                    fileUrl: metadata.url || result.url,
+                    thumbnailUrl: metadata.thumbnailUrl || '',
+                    previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
+                    width: metadata.width,
+                    height: metadata.height,
+                    _fileProcessingStatus: metadata.processingStatus || '',
+                    _fileProcessingError: metadata.processingError || '',
+                  });
+                });
+              } else if (result.thumbnailUrl || result.url) {
+                URL.revokeObjectURL(localPreview);
+              }
+              return;
+            }
+
+            URL.revokeObjectURL(localPreview);
+            store.updateNodeData(nodeId, {
+              previewUrl: '',
+              _uploading: false,
+              _uploadError: formatCanvasUploadError(result.error),
+              _fileProcessingStatus: '',
+              _fileProcessingError: '',
+            });
           })
           .catch((error) => {
+            URL.revokeObjectURL(localPreview);
             store.updateNodeData(nodeId, {
-              text: `导入文本没有完成，请检查文件编码或稍后重试。${error instanceof Error ? error.message : ''}`,
+              previewUrl: '',
+              _uploading: false,
+              _uploadError: formatCanvasUploadError(error instanceof Error ? error.message : ''),
+              _fileProcessingStatus: '',
+              _fileProcessingError: '',
             });
           });
+      });
+    },
+    [store],
+  );
+
+  const onDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+      const nodeType = event.dataTransfer.getData('application/reactflow');
+      const position = reactFlow.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      if (nodeType && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
+        store.addNode(nodeType, position, buildDefaultData(nodeType));
         return;
       }
 
-      const localPreview = URL.createObjectURL(file);
-      store.updateNodeData(nodeId, {
-        fileUrl: '',
-        thumbnailUrl: '',
-        previewUrl: localPreview,
-        localPath: file.webkitRelativePath || file.name,
-        fileName: file.name,
-        fileKind: droppedNodeType === 'imageInput'
-          ? 'image'
-          : droppedNodeType === 'videoInput'
-            ? 'video'
-            : 'audio',
-        fileSize: file.size,
-        _uploading: true,
-        _uploadError: '',
-        _fileProcessingStatus: '',
-        _fileProcessingError: '',
-        canvasOriginalFileUrl: '',
-        canvasOriginalPreviewUrl: '',
-        canvasOriginalFileName: '',
-        canvasOriginalFileSize: undefined,
-      });
+      if (nodeType && FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
+        closeContextMenu();
+        return;
+      }
 
-      void uploadFile(file)
-        .then((result) => {
-          if (result.success && result.url) {
-            store.updateNodeData(nodeId, {
-              fileUrl: result.url,
-              thumbnailUrl: result.thumbnailUrl || '',
-              previewUrl: result.thumbnailUrl || localPreview,
-              fileName: result.fileName || file.name,
-              fileSize: result.fileSize || file.size,
-              _uploading: false,
-              _uploadError: '',
-              _fileProcessingStatus: result.processing ? 'processing' : '',
-              _fileProcessingError: result.processingError || '',
-            });
-            if (result.processing && result.url) {
-              void waitForUploadedImageMetadata(result.url, (metadata) => {
-                if (metadata.thumbnailUrl || metadata.url) {
-                  URL.revokeObjectURL(localPreview);
-                }
-                store.updateNodeData(nodeId, {
-                  fileUrl: metadata.url || result.url,
-                  thumbnailUrl: metadata.thumbnailUrl || '',
-                  previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
-                  width: metadata.width,
-                  height: metadata.height,
-                  _fileProcessingStatus: metadata.processingStatus || '',
-                  _fileProcessingError: metadata.processingError || '',
-                });
-              });
-            } else if (result.thumbnailUrl || result.url) {
-              URL.revokeObjectURL(localPreview);
-            }
+      const files = Array.from(event.dataTransfer.files || []);
+      if (files.length === 0) return;
+
+      addFilesToCanvas(files, position);
+    },
+    [addFilesToCanvas, closeContextMenu, reactFlow, store],
+  );
+
+  const onConnectStart = useCallback(
+    (
+      _: unknown,
+      params: {
+        nodeId?: string | null;
+        handleId?: string | null;
+        handleType?: 'source' | 'target' | null;
+      },
+    ) => {
+      if (!params.handleType || !params.nodeId || !params.handleId) {
+        pendingConnectionRef.current = null;
+        return;
+      }
+
+      const node = store.nodes.find((item) => item.id === params.nodeId);
+      if (!node) {
+        pendingConnectionRef.current = null;
+        return;
+      }
+
+      const def = getNodeDef(node.type || '');
+      const groupDescriptor = parseGroupHandleId(params.handleId);
+      if (groupDescriptor && node.type === 'group') {
+        const port = findGroupPort(
+          (node.data || {}) as Record<string, unknown>,
+          groupDescriptor.side,
+          groupDescriptor.portId,
+        );
+        if (!port) {
+          pendingConnectionRef.current = null;
+          return;
+        }
+
+        if (params.handleType === 'source') {
+          if (
+            groupDescriptor.side === 'output' &&
+            groupDescriptor.role === 'external' &&
+            !isGroupPortExternallyConnectable(port)
+          ) {
+            pendingConnectionRef.current = null;
             return;
           }
+          pendingConnectionRef.current = {
+            allowCreateNode:
+              groupDescriptor.side === 'output' &&
+              groupDescriptor.role === 'external' &&
+              isGroupPortExternallyConnectable(port),
+            handleType: 'source',
+            sourceId: params.nodeId,
+            sourceHandle: params.handleId,
+            sourceType: port.type || 'any',
+          };
+          return;
+        }
 
-          URL.revokeObjectURL(localPreview);
-          store.updateNodeData(nodeId, {
-            previewUrl: '',
-            _uploading: false,
-            _uploadError: formatCanvasUploadError(result.error),
-            _fileProcessingStatus: '',
-            _fileProcessingError: '',
-          });
-        })
-        .catch((error) => {
-          URL.revokeObjectURL(localPreview);
-          store.updateNodeData(nodeId, {
-            previewUrl: '',
-            _uploading: false,
-            _uploadError: formatCanvasUploadError(error instanceof Error ? error.message : ''),
-            _fileProcessingStatus: '',
-            _fileProcessingError: '',
-          });
-        });
-    });
-  }, [store]);
+        if (
+          groupDescriptor.side === 'input' &&
+          groupDescriptor.role === 'external' &&
+          !isGroupPortExternallyConnectable(port)
+        ) {
+          pendingConnectionRef.current = null;
+          return;
+        }
 
-  const onDrop = useCallback((event: DragEvent) => {
-    event.preventDefault();
-    const nodeType = event.dataTransfer.getData('application/reactflow');
-    const position = reactFlow.screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
+        pendingConnectionRef.current = {
+          allowCreateNode:
+            groupDescriptor.side === 'input' &&
+            groupDescriptor.role === 'external' &&
+            isGroupPortExternallyConnectable(port),
+          handleType: 'target',
+          targetId: params.nodeId,
+          targetHandle: params.handleId,
+          targetType: port.type || 'any',
+        };
+        return;
+      }
 
-    if (nodeType && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
-      store.addNode(nodeType, position, buildDefaultData(nodeType));
-      return;
-    }
-
-    if (nodeType && FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) {
-      closeContextMenu();
-      return;
-    }
-
-    const files = Array.from(event.dataTransfer.files || []);
-    if (files.length === 0) return;
-
-    addFilesToCanvas(files, position);
-  }, [addFilesToCanvas, closeContextMenu, reactFlow, store]);
-
-  const onConnectStart = useCallback((_: unknown, params: {
-    nodeId?: string | null;
-    handleId?: string | null;
-    handleType?: 'source' | 'target' | null;
-  }) => {
-    if (!params.handleType || !params.nodeId || !params.handleId) {
-      pendingConnectionRef.current = null;
-      return;
-    }
-
-    const node = store.nodes.find((item) => item.id === params.nodeId);
-    if (!node) {
-      pendingConnectionRef.current = null;
-      return;
-    }
-
-    const def = getNodeDef(node.type || '');
-    const groupDescriptor = parseGroupHandleId(params.handleId);
-    if (groupDescriptor && node.type === 'group') {
-      const port = findGroupPort(
-        (node.data || {}) as Record<string, unknown>,
-        groupDescriptor.side,
-        groupDescriptor.portId,
-      );
-      if (!port) {
+      if (!def) {
         pendingConnectionRef.current = null;
         return;
       }
 
       if (params.handleType === 'source') {
-        if (groupDescriptor.side === 'output' && groupDescriptor.role === 'external' && !isGroupPortExternallyConnectable(port)) {
+        const currentNode = store.nodes.find((item) => item.id === params.nodeId);
+        const outputs = def.maxOutputs
+          ? getExpandedNodeOutputs(currentNode?.type || '', (currentNode?.data || {}) as Record<string, unknown>)
+          : def.outputs;
+        const port = outputs.find((output) => output.id === params.handleId);
+        if (!port) {
           pendingConnectionRef.current = null;
           return;
         }
+
         pendingConnectionRef.current = {
-          allowCreateNode: groupDescriptor.side === 'output' && groupDescriptor.role === 'external' && isGroupPortExternallyConnectable(port),
+          allowCreateNode: true,
           handleType: 'source',
           sourceId: params.nodeId,
           sourceHandle: params.handleId,
-          sourceType: port.type || 'any',
+          sourceType: port.type,
         };
         return;
       }
 
-      if (groupDescriptor.side === 'input' && groupDescriptor.role === 'external' && !isGroupPortExternallyConnectable(port)) {
-        pendingConnectionRef.current = null;
-        return;
-      }
-
-      pendingConnectionRef.current = {
-        allowCreateNode: groupDescriptor.side === 'input' && groupDescriptor.role === 'external' && isGroupPortExternallyConnectable(port),
-        handleType: 'target',
-        targetId: params.nodeId,
-        targetHandle: params.handleId,
-        targetType: port.type || 'any',
-      };
-      return;
-    }
-
-    if (!def) {
-      pendingConnectionRef.current = null;
-      return;
-    }
-
-    if (params.handleType === 'source') {
-      const currentNode = store.nodes.find((item) => item.id === params.nodeId);
-      const outputs = def.maxOutputs ? getExpandedNodeOutputs(currentNode?.type || '', (currentNode?.data || {}) as Record<string, unknown>) : def.outputs;
-      const port = outputs.find((output) => output.id === params.handleId);
+      const port = def.maxInputs ? def.inputs[0] : def.inputs.find((input) => input.id === params.handleId);
       if (!port) {
         pendingConnectionRef.current = null;
         return;
@@ -877,36 +977,25 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
 
       pendingConnectionRef.current = {
         allowCreateNode: true,
-        handleType: 'source',
-        sourceId: params.nodeId,
-        sourceHandle: params.handleId,
-        sourceType: port.type,
+        handleType: 'target',
+        targetId: params.nodeId,
+        targetHandle: params.handleId,
+        targetType: port.type,
       };
-      return;
-    }
+    },
+    [store.nodes],
+  );
 
-    const port = def.maxInputs ? def.inputs[0] : def.inputs.find((input) => input.id === params.handleId);
-    if (!port) {
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, state: { isValid: boolean | null }) => {
+      const pending = pendingConnectionRef.current;
       pendingConnectionRef.current = null;
-      return;
-    }
 
-    pendingConnectionRef.current = {
-      allowCreateNode: true,
-      handleType: 'target',
-      targetId: params.nodeId,
-      targetHandle: params.handleId,
-      targetType: port.type,
-    };
-  }, [store.nodes]);
-
-  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, state: { isValid: boolean | null }) => {
-    const pending = pendingConnectionRef.current;
-    pendingConnectionRef.current = null;
-
-    if (!pending || state.isValid || !pending.allowCreateNode) return;
-    openContextMenuAtPoint('connect', event, { sourceConnection: pending });
-  }, [openContextMenuAtPoint]);
+      if (!pending || state.isValid || !pending.allowCreateNode) return;
+      openContextMenuAtPoint('connect', event, { sourceConnection: pending });
+    },
+    [openContextMenuAtPoint],
+  );
 
   const contextNodeIds = useMemo(() => {
     if (!contextMenu) return [];
@@ -919,15 +1008,15 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     [store.nodes],
   );
 
-  const contextNodes = useMemo(() => (
-    contextNodeIds
-      .map((nodeId) => store.nodes.find((item) => item.id === nodeId))
-      .filter(Boolean)
-  ), [contextNodeIds, store.nodes]);
+  const contextNodes = useMemo(
+    () => contextNodeIds.map((nodeId) => store.nodes.find((item) => item.id === nodeId)).filter(Boolean),
+    [contextNodeIds, store.nodes],
+  );
 
   const hasMultipleContextNodes = contextNodes.length > 1;
   const hasSingleGroupContextNode = contextNodes.length === 1 && contextNodes[0]?.type === 'group';
-  const hasSingleChildContextNode = contextNodes.length === 1 && Boolean((contextNodes[0] as FlowNodeType & { parentId?: string })?.parentId);
+  const hasSingleChildContextNode =
+    contextNodes.length === 1 && Boolean((contextNodes[0] as FlowNodeType & { parentId?: string })?.parentId);
   const hasSingleImageInputContextNode = contextNodes.length === 1 && contextNodes[0]?.type === 'imageInput';
   const canDetachSingleContextNode = contextNodes.length === 1 && contextNodes[0]?.type !== 'group';
   const canRunToSingleContextNode = (() => {
@@ -938,7 +1027,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     return Boolean(def && ((def.inputs?.length || 0) > 0 || (def.maxInputs || 0) > 0));
   })();
   const canCreateGroup = hasMultipleContextNodes && contextNodes.every((node) => node?.type !== 'group');
-  const allContextNodesDisabled = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.disabled));
+  const allContextNodesDisabled =
+    contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.disabled));
   const allContextNodesLocked = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.locked));
   const canvasEditorNode = useMemo(() => {
     if (!canvasEditorNodeId) return null;
@@ -953,7 +1043,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   const canvasEditorMaskSource = useMemo(() => {
     if (!canvasEditorNode) return '';
     const fileUrl = typeof canvasEditorNode.data?.maskFileUrl === 'string' ? canvasEditorNode.data.maskFileUrl : '';
-    const previewUrl = typeof canvasEditorNode.data?.maskPreviewUrl === 'string' ? canvasEditorNode.data.maskPreviewUrl : '';
+    const previewUrl =
+      typeof canvasEditorNode.data?.maskPreviewUrl === 'string' ? canvasEditorNode.data.maskPreviewUrl : '';
     return previewUrl && !(previewUrl.startsWith('blob:') && fileUrl) ? previewUrl : fileUrl;
   }, [canvasEditorNode]);
 
@@ -967,15 +1058,18 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     });
   }, [reactFlow]);
 
-  const copyNodesToClipboard = useCallback((nodeIds: string[], shouldCloseMenu = true) => {
-    if (nodeIds.length === 0) return false;
-    const snapshot = buildClipboardSnapshot(renderNodes, store.edges, nodeIds);
-    if (!snapshot) return;
-    setClipboardNode(snapshot);
-    void navigator.clipboard?.writeText(WORKFLOW_NODE_CLIPBOARD_MARKER).catch(() => undefined);
-    if (shouldCloseMenu) closeContextMenu();
-    return true;
-  }, [closeContextMenu, renderNodes, store.edges]);
+  const copyNodesToClipboard = useCallback(
+    (nodeIds: string[], shouldCloseMenu = true) => {
+      if (nodeIds.length === 0) return false;
+      const snapshot = buildClipboardSnapshot(renderNodes, store.edges, nodeIds);
+      if (!snapshot) return;
+      setClipboardNode(snapshot);
+      void navigator.clipboard?.writeText(WORKFLOW_NODE_CLIPBOARD_MARKER).catch(() => undefined);
+      if (shouldCloseMenu) closeContextMenu();
+      return true;
+    },
+    [closeContextMenu, renderNodes, store.edges],
+  );
 
   const copySelectedNode = useCallback(() => {
     if (!contextMenu?.nodeId) return;
@@ -986,94 +1080,101 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     copyNodesToClipboard(contextNodeIds);
   }, [contextNodeIds, copyNodesToClipboard]);
 
-  const pasteClipboardAtPosition = useCallback((flowPosition: { x: number; y: number }) => {
-    if (!clipboardNode) return false;
-    const idMap = new Map<string, string>();
-    const rootNodeIds = clipboardNode.nodes
-      .filter((node) => {
-        const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-        return !parentId || !clipboardNode.nodes.some((item) => item.id === parentId);
-      })
-      .map((node) => node.id);
+  const pasteClipboardAtPosition = useCallback(
+    (flowPosition: { x: number; y: number }) => {
+      if (!clipboardNode) return false;
+      const idMap = new Map<string, string>();
+      const rootNodeIds = clipboardNode.nodes
+        .filter((node) => {
+          const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
+          return !parentId || !clipboardNode.nodes.some((item) => item.id === parentId);
+        })
+        .map((node) => node.id);
 
-    const nodesToPaste = clipboardNode.nodes.map((node) => {
-      idMap.set(node.id, `node_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`);
-      return node;
-    });
-
-    const nextNodes = nodesToPaste
-      .sort((a, b) => {
-        const aIsRoot = rootNodeIds.includes(a.id);
-        const bIsRoot = rootNodeIds.includes(b.id);
-        if (aIsRoot !== bIsRoot) return aIsRoot ? -1 : 1;
-        if ((a.type === 'group') !== (b.type === 'group')) return a.type === 'group' ? -1 : 1;
-        return 0;
-      })
-      .map((node) => {
-        const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-        const nextParentId = parentId && idMap.has(parentId) ? idMap.get(parentId) : undefined;
-        const position = nextParentId
-          ? { ...node.position }
-          : {
-              x: snapValue(flowPosition.x + (node.position.x - clipboardNode.bounds.minX)),
-              y: snapValue(flowPosition.y + (node.position.y - clipboardNode.bounds.minY)),
-            };
-
-        let extent = (node as FlowNodeType & { extent?: unknown }).extent;
-        if (Array.isArray(extent)) {
-          const coordinateExtent = extent as CoordinateExtent;
-          extent = [[...coordinateExtent[0]], [...coordinateExtent[1]]] as CoordinateExtent;
-        }
-
-        const nextData = FLOW_FORCE_DISABLED_NODE_TYPES.has(node.type || '')
-          ? { ...node.data, disabled: true }
-          : node.data;
-
-        return {
-          ...node,
-          id: idMap.get(node.id) || node.id,
-          position,
-          parentId: nextParentId,
-          extent,
-          data: nextData,
-          selected: false,
-        } as FlowNodeType;
+      const nodesToPaste = clipboardNode.nodes.map((node) => {
+        idMap.set(node.id, `node_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`);
+        return node;
       });
 
-    const nextNodeMap = new Map(nextNodes.map((node) => [node.id, node]));
-    const constrainedNextNodes = nextNodes.map((node) => {
-      const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-      if (parentId) {
-        const parentNode = nextNodeMap.get(parentId);
-        if (parentNode?.type === 'group') {
-          return constrainChildNodeToGroupContent(node, parentNode);
+      const nextNodes = nodesToPaste
+        .sort((a, b) => {
+          const aIsRoot = rootNodeIds.includes(a.id);
+          const bIsRoot = rootNodeIds.includes(b.id);
+          if (aIsRoot !== bIsRoot) return aIsRoot ? -1 : 1;
+          if ((a.type === 'group') !== (b.type === 'group')) return a.type === 'group' ? -1 : 1;
+          return 0;
+        })
+        .map((node) => {
+          const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
+          const nextParentId = parentId && idMap.has(parentId) ? idMap.get(parentId) : undefined;
+          const position = nextParentId
+            ? { ...node.position }
+            : {
+                x: snapValue(flowPosition.x + (node.position.x - clipboardNode.bounds.minX)),
+                y: snapValue(flowPosition.y + (node.position.y - clipboardNode.bounds.minY)),
+              };
+
+          let extent = (node as FlowNodeType & { extent?: unknown }).extent;
+          if (Array.isArray(extent)) {
+            const coordinateExtent = extent as CoordinateExtent;
+            extent = [[...coordinateExtent[0]], [...coordinateExtent[1]]] as CoordinateExtent;
+          }
+
+          const nextData = FLOW_FORCE_DISABLED_NODE_TYPES.has(node.type || '')
+            ? { ...node.data, disabled: true }
+            : node.data;
+
+          return {
+            ...node,
+            id: idMap.get(node.id) || node.id,
+            position,
+            parentId: nextParentId,
+            extent,
+            data: nextData,
+            selected: false,
+          } as FlowNodeType;
+        });
+
+      const nextNodeMap = new Map(nextNodes.map((node) => [node.id, node]));
+      const constrainedNextNodes = nextNodes.map((node) => {
+        const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
+        if (parentId) {
+          const parentNode = nextNodeMap.get(parentId);
+          if (parentNode?.type === 'group') {
+            return constrainChildNodeToGroupContent(node, parentNode);
+          }
+          return node;
         }
-        return node;
-      }
 
-      return pushRootNodeOutsideGroupAreas(node, [...renderNodes, ...nextNodes]);
-    });
+        return pushRootNodeOutsideGroupAreas(node, [...renderNodes, ...nextNodes]);
+      });
 
-    const nextEdges = clipboardNode.edges.map((edge) => ({
-      id: `edge_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-      source: idMap.get(edge.source) || edge.source,
-      sourceHandle: edge.sourceHandle,
-      target: idMap.get(edge.target) || edge.target,
-      targetHandle: edge.targetHandle,
-      type: 'default',
-      animated: false,
-      style: { strokeWidth: 2 },
-    }));
+      const nextEdges = clipboardNode.edges.map((edge) => ({
+        id: `edge_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+        source: idMap.get(edge.source) || edge.source,
+        sourceHandle: edge.sourceHandle,
+        target: idMap.get(edge.target) || edge.target,
+        targetHandle: edge.targetHandle,
+        type: 'default',
+        animated: false,
+        style: { strokeWidth: 2 },
+      }));
 
-    useWorkflowStore.setState((state) => ({
-      nodes: enforceGroupLayout([...state.nodes.map((node) => ({ ...node, selected: false })), ...constrainedNextNodes]),
-      edges: [...state.edges, ...nextEdges],
-      selectedNodeId: constrainedNextNodes.find((node) => node.type === 'group')?.id || constrainedNextNodes[0]?.id || null,
-      hasUnsavedChanges: true,
-    }));
-    closeContextMenu();
-    return true;
-  }, [clipboardNode, closeContextMenu, store]);
+      useWorkflowStore.setState((state) => ({
+        nodes: enforceGroupLayout([
+          ...state.nodes.map((node) => ({ ...node, selected: false })),
+          ...constrainedNextNodes,
+        ]),
+        edges: [...state.edges, ...nextEdges],
+        selectedNodeId:
+          constrainedNextNodes.find((node) => node.type === 'group')?.id || constrainedNextNodes[0]?.id || null,
+        hasUnsavedChanges: true,
+      }));
+      closeContextMenu();
+      return true;
+    },
+    [clipboardNode, closeContextMenu, store],
+  );
 
   const pasteNodeAtContext = useCallback(() => {
     if (!contextMenu) return;
@@ -1122,20 +1223,17 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
 
     window.addEventListener('keydown', handleClipboardHotkeys);
     return () => window.removeEventListener('keydown', handleClipboardHotkeys);
-  }, [
-    closeContextMenu,
-    copyNodesToClipboard,
-    selectedNodeIds,
-  ]);
+  }, [closeContextMenu, copyNodesToClipboard, selectedNodeIds]);
 
   useEffect(() => {
     const handleClipboardPaste = (event: ClipboardEvent) => {
       if (isEditableElement(event.target)) return;
 
       const clipboardText = event.clipboardData?.getData('text/plain') || '';
-      const pastePosition = lastPointerFlowPositionRef.current
-        || (contextMenu && contextMenu.kind !== 'node' ? contextMenu.flowPosition : null)
-        || getViewportCenterFlowPosition();
+      const pastePosition =
+        lastPointerFlowPositionRef.current ||
+        (contextMenu && contextMenu.kind !== 'node' ? contextMenu.flowPosition : null) ||
+        getViewportCenterFlowPosition();
 
       if (clipboardNode && clipboardText === WORKFLOW_NODE_CLIPBOARD_MARKER) {
         if (!pasteClipboardAtPosition(pastePosition)) return;
@@ -1143,8 +1241,9 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         return;
       }
 
-      const pastedImageFiles = Array.from(event.clipboardData?.files || [])
-        .filter((file) => file.type.startsWith('image/'));
+      const pastedImageFiles = Array.from(event.clipboardData?.files || []).filter((file) =>
+        file.type.startsWith('image/'),
+      );
       if (pastedImageFiles.length === 0) {
         Array.from(event.clipboardData?.items || []).forEach((item) => {
           if (item.kind !== 'file' || !item.type.startsWith('image/')) return;
@@ -1194,17 +1293,23 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     closeContextMenu();
   }, [closeContextMenu, contextNodeIds, store]);
 
-  const setContextNodesDisabled = useCallback((disabled: boolean) => {
-    if (contextNodeIds.length === 0) return;
-    store.toggleNodesDisabled(contextNodeIds, disabled);
-    closeContextMenu();
-  }, [closeContextMenu, contextNodeIds, store]);
+  const setContextNodesDisabled = useCallback(
+    (disabled: boolean) => {
+      if (contextNodeIds.length === 0) return;
+      store.toggleNodesDisabled(contextNodeIds, disabled);
+      closeContextMenu();
+    },
+    [closeContextMenu, contextNodeIds, store],
+  );
 
-  const setContextNodesLocked = useCallback((locked: boolean) => {
-    if (contextNodeIds.length === 0) return;
-    store.toggleNodesLocked(contextNodeIds, locked);
-    closeContextMenu();
-  }, [closeContextMenu, contextNodeIds, store]);
+  const setContextNodesLocked = useCallback(
+    (locked: boolean) => {
+      if (contextNodeIds.length === 0) return;
+      store.toggleNodesLocked(contextNodeIds, locked);
+      closeContextMenu();
+    },
+    [closeContextMenu, contextNodeIds, store],
+  );
 
   const resetContextNodeSize = useCallback(() => {
     if (!contextMenu?.nodeId) return;
@@ -1223,117 +1328,120 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     closeContextMenu();
   }, [closeContextMenu, contextMenu?.nodeId, store.nodes]);
 
-  const saveCanvasEditorAsset = useCallback(async (
-    nodeId: string,
-    file: File,
-    previewUrl: string,
-    target: 'paint' | 'mask',
-    options?: { clearMask?: boolean },
-  ) => {
-    onBeforeCanvasEditorSave?.();
+  const saveCanvasEditorAsset = useCallback(
+    async (
+      nodeId: string,
+      file: File,
+      previewUrl: string,
+      target: 'paint' | 'mask',
+      options?: { clearMask?: boolean },
+    ) => {
+      onBeforeCanvasEditorSave?.();
 
-    if (target === 'mask' && options?.clearMask) {
-      store.updateNodeData(nodeId, {
-        maskFileUrl: '',
-        maskPreviewUrl: '',
-        maskFileName: '',
-        maskFileSize: undefined,
-        _maskUploading: false,
-        _maskUploadError: '',
-      });
-      return;
-    }
-
-    if (target === 'paint') {
-      const node = store.nodes.find((item) => item.id === nodeId);
-      const hasStoredOriginal = Boolean(node?.data?.canvasOriginalFileUrl || node?.data?.canvasOriginalPreviewUrl);
-      const originalPatch = hasStoredOriginal
-        ? {}
-        : {
-          canvasOriginalFileUrl: typeof node?.data?.fileUrl === 'string' ? node.data.fileUrl : '',
-          canvasOriginalPreviewUrl: typeof node?.data?.previewUrl === 'string' ? node.data.previewUrl : '',
-          canvasOriginalFileName: typeof node?.data?.fileName === 'string' ? node.data.fileName : '',
-          canvasOriginalFileSize: typeof node?.data?.fileSize === 'number' ? node.data.fileSize : undefined,
-        };
-      store.updateNodeData(nodeId, {
-        fileUrl: '',
-        thumbnailUrl: '',
-        previewUrl,
-        fileName: file.name,
-        fileKind: 'image',
-        fileSize: file.size,
-        _uploading: true,
-        _uploadError: '',
-        _fileProcessingStatus: '',
-        _fileProcessingError: '',
-        ...originalPatch,
-      });
-    } else {
-      store.updateNodeData(nodeId, {
-        maskFileUrl: '',
-        maskPreviewUrl: previewUrl,
-        maskFileName: file.name,
-        maskFileSize: file.size,
-        _maskUploading: true,
-        _maskUploadError: '',
-      });
-    }
-
-    const result = await uploadFile(file);
-    if (!result.success || !result.url) {
-      if (target === 'paint') {
+      if (target === 'mask' && options?.clearMask) {
         store.updateNodeData(nodeId, {
-          _uploading: false,
-          _uploadError: formatCanvasUploadError(result.error),
+          maskFileUrl: '',
+          maskPreviewUrl: '',
+          maskFileName: '',
+          maskFileSize: undefined,
+          _maskUploading: false,
+          _maskUploadError: '',
+        });
+        return;
+      }
+
+      if (target === 'paint') {
+        const node = store.nodes.find((item) => item.id === nodeId);
+        const hasStoredOriginal = Boolean(node?.data?.canvasOriginalFileUrl || node?.data?.canvasOriginalPreviewUrl);
+        const originalPatch = hasStoredOriginal
+          ? {}
+          : {
+              canvasOriginalFileUrl: typeof node?.data?.fileUrl === 'string' ? node.data.fileUrl : '',
+              canvasOriginalPreviewUrl: typeof node?.data?.previewUrl === 'string' ? node.data.previewUrl : '',
+              canvasOriginalFileName: typeof node?.data?.fileName === 'string' ? node.data.fileName : '',
+              canvasOriginalFileSize: typeof node?.data?.fileSize === 'number' ? node.data.fileSize : undefined,
+            };
+        store.updateNodeData(nodeId, {
+          fileUrl: '',
+          thumbnailUrl: '',
+          previewUrl,
+          fileName: file.name,
+          fileKind: 'image',
+          fileSize: file.size,
+          _uploading: true,
+          _uploadError: '',
           _fileProcessingStatus: '',
           _fileProcessingError: '',
+          ...originalPatch,
         });
       } else {
         store.updateNodeData(nodeId, {
-          _maskUploading: false,
-          _maskUploadError: formatCanvasUploadError(result.error),
+          maskFileUrl: '',
+          maskPreviewUrl: previewUrl,
+          maskFileName: file.name,
+          maskFileSize: file.size,
+          _maskUploading: true,
+          _maskUploadError: '',
         });
       }
-      throw new Error(formatCanvasUploadError(result.error));
-    }
 
-    if (target === 'paint') {
-      store.updateNodeData(nodeId, {
-        fileUrl: result.url,
-        thumbnailUrl: result.thumbnailUrl || '',
-        previewUrl,
-        fileName: result.fileName || file.name,
-        fileSize: result.fileSize || file.size,
-        _uploading: false,
-        _uploadError: '',
-        _fileProcessingStatus: result.processing ? 'processing' : '',
-        _fileProcessingError: result.processingError || '',
-      });
-      if (result.processing && result.url) {
-        void waitForUploadedImageMetadata(result.url, (metadata) => {
+      const result = await uploadFile(file);
+      if (!result.success || !result.url) {
+        if (target === 'paint') {
           store.updateNodeData(nodeId, {
-            fileUrl: metadata.url || result.url,
-            thumbnailUrl: metadata.thumbnailUrl || '',
-            previewUrl: metadata.thumbnailUrl || previewUrl || metadata.url || result.url,
-            width: metadata.width,
-            height: metadata.height,
-            _fileProcessingStatus: metadata.processingStatus || '',
-            _fileProcessingError: metadata.processingError || '',
+            _uploading: false,
+            _uploadError: formatCanvasUploadError(result.error),
+            _fileProcessingStatus: '',
+            _fileProcessingError: '',
           });
-        });
+        } else {
+          store.updateNodeData(nodeId, {
+            _maskUploading: false,
+            _maskUploadError: formatCanvasUploadError(result.error),
+          });
+        }
+        throw new Error(formatCanvasUploadError(result.error));
       }
-      return;
-    }
 
-    store.updateNodeData(nodeId, {
-      maskFileUrl: result.url,
-      maskPreviewUrl: previewUrl,
-      maskFileName: result.fileName || file.name,
-      maskFileSize: result.fileSize || file.size,
-      _maskUploading: false,
-      _maskUploadError: '',
-    });
-  }, [onBeforeCanvasEditorSave, store]);
+      if (target === 'paint') {
+        store.updateNodeData(nodeId, {
+          fileUrl: result.url,
+          thumbnailUrl: result.thumbnailUrl || '',
+          previewUrl,
+          fileName: result.fileName || file.name,
+          fileSize: result.fileSize || file.size,
+          _uploading: false,
+          _uploadError: '',
+          _fileProcessingStatus: result.processing ? 'processing' : '',
+          _fileProcessingError: result.processingError || '',
+        });
+        if (result.processing && result.url) {
+          void waitForUploadedImageMetadata(result.url, (metadata) => {
+            store.updateNodeData(nodeId, {
+              fileUrl: metadata.url || result.url,
+              thumbnailUrl: metadata.thumbnailUrl || '',
+              previewUrl: metadata.thumbnailUrl || previewUrl || metadata.url || result.url,
+              width: metadata.width,
+              height: metadata.height,
+              _fileProcessingStatus: metadata.processingStatus || '',
+              _fileProcessingError: metadata.processingError || '',
+            });
+          });
+        }
+        return;
+      }
+
+      store.updateNodeData(nodeId, {
+        maskFileUrl: result.url,
+        maskPreviewUrl: previewUrl,
+        maskFileName: result.fileName || file.name,
+        maskFileSize: result.fileSize || file.size,
+        _maskUploading: false,
+        _maskUploadError: '',
+      });
+    },
+    [onBeforeCanvasEditorSave, store],
+  );
 
   const resolveTargetHandle = useCallback((nodeType: string, sourceType?: string) => {
     const def = getNodeDef(nodeType);
@@ -1365,62 +1473,77 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     return matchingOutput?.id || null;
   }, []);
 
-  const addNodeFromMenu = useCallback((nodeType: string) => {
-    if (!contextMenu) return;
-    if (FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) return;
+  const addNodeFromMenu = useCallback(
+    (nodeType: string) => {
+      if (!contextMenu) return;
+      if (FLOW_DISABLED_NEW_NODE_TYPES.has(nodeType)) return;
 
-    const position = getCenteredPosition(nodeType, contextMenu.flowPosition);
-    const newNodeId = store.addNode(nodeType, position, buildDefaultData(nodeType));
+      const position = getCenteredPosition(nodeType, contextMenu.flowPosition);
+      const newNodeId = store.addNode(nodeType, position, buildDefaultData(nodeType));
 
-    if (contextMenu.kind === 'connect' && contextMenu.sourceConnection) {
-      const pending = contextMenu.sourceConnection;
+      if (contextMenu.kind === 'connect' && contextMenu.sourceConnection) {
+        const pending = contextMenu.sourceConnection;
 
-      if (pending.handleType === 'source') {
-        const sourceDescriptor = parseGroupHandleId(pending.sourceHandle);
-        if (sourceDescriptor?.side === 'input' && sourceDescriptor.role === 'internal') {
-          attachNodeToGroup(newNodeId, pending.sourceId);
-        }
+        if (pending.handleType === 'source') {
+          const sourceDescriptor = parseGroupHandleId(pending.sourceHandle);
+          if (sourceDescriptor?.side === 'input' && sourceDescriptor.role === 'internal') {
+            attachNodeToGroup(newNodeId, pending.sourceId);
+          }
 
-        const targetHandle = resolveTargetHandle(nodeType, pending.sourceType);
-        if (targetHandle) {
-          commitConnection({
-            source: pending.sourceId,
-            sourceHandle: pending.sourceHandle,
-            target: newNodeId,
-            targetHandle,
-          });
-        }
-      } else {
-        const targetDescriptor = parseGroupHandleId(pending.targetHandle);
-        if (targetDescriptor?.side === 'output' && targetDescriptor.role === 'internal') {
-          attachNodeToGroup(newNodeId, pending.targetId);
-        }
+          const targetHandle = resolveTargetHandle(nodeType, pending.sourceType);
+          if (targetHandle) {
+            commitConnection({
+              source: pending.sourceId,
+              sourceHandle: pending.sourceHandle,
+              target: newNodeId,
+              targetHandle,
+            });
+          }
+        } else {
+          const targetDescriptor = parseGroupHandleId(pending.targetHandle);
+          if (targetDescriptor?.side === 'output' && targetDescriptor.role === 'internal') {
+            attachNodeToGroup(newNodeId, pending.targetId);
+          }
 
-        const sourceHandle = resolveSourceHandle(nodeType, pending.targetType);
-        if (sourceHandle) {
-          commitConnection({
-            source: newNodeId,
-            sourceHandle,
-            target: pending.targetId,
-            targetHandle: pending.targetHandle,
-          });
+          const sourceHandle = resolveSourceHandle(nodeType, pending.targetType);
+          if (sourceHandle) {
+            commitConnection({
+              source: newNodeId,
+              sourceHandle,
+              target: pending.targetId,
+              targetHandle: pending.targetHandle,
+            });
+          }
         }
       }
-    }
 
-    closeContextMenu();
-  }, [attachNodeToGroup, closeContextMenu, commitConnection, contextMenu, resolveSourceHandle, resolveTargetHandle, store]);
+      closeContextMenu();
+    },
+    [
+      attachNodeToGroup,
+      closeContextMenu,
+      commitConnection,
+      contextMenu,
+      resolveSourceHandle,
+      resolveTargetHandle,
+      store,
+    ],
+  );
 
   const availableNodeDefs = useMemo(() => {
     if (!contextMenu) return [];
 
     if (contextMenu.kind !== 'connect' || !contextMenu.sourceConnection) {
-      return NODE_REGISTRY.filter((nodeDef) => nodeDef.type !== 'group' && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeDef.type));
+      return NODE_REGISTRY.filter(
+        (nodeDef) => nodeDef.type !== 'group' && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeDef.type),
+      );
     }
 
     const pending = contextMenu.sourceConnection;
 
-    return NODE_REGISTRY.filter((nodeDef) => nodeDef.type !== 'group' && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeDef.type)).filter((nodeDef) => {
+    return NODE_REGISTRY.filter(
+      (nodeDef) => nodeDef.type !== 'group' && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeDef.type),
+    ).filter((nodeDef) => {
       if (pending.handleType === 'source') {
         if (nodeDef.inputs.length === 0) return false;
 
@@ -1437,7 +1560,9 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         return compatibleTargets?.includes(sampleInput.type) ?? false;
       }
 
-      const outputs = nodeDef.maxOutputs ? getExpandedNodeOutputs(nodeDef.type, buildDefaultData(nodeDef.type)) : nodeDef.outputs;
+      const outputs = nodeDef.maxOutputs
+        ? getExpandedNodeOutputs(nodeDef.type, buildDefaultData(nodeDef.type))
+        : nodeDef.outputs;
       if (outputs.length === 0) return false;
       return outputs.some((output) => {
         const compatibleTargets = PORT_COMPATIBILITY[output.type];
@@ -1557,8 +1682,8 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         />
       </ReactFlow>
 
-      {contextMenu && (
-        contextMenu.kind === 'node' || contextMenu.kind === 'paneActions' ? (
+      {contextMenu &&
+        (contextMenu.kind === 'node' || contextMenu.kind === 'paneActions' ? (
           <div
             className="workflow-context-menu workflow-context-menu--root"
             style={{
@@ -1592,13 +1717,32 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
               </>
             ) : (
               <>
-                <ContextMenuButton label={hasSingleGroupContextNode ? '复制节点组' : '复制节点'} onClick={hasSingleGroupContextNode ? copyContextNodes : copySelectedNode} />
                 <ContextMenuButton
-                  label={allContextNodesLocked ? (hasSingleGroupContextNode ? '解锁组' : '解锁节点') : (hasSingleGroupContextNode ? '锁定组' : '锁定节点')}
+                  label={hasSingleGroupContextNode ? '复制节点组' : '复制节点'}
+                  onClick={hasSingleGroupContextNode ? copyContextNodes : copySelectedNode}
+                />
+                <ContextMenuButton
+                  label={
+                    allContextNodesLocked
+                      ? hasSingleGroupContextNode
+                        ? '解锁组'
+                        : '解锁节点'
+                      : hasSingleGroupContextNode
+                        ? '锁定组'
+                        : '锁定节点'
+                  }
                   onClick={() => setContextNodesLocked(!allContextNodesLocked)}
                 />
                 <ContextMenuButton
-                  label={allContextNodesDisabled ? (hasSingleGroupContextNode ? '启用组' : '启用节点') : (hasSingleGroupContextNode ? '禁用组' : '禁用节点')}
+                  label={
+                    allContextNodesDisabled
+                      ? hasSingleGroupContextNode
+                        ? '启用组'
+                        : '启用节点'
+                      : hasSingleGroupContextNode
+                        ? '禁用组'
+                        : '禁用节点'
+                  }
                   onClick={() => setContextNodesDisabled(!allContextNodesDisabled)}
                 />
                 {canRunToSingleContextNode && (
@@ -1619,15 +1763,29 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
                   <ContextMenuButton
                     label="进入画板"
                     onClick={openCanvasEditorForContextNode}
-                    disabled={!canvasEditorSource && !contextNodes[0]?.data?.fileUrl && !contextNodes[0]?.data?.previewUrl}
-                    title={(!canvasEditorSource && !contextNodes[0]?.data?.fileUrl && !contextNodes[0]?.data?.previewUrl) ? '当前节点还没有图片，无法进入画板' : undefined}
+                    disabled={
+                      !canvasEditorSource && !contextNodes[0]?.data?.fileUrl && !contextNodes[0]?.data?.previewUrl
+                    }
+                    title={
+                      !canvasEditorSource && !contextNodes[0]?.data?.fileUrl && !contextNodes[0]?.data?.previewUrl
+                        ? '当前节点还没有图片，无法进入画板'
+                        : undefined
+                    }
                   />
                 )}
                 {hasSingleGroupContextNode && <ContextMenuButton label="解组" onClick={ungroupContextNodes} />}
-                {hasSingleChildContextNode && <ContextMenuButton label="从组释放" onClick={releaseContextNodesFromGroup} />}
-                {canDetachSingleContextNode && <ContextMenuButton label="摘除并重接" onClick={detachContextNodeFromChain} />}
+                {hasSingleChildContextNode && (
+                  <ContextMenuButton label="从组释放" onClick={releaseContextNodesFromGroup} />
+                )}
+                {canDetachSingleContextNode && (
+                  <ContextMenuButton label="摘除并重接" onClick={detachContextNodeFromChain} />
+                )}
                 <ContextMenuButton label="恢复默认尺寸" onClick={resetContextNodeSize} />
-                <ContextMenuButton label={hasSingleGroupContextNode ? '删除组' : '删除节点'} onClick={deleteContextNode} danger />
+                <ContextMenuButton
+                  label={hasSingleGroupContextNode ? '删除组' : '删除节点'}
+                  onClick={deleteContextNode}
+                  danger
+                />
               </>
             )}
           </div>
@@ -1659,7 +1817,9 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
                       className={[
                         'workflow-context-menu__category-chip',
                         currentNodeCategory === group.category ? 'workflow-context-menu__category-chip--active' : '',
-                      ].filter(Boolean).join(' ')}
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                       onClick={() => setActiveCategory(group.category)}
                     >
                       <span>{group.label}</span>
@@ -1680,8 +1840,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
               </div>
             </div>
           </div>
-        )
-      )}
+        ))}
 
       {canvasEditorNode && canvasEditorSource && (
         <NodeCanvasEditorModal
@@ -1740,7 +1899,9 @@ function ContextMenuButton({
         danger ? 'workflow-context-menu__item--danger' : '',
         active ? 'workflow-context-menu__item--active' : '',
         disabled ? 'workflow-context-menu__item--disabled' : '',
-      ].filter(Boolean).join(' ')}
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onMouseEnter={() => {
         if (!disabled) onHover?.();
       }}
@@ -1763,12 +1924,7 @@ function NodeCatalogButton({
   const outputCount = String(nodeDef.outputs.length);
 
   return (
-    <button
-      type="button"
-      className="workflow-context-menu__node-card"
-      onClick={onClick}
-      title={nodeDef.label}
-    >
+    <button type="button" className="workflow-context-menu__node-card" onClick={onClick} title={nodeDef.label}>
       <span
         className="workflow-context-menu__node-icon"
         style={{
@@ -1782,7 +1938,9 @@ function NodeCatalogButton({
       </span>
       <span className="workflow-context-menu__node-copy">
         <span className="workflow-context-menu__node-label">{nodeDef.label}</span>
-        <span className="workflow-context-menu__node-meta">{inputCount} 入 / {outputCount} 出</span>
+        <span className="workflow-context-menu__node-meta">
+          {inputCount} 入 / {outputCount} 出
+        </span>
       </span>
     </button>
   );
@@ -1798,5 +1956,3 @@ export default function FlowCanvas({ onViewportCenterChange, onBeforeCanvasEdito
     </ReactFlowProvider>
   );
 }
-
-

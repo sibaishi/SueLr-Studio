@@ -1,6 +1,13 @@
-import fs from 'fs';
-import path from 'path';
-import { ensureJsonFile, ensureStorageDirectories, readJsonFile, safeResolveWithin, writeJsonFile, STORAGE_PATHS } from '../../platform/storage/index.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import {
+  STORAGE_PATHS,
+  ensureJsonFile,
+  ensureStorageDirectories,
+  readJsonFile,
+  safeResolveWithin,
+  writeJsonFile,
+} from '../../platform/storage/index.js';
 
 const DEFAULT_PROFILES = [];
 const DEFAULT_MEMORIES = [];

@@ -1,5 +1,5 @@
-import { getRuntimeMode, isServerRuntimeMode } from './mode.js';
 import { adminConfigRepository } from '../../modules/admin-config/admin-config.repository.js';
+import { getRuntimeMode, isServerRuntimeMode } from './mode.js';
 
 export function getRuntimeCapabilities(mode = getRuntimeMode()) {
   const serverMode = isServerRuntimeMode(mode);

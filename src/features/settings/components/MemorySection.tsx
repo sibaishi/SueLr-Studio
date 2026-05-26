@@ -1,6 +1,6 @@
 import { IOSButton, IOSCard, IOSInput } from '@/shared/ui/ios';
-import { EmptyStateCard, SectionCard, chipStyle } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';
+import { EmptyStateCard, SectionCard, chipStyle } from './styles';
 
 type Props = {
   T: Record<string, string>;
@@ -52,7 +52,9 @@ export function AgentMemorySection({ T, actions, view }: Props) {
                   <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
                     {new Date(memory.ts).toLocaleString()}
                   </div>
-                  <div style={{ color: 'var(--color-text-secondary)', fontSize: 12, lineHeight: 1.6 }}>{memory.content}</div>
+                  <div style={{ color: 'var(--color-text-secondary)', fontSize: 12, lineHeight: 1.6 }}>
+                    {memory.content}
+                  </div>
                   <div>
                     <IOSButton small label="删除" color={T.red} onClick={() => actions.onDeleteMemory(memory.id)} />
                   </div>
@@ -64,7 +66,11 @@ export function AgentMemorySection({ T, actions, view }: Props) {
               <EmptyStateCard
                 title="没有命中的记忆条目"
                 body="当前筛选条件下没有找到已存储的记忆。"
-                action={view.memoryQuery ? '可以更换关键词，或清空筛选后查看全部记忆。' : '当对话被提取并持久化后，记忆会显示在这里。'}
+                action={
+                  view.memoryQuery
+                    ? '可以更换关键词，或清空筛选后查看全部记忆。'
+                    : '当对话被提取并持久化后，记忆会显示在这里。'
+                }
               />
             )}
           </div>

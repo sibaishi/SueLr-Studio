@@ -62,14 +62,15 @@ export class WorkflowsController {
   import(req, res, next) {
     try {
       const generateNewId = req.query.generateNewId === 'true';
-      const mode = typeof req.query.mode === 'string'
-        ? req.query.mode
-        : (generateNewId ? 'generate_new_id' : 'preserve_id');
+      const mode =
+        typeof req.query.mode === 'string' ? req.query.mode : generateNewId ? 'generate_new_id' : 'preserve_id';
       const result = workflowsService.import(req.body, { generateNewId, mode, scope: req.scope });
-      res.json(successEnvelope({
-        workflow: result.workflow,
-        report: result.report,
-      }));
+      res.json(
+        successEnvelope({
+          workflow: result.workflow,
+          report: result.report,
+        }),
+      );
     } catch (error) {
       next(error);
     }

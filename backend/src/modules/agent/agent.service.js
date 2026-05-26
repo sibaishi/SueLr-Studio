@@ -1,17 +1,17 @@
 import { randomUUID } from 'node:crypto';
+import { AppError, ValidationError, fromLegacyError } from '../../app/errors/index.js';
+import { createAgentRunLogger } from '../../platform/logging/agent-run-logger.js';
 import { createLogger } from '../../platform/logging/logger.js';
 import { getRequestContext } from '../../platform/logging/request-context.js';
-import { createAgentRunLogger } from '../../platform/logging/agent-run-logger.js';
-import { AppError, fromLegacyError, ValidationError } from '../../app/errors/index.js';
-import { settingsService } from '../settings/settings.service.js';
 import { capabilitiesService } from '../capabilities/capabilities.service.js';
 import { executionService } from '../execution/execution.service.js';
-import { agentRepository } from './agent.repository.js';
+import { settingsService } from '../settings/settings.service.js';
 import { agentMemoryService } from './agent-memory.service.js';
 import { agentProfileService } from './agent-profile.service.js';
-import { agentSessionStore } from './agent-session-store.js';
-import { createToolRegistry } from './tool-registry.js';
 import { AgentRuntime } from './agent-runtime.js';
+import { agentSessionStore } from './agent-session-store.js';
+import { agentRepository } from './agent.repository.js';
+import { createToolRegistry } from './tool-registry.js';
 
 const logger = createLogger({ module: 'agent-service' });
 const DEFAULT_AGENT_SESSION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -32,18 +32,22 @@ export class AgentService {
     this.memoryService = deps.memoryService || agentMemoryService;
     this.profileService = deps.profileService || agentProfileService;
     this.sessionStore = deps.sessionStore || agentSessionStore;
-    this.toolRegistry = deps.toolRegistry || createToolRegistry({
-      capabilitiesService: this.capabilitiesService,
-      memoryService: this.memoryService,
-      executionService: this.executionService,
-    });
-    this.runtime = deps.runtime || new AgentRuntime({
-      capabilitiesService: this.capabilitiesService,
-      profileService: this.profileService,
-      memoryService: this.memoryService,
-      toolRegistry: this.toolRegistry,
-      sessionStore: this.sessionStore,
-    });
+    this.toolRegistry =
+      deps.toolRegistry ||
+      createToolRegistry({
+        capabilitiesService: this.capabilitiesService,
+        memoryService: this.memoryService,
+        executionService: this.executionService,
+      });
+    this.runtime =
+      deps.runtime ||
+      new AgentRuntime({
+        capabilitiesService: this.capabilitiesService,
+        profileService: this.profileService,
+        memoryService: this.memoryService,
+        toolRegistry: this.toolRegistry,
+        sessionStore: this.sessionStore,
+      });
     this.repository = deps.repository || agentRepository;
     this.runningSessions = new Map();
   }
@@ -325,33 +329,38 @@ export class AgentService {
       },
     };
 
-    void this.runtime.runStream({
-      conversationId: body.conversationId,
-      profileId: body.profileId,
-      model: body.model,
-      messages: body.messages,
-      options: {
-        ...body.options,
-        sessionId,
-        apiConfig: this.settingsService.buildRuntimeConfig(body.apiConfig || {}),
-        scope: handlers.scope,
-      },
-      signal: abortController.signal,
-      handlers: loggedHandlers,
-    }).catch((error) => {
-      this.finalizeSessionFailure(sessionId, error, runningSession);
-      logger.error('agent chat stream failed', { code: error?.code, message: error?.message });
-      loggedHandlers.onSessionFailed?.({
-        sessionId,
-        code: runningSession.didTimeout() ? 'AGENT_SESSION_TIMEOUT' : (error?.code || 'AGENT_STREAM_FAILED'),
-        message: runningSession.didTimeout()
-          ? `Agent session timed out after ${runningSession.timeoutMs}ms`
-          : (error instanceof Error ? error.message : String(error)),
+    void this.runtime
+      .runStream({
+        conversationId: body.conversationId,
+        profileId: body.profileId,
+        model: body.model,
+        messages: body.messages,
+        options: {
+          ...body.options,
+          sessionId,
+          apiConfig: this.settingsService.buildRuntimeConfig(body.apiConfig || {}),
+          scope: handlers.scope,
+        },
+        signal: abortController.signal,
+        handlers: loggedHandlers,
+      })
+      .catch((error) => {
+        this.finalizeSessionFailure(sessionId, error, runningSession);
+        logger.error('agent chat stream failed', { code: error?.code, message: error?.message });
+        loggedHandlers.onSessionFailed?.({
+          sessionId,
+          code: runningSession.didTimeout() ? 'AGENT_SESSION_TIMEOUT' : error?.code || 'AGENT_STREAM_FAILED',
+          message: runningSession.didTimeout()
+            ? `Agent session timed out after ${runningSession.timeoutMs}ms`
+            : error instanceof Error
+              ? error.message
+              : String(error),
+        });
+      })
+      .finally(() => {
+        runningSession.clearTimeout();
+        this.runningSessions.delete(sessionId);
       });
-    }).finally(() => {
-      runningSession.clearTimeout();
-      this.runningSessions.delete(sessionId);
-    });
 
     return () => {
       const runningSession = this.runningSessions.get(sessionId);

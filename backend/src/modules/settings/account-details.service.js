@@ -17,7 +17,9 @@ const DEFAULT_STATE = {
 };
 
 function cleanText(value, maxLength = 4000) {
-  return String(value || '').trim().slice(0, maxLength);
+  return String(value || '')
+    .trim()
+    .slice(0, maxLength);
 }
 
 function round2(value) {
@@ -60,7 +62,10 @@ function extractSessionCookie(response) {
   const rawCookie = setCookie.find((item) => /^session=/i.test(item)) || response.headers.get('set-cookie') || '';
   const match = rawCookie.match(/(?:^|;\s*)session=([^;]+)/i);
   if (!match) {
-    throw new ProviderError('ACCOUNT_DETAILS_LOGIN_FAILED', 'account login succeeded but did not return a session cookie');
+    throw new ProviderError(
+      'ACCOUNT_DETAILS_LOGIN_FAILED',
+      'account login succeeded but did not return a session cookie',
+    );
   }
 
   const expires = rawCookie.match(/expires=([^;]+)/i);
@@ -123,7 +128,7 @@ function normalizeLogItem(item = {}) {
 
 function normalizeLogResponse(data, page, pageSize) {
   const payload = data?.data;
-  const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : []);
+  const items = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : [];
   return {
     items: items.map(normalizeLogItem),
     total: Number(payload?.total) || items.length,
@@ -176,7 +181,10 @@ export class AccountDetailsService {
     const username = cleanText(payload.username, 500);
     const password = cleanText(payload.password, 500);
     if (!username || !password) {
-      throw new ValidationError('ACCOUNT_DETAILS_CREDENTIALS_REQUIRED', 'Please enter the account username and password');
+      throw new ValidationError(
+        'ACCOUNT_DETAILS_CREDENTIALS_REQUIRED',
+        'Please enter the account username and password',
+      );
     }
 
     const state = await this.login({ username, password });
@@ -206,15 +214,21 @@ export class AccountDetailsService {
   async refreshBalance(options = {}) {
     const current = options.state || readState();
     if (!current.username || !current.password) {
-      throw new ValidationError('ACCOUNT_DETAILS_NOT_CONFIGURED', 'Please configure the account username and password first');
+      throw new ValidationError(
+        'ACCOUNT_DETAILS_NOT_CONFIGURED',
+        'Please configure the account username and password first',
+      );
     }
 
-    let state = await this.ensureSession(current);
+    const state = await this.ensureSession(current);
 
     try {
       return publicState(await this.fetchAndStoreBalance(state));
     } catch (error) {
-      if (options.retried || !['ACCOUNT_DETAILS_BALANCE_FAILED', 'ACCOUNT_DETAILS_BALANCE_INVALID'].includes(error?.code)) {
+      if (
+        options.retried ||
+        !['ACCOUNT_DETAILS_BALANCE_FAILED', 'ACCOUNT_DETAILS_BALANCE_INVALID'].includes(error?.code)
+      ) {
         throw error;
       }
       const relogged = await this.login({ username: current.username, password: current.password });
@@ -224,7 +238,10 @@ export class AccountDetailsService {
 
   async ensureSession(state = readState()) {
     if (!state.username || !state.password) {
-      throw new ValidationError('ACCOUNT_DETAILS_NOT_CONFIGURED', 'Please configure the account username and password first');
+      throw new ValidationError(
+        'ACCOUNT_DETAILS_NOT_CONFIGURED',
+        'Please configure the account username and password first',
+      );
     }
     if (!state.session || (state.sessionExpiresAt && state.sessionExpiresAt <= Date.now())) {
       return this.login({ username: state.username, password: state.password });

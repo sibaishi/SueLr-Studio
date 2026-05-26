@@ -11,10 +11,7 @@ async function hasMaskPaint(maskUrl) {
   const localPath = urlToLocalPath(maskUrl);
   if (!localPath) return true;
 
-  const { data } = await sharp(localPath, { failOn: 'none' })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { data } = await sharp(localPath, { failOn: 'none' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
 
   for (let index = 0; index < data.length; index += 4) {
     if (data[index + 3] === 0) continue;
@@ -36,6 +33,6 @@ export async function execute(node, inputs, apiConfig, sendProgress) {
   const mask = maskFileUrl || maskPreviewUrl || '';
   return {
     image: fileUrl,
-    mask: await hasMaskPaint(mask) ? mask : undefined,
+    mask: (await hasMaskPaint(mask)) ? mask : undefined,
   };
 }

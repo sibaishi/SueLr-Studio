@@ -17,7 +17,16 @@ router.post('/chat', validateBody(validateChatBody), capabilitiesController.chat
 router.post('/search', validateBody(validateSearchBody), capabilitiesController.search.bind(capabilitiesController));
 router.post('/image', validateBody(validateImageBody), capabilitiesController.image.bind(capabilitiesController));
 router.post('/video', validateBody(validateVideoBody), capabilitiesController.submitVideo.bind(capabilitiesController));
-router.get('/video/:taskId', validateParam('taskId', validateTaskId), capabilitiesController.getVideoStatus.bind(capabilitiesController));
-router.post('/video/:taskId/status', validateParam('taskId', validateTaskId), validateBody(validateVideoStatusBody), capabilitiesController.getVideoStatus.bind(capabilitiesController));
+router.get(
+  '/video/:taskId',
+  validateParam('taskId', validateTaskId),
+  capabilitiesController.getVideoStatus.bind(capabilitiesController),
+);
+router.post(
+  '/video/:taskId/status',
+  validateParam('taskId', validateTaskId),
+  validateBody(validateVideoStatusBody),
+  capabilitiesController.getVideoStatus.bind(capabilitiesController),
+);
 
 export default router;

@@ -14,10 +14,7 @@ type WorkflowRuntimeState = Pick<
   | 'nodeOutputs'
 >;
 
-export function clearRemovedNodeRuntimeState(
-  state: WorkflowRuntimeState,
-  removedIds: Iterable<string>,
-) {
+export function clearRemovedNodeRuntimeState(state: WorkflowRuntimeState, removedIds: Iterable<string>) {
   const nodeExecStatus = { ...state.nodeExecStatus };
   const nodeExecutionTime = { ...state.nodeExecutionTime };
   const nodeExecutionStartedAt = { ...state.nodeExecutionStartedAt };

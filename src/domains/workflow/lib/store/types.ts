@@ -1,9 +1,14 @@
-import type { Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
 import type { WorkflowListItem } from '@/domains/workflow/lib/api';
 import type { GroupPort, GroupPortSide } from '@/domains/workflow/lib/groupPorts';
-import type { PersistedWorkflow, WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
+import type {
+  PersistedWorkflow,
+  WorkflowImportError,
+  WorkflowImportMode,
+  WorkflowImportReport,
+} from '@/domains/workflow/lib/persistenceTypes';
 import type { ModelOption, ProjectModel } from '@/domains/workflow/lib/projectModels';
 import type { ApiConfig } from '@/shared/types';
+import type { Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
 
 export type WorkflowDraftSnapshot = {
   workflowId: string;
@@ -139,17 +144,24 @@ export interface WorkflowState {
   deleteCurrentWorkflow: () => Promise<boolean>;
   exportCurrentWorkflow: () => PersistedWorkflow;
   importWorkflowData: (payload: unknown, fallbackName?: string) => Promise<WorkflowImportResult>;
-  importWorkflowDataWithMode: (payload: unknown, mode: WorkflowImportMode, fallbackName?: string) => Promise<WorkflowImportResult>;
+  importWorkflowDataWithMode: (
+    payload: unknown,
+    mode: WorkflowImportMode,
+    fallbackName?: string,
+  ) => Promise<WorkflowImportResult>;
   fetchModels: () => Promise<{ success: boolean; error?: string; count: number }>;
-  setAvailableModels: (models: { all: ModelOption[]; chat: ModelOption[]; image: ModelOption[]; video: ModelOption[] }) => void;
+  setAvailableModels: (models: {
+    all: ModelOption[];
+    chat: ModelOption[];
+    image: ModelOption[];
+    video: ModelOption[];
+  }) => void;
   setProjectModels: (models: ProjectModel[]) => void;
   persistLocalDraft: () => void;
 }
 
 export type WorkflowStoreSet = (
-  partial:
-    | Partial<WorkflowState>
-    | ((state: WorkflowState) => Partial<WorkflowState>)
+  partial: Partial<WorkflowState> | ((state: WorkflowState) => Partial<WorkflowState>),
 ) => void;
 
 export type WorkflowStoreGet = () => WorkflowState;

@@ -1,5 +1,13 @@
-import { apiRequest, getApiErrorMessage, setBackendAvailable, isBackendAvailable, selectDirectory, getRuntimeCapabilities } from '@/shared/api';
+import {
+  apiRequest,
+  getApiErrorMessage,
+  getRuntimeCapabilities,
+  isBackendAvailable,
+  selectDirectory,
+  setBackendAvailable,
+} from '@/shared/api';
 import { getCachedRuntimeCapabilities, setCachedRuntimeCapabilities } from '@/shared/api/serverState';
+import type { RuntimeCapabilities } from '@/shared/runtime';
 import {
   clearBrowserDownloadDirectory,
   isBrowserDownloadDirectorySupported,
@@ -7,8 +15,15 @@ import {
   pickBrowserDownloadDirectory,
 } from '@/shared/runtime/browserDownload';
 import type { ModelInfo } from '@/shared/types';
-import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { AccountDetailsLogsPayload, AccountDetailsPayload, BackendRestartPayload, BackendStatusPayload, ClientDownloadDirectoryState, StorageSettingsPayload, StudioSettingsPayload } from './types';
+import type {
+  AccountDetailsLogsPayload,
+  AccountDetailsPayload,
+  BackendRestartPayload,
+  BackendStatusPayload,
+  ClientDownloadDirectoryState,
+  StorageSettingsPayload,
+  StudioSettingsPayload,
+} from './types';
 
 type BackendModelsData = {
   message?: string;
@@ -37,8 +52,8 @@ export function isSettingsServerAvailable() {
 
 export async function checkSettingsServer(): Promise<boolean> {
   const result = await apiRequest<BackendStatusPayload>('/api/status', { timeoutMs: 2000 });
-  const payload = result.data as ({ ok?: boolean } | undefined);
-  const available = Boolean(payload?.ok ?? ((payload as { data?: { ok?: boolean } } | undefined)?.data?.ok));
+  const payload = result.data as { ok?: boolean } | undefined;
+  const available = Boolean(payload?.ok ?? (payload as { data?: { ok?: boolean } } | undefined)?.data?.ok);
   setBackendAvailable(available);
   if (result.data?.runtime) {
     setCachedRuntimeCapabilities(result.data.runtime);
@@ -196,15 +211,17 @@ export async function loadAccountDetailsLogs(page = 1, pageSize = 20): Promise<A
     page: String(page),
     pageSize: String(pageSize),
   });
-  const result = await apiRequest<AccountDetailsLogsPayload>(`/api/settings/account-details/logs?${params.toString()}`, {
-    timeoutMs: 20000,
-  });
+  const result = await apiRequest<AccountDetailsLogsPayload>(
+    `/api/settings/account-details/logs?${params.toString()}`,
+    {
+      timeoutMs: 20000,
+    },
+  );
   if (!result.success || !result.data) {
     throw new Error(result.error || '账号日志加载失败');
   }
   return result.data;
 }
-
 
 type WaitForBackendReadyOptions = {
   previousProcessInstanceId?: string;
@@ -239,10 +256,13 @@ export async function discoverProviderModels(
   configId?: string,
   providerConfig?: Record<string, unknown>,
 ) {
-  return apiRequest<{ all: string[]; chat: string[]; image: string[]; video: string[] }>('/api/settings/discover-models', {
-    method: 'POST',
-    body: JSON.stringify({ apiKey, baseUrl, configId, providerConfig }),
-  });
+  return apiRequest<{ all: string[]; chat: string[]; image: string[]; video: string[] }>(
+    '/api/settings/discover-models',
+    {
+      method: 'POST',
+      body: JSON.stringify({ apiKey, baseUrl, configId, providerConfig }),
+    },
+  );
 }
 
 export async function testSettingsConnection(

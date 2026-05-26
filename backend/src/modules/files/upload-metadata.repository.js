@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { STORAGE_PATHS, ensureJsonFile, readJsonFile, writeJsonFile } from '../../platform/storage/index.js';
 
 const STORE_FILE = () => path.join(STORAGE_PATHS.filesDir, 'upload-metadata.json');

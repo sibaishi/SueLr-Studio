@@ -1,7 +1,7 @@
-import type { Edge, Node } from '@xyflow/react';
 import { PORT_COMPATIBILITY, getNodeDef } from '@/domains/workflow/lib/constants';
 import { getNodeHandleType, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { gid } from '@/domains/workflow/lib/store/helpers';
+import type { Edge, Node } from '@xyflow/react';
 
 function getPortOrder(node: Node | undefined, handleId: string | null | undefined, side: 'input' | 'output') {
   if (!node || !handleId) return Number.MAX_SAFE_INTEGER;
@@ -36,12 +36,7 @@ function arePortsCompatible(
 }
 
 function createEdgeKey(edge: Pick<Edge, 'source' | 'sourceHandle' | 'target' | 'targetHandle'>) {
-  return [
-    edge.source,
-    edge.sourceHandle || '',
-    edge.target,
-    edge.targetHandle || '',
-  ].join('|');
+  return [edge.source, edge.sourceHandle || '', edge.target, edge.targetHandle || ''].join('|');
 }
 
 function getInputHandleCandidates(node: Node | undefined) {
@@ -67,22 +62,22 @@ export function buildBypassEdgesForNode(nodes: Node[], edges: Edge[], nodeId: st
 
   const incomingEdges = edges
     .filter((edge) => edge.target === nodeId && edge.source !== nodeId)
-    .sort((a, b) => (
-      getPortOrder(removedNode, a.targetHandle, 'input') - getPortOrder(removedNode, b.targetHandle, 'input')
-    ));
+    .sort(
+      (a, b) => getPortOrder(removedNode, a.targetHandle, 'input') - getPortOrder(removedNode, b.targetHandle, 'input'),
+    );
   const outgoingEdges = edges
     .filter((edge) => edge.source === nodeId && edge.target !== nodeId)
-    .sort((a, b) => (
-      getPortOrder(removedNode, a.sourceHandle, 'output') - getPortOrder(removedNode, b.sourceHandle, 'output')
-        || getPortOrder(nodeMap.get(a.target), a.targetHandle, 'input') - getPortOrder(nodeMap.get(b.target), b.targetHandle, 'input')
-    ));
+    .sort(
+      (a, b) =>
+        getPortOrder(removedNode, a.sourceHandle, 'output') - getPortOrder(removedNode, b.sourceHandle, 'output') ||
+        getPortOrder(nodeMap.get(a.target), a.targetHandle, 'input') -
+          getPortOrder(nodeMap.get(b.target), b.targetHandle, 'input'),
+    );
 
   if (incomingEdges.length === 0 || outgoingEdges.length === 0) return [];
 
   const occupiedTargetHandles = new Set(
-    remainingEdges
-      .filter((edge) => edge.targetHandle)
-      .map((edge) => `${edge.target}:${edge.targetHandle}`),
+    remainingEdges.filter((edge) => edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`),
   );
   const existingEdgeKeys = new Set(remainingEdges.map((edge) => createEdgeKey(edge)));
   const bypassEdges: Edge[] = [];
@@ -92,17 +87,18 @@ export function buildBypassEdgesForNode(nodes: Node[], edges: Edge[], nodeId: st
     const targetKey = `${outgoingEdge.target}:${outgoingEdge.targetHandle}`;
     if (occupiedTargetHandles.has(targetKey)) continue;
 
-    const incomingEdge = incomingEdges.find((candidate) => (
-      candidate.sourceHandle
-      && candidate.source !== outgoingEdge.target
-      && arePortsCompatible(
-        nodeMap,
-        candidate.source,
-        candidate.sourceHandle,
-        outgoingEdge.target,
-        outgoingEdge.targetHandle,
-      )
-    ));
+    const incomingEdge = incomingEdges.find(
+      (candidate) =>
+        candidate.sourceHandle &&
+        candidate.source !== outgoingEdge.target &&
+        arePortsCompatible(
+          nodeMap,
+          candidate.source,
+          candidate.sourceHandle,
+          outgoingEdge.target,
+          outgoingEdge.targetHandle,
+        ),
+    );
     if (!incomingEdge || !incomingEdge.sourceHandle) continue;
 
     const nextEdge: Edge = {
@@ -137,25 +133,24 @@ export function buildInsertionEdgesForNode(nodes: Node[], edges: Edge[], nodeId:
 
   const remainingEdges = edges.filter((edge) => edge.id !== edgeId);
   const occupiedTargetHandles = new Set(
-    remainingEdges
-      .filter((edge) => edge.targetHandle)
-      .map((edge) => `${edge.target}:${edge.targetHandle}`),
+    remainingEdges.filter((edge) => edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`),
   );
   const existingEdgeKeys = new Set(remainingEdges.map((edge) => createEdgeKey(edge)));
 
   const inputHandle = getInputHandleCandidates(insertedNode)
     .sort((a, b) => getPortOrder(insertedNode, a, 'input') - getPortOrder(insertedNode, b, 'input'))
-    .find((candidate) => (
-      !occupiedTargetHandles.has(`${nodeId}:${candidate}`)
-      && arePortsCompatible(nodeMap, replacedEdge.source, replacedEdge.sourceHandle, nodeId, candidate)
-    ));
+    .find(
+      (candidate) =>
+        !occupiedTargetHandles.has(`${nodeId}:${candidate}`) &&
+        arePortsCompatible(nodeMap, replacedEdge.source, replacedEdge.sourceHandle, nodeId, candidate),
+    );
   if (!inputHandle) return null;
 
   const outputHandle = getOutputHandleCandidates(insertedNode)
     .sort((a, b) => getPortOrder(insertedNode, a, 'output') - getPortOrder(insertedNode, b, 'output'))
-    .find((candidate) => (
-      arePortsCompatible(nodeMap, nodeId, candidate, replacedEdge.target, replacedEdge.targetHandle)
-    ));
+    .find((candidate) =>
+      arePortsCompatible(nodeMap, nodeId, candidate, replacedEdge.target, replacedEdge.targetHandle),
+    );
   if (!outputHandle) return null;
 
   const incomingEdge: Edge = {

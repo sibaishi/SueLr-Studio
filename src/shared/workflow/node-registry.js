@@ -1,3 +1,9 @@
+import { AI_NODES } from './node-definitions/ai-nodes.js';
+import { API_NODES } from './node-definitions/api-nodes.js';
+import { GROUP_NODES } from './node-definitions/group-nodes.js';
+import { INPUT_NODES } from './node-definitions/input-nodes.js';
+import { MERGE_NODES } from './node-definitions/merge-nodes.js';
+import { OUTPUT_NODES } from './node-definitions/output-nodes.js';
 /** @typedef {import('@/shared/workflow/types').NodeTypeDef} NodeTypeDef */
 import {
   createNodeRegistryIndex,
@@ -9,12 +15,6 @@ import {
   isExecutableNodeTypeFromIndex,
   supportsDisabledPassthroughFromIndex,
 } from './node-registry-helpers.js';
-import { AI_NODES } from './node-definitions/ai-nodes.js';
-import { API_NODES } from './node-definitions/api-nodes.js';
-import { GROUP_NODES } from './node-definitions/group-nodes.js';
-import { INPUT_NODES } from './node-definitions/input-nodes.js';
-import { MERGE_NODES } from './node-definitions/merge-nodes.js';
-import { OUTPUT_NODES } from './node-definitions/output-nodes.js';
 
 /** @type {NodeTypeDef[]} */
 export const WORKFLOW_NODE_REGISTRY = [

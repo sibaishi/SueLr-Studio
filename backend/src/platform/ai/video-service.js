@@ -1,13 +1,13 @@
-import fs from 'fs';
-import path from 'path';
-import { randomUUID } from 'crypto';
-import { fileToBase64 } from '../../engine/helpers/fileHelper.js';
-import { resolveModelRuntime } from '../../engine/helpers/apiConfig.js';
-import { getProviderAdapter } from '../providers/index.js';
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { ProviderError } from '../../app/errors/index.js';
+import { resolveModelRuntime } from '../../engine/helpers/apiConfig.js';
+import { fileToBase64 } from '../../engine/helpers/fileHelper.js';
+import { createLogger } from '../logging/logger.js';
+import { getProviderAdapter } from '../providers/index.js';
 import { assertSafeRemoteDownloadUrl } from '../security/network-guards.js';
 import { STORAGE_PATHS } from '../storage/index.js';
-import { createLogger } from '../logging/logger.js';
 
 const REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
@@ -82,11 +82,15 @@ function toInputAudioPart(base64) {
 }
 
 function isVolcengineArkRuntime(baseUrl) {
-  return String(baseUrl || '').toLowerCase().includes('ark.cn-beijing.volces.com/api/v3');
+  return String(baseUrl || '')
+    .toLowerCase()
+    .includes('ark.cn-beijing.volces.com/api/v3');
 }
 
 function isArkVideoTasksEndpoint(endpoint) {
-  return String(endpoint || '').toLowerCase().includes('/contents/generations/tasks');
+  return String(endpoint || '')
+    .toLowerCase()
+    .includes('/contents/generations/tasks');
 }
 
 function resolveVideoTasksEndpoint(baseUrl, providerConfig, endpoint) {
@@ -115,20 +119,24 @@ function firstStringByKeys(value, keys) {
 }
 
 function extractVideoTaskId(data) {
-  return data?.id || data?.task_id || data?.data?.id || data?.data?.task_id || firstStringByKeys(data, ['id', 'task_id']);
+  return (
+    data?.id || data?.task_id || data?.data?.id || data?.data?.task_id || firstStringByKeys(data, ['id', 'task_id'])
+  );
 }
 
 function extractVideoUrl(data) {
-  return data?.video_url
-    || data?.output?.video_url
-    || data?.content?.video_url
-    || data?.data?.video_url
-    || data?.data?.output?.video_url
-    || data?.data?.content?.video_url
-    || data?.data?.data?.metadata?.url
-    || firstStringByKeys(data, ['video_url', 'file_url', 'media_url', 'download_url', 'url'])
-    || data?.result_url
-    || data?.data?.result_url;
+  return (
+    data?.video_url ||
+    data?.output?.video_url ||
+    data?.content?.video_url ||
+    data?.data?.video_url ||
+    data?.data?.output?.video_url ||
+    data?.data?.content?.video_url ||
+    data?.data?.data?.metadata?.url ||
+    firstStringByKeys(data, ['video_url', 'file_url', 'media_url', 'download_url', 'url']) ||
+    data?.result_url ||
+    data?.data?.result_url
+  );
 }
 
 function extractVideoTaskStatus(data) {
@@ -136,7 +144,9 @@ function extractVideoTaskStatus(data) {
 }
 
 function normalizeVideoTaskStatus(status, hasVideoUrl = false, hasError = false) {
-  const normalized = String(status || '').trim().toLowerCase();
+  const normalized = String(status || '')
+    .trim()
+    .toLowerCase();
 
   if (['queued', 'pending', 'submitted', 'created'].includes(normalized)) return 'queued';
   if (['processing', 'running', 'in_progress', 'in-progress', 'progressing'].includes(normalized)) return 'processing';
@@ -163,7 +173,17 @@ function shouldUseReferenceImageRole(model, imageCount) {
   return imageCount > 1 || normalized.includes('seedance-2-');
 }
 
-function buildArkVideoContent({ model, prompt, image_url, image_urls, video_url, video_urls, input_audio, input_audios, messages }) {
+function buildArkVideoContent({
+  model,
+  prompt,
+  image_url,
+  image_urls,
+  video_url,
+  video_urls,
+  input_audio,
+  input_audios,
+  messages,
+}) {
   if (Array.isArray(messages) && messages.length > 0) {
     const content = messages.flatMap((message) => {
       if (Array.isArray(message?.content)) return message.content;
@@ -305,7 +325,18 @@ export async function submitVideoGeneration({
   if (!model) {
     throw new Error('缺少视频模型 model');
   }
-  if (!normalizeTextInput(prompt) && !(image_url || image_urls?.length || video_url || video_urls?.length || input_audio || input_audios?.length || messages?.length)) {
+  if (
+    !normalizeTextInput(prompt) &&
+    !(
+      image_url ||
+      image_urls?.length ||
+      video_url ||
+      video_urls?.length ||
+      input_audio ||
+      input_audios?.length ||
+      messages?.length
+    )
+  ) {
     throw new Error('缺少视频生成输入');
   }
 
@@ -377,7 +408,8 @@ export async function submitVideoGeneration({
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ProviderError('VIDEO_SUBMIT_FAILED', data.error?.message || data.message || '视频生成失败');
+  if (!response.ok)
+    throw new ProviderError('VIDEO_SUBMIT_FAILED', data.error?.message || data.message || '视频生成失败');
 
   const taskId = extractVideoTaskId(data);
   if (taskId) {
@@ -406,7 +438,8 @@ export async function pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, e
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ProviderError('VIDEO_STATUS_FAILED', data.error?.message || data.message || `HTTP ${response.status}`);
+  if (!response.ok)
+    throw new ProviderError('VIDEO_STATUS_FAILED', data.error?.message || data.message || `HTTP ${response.status}`);
 
   return data;
 }
@@ -451,10 +484,14 @@ export async function waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId
     await new Promise((resolve, reject) => {
       const timer = setTimeout(resolve, intervalMs);
       if (signal) {
-        signal.addEventListener('abort', () => {
-          clearTimeout(timer);
-          reject(new Error('工作流已手动停止'));
-        }, { once: true });
+        signal.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(timer);
+            reject(new Error('工作流已手动停止'));
+          },
+          { once: true },
+        );
       }
     });
   }
@@ -489,24 +526,32 @@ export async function executeVideoGeneration(request, runtimeConfig, sendProgres
     video_urls: payload.videos,
     input_audio: payload.audios[0] || null,
     input_audios: payload.audios,
-    messages: payload.parts.length > 0
-      ? [{ role: 'user', content: payload.parts.length === 1 && payload.parts[0].type === 'text' ? payload.parts[0].text : payload.parts }]
-      : [],
+    messages:
+      payload.parts.length > 0
+        ? [
+            {
+              role: 'user',
+              content:
+                payload.parts.length === 1 && payload.parts[0].type === 'text' ? payload.parts[0].text : payload.parts,
+            },
+          ]
+        : [],
     signal: abortSignal,
     sendProgress,
   });
 
-  const videoUrl = task.mode === 'sync'
-    ? task.videoUrl
-    : await waitForVideoTask({
-        baseUrl,
-        apiKey,
-        providerConfig,
-        taskId: task.taskId,
-        endpoint: task.endpoint,
-        signal: abortSignal,
-        sendProgress,
-      });
+  const videoUrl =
+    task.mode === 'sync'
+      ? task.videoUrl
+      : await waitForVideoTask({
+          baseUrl,
+          apiKey,
+          providerConfig,
+          taskId: task.taskId,
+          endpoint: task.endpoint,
+          signal: abortSignal,
+          sendProgress,
+        });
 
   if (!videoUrl) {
     throw new Error('视频生成完成但未返回可用地址');

@@ -1,5 +1,5 @@
-import { getNodeTypeLabel } from './contracts/node-registry.js';
 import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.js';
+import { getNodeTypeLabel } from './contracts/node-registry.js';
 
 export function getNodeDisplayName(node, nodes) {
   if (!node) return '未知节点';
@@ -10,14 +10,7 @@ export function getNodeDisplayName(node, nodes) {
   return index >= 0 ? `${baseLabel} ${index + 1}` : baseLabel;
 }
 
-export function failWorkflowAtNode({
-  node,
-  nodes,
-  index,
-  total,
-  error,
-  sendSSE,
-}) {
+export function failWorkflowAtNode({ node, nodes, index, total, error, sendSSE }) {
   const nodeLabel = getNodeDisplayName(node, nodes);
   sendSSE(WORKFLOW_SSE_EVENTS.NODE_STARTED, {
     nodeId: node.id,
@@ -134,9 +127,8 @@ export function collectInputs(node, edges, outputs) {
       const sourceOutput = outputs[edge.source];
       if (sourceOutput) {
         const directValue = sourceOutput[edge.sourceHandle];
-        inputs[edge.targetHandle] = directValue !== undefined
-          ? directValue
-          : resolveLegacyOutputAlias(sourceOutput, edge.sourceHandle);
+        inputs[edge.targetHandle] =
+          directValue !== undefined ? directValue : resolveLegacyOutputAlias(sourceOutput, edge.sourceHandle);
       }
     });
   return inputs;

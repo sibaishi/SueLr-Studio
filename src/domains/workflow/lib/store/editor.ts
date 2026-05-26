@@ -4,10 +4,7 @@ import { createWorkflowEditorSessionActions } from '@/domains/workflow/lib/store
 import type { WorkflowStoreEditorActions } from '@/domains/workflow/lib/store/editorShared';
 import type { WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
 
-export function createWorkflowEditorActions(
-  set: WorkflowStoreSet,
-  get: WorkflowStoreGet,
-): WorkflowStoreEditorActions {
+export function createWorkflowEditorActions(set: WorkflowStoreSet, get: WorkflowStoreGet): WorkflowStoreEditorActions {
   return {
     ...createWorkflowGraphEditorActions(set, get),
     ...createWorkflowGroupEditorActions(set, get),

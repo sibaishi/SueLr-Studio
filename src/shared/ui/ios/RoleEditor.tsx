@@ -1,10 +1,10 @@
-import { useState } from 'react';
 import { useT } from '@/providers/ThemeContext';
 import type { AgentRole } from '@/shared/types';
-import { IOSLabel } from './IOSLabel';
-import { IOSInput } from './IOSInput';
+import { useState } from 'react';
 import { AutoTextarea } from './AutoTextarea';
 import { IOSButton } from './IOSButton';
+import { IOSInput } from './IOSInput';
+import { IOSLabel } from './IOSLabel';
 import { RoleIcon } from './RoleIcon';
 
 type ToolType = 'generate_image' | 'generate_video' | 'web_search';

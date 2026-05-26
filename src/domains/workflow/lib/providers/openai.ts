@@ -3,13 +3,17 @@
 // 仅保留向后兼容包装，真实实现已下沉到 shared provider/capability layer
 // ============================================================
 
-import type { ChatCompletionParams, ChatCompletionResult } from './types';
-import type { ModelInfo } from '../types';
 import { capabilityWebSearch } from '@/shared/api/capabilities';
+import type { ModelInfo } from '../types';
 import { createProvider } from './generic';
+import type { ChatCompletionParams, ChatCompletionResult } from './types';
 
 /** Chat Completion（非流式） */
-export async function chatCompletion(base: string, apiKey: string, params: ChatCompletionParams): Promise<ChatCompletionResult> {
+export async function chatCompletion(
+  base: string,
+  apiKey: string,
+  params: ChatCompletionParams,
+): Promise<ChatCompletionResult> {
   return createProvider(base, apiKey).chatCompletion(params);
 }
 

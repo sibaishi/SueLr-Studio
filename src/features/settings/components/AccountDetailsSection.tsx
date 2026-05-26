@@ -1,6 +1,6 @@
-import { FileText, RefreshCcw, Wallet } from 'lucide-react';
-import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
 import type { AccountDetailsLogItem } from '@/features/settings';
+import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
+import { FileText, RefreshCcw, Wallet } from 'lucide-react';
 import type { SettingsActions, SettingsViewModel } from './shared';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 
@@ -39,22 +39,54 @@ export function AccountDetailsSection({ T, actions, view }: Props) {
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
-      <SectionCard title="账号凭据" description="配置用于查询账号明细的网页登录账号。当前已接入的站点凭据只保存在本机后端配置文件中。" action={<Wallet size={14} color={T.text3} />}>
+      <SectionCard
+        title="账号凭据"
+        description="配置用于查询账号明细的网页登录账号。当前已接入的站点凭据只保存在本机后端配置文件中。"
+        action={<Wallet size={14} color={T.text3} />}
+      >
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <div>
               <IOSLabel>用户名</IOSLabel>
-              <IOSInput value={view.accountDetailsUsername} onChange={actions.setAccountDetailsUsername} placeholder="用户名" />
+              <IOSInput
+                value={view.accountDetailsUsername}
+                onChange={actions.setAccountDetailsUsername}
+                placeholder="用户名"
+              />
             </div>
             <div>
               <IOSLabel>密码</IOSLabel>
-              <IOSInput value={view.accountDetailsPassword} onChange={actions.setAccountDetailsPassword} type="password" placeholder={account?.configured ? '已保存，留空不修改' : '密码'} />
+              <IOSInput
+                value={view.accountDetailsPassword}
+                onChange={actions.setAccountDetailsPassword}
+                type="password"
+                placeholder={account?.configured ? '已保存，留空不修改' : '密码'}
+              />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <IOSButton small label={view.accountDetailsSaving ? '登录中...' : '保存并登录'} onClick={() => void actions.saveAccountDetails()} disabled={view.accountDetailsSaving || !view.accountDetailsUsername.trim() || !view.accountDetailsPassword.trim()} />
-            <IOSButton small label={view.accountDetailsRefreshing ? '刷新中...' : '刷新明细'} onClick={() => void actions.refreshAccountDetails()} disabled={view.accountDetailsRefreshing || !account?.configured} color={T.green} />
-            <IOSButton small label="清除账号" onClick={() => void actions.clearAccountDetails()} disabled={!account?.configured} color={T.red} />
+            <IOSButton
+              small
+              label={view.accountDetailsSaving ? '登录中...' : '保存并登录'}
+              onClick={() => void actions.saveAccountDetails()}
+              disabled={
+                view.accountDetailsSaving || !view.accountDetailsUsername.trim() || !view.accountDetailsPassword.trim()
+              }
+            />
+            <IOSButton
+              small
+              label={view.accountDetailsRefreshing ? '刷新中...' : '刷新明细'}
+              onClick={() => void actions.refreshAccountDetails()}
+              disabled={view.accountDetailsRefreshing || !account?.configured}
+              color={T.green}
+            />
+            <IOSButton
+              small
+              label="清除账号"
+              onClick={() => void actions.clearAccountDetails()}
+              disabled={!account?.configured}
+              color={T.red}
+            />
           </div>
           {!account?.configured && (
             <EmptyStateCard
@@ -66,36 +98,64 @@ export function AccountDetailsSection({ T, actions, view }: Props) {
         </div>
       </SectionCard>
 
-      <SectionCard title="账号状态" description="展示当前接入站点返回的余额、用量和请求统计。" action={<RefreshCcw size={14} color={T.text3} />}>
+      <SectionCard
+        title="账号状态"
+        description="展示当前接入站点返回的余额、用量和请求统计。"
+        action={<RefreshCcw size={14} color={T.text3} />}
+      >
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span style={chipStyle(account?.configured ? T.green : T.orange)}>{account?.configured ? '已配置' : '未配置'}</span>
-            <span style={chipStyle(account?.loggedIn ? T.blue : undefined)}>{account?.loggedIn ? '会话已保存' : '未登录'}</span>
+            <span style={chipStyle(account?.configured ? T.green : T.orange)}>
+              {account?.configured ? '已配置' : '未配置'}
+            </span>
+            <span style={chipStyle(account?.loggedIn ? T.blue : undefined)}>
+              {account?.loggedIn ? '会话已保存' : '未登录'}
+            </span>
             <span style={chipStyle(balance ? T.purple : undefined)}>{formatDate(balance?.refreshedAt)}</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
             <div style={{ ...mutedPanelStyle(), padding: 14 }}>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>登录用户</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8, overflowWrap: 'anywhere' }}>{userLabel}</div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: 'var(--color-text-primary)',
+                  marginTop: 8,
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                {userLabel}
+              </div>
             </div>
             <div style={{ ...mutedPanelStyle(), padding: 14 }}>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>余额</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>{formatAmount(balance?.balance)}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                {formatAmount(balance?.balance)}
+              </div>
             </div>
             <div style={{ ...mutedPanelStyle(), padding: 14 }}>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>总用量</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>{formatAmount(balance?.usedBalance)}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                {formatAmount(balance?.usedBalance)}
+              </div>
             </div>
             <div style={{ ...mutedPanelStyle(), padding: 14 }}>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>请求次数</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>{formatNumber(balance?.requestCount)}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                {formatNumber(balance?.requestCount)}
+              </div>
             </div>
           </div>
         </div>
       </SectionCard>
 
-      <SectionCard title="调用日志" description="按当前登录账号查询最近 API 调用记录。" action={<FileText size={14} color={T.text3} />}>
+      <SectionCard
+        title="调用日志"
+        description="按当前登录账号查询最近 API 调用记录。"
+        action={<FileText size={14} color={T.text3} />}
+      >
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -103,9 +163,25 @@ export function AccountDetailsSection({ T, actions, view }: Props) {
               <span style={chipStyle()}>第 {page} 页</span>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <IOSButton small label="上一页" onClick={() => actions.setAccountDetailsLogsPage(Math.max(1, page - 1))} disabled={!account?.configured || page <= 1 || view.accountDetailsLogsLoading} />
-              <IOSButton small label="下一页" onClick={() => actions.setAccountDetailsLogsPage(page + 1)} disabled={!account?.configured || !hasNext || view.accountDetailsLogsLoading} />
-              <IOSButton small label={view.accountDetailsLogsLoading ? '加载中...' : '刷新日志'} onClick={() => void actions.refreshAccountDetailsLogs()} disabled={!account?.configured || view.accountDetailsLogsLoading} color={T.green} />
+              <IOSButton
+                small
+                label="上一页"
+                onClick={() => actions.setAccountDetailsLogsPage(Math.max(1, page - 1))}
+                disabled={!account?.configured || page <= 1 || view.accountDetailsLogsLoading}
+              />
+              <IOSButton
+                small
+                label="下一页"
+                onClick={() => actions.setAccountDetailsLogsPage(page + 1)}
+                disabled={!account?.configured || !hasNext || view.accountDetailsLogsLoading}
+              />
+              <IOSButton
+                small
+                label={view.accountDetailsLogsLoading ? '加载中...' : '刷新日志'}
+                onClick={() => void actions.refreshAccountDetailsLogs()}
+                disabled={!account?.configured || view.accountDetailsLogsLoading}
+                color={T.green}
+              />
             </div>
           </div>
 
@@ -120,8 +196,19 @@ export function AccountDetailsSection({ T, actions, view }: Props) {
             <div key={`${log.id}-${log.createdAt}-${log.modelName}`} style={{ ...mutedPanelStyle(), padding: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', overflowWrap: 'anywhere' }}>{logTitle(log)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>{formatDate(log.createdAt)}</div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: 'var(--color-text-primary)',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {logTitle(log)}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
+                    {formatDate(log.createdAt)}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <span style={chipStyle(T.purple)}>消耗 {formatAmount(log.cost)}</span>
@@ -129,8 +216,24 @@ export function AccountDetailsSection({ T, actions, view }: Props) {
                   <span style={chipStyle()}>输出 {formatNumber(log.completionTokens)}</span>
                 </div>
               </div>
-              {log.tokenName && <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>Token：{log.tokenName}</div>}
-              {log.content && <div style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--color-text-secondary)', marginTop: 8, overflowWrap: 'anywhere' }}>{log.content}</div>}
+              {log.tokenName && (
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                  Token：{log.tokenName}
+                </div>
+              )}
+              {log.content && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    lineHeight: 1.55,
+                    color: 'var(--color-text-secondary)',
+                    marginTop: 8,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {log.content}
+                </div>
+              )}
             </div>
           ))}
         </div>

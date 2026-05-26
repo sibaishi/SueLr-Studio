@@ -75,8 +75,8 @@ Important entry points:
 
 Current cleanup and ownership notes:
 
-- `src/lib/` is now a compatibility surface only; do not add new modules there
-- application code outside `src/lib/` should no longer import from `@/lib/*`
+- root `src/lib/` has been removed after the shared helper migration; do not recreate it
+- new application code must not import from `@/lib/*`
 - canonical homes are:
   - app shell constants in `src/app/`
   - shared icons and status helpers in `src/shared/ui/`
@@ -236,6 +236,25 @@ Current cleanup and ownership notes:
   - helper composition for registry assembly and compatibility surfaces
 - `src/shared/workflow/node-definitions/`
   - compatibility-first node-definition tree grouped by category, with one folder per node and `node.js` owning the actual definition
+
+## Frontend Build Shape
+
+The main app shell in `src/app/App.tsx` lazy-loads top-level product surfaces:
+
+- chat, image, video, workflow, settings, and first-run onboarding are loaded through `React.lazy`
+- a tab is mounted only after it has been visited, then remains mounted while hidden so local page state survives tab switches
+- workflow CSS stays imported by the app shell because it is a shared canvas styling dependency
+
+The normal Vite build uses explicit vendor chunks in `vite.config.ts`:
+
+- `vendor-react`
+- `vendor-react-flow`
+- `vendor-three`
+- `vendor-markdown`
+- `vendor-icons`
+
+`VITE_SINGLEFILE=1` disables manual chunking so the single-file build path remains compatible with `vite-plugin-singlefile`.
+The chunk warning limit is set to 600 kB because the only expected near-threshold chunk is the isolated Three.js vendor payload used by the workflow prompt-helper scene.
 
 ## Backend Structure
 
@@ -515,6 +534,8 @@ Working rules:
 Before opening or merging a maintenance change, run the repo quality gate:
 
 - `npm run check`
+- `npm run lint` for a quicker Biome lint pass while iterating
+- `npm run format:check` before committing formatting-only or broad structure changes
 - `npm run check:encoding` when the change touches user-visible text, persisted content, upload names, or file-path transport
 
 For browser-facing changes, install and run the E2E smoke suite:

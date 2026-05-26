@@ -3,11 +3,11 @@
 // 工作流仅保留非流式能力；chat 已统一走 shared capability layer
 // ============================================================
 
-import type { AIProvider, ProviderConfig, ChatCompletionParams, ChatCompletionResult } from './types';
-import type { ModelInfo } from '../types';
-import { DEFAULT_PROVIDER_CONFIG } from './types';
-import { cleanKey, catModel } from '../utils';
 import { capabilityChatCompletion } from '@/shared/api/capabilities';
+import type { ModelInfo } from '../types';
+import { catModel, cleanKey } from '../utils';
+import type { AIProvider, ChatCompletionParams, ChatCompletionResult, ProviderConfig } from './types';
+import { DEFAULT_PROVIDER_CONFIG } from './types';
 
 type ModelsResponse = {
   data?: Array<{ id?: string }>;
@@ -22,7 +22,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
     const key = cleanKey(apiKey);
     switch (cfg.authType) {
       case 'bearer':
-        headers['Authorization'] = `Bearer ${key}`;
+        headers.Authorization = `Bearer ${key}`;
         break;
       case 'api-key':
         headers['X-API-Key'] = key;
@@ -60,7 +60,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
     const res = await fetch(`${base}${endpoint}`, {
       headers: buildHeaders(),
     });
-    const data = await res.json() as ModelsResponse;
+    const data = (await res.json()) as ModelsResponse;
     return (data.data || [])
       .filter((model): model is { id: string } => typeof model.id === 'string')
       .map((model) => ({ id: model.id, cat: catModel(model.id) }));
@@ -70,6 +70,8 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
     buildHeaders,
     chatCompletion,
     listModels,
-    get config() { return cfg; },
+    get config() {
+      return cfg;
+    },
   };
 }

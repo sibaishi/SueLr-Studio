@@ -1,6 +1,6 @@
-import path from 'path';
-import { getStoragePaths } from './storage-paths.js';
+import path from 'node:path';
 import { ensureDir } from './ensure-dir.js';
+import { getStoragePaths } from './storage-paths.js';
 export { ensureDir } from './ensure-dir.js';
 export { BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot, getStorageRoot } from './storage-root.js';
 export { ensureJsonFile, readJsonFile, writeJsonFile } from './json-store.js';
@@ -22,11 +22,14 @@ export {
   writeStoredStorageRootOverride,
 } from './storage-bootstrap.js';
 
-export const STORAGE_PATHS = new Proxy({}, {
-  get(_target, property) {
-    return getStoragePaths()[property];
+export const STORAGE_PATHS = new Proxy(
+  {},
+  {
+    get(_target, property) {
+      return getStoragePaths()[property];
+    },
   },
-});
+);
 
 export function ensureStorageDirectories() {
   const storagePaths = getStoragePaths();

@@ -57,9 +57,7 @@ export function getLocalApiPath(source) {
   if (/^https?:\/\//i.test(value)) {
     try {
       const url = new URL(value);
-      return LOOPBACK_HOSTS.has(url.hostname) && url.pathname.startsWith('/api/')
-        ? url.pathname
-        : '';
+      return LOOPBACK_HOSTS.has(url.hostname) && url.pathname.startsWith('/api/') ? url.pathname : '';
     } catch {
       return '';
     }

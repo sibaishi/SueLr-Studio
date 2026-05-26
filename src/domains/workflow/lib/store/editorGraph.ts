@@ -1,10 +1,4 @@
 import {
-  applyEdgeChanges,
-  applyNodeChanges,
-  type Edge,
-  type Node,
-} from '@xyflow/react';
-import {
   constrainChildNodeSizeToGroupContent,
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
@@ -13,12 +7,16 @@ import {
   pushRootNodeOutsideGroupAreas,
 } from '@/domains/workflow/lib/groupLayout';
 import {
+  type GroupPort,
   buildGroupHandleId,
   findGroupPort,
   pruneGroupPortEdges,
   updateGroupPortList,
-  type GroupPort,
 } from '@/domains/workflow/lib/groupPorts';
+import {
+  buildBypassEdgesForNode,
+  buildInsertionEdgesForNode,
+} from '@/domains/workflow/lib/store/editorGraphEdgeBuilders';
 import {
   collectCascadeRemovedGroupEdgeIds,
   removeGroupPortLinksFromNodes,
@@ -26,18 +24,15 @@ import {
 } from '@/domains/workflow/lib/store/editorGraphGroupEdges';
 import { buildRemovedNodesGraphState } from '@/domains/workflow/lib/store/editorGraphNodeRemoval';
 import {
-  buildBypassEdgesForNode,
-  buildInsertionEdgesForNode,
-} from '@/domains/workflow/lib/store/editorGraphEdgeBuilders';
-import { getDefaultData, gid } from '@/domains/workflow/lib/store/helpers';
-import {
   autoArrangeNodes,
   compactDynamicInputEdges,
   expandNodeActionIds,
   isNodeLockedWithAncestors,
   normalizeEditorNodes,
 } from '@/domains/workflow/lib/store/editorShared';
+import { getDefaultData, gid } from '@/domains/workflow/lib/store/helpers';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
+import { type Edge, type Node, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 
 type WorkflowStoreGraphEditorActions = Pick<
   WorkflowState,
@@ -134,9 +129,10 @@ export function createWorkflowGraphEditorActions(
 
     updateNodeData: (nodeId, data) => {
       set((state) => ({
-        nodes: normalizeEditorNodes(state.nodes.map((node) => (
-          node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
-        )), state.edges),
+        nodes: normalizeEditorNodes(
+          state.nodes.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node)),
+          state.edges,
+        ),
         nodeWarnings: {},
         workflowWarningMessage: null,
         hasUnsavedChanges: true,
@@ -145,46 +141,51 @@ export function createWorkflowGraphEditorActions(
 
     toggleGroupCollapsed: (groupId, collapsed) => {
       set((state) => ({
-        nodes: normalizeEditorNodes(enforceGroupLayout(state.nodes.map((node) => {
-          if (node.id !== groupId || node.type !== 'group') return node;
+        nodes: normalizeEditorNodes(
+          enforceGroupLayout(
+            state.nodes.map((node) => {
+              if (node.id !== groupId || node.type !== 'group') return node;
 
-          const nextCollapsed = typeof collapsed === 'boolean'
-            ? collapsed
-            : !Boolean(node.data?.collapsed);
+              const nextCollapsed = typeof collapsed === 'boolean' ? collapsed : !node.data?.collapsed;
 
-          if (nextCollapsed) {
-            const currentSize = getEffectiveNodeSize(node);
-            const collapsedSize = getCollapsedGroupNodeSize(node);
-            return {
-              ...node,
-              width: collapsedSize.width,
-              height: collapsedSize.height,
-              data: {
-                ...node.data,
-                collapsed: true,
-                expandedWidth: currentSize.width,
-                expandedHeight: currentSize.height,
-              },
-            };
-          }
+              if (nextCollapsed) {
+                const currentSize = getEffectiveNodeSize(node);
+                const collapsedSize = getCollapsedGroupNodeSize(node);
+                return {
+                  ...node,
+                  width: collapsedSize.width,
+                  height: collapsedSize.height,
+                  data: {
+                    ...node.data,
+                    collapsed: true,
+                    expandedWidth: currentSize.width,
+                    expandedHeight: currentSize.height,
+                  },
+                };
+              }
 
-          const restoredWidth = typeof node.data?.expandedWidth === 'number'
-            ? node.data.expandedWidth
-            : getEffectiveNodeSize(node).width;
-          const restoredHeight = typeof node.data?.expandedHeight === 'number'
-            ? node.data.expandedHeight
-            : getEffectiveNodeSize(node).height;
+              const restoredWidth =
+                typeof node.data?.expandedWidth === 'number'
+                  ? node.data.expandedWidth
+                  : getEffectiveNodeSize(node).width;
+              const restoredHeight =
+                typeof node.data?.expandedHeight === 'number'
+                  ? node.data.expandedHeight
+                  : getEffectiveNodeSize(node).height;
 
-          return {
-            ...node,
-            width: restoredWidth,
-            height: restoredHeight,
-            data: {
-              ...node.data,
-              collapsed: false,
-            },
-          };
-        })), state.edges),
+              return {
+                ...node,
+                width: restoredWidth,
+                height: restoredHeight,
+                data: {
+                  ...node.data,
+                  collapsed: false,
+                },
+              };
+            }),
+          ),
+          state.edges,
+        ),
         hasUnsavedChanges: true,
       }));
     },
@@ -198,10 +199,8 @@ export function createWorkflowGraphEditorActions(
           const currentData = (node.data || {}) as Record<string, unknown>;
           const nextData = {
             ...node.data,
-            ...updateGroupPortList(
-              currentData,
-              side,
-              (ports) => ports.map((port) => {
+            ...updateGroupPortList(currentData, side, (ports) =>
+              ports.map((port) => {
                 if (port.id !== portId) return port;
                 didChange = true;
                 return {
@@ -224,10 +223,8 @@ export function createWorkflowGraphEditorActions(
         const resolvedNextPort = updatedGroupNode
           ? findGroupPort((updatedGroupNode.data || {}) as Record<string, unknown>, side, portId)
           : null;
-        const shouldClearPortEdges = (
-          (resolvedNextPort?.insideLinks.length ?? 0) === 0
-          && (resolvedNextPort?.outsideLinks.length ?? 0) === 0
-        );
+        const shouldClearPortEdges =
+          (resolvedNextPort?.insideLinks.length ?? 0) === 0 && (resolvedNextPort?.outsideLinks.length ?? 0) === 0;
         const externalHandleId = buildGroupHandleId(side, portId, 'external');
         const internalHandleId = buildGroupHandleId(side, portId, 'internal');
         const nextEdges = shouldClearPortEdges
@@ -236,13 +233,13 @@ export function createWorkflowGraphEditorActions(
               state.edges.filter((edge) => {
                 if (side === 'input') {
                   return !(
-                    (edge.target === groupId && edge.targetHandle === externalHandleId)
-                    || (edge.source === groupId && edge.sourceHandle === internalHandleId)
+                    (edge.target === groupId && edge.targetHandle === externalHandleId) ||
+                    (edge.source === groupId && edge.sourceHandle === internalHandleId)
                   );
                 }
                 return !(
-                  (edge.source === groupId && edge.sourceHandle === externalHandleId)
-                  || (edge.target === groupId && edge.targetHandle === internalHandleId)
+                  (edge.source === groupId && edge.sourceHandle === externalHandleId) ||
+                  (edge.target === groupId && edge.targetHandle === internalHandleId)
                 );
               }),
             )
@@ -261,25 +258,30 @@ export function createWorkflowGraphEditorActions(
       set((state) => {
         const nodeMap = new Map(state.nodes.map((node) => [node.id, node]));
         return {
-          nodes: normalizeEditorNodes(enforceGroupLayout(state.nodes.map((node) => {
-            if (node.id !== nodeId) return node;
-            const resizedNode = {
-              ...node,
-              width: size.width,
-              height: size.height,
-            } as Node;
-            const parentId = (node as Node & { parentId?: string }).parentId;
-            if (parentId) {
-              const parentNode = nodeMap.get(parentId);
-              if (parentNode?.type === 'group') {
-                return constrainChildNodeToGroupContent(
-                  constrainChildNodeSizeToGroupContent(resizedNode, parentNode),
-                  parentNode,
-                );
-              }
-            }
-            return pushRootNodeOutsideGroupAreas(resizedNode, state.nodes);
-          })), state.edges),
+          nodes: normalizeEditorNodes(
+            enforceGroupLayout(
+              state.nodes.map((node) => {
+                if (node.id !== nodeId) return node;
+                const resizedNode = {
+                  ...node,
+                  width: size.width,
+                  height: size.height,
+                } as Node;
+                const parentId = (node as Node & { parentId?: string }).parentId;
+                if (parentId) {
+                  const parentNode = nodeMap.get(parentId);
+                  if (parentNode?.type === 'group') {
+                    return constrainChildNodeToGroupContent(
+                      constrainChildNodeSizeToGroupContent(resizedNode, parentNode),
+                      parentNode,
+                    );
+                  }
+                }
+                return pushRootNodeOutsideGroupAreas(resizedNode, state.nodes);
+              }),
+            ),
+            state.edges,
+          ),
           nodeWarnings: {},
           workflowWarningMessage: null,
           hasUnsavedChanges: true,
@@ -290,11 +292,10 @@ export function createWorkflowGraphEditorActions(
     resetNodeSize: (nodeId) => {
       if (isNodeLockedWithAncestors(nodeId, get().nodes)) return;
       set((state) => ({
-        nodes: normalizeEditorNodes(state.nodes.map((node) => (
-          node.id === nodeId
-            ? { ...node, width: undefined, height: undefined }
-            : node
-        )), state.edges),
+        nodes: normalizeEditorNodes(
+          state.nodes.map((node) => (node.id === nodeId ? { ...node, width: undefined, height: undefined } : node)),
+          state.edges,
+        ),
         nodeWarnings: {},
         workflowWarningMessage: null,
         hasUnsavedChanges: true,
@@ -383,17 +384,16 @@ export function createWorkflowGraphEditorActions(
 
     addEdge: (source, sourceHandle, target, targetHandle) => {
       const edges = get().edges;
-      const exists = edges.some((edge) => (
-        edge.source === source &&
-        edge.sourceHandle === sourceHandle &&
-        edge.target === target &&
-        edge.targetHandle === targetHandle
-      ));
+      const exists = edges.some(
+        (edge) =>
+          edge.source === source &&
+          edge.sourceHandle === sourceHandle &&
+          edge.target === target &&
+          edge.targetHandle === targetHandle,
+      );
       if (exists) return;
 
-      const filteredEdges = edges.filter((edge) => !(
-        edge.target === target && edge.targetHandle === targetHandle
-      ));
+      const filteredEdges = edges.filter((edge) => !(edge.target === target && edge.targetHandle === targetHandle));
 
       const newEdge: Edge = {
         id: `edge_${gid()}`,
@@ -447,18 +447,17 @@ export function createWorkflowGraphEditorActions(
       if (targetIds.length === 0) return;
 
       const targetSet = new Set(targetIds);
-      const shouldLock = typeof locked === 'boolean'
-        ? locked
-        : get().nodes
-          .filter((node) => targetSet.has(node.id))
-          .some((node) => !Boolean(node.data?.locked));
+      const shouldLock =
+        typeof locked === 'boolean'
+          ? locked
+          : get()
+              .nodes.filter((node) => targetSet.has(node.id))
+              .some((node) => !node.data?.locked);
 
       set((state) => ({
-        nodes: state.nodes.map((node) => (
-          targetSet.has(node.id)
-            ? { ...node, data: { ...node.data, locked: shouldLock } }
-            : node
-        )),
+        nodes: state.nodes.map((node) =>
+          targetSet.has(node.id) ? { ...node, data: { ...node.data, locked: shouldLock } } : node,
+        ),
         hasUnsavedChanges: true,
       }));
     },
@@ -467,18 +466,17 @@ export function createWorkflowGraphEditorActions(
       set((state) => {
         const removedIds = expandNodeActionIds(
           state.nodes,
-          changes
-            .filter((change) => change.type === 'remove')
-            .map((change) => change.id),
+          changes.filter((change) => change.type === 'remove').map((change) => change.id),
         );
-        const filteredChanges = (removedIds.length > 0
-          ? changes.filter((change) => !(change.type === 'remove' && removedIds.includes(change.id)))
-          : changes)
-          .filter((change) => {
-            if (change.type === 'remove' || change.type === 'select' || change.type === 'dimensions') return true;
-            if (!('id' in change)) return true;
-            return !isNodeLockedWithAncestors(change.id, state.nodes);
-          });
+        const filteredChanges = (
+          removedIds.length > 0
+            ? changes.filter((change) => !(change.type === 'remove' && removedIds.includes(change.id)))
+            : changes
+        ).filter((change) => {
+          if (change.type === 'remove' || change.type === 'select' || change.type === 'dimensions') return true;
+          if (!('id' in change)) return true;
+          return !isNodeLockedWithAncestors(change.id, state.nodes);
+        });
         const nodes = applyNodeChanges(filteredChanges, state.nodes).filter((node) => !removedIds.includes(node.id));
 
         if (removedIds.length === 0) {
@@ -498,7 +496,9 @@ export function createWorkflowGraphEditorActions(
         const removedIds = new Set(changes.filter((change) => change.type === 'remove').map((change) => change.id));
         const removedEdges = state.edges.filter((edge) => removedIds.has(edge.id));
         const cascadeRemovedEdgeIds = collectCascadeRemovedGroupEdgeIds(state.nodes, state.edges, removedEdges);
-        const allRemovedEdges = state.edges.filter((edge) => removedIds.has(edge.id) || cascadeRemovedEdgeIds.has(edge.id));
+        const allRemovedEdges = state.edges.filter(
+          (edge) => removedIds.has(edge.id) || cascadeRemovedEdgeIds.has(edge.id),
+        );
         const updatedNodes = removeGroupPortLinksFromNodes(state.nodes, allRemovedEdges);
         const edges = pruneGroupPortEdges(
           updatedNodes,

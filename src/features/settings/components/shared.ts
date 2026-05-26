@@ -1,11 +1,29 @@
-import type { Dispatch, SetStateAction } from 'react';
-import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
-import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { AccountDetailsLogsPayload, AccountDetailsPayload, ClientDownloadDirectoryState, OutboundProxySettingsPayload, StorageSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
+import type {
+  AccountDetailsLogsPayload,
+  AccountDetailsPayload,
+  ClientDownloadDirectoryState,
+  OutboundProxySettingsPayload,
+  StorageSettingsPayload,
+  WorkflowConcurrencySettingsPayload,
+} from '@/features/settings';
 import type { AgentProfile } from '@/shared/api/agent';
+import type { RuntimeCapabilities } from '@/shared/runtime';
+import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
 import type { LucideIcon } from 'lucide-react';
+import type { Dispatch, SetStateAction } from 'react';
 
-export const ROLE_ICONS = ['bot', 'palette', 'clapperboard', 'code', 'search', 'zap', 'brain', 'lightbulb', 'folder', 'star'];
+export const ROLE_ICONS = [
+  'bot',
+  'palette',
+  'clapperboard',
+  'code',
+  'search',
+  'zap',
+  'brain',
+  'lightbulb',
+  'folder',
+  'star',
+];
 
 export const AGENT_TOOL_OPTIONS = [
   'web_search',

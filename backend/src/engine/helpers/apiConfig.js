@@ -18,13 +18,7 @@ function normalizeEndpointCategory(value) {
   return NODE_ENDPOINT_CATEGORIES.has(value) ? value : 'chat';
 }
 
-export function resolveNodeEndpoint({
-  modelId = '',
-  endpointMode,
-  endpointCategory,
-  customEndpoint,
-  legacyEndpoint,
-}) {
+export function resolveNodeEndpoint({ modelId = '', endpointMode, endpointCategory, customEndpoint, legacyEndpoint }) {
   const mode = normalizeEndpointMode(endpointMode);
   const normalizedLegacyEndpoint = cleanText(legacyEndpoint);
 
@@ -109,10 +103,7 @@ export function resolveRuntimeApiConfig(inputs, apiConfig, selectedModel = '') {
       customEndpoint: nodeCustomEndpoint,
       legacyEndpoint: incoming.endpoint,
     });
-    const incomingProviderConfig = mergeProviderConfig(
-      DEFAULT_RUNTIME_PROVIDER_CONFIG,
-      incoming.providerConfig || {},
-    );
+    const incomingProviderConfig = mergeProviderConfig(DEFAULT_RUNTIME_PROVIDER_CONFIG, incoming.providerConfig || {});
 
     if (nodeModel && nodeEndpoint) {
       incomingProviderConfig.modelOverrides = {

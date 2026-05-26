@@ -1,26 +1,42 @@
-import { useEffect, useRef, useState } from 'react';
-import { SplashScreen } from '@/shared/ui/ios';
-import { DesktopSidebar } from '@/app/navigation/Navigation';
-import { ChatPanel } from '@/domains/chat';
-import { ImagePanel } from '@/domains/image';
-import { VideoPanel } from '@/domains/video';
-import WorkflowPage from '@/domains/workflow/App';
 import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
-import { ToastProvider } from '@/providers/ToastContext';
-import { TCtx } from '@/providers/ThemeContext';
-import type { BridgeRef } from '@/shared/types';
-import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
-import { useMemory } from '@/shared/hooks/useMemory';
+import { DesktopSidebar } from '@/app/navigation/Navigation';
+import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { saveActiveRunSnapshot } from '@/domains/workflow/lib/store/persistence';
+import { useStudioSettingsState } from '@/features/settings';
+import { TCtx } from '@/providers/ThemeContext';
+import { ToastProvider } from '@/providers/ToastContext';
+import { useMemory } from '@/shared/hooks/useMemory';
+import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
+import type { BridgeRef, Tab } from '@/shared/types';
+import { SplashScreen } from '@/shared/ui/ios';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { useAppBootstrap } from './bootstrap/useAppBootstrap';
 import { useNavigationState } from './navigation/useNavigationState';
 import { useThemeState } from './theme/useThemeState';
-import { useAppBootstrap } from './bootstrap/useAppBootstrap';
-import { FirstRunOnboarding, SettingsPanel, useStudioSettingsState } from '@/features/settings';
 import '@/domains/workflow/index.css';
+
+const ChatPanel = lazy(() => import('@/domains/chat').then((module) => ({ default: module.ChatPanel })));
+const ImagePanel = lazy(() => import('@/domains/image').then((module) => ({ default: module.ImagePanel })));
+const VideoPanel = lazy(() => import('@/domains/video').then((module) => ({ default: module.VideoPanel })));
+const WorkflowPage = lazy(() => import('@/domains/workflow/App'));
+const SettingsPanel = lazy(() =>
+  import('@/features/settings/components/SettingsPanel').then((module) => ({ default: module.SettingsPanel })),
+);
+const FirstRunOnboarding = lazy(() =>
+  import('@/features/settings/components/FirstRunOnboarding').then((module) => ({
+    default: module.FirstRunOnboarding,
+  })),
+);
 
 function panelDisplayStyle(active: boolean) {
   return { flex: 1, overflow: 'hidden', display: active ? 'flex' : 'none' } as const;
+}
+
+function WorkspaceLoading() {
+  return (
+    <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'rgba(255, 255, 255, 0.68)' }}>加载中...</div>
+  );
 }
 
 export default function App() {
@@ -29,12 +45,19 @@ export default function App() {
   const { colors, themeMode, setThemeMode } = useThemeState();
   const settings = useStudioSettingsState();
   const memory = useMemory();
-  const bridgeRef = useRef<BridgeRef>({ addToImageGallery: () => {}, addToVideoGallery: () => {}, addToChatPending: () => {} });
+  const bridgeRef = useRef<BridgeRef>({
+    addToImageGallery: () => {},
+    addToVideoGallery: () => {},
+    addToChatPending: () => {},
+  });
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
   const [chatBusy, setChatBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [videoBusy, setVideoBusy] = useState(false);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(() => localStorage.getItem('suelr_onboarding_dismissed') === 'true');
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    () => localStorage.getItem('suelr_onboarding_dismissed') === 'true',
+  );
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<Tab>>(() => new Set([tab]));
   const projectBusy = workflowBusy || chatBusy || imageBusy || videoBusy;
 
   const { splashFading, splashHidden } = useAppBootstrap({
@@ -47,10 +70,11 @@ export default function App() {
     tab,
     themeMode,
   });
-  const hasUsableConfig = settings.apiConfigs.some((config) => (
-    Boolean(config.base && (config.apiKey || config.apiKeySet)) &&
-    (config.projectModels || []).some((model) => model.configured)
-  ));
+  const hasUsableConfig = settings.apiConfigs.some(
+    (config) =>
+      Boolean(config.base && (config.apiKey || config.apiKeySet)) &&
+      (config.projectModels || []).some((model) => model.configured),
+  );
   const showOnboarding = splashHidden && !hasUsableConfig && !onboardingDismissed;
   const chatPanelStyle = panelDisplayStyle(tab === 'chat');
   const imagePanelStyle = panelDisplayStyle(tab === 'image');
@@ -59,7 +83,21 @@ export default function App() {
   const settingsPanelStyle = panelDisplayStyle(tab === 'settings');
 
   useEffect(() => {
-    const grouped = { all: [] as any[], chat: [] as any[], image: [] as any[], video: [] as any[] };
+    setVisitedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  }, [tab]);
+
+  useEffect(() => {
+    const grouped: Record<'all' | 'chat' | 'image' | 'video', ModelOption[]> = {
+      all: [],
+      chat: [],
+      image: [],
+      video: [],
+    };
     for (const model of settings.configuredProjectModels) {
       const option = {
         label: getModelDisplayName(model),
@@ -75,7 +113,11 @@ export default function App() {
     useWorkflowStore.setState({ workflowRuntimeConfigs: settings.apiConfigs });
   }, [settings.apiConfigs, settings.configuredProjectModels]);
 
-  const handleOpenWorkflowRun = async (payload: { runId: string; workflowId?: string; source?: 'persisted' | 'draft' }) => {
+  const handleOpenWorkflowRun = async (payload: {
+    runId: string;
+    workflowId?: string;
+    source?: 'persisted' | 'draft';
+  }) => {
     if (!payload.runId) return;
 
     const workflowStore = useWorkflowStore.getState();
@@ -112,22 +154,24 @@ export default function App() {
       <ToastProvider>
         {!splashHidden && <SplashScreen fading={splashFading} />}
         {showOnboarding && (
-          <FirstRunOnboarding
-            activeConfigId={settings.activeConfigId}
-            addLog={settings.addLog}
-            addNewConfig={settings.addNewConfig}
-            apiConfigs={settings.apiConfigs}
-            applyConfig={settings.applyConfig}
-            onComplete={() => {
-              localStorage.setItem('suelr_onboarding_dismissed', 'true');
-              setOnboardingDismissed(true);
-              setTab('workflow');
-            }}
-            setApiConfigs={settings.setApiConfigs}
-            setApiKey={settings.setApiKey}
-            setBase={settings.setBase}
-            setModels={settings.setModels}
-          />
+          <Suspense fallback={<WorkspaceLoading />}>
+            <FirstRunOnboarding
+              activeConfigId={settings.activeConfigId}
+              addLog={settings.addLog}
+              addNewConfig={settings.addNewConfig}
+              apiConfigs={settings.apiConfigs}
+              applyConfig={settings.applyConfig}
+              onComplete={() => {
+                localStorage.setItem('suelr_onboarding_dismissed', 'true');
+                setOnboardingDismissed(true);
+                setTab('workflow');
+              }}
+              setApiConfigs={settings.setApiConfigs}
+              setApiKey={settings.setApiKey}
+              setBase={settings.setBase}
+              setModels={settings.setModels}
+            />
+          </Suspense>
         )}
         {!showOnboarding && (
           <div
@@ -135,7 +179,8 @@ export default function App() {
               display: 'flex',
               flexDirection: 'row',
               height: '100vh',
-              fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
+              fontFamily:
+                '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
               background: 'transparent',
               color: colors.text,
               minWidth: 1280,
@@ -152,108 +197,128 @@ export default function App() {
             />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
               <div style={chatPanelStyle}>
-                <ErrorBoundary>
-                  <ChatPanel
-                    base={settings.base}
-                    apiKey={settings.apiKey}
-                    apiConfigs={settings.apiConfigs}
-                    models={settings.configuredProjectModels}
-                    addLog={settings.addLog}
-                    bridgeRef={bridgeRef}
-                    roles={settings.roles}
-                    getMemoryContext={memory.getMemoryContext}
-                    refreshMemories={memory.refreshMemories}
-                    scheduleExtraction={memory.scheduleExtraction}
-                    providerConfig={settings.providerConfig}
-                    chatStreamingMode={settings.chatStreamingMode}
-                    imageStreamingMode={settings.imageStreamingMode}
-                    videoStreamingMode={settings.videoStreamingMode}
-                    activeTab={tab}
-                    searchMemories={memory.searchMemories}
-                    onBusyChange={setChatBusy}
-                    onOpenWorkflowRun={handleOpenWorkflowRun}
-                  />
-                </ErrorBoundary>
+                {visitedTabs.has('chat') && (
+                  <ErrorBoundary>
+                    <Suspense fallback={<WorkspaceLoading />}>
+                      <ChatPanel
+                        base={settings.base}
+                        apiKey={settings.apiKey}
+                        apiConfigs={settings.apiConfigs}
+                        models={settings.configuredProjectModels}
+                        addLog={settings.addLog}
+                        bridgeRef={bridgeRef}
+                        roles={settings.roles}
+                        getMemoryContext={memory.getMemoryContext}
+                        refreshMemories={memory.refreshMemories}
+                        scheduleExtraction={memory.scheduleExtraction}
+                        providerConfig={settings.providerConfig}
+                        chatStreamingMode={settings.chatStreamingMode}
+                        imageStreamingMode={settings.imageStreamingMode}
+                        videoStreamingMode={settings.videoStreamingMode}
+                        activeTab={tab}
+                        searchMemories={memory.searchMemories}
+                        onBusyChange={setChatBusy}
+                        onOpenWorkflowRun={handleOpenWorkflowRun}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                )}
               </div>
               <div style={imagePanelStyle}>
-                <ErrorBoundary>
-                  <ImagePanel
-                    base={settings.base}
-                    apiKey={settings.apiKey}
-                    apiConfigs={settings.apiConfigs}
-                    models={settings.configuredProjectModels}
-                    addLog={settings.addLog}
-                    bridgeRef={bridgeRef}
-                    onAddToChat={(urls: string[]) => {
-                      bridgeRef.current.addToChatPending(urls);
-                      setTab('chat');
-                    }}
-                    providerConfig={settings.providerConfig}
-                    imageStreamingMode={settings.imageStreamingMode}
-                    onBusyChange={setImageBusy}
-                  />
-                </ErrorBoundary>
+                {visitedTabs.has('image') && (
+                  <ErrorBoundary>
+                    <Suspense fallback={<WorkspaceLoading />}>
+                      <ImagePanel
+                        base={settings.base}
+                        apiKey={settings.apiKey}
+                        apiConfigs={settings.apiConfigs}
+                        models={settings.configuredProjectModels}
+                        addLog={settings.addLog}
+                        bridgeRef={bridgeRef}
+                        onAddToChat={(urls: string[]) => {
+                          bridgeRef.current.addToChatPending(urls);
+                          setTab('chat');
+                        }}
+                        providerConfig={settings.providerConfig}
+                        imageStreamingMode={settings.imageStreamingMode}
+                        onBusyChange={setImageBusy}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                )}
               </div>
               <div style={videoPanelStyle}>
-                <ErrorBoundary>
-                  <VideoPanel
-                    base={settings.base}
-                    apiKey={settings.apiKey}
-                    apiConfigs={settings.apiConfigs}
-                    models={settings.configuredProjectModels}
-                    addLog={settings.addLog}
-                    bridgeRef={bridgeRef}
-                    onAddToChat={(_prompt: string, videoUrl?: string) => {
-                      if (videoUrl) bridgeRef.current.addToChatPending([videoUrl]);
-                      setTab('chat');
-                    }}
-                    providerConfig={settings.providerConfig}
-                    videoStreamingMode={settings.videoStreamingMode}
-                    onBusyChange={setVideoBusy}
-                  />
-                </ErrorBoundary>
+                {visitedTabs.has('video') && (
+                  <ErrorBoundary>
+                    <Suspense fallback={<WorkspaceLoading />}>
+                      <VideoPanel
+                        base={settings.base}
+                        apiKey={settings.apiKey}
+                        apiConfigs={settings.apiConfigs}
+                        models={settings.configuredProjectModels}
+                        addLog={settings.addLog}
+                        bridgeRef={bridgeRef}
+                        onAddToChat={(_prompt: string, videoUrl?: string) => {
+                          if (videoUrl) bridgeRef.current.addToChatPending([videoUrl]);
+                          setTab('chat');
+                        }}
+                        providerConfig={settings.providerConfig}
+                        videoStreamingMode={settings.videoStreamingMode}
+                        onBusyChange={setVideoBusy}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                )}
               </div>
               <div style={workflowPanelStyle}>
-                <ErrorBoundary>
-                  <WorkflowPage onOpenStudioSettings={() => setTab('settings')} />
-                </ErrorBoundary>
+                {visitedTabs.has('workflow') && (
+                  <ErrorBoundary>
+                    <Suspense fallback={<WorkspaceLoading />}>
+                      <WorkflowPage onOpenStudioSettings={() => setTab('settings')} />
+                    </Suspense>
+                  </ErrorBoundary>
+                )}
               </div>
               <div style={settingsPanelStyle}>
-                <ErrorBoundary>
-                  <SettingsPanel
-                    apiConfigs={settings.apiConfigs}
-                    setApiConfigs={settings.setApiConfigs}
-                    activeConfigId={settings.activeConfigId}
-                    setActiveConfigId={settings.setActiveConfigId}
-                    applyConfig={settings.applyConfig}
-                    addNewConfig={settings.addNewConfig}
-                    deleteConfig={settings.deleteConfig}
-                    base={settings.base}
-                    apiKey={settings.apiKey}
-                    setBase={settings.setBase}
-                    setApiKey={settings.setApiKey}
-                    models={settings.models}
-                    setModels={settings.setModels}
-                    addLog={settings.addLog}
-                    logs={settings.logs}
-                    onClearLogs={settings.clearLogs}
-                    themeMode={themeMode}
-                    setThemeMode={setThemeMode}
-                    agentProfiles={settings.agentProfiles}
-                    customAgentProfiles={settings.customAgentProfiles}
-                    upsertAgentProfile={settings.upsertAgentProfile}
-                    deleteAgentProfile={settings.deleteAgentProfile}
-                    memories={memory.memories}
-                    onDeleteMemory={memory.deleteMemory}
-                    onClearMemories={memory.clearMemories}
-                    exportMemories={memory.exportMemories}
-                    outboundProxy={settings.outboundProxy}
-                    setOutboundProxy={settings.setOutboundProxy}
-                    workflowConcurrency={settings.workflowConcurrency}
-                    setWorkflowConcurrency={settings.setWorkflowConcurrency}
-                    projectBusy={projectBusy}
-                  />
-                </ErrorBoundary>
+                {visitedTabs.has('settings') && (
+                  <ErrorBoundary>
+                    <Suspense fallback={<WorkspaceLoading />}>
+                      <SettingsPanel
+                        apiConfigs={settings.apiConfigs}
+                        setApiConfigs={settings.setApiConfigs}
+                        activeConfigId={settings.activeConfigId}
+                        setActiveConfigId={settings.setActiveConfigId}
+                        applyConfig={settings.applyConfig}
+                        addNewConfig={settings.addNewConfig}
+                        deleteConfig={settings.deleteConfig}
+                        base={settings.base}
+                        apiKey={settings.apiKey}
+                        setBase={settings.setBase}
+                        setApiKey={settings.setApiKey}
+                        models={settings.models}
+                        setModels={settings.setModels}
+                        addLog={settings.addLog}
+                        logs={settings.logs}
+                        onClearLogs={settings.clearLogs}
+                        themeMode={themeMode}
+                        setThemeMode={setThemeMode}
+                        agentProfiles={settings.agentProfiles}
+                        customAgentProfiles={settings.customAgentProfiles}
+                        upsertAgentProfile={settings.upsertAgentProfile}
+                        deleteAgentProfile={settings.deleteAgentProfile}
+                        memories={memory.memories}
+                        onDeleteMemory={memory.deleteMemory}
+                        onClearMemories={memory.clearMemories}
+                        exportMemories={memory.exportMemories}
+                        outboundProxy={settings.outboundProxy}
+                        setOutboundProxy={settings.setOutboundProxy}
+                        workflowConcurrency={settings.workflowConcurrency}
+                        setWorkflowConcurrency={settings.setWorkflowConcurrency}
+                        projectBusy={projectBusy}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                )}
               </div>
             </div>
           </div>

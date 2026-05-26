@@ -24,7 +24,10 @@ export function migrateWorkflowDocument(input) {
     report: {
       sourceVersion,
       targetVersion: CURRENT_WORKFLOW_SCHEMA_VERSION,
-      appliedMigrations: sourceVersion === CURRENT_WORKFLOW_SCHEMA_VERSION ? [] : [`v${sourceVersion}->v${CURRENT_WORKFLOW_SCHEMA_VERSION}`],
+      appliedMigrations:
+        sourceVersion === CURRENT_WORKFLOW_SCHEMA_VERSION
+          ? []
+          : [`v${sourceVersion}->v${CURRENT_WORKFLOW_SCHEMA_VERSION}`],
       warnings: [],
       rejectedFields: [],
     },

@@ -1,32 +1,21 @@
-import type { Edge, Node } from '@xyflow/react';
+import { enforceGroupLayout, pushRootNodeOutsideGroupAreas } from '@/domains/workflow/lib/groupLayout';
+import { findGroupPort, parseGroupHandleId, pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
 import {
-  enforceGroupLayout,
-  pushRootNodeOutsideGroupAreas,
-} from '@/domains/workflow/lib/groupLayout';
-import {
-  findGroupPort,
-  parseGroupHandleId,
-  pruneGroupPortEdges,
-} from '@/domains/workflow/lib/groupPorts';
-import {
+  FORCE_DISABLED_NODE_TYPES,
   buildGroupForNodes,
   duplicateNodesWithGroups,
   expandNodeActionIds,
-  FORCE_DISABLED_NODE_TYPES,
   getAbsolutePosition,
   normalizeEditorNodes,
   ungroupGroupNodes,
 } from '@/domains/workflow/lib/store/editorShared';
 import { gid } from '@/domains/workflow/lib/store/helpers';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
+import type { Edge, Node } from '@xyflow/react';
 
 type WorkflowStoreGroupEditorActions = Pick<
   WorkflowState,
-  | 'duplicateNodes'
-  | 'createNodeGroup'
-  | 'ungroupNodes'
-  | 'releaseNodesFromGroup'
-  | 'toggleNodesDisabled'
+  'duplicateNodes' | 'createNodeGroup' | 'ungroupNodes' | 'releaseNodesFromGroup' | 'toggleNodesDisabled'
 >;
 
 function rebuildEdgesForUngroupedGroups(nodes: Node[], edges: Edge[], groupIds: string[]) {
@@ -45,17 +34,17 @@ function rebuildEdgesForUngroupedGroups(nodes: Node[], edges: Edge[], groupIds: 
     const targetDescriptor = parseGroupHandleId(edge.targetHandle);
 
     if (
-      removedGroupIds.has(edge.source)
-      && sourceDescriptor?.side === 'input'
-      && sourceDescriptor.role === 'internal'
+      removedGroupIds.has(edge.source) &&
+      sourceDescriptor?.side === 'input' &&
+      sourceDescriptor.role === 'internal'
     ) {
       continue;
     }
 
     if (
-      removedGroupIds.has(edge.target)
-      && targetDescriptor?.side === 'output'
-      && targetDescriptor.role === 'internal'
+      removedGroupIds.has(edge.target) &&
+      targetDescriptor?.side === 'output' &&
+      targetDescriptor.role === 'internal'
     ) {
       continue;
     }
@@ -65,16 +54,17 @@ function rebuildEdgesForUngroupedGroups(nodes: Node[], edges: Edge[], groupIds: 
     if (removedGroupIds.has(edge.source)) {
       const groupNode = nodeMap.get(edge.source);
       const descriptor = sourceDescriptor;
-      const sourcePort = groupNode && descriptor
-        ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId)
-        : null;
+      const sourcePort =
+        groupNode && descriptor
+          ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId)
+          : null;
 
       if (
-        groupNode?.type !== 'group'
-        || !descriptor
-        || descriptor.side !== 'output'
-        || descriptor.role !== 'external'
-        || !sourcePort
+        groupNode?.type !== 'group' ||
+        !descriptor ||
+        descriptor.side !== 'output' ||
+        descriptor.role !== 'external' ||
+        !sourcePort
       ) {
         expandedEdges = [];
       } else {
@@ -91,16 +81,17 @@ function rebuildEdgesForUngroupedGroups(nodes: Node[], edges: Edge[], groupIds: 
     if (removedGroupIds.has(edge.target)) {
       const groupNode = nodeMap.get(edge.target);
       const descriptor = targetDescriptor;
-      const targetPort = groupNode && descriptor
-        ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId)
-        : null;
+      const targetPort =
+        groupNode && descriptor
+          ? findGroupPort((groupNode.data || {}) as Record<string, unknown>, descriptor.side, descriptor.portId)
+          : null;
 
       if (
-        groupNode?.type !== 'group'
-        || !descriptor
-        || descriptor.side !== 'input'
-        || descriptor.role !== 'external'
-        || !targetPort
+        groupNode?.type !== 'group' ||
+        !descriptor ||
+        descriptor.side !== 'input' ||
+        descriptor.role !== 'external' ||
+        !targetPort
       ) {
         expandedEdges = [];
       } else {
@@ -121,12 +112,9 @@ function rebuildEdgesForUngroupedGroups(nodes: Node[], edges: Edge[], groupIds: 
     for (const nextEdge of expandedEdges) {
       if (removedGroupIds.has(nextEdge.source) || removedGroupIds.has(nextEdge.target)) continue;
 
-      const edgeKey = [
-        nextEdge.source,
-        nextEdge.sourceHandle || '',
-        nextEdge.target,
-        nextEdge.targetHandle || '',
-      ].join('|');
+      const edgeKey = [nextEdge.source, nextEdge.sourceHandle || '', nextEdge.target, nextEdge.targetHandle || ''].join(
+        '|',
+      );
       if (seenEdgeKeys.has(edgeKey)) continue;
 
       seenEdgeKeys.add(edgeKey);
@@ -161,10 +149,7 @@ export function createWorkflowGroupEditorActions(
       const duplicatedIds = duplicatedNodes.map((node) => node.id);
       set((state) => ({
         nodes: normalizeEditorNodes(
-          [
-            ...state.nodes.map((node) => ({ ...node, selected: false })),
-            ...duplicatedNodes,
-          ],
+          [...state.nodes.map((node) => ({ ...node, selected: false })), ...duplicatedNodes],
           [...state.edges, ...duplicatedEdges],
         ),
         edges: [...state.edges, ...duplicatedEdges],
@@ -222,13 +207,16 @@ export function createWorkflowGroupEditorActions(
         const parentId = (node as Node & { parentId?: string }).parentId;
         if (!parentId) return node;
         const absolutePosition = getAbsolutePosition(node.id, nodeMap, positionMemo);
-        return pushRootNodeOutsideGroupAreas({
-          ...node,
-          parentId: undefined,
-          extent: undefined,
-          position: absolutePosition,
-          selected: true,
-        } as Node, currentNodes);
+        return pushRootNodeOutsideGroupAreas(
+          {
+            ...node,
+            parentId: undefined,
+            extent: undefined,
+            position: absolutePosition,
+            selected: true,
+          } as Node,
+          currentNodes,
+        );
       });
 
       set(() => ({
@@ -256,9 +244,8 @@ export function createWorkflowGroupEditorActions(
               },
             };
           }
-          const nextDisabled = typeof disabled === 'boolean'
-            ? disabled
-            : !Boolean((node.data as Record<string, unknown>)?.disabled);
+          const nextDisabled =
+            typeof disabled === 'boolean' ? disabled : !(node.data as Record<string, unknown>)?.disabled;
           return {
             ...node,
             data: {

@@ -67,7 +67,9 @@ export class ExecutionController {
     } catch (error) {
       clearInterval(heartbeat);
       if (!res.writableEnded) {
-        res.write(`event: workflow_error\ndata: ${JSON.stringify({ error: error instanceof Error ? error.message : '执行引擎内部错误' })}\n\n`);
+        res.write(
+          `event: workflow_error\ndata: ${JSON.stringify({ error: error instanceof Error ? error.message : '执行引擎内部错误' })}\n\n`,
+        );
         res.end();
       }
       next(error);

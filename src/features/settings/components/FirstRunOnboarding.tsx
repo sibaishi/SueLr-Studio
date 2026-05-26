@@ -1,16 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, CheckCircle2, Database, FolderOpen, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
-import { useT } from '@/providers/ThemeContext';
-import type { ApiConfig, ModelInfo } from '@/shared/types';
-import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
-import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
-import type { RuntimeCapabilities } from '@/shared/runtime';
-import { getRuntimeCapabilities } from '@/shared/api/capabilities';
 import {
   loadClientDownloadDirectoryState,
   loadStorageSettings,
-  pickStorageDirectory,
   pickClientDownloadDirectory,
+  pickStorageDirectory,
   resetClientDownloadDirectory,
   resetStorageSettings,
   restartBackendRequest,
@@ -19,6 +11,14 @@ import {
   waitForBackendReady,
 } from '@/features/settings';
 import type { StorageSettingsPayload } from '@/features/settings';
+import { useT } from '@/providers/ThemeContext';
+import { getRuntimeCapabilities } from '@/shared/api/capabilities';
+import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
+import type { RuntimeCapabilities } from '@/shared/runtime';
+import type { ApiConfig, ModelInfo } from '@/shared/types';
+import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
+import { ArrowRight, CheckCircle2, Database, FolderOpen, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 type Props = {
   activeConfigId: string;
   addLog: (level: string, message: string) => void;
@@ -47,7 +47,12 @@ function getConnectionFailureGuidance(message: string) {
   if (lower.includes('timeout') || message.includes('超时') || message.includes('网络')) {
     return '连接超时。请检查网络、代理设置，以及接口地址是否可以在浏览器或命令行中访问。';
   }
-  if (message.includes('401') || message.includes('403') || lower.includes('unauthorized') || lower.includes('forbidden')) {
+  if (
+    message.includes('401') ||
+    message.includes('403') ||
+    lower.includes('unauthorized') ||
+    lower.includes('forbidden')
+  ) {
     return '服务拒绝了请求。请确认 API Key 是否正确、是否有余额或权限，以及认证方式是否匹配。';
   }
   if (message.includes('404')) {
@@ -160,9 +165,7 @@ export function FirstRunOnboarding({
         addLog('success', '浏览器自动下载目录已更新');
         return;
       }
-      let next = storageDraft.trim()
-        ? await saveStorageSettings(storageDraft.trim())
-        : await resetStorageSettings();
+      let next = storageDraft.trim() ? await saveStorageSettings(storageDraft.trim()) : await resetStorageSettings();
       if (next.restartRequired) {
         const restartResult = await restartBackendRequest();
         if (restartResult.mode === 'desktop') {
@@ -225,7 +228,9 @@ export function FirstRunOnboarding({
         providerConfig: activeConfig?.providerConfig || DEFAULT_PROVIDER_CONFIG,
       });
       setMessage(`连接成功，已发现 ${nextModels.length} 个模型。`);
-      setGuidance('当前只保存连接信息和已发现模型，不会自动启用项目模型。请进入设置页的“模型”模块，手动导入你要启用的模型。');
+      setGuidance(
+        '当前只保存连接信息和已发现模型，不会自动启用项目模型。请进入设置页的“模型”模块，手动导入你要启用的模型。',
+      );
       addLog('success', `首次配置连接成功，发现 ${nextModels.length} 个模型`);
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
@@ -239,18 +244,38 @@ export function FirstRunOnboarding({
 
   const canComplete = Boolean(baseUrl.trim() && secret.trim() && testedModels.length > 0);
   const storageLabel = isServerRuntime
-    ? (storageDraft || '未设置浏览器自动下载目录，将回退到手动下载')
-    : (storage?.effectiveRoot || '正在读取默认位置...');
+    ? storageDraft || '未设置浏览器自动下载目录，将回退到手动下载'
+    : storage?.effectiveRoot || '正在读取默认位置...';
   const chatCount = testedModels.filter((model) => model.cat === 'chat').length;
   const imageCount = testedModels.filter((model) => model.cat === 'image').length;
   const videoCount = testedModels.filter((model) => model.cat === 'video').length;
 
   return (
-    <div style={{ width: '100%', height: '100vh', overflow: 'auto', background: 'var(--color-bg)', color: 'var(--color-text-primary)' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100vh',
+        overflow: 'auto',
+        background: 'var(--color-bg)',
+        color: 'var(--color-text-primary)',
+      }}
+    >
       <div style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 28px 40px' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 24 }}>
+        <header
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 24,
+            marginBottom: 24,
+          }}
+        >
           <div style={{ maxWidth: 680 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.08, textTransform: 'uppercase', color: T.text3 }}>SueLr Studio</div>
+            <div
+              style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.08, textTransform: 'uppercase', color: T.text3 }}
+            >
+              SueLr Studio
+            </div>
             <h1 style={{ margin: '10px 0 10px', fontSize: 34, lineHeight: 1.18, letterSpacing: 0, color: T.text }}>
               开始前，先完成你的本地配置
             </h1>
@@ -259,7 +284,9 @@ export function FirstRunOnboarding({
             </p>
           </div>
           <div style={{ ...panelStyle, padding: 14, minWidth: 220 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: T.green, fontWeight: 700, fontSize: 13 }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 10, color: T.green, fontWeight: 700, fontSize: 13 }}
+            >
               <ShieldCheck size={18} />
               纯净封装版
             </div>
@@ -269,23 +296,55 @@ export function FirstRunOnboarding({
           </div>
         </header>
 
-        <main style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.1fr)', gap: 18, alignItems: 'start' }}>
+        <main
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.1fr)',
+            gap: 18,
+            alignItems: 'start',
+          }}
+        >
           <section style={{ ...panelStyle, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <FolderOpen size={18} color={T.blue} />
               <h2 style={{ margin: 0, fontSize: 18, letterSpacing: 0 }}>数据保存位置</h2>
             </div>
 
-            <div style={{ borderRadius: 8, border: `1px solid ${T.border}`, background: T.card2, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: T.text3, marginBottom: 8 }}>{isServerRuntime ? '当前浏览器下载目录' : '当前生效路径'}</div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: T.text, overflowWrap: 'anywhere' }}>{storageLabel}</div>
+            <div
+              style={{
+                borderRadius: 8,
+                border: `1px solid ${T.border}`,
+                background: T.card2,
+                padding: 14,
+                marginBottom: 14,
+              }}
+            >
+              <div style={{ fontSize: 12, color: T.text3, marginBottom: 8 }}>
+                {isServerRuntime ? '当前浏览器下载目录' : '当前生效路径'}
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.6, color: T.text, overflowWrap: 'anywhere' }}>
+                {storageLabel}
+              </div>
             </div>
 
             <IOSLabel>{isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径'}</IOSLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'center', marginBottom: 12 }}>
-              <IOSInput value={storageDraft} onChange={setStorageDraft} placeholder={isServerRuntime ? '授权后用于接收 server-web 输出的本地下载目录' : '留空则使用默认位置'} disabled={isServerRuntime} />
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
+                gap: 10,
+                alignItems: 'center',
+                marginBottom: 12,
+              }}
+            >
+              <IOSInput
+                value={storageDraft}
+                onChange={setStorageDraft}
+                placeholder={isServerRuntime ? '授权后用于接收 server-web 输出的本地下载目录' : '留空则使用默认位置'}
+                disabled={isServerRuntime}
+              />
               <IOSButton
-                label={storageBusy ? '选择中...' : (isServerRuntime ? '授权目录' : '选择')}
+                label={storageBusy ? '选择中...' : isServerRuntime ? '授权目录' : '选择'}
                 onClick={() => {
                   void chooseStorage();
                 }}
@@ -301,7 +360,15 @@ export function FirstRunOnboarding({
             ) : null}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <IOSButton
-                label={storageBusy ? '处理中...' : (isServerRuntime ? '应用目录' : (storageDraft.trim() ? '保存并应用路径' : '使用默认位置'))}
+                label={
+                  storageBusy
+                    ? '处理中...'
+                    : isServerRuntime
+                      ? '应用目录'
+                      : storageDraft.trim()
+                        ? '保存并应用路径'
+                        : '使用默认位置'
+                }
                 onClick={() => {
                   void applyStorage();
                 }}
@@ -342,7 +409,14 @@ export function FirstRunOnboarding({
               <h2 style={{ margin: 0, fontSize: 18, letterSpacing: 0 }}>模型服务配置</h2>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: 12, marginBottom: 12 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)',
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
               <div>
                 <IOSLabel>配置名称</IOSLabel>
                 <IOSInput
@@ -392,33 +466,66 @@ export function FirstRunOnboarding({
                 style={{ width: 'auto' }}
               />
               {testing && <Loader2 size={16} color={T.text2} />}
-              {message && <span style={{ fontSize: 12, color: message.includes('成功') ? T.green : T.orange }}>{message}</span>}
+              {message && (
+                <span style={{ fontSize: 12, color: message.includes('成功') ? T.green : T.orange }}>{message}</span>
+              )}
             </div>
 
             {guidance && (
-              <div style={{ borderRadius: 8, border: `1px solid ${canComplete ? `${T.green}44` : `${T.orange}44`}`, background: canComplete ? `${T.green}12` : `${T.orange}12`, padding: 12, marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: canComplete ? T.green : T.orange, marginBottom: 6 }}>
+              <div
+                style={{
+                  borderRadius: 8,
+                  border: `1px solid ${canComplete ? `${T.green}44` : `${T.orange}44`}`,
+                  background: canComplete ? `${T.green}12` : `${T.orange}12`,
+                  padding: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <div
+                  style={{ fontSize: 12, fontWeight: 700, color: canComplete ? T.green : T.orange, marginBottom: 6 }}
+                >
                   {canComplete ? '下一步' : '处理建议'}
                 </div>
                 <div style={{ fontSize: 13, lineHeight: 1.6, color: T.text2 }}>{guidance}</div>
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+            <div
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}
+            >
               {[
                 ['对话', chatCount, T.blue],
                 ['图像', imageCount, T.green],
                 ['视频', videoCount, T.purple],
               ].map(([label, count, color]) => (
-                <div key={label} style={{ borderRadius: 8, border: `1px solid ${T.border}`, background: T.card2, padding: 12 }}>
+                <div
+                  key={label}
+                  style={{ borderRadius: 8, border: `1px solid ${T.border}`, background: T.card2, padding: 12 }}
+                >
                   <div style={{ fontSize: 12, color: T.text3 }}>{label}</div>
                   <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: color as string }}>{count}</div>
                 </div>
               ))}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: canComplete ? T.green : T.text3 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 14,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 12,
+                  color: canComplete ? T.green : T.text3,
+                }}
+              >
                 {canComplete ? <CheckCircle2 size={16} /> : <Database size={16} />}
                 {canComplete ? '连接信息已保存，进入后请到设置里手动启用模型。' : '完成连接测试后即可进入工作台。'}
               </div>

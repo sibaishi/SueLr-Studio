@@ -1,17 +1,13 @@
-import { Handle, Position } from '@xyflow/react';
-import type { CSSProperties } from 'react';
 import {
+  type GroupPort,
   buildGroupHandleId,
   isGroupPortEmpty,
   isGroupPortExternallyConnectable,
-  type GroupPort,
 } from '@/domains/workflow/lib/groupPorts';
 import type { PortDef } from '@/domains/workflow/lib/types';
-import {
-  NODE_PORT_GUTTER,
-  PORT_TYPE_COLORS,
-  PORT_TYPE_LABELS,
-} from './nodeConstants';
+import { Handle, Position } from '@xyflow/react';
+import type { CSSProperties } from 'react';
+import { NODE_PORT_GUTTER, PORT_TYPE_COLORS, PORT_TYPE_LABELS } from './nodeConstants';
 
 function getPortColor(type: string, fallback: string) {
   return PORT_TYPE_COLORS[type] || fallback || '#8E8E93';
@@ -48,13 +44,9 @@ export function InputPort({
           transform: 'translateY(-50%)',
         }}
       />
-      <span className="node-port__label">
-        {input.label}
-      </span>
+      <span className="node-port__label">{input.label}</span>
       {input.required && <span className="node-port__required">*</span>}
-      <span className="node-port__type">
-        {PORT_TYPE_LABELS[input.type] || input.type}
-      </span>
+      <span className="node-port__type">{PORT_TYPE_LABELS[input.type] || input.type}</span>
     </div>
   );
 }
@@ -71,16 +63,9 @@ export function OutputPort({
   const portColor = getPortColor(output.type, color);
 
   return (
-    <div
-      className="node-port node-port--output"
-      style={{ '--port-color': portColor } as CSSProperties}
-    >
-      <span className="node-port__type">
-        {PORT_TYPE_LABELS[output.type] || output.type}
-      </span>
-      <span className="node-port__label">
-        {output.label}
-      </span>
+    <div className="node-port node-port--output" style={{ '--port-color': portColor } as CSSProperties}>
+      <span className="node-port__type">{PORT_TYPE_LABELS[output.type] || output.type}</span>
+      <span className="node-port__label">{output.label}</span>
       <Handle
         type="source"
         position={Position.Right}
@@ -99,7 +84,7 @@ export function OutputPort({
 
 function GroupHandle({
   side,
-  role,
+  groupRole,
   portId,
   handleType,
   position,
@@ -110,7 +95,7 @@ function GroupHandle({
   className,
 }: {
   side: 'input' | 'output';
-  role: 'external' | 'internal';
+  groupRole: 'external' | 'internal';
   portId: string;
   handleType: 'source' | 'target';
   position: Position;
@@ -121,25 +106,26 @@ function GroupHandle({
   className: string;
 }) {
   const handleVisualPosition = visualPosition || position;
-  const sideStyle = handleVisualPosition === Position.Left
-    ? {
-        left: visualOffset ?? NODE_PORT_GUTTER,
-        right: 'auto',
-        top: '50%',
-        transform: 'translateY(-50%)',
-      }
-    : {
-        left: 'auto',
-        right: visualOffset ?? NODE_PORT_GUTTER,
-        top: '50%',
-        transform: 'translateY(-50%)',
-      };
+  const sideStyle =
+    handleVisualPosition === Position.Left
+      ? {
+          left: visualOffset ?? NODE_PORT_GUTTER,
+          right: 'auto',
+          top: '50%',
+          transform: 'translateY(-50%)',
+        }
+      : {
+          left: 'auto',
+          right: visualOffset ?? NODE_PORT_GUTTER,
+          top: '50%',
+          transform: 'translateY(-50%)',
+        };
 
   return (
     <Handle
       type={handleType}
       position={position}
-      id={buildGroupHandleId(side, portId, role)}
+      id={buildGroupHandleId(side, portId, groupRole)}
       isConnectable={connectable}
       className={className}
       style={{
@@ -164,7 +150,7 @@ export function GroupPortRow({
   const portType = port.type || 'any';
   const portColor = getPortColor(portType, color);
   const isEmpty = isGroupPortEmpty(port);
-  const portText = isEmpty ? 'EMPTY' : (PORT_TYPE_LABELS[portType] || portType);
+  const portText = isEmpty ? 'EMPTY' : PORT_TYPE_LABELS[portType] || portType;
 
   return (
     <div
@@ -173,14 +159,16 @@ export function GroupPortRow({
         'node-port--group',
         side === 'input' ? 'node-port--group-input' : 'node-port--group-output',
         isEmpty ? 'node-port--group-empty' : '',
-      ].filter(Boolean).join(' ')}
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{ '--port-color': portColor } as CSSProperties}
     >
       {side === 'input' ? (
         <>
           <GroupHandle
             side="input"
-            role="external"
+            groupRole="external"
             portId={port.id}
             handleType="target"
             position={Position.Left}
@@ -190,7 +178,7 @@ export function GroupPortRow({
           />
           <GroupHandle
             side="input"
-            role="internal"
+            groupRole="internal"
             portId={port.id}
             handleType="source"
             position={Position.Right}
@@ -202,13 +190,9 @@ export function GroupPortRow({
           />
           <div className="node-port__group-main">
             {isEmpty ? (
-              <span className="node-port__placeholder">
-                {portText}
-              </span>
+              <span className="node-port__placeholder">{portText}</span>
             ) : (
-              <span className="node-port__type">
-                {portText}
-              </span>
+              <span className="node-port__type">{portText}</span>
             )}
           </div>
         </>
@@ -216,18 +200,14 @@ export function GroupPortRow({
         <>
           <div className="node-port__group-main">
             {isEmpty ? (
-              <span className="node-port__placeholder">
-                {portText}
-              </span>
+              <span className="node-port__placeholder">{portText}</span>
             ) : (
-              <span className="node-port__type">
-                {portText}
-              </span>
+              <span className="node-port__type">{portText}</span>
             )}
           </div>
           <GroupHandle
             side="output"
-            role="external"
+            groupRole="external"
             portId={port.id}
             handleType="source"
             position={Position.Right}
@@ -237,7 +217,7 @@ export function GroupPortRow({
           />
           <GroupHandle
             side="output"
-            role="internal"
+            groupRole="internal"
             portId={port.id}
             handleType="target"
             position={Position.Left}

@@ -32,15 +32,7 @@ export function normalizeWebSearchResult(data = {}, request = {}) {
   };
 }
 
-export async function runWebSearch({
-  tavilyApiKey,
-  query,
-  maxResults = 5,
-  includeAnswer = true,
-  topic,
-  days,
-  signal,
-}) {
+export async function runWebSearch({ tavilyApiKey, query, maxResults = 5, includeAnswer = true, topic, days, signal }) {
   const cleanQuery = Array.isArray(query)
     ? query.filter((item) => item !== undefined && item !== null && item !== '').join('\n')
     : String(query || '').trim();

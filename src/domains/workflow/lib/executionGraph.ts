@@ -1,5 +1,5 @@
-import type { Edge, Node } from '@xyflow/react';
 import { findGroupPort, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
+import type { Edge, Node } from '@xyflow/react';
 
 function getNodeParentId(node: Node) {
   return (node as Node & { parentId?: string }).parentId;
@@ -67,9 +67,7 @@ function resolveExecutionSources(
 
   const resolvedSources: ResolvedEndpoint[] = [];
   for (const insideLink of port.insideLinks) {
-    resolvedSources.push(
-      ...resolveExecutionSources(nodeMap, insideLink.nodeId, insideLink.handleId, visited),
-    );
+    resolvedSources.push(...resolveExecutionSources(nodeMap, insideLink.nodeId, insideLink.handleId, visited));
   }
 
   return resolvedSources;
@@ -103,9 +101,7 @@ function resolveExecutionTargets(
 
   const resolvedTargets: ResolvedEndpoint[] = [];
   for (const insideLink of port.insideLinks) {
-    resolvedTargets.push(
-      ...resolveExecutionTargets(nodeMap, insideLink.nodeId, insideLink.handleId, visited),
-    );
+    resolvedTargets.push(...resolveExecutionTargets(nodeMap, insideLink.nodeId, insideLink.handleId, visited));
   }
 
   return resolvedTargets;
@@ -158,10 +154,7 @@ export function projectWorkflowToExecutionGraph(nodes: Node[], edges: Edge[]) {
   };
 }
 
-export function filterExecutionGraphToUpstreamTarget(
-  graph: { nodes: Node[]; edges: Edge[] },
-  targetNodeId: string,
-) {
+export function filterExecutionGraphToUpstreamTarget(graph: { nodes: Node[]; edges: Edge[] }, targetNodeId: string) {
   const nodeIds = new Set(graph.nodes.map((node) => node.id));
   if (!nodeIds.has(targetNodeId)) {
     return {
@@ -187,8 +180,6 @@ export function filterExecutionGraphToUpstreamTarget(
 
   return {
     nodes: graph.nodes.filter((node) => includedNodeIds.has(node.id)),
-    edges: graph.edges.filter((edge) => (
-      includedNodeIds.has(edge.source) && includedNodeIds.has(edge.target)
-    )),
+    edges: graph.edges.filter((edge) => includedNodeIds.has(edge.source) && includedNodeIds.has(edge.target)),
   };
 }

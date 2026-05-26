@@ -17,21 +17,21 @@ export const PRESET_ROLES: AgentRole[] = [
     id: 'default',
     name: '通用助手',
     icon: 'bot',
-    systemPrompt: '你是一位智能、友好、高效的 AI 助手。回答自然、清晰、可靠。' + CAPABILITY_SUFFIX,
+    systemPrompt: `你是一位智能、友好、高效的 AI 助手。回答自然、清晰、可靠。${CAPABILITY_SUFFIX}`,
     tools: ['generate_image', 'generate_video'],
   },
   {
     id: 'image',
     name: '图像创作',
     icon: 'palette',
-    systemPrompt: '你擅长视觉创意、提示词优化、图像生成和图像改写。' + CAPABILITY_SUFFIX,
+    systemPrompt: `你擅长视觉创意、提示词优化、图像生成和图像改写。${CAPABILITY_SUFFIX}`,
     tools: ['generate_image'],
   },
   {
     id: 'video',
     name: '视频导演',
     icon: 'clapperboard',
-    systemPrompt: '你擅长把想法转化为视频镜头、运动、节奏和画面说明。' + CAPABILITY_SUFFIX,
+    systemPrompt: `你擅长把想法转化为视频镜头、运动、节奏和画面说明。${CAPABILITY_SUFFIX}`,
     tools: ['generate_image', 'generate_video'],
   },
   {
@@ -60,8 +60,14 @@ export function buildTools(hasImage: boolean, hasVideo: boolean, hasSearch = fal
           properties: {
             prompt: { type: 'string', description: 'Image generation or edit prompt.' },
             reference_image_url: { type: 'string', description: 'Optional reference image URL.' },
-            width: { type: 'number', description: 'Optional output width in pixels. Will be rounded to the nearest multiple of 16.' },
-            height: { type: 'number', description: 'Optional output height in pixels. Will be rounded to the nearest multiple of 16.' },
+            width: {
+              type: 'number',
+              description: 'Optional output width in pixels. Will be rounded to the nearest multiple of 16.',
+            },
+            height: {
+              type: 'number',
+              description: 'Optional output height in pixels. Will be rounded to the nearest multiple of 16.',
+            },
             resolution: { type: 'string', description: 'Optional output tier: auto, 512px, 1k, 2k, 4k.' },
           },
           required: ['prompt'],

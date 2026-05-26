@@ -1,8 +1,8 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import sharp from 'sharp';
 
-import { ensureDir, getScopedStoragePaths, safeResolveWithin, STORAGE_PATHS } from '../storage/index.js';
+import { STORAGE_PATHS, ensureDir, getScopedStoragePaths, safeResolveWithin } from '../storage/index.js';
 
 const THUMBNAIL_MAX_WIDTH = 512;
 const THUMBNAIL_MAX_HEIGHT = 512;

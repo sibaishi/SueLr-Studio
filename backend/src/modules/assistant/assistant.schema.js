@@ -37,9 +37,7 @@ function validateUrlArray(value, fieldName) {
   if (!Array.isArray(value)) {
     throw new ValidationError('VALIDATION_ERROR', `${fieldName} 必须为数组`);
   }
-  return value
-    .map((item, index) => validateUrlOrEmpty(item, `${fieldName}[${index}]`))
-    .filter(Boolean);
+  return value.map((item, index) => validateUrlOrEmpty(item, `${fieldName}[${index}]`)).filter(Boolean);
 }
 
 function validateDataUrlImage(value, fieldName) {

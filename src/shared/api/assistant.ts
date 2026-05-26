@@ -9,21 +9,20 @@ function getResultData<T>(result: { success: boolean; data?: T }): T | null {
 
 function normalizeGalleryItems(items: unknown[]): GalleryItem[] {
   if (!Array.isArray(items)) return [];
-  const normalized: Array<GalleryItem | null> = items
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null;
-      const record = item as Record<string, unknown>;
-      const url = String(record.localUrl || record.url || '');
-      if (!url) return null;
-      return {
-        id: String(record.id || ''),
-        url,
-        thumbnailUrl: String(record.thumbnailUrl || ''),
-        prompt: String(record.prompt || ''),
-        model: String(record.model || ''),
-        ts: Number(record.ts || Date.now()),
-      };
-    });
+  const normalized: Array<GalleryItem | null> = items.map((item) => {
+    if (!item || typeof item !== 'object') return null;
+    const record = item as Record<string, unknown>;
+    const url = String(record.localUrl || record.url || '');
+    if (!url) return null;
+    return {
+      id: String(record.id || ''),
+      url,
+      thumbnailUrl: String(record.thumbnailUrl || ''),
+      prompt: String(record.prompt || ''),
+      model: String(record.model || ''),
+      ts: Number(record.ts || Date.now()),
+    };
+  });
 
   return normalized.filter((item): item is GalleryItem => item !== null);
 }
@@ -47,7 +46,14 @@ export async function deleteConversation(id: string): Promise<void> {
   await apiRequest(`${API}/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-export async function saveImage(item: { id: string; data?: string; url?: string; prompt: string; model: string; ts: number }): Promise<{ localUrl: string | null; thumbnailUrl?: string | null }> {
+export async function saveImage(item: {
+  id: string;
+  data?: string;
+  url?: string;
+  prompt: string;
+  model: string;
+  ts: number;
+}): Promise<{ localUrl: string | null; thumbnailUrl?: string | null }> {
   if (!isBackendAvailable()) return { localUrl: null, thumbnailUrl: null };
   const result = await apiRequest<{ localUrl?: string; thumbnailUrl?: string }>(`${API}/images`, {
     method: 'POST',
@@ -68,7 +74,16 @@ export async function clearGallery(): Promise<void> {
   await apiRequest(`${API}/images`, { method: 'DELETE' });
 }
 
-export async function saveVideo(item: { id: string; url?: string; localUrl?: string; data?: string; candidateUrls?: string[]; prompt: string; model: string; ts: number }): Promise<string | null> {
+export async function saveVideo(item: {
+  id: string;
+  url?: string;
+  localUrl?: string;
+  data?: string;
+  candidateUrls?: string[];
+  prompt: string;
+  model: string;
+  ts: number;
+}): Promise<string | null> {
   if (!isBackendAvailable()) return null;
   const result = await apiRequest<{ localUrl?: string }>(`${API}/videos`, {
     method: 'POST',

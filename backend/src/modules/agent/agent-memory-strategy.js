@@ -1,8 +1,4 @@
-import {
-  isDuplicateMemory,
-  isUnsafeMemoryWriteContent,
-  normalizeMemoryContent,
-} from './agent-memory-policy.js';
+import { isDuplicateMemory, isUnsafeMemoryWriteContent, normalizeMemoryContent } from './agent-memory-policy.js';
 
 function cleanString(value, maxLength = 5000) {
   if (value === undefined || value === null) return '';
@@ -39,7 +35,7 @@ function extractTextContent(content) {
     .join('\n');
 }
 
-function buildExtractionText(messages = [], assistantMessage) {
+function buildExtractionText(messages, assistantMessage) {
   const normalized = [...messages, assistantMessage]
     .filter((message) => message && typeof message === 'object')
     .map((message) => ({
@@ -50,7 +46,10 @@ function buildExtractionText(messages = [], assistantMessage) {
 
   return normalized
     .slice(-MAX_EXTRACTION_MESSAGES)
-    .map((message) => `${message.role === 'user' ? 'User' : 'AI'}: ${message.content.slice(0, MAX_EXTRACTION_MESSAGE_LENGTH)}`)
+    .map(
+      (message) =>
+        `${message.role === 'user' ? 'User' : 'AI'}: ${message.content.slice(0, MAX_EXTRACTION_MESSAGE_LENGTH)}`,
+    )
     .join('\n');
 }
 
@@ -87,30 +86,24 @@ export class AgentMemoryStrategy {
     return profileAllowsMemoryWrite(profile);
   }
 
-  async writeMemories({
-    profile,
-    model,
-    messages,
-    assistantMessage,
-    conversationId,
-    apiConfig,
-    scope,
-    signal,
-  }) {
+  async writeMemories({ profile, model, messages, assistantMessage, conversationId, apiConfig, scope, signal }) {
     if (!this.isEnabled(profile)) return [];
     const extractionText = buildExtractionText(messages, assistantMessage);
     if (!extractionText) return [];
 
-    const response = await this.capabilitiesService.chat({
-      model,
-      messages: [
-        { role: 'system', content: MEMORY_EXTRACTION_PROMPT },
-        { role: 'user', content: extractionText },
-      ],
-      apiConfig,
-      scope,
-      signal,
-    }, { scope });
+    const response = await this.capabilitiesService.chat(
+      {
+        model,
+        messages: [
+          { role: 'system', content: MEMORY_EXTRACTION_PROMPT },
+          { role: 'user', content: extractionText },
+        ],
+        apiConfig,
+        scope,
+        signal,
+      },
+      { scope },
+    );
     const reply = response?.choices?.[0]?.message?.content;
     const candidates = parseExtractedMemories(typeof reply === 'string' ? reply : '[]')
       .map(normalizeCandidateMemory)
@@ -122,7 +115,10 @@ export class AgentMemoryStrategy {
     const now = Date.now();
 
     for (const content of candidates) {
-      if (isDuplicateMemory(existingMemories, content, conversationId) || isDuplicateMemory(writes, content, conversationId)) {
+      if (
+        isDuplicateMemory(existingMemories, content, conversationId) ||
+        isDuplicateMemory(writes, content, conversationId)
+      ) {
         continue;
       }
       writes.push({

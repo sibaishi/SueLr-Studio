@@ -1,5 +1,5 @@
-import type { ApiConfig, ModelInfo, ProviderConfig } from '@/shared/types';
 import type { ApiConfigPayload } from '@/shared/api/capabilities';
+import type { ApiConfig, ModelInfo, ProviderConfig } from '@/shared/types';
 
 export function getModelDisplayName(model: ModelInfo) {
   return model.modelId || model.id;
@@ -10,9 +10,7 @@ export function getModelGroupName(model: ModelInfo) {
 }
 
 export function resolveSelectedModel(models: ModelInfo[], selected: string) {
-  return models.find((model) => model.id === selected)
-    || models.find((model) => model.modelId === selected)
-    || null;
+  return models.find((model) => model.id === selected) || models.find((model) => model.modelId === selected) || null;
 }
 
 export function resolveProviderModelId(models: ModelInfo[], selected: string) {

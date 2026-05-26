@@ -1,10 +1,10 @@
-import { IOSButton, IOSCard, RoleIcon } from '@/shared/ui/ios';
 import { useT } from '@/providers/ThemeContext';
-import { gid } from '@/shared/runtime';
 import type { AgentProfile } from '@/shared/api/agent';
+import { gid } from '@/shared/runtime';
+import { IOSButton, IOSCard, RoleIcon } from '@/shared/ui/ios';
 import { AgentProfileEditor } from './AgentProfileEditor';
-import { SectionCard } from './styles';
 import type { SettingsActions, SettingsViewModel } from './shared';
+import { SectionCard } from './styles';
 
 type Props = {
   actions: SettingsActions;
@@ -36,7 +36,9 @@ export function AgentPersonaSection({ actions, view }: Props) {
       <SectionCard
         title="Agent Persona"
         description="在这里统一管理 Agent Profile，替代旧的角色预设配置方式。"
-        action={<IOSButton small label="新建 Persona" onClick={() => actions.setEditingProfile(createBlankProfile())} />}
+        action={
+          <IOSButton small label="新建 Persona" onClick={() => actions.setEditingProfile(createBlankProfile())} />
+        }
       >
         <div className="flex-col" style={{ gap: 10 }}>
           <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
@@ -53,7 +55,10 @@ export function AgentPersonaSection({ actions, view }: Props) {
                 border: '1px solid var(--color-border)',
               }}
             >
-              <div className="flex-center" style={{ justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+              <div
+                className="flex-center"
+                style={{ justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}
+              >
                 <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
                   <RoleIcon icon={profile.icon || 'bot'} />
                   <div style={{ minWidth: 0 }}>
@@ -62,12 +67,21 @@ export function AgentPersonaSection({ actions, view }: Props) {
                       {profile.description || '暂无说明'}
                     </div>
                     <div style={{ color: 'var(--color-text-tertiary)', fontSize: 11, marginTop: 6 }}>
-                      工具数：{(profile.enabledTools || []).length} · 记忆模式：{profile.behavior?.memoryMode === 'off' ? '关闭' : '自动'}
+                      工具数：{(profile.enabledTools || []).length} · 记忆模式：
+                      {profile.behavior?.memoryMode === 'off' ? '关闭' : '自动'}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    justifyContent: 'flex-end',
+                  }}
+                >
                   <IOSButton small label="编辑" onClick={() => actions.setEditingProfile(profile)} />
                   {profile.isCustom && (
                     <IOSButton

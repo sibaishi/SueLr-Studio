@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { AlertTriangle, GitBranch, RefreshCw } from 'lucide-react';
 import { getImportModeLabel } from '@/domains/workflow/lib/importExport';
 import type { WorkflowImportError, WorkflowImportMode } from '@/domains/workflow/lib/persistenceTypes';
+import { AlertTriangle, GitBranch, RefreshCw } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface WorkflowImportConflictModalProps {
   fileName: string;

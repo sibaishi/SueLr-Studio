@@ -1,12 +1,21 @@
-import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import * as api from '@/domains/workflow/lib/api';
-import type { Workflow } from '@/domains/workflow/lib/types';
-import type { WorkflowImportError, WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
-import { clearActiveRunSnapshot, loadLocalDraft } from '@/domains/workflow/lib/store/persistence';
+import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
+import type {
+  WorkflowImportError,
+  WorkflowImportMode,
+  WorkflowImportReport,
+} from '@/domains/workflow/lib/persistenceTypes';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
 import { buildWorkflowPayload, gid, normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
-import type { WorkflowImportResult, WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
+import { clearActiveRunSnapshot, type loadLocalDraft } from '@/domains/workflow/lib/store/persistence';
+import type {
+  WorkflowImportResult,
+  WorkflowState,
+  WorkflowStoreGet,
+  WorkflowStoreSet,
+} from '@/domains/workflow/lib/store/types';
+import type { Workflow } from '@/domains/workflow/lib/types';
 
 type WorkflowStoreDocumentActions = Pick<
   WorkflowState,
@@ -35,12 +44,7 @@ export function createWorkflowDocumentActions(
       const state = get();
       set({ isSavingWorkflow: true });
 
-      const workflowData = buildWorkflowPayload(
-        state.workflowId,
-        state.workflowName,
-        state.nodes,
-        state.edges,
-      );
+      const workflowData = buildWorkflowPayload(state.workflowId, state.workflowName, state.nodes, state.edges);
 
       const updateResult = await api.updateWorkflow(state.workflowId, workflowData);
       if (updateResult.success) {
@@ -147,12 +151,7 @@ export function createWorkflowDocumentActions(
 
       if (!existsInList) {
         const result = await api.createWorkflow({
-          ...buildWorkflowPayload(
-            `wf_${Date.now()}`,
-            `${state.workflowName} (副本)`,
-            state.nodes,
-            state.edges,
-          ),
+          ...buildWorkflowPayload(`wf_${Date.now()}`, `${state.workflowName} (副本)`, state.nodes, state.edges),
         });
 
         if (!result.success || !result.data) return false;
@@ -206,7 +205,9 @@ export function createWorkflowDocumentActions(
         return {
           success: false,
           report: null,
-          error: (importResult as { importError?: WorkflowImportError }).importError || { message: importResult.error || '导入失败' },
+          error: (importResult as { importError?: WorkflowImportError }).importError || {
+            message: importResult.error || '导入失败',
+          },
         };
       }
 
@@ -216,9 +217,7 @@ export function createWorkflowDocumentActions(
       const normalizedNodes = normalizeEditorNodes(rawNodes, normalizedEdges);
       const edges = pruneGroupPortEdges(normalizedNodes, normalizedEdges);
       const nodes = normalizeEditorNodes(rawNodes, edges);
-      const importedName = typeof record.name === 'string'
-        ? record.name
-        : fallbackName || DEFAULT_WORKFLOW_NAME;
+      const importedName = typeof record.name === 'string' ? record.name : fallbackName || DEFAULT_WORKFLOW_NAME;
 
       clearActiveRunSnapshot();
       set({
@@ -262,7 +261,11 @@ export function createWorkflowDocumentActions(
     },
 
     importWorkflowData: async (payload, fallbackName) => {
-      return get().importWorkflowDataWithMode(payload, 'generate_new_id' satisfies WorkflowImportMode, fallbackName) as Promise<WorkflowImportResult>;
+      return get().importWorkflowDataWithMode(
+        payload,
+        'generate_new_id' satisfies WorkflowImportMode,
+        fallbackName,
+      ) as Promise<WorkflowImportResult>;
     },
   };
 }

@@ -1,7 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { STORAGE_PATHS } from '../storage/index.js';
+import fs from 'node:fs';
+import path from 'node:path';
 import { ensureDir } from '../storage/ensure-dir.js';
+import { STORAGE_PATHS } from '../storage/index.js';
 import { getProcessInstanceId } from './runtime-observability.js';
 
 function safeName(value) {
@@ -21,12 +21,7 @@ function timePart(date) {
 
 export function ensureLogDirectories() {
   const startupDir = path.join(STORAGE_PATHS.appLogsDir, 'startup');
-  [
-    STORAGE_PATHS.logsDir,
-    STORAGE_PATHS.appLogsDir,
-    STORAGE_PATHS.workflowRunsDir,
-    startupDir,
-  ].forEach(ensureDir);
+  [STORAGE_PATHS.logsDir, STORAGE_PATHS.appLogsDir, STORAGE_PATHS.workflowRunsDir, startupDir].forEach(ensureDir);
 
   return {
     root: STORAGE_PATHS.logsDir,
