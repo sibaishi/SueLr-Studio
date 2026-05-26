@@ -332,4 +332,94 @@ test.describe('studio smoke', () => {
     await expect(pickerButton).toBeEnabled();
     await expect(page.locator('.node-param__hint').filter({ hasText: 'server-web 下这里用于授权当前浏览器的自动下载目录' }).first()).toBeVisible();
   });
+  test('server runtime results panel can clear retained server outputs with confirmation', async ({ page }) => {
+    await clearLocalState(page);
+
+    await page.route('**/api/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            ok: true,
+            version: 'test',
+            runtime: {
+              mode: 'server-single-user',
+              canSelectDirectory: false,
+              canRestartBackend: false,
+              hasEmbeddedShell: false,
+            },
+          },
+        }),
+      });
+    });
+    await page.route('**/api/capabilities/runtime', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            mode: 'server-single-user',
+            canSelectDirectory: false,
+            canRestartBackend: false,
+            hasEmbeddedShell: false,
+          },
+        }),
+      });
+    });
+
+    let generatedOutputsCleared = false;
+    await page.route('**/api/files/generated', async (route) => {
+      if (route.request().method() === 'DELETE') {
+        generatedOutputsCleared = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: { removed: 1 },
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: generatedOutputsCleared ? [] : [{
+            id: 'images/demo-output.jpg',
+            name: 'demo-output.jpg',
+            relativePath: 'images/demo-output.jpg',
+            url: '/api/outputs/images/demo-output.jpg',
+            thumbnailUrl: '/api/outputs/images/.thumbnails/demo-output__thumb.jpg',
+            type: 'image',
+            mimeType: 'image/jpeg',
+            width: 1024,
+            height: 1024,
+            size: 123456,
+            modifiedAt: Date.now(),
+          }],
+        }),
+      });
+    });
+
+    page.on('dialog', async (dialog) => {
+      await dialog.accept();
+    });
+
+    await page.goto('/');
+    await expect(page.locator('.splash-overlay')).toHaveCount(0);
+    await page.getByTestId('nav-tab-workflow').click();
+    await expect(page.getByTestId('workflow-page')).toBeVisible();
+
+    await expect(page.getByRole('button', { name: '清空服务器结果' })).toBeVisible();
+    await page.getByRole('button', { name: '清空服务器结果' }).click();
+
+    await expect.poll(() => generatedOutputsCleared).toBe(true);
+    await expect(page.locator('text=还没有 AI 输出')).toBeVisible();
+  });
 });

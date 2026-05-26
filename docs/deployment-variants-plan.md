@@ -654,10 +654,8 @@ Current status on 2026-05-25:
   - workflow save results no longer expose host output paths in server mode
 - still open:
   - real deployment validation
-  - deployment SOP finalization
   - reverse-proxy and allowed-origin production verification
-  - browser-side auto-download path behavior and fallback manual download flow
-  - server-side history cleanup flow
+  - final production-host rollout verification against the documented SOP
 
 Acceptance criteria:
 
@@ -669,6 +667,7 @@ Acceptance criteria:
 - `Settings -> Defaults -> 外部数据路径` remains available in `server-web`
 - in `server-web`, that setting is explicitly surfaced as a client local auto-download path
 - if the browser cannot auto-save, the user can still manually download generated outputs through supported UI flows
+- the server-retained output cleanup action is available in `Workflow -> 结果`, warns before deletion, and removes retained outputs through supported APIs
 
 Risk checklist:
 
@@ -688,7 +687,7 @@ Precheck:
 - confirm `npm run typecheck`
 - confirm `npm run test:backend`
 - confirm `npm run test:unit -- runtime-capabilities`
-- confirm `npm run test:e2e -- --grep "settings keeps browser download path entry in server runtime mode|workflow saveFile node switches to browser download authorization in server runtime mode"`
+- confirm `npm run test:e2e -- --grep "settings keeps browser download path entry in server runtime mode|workflow saveFile node switches to browser download authorization in server runtime mode|server runtime results panel can clear retained server outputs with confirmation"`
 - confirm `npm run check:docs`
 - confirm `npm run check:encoding`
 - confirm the frontend production build exists and the backend can serve it through `APP_FRONTEND_DIST`
