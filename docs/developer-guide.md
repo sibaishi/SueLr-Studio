@@ -541,7 +541,9 @@ Current desktop shell module split:
 Server-web deployment assets:
 
 - `scripts/deploy/server-web/compose.yaml`
-  - compose definition for the server-web runtime
+  - compose definition for host-side Docker builds
+- `scripts/deploy/server-web/compose.image.yaml`
+  - compose definition for prebuilt image deployments; requires `SUE_LR_IMAGE`
 - `scripts/deploy/server-web/Dockerfile`
   - backend plus static frontend image build with an explicit runtime-layer whitelist
 - `scripts/deploy/server-web/app.dockerignore`
@@ -554,6 +556,10 @@ Server-web deployment assets:
   - first-time host setup; builds a minimized release tree and syncs it into `runtime/app` before compose startup
 - `scripts/deploy/server-web/update.sh`
   - host-side update flow for pull, release-tree sync, rebuild, and nginx reload
+- `scripts/deploy/server-web/build-image.sh`
+  - workstation or CI flow for building a prebuilt server-web image from the minimized release tree; set `SUE_LR_PUSH=1` to push to a registry such as a self-hosted Gitea container registry
+- `scripts/deploy/server-web/update-image.sh`
+  - host-side update flow that pulls `SUE_LR_IMAGE` and restarts without `docker build`; skips source checkout pulls by default, with `SUE_LR_PULL_SOURCE=1` available when script refresh is wanted
 - `scripts/deploy/server-web/uninstall.sh`
   - host-side removal flow for stopping containers, removing nginx wiring, and deleting the synced `runtime/app` release tree
   - keeps runtime data by default unless `SUE_LR_REMOVE_DATA=1` is set
@@ -566,6 +572,7 @@ Variant release-surface rule:
   - minimized `runtime/app` sync from the source checkout using `scripts/deploy/server-web/release-files.txt`
   - server-web-specific `.dockerignore` copied from `scripts/deploy/server-web/app.dockerignore`
   - Docker runtime stage copying only `dist`, backend runtime files, backend production dependencies, and shared workflow contracts
+  - prebuilt image updates using `compose.image.yaml` and `update-image.sh` for low-resource hosts
 
 Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.
 

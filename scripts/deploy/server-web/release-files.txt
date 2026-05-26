@@ -13,3 +13,6 @@ scripts/deploy/server-web/app.dockerignore|.dockerignore
 package.json|package.json
 package-lock.json|package-lock.json
 scripts/deploy/server-web/Dockerfile|scripts/deploy/server-web/Dockerfile
+scripts/deploy/server-web/compose.image.yaml|scripts/deploy/server-web/compose.image.yaml
+scripts/deploy/server-web/build-image.sh|scripts/deploy/server-web/build-image.sh
+scripts/deploy/server-web/update-image.sh|scripts/deploy/server-web/update-image.sh

@@ -52,11 +52,19 @@ This document defines the standard release workflow for SueLr Studio variants. T
    bash ./scripts/deploy/server-web/uninstall.sh
    ```
 
+   For `server-web` prebuilt image deployments through a self-hosted Gitea container registry, build and push from the local workstation or CI runner, then update from the server that can pull the registry image:
+
+   ```bash
+   SUE_LR_IMAGE=git.example.com/owner/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
+   SUE_LR_IMAGE=git.example.com/owner/suelr-studio:server-web bash ./scripts/deploy/server-web/update-image.sh
+   ```
+
    `server-web` release rule:
 
    - keep the source checkout on the host only as the update source
    - treat `runtime/app` as the minimized live build context
    - keep `scripts/deploy/server-web/release-files.txt` aligned with every frontend entry, backend runtime file, and server-web helper script needed by Docker
+   - prefer `update-image.sh` on low-resource hosts so production frontend builds happen on a workstation or CI runner; this path pulls the prebuilt image and skips source checkout updates unless `SUE_LR_PULL_SOURCE=1` is set
    - do not deploy repository `tests/`, `e2e`, `docs/`, or other development-only surfaces into the server-web runtime app tree
    - keep the server-web Docker runtime image limited to built frontend assets, backend runtime files, backend production dependencies, and shared workflow contracts
 

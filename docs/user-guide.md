@@ -128,11 +128,15 @@ Server-web repository deployment:
 
 - first-time setup can use `bash ./scripts/deploy/server-web/install.sh`
 - later updates on the same host can use `bash ./scripts/deploy/server-web/update.sh`
+- low-resource hosts should prefer prebuilt image updates with `bash ./scripts/deploy/server-web/update-image.sh`
+- build and optionally push that image from a workstation with `bash ./scripts/deploy/server-web/build-image.sh`
+- for a self-hosted Gitea container registry flow, build locally with `SUE_LR_IMAGE=git.example.com/owner/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh`, then run `SUE_LR_IMAGE=git.example.com/owner/suelr-studio:server-web bash ./scripts/deploy/server-web/update-image.sh` on the server that can pull from that registry
 - removal can use `bash ./scripts/deploy/server-web/uninstall.sh`
 - the scripts refresh docker compose and nginx config together, so browser routing and app container stay aligned
 - the scripts now sync a minimized runtime app directory under `runtime/app` before rebuilding, so the deployed host no longer needs to keep the full repository checkout as the live build context
 - that sync uses `scripts/deploy/server-web/release-files.txt` as the release file manifest
 - that minimized runtime app directory is intentionally release-only: it excludes repository docs, frontend tests, backend tests, and other development-only content
+- prebuilt image updates do not run the frontend production build on the deployed host and do not pull source code by default; set `SUE_LR_PULL_SOURCE=1` only if you also want to refresh the checked-out deployment scripts before updating
 - if the host was already deployed with the older repository-checkout flow, running `update.sh` once will migrate the live compose build context to the minimized `runtime/app` directory automatically
 - `uninstall.sh` keeps runtime data by default; set `SUE_LR_REMOVE_DATA=1` if you really want to delete stored files and settings
 
