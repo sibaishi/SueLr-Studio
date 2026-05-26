@@ -67,6 +67,59 @@ function Section({
   );
 }
 
+function AccessGate({
+  accessState,
+  accessKey,
+  setAccessKey,
+  handleAccessSubmit,
+  message,
+}: {
+  accessState: AccessState;
+  accessKey: string;
+  setAccessKey: (value: string) => void;
+  handleAccessSubmit: () => Promise<void>;
+  message: string;
+}) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ ...panelStyle(), width: '100%', maxWidth: 460, padding: 24 }}>
+        <div style={{ fontSize: 22, fontWeight: 900, color: '#111827' }}>SueLr Studio Admin Console</div>
+        <div style={{ fontSize: 13, color: '#374151', marginTop: 8 }}>
+          独立管理端用于统一配置部署级能力，不承接用户自己的上游 API 与模型设置。
+        </div>
+        <div style={{ marginTop: 18 }}>
+          <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 700, color: '#111827' }}>
+            管理员访问密钥
+          </label>
+          <input
+            value={accessKey}
+            onChange={(event) => setAccessKey(event.target.value)}
+            type="password"
+            placeholder="server-web 需要，local-web / desktop 可留空"
+            style={{
+              width: '100%',
+              height: 44,
+              borderRadius: 14,
+              border: '1px solid #d1d5db',
+              background: '#ffffff',
+              color: '#111827',
+              padding: '0 14px',
+              fontSize: 14,
+              boxSizing: 'border-box',
+              outline: 'none',
+              WebkitTextFillColor: '#111827',
+            }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <IOSButton label={accessState === 'checking' ? '校验中...' : '进入管理端'} onClick={() => void handleAccessSubmit()} />
+        </div>
+        {message ? <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c' }}>{message}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function AdminScreen() {
   const T = useT();
   const [themeMode] = useState<'light' | 'dark'>('light');
@@ -168,22 +221,13 @@ function AdminScreen() {
 
   if (accessState !== 'ready') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <div style={{ ...panelStyle(), width: '100%', maxWidth: 460, padding: 24 }}>
-          <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--t-text)' }}>SueLr Studio Admin Console</div>
-          <div style={{ fontSize: 13, color: 'var(--t-text2)', marginTop: 8 }}>
-            独立管理端用于统一配置部署级能力，不承接用户自己的上游 API 与模型设置。
-          </div>
-          <div style={{ marginTop: 18 }}>
-            <IOSLabel>管理员访问密钥</IOSLabel>
-            <IOSInput value={accessKey} onChange={setAccessKey} type="password" placeholder="server-web 需要，local-web / desktop 可留空" />
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <IOSButton label={accessState === 'checking' ? '校验中...' : '进入管理端'} onClick={() => void handleAccessSubmit()} />
-          </div>
-          {message ? <div style={{ marginTop: 12, fontSize: 12, color: 'var(--t-red)' }}>{message}</div> : null}
-        </div>
-      </div>
+      <AccessGate
+        accessState={accessState}
+        accessKey={accessKey}
+        setAccessKey={setAccessKey}
+        handleAccessSubmit={handleAccessSubmit}
+        message={message}
+      />
     );
   }
 
@@ -228,7 +272,7 @@ function AdminScreen() {
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <IOSButton label="测试搜索" onClick={() => void handleTestSearch()} />
-                  <span style={chipStyle(settings?.search.providerConfig.tavilyApiKeySet ? T.green : T.orange)}>
+                  <span style={chipStyle(settings?.search.providerConfig.tavilyApiKeySet ? T.green : '#f59e0b')}>
                     {settings?.search.providerConfig.tavilyApiKeySet ? '统一凭据已配置' : '统一凭据未配置'}
                   </span>
                 </div>

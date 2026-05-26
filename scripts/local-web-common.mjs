@@ -1,6 +1,7 @@
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,54 @@ const requiredNode = { major: 22, minor: 12, patch: 0 };
 const children = new Set();
 const servers = new Set();
 let shuttingDown = false;
+
+async function readRequestBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return chunks.length > 0 ? Buffer.concat(chunks) : undefined;
+}
+
+function buildProxyHeaders(headers) {
+  const next = {};
+  for (const [key, value] of Object.entries(headers || {})) {
+    if (value == null) continue;
+    const lower = key.toLowerCase();
+    if (lower === 'host' || lower === 'connection' || lower === 'content-length' || lower === 'transfer-encoding') {
+      continue;
+    }
+    next[key] = Array.isArray(value) ? value.map((item) => String(item)).join(', ') : String(value);
+  }
+  return next;
+}
+
+async function proxyApiRequest(req, res, targetBase) {
+  const targetUrl = new URL(req.url || '/', targetBase);
+  const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await readRequestBody(req);
+  const transport = targetUrl.protocol === 'https:' ? https : http;
+
+  await new Promise((resolvePromise, rejectPromise) => {
+    const upstreamReq = transport.request(targetUrl, {
+      method: req.method,
+      headers: {
+        ...buildProxyHeaders(req.headers),
+        ...(body ? { 'content-length': String(body.length) } : {}),
+      },
+    }, (upstreamRes) => {
+      res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
+      upstreamRes.on('data', (chunk) => res.write(chunk));
+      upstreamRes.on('end', () => {
+        res.end();
+        resolvePromise();
+      });
+    });
+
+    upstreamReq.on('error', rejectPromise);
+    if (body) upstreamReq.write(body);
+    upstreamReq.end();
+  });
+}
 
 export function print(message = '') {
   console.log(message);
@@ -230,6 +279,12 @@ export function ensureLogDir() {
 export async function startStaticSite(name, rootDirPath, port, host = defaultHost) {
   const server = http.createServer(async (req, res) => {
     try {
+      if ((req.url || '').startsWith('/api/')) {
+        const targetBase = process.env.APP_STATIC_API_TARGET || `http://${defaultHost}:3001`;
+        await proxyApiRequest(req, res, targetBase);
+        return;
+      }
+
       const requestPath = req.url && req.url !== '/' ? req.url.split('?')[0] : '/index.html';
       const normalizedPath = requestPath === '/' ? '/index.html' : requestPath;
       const targetPath = resolve(rootDirPath, `.${normalizedPath}`);

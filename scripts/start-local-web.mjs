@@ -86,6 +86,7 @@ async function main() {
     fail(`Backend did not become healthy: ${error.message}`);
   });
 
+  process.env.APP_STATIC_API_TARGET = backendUrl;
   await startStaticSite('admin', distDir, adminPort, defaultHost);
 
   await waitForHttp(frontendUrl).catch((error) => {

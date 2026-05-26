@@ -1,6 +1,7 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell } = require('electron');
 const path = require('node:path');
 const { buildRelaunchOptions } = require('./relaunch.cjs');
+const { buildApplicationMenuTemplate } = require('./menu.cjs');
 const { setupSingleInstance } = require('./single-instance.cjs');
 const { createMainWindow, focusWindow } = require('./window-lifecycle.cjs');
 const { startEmbeddedBackend } = require('./embedded-backend.cjs');
@@ -8,6 +9,7 @@ const { startEmbeddedBackend } = require('./embedded-backend.cjs');
 let mainWindow = null;
 let backendServer = null;
 let adminServer = null;
+let adminUrl = null;
 let relaunching = false;
 const { hasLock: hasSingleInstanceLock } = setupSingleInstance(app, () => focusMainWindow());
 
@@ -48,6 +50,20 @@ function focusMainWindow() {
   focusWindow(mainWindow);
 }
 
+function installApplicationMenu() {
+  const template = buildApplicationMenuTemplate({
+    appName: app.name,
+    platform: process.platform,
+    onOpenAdmin: () => {
+      if (adminUrl) {
+        void shell.openExternal(adminUrl);
+      }
+    },
+  });
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
   const backend = await startEmbeddedBackend({
@@ -56,6 +72,8 @@ app.whenReady().then(async () => {
   });
   backendServer = backend.server;
   adminServer = backend.adminServer;
+  adminUrl = backend.adminUrl;
+  installApplicationMenu();
   createWindow(backend.url);
 
   app.on('activate', () => {
@@ -81,6 +99,7 @@ app.on('before-quit', () => {
     adminServer.close();
     adminServer = null;
   }
+  adminUrl = null;
   if (backendServer) {
     backendServer.close();
     backendServer = null;

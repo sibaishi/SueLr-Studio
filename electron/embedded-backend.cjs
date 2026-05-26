@@ -1,11 +1,60 @@
 const { pathToFileURL } = require('node:url');
 const net = require('node:net');
 const http = require('node:http');
+const https = require('node:https');
 const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 
 const APP_HOST = '127.0.0.1';
+
+async function readRequestBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return chunks.length > 0 ? Buffer.concat(chunks) : undefined;
+}
+
+function buildProxyHeaders(headers) {
+  const next = {};
+  for (const [key, value] of Object.entries(headers || {})) {
+    if (value == null) continue;
+    const lower = key.toLowerCase();
+    if (lower === 'host' || lower === 'connection' || lower === 'content-length' || lower === 'transfer-encoding') {
+      continue;
+    }
+    next[key] = Array.isArray(value) ? value.map((item) => String(item)).join(', ') : String(value);
+  }
+  return next;
+}
+
+async function proxyApiRequest(req, res, targetBase) {
+  const targetUrl = new URL(req.url || '/', targetBase);
+  const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await readRequestBody(req);
+  const transport = targetUrl.protocol === 'https:' ? https : http;
+
+  await new Promise((resolvePromise, rejectPromise) => {
+    const upstreamReq = transport.request(targetUrl, {
+      method: req.method,
+      headers: {
+        ...buildProxyHeaders(req.headers),
+        ...(body ? { 'content-length': String(body.length) } : {}),
+      },
+    }, (upstreamRes) => {
+      res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
+      upstreamRes.on('data', (chunk) => res.write(chunk));
+      upstreamRes.on('end', () => {
+        res.end();
+        resolvePromise();
+      });
+    });
+
+    upstreamReq.on('error', rejectPromise);
+    if (body) upstreamReq.write(body);
+    upstreamReq.end();
+  });
+}
 
 function findFreePort(host = APP_HOST) {
   return new Promise((resolvePort, reject) => {
@@ -42,6 +91,11 @@ async function startEmbeddedBackend({
   const server = startServer(port, host);
   const adminServer = http.createServer(async (req, res) => {
     try {
+      if ((req.url || '').startsWith('/api/')) {
+        await proxyApiRequest(req, res, `http://${host}:${port}`);
+        return;
+      }
+
       const requestPath = req.url && req.url !== '/' ? req.url.split('?')[0] : '/admin.html';
       const normalizedPath = requestPath === '/' ? '/admin.html' : requestPath;
       const targetPath = path.resolve(frontendDist, `.${normalizedPath}`);

@@ -10,7 +10,6 @@ import {
   findPort,
   getDefaultHost,
   logDir,
-  openBrowser,
   print,
   rootDir,
   startProcess,
@@ -37,8 +36,8 @@ async function main() {
   const frontendPort = await findPort(preferredFrontendPort);
   const adminPort = await findPort(preferredAdminPort);
   const backendPort = await findPort(preferredBackendPort);
-  const frontendUrl = `http://localhost:${frontendPort}`;
-  const adminUrl = `http://localhost:${adminPort}`;
+  const frontendUrl = `http://localhost:${frontendPort}/index.html`;
+  const adminUrl = `http://localhost:${adminPort}/admin.html`;
   const backendUrl = `http://${defaultHost}:${backendPort}`;
   const allowedOrigins = buildAllowedOrigins(frontendPort);
   const backendLog = resolve(logDir, `backend-local-web-dev-${runId}.log`);
@@ -107,10 +106,8 @@ async function main() {
     print(`[ready] ${frontendUrl}`);
     print(`[ready] ${adminUrl}`);
   } else {
-    openBrowser(frontendUrl);
-    openBrowser(adminUrl);
-    print(`[ready] Opened ${frontendUrl}`);
-    print(`[ready] Opened ${adminUrl}`);
+    print(`[ready] Vite opened ${frontendUrl}`);
+    print(`[ready] Vite opened ${adminUrl}`);
   }
   print('[ready] Press Ctrl+C to stop frontend, admin frontend, and backend.');
 
