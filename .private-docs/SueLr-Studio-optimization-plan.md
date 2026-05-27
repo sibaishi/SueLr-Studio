@@ -1,7 +1,7 @@
 # SueLr Studio 优化执行计划
 
 > 执行时机：第五阶段（Milestone 5A-5C）全部完成之后。
-> 当前状态：Phase 0 已在 `codex/project-structure-optimization` 落地；构建分包优化已完成。
+> 当前状态：Milestone 5 已关闭；Phase 0 已在 `codex/project-structure-optimization` 落地；构建分包优化已完成；后续优化继续按 Phase 1 -> Phase 2 -> Phase 3 推进。
 > 创建日期：2026-05-26
 > 最后更新：2026-05-27
 
@@ -628,4 +628,4 @@ Week 7+ (Phase 3)
 ---
 
 > 最后更新：2026-05-26
-> 状态：方案已定稿，待第五阶段完成后按 Phase 0 → 1 → 2 → 3 顺序执行
+> 状态：第五阶段已关闭；方案继续按 Phase 1 -> Phase 2 -> Phase 3 顺序执行

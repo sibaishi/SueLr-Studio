@@ -425,13 +425,13 @@ Status:
 
 - Milestone 5A, 5B, and 5C are implemented in code and covered by `npm.cmd run check`
 - 里程碑 5A、5B 和 5C 已完成代码落地，并通过 `npm.cmd run check`
-- request scope, resource ownership metadata, and scoped storage preparation are now one Milestone 5 release candidate
-- request scope、资源归属元数据与 scoped 存储准备现在合并为一个里程碑 5 候选版本
-- remaining work before closing Milestone 5 is manual smoke testing and bug triage across local-web, desktop, and server-web
-- 关闭里程碑 5 前剩余工作是覆盖 local-web、desktop 和 server-web 的手动冒烟与 bug 排查
+- request scope, resource ownership metadata, and scoped storage preparation are closed as Milestone 5
+- request scope、资源归属元数据与 scoped 存储准备已作为里程碑 5 关闭
+- manual smoke testing across local-web, desktop, and server-web has been completed; follow-up bugs move into normal triage
+- 覆盖 local-web、desktop 和 server-web 的手动冒烟已完成；后续问题进入常规 triage
 
-Manual smoke checklist:
-手动冒烟清单：
+Manual smoke checklist completed:
+手动冒烟清单已完成：
 
 - local-web can boot, create/edit/run workflows, upload files, list outputs, and open output URLs
 - local-web 可以启动、创建/编辑/运行工作流、上传文件、列出输出并打开输出 URL
