@@ -44,6 +44,8 @@ This document defines the standard release workflow for SueLr Studio variants. T
    npm.cmd run electron:dist
    ```
 
+   Desktop targets are Windows portable x64, macOS dmg/zip x64+arm64, and Linux AppImage/deb x64. Build macOS artifacts on macOS; Windows release hosts should produce Windows and Linux artifacts only.
+
    For `server-web` repository-checkout deployments, use:
 
    ```bash

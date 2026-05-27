@@ -46,6 +46,7 @@ Completed on trunk:
 - Root `src/lib/` removal and migration to `src/shared/*`, `src/app/`, and domain-owned helpers.
 - Frontend top-level lazy loading and stable vendor chunk splitting for normal Vite builds.
 - Backend TypeScript runtime migration to `backend/server.ts`, `backend/src/**/*.ts`, and `backend/tests/**/*.test.ts`.
+- Source ownership is documented across `src/domains/`, `src/providers/`, `src/shared/runtime/`, `src/shared/providers/`, and `src/shared/types/`.
 
 - 前后端运行模式契约。
 - 后端运行时能力接口与高权限路由保护。
@@ -55,6 +56,7 @@ Completed on trunk:
 - 移除根级 `src/lib/`，迁移到 `src/shared/*`、`src/app/` 和领域自有 helper。
 - 前端顶层懒加载与常规 Vite 构建的稳定 vendor chunk 拆分。
 - 后端 TypeScript 运行时迁移到 `backend/server.ts`、`backend/src/**/*.ts` 和 `backend/tests/**/*.test.ts`。
+- 源码归属已覆盖 `src/domains/`、`src/providers/`、`src/shared/runtime/`、`src/shared/providers/` 和 `src/shared/types/`。
 
 Still pending for long-term cleanup:
 

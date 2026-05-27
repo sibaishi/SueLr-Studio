@@ -74,6 +74,8 @@ npm.cmd run electron:pack
 npm.cmd run electron:dist
 ```
 
+Desktop packaging targets are configured for Windows portable x64, macOS dmg/zip x64+arm64, and Linux AppImage/deb x64. Build on macOS when you need macOS artifacts; Windows can produce Windows and Linux artifacts.
+
 ### server-web 本地模拟
 
 后端：

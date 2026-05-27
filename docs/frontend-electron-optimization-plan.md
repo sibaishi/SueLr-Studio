@@ -8,7 +8,7 @@
 
 ### 基线 / Baseline
 
-`src/domains/workflow/components/FlowCanvas.tsx`：**1881 行**，8 个 `useState`，54 个 `useCallback`，7 个 `useRef`，5 个 `useEffect`。
+`src/domains/workflow/components/FlowCanvas.tsx`：**1881 行**，7 个 `useState`，49 个 `useCallback`，5 个 `useRef`，4 个 `useEffect`，10 个 `useMemo`。
 
 已有 13 个本地 helper 模块抽走了纯逻辑（连接、剪贴板、几何、菜单布局等）。组件内剩余的是状态 + 事件回调 + JSX 三者的交织体，状态高度耦合（contextMenu 的引用散布全文件），不适合拆子组件。
 
@@ -36,6 +36,8 @@ src/domains/workflow/components/
 | 5 | `useFlowContextMenu` | store, reactFlow, containerRef，前 4 个 hook 的返回值 | 高 |
 
 每个 hook 提取后立即跑 `npm run typecheck && npm run test:unit && npm run build`。
+
+注意：当前 `useWorkflowCanvasStore` 仍暴露 `nodes` / `edges`，这是既有状态形态。本计划只做行为等价拆分，不扩大 React Flow 状态进入 Zustand 的范围，也不顺手迁移画布状态。拆 hook 时若遇到现有 `useWorkflowStore.getState()` / `useWorkflowStore.setState()` 调用，应在 hook 内显式保留并隔离这些低层访问，避免把隐式 store 写入藏进共享类型。
 
 ### 共享类型 / Shared Types
 
@@ -83,7 +85,7 @@ export function FlowCanvas() {
 - `npm run typecheck` 零错误
 - `npm run test:unit` 通过
 - `npm run build` 成功
-- 浏览器中验证：右键菜单、拖放文件、复制粘贴节点、连线、Alt+拖拽切边全部正常
+- 浏览器中验证：右键菜单、连接到新节点、拖放文件、粘贴图片、复制粘贴节点、连线、节点分组/取消分组、Alt+拖拽切边全部正常
 
 ---
 
@@ -129,7 +131,7 @@ export function FlowCanvas() {
 | 2 | 追加 mac target 配置 | dmg + zip，x64 + arm64 双架构 |
 | 3 | 追加 linux target 配置 | AppImage + deb，x64 |
 | 4 | 检查 asarUnpack | sharp 等 native 模块在 macOS/Linux 的二进制路径 |
-| 5 | 更新构建说明 | macOS 可打三平台产物，Windows 只能打 win + linux |
+| 5 | 更新构建说明 | 同步更新 `README.md`、`docs/developer-guide.md`、`docs/release-sop.md`；macOS 可打三平台产物，Windows 只能打 win + linux |
 
 ### 不在范围内 / Out of Scope
 
@@ -145,3 +147,4 @@ export function FlowCanvas() {
 - Linux 上产出 `.AppImage` 和 `.deb`
 - 产物可安装运行，backend 正常启动
 - `npm run build` 不因新增字段报错
+- `README.md`、`docs/developer-guide.md`、`docs/release-sop.md` 的桌面构建说明与新增 target 保持一致

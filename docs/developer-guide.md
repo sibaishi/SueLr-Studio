@@ -552,9 +552,15 @@ For browser-facing changes, install and run the E2E smoke suite:
 - `npm run test:e2e:install`
 - `npm run test:e2e`
 
-For desktop release packaging, build the portable Windows executable:
+For desktop release packaging, run the Electron distribution build:
 
 - `npm run electron:dist`
+
+Configured desktop targets:
+
+- Windows: portable x64
+- macOS: dmg and zip for x64 and arm64; build these on macOS
+- Linux: AppImage and deb for x64
 
 For an unpacked desktop inspection build:
 
