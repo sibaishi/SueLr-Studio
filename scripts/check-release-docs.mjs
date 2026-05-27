@@ -35,6 +35,10 @@ const checks = [
     path: 'docs/backend-typescript-migration-plan.md',
     sections: ['## Summary', '## Current State', '## Implementation Plan', '## Validation', '## Assumptions'],
   },
+  {
+    path: 'docs/frontend-electron-optimization-plan.md',
+    sections: ['## O1 FlowCanvas', '## O2 Electron'],
+  },
 ];
 
 const failures = [];
@@ -44,6 +48,7 @@ const allowedMarkdownDocs = new Set([
   'docs/release-sop.md',
   'docs/deployment-variants-plan.md',
   'docs/backend-typescript-migration-plan.md',
+  'docs/frontend-electron-optimization-plan.md',
 ]);
 
 function collectMarkdownFiles(dir, bucket = []) {
