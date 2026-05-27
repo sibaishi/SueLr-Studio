@@ -1,11 +1,1 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-
-const storage = new AsyncLocalStorage();
-
-export function runWithRequestContext(context, callback) {
-  return storage.run({ ...(storage.getStore() || {}), ...(context || {}) }, callback);
-}
-
-export function getRequestContext() {
-  return storage.getStore() || null;
-}
+export { getRequestContext, runWithRequestContext } from './request-context.ts';

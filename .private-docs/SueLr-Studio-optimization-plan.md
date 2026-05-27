@@ -13,6 +13,39 @@
 - 已补充前端顶层页面懒加载：chat、image、video、workflow、settings 与 first-run onboarding 按访问加载，已访问页面继续挂载以保留页面状态。
 - 已补充普通 Vite 构建的 vendor 分包：React、React Flow、Three.js、Markdown 与 icons；`VITE_SINGLEFILE=1` 仍保持单文件构建兼容。
 - 已同步更新 `docs/developer-guide.md`、`docs/deployment-variants-plan.md` 与 `CONTRIBUTING.md`。
+- Milestone 5 已关闭；Phase 1/O4b 已启动，`NodeContent` 渲染分派已从中心 `registry.tsx` 拆为 explicit、file input、settings、merge 四个 registry 切片，外部入口保持 `resolveNodeContentRenderer` 不变。
+- Phase 1/O4b 首个节点文件夹迁移完成：`GroupContent` 已进入 `src/domains/workflow/components/nodes/group/Group/`，旧 `GroupContent.tsx` 保留为 thin re-export，便于后续逐节点迁移。
+- Phase 1/O4b 第二个节点文件夹迁移完成：`OutputContent` 已进入 `src/domains/workflow/components/nodes/output/Output/`，旧 `OutputContent.tsx` 保留为 thin re-export。
+- Phase 1/O4b 第三个节点文件夹迁移完成：通用 `MergeContent` 已进入 `src/domains/workflow/components/nodes/merge/UniversalMerge/`，旧 `MergeContent.tsx` 保留为 thin re-export。
+- Phase 1/O4b 第四个节点文件夹迁移完成：`TextInputContent` 已进入 `src/domains/workflow/components/nodes/input/TextInput/`，旧 `TextInputContent.tsx` 保留为 thin re-export。
+- Phase 1/O4b 第五个节点文件夹迁移完成：`FileInputContent` 与 `MaskInputContent` 已进入 `src/domains/workflow/components/nodes/input/FileInput/`，旧 `FileInputContent.tsx` 保留为 thin re-export。
+- Phase 1/O4b 第六个节点文件夹迁移完成：`ImageCompareContent` 已进入 `src/domains/workflow/components/nodes/merge/ImageCompare/`，旧 `ImageCompareContent.tsx` 保留为 thin re-export。
+- Phase 1/O4b 第七个节点文件夹迁移完成：`PromptHelperContent` 与私有 `PromptHelperWorkbench` 已进入 `src/domains/workflow/components/nodes/ai/PromptHelper/`，根级入口保留为 thin re-export。
+- Phase 1/O4b 第八个节点文件夹迁移完成：`ApiKeyContent` 已进入 `src/domains/workflow/components/nodes/input/ApiKeyInput/`，旧 `ApiKeyContent.tsx` 保留为 thin re-export。
+- Phase 1/O4b 第九个节点文件夹迁移完成：设置类通用 `NodeSettingsContent` 已进入 `src/domains/workflow/components/nodes/settings/GenericSettings/`，旧 `NodeSettingsContent.tsx` 保留为 thin re-export。
+- Phase 1/O4b 第十个节点文件夹迁移完成：共用文本结果预览 `TextResultPreviewContent` 已进入 `src/domains/workflow/components/nodes/text/TextResultPreview/`，旧 `TextResultPreviewContent.tsx` 保留为 thin re-export。
+- Phase 1/O4b 收尾第一批完成：`explicitContentRegistry.tsx` 已变为汇总入口，group、textInput、promptHelper、apiKeyInput、imageCompare、textClean、textSplit、output 的 renderer 分派已下沉到各自节点文件夹。
+- Phase 1/O4b 收尾第二批完成：file input 的 image/video/audio/mask renderer 与 accept/placeholder/label 配置已下沉到 `src/domains/workflow/components/nodes/input/FileInput/renderer.tsx`，`fileInputRegistry.tsx` 仅保留查询入口。
+- Phase 1/O4b 收尾第三批完成：merge/iterate 通用 renderer 与提示文案已下沉到 `src/domains/workflow/components/nodes/merge/UniversalMerge/renderer.tsx`，`mergeContentRegistry.tsx` 仅保留查询入口。
+- Phase 1/O4b 收尾第四批完成：settings 类 `imageResize`、`aiChat`、`imageGen`、`videoGen`、`saveFile` 已建立各自节点文件夹 renderer 入口，并复用 `settings/GenericSettings`；`settingsContentRegistry.tsx` 仅保留查询入口。
+- Phase 1/O4b 收尾第五批完成：已补充仓库结构守卫，要求根级节点内容文件保持 thin re-export、中心 content registry 不再承载具体 JSX 实现，防止节点 UI 逻辑回流到根级。
+- Phase 1/O4b 已完整收尾：节点内容实现、renderer 分派与可复用通用壳层均已归入节点类型目录或明确 shared 目录；`npm.cmd run check` 全量通过。
+- Phase 2/O5 第一批启动并完成：已加入 `backend/tsconfig.json` 与后端 `typecheck` 脚本，根级 `npm.cmd run typecheck` 覆盖后端；`platform/storage` 的 `ensure-dir`、`safe-path`、`storage-base`、`json-store` 已迁移为 TS 实现并保留 `.js` 兼容转发，`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend` 均通过。
+- Phase 2/O5 第二批完成：`platform/storage` 的 `storage-root`、`storage-paths`、`storage-bootstrap` 已迁移为 TS 实现并保留 `.js` 兼容转发；后端 TS 过渡配置已允许 TS 批次引用尚未迁移的 JS 模块；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend` 均通过。
+- Phase 2/O5 第三批完成：`platform/storage` 的 `file-store` 与 `scoped-storage` 已迁移为 TS 实现并保留 `.js` 兼容转发；`scoped-storage` 补充请求 scope、命名空间和 scoped storage path 类型边界；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend` 均通过。
+- Phase 2/O5 第四批完成：`platform/storage` 的 `legacy-storage` 与聚合入口 `index` 已迁移为 TS 实现并保留 `.js` 兼容转发；底层 storage 模块完成阶段性 TS 收口，`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend` 均通过。
+- Phase 2/O5 第五批完成：`platform/runtime` 的 `mode`、`request-scope`、`resource-ownership` 已迁移为 TS 实现并保留 `.js` 兼容转发；请求 scope、运行模式与资源归属元数据建立共享类型边界；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend` 均通过。
+- Phase 2/O5 第六批完成：`platform/runtime/index` 聚合入口已迁移为 TS 实现并保留 `.js` 兼容转发；runtime 基础模块完成阶段性闭环，`capabilities` 因含中文提示文案暂缓到后续单独批次处理；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend` 均通过。
+- Phase 2/O5 第七批完成：`platform/system` 的 `restart-backend`、`restart-trigger`、`select-directory` 已迁移或补齐 TS 类型边界并保留 `.js` 兼容转发；`restart-runner.js` 作为独立 spawn 执行入口暂留 JS 实现；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend` 均通过。
+- Phase 2/O5 第八批完成：`platform/security/network-guards` 与 `platform/http/proxy-aware-fetch` 已迁移为 TS 实现并保留 `.js` 兼容转发；远程 URL 安全校验、DNS 缓存、代理配置、Windows 代理解析与 dispatcher 缓存补齐类型边界；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend` 均通过。
+- Phase 2/O5 顺序回补第一批完成：按文档迁移顺序补齐此前跳过的 `platform/logging`，`logger`、`request-context`、`runtime-observability`、`workflow-events`、`workflow-log-sanitizer`、`workflow-run-logger`、`agent-run-logger` 已迁移为 TS 实现并保留 `.js` 兼容转发；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend`、`npm.cmd run check:encoding` 均通过。后续继续按文档顺序回补 `platform/providers`、`platform/media`，已完成的 `platform/security` 与 `platform/http` 不回滚。
+- Phase 2/O5 顺序回补第二批完成：按文档迁移顺序补齐 `platform/providers`，`base-adapter`、`provider-http`、`provider-registry`、聚合入口与 `compatible/*` 已迁移为 TS 实现并保留 `.js` 兼容转发；provider 请求构造、认证 header、错误格式化与 compatible HTTP adapter 补齐类型边界；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend`、`npm.cmd run check:encoding` 均通过。下一批按顺序回补 `platform/media`。
+- Phase 2/O5 顺序回补第三批完成：按文档迁移顺序补齐 `platform/media`，`image-thumbnails` 与 `media-resolver` 已迁移为 TS 实现并保留 `.js` 兼容转发；缩略图路径/URL、上传与生成文件缩略图、原图反查、本地 API 媒体 URL 与 data URL 转换补齐类型边界；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend`、`npm.cmd run check:encoding` 均通过。下一批按顺序进入 `platform/ai`。
+- Phase 2/O5 顺序回补第四批完成：按文档迁移顺序推进 `platform/ai`，`chat-service`、`image-service`、`search-service`、`video-service` 已迁移为 TS 实现并保留 `.js` 兼容转发；聊天本地媒体上行、Tavily 搜索标准化、图片生成桥接与视频任务提交/轮询/下载补齐类型边界；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend`、`npm.cmd run check:encoding` 均通过。
+- Phase 2/O5 顺序回补第五批完成：按文档迁移顺序推进 `app/errors`，`app-error` 与聚合入口 `index` 已迁移为 TS 实现并保留 `.js` 兼容转发；`AppError`、`ValidationError`、`NotFoundError`、`ConflictError`、`ProviderError` 和 `fromLegacyError` 补齐类型边界且保持运行时错误形状不变；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend`、`npm.cmd run check:encoding` 均通过。
+- Phase 2/O5 顺序回补第六批完成：按文档迁移顺序推进 `app/http`，`envelope` 与 `request-abort` 已迁移为 TS 实现并保留 `.js` 兼容转发；成功/错误响应 envelope 与请求断开 abort signal 补齐类型边界且保持 HTTP 响应契约不变；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend`、`npm.cmd run check:encoding` 均通过。
+- Phase 2/O5 顺序回补第七批完成：按文档迁移顺序推进 `app/middleware`，`error-handler`、`request-context`、`request-logger`、`require-admin-access`、`validate-request`、`zod-validator` 已迁移为 TS 实现并保留 `.js` 兼容转发；错误响应封装、请求上下文、请求日志、管理员访问校验与 Zod 校验器补齐类型边界且保持中间件行为不变；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend`、`npm.cmd run check:encoding` 均通过。
+- Phase 2/O5 顺序回补第八批完成：按文档迁移顺序推进 `engine/helpers`，`apiConfig`、`fileHelper`、`mergeItems`、`projectModels`、`saveHelper`、`workflowLogger`、`imageGeneration` 已迁移为 TS 实现并保留 `.js` 兼容转发；同时顺手完成 O7，将 `imageGeneration` 的 DALL-E、Gemini、通用 OpenAI 兼容与共享解析/请求逻辑拆入 `imageGenDalle`、`imageGenGemini`、`imageGenGeneric`、`imageGenShared`，补齐 provider 边界类型且保持外部导出与运行时行为不变；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test:backend`、`npm.cmd run check:encoding` 均通过。
 
 ---
 
@@ -628,4 +661,4 @@ Week 7+ (Phase 3)
 ---
 
 > 最后更新：2026-05-26
-> 状态：第五阶段已关闭；方案继续按 Phase 1 -> Phase 2 -> Phase 3 顺序执行
+> 状态：第五阶段已关闭；Phase 1/O4b 已启动，先完成节点内容 registry 分派拆分；后续继续逐个节点类型迁移 config + UI

@@ -97,6 +97,32 @@ describe('repository documentation and branch hygiene', () => {
     expect(workflowStoreCheck).not.toContain('src/features/workflow/lib/store.ts');
   });
 
+  it('keeps workflow node content implementations in node type folders', () => {
+    const allowedRootNodeEntrypoints = new Set(['NodeContent.tsx']);
+    const rootNodeFiles = readdirSync(resolve('src/domains/workflow/components/nodes'), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && /Content\.tsx$|Workbench\.tsx$/.test(entry.name))
+      .filter((entry) => !allowedRootNodeEntrypoints.has(entry.name))
+      .map((entry) => `src/domains/workflow/components/nodes/${entry.name}`);
+
+    for (const file of rootNodeFiles) {
+      const source = readUtf8(file).trim();
+      expect(source).toMatch(/^export /);
+      expect(source).not.toContain('export function ');
+      expect(source).not.toContain('return (');
+    }
+
+    for (const file of [
+      'src/domains/workflow/components/nodes/explicitContentRegistry.tsx',
+      'src/domains/workflow/components/nodes/fileInputRegistry.tsx',
+      'src/domains/workflow/components/nodes/mergeContentRegistry.tsx',
+      'src/domains/workflow/components/nodes/settingsContentRegistry.tsx',
+    ]) {
+      const source = readUtf8(file);
+      expect(source).not.toContain('=> (');
+      expect(source).not.toContain('return (');
+    }
+  });
+
   it('keeps critical app, shared ios, settings, workflow, and public docs readable in UTF-8', () => {
     const readme = readUtf8('README.md');
     const userGuide = readUtf8('docs/user-guide.md');

@@ -1,53 +1,27 @@
-import path from 'node:path';
-import { ensureDir } from './ensure-dir.js';
-import { getStoragePaths } from './storage-paths.js';
-export { ensureDir } from './ensure-dir.js';
-export { BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot, getStorageRoot } from './storage-root.js';
-export { ensureJsonFile, readJsonFile, writeJsonFile } from './json-store.js';
-export { safeResolveWithin } from './safe-path.js';
 export {
+  STORAGE_PATHS,
+  ensureStorageDirectories,
+  ensureDir,
+  ensureJsonFile,
+  readJsonFile,
+  writeJsonFile,
+  safeResolveWithin,
+  APP_CONFIG_DIR_NAME,
+  BACKEND_ROOT,
+  PROJECT_ROOT,
+  getDefaultConfigRoot,
+  getStorageRoot,
+  clearStoredStorageRootOverride,
+  getBootstrapConfigPath,
+  getEffectiveStorageRootInfo,
+  getStoredStorageRootOverride,
+  writeStoredStorageRootOverride,
+  LEGACY_PATHS,
+  migrateLegacyStorageIfNeeded,
   SCOPED_STORAGE_LAYOUT_VERSION,
   createStorageNamespace,
   ensureScopedStorageDirectories,
   getScopedStoragePaths,
   isDefaultStorageScope,
   isResourceVisibleForScope,
-} from './scoped-storage.js';
-export { LEGACY_PATHS, migrateLegacyStorageIfNeeded } from './legacy-storage.js';
-export {
-  clearStoredStorageRootOverride,
-  getBootstrapConfigPath,
-  getEffectiveStorageRootInfo,
-  getStoredStorageRootOverride,
-  writeStoredStorageRootOverride,
-} from './storage-bootstrap.js';
-
-export const STORAGE_PATHS = new Proxy(
-  {},
-  {
-    get(_target, property) {
-      return getStoragePaths()[property];
-    },
-  },
-);
-
-export function ensureStorageDirectories() {
-  const storagePaths = getStoragePaths();
-  [
-    storagePaths.root,
-    storagePaths.configDir,
-    storagePaths.workflowsDir,
-    storagePaths.assistantDir,
-    storagePaths.agentDir,
-    storagePaths.agentSessionsDir,
-    storagePaths.agentLogsDir,
-    storagePaths.filesDir,
-    storagePaths.uploadsDir,
-    storagePaths.generatedDir,
-    storagePaths.logsDir,
-    storagePaths.appLogsDir,
-    storagePaths.workflowRunsDir,
-    path.join(storagePaths.generatedDir, 'assistant-images'),
-    path.join(storagePaths.generatedDir, 'assistant-videos'),
-  ].forEach(ensureDir);
-}
+} from './index.ts';

@@ -32,7 +32,7 @@
     "lint:fix": "biome check --write src/ backend/src/",
     "format": "biome format --write src/ backend/src/",
     "format:check": "biome format src/ backend/src/",
-    "typecheck": "npx tsc --noEmit",
+    "typecheck": "npx tsc --noEmit && npm.cmd run typecheck --prefix backend",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test": "npm run test:backend",

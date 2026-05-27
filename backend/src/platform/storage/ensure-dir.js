@@ -1,7 +1,1 @@
-import fs from 'node:fs';
-
-export function ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-}
+export { ensureDir } from './ensure-dir.ts';
