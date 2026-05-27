@@ -32,17 +32,8 @@ COPY --from=build /app/backend/server.js ./backend/server.js
 COPY --from=build /app/backend/src ./backend/src
 COPY --from=build /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/src/shared/workflow ./src/shared/workflow
-COPY <<'EOF' /app/start-server-web.sh
-#!/bin/sh
-set -eu
-node /app/scripts/serve-admin.mjs &
-exec node /app/backend/server.js
-EOF
-
-RUN chmod +x /app/start-server-web.sh
-
 WORKDIR /app
 
 EXPOSE 3001 3002
 
-CMD ["/app/start-server-web.sh"]
+CMD ["sh", "-c", "node /app/scripts/serve-admin.mjs & exec node /app/backend/server.js"]
