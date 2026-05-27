@@ -73,6 +73,10 @@ Important entry points:
 - one-click local launcher: `scripts/start-dev.mjs`
 - public docs gate: `scripts/check-release-docs.mjs`
 
+Backend TypeScript cleanup note:
+
+- the planned removal of backend JavaScript compatibility facades is tracked in `docs/backend-typescript-migration-plan.md`
+
 Current cleanup and ownership notes:
 
 - root `src/lib/` has been removed after the shared helper migration; do not recreate it
