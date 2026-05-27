@@ -1,5 +1,5 @@
 // ============================================================
-// Flow Studio - Express 服务器入口
+// Flow Studio - Express server entry
 // ============================================================
 
 import { pathToFileURL } from 'url';
