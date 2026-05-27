@@ -60,8 +60,8 @@ Root ownership rules:
 
 - keep stable source roots, launcher entrypoints, and repo-wide config files at the repository root
 - keep maintenance helpers in `scripts/` instead of creating new ad hoc root files
-- treat `dist/`, `release/`, `.run-logs/`, and repository-local `storage/` as generated or runtime-only surfaces, not source structure
-- keep `.private-docs/` as the home for private plans, migration notes, and temporary implementation records
+- treat `dist/`, `release/`, `.server-web-release/`, `.run-logs/`, `playwright-report/`, `test-results/`, and repository-local `storage/` as generated or runtime-only surfaces, not source structure
+- keep `.private-docs/` as the home for private plans, local acceptance notes, and temporary implementation records; do not track those files unless a private artifact is explicitly promoted into public docs
 - keep `development/` drained; if durable content appears there during a refactor, move it into `scripts/`, `docs/`, or `.private-docs/` in the same change
 
 Important entry points:
@@ -75,6 +75,8 @@ Important entry points:
 
 Backend TypeScript cleanup note:
 
+- current backend TypeScript work is transitional: some `.js` runtime files are compatibility facades over `.ts` implementations
+- new backend behavior should land in TypeScript sources instead of parallel JavaScript implementations
 - the planned removal of backend JavaScript compatibility facades is tracked in `docs/backend-typescript-migration-plan.md`
 
 Current cleanup and ownership notes:
@@ -504,6 +506,7 @@ Only these public markdown docs belong under `docs/`:
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
 - `docs/deployment-variants-plan.md`
+- `docs/backend-typescript-migration-plan.md`
 
 Rules for future work:
 
@@ -511,6 +514,7 @@ Rules for future work:
 - every structural or ownership change that affects developer navigation must update `docs/developer-guide.md`
 - every desktop release workflow change must update `docs/release-sop.md`
 - every mainline-and-variant execution-plan change must update `docs/deployment-variants-plan.md`
+- every backend runtime-entry, restart, server-web backend packaging, or JavaScript-facade cleanup change must update `docs/backend-typescript-migration-plan.md`
 - do not add private working notes, weekly scratch files, or internal-only plans under `docs/`
 - keep this guide aligned with the actual file layout so maintainers can jump directly to the right module instead of re-scanning the repo
 

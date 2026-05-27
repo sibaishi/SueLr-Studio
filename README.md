@@ -122,6 +122,20 @@ npm.cmd run check:encoding
 - [Developer Guide](docs/developer-guide.md)
 - [Release SOP](docs/release-sop.md)
 - [Deployment Variants Plan](docs/deployment-variants-plan.md)
+- [Backend TypeScript Migration Plan](docs/backend-typescript-migration-plan.md)
+
+## 本地生成物
+
+以下目录是构建、测试或运行时产物，不属于受控项目结构，可随时删除并由命令重新生成：
+
+- `.run-logs/`
+- `.server-web-release/`
+- `dist/`
+- `release/`
+- `playwright-report/`
+- `test-results/`
+
+`build/` 下的图标、`storage/.gitkeep` 和 `workflows/` 示例文件是受控文件，不按生成物清理。
 
 ## 贡献说明
 

@@ -35,7 +35,7 @@ Critical ownership rules:
 - If a component belongs to a domain, put it in `src/domains/<domain>/`
 - `src/components/` is only for truly shared UI
 - Cross-domain settings and orchestration code may stay in `src/features/settings/`
-- Do not add new modules to `src/lib/`; it is a compatibility layer only
+- `src/lib/` has been removed. Do not recreate it or add new `@/lib/*` imports
 
 ## Electron
 
@@ -95,6 +95,8 @@ Critical ownership rules:
 - Error responses must be `{ error, code, status }`
 - Never leak stack traces
 - `/api/outputs/...` and `/api/assistant/files/...` must resolve through runtime storage
+- Backend TypeScript implementation is in transition: some runtime `.js` files are temporary compatibility facades over `.ts` sources. Do not add new backend `.js` implementation files unless the coordinated TypeScript runtime migration plan requires a temporary facade.
+- The full backend JavaScript facade removal plan lives in `docs/backend-typescript-migration-plan.md`
 
 ## Runtime Paths
 
@@ -116,6 +118,7 @@ Never hardcode app-data paths. Use the config-dir resolver:
   - `docs/developer-guide.md`
   - `docs/release-sop.md`
   - `docs/deployment-variants-plan.md`
+  - `docs/backend-typescript-migration-plan.md` when backend runtime entrypoints, Docker runtime files, or restart behavior change
 
 ## UTF-8 Checks
 

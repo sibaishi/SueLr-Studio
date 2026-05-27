@@ -131,6 +131,7 @@ At this stage, the maintained project docs are:
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
 - `docs/deployment-variants-plan.md`
+- `docs/backend-typescript-migration-plan.md`
 
 Weekly execution notes, scratch plans, private rollout checklists, and similar process artifacts should stay outside the public documentation surface shipped with the repository.
 
@@ -138,10 +139,12 @@ Use these ownership buckets when you need a home for non-product files:
 
 - keep repo-wide launchers and config at the root
 - keep maintenance and validation helpers in `scripts/`
-- keep private plans, migration notes, and temporary implementation records in `.private-docs/`
+- keep private plans, local acceptance notes, and temporary implementation records in `.private-docs/`
 - keep `development/` drained instead of treating it as a second documentation area
 
 Root `src/lib/` has been removed after the shared helper migration. Do not recreate it, and do not introduce new `@/lib/*` imports. Place new shared runtime and provider-facing helpers under `src/shared/runtime/` or `src/shared/providers/`, place shared contracts under `src/shared/types/`, and place feature-local helpers under the owning feature tree.
+
+Backend TypeScript migration work is tracked in `docs/backend-typescript-migration-plan.md`. Until that plan is implemented end to end, existing backend `.js` runtime files may be facades over `.ts` implementations; new backend behavior should land in TypeScript sources, not in parallel JavaScript implementations.
 
 ## Pull Request Notes
 

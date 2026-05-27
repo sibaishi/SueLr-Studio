@@ -133,13 +133,13 @@ Rules:
 ### 前端兼容层
 
 - root `src/lib/` has been removed after the shared helper migration
-- `src/lib/`：仅保留为兼容层
+- `src/lib/`：已在共享辅助模块迁移后删除
 
 Rules:
 规则：
 
 - Do not recreate root `src/lib/` or add new `@/lib/*` imports
-- 不要随意向 `src/lib/` 新增模块
+- 不要重建 `src/lib/`，也不要新增 `@/lib/*` 导入
 - Canonical ownership should move into `src/app/`, `src/shared/*`, or the owning domain tree
 - 规范归属应转入 `src/app/`、`src/shared/*` 或所属领域目录
 
