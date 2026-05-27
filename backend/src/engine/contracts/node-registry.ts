@@ -8,7 +8,7 @@ import {
   isExecutableNodeType,
   supportsDisabledPassthrough,
 } from '../../../../src/shared/workflow/node-registry.js';
-import type { NodeTypeDef } from '../../../../src/shared/workflow/types.js';
+import type { NodeTypeDef } from '../../../../src/shared/workflow/types.ts';
 
 const NODE_CONTRACTS_BY_TYPE = new Map<string, NodeTypeDef>(
   NODE_CONTRACTS.map((contract) => [contract.type, contract]),

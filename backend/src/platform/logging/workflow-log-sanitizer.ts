@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { WorkflowRunLogger } from './workflow-run-logger.js';
+import type { WorkflowRunLogger } from './workflow-run-logger.ts';
 
 const DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
 const INLINE_DATA_URL_MIN_LENGTH = 512;

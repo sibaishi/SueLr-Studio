@@ -1,4 +1,4 @@
-import { createLogger } from '../../platform/logging/logger.js';
+import { createLogger } from '../../platform/logging/logger.ts';
 
 type NextFunction = (error?: unknown) => void;
 

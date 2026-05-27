@@ -1,4 +1,4 @@
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 function getBoolean(value: DynamicValue, fallback: boolean) {
   return typeof value === 'boolean' ? value : fallback;
 }

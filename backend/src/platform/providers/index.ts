@@ -1,1 +1,1 @@
-export { getProviderAdapter } from './provider-registry.js';
+export { getProviderAdapter } from './provider-registry.ts';

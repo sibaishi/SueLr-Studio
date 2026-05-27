@@ -1,14 +1,14 @@
-import { executeWorkflow } from '../../engine/executor.js';
-import { createLogger } from '../../platform/logging/logger.js';
-import { runWithRequestContext } from '../../platform/logging/request-context.js';
-import { getProcessInstanceId } from '../../platform/logging/runtime-observability.js';
-import { WORKFLOW_SSE_EVENTS } from '../../platform/logging/workflow-events.js';
-import { sanitizeNodeOutputsForLogs } from '../../platform/logging/workflow-log-sanitizer.js';
-import { createWorkflowRunLogger } from '../../platform/logging/workflow-run-logger.js';
-import { settingsService } from '../settings/settings.service.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { workflowsRepository } from '../workflows/workflows.repository.js';
-import { createExecutionSnapshot } from './execution-snapshot.js';
+import { executeWorkflow } from '../../engine/executor.ts';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { runWithRequestContext } from '../../platform/logging/request-context.ts';
+import { getProcessInstanceId } from '../../platform/logging/runtime-observability.ts';
+import { WORKFLOW_SSE_EVENTS } from '../../platform/logging/workflow-events.ts';
+import { sanitizeNodeOutputsForLogs } from '../../platform/logging/workflow-log-sanitizer.ts';
+import { createWorkflowRunLogger } from '../../platform/logging/workflow-run-logger.ts';
+import { settingsService } from '../settings/settings.service.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { workflowsRepository } from '../workflows/workflows.repository.ts';
+import { createExecutionSnapshot } from './execution-snapshot.ts';
 
 const logger = createLogger({ module: 'execution-service' });
 const RECENT_RUN_TTL_MS = 5 * 60 * 1000;

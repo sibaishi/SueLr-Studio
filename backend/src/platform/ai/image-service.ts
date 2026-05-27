@@ -1,4 +1,4 @@
-import { generateImages } from '../../engine/helpers/imageGeneration.js';
+import { generateImages } from '../../engine/helpers/imageGeneration.ts';
 
 type ProgressHandler = (message: string) => void;
 

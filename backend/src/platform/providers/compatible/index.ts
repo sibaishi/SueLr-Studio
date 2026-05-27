@@ -1,10 +1,10 @@
-import { ProviderError } from '../../../app/errors/index.js';
-import { proxyAwareFetch } from '../../http/proxy-aware-fetch.js';
-import { createLogger } from '../../logging/logger.js';
-import { assertSafeProviderBaseUrl } from '../../security/network-guards.js';
-import type { ProviderConfig, ProviderHeaders } from '../base-adapter.js';
-import { parseProviderErrorResponse, toProviderError } from '../provider-http.js';
-import { CompatibleProviderAdapter } from './compatible-adapter.js';
+import { ProviderError } from '../../../app/errors/index.ts';
+import { proxyAwareFetch } from '../../http/proxy-aware-fetch.ts';
+import { createLogger } from '../../logging/logger.ts';
+import { assertSafeProviderBaseUrl } from '../../security/network-guards.ts';
+import type { ProviderConfig, ProviderHeaders } from '../base-adapter.ts';
+import { parseProviderErrorResponse, toProviderError } from '../provider-http.ts';
+import { CompatibleProviderAdapter } from './compatible-adapter.ts';
 
 interface CompatibleRequestInput {
   apiKey?: unknown;

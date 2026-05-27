@@ -95,8 +95,10 @@ Critical ownership rules:
 - Error responses must be `{ error, code, status }`
 - Never leak stack traces
 - `/api/outputs/...` and `/api/assistant/files/...` must resolve through runtime storage
-- Backend TypeScript implementation is in transition: some runtime `.js` files are temporary compatibility facades over `.ts` sources. Do not add new backend `.js` implementation files unless the coordinated TypeScript runtime migration plan requires a temporary facade.
-- The full backend JavaScript facade removal plan lives in `docs/backend-typescript-migration-plan.md`
+- Backend runtime is TypeScript-first: `backend/server.ts`, `backend/src/**/*.ts`, and `backend/tests/**/*.test.ts` run through Node 22 `--experimental-strip-types`
+- Do not recreate `backend/server.js`, `backend/src/**/*.js` facades, or `backend/tests/**/*.js`
+- Backend runtime code should import backend modules through `.ts` paths; frontend shared workflow `.js` modules remain out of scope
+- The completed backend TypeScript migration record lives in `docs/backend-typescript-migration-plan.md`
 
 ## Runtime Paths
 

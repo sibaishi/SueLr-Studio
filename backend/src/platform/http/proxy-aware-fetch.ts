@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import type { Dispatcher } from 'undici';
 import { EnvHttpProxyAgent, ProxyAgent } from 'undici';
 
-import { createLogger } from '../logging/logger.js';
+import { createLogger } from '../logging/logger.ts';
 
 type ProxyMode = 'system' | 'direct' | 'custom';
 type ProxyStrategyMode = 'direct' | 'app-custom' | 'env' | 'windows-registry' | 'windows-pac-unsupported';

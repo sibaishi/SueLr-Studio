@@ -1,6 +1,6 @@
-import { successEnvelope } from '../../app/http/envelope.js';
-import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.js';
-import { workflowsService } from './workflows.service.js';
+import { successEnvelope } from '../../app/http/envelope.ts';
+import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
+import { workflowsService } from './workflows.service.ts';
 
 export class WorkflowsController {
   list(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {

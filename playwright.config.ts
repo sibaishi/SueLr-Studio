@@ -22,7 +22,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'node server.js',
+      command: 'node --experimental-strip-types server.ts',
       cwd: './backend',
       url: `${backendUrl}/api/health`,
       reuseExistingServer: !process.env.CI,

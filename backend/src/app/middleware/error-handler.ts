@@ -1,5 +1,5 @@
-import { createLogger } from '../../platform/logging/logger.js';
-import { errorEnvelope } from '../http/envelope.js';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { errorEnvelope } from '../http/envelope.ts';
 
 const errorLogger = createLogger({ module: 'error-handler' });
 const EXPOSE_DETAILS = process.env.APP_EXPOSE_ERROR_DETAILS === 'true';

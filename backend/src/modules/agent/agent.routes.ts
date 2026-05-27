@@ -1,13 +1,13 @@
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import { Router } from 'express';
-import { validateBody, validateParam } from '../../app/middleware/validate-request.js';
-import { agentController } from './agent.controller.js';
+import { validateBody, validateParam } from '../../app/middleware/validate-request.ts';
+import { agentController } from './agent.controller.ts';
 import {
   validateAgentChatBody,
   validateAgentMemoryImportBody,
   validateAgentRecordId,
   validateAgentSessionId,
-} from './agent.schema.js';
+} from './agent.schema.ts';
 
 const router = Router();
 

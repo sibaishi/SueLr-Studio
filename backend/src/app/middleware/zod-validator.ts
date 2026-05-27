@@ -1,4 +1,4 @@
-import { ValidationError } from '../errors/index.js';
+import { ValidationError } from '../errors/index.ts';
 
 interface ZodIssueLike {
   message?: string;

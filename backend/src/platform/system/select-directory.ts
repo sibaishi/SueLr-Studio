@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { AppError } from '../../app/errors/index.js';
-import { getRuntimeCapabilities } from '../runtime/index.js';
+import { AppError } from '../../app/errors/index.ts';
+import { getRuntimeCapabilities } from '../runtime/index.ts';
 
 const execFileAsync = promisify(execFile);
 

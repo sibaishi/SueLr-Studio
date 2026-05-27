@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { RequestScope } from '../runtime/request-scope.js';
+import type { RequestScope } from '../runtime/request-scope.ts';
 
 export interface RequestContext {
   requestId?: string;

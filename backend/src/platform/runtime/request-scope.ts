@@ -1,4 +1,4 @@
-import { type RuntimeMode, getRuntimeMode } from './mode.js';
+import { type RuntimeMode, getRuntimeMode } from './mode.ts';
 
 export const DEFAULT_SCOPE_USER_ID = 'single-user';
 export const DEFAULT_SCOPE_WORKSPACE_ID = 'default';

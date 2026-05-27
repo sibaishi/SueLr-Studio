@@ -1,4 +1,4 @@
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 function getInputIndex(key: string) {
   const match = String(key || '').match(/^item(\d+)$/);
   return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;

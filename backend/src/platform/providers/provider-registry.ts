@@ -1,4 +1,4 @@
-import { compatibleHttpAdapter } from './compatible/index.js';
+import { compatibleHttpAdapter } from './compatible/index.ts';
 
 export function getProviderAdapter() {
   return compatibleHttpAdapter;

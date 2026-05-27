@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { AgentMemoryStrategy } from './agent-memory-strategy.js';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { AgentMemoryStrategy } from './agent-memory-strategy.ts';
 
 const DEFAULT_CONTEXT_COMPRESSION_THRESHOLD = 128000;
 const CHARS_PER_TOKEN = 3.5;

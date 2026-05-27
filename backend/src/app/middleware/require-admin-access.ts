@@ -1,4 +1,4 @@
-import { AppError } from '../errors/index.js';
+import { AppError } from '../errors/index.ts';
 
 type NextFunction = (error?: unknown) => void;
 

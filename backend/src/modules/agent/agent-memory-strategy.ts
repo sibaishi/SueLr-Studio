@@ -1,5 +1,5 @@
-import type { DynamicValue, PlainObject } from '../types.js';
-import { isDuplicateMemory, isUnsafeMemoryWriteContent, normalizeMemoryContent } from './agent-memory-policy.js';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { isDuplicateMemory, isUnsafeMemoryWriteContent, normalizeMemoryContent } from './agent-memory-policy.ts';
 
 function cleanString(value: DynamicValue, maxLength = 5000): string {
   if (value === undefined || value === null) return '';

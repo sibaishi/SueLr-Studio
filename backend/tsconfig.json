@@ -6,12 +6,10 @@
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "allowJs": true,
-    "checkJs": false,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "tests"]
+  "include": ["server.ts", "src/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules"]
 }

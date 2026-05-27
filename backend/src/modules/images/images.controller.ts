@@ -1,7 +1,7 @@
-import { successEnvelope } from '../../app/http/envelope.js';
-import { createRequestAbortSignal } from '../../app/http/request-abort.js';
-import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.js';
-import { imagesService } from './images.service.js';
+import { successEnvelope } from '../../app/http/envelope.ts';
+import { createRequestAbortSignal } from '../../app/http/request-abort.ts';
+import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
+import { imagesService } from './images.service.ts';
 
 export class ImagesController {
   async generate(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {

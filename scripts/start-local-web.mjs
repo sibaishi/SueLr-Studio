@@ -70,7 +70,7 @@ async function main() {
   startProcess(
     'backend',
     process.execPath,
-    ['server.js'],
+    ['--experimental-strip-types', 'server.ts'],
     backendDir,
     {
       APP_HOST: defaultHost,

@@ -6,7 +6,7 @@ tsconfig.json|tsconfig.json
 vite.config.ts|vite.config.ts
 backend/package.json|backend/package.json
 backend/package-lock.json|backend/package-lock.json
-backend/server.js|backend/server.js
+backend/server.ts|backend/server.ts
 backend/src|backend/src
 scripts/serve-admin.mjs|scripts/serve-admin.mjs
 scripts/deploy/server-web/app.dockerignore|.dockerignore

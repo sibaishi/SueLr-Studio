@@ -1,7 +1,7 @@
-import { ProviderError, ValidationError } from '../../app/errors/index.js';
-import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
-import { STORAGE_PATHS, readJsonFile, writeJsonFile } from '../../platform/storage/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+import { ProviderError, ValidationError } from '../../app/errors/index.ts';
+import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.ts';
+import { STORAGE_PATHS, readJsonFile, writeJsonFile } from '../../platform/storage/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 const ACCOUNT_DETAILS_BASE_URL = 'https://www.6789api.top';
 const LOGIN_PATH = '/api/user/login?turnstile=';

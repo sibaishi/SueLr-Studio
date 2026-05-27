@@ -1,14 +1,14 @@
-import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.js';
-import { getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.js';
+import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.ts';
+import { getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.ts';
 import {
   collectInputs,
   failWorkflowAtNode,
   getNodeDisplayName,
   topoSort,
   validateWorkflow,
-} from './executor-helpers.js';
-import { NODE_EXECUTORS } from './nodes/index.js';
-import type { DynamicValue, RuntimeApiConfig, WorkflowNode } from './nodes/types.js';
+} from './executor-helpers.ts';
+import { NODE_EXECUTORS } from './nodes/index.ts';
+import type { DynamicValue, RuntimeApiConfig, WorkflowNode } from './nodes/types.ts';
 
 const ITERATE_RUN_NODE_TYPE = 'iterateRun';
 const ITERATE_IMAGE_RUN_NODE_TYPE = 'iterateImageRun';

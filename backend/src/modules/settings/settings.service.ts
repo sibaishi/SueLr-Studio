@@ -1,11 +1,11 @@
-import { AppError, ConflictError, fromLegacyError } from '../../app/errors/index.js';
-import { createLogger } from '../../platform/logging/logger.js';
-import { getRuntimeCapabilities } from '../../platform/runtime/index.js';
-import { scheduleBackendRestart } from '../../platform/system/restart-backend.js';
-import { selectDirectory as selectSystemDirectory } from '../../platform/system/select-directory.js';
-import { executionService } from '../execution/execution.service.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { settingsRepository } from './settings.repository.js';
+import { AppError, ConflictError, fromLegacyError } from '../../app/errors/index.ts';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { getRuntimeCapabilities } from '../../platform/runtime/index.ts';
+import { scheduleBackendRestart } from '../../platform/system/restart-backend.ts';
+import { selectDirectory as selectSystemDirectory } from '../../platform/system/select-directory.ts';
+import { executionService } from '../execution/execution.service.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { settingsRepository } from './settings.repository.ts';
 
 const logger = createLogger({ module: 'settings-service' });
 const REDACTED_STORAGE_LABEL = '[server-managed]';

@@ -1,4 +1,4 @@
-import type { DynamicValue } from '../types.js';
+import type { DynamicValue } from '../types.ts';
 
 function cleanString(value: DynamicValue, maxLength = 5000): string {
   if (value === undefined || value === null) return '';

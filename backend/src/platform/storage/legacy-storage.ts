@@ -1,8 +1,8 @@
 import fs, { type Dirent } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ensureDir } from './ensure-dir.js';
-import { STORAGE_PATHS, ensureStorageDirectories } from './index.js';
+import { ensureDir } from './ensure-dir.ts';
+import { STORAGE_PATHS, ensureStorageDirectories } from './index.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

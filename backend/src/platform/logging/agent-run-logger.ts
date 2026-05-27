@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { RequestScope } from '../runtime/request-scope.js';
-import { ensureDir } from '../storage/ensure-dir.js';
-import { STORAGE_PATHS } from '../storage/index.js';
-import { getProcessInstanceId } from './runtime-observability.js';
+import type { RequestScope } from '../runtime/request-scope.ts';
+import { ensureDir } from '../storage/ensure-dir.ts';
+import { STORAGE_PATHS } from '../storage/index.ts';
+import { getProcessInstanceId } from './runtime-observability.ts';
 
 const MAX_STRING_LENGTH = 2000;
 

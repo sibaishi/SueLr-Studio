@@ -1,5 +1,5 @@
-import { ValidationError } from '../../app/errors/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+import { ValidationError } from '../../app/errors/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 function ensureObject(payload: DynamicValue, message: string): PlainObject {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {

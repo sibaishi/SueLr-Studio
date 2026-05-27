@@ -1,12 +1,12 @@
-import { NotFoundError } from '../../app/errors/index.js';
-import { createLogger } from '../../platform/logging/logger.js';
-import { ensureResourceOwnership } from '../../platform/runtime/index.js';
-import { isResourceVisibleForScope } from '../../platform/storage/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { migrateWorkflowDocument } from './workflow-migrations.js';
-import { exportWorkflowDocument, importWorkflowDocument } from './workflows.import-export.js';
-import { workflowsRepository } from './workflows.repository.js';
-import { normalizePersistedWorkflow } from './workflows.schema.js';
+import { NotFoundError } from '../../app/errors/index.ts';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import { isResourceVisibleForScope } from '../../platform/storage/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { migrateWorkflowDocument } from './workflow-migrations.ts';
+import { exportWorkflowDocument, importWorkflowDocument } from './workflows.import-export.ts';
+import { workflowsRepository } from './workflows.repository.ts';
+import { normalizePersistedWorkflow } from './workflows.schema.ts';
 
 const logger = createLogger({ module: 'workflows-service' });
 

@@ -33,7 +33,7 @@ async function main() {
 
   await waitForProcessExit(oldPid);
 
-  const child = spawn(process.execPath, [serverEntryPath], {
+  const child = spawn(process.execPath, ['--experimental-strip-types', serverEntryPath], {
     cwd: process.cwd(),
     detached: true,
     env: process.env,

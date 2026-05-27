@@ -1,12 +1,12 @@
-import { ProviderError, ValidationError } from '../../app/errors/index.js';
-import { runChatCompletion } from '../../platform/ai/chat-service.js';
-import { formatWebSearchResult, normalizeWebSearchResult, runWebSearch } from '../../platform/ai/search-service.js';
-import { executeVideoGeneration, pollVideoTask, submitVideoGeneration } from '../../platform/ai/video-service.js';
-import { createLogger } from '../../platform/logging/logger.js';
-import { getRuntimeCapabilities } from '../../platform/runtime/index.js';
-import { imagesService } from '../images/images.service.js';
-import { settingsService } from '../settings/settings.service.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+import { ProviderError, ValidationError } from '../../app/errors/index.ts';
+import { runChatCompletion } from '../../platform/ai/chat-service.ts';
+import { formatWebSearchResult, normalizeWebSearchResult, runWebSearch } from '../../platform/ai/search-service.ts';
+import { executeVideoGeneration, pollVideoTask, submitVideoGeneration } from '../../platform/ai/video-service.ts';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { getRuntimeCapabilities } from '../../platform/runtime/index.ts';
+import { imagesService } from '../images/images.service.ts';
+import { settingsService } from '../settings/settings.service.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 const logger = createLogger({ module: 'capabilities-service' });
 

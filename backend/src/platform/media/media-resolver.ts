@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { STORAGE_PATHS, safeResolveWithin } from '../storage/index.js';
+import { STORAGE_PATHS, safeResolveWithin } from '../storage/index.ts';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
 const DATA_URL_CACHE_LIMIT = 32;

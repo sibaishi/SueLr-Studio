@@ -1,6 +1,6 @@
-import { successEnvelope } from '../../app/http/envelope.js';
-import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.js';
-import { agentService } from './agent.service.js';
+import { successEnvelope } from '../../app/http/envelope.ts';
+import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
+import { agentService } from './agent.service.ts';
 
 function writeSse(res: ResponseLike, event: string, data: DynamicValue) {
   res.write(`event: ${event}\n`);

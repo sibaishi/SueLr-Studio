@@ -13,7 +13,7 @@ const checks = [
     ],
   },
   {
-    path: 'backend/tests/http-contract.test.js',
+    path: 'backend/tests/http-contract.test.ts',
     sections: [
       "HTTP contract: settings endpoints use unified envelope",
       "HTTP contract: workflows CRUD endpoints return expected envelopes",

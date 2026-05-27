@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { getStorageRoot } from './storage-root.js';
+import { getStorageRoot } from './storage-root.ts';
 
 export interface StoragePaths {
   root: string;

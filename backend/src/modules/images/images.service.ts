@@ -1,8 +1,8 @@
-import { ProviderError } from '../../app/errors/index.js';
-import { runImageGeneration } from '../../platform/ai/image-service.js';
-import { createLogger } from '../../platform/logging/logger.js';
-import { settingsService } from '../settings/settings.service.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+import { ProviderError } from '../../app/errors/index.ts';
+import { runImageGeneration } from '../../platform/ai/image-service.ts';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { settingsService } from '../settings/settings.service.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 const logger = createLogger({ module: 'images-service' });
 

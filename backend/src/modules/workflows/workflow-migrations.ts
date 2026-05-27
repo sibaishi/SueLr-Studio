@@ -1,5 +1,5 @@
-import { ValidationError } from '../../app/errors/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+import { ValidationError } from '../../app/errors/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 export const CURRENT_WORKFLOW_SCHEMA_VERSION = 1;
 

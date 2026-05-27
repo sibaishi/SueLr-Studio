@@ -1,7 +1,7 @@
-import { ConflictError, ValidationError } from '../../app/errors/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { migrateWorkflowDocument } from './workflow-migrations.js';
-import { normalizePersistedWorkflow, validateWorkflowId } from './workflows.schema.js';
+import { ConflictError, ValidationError } from '../../app/errors/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { migrateWorkflowDocument } from './workflow-migrations.ts';
+import { normalizePersistedWorkflow, validateWorkflowId } from './workflows.schema.ts';
 
 type WorkflowImportMode = 'generate_new_id' | 'preserve_id' | 'overwrite';
 type WorkflowImportOptions = {

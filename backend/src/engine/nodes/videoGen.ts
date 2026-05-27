@@ -1,6 +1,6 @@
-import { executeVideoGeneration } from '../../platform/ai/video-service.js';
-import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import { executeVideoGeneration } from '../../platform/ai/video-service.ts';
+import { resolveRuntimeApiConfig } from '../helpers/apiConfig.ts';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 export async function execute(
   node: WorkflowNode,

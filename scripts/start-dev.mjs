@@ -56,7 +56,7 @@ async function main() {
   startProcess(
     'backend',
     process.execPath,
-    selfTest ? ['server.js'] : ['--watch', 'server.js'],
+    selfTest ? ['--experimental-strip-types', 'server.ts'] : ['--watch', '--experimental-strip-types', 'server.ts'],
     backendDir,
     {
       APP_HOST: defaultHost,

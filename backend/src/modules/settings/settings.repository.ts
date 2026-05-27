@@ -1,14 +1,14 @@
-import { ProviderError, ValidationError } from '../../app/errors/index.js';
+import { ProviderError, ValidationError } from '../../app/errors/index.ts';
 import {
   categorizeLegacyModel,
   groupConfiguredProjectModels,
   migrateProjectModels,
   normalizeProjectModels,
-} from '../../engine/helpers/projectModels.js';
-import { configureOutboundProxy, proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
-import { getProviderAdapter } from '../../platform/providers/index.js';
-import { parseProviderErrorResponse, toProviderError } from '../../platform/providers/provider-http.js';
-import { assertSafeProviderBaseUrl } from '../../platform/security/network-guards.js';
+} from '../../engine/helpers/projectModels.ts';
+import { configureOutboundProxy, proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.ts';
+import { getProviderAdapter } from '../../platform/providers/index.ts';
+import { parseProviderErrorResponse, toProviderError } from '../../platform/providers/provider-http.ts';
+import { assertSafeProviderBaseUrl } from '../../platform/security/network-guards.ts';
 import {
   LEGACY_PATHS,
   STORAGE_PATHS,
@@ -20,10 +20,10 @@ import {
   readJsonFile,
   writeJsonFile,
   writeStoredStorageRootOverride,
-} from '../../platform/storage/index.js';
-import { adminConfigRepository } from '../admin-config/admin-config.repository.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.js';
+} from '../../platform/storage/index.ts';
+import { adminConfigRepository } from '../admin-config/admin-config.repository.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.ts';
 
 const SETTINGS_VERSION = 1;
 

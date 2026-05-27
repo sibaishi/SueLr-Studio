@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 function readUtf8(path) {
   return readFileSync(resolve(path), 'utf8');
@@ -7,13 +7,26 @@ function readUtf8(path) {
 
 const failures = [];
 
+function collectFiles(dir, predicate, collected = []) {
+  if (!existsSync(resolve(dir))) return collected;
+  for (const entry of readdirSync(resolve(dir), { withFileTypes: true })) {
+    const relativePath = join(dir, entry.name).replace(/\\/g, '/');
+    if (entry.isDirectory()) {
+      collectFiles(relativePath, predicate, collected);
+      continue;
+    }
+    if (predicate(relativePath)) collected.push(relativePath);
+  }
+  return collected;
+}
+
 const requiredFiles = [
   '.env.example',
   'README.md',
   'docs/user-guide.md',
   'docs/developer-guide.md',
-  'backend/server.js',
-  'backend/src/app/create-app.js',
+  'backend/server.ts',
+  'backend/src/app/create-app.ts',
   'backend/package.json',
   'package.json',
 ];
@@ -24,6 +37,16 @@ for (const file of requiredFiles) {
   }
 }
 
+for (const file of [
+  'backend/server.js',
+  ...collectFiles('backend/src', (file) => file.endsWith('.js')),
+  ...collectFiles('backend/tests', (file) => file.endsWith('.js')),
+]) {
+  if (existsSync(resolve(file))) {
+    failures.push(`backend runtime must not include JavaScript facade file: ${file}`);
+  }
+}
+
 if (failures.length === 0) {
   const rootPackage = JSON.parse(readUtf8('package.json'));
   const backendPackage = JSON.parse(readUtf8('backend/package.json'));
@@ -31,8 +54,8 @@ if (failures.length === 0) {
   const userGuide = readUtf8('docs/user-guide.md');
   const developerGuide = readUtf8('docs/developer-guide.md');
   const readme = readUtf8('README.md');
-  const serverSource = readUtf8('backend/server.js');
-  const createAppSource = readUtf8('backend/src/app/create-app.js');
+  const serverSource = readUtf8('backend/server.ts');
+  const createAppSource = readUtf8('backend/src/app/create-app.ts');
 
   const rootNodeEngine = rootPackage?.engines?.node;
   const backendNodeEngine = backendPackage?.engines?.node;
@@ -71,13 +94,13 @@ if (failures.length === 0) {
 
   for (const snippet of ["process.env.APP_PORT || process.env.PORT || 3001", "process.env.APP_HOST || '127.0.0.1'"]) {
     if (!serverSource.includes(snippet)) {
-      failures.push(`backend/server.js is missing default runtime baseline: ${snippet}`);
+      failures.push(`backend/server.ts is missing default runtime baseline: ${snippet}`);
     }
   }
 
   for (const snippet of ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173', 'http://127.0.0.1:4173']) {
     if (!createAppSource.includes(snippet)) {
-      failures.push(`backend/src/app/create-app.js is missing allowed-origin baseline: ${snippet}`);
+      failures.push(`backend/src/app/create-app.ts is missing allowed-origin baseline: ${snippet}`);
     }
   }
 }

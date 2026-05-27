@@ -1,4 +1,4 @@
-import { proxyAwareFetch } from '../http/proxy-aware-fetch.js';
+import { proxyAwareFetch } from '../http/proxy-aware-fetch.ts';
 
 interface TavilyResultItem {
   title?: unknown;

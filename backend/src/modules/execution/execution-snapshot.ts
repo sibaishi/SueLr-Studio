@@ -1,7 +1,7 @@
-import { ValidationError } from '../../app/errors/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { CURRENT_WORKFLOW_SCHEMA_VERSION } from '../workflows/workflow-migrations.js';
-import { normalizePersistedWorkflow } from '../workflows/workflows.schema.js';
+import { ValidationError } from '../../app/errors/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { CURRENT_WORKFLOW_SCHEMA_VERSION } from '../workflows/workflow-migrations.ts';
+import { normalizePersistedWorkflow } from '../workflows/workflows.schema.ts';
 
 export const CURRENT_SNAPSHOT_VERSION = 1;
 

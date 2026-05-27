@@ -1,5 +1,5 @@
-import { ensureResourceOwnership } from '../../platform/runtime/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 import {
   isDuplicateMemory,
   isMalformedMemoryContent,
@@ -8,8 +8,8 @@ import {
   normalizeMemoryFingerprint,
   normalizeMemoryImportance,
   normalizeMemoryTags,
-} from './agent-memory-policy.js';
-import { agentRepository } from './agent.repository.js';
+} from './agent-memory-policy.ts';
+import { agentRepository } from './agent.repository.ts';
 
 function cleanString(value: DynamicValue, maxLength = 5000): string {
   if (value === undefined || value === null) return '';

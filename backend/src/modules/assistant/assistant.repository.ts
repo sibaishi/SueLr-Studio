@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { deleteGeneratedThumbnail, ensureGeneratedThumbnailFromBuffer } from '../../platform/media/image-thumbnails.js';
+import { deleteGeneratedThumbnail, ensureGeneratedThumbnailFromBuffer } from '../../platform/media/image-thumbnails.ts';
 import {
   STORAGE_PATHS,
   ensureJsonFile,
@@ -8,8 +8,8 @@ import {
   readJsonFile,
   safeResolveWithin,
   writeJsonFile,
-} from '../../platform/storage/index.js';
-import type { DynamicValue } from '../types.js';
+} from '../../platform/storage/index.ts';
+import type { DynamicValue } from '../types.ts';
 
 type AssistantStoreType = 'conversations' | 'gallery' | 'videos';
 type WriteOptions = { scope?: DynamicValue };

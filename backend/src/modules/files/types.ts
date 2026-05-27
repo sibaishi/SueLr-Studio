@@ -1,4 +1,4 @@
-import type { DynamicValue, PlainObject } from '../types.js';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 export type ScopeOptions = {
   scope?: DynamicValue;

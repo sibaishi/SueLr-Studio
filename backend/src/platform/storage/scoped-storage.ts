@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { DEFAULT_SCOPE_USER_ID, DEFAULT_SCOPE_WORKSPACE_ID, normalizeRequestScope } from '../runtime/request-scope.js';
-import { ensureDir } from './ensure-dir.js';
-import { type StoragePaths, getStoragePaths } from './storage-paths.js';
+import { DEFAULT_SCOPE_USER_ID, DEFAULT_SCOPE_WORKSPACE_ID, normalizeRequestScope } from '../runtime/request-scope.ts';
+import { ensureDir } from './ensure-dir.ts';
+import { type StoragePaths, getStoragePaths } from './storage-paths.ts';
 
 export const SCOPED_STORAGE_LAYOUT_VERSION = 'v1';
 

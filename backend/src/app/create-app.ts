@@ -4,39 +4,39 @@ import path, { resolve } from 'node:path';
 import cors from 'cors';
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import express from 'express';
-import adminConfigRoutes from '../modules/admin-config/admin-config.routes.js';
-import agentRoutes from '../modules/agent/agent.routes.js';
-import assistantRoutes from '../modules/assistant/assistant.routes.js';
-import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.js';
-import executeRoutes from '../modules/execution/execution.routes.js';
-import storageRoutes from '../modules/files/files.routes.js';
-import { filesService } from '../modules/files/files.service.js';
-import imageRoutes from '../modules/images/images.routes.js';
-import settingsRoutes from '../modules/settings/settings.routes.js';
-import type { NextFunctionLike, RequestLike, ResponseLike } from '../modules/types.js';
-import workflowRoutes from '../modules/workflows/workflows.routes.js';
-import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.js';
-import { getRequestContext } from '../platform/logging/request-context.js';
-import { getProcessInstanceId } from '../platform/logging/runtime-observability.js';
-import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.js';
+import adminConfigRoutes from '../modules/admin-config/admin-config.routes.ts';
+import agentRoutes from '../modules/agent/agent.routes.ts';
+import assistantRoutes from '../modules/assistant/assistant.routes.ts';
+import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.ts';
+import executeRoutes from '../modules/execution/execution.routes.ts';
+import storageRoutes from '../modules/files/files.routes.ts';
+import { filesService } from '../modules/files/files.service.ts';
+import imageRoutes from '../modules/images/images.routes.ts';
+import settingsRoutes from '../modules/settings/settings.routes.ts';
+import type { NextFunctionLike, RequestLike, ResponseLike } from '../modules/types.ts';
+import workflowRoutes from '../modules/workflows/workflows.routes.ts';
+import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.ts';
+import { getRequestContext } from '../platform/logging/request-context.ts';
+import { getProcessInstanceId } from '../platform/logging/runtime-observability.ts';
+import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.ts';
 import {
   ensureGeneratedThumbnailFromFile,
   ensureUploadThumbnail,
   resolveGeneratedOriginalFromThumbnailRelativePath,
   resolveUploadOriginalFromThumbnailName,
-} from '../platform/media/image-thumbnails.js';
-import { getMimeType } from '../platform/media/media-resolver.js';
-import { getRuntimeCapabilities, summarizeScopeFoundation } from '../platform/runtime/index.js';
+} from '../platform/media/image-thumbnails.ts';
+import { getMimeType } from '../platform/media/media-resolver.ts';
+import { getRuntimeCapabilities, summarizeScopeFoundation } from '../platform/runtime/index.ts';
 import {
   ensureStorageDirectories,
   getScopedStoragePaths,
   migrateLegacyStorageIfNeeded,
   safeResolveWithin,
-} from '../platform/storage/index.js';
-import { errorEnvelope, successEnvelope } from './http/envelope.js';
-import { errorHandler } from './middleware/error-handler.js';
-import { requestContextMiddleware } from './middleware/request-context.js';
-import { requestLoggerMiddleware } from './middleware/request-logger.js';
+} from '../platform/storage/index.ts';
+import { errorEnvelope, successEnvelope } from './http/envelope.ts';
+import { errorHandler } from './middleware/error-handler.ts';
+import { requestContextMiddleware } from './middleware/request-context.ts';
+import { requestLoggerMiddleware } from './middleware/request-logger.ts';
 
 function buildAllowedOrigins(): string[] {
   const configured = String(process.env.APP_ALLOWED_ORIGINS || '')

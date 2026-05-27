@@ -7,7 +7,7 @@ import {
   logOutgoingRequest,
   parseApiError,
   parseImageApiResponse,
-} from './imageGenShared.js';
+} from './imageGenShared.ts';
 
 const URL_RESPONSE_FORMAT = 'url';
 const CHAT_URL_RESPONSE_FORMAT = { type: 'url' };

@@ -1,5 +1,5 @@
-import { adminConfigRepository } from '../../modules/admin-config/admin-config.repository.js';
-import { type RuntimeMode, getRuntimeMode, isServerRuntimeMode } from './mode.js';
+import { adminConfigRepository } from '../../modules/admin-config/admin-config.repository.ts';
+import { type RuntimeMode, getRuntimeMode, isServerRuntimeMode } from './mode.ts';
 
 interface RuntimeCapabilities {
   mode: RuntimeMode;

@@ -1,4 +1,4 @@
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 // ============================================================
 // Flow Studio - 文本输入节点执行器
 // ============================================================

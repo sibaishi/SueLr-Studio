@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ensureGeneratedThumbnailFromFile } from '../../platform/media/image-thumbnails.js';
-import { getMimeType } from '../../platform/media/media-resolver.js';
-import { isServerRuntimeMode } from '../../platform/runtime/mode.js';
-import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.js';
+import { ensureGeneratedThumbnailFromFile } from '../../platform/media/image-thumbnails.ts';
+import { getMimeType } from '../../platform/media/media-resolver.ts';
+import { isServerRuntimeMode } from '../../platform/runtime/mode.ts';
+import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.ts';
 
 const TYPE_DIRS = {
   image: 'images',

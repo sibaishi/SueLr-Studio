@@ -76,7 +76,7 @@ async function startEmbeddedBackend({
   const port = await findFreePort(host);
   const adminPort = await findFreePort(host);
   const frontendDist = resolveAppPath('dist');
-  const backendEntry = resolveAppPath('backend', 'server.js');
+  const backendEntry = resolveAppPath('backend', 'server.ts');
 
   process.env.APP_HOST = host;
   process.env.APP_PORT = String(port);

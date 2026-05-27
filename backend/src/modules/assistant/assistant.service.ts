@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { NotFoundError, ValidationError } from '../../app/errors/index.js';
-import { createLogger } from '../../platform/logging/logger.js';
-import { applyOwnershipToList, ensureResourceOwnership } from '../../platform/runtime/index.js';
-import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { assistantRepository } from './assistant.repository.js';
+import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { applyOwnershipToList, ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { assistantRepository } from './assistant.repository.ts';
 
 type ScopeOptions = { scope?: DynamicValue };
 type ParsedDataUrl = { mimeType: string; buffer: Buffer };

@@ -1,8 +1,8 @@
-import { runChatCompletion } from '../../platform/ai/chat-service.js';
-import { formatWebSearchResult, runWebSearch } from '../../platform/ai/search-service.js';
-import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
-import { fileToBase64 } from '../helpers/fileHelper.js';
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import { runChatCompletion } from '../../platform/ai/chat-service.ts';
+import { formatWebSearchResult, runWebSearch } from '../../platform/ai/search-service.ts';
+import { resolveRuntimeApiConfig } from '../helpers/apiConfig.ts';
+import { fileToBase64 } from '../helpers/fileHelper.ts';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 function normalizeTextInput(value: DynamicValue) {
   if (Array.isArray(value)) {

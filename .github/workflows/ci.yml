@@ -90,7 +90,7 @@ jobs:
       - name: Smoke test backend with static frontend hosting
         shell: bash
         run: |
-          node backend/server.js > server.log 2>&1 &
+          node --experimental-strip-types backend/server.ts > server.log 2>&1 &
           SERVER_PID=$!
           trap "kill $SERVER_PID" EXIT
           for i in {1..30}; do

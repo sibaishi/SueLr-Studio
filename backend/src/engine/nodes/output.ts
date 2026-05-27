@@ -1,5 +1,5 @@
-import { materializeContentForOutput } from '../helpers/saveHelper.js';
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import { materializeContentForOutput } from '../helpers/saveHelper.ts';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 export async function execute(
   node: WorkflowNode,

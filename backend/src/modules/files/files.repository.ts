@@ -2,13 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import { NotFoundError, ValidationError } from '../../app/errors/index.js';
+import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
 import {
   deleteGeneratedThumbnail,
   ensureGeneratedThumbnailFromFile,
   getGeneratedThumbnailPath,
-} from '../../platform/media/image-thumbnails.js';
-import { ensureResourceOwnership } from '../../platform/runtime/index.js';
+} from '../../platform/media/image-thumbnails.ts';
+import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
 import {
   STORAGE_PATHS,
   ensureScopedStorageDirectories,
@@ -16,9 +16,9 @@ import {
   getScopedStoragePaths,
   isResourceVisibleForScope,
   safeResolveWithin,
-} from '../../platform/storage/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import type { ScopeOptions } from './types.js';
+} from '../../platform/storage/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import type { ScopeOptions } from './types.ts';
 
 const OUTPUT_FILE_TYPES = new Map([
   ['.png', { type: 'image', mimeType: 'image/png' }],

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ensureDir } from './ensure-dir.js';
+import { ensureDir } from './ensure-dir.ts';
 
 export function ensureJsonFile(filePath: string, fallback: unknown) {
   ensureDir(path.dirname(filePath));

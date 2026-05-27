@@ -1,4 +1,4 @@
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 function normalizeImageInput(value: DynamicValue): string {
   if (Array.isArray(value)) {
     for (const item of value) {

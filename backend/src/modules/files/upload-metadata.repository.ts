@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { STORAGE_PATHS, ensureJsonFile, readJsonFile, writeJsonFile } from '../../platform/storage/index.js';
-import type { DynamicValue } from '../types.js';
-import type { UploadMetadataStore, UploadRecord } from './types.js';
+import { STORAGE_PATHS, ensureJsonFile, readJsonFile, writeJsonFile } from '../../platform/storage/index.ts';
+import type { DynamicValue } from '../types.ts';
+import type { UploadMetadataStore, UploadRecord } from './types.ts';
 
 const STORE_FILE = () => path.join(STORAGE_PATHS.filesDir, 'upload-metadata.json');
 

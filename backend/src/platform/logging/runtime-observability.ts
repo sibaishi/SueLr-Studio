@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createDefaultRequestScope } from '../runtime/index.js';
-import { createLogger } from './logger.js';
-import { ensureLogDirectories } from './workflow-run-logger.js';
+import { createDefaultRequestScope } from '../runtime/index.ts';
+import { createLogger } from './logger.ts';
+import { ensureLogDirectories } from './workflow-run-logger.ts';
 
 type RuntimeEventFields = Record<string, unknown>;
 

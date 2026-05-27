@@ -1,8 +1,8 @@
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import { Router } from 'express';
-import { validateBody, validateParam } from '../../app/middleware/validate-request.js';
-import { workflowsController } from './workflows.controller.js';
-import { ensureWorkflowBody, validateWorkflowId } from './workflows.schema.js';
+import { validateBody, validateParam } from '../../app/middleware/validate-request.ts';
+import { workflowsController } from './workflows.controller.ts';
+import { ensureWorkflowBody, validateWorkflowId } from './workflows.schema.ts';
 
 const router = Router();
 

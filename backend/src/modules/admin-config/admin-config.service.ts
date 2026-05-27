@@ -1,7 +1,7 @@
-import { ValidationError, fromLegacyError } from '../../app/errors/index.js';
-import { runWebSearch } from '../../platform/ai/search-service.js';
-import type { DynamicValue } from '../types.js';
-import { adminConfigRepository } from './admin-config.repository.js';
+import { ValidationError, fromLegacyError } from '../../app/errors/index.ts';
+import { runWebSearch } from '../../platform/ai/search-service.ts';
+import type { DynamicValue } from '../types.ts';
+import { adminConfigRepository } from './admin-config.repository.ts';
 
 export class AdminConfigService {
   repository;

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ensureDir } from './ensure-dir.js';
-import { safeResolveWithin } from './safe-path.js';
+import { ensureDir } from './ensure-dir.ts';
+import { safeResolveWithin } from './safe-path.ts';
 
 export function writeFileWithin(baseDir: string, relativePath: string, content: string): string | null {
   const filePath = safeResolveWithin(baseDir, relativePath);

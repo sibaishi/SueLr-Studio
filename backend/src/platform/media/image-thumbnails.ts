@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 
-import type { RequestScope } from '../runtime/request-scope.js';
-import { ensureDir, getScopedStoragePaths, safeResolveWithin } from '../storage/index.js';
+import type { RequestScope } from '../runtime/request-scope.ts';
+import { ensureDir, getScopedStoragePaths, safeResolveWithin } from '../storage/index.ts';
 
 const THUMBNAIL_MAX_WIDTH = 512;
 const THUMBNAIL_MAX_HEIGHT = 512;

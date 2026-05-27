@@ -1,5 +1,5 @@
-import { fileToBase64 } from '../../engine/helpers/fileHelper.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+import { fileToBase64 } from '../../engine/helpers/fileHelper.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 type ToolDefinition = {
   name: string;

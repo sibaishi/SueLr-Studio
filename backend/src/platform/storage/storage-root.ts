@@ -1,5 +1,5 @@
-import { BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot } from './storage-base.js';
-import { getEffectiveStorageRootInfo } from './storage-bootstrap.js';
+import { BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot } from './storage-base.ts';
+import { getEffectiveStorageRootInfo } from './storage-bootstrap.ts';
 
 export { BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot };
 

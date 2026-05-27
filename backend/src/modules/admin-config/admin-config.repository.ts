@@ -1,4 +1,4 @@
-import { ValidationError } from '../../app/errors/index.js';
+import { ValidationError } from '../../app/errors/index.ts';
 import {
   STORAGE_PATHS,
   ensureJsonFile,
@@ -6,8 +6,8 @@ import {
   migrateLegacyStorageIfNeeded,
   readJsonFile,
   writeJsonFile,
-} from '../../platform/storage/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+} from '../../platform/storage/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 const ADMIN_CONFIG_VERSION = 1;
 

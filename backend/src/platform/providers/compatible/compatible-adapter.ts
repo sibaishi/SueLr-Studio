@@ -1,4 +1,4 @@
-import { BaseProviderAdapter } from '../base-adapter.js';
+import { BaseProviderAdapter } from '../base-adapter.ts';
 
 export class CompatibleProviderAdapter extends BaseProviderAdapter {
   normalizeResponse<T>(response: T): T {

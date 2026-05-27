@@ -1,6 +1,6 @@
-import { ensureResourceOwnership } from '../../platform/runtime/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { agentRepository } from './agent.repository.js';
+import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { agentRepository } from './agent.repository.ts';
 
 export class AgentSessionStore {
   repository;

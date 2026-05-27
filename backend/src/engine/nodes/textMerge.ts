@@ -1,5 +1,5 @@
-import { collectMergedTextValues } from '../helpers/mergeItems.js';
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import { collectMergedTextValues } from '../helpers/mergeItems.ts';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 export async function execute(
   node: WorkflowNode,

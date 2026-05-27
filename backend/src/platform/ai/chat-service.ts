@@ -1,7 +1,7 @@
-import { ProviderError } from '../../app/errors/index.js';
-import { resolveModelRuntime } from '../../engine/helpers/apiConfig.js';
-import { localUrlToDataUrl } from '../media/media-resolver.js';
-import { getProviderAdapter } from '../providers/index.js';
+import { ProviderError } from '../../app/errors/index.ts';
+import { resolveModelRuntime } from '../../engine/helpers/apiConfig.ts';
+import { localUrlToDataUrl } from '../media/media-resolver.ts';
+import { getProviderAdapter } from '../providers/index.ts';
 
 interface ChatContentImageUrl {
   url?: unknown;

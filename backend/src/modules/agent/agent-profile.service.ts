@@ -1,7 +1,7 @@
-import { ValidationError } from '../../app/errors/index.js';
-import { settingsService } from '../settings/settings.service.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { agentRepository } from './agent.repository.js';
+import { ValidationError } from '../../app/errors/index.ts';
+import { settingsService } from '../settings/settings.service.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { agentRepository } from './agent.repository.ts';
 
 const DEFAULT_PROFILE = {
   id: 'default',

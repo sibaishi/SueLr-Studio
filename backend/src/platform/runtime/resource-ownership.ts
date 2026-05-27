@@ -1,4 +1,4 @@
-import { type RequestScope, type RequestScopeInput, normalizeRequestScope } from './request-scope.js';
+import { type RequestScope, type RequestScopeInput, normalizeRequestScope } from './request-scope.ts';
 
 export interface OwnershipMetadata {
   ownerUserId: string;

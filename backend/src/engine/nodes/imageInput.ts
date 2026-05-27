@@ -1,11 +1,11 @@
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 // ============================================================
 // Flow Studio - 图片输入节点执行器
 // 返回服务器文件 URL（节点之间传递轻量 URL）
 // ============================================================
 
 import sharp from 'sharp';
-import { urlToLocalPath } from '../helpers/fileHelper.js';
+import { urlToLocalPath } from '../helpers/fileHelper.ts';
 
 async function hasMaskPaint(maskUrl: DynamicValue) {
   if (!maskUrl) return false;

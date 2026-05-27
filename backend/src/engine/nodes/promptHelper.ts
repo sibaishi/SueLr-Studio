@@ -1,5 +1,5 @@
 import { buildPromptHelperPrompt } from '../../../../src/shared/workflow/prompt-helper.js';
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 export async function execute(
   node: WorkflowNode,

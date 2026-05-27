@@ -1,7 +1,7 @@
-import { NotFoundError } from '../../app/errors/index.js';
-import { successEnvelope } from '../../app/http/envelope.js';
-import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.js';
-import { filesService } from './files.service.js';
+import { NotFoundError } from '../../app/errors/index.ts';
+import { successEnvelope } from '../../app/http/envelope.ts';
+import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
+import { filesService } from './files.service.ts';
 
 export class FilesController {
   async listGenerated(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {

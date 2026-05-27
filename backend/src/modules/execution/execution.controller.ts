@@ -1,8 +1,8 @@
-import { successEnvelope } from '../../app/http/envelope.js';
-import { createLogger } from '../../platform/logging/logger.js';
-import { getProcessInstanceId } from '../../platform/logging/runtime-observability.js';
-import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.js';
-import { executionService } from './execution.service.js';
+import { successEnvelope } from '../../app/http/envelope.ts';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { getProcessInstanceId } from '../../platform/logging/runtime-observability.ts';
+import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
+import { executionService } from './execution.service.ts';
 
 const logger = createLogger({ module: 'execution-controller' });
 

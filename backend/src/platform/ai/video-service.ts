@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ProviderError } from '../../app/errors/index.js';
-import { resolveModelRuntime } from '../../engine/helpers/apiConfig.js';
-import { fileToBase64 } from '../../engine/helpers/fileHelper.js';
-import { createLogger } from '../logging/logger.js';
-import { getProviderAdapter } from '../providers/index.js';
-import { assertSafeRemoteDownloadUrl } from '../security/network-guards.js';
-import { STORAGE_PATHS } from '../storage/index.js';
+import { ProviderError } from '../../app/errors/index.ts';
+import { resolveModelRuntime } from '../../engine/helpers/apiConfig.ts';
+import { fileToBase64 } from '../../engine/helpers/fileHelper.ts';
+import { createLogger } from '../logging/logger.ts';
+import { getProviderAdapter } from '../providers/index.ts';
+import { assertSafeRemoteDownloadUrl } from '../security/network-guards.ts';
+import { STORAGE_PATHS } from '../storage/index.ts';
 
 const REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_VIDEO_MAX_BYTES = 50 * 1024 * 1024;

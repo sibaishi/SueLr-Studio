@@ -1,6 +1,6 @@
-import { runImageGeneration } from '../../platform/ai/image-service.js';
-import { resolveRuntimeApiConfig } from '../helpers/apiConfig.js';
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import { runImageGeneration } from '../../platform/ai/image-service.ts';
+import { resolveRuntimeApiConfig } from '../helpers/apiConfig.ts';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 export async function execute(
   node: WorkflowNode,

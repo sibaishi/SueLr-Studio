@@ -8,7 +8,7 @@ import {
   logOutgoingRequest,
   parseApiError,
   parseImageApiResponse,
-} from './imageGenShared.js';
+} from './imageGenShared.ts';
 
 const GEMINI_IMAGE_SIZE_BY_RESOLUTION = {
   '1k': '1K',

@@ -1,7 +1,7 @@
-import { successEnvelope } from '../../app/http/envelope.js';
-import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.js';
-import { accountDetailsService } from './account-details.service.js';
-import { settingsService } from './settings.service.js';
+import { successEnvelope } from '../../app/http/envelope.ts';
+import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
+import { accountDetailsService } from './account-details.service.ts';
+import { settingsService } from './settings.service.ts';
 
 export class SettingsController {
   getSettings(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {

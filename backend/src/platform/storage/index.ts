@@ -1,20 +1,20 @@
 import path from 'node:path';
-import { ensureDir } from './ensure-dir.js';
-import { type StoragePaths, getStoragePaths } from './storage-paths.js';
+import { ensureDir } from './ensure-dir.ts';
+import { type StoragePaths, getStoragePaths } from './storage-paths.ts';
 
-export { ensureDir } from './ensure-dir.js';
-export { ensureJsonFile, readJsonFile, writeJsonFile } from './json-store.js';
-export { safeResolveWithin } from './safe-path.js';
-export { APP_CONFIG_DIR_NAME, BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot } from './storage-base.js';
-export { getStorageRoot } from './storage-root.js';
+export { ensureDir } from './ensure-dir.ts';
+export { ensureJsonFile, readJsonFile, writeJsonFile } from './json-store.ts';
+export { safeResolveWithin } from './safe-path.ts';
+export { APP_CONFIG_DIR_NAME, BACKEND_ROOT, PROJECT_ROOT, getDefaultConfigRoot } from './storage-base.ts';
+export { getStorageRoot } from './storage-root.ts';
 export {
   clearStoredStorageRootOverride,
   getBootstrapConfigPath,
   getEffectiveStorageRootInfo,
   getStoredStorageRootOverride,
   writeStoredStorageRootOverride,
-} from './storage-bootstrap.js';
-export { LEGACY_PATHS, migrateLegacyStorageIfNeeded } from './legacy-storage.js';
+} from './storage-bootstrap.ts';
+export { LEGACY_PATHS, migrateLegacyStorageIfNeeded } from './legacy-storage.ts';
 export {
   SCOPED_STORAGE_LAYOUT_VERSION,
   createStorageNamespace,
@@ -22,7 +22,7 @@ export {
   getScopedStoragePaths,
   isDefaultStorageScope,
   isResourceVisibleForScope,
-} from './scoped-storage.js';
+} from './scoped-storage.ts';
 
 export const STORAGE_PATHS = new Proxy({} as StoragePaths, {
   get(_target, property: string | symbol) {

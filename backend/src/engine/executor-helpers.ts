@@ -1,6 +1,6 @@
-import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.js';
-import { getNodeTypeLabel } from './contracts/node-registry.js';
-import type { DynamicValue, WorkflowNode } from './nodes/types.js';
+import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.ts';
+import { getNodeTypeLabel } from './contracts/node-registry.ts';
+import type { DynamicValue, WorkflowNode } from './nodes/types.ts';
 
 type WorkflowEdge = {
   source: string;

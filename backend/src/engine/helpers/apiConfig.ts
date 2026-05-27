@@ -1,5 +1,5 @@
-import { DEFAULT_ENDPOINTS, normalizeProjectModels, resolveProjectModelRuntime } from './projectModels.js';
-import type { EndpointCategory, EndpointMode, ProjectModel, ProjectModelType } from './projectModels.js';
+import { DEFAULT_ENDPOINTS, normalizeProjectModels, resolveProjectModelRuntime } from './projectModels.ts';
+import type { EndpointCategory, EndpointMode, ProjectModel, ProjectModelType } from './projectModels.ts';
 
 type PlainObject = Record<string, unknown>;
 

@@ -1,6 +1,6 @@
-import { ValidationError } from '../../app/errors/index.js';
-import type { DynamicValue } from '../types.js';
-import type { UploadedFileLike } from './types.js';
+import { ValidationError } from '../../app/errors/index.ts';
+import type { DynamicValue } from '../types.ts';
+import type { UploadedFileLike } from './types.ts';
 
 const ALLOWED_MIME_TYPES = new Set([
   'image/png',

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { runWithRequestContext } from '../../platform/logging/request-context.js';
-import { createRequestScopeFromHeaders } from '../../platform/runtime/index.js';
-import type { RequestScope } from '../../platform/runtime/request-scope.js';
+import { runWithRequestContext } from '../../platform/logging/request-context.ts';
+import { createRequestScopeFromHeaders } from '../../platform/runtime/index.ts';
+import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 
 type HeaderValue = string | string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;

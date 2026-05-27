@@ -4,7 +4,7 @@ import {
   isLocalApiMediaUrl,
   localUrlToFilePath,
   mediaSourceToDataUrl,
-} from '../../platform/media/media-resolver.js';
+} from '../../platform/media/media-resolver.ts';
 
 export function urlToLocalPath(url: string): string | null {
   return localUrlToFilePath(url);

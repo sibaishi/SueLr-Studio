@@ -1,8 +1,8 @@
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import { Router } from 'express';
-import { validateBody } from '../../app/middleware/validate-request.js';
-import { settingsController } from './settings.controller.js';
-import { ensureObjectBody } from './settings.schema.js';
+import { validateBody } from '../../app/middleware/validate-request.ts';
+import { settingsController } from './settings.controller.ts';
+import { ensureObjectBody } from './settings.schema.ts';
 
 const router = Router();
 const objectBodyMessage = '请求体必须为对象';

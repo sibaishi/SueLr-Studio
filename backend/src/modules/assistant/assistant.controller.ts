@@ -1,8 +1,8 @@
 import fs from 'node:fs';
-import { successEnvelope } from '../../app/http/envelope.js';
-import { settingsService } from '../settings/settings.service.js';
-import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.js';
-import { assistantService } from './assistant.service.js';
+import { successEnvelope } from '../../app/http/envelope.ts';
+import { settingsService } from '../settings/settings.service.ts';
+import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
+import { assistantService } from './assistant.service.ts';
 
 export class AssistantController {
   getStatus(req: RequestLike, res: ResponseLike) {

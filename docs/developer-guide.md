@@ -68,16 +68,17 @@ Important entry points:
 
 - frontend bootstrap: `src/main.tsx`
 - frontend shell: `src/app/App.tsx`
-- backend entry: `backend/server.js`
-- backend app factory: `backend/src/app/create-app.js`
+- backend entry: `backend/server.ts`
+- backend app factory: `backend/src/app/create-app.ts`
 - one-click local launcher: `scripts/start-dev.mjs`
 - public docs gate: `scripts/check-release-docs.mjs`
 
 Backend TypeScript cleanup note:
 
-- current backend TypeScript work is transitional: some `.js` runtime files are compatibility facades over `.ts` implementations
-- new backend behavior should land in TypeScript sources instead of parallel JavaScript implementations
-- the planned removal of backend JavaScript compatibility facades is tracked in `docs/backend-typescript-migration-plan.md`
+- backend runtime is TypeScript-first: `backend/server.ts`, `backend/src/**/*.ts`, and `backend/tests/**/*.test.ts` run through Node 22 `--experimental-strip-types`
+- do not recreate `backend/server.js`, `backend/src/**/*.js` facades, or `backend/tests/**/*.js`
+- backend runtime code should import backend modules through `.ts` paths; frontend shared workflow `.js` modules remain out of scope
+- the completed backend JavaScript facade removal record is tracked in `docs/backend-typescript-migration-plan.md`
 
 Current cleanup and ownership notes:
 
@@ -266,9 +267,9 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
 
 ### Backend entry and HTTP app
 
-- `backend/server.js`
+- `backend/server.ts`
   - process entry, server startup, and boot wiring
-- `backend/src/app/create-app.js`
+- `backend/src/app/create-app.ts`
   - Express app composition, middleware registration, and route mounting
 
 ### Feature modules
@@ -279,25 +280,25 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
   - feature capability reporting used by frontend bootstrap and diagnostics
 - `backend/src/modules/agent/`
   - agent profiles, chat runtime, tool registry, sessions, and long-term memory governance
-- `backend/src/modules/execution/execution.routes.js`
+- `backend/src/modules/execution/execution.routes.ts`
   - workflow execution endpoints
-- `backend/src/modules/execution/execution.service.js`
+- `backend/src/modules/execution/execution.service.ts`
   - run-state tracking, execution orchestration, and stop behavior
-- `backend/src/modules/images/images.routes.js`
+- `backend/src/modules/images/images.routes.ts`
   - image generation endpoints
-- `backend/src/modules/images/images.service.js`
+- `backend/src/modules/images/images.service.ts`
   - image request handling and response normalization; raw generated image files are written under `files/generated/images/`
-- `backend/src/modules/settings/settings.routes.js`
+- `backend/src/modules/settings/settings.routes.ts`
   - settings routes
-- `backend/src/modules/settings/settings.controller.js`
+- `backend/src/modules/settings/settings.controller.ts`
   - HTTP controller for settings, restart, and path operations
-- `backend/src/modules/settings/settings.service.js`
+- `backend/src/modules/settings/settings.service.ts`
   - settings business rules and storage-root coordination
-- `backend/src/modules/settings/settings.repository.js`
+- `backend/src/modules/settings/settings.repository.ts`
   - persisted settings reads and writes
-- `backend/src/modules/files/files.routes.js`
+- `backend/src/modules/files/files.routes.ts`
   - file management routes
-- `backend/src/modules/files/files.service.js`
+- `backend/src/modules/files/files.service.ts`
   - path resolution, file listing, and storage-facing operations
 - `backend/src/modules/workflows/`
   - workflow persistence, import/export, and migration chain
@@ -315,84 +316,84 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
 
 ### Workflow engine
 
-- `backend/src/engine/executor.js`
+- `backend/src/engine/executor.ts`
   - workflow runtime coordinator
-- `backend/src/engine/executor-helpers.js`
+- `backend/src/engine/executor-helpers.ts`
   - executor-side helper extraction for shared runtime behavior
-- `backend/src/engine/contracts/node-registry.js`
+- `backend/src/engine/contracts/node-registry.ts`
   - backend node contract registry
-- `backend/src/engine/nodes/index.js`
+- `backend/src/engine/nodes/index.ts`
   - backend node module aggregation
-- `backend/src/engine/nodes/iterateRun.js`
+- `backend/src/engine/nodes/iterateRun.ts`
   - fallback executor contract for the `文本逐项` control node; the main repeated-downstream behavior lives in `executor.js`
-- `backend/src/engine/nodes/iterateImageRun.js`
+- `backend/src/engine/nodes/iterateImageRun.ts`
   - fallback executor contract for the `图像逐项` control node; repeated downstream execution also lives in `executor.js`
-- `backend/src/engine/nodes/textClean.js`
+- `backend/src/engine/nodes/textClean.ts`
   - deterministic removal of text ranges between user-configured start and end tokens
-- `backend/src/engine/nodes/imageGen.js`
+- `backend/src/engine/nodes/imageGen.ts`
   - image generation node behavior
-- `backend/src/engine/nodes/saveFile.js`
+- `backend/src/engine/nodes/saveFile.ts`
   - save-to-disk workflow node behavior
-- `backend/src/engine/helpers/imageGeneration.js`
+- `backend/src/engine/helpers/imageGeneration.ts`
   - image-node request and output helpers; generated image URLs use `/api/outputs/images/...`
-- `backend/src/engine/helpers/saveHelper.js`
+- `backend/src/engine/helpers/saveHelper.ts`
   - save-file output handling; materialized workflow outputs are grouped by media type under `images/`, `videos/`, `audio/`, `text/`, and `data/`
-- `backend/src/engine/helpers/workflowLogger.js`
+- `backend/src/engine/helpers/workflowLogger.ts`
   - workflow log shaping before persistence
 
 ### Platform layer
 
-- `backend/src/platform/ai/image-service.js`
+- `backend/src/platform/ai/image-service.ts`
   - upstream image provider calling and response adaptation
-- `backend/src/platform/ai/chat-service.js`
+- `backend/src/platform/ai/chat-service.ts`
   - upstream chat request handling
-- `backend/src/platform/ai/search-service.js`
+- `backend/src/platform/ai/search-service.ts`
   - upstream web-search request handling
-- `backend/src/platform/ai/video-service.js`
+- `backend/src/platform/ai/video-service.ts`
   - upstream video request handling; synchronous or downloaded video results are materialized under `files/generated/videos/`
-- `backend/src/platform/http/proxy-aware-fetch.js`
+- `backend/src/platform/http/proxy-aware-fetch.ts`
   - shared fetch wrapper with proxy awareness; supports app-level outbound proxy settings, environment proxy variables, and Windows system proxy fallback
 - `backend/src/platform/providers/`
   - provider adapter contracts, registry wiring, compatible provider support, and shared provider HTTP behavior
-- `backend/src/platform/security/network-guards.js`
+- `backend/src/platform/security/network-guards.ts`
   - outbound network allow/block checks used before provider requests
-- `backend/src/platform/storage/index.js`
+- `backend/src/platform/storage/index.ts`
   - storage exports used by modules and engine
-- `backend/src/platform/storage/storage-root.js`
+- `backend/src/platform/storage/storage-root.ts`
   - active storage root resolution
-- `backend/src/platform/storage/storage-bootstrap.js`
+- `backend/src/platform/storage/storage-bootstrap.ts`
   - app-data root bootstrap, environment override handling, and custom root persistence
-- `backend/src/platform/storage/storage-paths.js`
+- `backend/src/platform/storage/storage-paths.ts`
   - canonical directories and files under the active app data root
-- `backend/src/platform/storage/file-store.js`
+- `backend/src/platform/storage/file-store.ts`
   - binary and generated-file storage helpers
-- `backend/src/platform/storage/json-store.js`
+- `backend/src/platform/storage/json-store.ts`
   - JSON read/write helpers for persisted settings and records
-- `backend/src/platform/storage/safe-path.js`
+- `backend/src/platform/storage/safe-path.ts`
   - storage-root-relative path validation
-- `backend/src/platform/storage/legacy-storage.js`
+- `backend/src/platform/storage/legacy-storage.ts`
   - migration and compatibility helpers for older storage layouts
-- `backend/src/platform/system/select-directory.js`
+- `backend/src/platform/system/select-directory.ts`
   - native directory picker integration
-- `backend/src/platform/system/restart-backend.js`
+- `backend/src/platform/system/restart-backend.ts`
   - backend restart entry
-- `backend/src/platform/system/restart-runner.js`
+- `backend/src/platform/system/restart-runner.ts`
   - restart process launcher
-- `backend/src/platform/system/restart-trigger.js`
+- `backend/src/platform/system/restart-trigger.ts`
   - guarded restart orchestration
-- `backend/src/platform/logging/logger.js`
+- `backend/src/platform/logging/logger.ts`
   - shared logger
-- `backend/src/platform/logging/runtime-observability.js`
+- `backend/src/platform/logging/runtime-observability.ts`
   - runtime probes used to diagnose stuck or invalid transitions
-- `backend/src/platform/logging/request-context.js`
+- `backend/src/platform/logging/request-context.ts`
   - request-scoped metadata carrier used by logs and future server-side ownership hooks
-- `backend/src/platform/runtime/request-scope.js`
+- `backend/src/platform/runtime/request-scope.ts`
   - default single-user request scope model used by HTTP context, logging, diagnostics, and future ownership hooks
-- `backend/src/platform/runtime/resource-ownership.js`
+- `backend/src/platform/runtime/resource-ownership.ts`
   - additive ownership metadata helpers for persisted resources; new records should carry `ownerUserId`, `workspaceId`, and `ownershipScope`
-- `backend/src/platform/logging/workflow-run-logger.js`
+- `backend/src/platform/logging/workflow-run-logger.ts`
   - workflow run log persistence
-- `backend/src/platform/logging/workflow-log-sanitizer.js`
+- `backend/src/platform/logging/workflow-log-sanitizer.ts`
   - trims oversized payloads such as inline base64 before they flood logs
 
 ### Generated media storage
@@ -419,7 +420,7 @@ When the runtime is running as `server-web` in either its single-user or future 
 - internal scope headers are `X-SueLr-User-Id`, `X-SueLr-Workspace-Id`, and `X-SueLr-Runtime-Mode`; they are metadata carriers only and do not introduce authentication or authorization by themselves
 - persisted resources should use `ownerUserId`, `workspaceId`, and `ownershipScope` for ownership metadata; do not reuse domain fields such as memory `scope` for request ownership
 - missing ownership metadata on legacy single-user records should be filled through default fallback on read, not by forcing an immediate data migration
-- Milestone 5 is implemented and covered by `npm.cmd run check`, but remains pending manual smoke acceptance until representative local-web, desktop, and server-web behavior has been verified by a human
+- Milestone 5 is implemented and covered by `npm.cmd run check`; representative local-web, desktop, and server-web deployments still require manual smoke acceptance before release sign-off
 - scoped storage preparation keeps `single-user/default` on the existing storage layout while reserving `scopes/v1/workspaces/<workspaceId>/users/<userId>/...` for future physical namespace moves
 
 If a new API needs to surface storage or generated outputs, prefer relative URLs or semantic state, never raw host paths.

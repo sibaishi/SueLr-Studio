@@ -1,670 +1,325 @@
-# Deployment Variants Execution Plan
-# 部署变体执行计划
+# Deployment Variants Execution Plan / 部署变体执行计划
 
-This document defines how SueLr Studio evolves from one shared codebase into the current `main` trunk plus three public release variants.
-本文定义 SueLr Studio 如何从一套共享代码库演进为当前的 `main` 主干加三个公开发布变体。
+This document defines how SueLr Studio keeps one shared product trunk while supporting three release variants: `local-web`, `desktop`, and `server-web`.
 
-- `local-web`: frontend + backend running locally and opened in a browser
-- `local-web`：前后端都在本机运行，并通过浏览器打开
-- `desktop`: a clean Electron desktop shell
-- `desktop`：轻量、清晰的 Electron 桌面壳
-- `server-web`: a deployable server version that starts single-user and later evolves to multi-user
-- `server-web`：可部署的服务端版本，先支持单用户，后续演进到多用户
+本文定义 SueLr Studio 如何在一个共享产品主干上支持三条发布变体：`local-web`、`desktop` 和 `server-web`。
 
-## Delivery Rule
-## 交付规则
+## Delivery Rule / 交付规则
 
-- Shared product logic belongs on `main`
-- 共享产品逻辑归属 `main`
-- Release branches carry shell, packaging, and deployment differences only
-- 发布分支只承载壳层、打包和部署差异
+- Shared product logic belongs on `main`.
+- Release branches carry shell, packaging, deployment, and release-hardening differences only.
+- If behavior is needed by more than one variant, land it on `main` first.
+- Each release variant must ship only the minimum runtime surface it needs.
 
-## Release Surface Rule
-## 发布面规则
+- 共享产品逻辑归属 `main`。
+- 发布分支只承载壳层、打包、部署和发布加固差异。
+- 如果某个行为被多个变体需要，必须先落到 `main`。
+- 每个发布变体只应交付自己真正需要的最小运行时表面。
 
-- `main` keeps the full development surface, including tests, e2e assets, maintenance tooling, and documentation
-- `main` 保留完整开发面，包括测试、e2e 资源、维护工具和文档
-- Each release variant must publish only the minimum runtime surface it actually needs
-- 每个发布变体只应发布其真实运行所需的最小运行面
-- Release-surface trimming must be enforced by scripts, build-context filters, and packaging rules rather than by manual operator discipline
-- 发布面裁剪必须通过脚本、构建上下文过滤和打包规则强制执行，而不是依赖人工自觉
+## Branch Model / 分支模型
 
-## Repository Root Cleanup
-## 仓库根目录治理
+- `main`: shared product trunk with the full development surface.
+- `release/local-web`: local browser distribution branch.
+- `release/desktop`: Electron desktop distribution branch.
+- `release/server-web`: deployable server distribution branch.
 
-The repository root must stay easy to scan and must not accumulate ad hoc files over time.
-仓库根目录必须保持易于扫描，不能随着时间推移堆积临时性杂项文件。
+- `main`：共享产品主干，保留完整开发表面。
+- `release/local-web`：本地浏览器版发布分支。
+- `release/desktop`：Electron 桌面版发布分支。
+- `release/server-web`：服务端部署版发布分支。
 
-### First-class root directories
-### 一级根目录
+Release branches should stay focused. Do not move shared business logic into release branches unless the same change will be merged back to `main`.
 
-- `src/`: frontend product source
-- `src/`：前端产品源码
-- `backend/`: backend source and runtime entry
-- `backend/`：后端源码与运行入口
-- `electron/`: desktop shell only
-- `electron/`：桌面壳专用
-- `docs/`: public documentation only
-- `docs/`：仅放公开文档
-- `tests/`: frontend unit and end-to-end coverage
-- `tests/`：前端单测与端到端测试
-- `scripts/`: maintenance, validation, and launcher scripts
-- `scripts/`：维护、校验与启动脚本
-- `workflows/`: shared example workflows
-- `workflows/`：共享示例工作流
-- `build/`: build resources such as icons and packaging assets
-- `build/`：图标、打包资产等构建资源
+发布分支应保持聚焦。不要把共享业务逻辑只放在发布分支里，除非同一变更也会合并回 `main`。
 
-### Generated or runtime-only directories
-### 生成物或运行期目录
-
-- `dist/`: built frontend artifacts
-- `dist/`：前端构建产物
-- `release/`: packaged desktop outputs
-- `release/`：桌面打包输出
-- `.run-logs/`: launcher and runtime logs
-- `.run-logs/`：启动器和运行日志
-- `storage/`: repository-local runtime storage used only when explicitly configured for development
-- `storage/`：仅在显式配置开发环境时使用的仓库内运行存储
-- `playwright-report/`, `test-results/`, `node_modules/`: generated support surfaces
-- `playwright-report/`、`test-results/`、`node_modules/`：生成型支撑目录
-
-Rules:
-规则：
-
-- These directories must stay ignored by git
-- 这些目录必须保持被 git 忽略
-- Documentation must describe them as generated or runtime-only surfaces, not source structure
-- 文档必须将其描述为生成物或运行期目录，而不是源码结构
-- New code must not depend on these paths as permanent source locations
-- 新代码不能将这些路径当作永久源码位置依赖
-
-### Root files that remain visible entrypoints
-### 保持可见的根目录入口文件
-
-- `package.json`
-- `package-lock.json`
-- `README.md`
-- `CONTRIBUTING.md`
-- `AGENTS.md`
-- `index.html`
-- `biome.json`
-- `vite.config.ts`
-- `vitest.config.ts`
-- `playwright.config.ts`
-- `tsconfig.json`
-- `start.bat`
-- `start.sh`
-
-Rules:
-规则：
-
-- User-facing launch entrypoints may remain at the root
-- 面向用户的启动入口可以保留在根目录
-- Repo-wide config files may remain at the root
-- 仓库级配置文件可以保留在根目录
-- New maintenance helpers should go into `scripts/` instead of the root
-- 新的维护脚本应进入 `scripts/`，而不是直接堆在根目录
-
-## Structure Inventory
-## 结构盘点
-
-### Frontend growth targets
-### 前端增长目标目录
-
-- `src/app/`: app shell, bootstrap, navigation
-- `src/app/`：应用壳、启动逻辑、导航
-- `src/domains/`: domain-owned product surfaces
-- `src/domains/`：各领域自有产品面
-- `src/features/`: cross-domain surfaces such as settings
-- `src/features/`：跨领域功能面，例如设置页
-- `src/providers/`: React context providers
-- `src/providers/`：React 上下文提供者
-- `src/shared/`: shared API, UI, hooks, runtime helpers, workflow infrastructure
-- `src/shared/`：共享 API、UI、Hooks、运行时辅助、工作流基础设施
-- `src/shared/runtime/`: browser/runtime adapters and storage helpers
-- `src/shared/runtime/`：浏览器/运行时适配与存储辅助
-- `src/shared/providers/`: shared provider adapters and model routing
-- `src/shared/providers/`：共享服务商适配与模型路由
-- `src/shared/types/`: shared frontend contracts and common types
-- `src/shared/types/`：共享前端契约与通用类型
-
-### Removed frontend compatibility surface
-### 前端兼容层
-
-- root `src/lib/` has been removed after the shared helper migration
-- `src/lib/`：已在共享辅助模块迁移后删除
-
-Rules:
-规则：
-
-- Do not recreate root `src/lib/` or add new `@/lib/*` imports
-- 不要重建 `src/lib/`，也不要新增 `@/lib/*` 导入
-- Canonical ownership should move into `src/app/`, `src/shared/*`, or the owning domain tree
-- 规范归属应转入 `src/app/`、`src/shared/*` 或所属领域目录
-
-### Backend growth targets
-### 后端增长目标目录
-
-- `backend/src/app/`
-- `backend/src/modules/`
-- `backend/src/engine/`
-- `backend/src/platform/`
-
-Rules:
-规则：
-
-- Business HTTP logic stays in `modules/`
-- 业务 HTTP 逻辑放在 `modules/`
-- Workflow execution logic stays in `engine/`
-- 工作流执行逻辑放在 `engine/`
-- Infrastructure and deployment-specific behavior stays in `platform/`
-- 基础设施与部署相关行为放在 `platform/`
-
-## Branch Model
-## 分支模型
-
-- `main`: shared product trunk
-- `main`：共享产品主干
-- `release/local-web`: local browser distribution branch
-- `release/local-web`：本地浏览器版发布分支
-- `release/desktop`: desktop distribution branch
-- `release/desktop`：桌面版发布分支
-- `release/server-web`: deployable server distribution branch
-- `release/server-web`：服务端部署版发布分支
-
-Branch rules:
-分支规则：
-
-- Shared feature work starts on `main`
-- 共享功能先落在 `main`
-- Release branches receive only variant-specific work, release hardening, or hotfixes
-- 发布分支只接收变体专属工作、发布加固或热修复
-- If behavior is needed by more than one variant, it must land on `main` first
-- 如果一个行为被多个变体需要，必须先落到 `main`
-
-## Mainline First Changes
-## 主干优先变更
-
-The following work should always be resolved on `main` before branches diverge further.
-以下工作应始终优先在 `main` 上完成，然后再允许分支进一步分化。
+## Mainline First Changes / 主干优先变更
 
 Completed on trunk:
+
 主干已完成：
 
-- frontend and backend runtime mode contracts
-- 前后端运行模式契约
-- backend runtime capability endpoint and privileged-route guards
-- 后端运行时能力接口与高权限路由保护
-- settings capability-aware UI for local-only actions
-- 对本地专属操作具备能力感知的设置页 UI
-- public trunk and release-branch structure documentation
-- Biome lint and format baseline for frontend and backend source
-- root `src/lib/` removal and migration to `src/shared/*`, `src/app/`, and domain-owned helpers
-- frontend top-level lazy loading plus stable vendor chunk splitting for normal Vite builds
-- 公开的主干与发布分支结构文档
+- Runtime mode contracts across frontend and backend.
+- Backend runtime capability endpoint and privileged-route guards.
+- Settings UI that understands local-only capabilities.
+- Public documentation for trunk and release branch structure.
+- Biome lint and format baseline for frontend and backend source.
+- Root `src/lib/` removal and migration to `src/shared/*`, `src/app/`, and domain-owned helpers.
+- Frontend top-level lazy loading and stable vendor chunk splitting for normal Vite builds.
+- Backend TypeScript runtime migration to `backend/server.ts`, `backend/src/**/*.ts`, and `backend/tests/**/*.test.ts`.
+
+- 前后端运行模式契约。
+- 后端运行时能力接口与高权限路由保护。
+- 能感知本地专属能力的设置界面。
+- 主干和发布分支结构的公开文档。
+- 前后端源码的 Biome lint 与 format 基线。
+- 移除根级 `src/lib/`，迁移到 `src/shared/*`、`src/app/` 和领域自有 helper。
+- 前端顶层懒加载与常规 Vite 构建的稳定 vendor chunk 拆分。
+- 后端 TypeScript 运行时迁移到 `backend/server.ts`、`backend/src/**/*.ts` 和 `backend/tests/**/*.test.ts`。
 
 Still pending for long-term cleanup:
-长期治理中仍待完成：
 
-- broader audit of chat, image, video, and workflow surfaces for non-desktop assumptions
-- 针对 chat、image、video、workflow 的更广泛非桌面假设审查
+长期治理仍待完成：
 
-## Local-Web Variant
-## Local-Web 变体
+- Broader audit of chat, image, video, and workflow surfaces for non-desktop assumptions.
+- Future multi-user server delivery, including authentication, storage isolation, ownership enforcement, and user-scoped observability.
+
+- 更广泛审计 chat、image、video 和 workflow 表面中的非桌面假设。
+- 未来多用户服务端交付，包括认证、存储隔离、归属强制执行和用户级可观测性。
+
+## Local-Web Variant / Local-Web 变体
 
 The `local-web` variant removes Electron but keeps the local-machine deployment assumption.
+
 `local-web` 变体移除 Electron，但仍保留“部署在本机”的前提。
 
 Completed on trunk:
+
 主干已完成：
 
 - `scripts/start-local-web.mjs`
 - `scripts/build-local-web.mjs`
 - root scripts `dev:local-web`, `build:local-web`, and `start:local-web`
-- 根脚本 `dev:local-web`、`build:local-web`、`start:local-web`
-- backend static hosting path through `APP_FRONTEND_DIST`
+- backend static hosting through `APP_FRONTEND_DIST`
+- backend startup through `node --experimental-strip-types server.ts`
+
+- `scripts/start-local-web.mjs`
+- `scripts/build-local-web.mjs`
+- 根脚本 `dev:local-web`、`build:local-web` 和 `start:local-web`
 - 通过 `APP_FRONTEND_DIST` 提供后端静态托管
+- 通过 `node --experimental-strip-types server.ts` 启动后端
 
 Runtime expectations:
+
 运行预期：
 
-- no Electron dependency
-- 不依赖 Electron
-- browser is the only shell
-- 浏览器是唯一壳层
-- local runtime data still uses the existing config-dir resolver
-- 本地运行数据仍使用既有配置目录解析器
+- No Electron dependency.
+- Browser is the only shell.
+- Runtime data still uses the config-dir resolver.
+- Backend port remains `3001`; Vite dev proxy remains `5173 -> 3001`.
 
-## Desktop Variant
-## Desktop 变体
+- 不依赖 Electron。
+- 浏览器是唯一壳层。
+- 运行时数据仍使用配置目录解析器。
+- 后端端口保持 `3001`；Vite dev proxy 保持 `5173 -> 3001`。
 
-The desktop variant should remain a thin shell over shared logic.
-桌面版应保持为共享逻辑之上的轻量壳层。
+Manual release smoke still required:
+
+发布前仍需人工冒烟：
+
+- Boot local-web.
+- Create, edit, and run a workflow.
+- Upload files.
+- List outputs and open output URLs.
+
+- 启动 local-web。
+- 创建、编辑并运行工作流。
+- 上传文件。
+- 列出输出并打开输出 URL。
+
+## Desktop Variant / Desktop 变体
+
+The desktop variant remains a thin Electron shell over shared product logic.
+
+桌面版保持为共享产品逻辑之上的轻量 Electron 壳层。
 
 Completed on trunk:
+
 主干已完成：
 
-- desktop main-process logic split into dedicated helper modules
-- 桌面主进程逻辑已拆分为专门的辅助模块
-- single-instance protection with unit coverage
-- 单实例保护及其单测覆盖
-- embedded backend startup and window lifecycle validation
-- 内嵌后端启动与窗口生命周期验证
+- `electron/main.cjs` stays CommonJS and remains a thin assembly entrypoint.
+- Desktop helper modules own single-instance coordination, window lifecycle, and embedded backend orchestration.
+- Embedded backend startup points to `backend/server.ts`.
+- Unit coverage exists for relaunch, single-instance, window lifecycle, menu, and embedded backend behavior.
 
-Execution rule:
+- `electron/main.cjs` 保持 CommonJS，并继续作为轻量装配入口。
+- 桌面 helper 模块负责单实例协调、窗口生命周期和嵌入式后端编排。
+- 嵌入式后端启动入口指向 `backend/server.ts`。
+- relaunch、单实例、窗口生命周期、菜单和嵌入式后端行为已有单元测试覆盖。
+
+Execution rules:
+
 执行规则：
 
-- Electron must not become the owner of shared business logic
-- Electron 不能成为共享业务逻辑的归属层
-- Any feature needed by more than desktop belongs back on `main`
-- 任何超过桌面版独占需求的功能，都应回归 `main`
+- Electron must not own shared business logic.
+- Renderer code must use preload bridges for IPC.
+- Keep a single `BrowserWindow` unless a future request explicitly changes that requirement.
 
-## Server Single-User Variant
-## 服务端单用户变体
+- Electron 不能拥有共享业务逻辑。
+- Renderer 代码必须通过 preload bridge 使用 IPC。
+- 除非未来明确要求，否则保持单 `BrowserWindow`。
+
+Manual release smoke still required:
+
+发布前仍需人工冒烟：
+
+- Boot the packaged or development desktop app.
+- Confirm the embedded backend starts.
+- Confirm single-window behavior.
+- Exercise local-only settings actions.
+
+- 启动打包版或开发版桌面应用。
+- 确认嵌入式后端启动。
+- 确认单窗口行为。
+- 验证本地专属设置操作。
+
+## Server Single-User Variant / 服务端单用户变体
 
 The first `server-web` milestone is a single-user deployment, not full SaaS or multi-tenant delivery.
-`server-web` 的第一阶段是单用户部署，不是完整 SaaS 或多租户交付。
+
+`server-web` 第一阶段是单用户部署，不是完整 SaaS 或多租户交付。
 
 Completed on trunk:
+
 主干已完成：
 
-- host filesystem details are hidden in server runtime
-- 服务端运行时已隐藏宿主机文件系统细节
-- host-only actions such as backend restart are blocked
-- 已阻止后端重启等宿主机专属操作
-- storage settings responses redact host filesystem roots
-- 存储设置接口会脱敏宿主机路径
-- workflow outputs no longer expose host `savedPaths`
-- 工作流输出不再暴露宿主机 `savedPaths`
-- request context carries request metadata groundwork
-- 请求上下文已具备基础请求元数据
-- minimized `runtime/app` build-context sync is in place
-- 最小化 `runtime/app` 构建上下文同步已落地
-- server-web Docker build context and runtime layer are trimmed
-- server-web 的 Docker 构建上下文和运行层已裁剪
+- Host filesystem details are hidden in server runtime.
+- Host-only actions such as backend restart are blocked from browser UI.
+- Storage settings responses redact host filesystem roots.
+- Workflow outputs do not expose host `savedPaths`.
+- Request context carries request metadata groundwork.
+- Minimized `runtime/app` build-context sync is in place.
+- Server-web Docker build context and runtime layer are trimmed.
+- Docker runtime starts `backend/server.ts` with `--experimental-strip-types`.
+
+- 服务端运行时隐藏宿主机文件系统细节。
+- 浏览器 UI 中阻止后端重启等宿主机专属操作。
+- 存储设置响应会脱敏宿主机文件系统根路径。
+- 工作流输出不暴露宿主机 `savedPaths`。
+- 请求上下文已具备请求元数据基础。
+- 最小化 `runtime/app` 构建上下文同步已落地。
+- server-web Docker 构建上下文和运行层已裁剪。
+- Docker 运行时使用 `--experimental-strip-types` 启动 `backend/server.ts`。
 
 Acceptance criteria:
+
 验收标准：
 
-- server can boot with production environment variables
-- 服务端可在生产环境变量下启动
-- frontend can run entirely through deployed backend and static assets
-- 前端可完全通过部署后的后端与静态资源运行
-- blocked host-only settings actions return standard API errors
-- 被阻止的宿主机专属设置操作返回标准 API 错误
-- generated files remain accessible only through supported API paths
-- 生成文件仅可通过受支持的 API 路径访问
-- storage settings and workflow save results never expose absolute host paths
-- 存储设置和工作流保存结果绝不暴露宿主机绝对路径
+- Server can boot with production environment variables.
+- Frontend can run entirely through deployed backend and static assets.
+- Blocked host-only settings actions return standard API errors.
+- Generated files remain accessible only through supported API paths.
+- Storage settings and workflow save results never expose absolute host paths.
 
-## Server-Web Deployment Precheck And SOP
-## Server-Web 部署预检与 SOP
+- 服务端可使用生产环境变量启动。
+- 前端可完全通过部署后的后端和静态资源运行。
+- 被阻止的宿主机专属设置操作返回标准 API 错误。
+- 生成文件仅可通过受支持的 API 路径访问。
+- 存储设置和工作流保存结果绝不暴露宿主机绝对路径。
+
+Manual release smoke still required:
+
+发布前仍需人工冒烟：
+
+- Build and run the server-web image or repository deployment.
+- Confirm `/api/health`.
+- Open the served frontend.
+- Confirm host-only actions are blocked.
+- Confirm host paths are not leaked in settings, workflow outputs, or file APIs.
+
+- 构建并运行 server-web 镜像或仓库部署。
+- 确认 `/api/health`。
+- 打开被托管的前端。
+- 确认宿主机专属操作被阻止。
+- 确认设置、工作流输出和文件 API 不泄漏宿主机路径。
+
+## Server-Web Deployment Precheck And SOP / Server-Web 部署预检与 SOP
 
 Precheck:
+
 预检：
 
-- confirm the deployment candidate comes from `release/server-web`, or from a reviewed branch that will merge into it
-- 确认部署候选来自 `release/server-web`，或来自将被合并进去的已审查分支
-- confirm `npm run typecheck`
-- 确认 `npm run typecheck`
-- confirm `npm run test:backend`
-- 确认 `npm run test:backend`
-- confirm `npm run check:docs`
-- 确认 `npm run check:docs`
-- confirm `npm run check:encoding`
-- 确认 `npm run check:encoding`
-- confirm the frontend production build exists and backend can serve it through `APP_FRONTEND_DIST`
-- 确认前端生产构建已存在，且后端能通过 `APP_FRONTEND_DIST` 提供服务
-- confirm host filesystem paths are not exposed by settings, workflow outputs, or file APIs
-- 确认设置、工作流输出和文件 API 不暴露宿主机路径
+- Confirm the deployment candidate comes from `release/server-web`, or from a reviewed branch that will merge into it.
+- Run `npm.cmd run check`.
+- Confirm `scripts/deploy/server-web/release-files.txt` includes every runtime file needed by Docker.
+- Confirm the frontend production build exists and backend can serve it through `APP_FRONTEND_DIST`.
+- Confirm host filesystem paths are not exposed by settings, workflow outputs, or file APIs.
+
+- 确认部署候选来自 `release/server-web`，或来自将合并进去的已审查分支。
+- 运行 `npm.cmd run check`。
+- 确认 `scripts/deploy/server-web/release-files.txt` 包含 Docker 所需的全部运行时文件。
+- 确认前端生产构建存在，且后端可通过 `APP_FRONTEND_DIST` 提供服务。
+- 确认设置、工作流输出和文件 API 不暴露宿主机文件系统路径。
 
 Recommended environment contract:
-推荐环境约定：
+
+推荐环境契约：
 
 - `APP_RUNTIME_MODE=server-single-user`
-- `APP_HOST=127.0.0.1`
+- `APP_HOST=127.0.0.1` behind reverse proxy, or `0.0.0.0` inside the container runtime
 - `APP_PORT=3001`
 - `APP_ALLOWED_ORIGINS=<comma-separated allowed browser origins>`
 - `APP_FRONTEND_DIST=<absolute path to built frontend dist>`
 - `APP_CONFIG_DIR=<absolute runtime data root>` when needed
-- 需要时使用 `APP_CONFIG_DIR=<运行数据绝对根路径>`
+
+- `APP_RUNTIME_MODE=server-single-user`
+- 反向代理后使用 `APP_HOST=127.0.0.1`，容器运行时可使用 `0.0.0.0`
+- `APP_PORT=3001`
+- `APP_ALLOWED_ORIGINS=<逗号分隔的允许浏览器来源>`
+- `APP_FRONTEND_DIST=<构建后前端 dist 的绝对路径>`
+- 需要时设置 `APP_CONFIG_DIR=<运行时数据绝对根路径>`
 
 Operational notes:
+
 运维说明：
 
-- the source checkout may remain on the host as update source
-- 源码检出目录可继续保留在宿主机上作为更新源
-- the live compose build context should be synchronized into a minimized `runtime/app` tree
-- 在线 compose 构建上下文应同步到最小化的 `runtime/app` 目录
-- server-web Docker builds should use a variant-specific `.dockerignore`
-- server-web Docker 构建应使用变体专属 `.dockerignore`
-- runtime data is kept by default on uninstall unless `SUE_LR_REMOVE_DATA=1`
-- 默认卸载不删除运行数据，除非设置 `SUE_LR_REMOVE_DATA=1`
-
-## Milestones
-## 里程碑
-
-### Milestone 1: Runtime Capability Layer
-### 里程碑 1：运行时能力层
-
-Scope:
-范围：
-
-- runtime mode definitions exist on frontend and backend
-- 前后端具备运行模式定义
-- capability-aware UI gates exist for host-only actions
-- 对宿主机专属操作具备能力感知 UI 门控
-- backend privileged routes are runtime-guarded
-- 后端高权限路由受运行模式保护
-
-Status:
-状态：
-
-- closed on trunk
-- 主干已收口
-
-### Milestone 2: Local-Web Release Readiness
-### 里程碑 2：Local-Web 发布就绪
-
-Scope:
-范围：
-
-- local-web launcher scripts exist
-- local-web 启动脚本存在
-- browser-only local runtime is fully usable
-- 纯浏览器本地运行形态可用
-
-Status:
-状态：
-
-- closed on trunk
-- 主干已收口
-
-### Milestone 3: Desktop Variant Cleanup
-### 里程碑 3：桌面版清理收口
-
-Scope:
-范围：
-
-- Electron shell remains thin
-- Electron 壳层保持轻量
-- desktop packaging keeps working after mainline runtime changes
-- 主干运行时调整后，桌面打包仍可用
-
-Status:
-状态：
-
-- closed on trunk
-- 主干已收口
-
-### Milestone 4: Server Single-User Release
-### 里程碑 4：服务端单用户发布
-
-Scope:
-范围：
-
-- server deployment works with static frontend hosting
-- 服务端部署可结合静态前端托管运行
-- host-path exposure is removed
-- 宿主机路径暴露已移除
-- server-safe storage and file access behavior is enforced
-- 服务端安全的存储与文件访问行为已强制落实
-
-Status:
-状态：
-
-- closed after rollout validation and release-surface hardening
-- 已在上线验证与发布面收紧后收口
-
-### Milestone 5: Scope, Ownership, And Scoped Storage
-### 里程碑 5：Scope、归属与 Scoped 存储
-
-Status:
-状态：
-
-- Milestone 5A, 5B, and 5C are implemented in code and covered by `npm.cmd run check`
-- 里程碑 5A、5B 和 5C 已完成代码落地，并通过 `npm.cmd run check`
-- request scope, resource ownership metadata, and scoped storage preparation are closed as Milestone 5
-- request scope、资源归属元数据与 scoped 存储准备已作为里程碑 5 关闭
-- manual smoke testing across local-web, desktop, and server-web has been completed; follow-up bugs move into normal triage
-- 覆盖 local-web、desktop 和 server-web 的手动冒烟已完成；后续问题进入常规 triage
-
-Manual smoke checklist completed:
-手动冒烟清单已完成：
-
-- local-web can boot, create/edit/run workflows, upload files, list outputs, and open output URLs
-- local-web 可以启动、创建/编辑/运行工作流、上传文件、列出输出并打开输出 URL
-- desktop can boot with the embedded backend, preserve single-window behavior, and use local-only settings actions
-- desktop 可以通过内嵌后端启动，保持单窗口行为，并可使用本地专属设置操作
-- server-web/server-single-user can boot from production-like environment variables, serve static frontend assets, block host-only actions, and avoid host-path leaks
-- server-web/server-single-user 可以通过近似生产环境变量启动、托管静态前端、阻止宿主机专属操作，并避免宿主机路径泄漏
-- representative persisted records and generated artifacts can be inspected for `ownerUserId`, `workspaceId`, `ownershipScope`, and scoped file resolution behavior
-- 代表性持久化记录和生成产物可检查 `ownerUserId`、`workspaceId`、`ownershipScope` 与 scoped 文件解析行为
-
-#### Milestone 5A: Scope Foundation
-#### 里程碑 5A：Scope 基础骨架
-
-Goal:
-目标：
-
-- introduce a unified request scope model without breaking single-user behavior
-- 在不破坏单用户行为的前提下引入统一请求 scope 模型
-
-Scope:
-范围：
-
-- request-scoped identity groundwork
-- 请求级身份上下文基础
-- standardized `scope` fields in request context
-- 在请求上下文中标准化 `scope` 字段
-- service-layer ability to accept scope parameters
-- 服务层具备接收 scope 参数的能力
-- logging and diagnostics carry scope metadata
-- 日志与诊断携带 scope 元数据
-
-Acceptance criteria:
-验收标准：
-
-- request context can carry `userId`, `workspaceId`, and runtime mode without breaking current server-single-user behavior
-- 请求上下文可携带 `userId`、`workspaceId` 和运行模式，且不破坏当前 server-single-user 行为
-- single-user mode maps safely to default scope values
-- 单用户模式可安全映射到默认 scope 值
-- key service interfaces can accept scope-aware parameters
-- 关键服务接口可接收带 scope 的参数
-- runtime diagnostics can show the active scope foundation state
-- 运行时诊断可展示当前 scope 基础状态
-
-Risk checklist:
-风险清单：
-
-- do not introduce a full auth system here
-- 此阶段不引入完整认证系统
-- do not force frontend workspace UI yet
-- 此阶段不强行引入前端 workspace UI
-- keep current local and desktop behavior unchanged
-- 保持当前 local 和 desktop 行为不变
-
-#### Milestone 5B: Resource Ownership
-#### 里程碑 5B：资源归属模型
-
-Goal:
-目标：
-
-- make persisted resources carry explicit ownership metadata
-- 让持久化资源显式携带归属元数据
-
-Scope:
-范围：
-
-- workflows
-- 工作流
-- workflow runs
-- 工作流运行记录
-- generated files
-- 生成文件
-- assistant and agent sessions
-- assistant 与 agent 会话
-- memory records
-- memory 记录
-- audit and diagnostics records
-- 审计与诊断记录
-
-Acceptance criteria:
-验收标准：
-
-- new persisted resources include ownership metadata such as `ownerUserId` and `workspaceId`
-- 新写入的持久化资源包含 `ownerUserId`、`workspaceId` 等归属元数据
-- existing single-user data remains readable through default ownership fallback
-- 既有单用户数据可通过默认归属兜底继续读取
-- workflow runs, output files, and session records can be traced to an owner scope
-- 工作流运行、输出文件和会话记录可追溯到所属 scope
-
-Risk checklist:
-风险清单：
-
-- do not break old data reads
-- 不要破坏旧数据读取
-- do not widen memory write behavior beyond current governance
-- 不要突破当前 memory 写入治理边界
-- keep ownership metadata additive before enforcing strict isolation
-- 在严格隔离前，归属元数据应以增量兼容方式引入
-
-Current implementation notes:
-当前实现说明：
-
-- ownership metadata is additive only; strict user/workspace isolation remains future Milestone 6 work
-- 归属元数据目前仅为增量兼容字段；严格用户/工作区隔离仍属于后续里程碑 6
-- request metadata continues to use HTTP `scope`; persisted resource ownership uses `ownershipScope` to avoid colliding with domain fields such as memory `scope`
-- 请求元数据继续使用 HTTP `scope`；持久化资源归属使用 `ownershipScope`，避免与 memory `scope` 等业务字段冲突
-- covered resource families include workflows, workflow run logs, generated/upload metadata, assistant records, agent sessions, memory records, and runtime diagnostics
-- 已覆盖的资源类型包括工作流、工作流运行日志、生成/上传元数据、assistant 记录、agent 会话、memory 记录和运行时诊断
-
-#### Milestone 5C: Scoped Storage Preparation
-#### 里程碑 5C：Scoped 存储准备
-
-Status:
-状态：
-
-- default single-user scope still resolves to the existing storage layout; no physical data migration is required in this milestone
-- 默认单用户 scope 仍解析到现有存储布局；本里程碑不要求物理数据迁移
-- future scoped storage namespaces use `scopes/v1/workspaces/<workspaceId>/users/<userId>/...` as the prepared layout
-- 未来 scoped 存储命名空间预留为 `scopes/v1/workspaces/<workspaceId>/users/<userId>/...`
-
-Goal:
-目标：
-
-- prepare storage and file access for future multi-user isolation without forcing a full data migration yet
-- 为未来多用户隔离预留存储与文件访问能力，但暂不强制完整数据迁移
-
-Scope:
-范围：
-
-- scope-aware storage path builders
-- 带 scope 的存储路径构造器
-- scope-aware file and output resolution
-- 带 scope 的文件与输出解析
-- workflow and output reads defaulting to scope filtering
-- 工作流与输出读取默认按 scope 过滤
-- migration strategy documentation for later physical namespace moves
-- 为未来物理命名空间迁移准备迁移策略文档
-
-Acceptance criteria:
-验收标准：
-
-- storage path logic can accept future workspace-aware namespace inputs
-- 存储路径逻辑可接受未来基于 workspace 的命名空间输入
-- current single-user runtime can still resolve to existing storage layout safely
-- 当前单用户运行时仍可安全解析到现有存储布局
-- file access and output listing services have explicit scope-aware extension points
-- 文件访问与输出列表服务具备显式的 scope 扩展点
-- no host-path leaks are reintroduced while preparing scoped storage
-- 在 scoped 存储准备过程中不得重新引入宿主机路径泄漏
-
-Risk checklist:
-风险清单：
-
-- do not force physical directory migration too early
-- 不要过早强制进行物理目录迁移
-- do not couple this stage to a mandatory database migration
-- 此阶段不要绑定强制数据库迁移
-- keep file URLs and API contracts stable while storage internals evolve
-- 在存储内部演进时保持文件 URL 与 API 契约稳定
-
-Current implementation notes:
-当前实现说明：
-
-- `backend/src/platform/storage/scoped-storage.js` provides namespace builders, scoped path resolution, scoped directory creation, and resource visibility checks
-- `backend/src/platform/storage/scoped-storage.js` 提供命名空间构造、带 scope 的路径解析、scoped 目录创建与资源可见性判断
-- single-user defaults continue to use the legacy root so existing workflows, uploads, generated outputs, assistant assets, and logs remain readable
-- 单用户默认值继续使用旧根目录，因此现有工作流、上传、生成输出、assistant 资产和日志仍可读取
-- workflow and generated-output listing paths now expose scope-aware filtering extension points based on ownership metadata and legacy fallback behavior
-- 工作流与生成输出列表路径已具备基于归属元数据和旧数据兜底行为的 scope 过滤扩展点
-- `/api/outputs/...` and `/api/files/...` URLs remain stable while storage internals gain future namespace inputs
-- `/api/outputs/...` 与 `/api/files/...` URL 保持稳定，同时存储内部获得未来命名空间输入能力
-- future physical namespace moves follow the migration strategy below
-- 未来物理命名空间迁移遵循下方迁移策略
-
-Migration strategy for later physical namespace moves:
-后续物理命名空间迁移策略：
-
-- inventory persisted records first: workflows, generated output metadata, upload metadata, assistant records, agent sessions, memory records, and workflow run logs
-- 先盘点持久化记录：工作流、生成输出元数据、上传元数据、assistant 记录、agent 会话、memory 记录和工作流运行日志
-- classify records by `ownerUserId`, `workspaceId`, and `ownershipScope`; records without ownership metadata remain legacy single-user records until explicitly migrated
-- 按 `ownerUserId`、`workspaceId` 和 `ownershipScope` 分类；没有归属元数据的记录在显式迁移前仍视为旧单用户记录
-- add a dry-run report before moving files, covering source paths, destination scoped paths, missing files, collisions, and unclassified records
-- 移动文件前增加 dry-run 报告，覆盖源路径、目标 scoped 路径、缺失文件、冲突和无法分类的记录
-- introduce dual-read fallback before physical moves: resolve scoped namespace first, then fall back to legacy single-user layout only for default scope or explicit legacy records
-- 物理迁移前先引入双读兜底：先解析 scoped 命名空间，再仅对默认 scope 或显式旧记录回退到旧单用户布局
-- migrate one resource family at a time and update metadata only after file moves succeed
-- 每次迁移一种资源类型，并且只有文件移动成功后才更新元数据
-- keep an inventory manifest for rollback, do not delete legacy files on the first migration pass, and keep public file URLs stable
-- 为回滚保留 inventory manifest，第一轮迁移不删除旧文件，并保持公共文件 URL 稳定
-
-### Milestone 6: Multi-User Server Delivery
-### 里程碑 6：多用户服务端交付
-
-Scope:
-范围：
-
-- authentication
-- 认证
-- storage isolation
-- 存储隔离
-- workflow and file ownership enforcement
-- 工作流与文件归属强制执行
-- user-scoped execution and observability
-- 用户级执行与可观测性
-
-Acceptance criteria:
-验收标准：
-
-- one user cannot access another user's workflows, files, or logs
-- 用户之间不能访问彼此的工作流、文件或日志
-- generated outputs are isolated by user or workspace
-- 生成输出按用户或工作区隔离
-- execution logs and assistant artifacts follow ownership boundaries
-- 执行日志与 assistant 产物遵守归属边界
-- regression tests cover the primary isolation rules
-- 回归测试覆盖核心隔离规则
-
-## Validation Commands
-## 校验命令
+- Repository-checkout deployments may use `install.sh`, `update.sh`, and `uninstall.sh`.
+- Prebuilt image deployments may use `build-image.sh` and `update-image.sh`.
+- The live compose build context should be synchronized into a minimized `runtime/app` tree.
+- Server-web Docker builds should use `scripts/deploy/server-web/app.dockerignore`.
+- Runtime data is kept by default on uninstall unless `SUE_LR_REMOVE_DATA=1`.
+
+- 仓库检出式部署可使用 `install.sh`、`update.sh` 和 `uninstall.sh`。
+- 预构建镜像部署可使用 `build-image.sh` 和 `update-image.sh`。
+- 在线 compose 构建上下文应同步到最小化的 `runtime/app` 目录。
+- server-web Docker 构建应使用 `scripts/deploy/server-web/app.dockerignore`。
+- 卸载默认保留运行时数据，除非设置 `SUE_LR_REMOVE_DATA=1`。
+
+## Milestones / 里程碑
+
+| Milestone / 里程碑 | Status / 状态 |
+| --- | --- |
+| 1. Runtime Capability Layer / 运行时能力层 | Closed on trunk / 主干已关闭 |
+| 2. Local-Web Release Readiness / Local-Web 发布就绪 | Closed on trunk; manual release smoke still required / 主干已关闭；发布前仍需人工冒烟 |
+| 3. Desktop Variant Cleanup / 桌面变体清理 | Closed on trunk; manual release smoke still required / 主干已关闭；发布前仍需人工冒烟 |
+| 4. Server Single-User Release / 服务端单用户发布 | Code and release-surface hardening complete; real deployment smoke still required / 代码和发布面加固已完成；仍需真实部署冒烟 |
+| 5. Scope, Ownership, And Scoped Storage / Scope、归属与 scoped 存储 | Implemented and covered by `npm.cmd run check`; manual cross-variant smoke still required / 已实现并由 `npm.cmd run check` 覆盖；仍需跨变体人工冒烟 |
+| 6. Multi-User Server Delivery / 多用户服务端交付 | Future work / 后续工作 |
+
+Milestone 6 scope:
+
+里程碑 6 范围：
+
+- Authentication.
+- Storage isolation.
+- Workflow and file ownership enforcement.
+- User-scoped execution and observability.
+- Regression tests for primary isolation rules.
+
+- 认证。
+- 存储隔离。
+- 工作流和文件归属强制执行。
+- 用户级执行和可观测性。
+- 核心隔离规则的回归测试。
+
+## Validation Commands / 验证命令
 
 For documentation and plan updates:
-文档与计划更新时：
+
+文档和计划更新：
 
 ```bash
-npm run check:docs
-npm run check:encoding
+npm.cmd run check:docs
+npm.cmd run check:encoding
 ```
 
 For code changes related to this plan:
-与本计划相关的代码变更时：
+
+与本计划相关的代码变更：
 
 ```bash
-npm run typecheck
-npm run test:unit
-npm run test:backend
-npm run build
+npm.cmd run check
 ```
+
+Additional manual release smoke is required for `local-web`, `desktop`, and `server-web` before release sign-off.
+
+发布签核前，还需要对 `local-web`、`desktop` 和 `server-web` 做额外人工冒烟。

@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import sharp from 'sharp';
-import { createLogger } from '../../platform/logging/logger.js';
-import { ensureUploadThumbnail } from '../../platform/media/image-thumbnails.js';
-import type { UploadRecord } from './types.js';
-import { uploadMetadataRepository } from './upload-metadata.repository.js';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { ensureUploadThumbnail } from '../../platform/media/image-thumbnails.ts';
+import type { UploadRecord } from './types.ts';
+import { uploadMetadataRepository } from './upload-metadata.repository.ts';
 
 const logger = createLogger({ module: 'upload-image-processor' });
 const activeJobs = new Map<string, Promise<void>>();

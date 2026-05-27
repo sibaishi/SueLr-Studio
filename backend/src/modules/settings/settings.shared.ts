@@ -1,4 +1,4 @@
-import type { DynamicValue } from '../types.js';
+import type { DynamicValue } from '../types.ts';
 
 function normalizeInteger(value: DynamicValue, fallback: number) {
   const parsed = Number(value);

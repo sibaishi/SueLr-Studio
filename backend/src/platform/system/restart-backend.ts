@@ -2,8 +2,8 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AppError } from '../../app/errors/index.js';
-import { getRuntimeCapabilities } from '../runtime/index.js';
+import { AppError } from '../../app/errors/index.ts';
+import { getRuntimeCapabilities } from '../runtime/index.ts';
 
 type RestartResult =
   | { mode: 'watch' }
@@ -19,9 +19,9 @@ declare global {
 
 const systemDir = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(systemDir, '../../..');
-const restartTriggerPath = path.join(systemDir, 'restart-trigger.js');
-const restartRunnerPath = path.join(systemDir, 'restart-runner.js');
-const serverEntryPath = path.join(backendRoot, 'server.js');
+const restartTriggerPath = path.join(systemDir, 'restart-trigger.ts');
+const restartRunnerPath = path.join(systemDir, 'restart-runner.ts');
+const serverEntryPath = path.join(backendRoot, 'server.ts');
 
 function isWatchMode() {
   return process.execArgv.some((arg) => arg === '--watch' || arg.startsWith('--watch='));
@@ -67,13 +67,17 @@ function scheduleElectronRelaunch(): RestartResult {
 }
 
 function spawnReplacementServer(): RestartResult {
-  const child = spawn(process.execPath, [restartRunnerPath, String(process.pid), serverEntryPath], {
-    cwd: backendRoot,
-    detached: true,
-    env: process.env,
-    stdio: 'ignore',
-    windowsHide: true,
-  });
+  const child = spawn(
+    process.execPath,
+    ['--experimental-strip-types', restartRunnerPath, String(process.pid), serverEntryPath],
+    {
+      cwd: backendRoot,
+      detached: true,
+      env: process.env,
+      stdio: 'ignore',
+      windowsHide: true,
+    },
+  );
 
   child.unref();
 

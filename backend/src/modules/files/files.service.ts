@@ -1,14 +1,14 @@
 // @ts-expect-error Multer does not ship local type declarations in this backend package yet.
 import multer from 'multer';
-import { createLogger } from '../../platform/logging/logger.js';
-import { deleteUploadThumbnail } from '../../platform/media/image-thumbnails.js';
-import { ensureResourceOwnership } from '../../platform/runtime/index.js';
-import { isResourceVisibleForScope } from '../../platform/storage/index.js';
-import type { DynamicValue } from '../types.js';
-import { filesRepository } from './files.repository.js';
-import type { ScopeOptions, UploadedFileLike } from './types.js';
-import { enqueueUploadImageProcessing, resumePendingUploadImageProcessing } from './upload-image-processor.js';
-import { uploadMetadataRepository } from './upload-metadata.repository.js';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { deleteUploadThumbnail } from '../../platform/media/image-thumbnails.ts';
+import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import { isResourceVisibleForScope } from '../../platform/storage/index.ts';
+import type { DynamicValue } from '../types.ts';
+import { filesRepository } from './files.repository.ts';
+import type { ScopeOptions, UploadedFileLike } from './types.ts';
+import { enqueueUploadImageProcessing, resumePendingUploadImageProcessing } from './upload-image-processor.ts';
+import { uploadMetadataRepository } from './upload-metadata.repository.ts';
 
 const logger = createLogger({ module: 'files-service' });
 

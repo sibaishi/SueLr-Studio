@@ -1,8 +1,8 @@
-import { ValidationError } from '../../app/errors/index.js';
-import { getNodeContract, getNodeDataDefaults } from '../../engine/contracts/node-registry.js';
-import { ensureResourceOwnership } from '../../platform/runtime/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { CURRENT_WORKFLOW_SCHEMA_VERSION } from './workflow-migrations.js';
+import { ValidationError } from '../../app/errors/index.ts';
+import { getNodeContract, getNodeDataDefaults } from '../../engine/contracts/node-registry.ts';
+import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { CURRENT_WORKFLOW_SCHEMA_VERSION } from './workflow-migrations.ts';
 
 type WorkflowNormalizeOptions = {
   preserveCreatedAt?: boolean;

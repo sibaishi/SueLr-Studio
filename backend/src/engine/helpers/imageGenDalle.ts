@@ -1,4 +1,4 @@
-import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.js';
+import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
 import {
   type DynamicValue,
   type LooseRecord,
@@ -11,7 +11,7 @@ import {
   parseApiError,
   parseImageApiResponse,
   summarizeFormData,
-} from './imageGenShared.js';
+} from './imageGenShared.ts';
 
 export function dataUrlToBlob(dataUrl: DynamicValue): Blob {
   const matches = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);

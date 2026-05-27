@@ -1,5 +1,5 @@
-import { resolveNodeEndpoint } from '../helpers/apiConfig.js';
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import { resolveNodeEndpoint } from '../helpers/apiConfig.ts';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 export async function execute(node: WorkflowNode) {
   const apiKey = String(node.data?.apiKey || '').trim();

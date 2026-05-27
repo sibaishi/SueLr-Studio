@@ -1,4 +1,4 @@
-import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.js';
+import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.ts';
 
 // biome-ignore lint/suspicious/noExplicitAny: Provider payloads and upstream JSON are intentionally dynamic at this boundary.
 export type DynamicValue = any;

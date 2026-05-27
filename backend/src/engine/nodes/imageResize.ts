@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import { STORAGE_PATHS, ensureStorageDirectories } from '../../platform/storage/index.js';
-import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.js';
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import { STORAGE_PATHS, ensureStorageDirectories } from '../../platform/storage/index.ts';
+import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.ts';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 const UPLOADS_DIR = STORAGE_PATHS.uploadsDir;
 

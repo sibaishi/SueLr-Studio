@@ -1,4 +1,4 @@
-import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.js';
+import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 function trimSeparatorAdjacentNewlines(text: string) {
   return String(text)
     .replace(/^[ \t]*(?:\r?\n)+/, '')

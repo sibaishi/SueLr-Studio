@@ -2,30 +2,30 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ValidationError } from '../../app/errors/index.js';
-import { getProviderAdapter } from '../../platform/providers/index.js';
-import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.js';
-import { STORAGE_PATHS } from '../../platform/storage/index.js';
-import { resolveModelRuntime } from './apiConfig.js';
-import { fileToBase64 } from './fileHelper.js';
+import { ValidationError } from '../../app/errors/index.ts';
+import { getProviderAdapter } from '../../platform/providers/index.ts';
+import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
+import { STORAGE_PATHS } from '../../platform/storage/index.ts';
+import { resolveModelRuntime } from './apiConfig.ts';
+import { fileToBase64 } from './fileHelper.ts';
 import {
   callImageEditApiWithAdapter as callDalleImageEditApiWithAdapter,
   imageSourceToBlob as dalleImageSourceToBlob,
-} from './imageGenDalle.js';
+} from './imageGenDalle.ts';
 import {
   buildGeminiImageGenerationConfig as buildGeminiConfig,
   buildGeminiImageParts as buildGeminiParts,
   callGeminiGenerateContentApi as callGeminiApi,
-} from './imageGenGemini.js';
+} from './imageGenGemini.ts';
 import {
   buildChatImageRequestBody,
   buildGenericImageRequestBody,
   callImageGenerationApiWithAdapter as callGenericImageGenerationApiWithAdapter,
   callImageGenerationViaChatApiWithAdapter as callGenericImageGenerationViaChatApiWithAdapter,
-} from './imageGenGeneric.js';
-import { extractImagesFromResponse } from './imageGenShared.js';
-import { findProjectModel, normalizeProjectModels } from './projectModels.js';
-import type { EndpointCategory, ProjectModel } from './projectModels.js';
+} from './imageGenGeneric.ts';
+import { extractImagesFromResponse } from './imageGenShared.ts';
+import { findProjectModel, normalizeProjectModels } from './projectModels.ts';
+import type { EndpointCategory, ProjectModel } from './projectModels.ts';
 
 // biome-ignore lint/suspicious/noExplicitAny: Provider payloads and upstream JSON are intentionally dynamic at this boundary.
 type DynamicValue = any;

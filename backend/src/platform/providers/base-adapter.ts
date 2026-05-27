@@ -1,4 +1,4 @@
-import { ProviderError } from '../../app/errors/index.js';
+import { ProviderError } from '../../app/errors/index.ts';
 
 const ProviderErrorCtor = ProviderError as new (
   code: string,

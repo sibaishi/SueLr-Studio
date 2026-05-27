@@ -1,4 +1,4 @@
-import { getRequestContext } from './request-context.js';
+import { getRequestContext } from './request-context.ts';
 
 export type LogLevel = 'info' | 'warn' | 'error';
 export type LogFields = Record<string, unknown>;

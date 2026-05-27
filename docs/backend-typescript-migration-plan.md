@@ -1,162 +1,118 @@
 # Backend TypeScript Migration Plan / 后端 TypeScript 迁移计划
 
-## Summary / 概述
+## Summary / 概要
 
-The backend has already moved all implementation code to TypeScript. Every `.js` file under `backend/src/` is now a pure re-export barrel — no actual logic remains in JavaScript. The entrypoint `backend/server.js` still contains implementation code (37 lines), and tests are still `.js`. The next step is to make the backend fully TypeScript at runtime using Node 22 `--experimental-strip-types`, remove the JavaScript barrels, and rename tests.
+Completed on 2026-05-27.
 
-后端已将所有实现代码迁移到 TypeScript。`backend/src/` 下的每个 `.js` 文件现在都是纯粹的 re-export barrel — JavaScript 中不再包含任何实际逻辑。入口 `backend/server.js` 仍包含实现代码（37 行），测试仍是 `.js`。下一步使用 Node 22 `--experimental-strip-types` 让后端在运行时完全 TypeScript 化，删除 JavaScript barrel，并重命名测试文件。
+已于 2026-05-27 完成。
 
-This is a broad migration affecting backend startup, tests, restart behavior, Electron embedding, server-web deployment, CI, and docs. Execute as one coordinated change.
+The backend now runs directly from TypeScript source with Node 22 `--experimental-strip-types`. Backend JavaScript facades have been removed from runtime code, tests have been renamed to `.test.ts`, and startup paths across development, Electron embedding, CI, and server-web deployment now target `backend/server.ts`.
 
-这是一次广泛的迁移，涉及后端启动、测试、重启行为、Electron 嵌入、server-web 部署、CI 和文档。应作为一个协调变更整体执行。
+后端现在使用 Node 22 `--experimental-strip-types` 直接运行 TypeScript 源码。后端运行时代码中的 JavaScript facade 已删除，测试已重命名为 `.test.ts`，开发启动、Electron 嵌入、CI 与 server-web 部署都已指向 `backend/server.ts`。
 
-## Current State Assessment (2026-05-27) / 当前状态评估
+## Current State / 当前状态
 
-| Item / 项目 | Status / 状态 |
+| Area / 范围 | State / 状态 |
 | --- | --- |
-| `backend/src/**/*.ts` | 148 implementation files — complete / 148 个实现文件，已完成 |
-| `backend/src/**/*.js` | 145 files, all pure re-export barrels — no real logic / 145 个文件，全部是纯 re-export barrel，无实际逻辑 |
-| Thin wrappers (≤3 lines) / 薄封装（≤3 行） | 123 files / 123 个文件 |
-| Multi-export barrels (>3 lines) / 多导出 barrel（>3 行） | 22 files, all re-exporting from `.ts` / 22 个文件，全部从 `.ts` re-export |
-| `backend/server.js` | 37 lines of real code, imports from `.js` paths / 37 行实际代码，从 `.js` 路径导入 |
-| `backend/tests/` | 37 `.test.js` files, zero `.ts`, ~50 import lines to `.js` / 37 个 `.test.js`，零 `.ts`，约 50 行 `.js` 导入 |
-| Restart files / 重启文件 | `restart-backend.js` (1-line re-export), `restart-runner.js` (1-line import), `restart-trigger.js` (1-line stub) |
-| `backend/package.json` scripts | All target `.js` files / 全部指向 `.js` 文件 |
-| External callers / 外部调用者 | 8 files reference `server.js` / 8 个文件引用 `server.js` |
-
-### External `server.js` References / 外部 `server.js` 引用
-
-| File / 文件 | Current / 当前 |
-| --- | --- |
-| `playwright.config.ts` | `node server.js` |
-| `electron/embedded-backend.cjs` | `backend/server.js` |
-| `scripts/start-dev.mjs` | `server.js` |
-| `scripts/start-local-web.mjs` | `server.js` |
-| `.github/workflows/ci.yml` | backend smoke start |
-| `scripts/check-runtime-baseline.mjs` | `backend/server.js` + content check |
-| `scripts/deploy/server-web/Dockerfile` | COPY + CMD `backend/server.js` |
-| `scripts/deploy/server-web/release-files.txt` | `backend/server.js` |
-
-## Workload Estimate / 工作量评估
-
-| Phase / 阶段 | Scope / 范围 | Est. / 预估 |
-| --- | --- | --- |
-| 1. Entrypoint switch / 入口切换 | Rename `server.js` → `server.ts`, update 3 internal imports, 4 package.json scripts, 8 external callers | 1–1.5h |
-| 2. Remove JS barrels / 删除 JS barrel | Scan and update all `.js` → `.ts` imports in `backend/src/**/*.ts`, then delete `.js` barrels | 2–3h |
-| 3. Restart system / 重启系统 | Update `restart-backend.ts` to target `.ts`, delete 3 restart `.js` files | 0.5–1h |
-| 4. Test migration / 测试迁移 | Rename 37 `.test.js` → `.test.ts`, update ~50 imports, dynamic import query strings | 2–3h |
-| 5. Scripts / CI / Deploy / 脚本与部署 | Update 8 external files, verify server-web Docker build | 1–2h |
-| 6. Docs & guards / 文档与护栏 | Update docs, add hygiene check | 0.5–1h |
-| Validation / 验证 | Full test suite + runtime smoke tests | 1.5–2h |
-| **Total / 合计** | | **~9–13.5h (≈2 working days / 约 2 个工作日)** |
+| Entrypoint / 入口 | `backend/server.ts` |
+| Backend source / 后端源码 | `backend/src/**/*.ts`; no `backend/src/**/*.js` facades |
+| Backend tests / 后端测试 | `backend/tests/**/*.test.ts`; no `backend/tests/**/*.js` |
+| Runtime execution / 运行方式 | `node --experimental-strip-types server.ts` |
+| Type checking / 类型检查 | `backend/tsconfig.json` includes `server.ts`, `src/**/*.ts`, and `tests/**/*.ts` |
+| Restart system / 重启系统 | `restart-backend.ts`, `restart-runner.ts`, and `restart-trigger.ts` |
+| Guard / 护栏 | `scripts/check-runtime-baseline.mjs` fails if backend JS facades return |
 
 ## Implementation Plan / 实施计划
 
-### 1. Switch Backend Entrypoint to TypeScript / 切换后端入口为 TypeScript
+This plan has been executed. Future changes should preserve the completed shape rather than reintroducing compatibility facades.
 
-- Create `backend/server.ts` from `backend/server.js`:
-  - Rename the file
-  - Change internal imports from `.js` to `.ts`:
-    - `./src/platform/logging/logger.js` → `./src/platform/logging/logger.ts`
-    - `./src/app/create-app.js` → `./src/app/create-app.ts`
-    - `./src/platform/logging/runtime-observability.js` → `./src/platform/logging/runtime-observability.ts`
-  - `restart-trigger.js` import → `restart-trigger.ts`
-- Delete `backend/server.js`
-- Update `backend/package.json`:
-  ```json
-  "start": "node --experimental-strip-types server.ts",
-  "dev": "node --watch --experimental-strip-types server.ts",
-  "test": "node --test --experimental-strip-types \"tests/**/*.test.ts\"",
-  "typecheck": "tsc --noEmit"
-  ```
-- Update `backend/tsconfig.json`: remove `allowJs` and `checkJs`; include `server.ts`, `src/**/*.ts`, `tests/**/*.ts`
+本计划已执行完成。后续变更应保持当前完成后的结构，不要重新引入兼容 facade。
 
-### 2. Remove Backend Source JS Barrels / 删除后端源码 JS Barrel
+Completed steps:
 
-**Key constraint / 关键约束:** You cannot delete the `.js` barrel files first. The migration order is: scan all `.ts` source files for `.js` import paths, update every one to `.ts`, verify the backend still runs, then delete the barrels. Use `rg "from '\./.*\.js'" backend/src/ -g '*.ts'` to find every site that needs updating before touching any barrel file.
+已完成步骤：
 
-**不能直接删除 `.js` barrel。** 迁移顺序是：先扫描所有 `.ts` 源文件中的 `.js` 导入路径，全部改为 `.ts`，验证后端正常运行后，再删除 barrel。用 `rg "from '\./.*\.js'" backend/src/ -g '*.ts'` 找出所有需要更新的位置后再动手。
+- Renamed `backend/server.js` to `backend/server.ts`.
+- Updated backend runtime imports from backend `.js` paths to `.ts` paths.
+- Removed `backend/src/**/*.js` barrel facades.
+- Renamed backend tests from `.test.js` to `.test.ts`.
+- Updated restart tooling to write and execute `.ts` files.
+- Updated development scripts, Playwright, Electron embedded backend startup, CI, and server-web deployment to use `--experimental-strip-types`.
+- Added runtime baseline hygiene checks for removed backend JS facades.
 
-- Scan and update all backend source internal imports from `.js` to `.ts` module paths **first**:
-  - Run `rg -l "from '\./.*\.js'" backend/src/ -g '*.ts'` to find affected files
-  - Every `from './foo.js'` → `from './foo.ts'` in `backend/src/**/*.ts`
-  - This is a mechanical, `sed`-friendly change across the source tree
-- After all imports are updated and verified, delete all `backend/src/**/*.js` barrel files
-  - At the time of this writing, there were ~145 such files; verify with `find backend/src -name '*.js' | wc -l` before deleting
-- A small number of `.js` imports may live in other `.js` barrel files; those disappear when the barrel is deleted
-- Keep frontend shared JavaScript imports outside `backend/` untouched (e.g., `src/shared/workflow/node-registry.js`)
+- 已将 `backend/server.js` 重命名为 `backend/server.ts`。
+- 已将后端运行时代码中的后端 `.js` 导入路径改为 `.ts`。
+- 已删除 `backend/src/**/*.js` barrel facade。
+- 已将后端测试从 `.test.js` 重命名为 `.test.ts`。
+- 已更新重启工具，使其写入并执行 `.ts` 文件。
+- 已更新开发脚本、Playwright、Electron 嵌入式后端启动、CI 与 server-web 部署，统一使用 `--experimental-strip-types`。
+- 已添加 runtime baseline 护栏，防止已删除的后端 JS facade 回归。
 
-### 3. Restart System: JS → TS / 重启系统迁移
+## Runtime Entry Points / 运行入口
 
-- `restart-trigger.js`: delete the 1-line stub; keep `restart-trigger.ts` as the sentinel
-- `restart-runner.js`: delete the 1-line import; `restart-runner.ts` already exists
-- `restart-backend.js`: delete the 1-line re-export; `restart-backend.ts` already exists (102 lines)
-- Update `restart-backend.ts`:
-  - Watch mode writes `restart-trigger.ts` (currently writes `.js`)
-  - Restart spawns `restart-runner.ts` and launches `server.ts` (currently `.js`)
+The following callers are expected to use TypeScript runtime entry points:
 
-### 4. Migrate Backend Tests / 迁移后端测试
+以下调用方应使用 TypeScript 运行入口：
 
-- Rename all `backend/tests/*.test.js` → `*.test.ts`
-- Update all test import lines from `../src/**/*.js` → `../src/**/*.ts`
-  - Run `rg "from '\.\./src/.*\.js'" backend/tests/` to find every site
-  - Common barrel targets include `storage/index.js`, `engine/nodes/index.js`, `executor.js`, `workflow-events.js`
-- Update dynamic imports with query strings: `.js?test=...` → `.ts?test=...`
-- Update `scripts/check-test-surface.mjs` to reference `backend/tests/http-contract.test.ts`
-- Update `backend/package.json` test script (handled in Phase 1)
-
-### 5. Update Scripts, CI, Electron, and Server-Web / 更新脚本、CI、Electron、Server-Web
-
-| File / 文件 | Change / 变更 |
+| File / 文件 | Expected target / 预期目标 |
 | --- | --- |
-| `scripts/start-dev.mjs` | `server.js` → `server.ts`, add `--experimental-strip-types` |
-| `scripts/start-local-web.mjs` | `server.js` → `server.ts`, add `--experimental-strip-types` |
-| `playwright.config.ts` | `node server.js` → `node --experimental-strip-types server.ts` |
-| `electron/embedded-backend.cjs` | `backend/server.js` → `backend/server.ts` |
-| `.github/workflows/ci.yml` | Backend smoke command → `server.ts` + `--experimental-strip-types` |
-| `scripts/check-runtime-baseline.mjs` | Check `backend/server.ts` + `backend/src/app/create-app.ts` |
-| `scripts/deploy/server-web/Dockerfile` | COPY + CMD → `backend/server.ts` |
-| `scripts/deploy/server-web/release-files.txt` | `backend/server.js` → `backend/server.ts` |
+| `backend/package.json` | `node --experimental-strip-types server.ts` |
+| `playwright.config.ts` | `node --experimental-strip-types server.ts` |
+| `electron/embedded-backend.cjs` | `backend/server.ts` |
+| `.github/workflows/ci.yml` | `node --experimental-strip-types backend/server.ts` |
+| `scripts/start-dev.mjs` | `--watch --experimental-strip-types server.ts` |
+| `scripts/start-local-web.mjs` | `--experimental-strip-types server.ts` |
+| `scripts/deploy/server-web/Dockerfile` | `node --experimental-strip-types /app/backend/server.ts` |
+| `scripts/deploy/server-web/release-files.txt` | `backend/server.ts` |
 
-### 6. Update Documentation and Guards / 更新文档与护栏
+## Hard Constraints / 硬约束
 
-- Update public docs: `docs/developer-guide.md`, `docs/deployment-variants-plan.md`
-- Add a repo hygiene check (in `scripts/check-runtime-baseline.mjs` or a new guard) that fails if these exist:
-  - `backend/server.js`
-  - `backend/src/**/*.js`
-  - `backend/tests/**/*.js`
-- Do NOT apply this guard to Electron `.cjs` files or frontend shared workflow `.js` files
+- Do not recreate `backend/server.js`.
+- Do not add new `backend/src/**/*.js` implementation or facade files.
+- Do not add new `backend/tests/**/*.js` files.
+- Backend runtime imports should use `.ts` extensions for backend modules.
+- Frontend shared workflow JavaScript modules remain out of scope. Imports such as `src/shared/workflow/node-registry.js` and `src/shared/workflow/prompt-helper.js` are valid.
+- Electron `main.cjs` and `preload.cjs` remain CommonJS.
+
+- 不要重新创建 `backend/server.js`。
+- 不要新增 `backend/src/**/*.js` 实现文件或 facade 文件。
+- 不要新增 `backend/tests/**/*.js` 文件。
+- 后端运行时代码导入后端模块时应使用 `.ts` 后缀。
+- 前端共享 workflow JavaScript 模块不属于本次清理范围。`src/shared/workflow/node-registry.js` 与 `src/shared/workflow/prompt-helper.js` 等导入仍然有效。
+- Electron `main.cjs` 与 `preload.cjs` 继续保持 CommonJS。
 
 ## Validation / 验证
 
-Run after migration / 迁移后执行:
+Run these checks after touching backend runtime, tests, CI, or deployment entry points:
+
+修改后端运行时、测试、CI 或部署入口后，运行以下检查：
 
 ```bash
-npm run lint
-npm run typecheck
-npm run test:backend
-npm run test:unit
-npm run check:encoding
 npm run check:runtime-baseline
 npm run check:test-surface
+npm run check:encoding
+npm run typecheck --prefix backend
+npm run test --prefix backend
+```
+
+For a full release-quality gate, run:
+
+完整发布质量门禁：
+
+```bash
 npm run check
 ```
 
-Runtime smoke tests / 运行时冒烟测试:
-
-- `npm run dev:backend`
-- Electron embedded backend startup (unit tests)
-- server-web release test
-
 ## Assumptions / 假设
 
-- Node remains `>=22.12.0`; the migration depends on native `--experimental-strip-types` support
-  - Node 保持 `>=22.12.0`；迁移依赖原生 `--experimental-strip-types` 支持
-- No TypeScript build output is introduced — strip-types runs directly on `.ts` source
-  - 不引入 TypeScript 构建产物 — strip-types 直接在 `.ts` 源码上运行
-- Backend runtime code imports backend modules through `.ts` paths
-  - 后端运行时代码通过 `.ts` 路径导入后端模块
-- Frontend shared workflow `.js` modules are out of scope for this cleanup
-  - 前端共享工作流 `.js` 模块不在本次清理范围内
-- Electron main/preload files remain CommonJS and are not part of this migration
-  - Electron main/preload 文件保持 CommonJS，不参与本次迁移
+- Node remains `>=22.12.0`; direct TypeScript execution depends on native `--experimental-strip-types` support.
+- No TypeScript build output is introduced for the backend runtime.
+- Backend runtime code imports backend modules through `.ts` paths.
+- Frontend shared workflow `.js` modules remain outside this backend cleanup.
+- Electron main and preload files remain CommonJS.
+
+- Node 继续保持 `>=22.12.0`；直接执行 TypeScript 依赖原生 `--experimental-strip-types` 支持。
+- 后端运行时不引入 TypeScript 构建产物。
+- 后端运行时代码通过 `.ts` 路径导入后端模块。
+- 前端共享 workflow `.js` 模块不属于后端清理范围。
+- Electron main 与 preload 文件继续保持 CommonJS。

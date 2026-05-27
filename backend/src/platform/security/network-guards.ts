@@ -2,7 +2,7 @@ import dns from 'node:dns/promises';
 import net from 'node:net';
 import { URL } from 'node:url';
 
-import { ProviderError, ValidationError } from '../../app/errors/index.js';
+import { ProviderError, ValidationError } from '../../app/errors/index.ts';
 
 interface RemoteUrlValidationOptions {
   fieldName?: string;

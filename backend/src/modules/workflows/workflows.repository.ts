@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { NotFoundError, ValidationError } from '../../app/errors/index.js';
-import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
-import { BUILTIN_WORKFLOW_TEMPLATES } from './workflow-templates.js';
+import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
+import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
+import { BUILTIN_WORKFLOW_TEMPLATES } from './workflow-templates.ts';
 
 export class WorkflowsRepository {
   constructor() {

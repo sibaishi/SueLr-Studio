@@ -1,6 +1,6 @@
-import { successEnvelope } from '../../app/http/envelope.js';
-import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.js';
-import { adminConfigService } from './admin-config.service.js';
+import { successEnvelope } from '../../app/http/envelope.ts';
+import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
+import { adminConfigService } from './admin-config.service.ts';
 
 export class AdminConfigController {
   getSettings(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {

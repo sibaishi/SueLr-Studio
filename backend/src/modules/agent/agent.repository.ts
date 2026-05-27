@@ -7,8 +7,8 @@ import {
   readJsonFile,
   safeResolveWithin,
   writeJsonFile,
-} from '../../platform/storage/index.js';
-import type { DynamicValue, PlainObject } from '../types.js';
+} from '../../platform/storage/index.ts';
+import type { DynamicValue, PlainObject } from '../types.ts';
 
 const DEFAULT_PROFILES: DynamicValue[] = [];
 const DEFAULT_MEMORIES: DynamicValue[] = [];
