@@ -3,14 +3,18 @@ import { TCtx, useT } from '@/providers/ThemeContext';
 import {
   type AdminSettingsPayload,
   type AdminUser,
+  type LegacyMigrationSummary,
   type PasswordResetRequest,
   approveAdminUser,
   disableAdminUser,
+  dryRunLegacyMigration,
   enableAdminUser,
   issuePasswordResetRequest,
   loadAdminSettings,
   loadAdminUsers,
+  loadLegacyMigrationSummary,
   loadPasswordResetRequests,
+  migrateLegacyData,
   rejectAdminUser,
   revokePasswordResetRequest,
   saveAdminSettings,
@@ -19,7 +23,7 @@ import {
   validateAdminAccess,
 } from '@/shared/api/admin';
 import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { Gauge, Globe, KeyRound, Mail, Network, UserCheck } from 'lucide-react';
+import { DatabaseBackup, Gauge, Globe, KeyRound, Mail, Network, UserCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import '@/index.css';
 
@@ -226,6 +230,8 @@ function AdminScreen() {
   const [settings, setSettings] = useState<AdminSettingsPayload | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [resetRequests, setResetRequests] = useState<PasswordResetRequest[]>([]);
+  const [legacySummary, setLegacySummary] = useState<LegacyMigrationSummary | null>(null);
+  const [legacyTargetUserId, setLegacyTargetUserId] = useState('');
   const [searchEnabled, setSearchEnabled] = useState(false);
   const [searchProvider, setSearchProvider] = useState('tavily');
   const [tavilyApiKey, setTavilyApiKey] = useState('');
@@ -262,6 +268,11 @@ function AdminScreen() {
     setResetRequests(next.requests);
   };
 
+  const loadLegacySummary = async (nextAccessKey = accessKey) => {
+    const next = await loadLegacyMigrationSummary(nextAccessKey);
+    setLegacySummary(next);
+  };
+
   const load = async (nextAccessKey?: string) => {
     const access = await validateAdminAccess(nextAccessKey);
     if (!access.valid) {
@@ -281,7 +292,11 @@ function AdminScreen() {
     setEmailFrom(next.email.from || '');
     setSmtpPort(String(next.email.smtp.port || 587));
     setSmtpSecure(Boolean(next.email.smtp.secure));
-    await Promise.all([loadUsers(nextAccessKey || ''), loadResetRequests(nextAccessKey || '')]);
+    await Promise.all([
+      loadUsers(nextAccessKey || ''),
+      loadResetRequests(nextAccessKey || ''),
+      loadLegacySummary(nextAccessKey || ''),
+    ]);
   };
 
   useEffect(() => {
@@ -368,6 +383,19 @@ function AdminScreen() {
     const result = await testAdminEmail(accessKey || undefined, testEmailTo);
     const payload = result.data as { message?: string; error?: string } | undefined;
     setMessage(result.success ? payload?.message || '测试邮件已发送' : result.error || payload?.error || '测试邮件发送失败');
+  };
+
+  const handleLegacyDryRun = async () => {
+    setMessage('');
+    const result = await dryRunLegacyMigration(legacyTargetUserId, accessKey || undefined);
+    setMessage(`Legacy dry run: ${result.destinationNamespace}`);
+  };
+
+  const handleLegacyMigrate = async () => {
+    setMessage('');
+    const result = await migrateLegacyData(legacyTargetUserId, accessKey || undefined);
+    setMessage(`Legacy migration completed: ${result.manifestPath}`);
+    await loadLegacySummary(accessKey || '');
   };
 
   if (accessState !== 'ready') {
@@ -475,6 +503,37 @@ function AdminScreen() {
                   </div>
                 ))
               )}
+            </div>
+          </Section>
+
+          <Section title="Legacy Data" description="Assign hidden legacy single-user data to an active user." icon={<DatabaseBackup size={18} />}>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {legacySummary
+                  ? Object.entries(legacySummary.counts).map(([key, value]) => (
+                      <span key={key} style={chipStyle(value > 0 ? '#f59e0b' : T.green)}>
+                        {key}: {value}
+                      </span>
+                    ))
+                  : null}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'end' }}>
+                <div>
+                  <IOSLabel>Target user</IOSLabel>
+                  <IOSSelect value={legacyTargetUserId} onChange={setLegacyTargetUserId}>
+                    <option value="">Select active user</option>
+                    {users
+                      .filter((user) => user.status === 'active')
+                      .map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.username}
+                        </option>
+                      ))}
+                  </IOSSelect>
+                </div>
+                <IOSButton label="Dry run" onClick={() => void handleLegacyDryRun()} />
+                <IOSButton label="Migrate" onClick={() => void handleLegacyMigrate()} />
+              </div>
             </div>
           </Section>
 

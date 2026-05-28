@@ -9,6 +9,7 @@ import {
   adminConfigPatchSchema,
   adminEmailTestSchema,
   adminSearchTestSchema,
+  legacyMigrationSchema,
 } from './admin-config.schema.ts';
 
 const router = Router();
@@ -28,6 +29,17 @@ router.get('/audit', adminConfigController.getAudit.bind(adminConfigController))
 router.get('/password-reset-requests', adminConfigController.listPasswordResetRequests.bind(adminConfigController));
 router.post('/password-reset-requests/:id/issue', adminConfigController.issuePasswordResetRequest.bind(adminConfigController));
 router.post('/password-reset-requests/:id/revoke', adminConfigController.revokePasswordResetRequest.bind(adminConfigController));
+router.get('/legacy-data/summary', adminConfigController.getLegacyDataSummary.bind(adminConfigController));
+router.post(
+  '/legacy-data/dry-run',
+  validateBody(zodValidator(legacyMigrationSchema)),
+  adminConfigController.dryRunLegacyDataMigration.bind(adminConfigController),
+);
+router.post(
+  '/legacy-data/migrate',
+  validateBody(zodValidator(legacyMigrationSchema)),
+  adminConfigController.migrateLegacyData.bind(adminConfigController),
+);
 router.get('/settings', adminConfigController.getSettings.bind(adminConfigController));
 router.put(
   '/settings',

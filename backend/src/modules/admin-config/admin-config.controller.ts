@@ -4,6 +4,7 @@ import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '
 import { adminConfigService } from './admin-config.service.ts';
 import { adminUsersService } from './admin-users.service.ts';
 import { authService } from '../auth/auth.service.ts';
+import { legacyMigrationService } from './legacy-migration.service.ts';
 
 export class AdminConfigController {
   getSettings(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
@@ -133,6 +134,30 @@ export class AdminConfigController {
   revokePasswordResetRequest(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       res.json(successEnvelope(authService.revokePasswordResetToken(String(req.params?.id || ''))));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  getLegacyDataSummary(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(legacyMigrationService.getSummary()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  dryRunLegacyDataMigration(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(legacyMigrationService.dryRun(req.body)));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  migrateLegacyData(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(legacyMigrationService.migrate(req.body)));
     } catch (error) {
       next(error);
     }

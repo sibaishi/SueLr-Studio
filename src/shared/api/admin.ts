@@ -124,6 +124,29 @@ export type EmailSendResult = {
   error?: string;
 };
 
+export type LegacyMigrationCounts = {
+  workflows: number;
+  conversations: number;
+  gallery: number;
+  videos: number;
+  agentMemories: number;
+  generatedFiles: number;
+  uploads: number;
+};
+
+export type LegacyMigrationSummary = {
+  counts: LegacyMigrationCounts;
+};
+
+export type LegacyMigrationDryRun = LegacyMigrationSummary & {
+  targetUser: {
+    id: string;
+    username: string;
+    workspaceId: string;
+  };
+  destinationNamespace: string;
+};
+
 function buildAdminHeaders(accessKey?: string): HeadersInit | undefined {
   if (!accessKey) return undefined;
   return { 'X-Admin-Access-Key': accessKey };
@@ -226,4 +249,26 @@ export async function revokePasswordResetRequest(requestId: string, accessKey?: 
       headers: buildAdminHeaders(accessKey),
     },
   );
+}
+
+export async function loadLegacyMigrationSummary(accessKey?: string) {
+  return apiRequestOrThrow<LegacyMigrationSummary>('/api/admin/legacy-data/summary', {
+    headers: buildAdminHeaders(accessKey),
+  });
+}
+
+export async function dryRunLegacyMigration(targetUserId: string, accessKey?: string) {
+  return apiRequestOrThrow<LegacyMigrationDryRun>('/api/admin/legacy-data/dry-run', {
+    method: 'POST',
+    headers: buildAdminHeaders(accessKey),
+    body: JSON.stringify({ targetUserId }),
+  });
+}
+
+export async function migrateLegacyData(targetUserId: string, accessKey?: string) {
+  return apiRequestOrThrow<{ manifestPath: string; countsAfter: LegacyMigrationCounts }>('/api/admin/legacy-data/migrate', {
+    method: 'POST',
+    headers: buildAdminHeaders(accessKey),
+    body: JSON.stringify({ targetUserId }),
+  });
 }

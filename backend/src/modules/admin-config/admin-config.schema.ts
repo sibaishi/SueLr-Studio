@@ -82,3 +82,9 @@ export const adminEmailTestSchema = z
     to: z.string().trim().email('测试邮箱格式无效').max(320),
   })
   .strict();
+
+export const legacyMigrationSchema = z
+  .object({
+    targetUserId: z.string().trim().min(1, 'targetUserId is required').max(160),
+  })
+  .strict();
