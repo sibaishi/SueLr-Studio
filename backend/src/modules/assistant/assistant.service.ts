@@ -2,7 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
 import { createLogger } from '../../platform/logging/logger.ts';
-import { applyOwnershipToList, ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import {
+  applyOwnershipToList,
+  ensureResourceOwnership,
+  isResourceVisibleForRequestScope,
+} from '../../platform/runtime/index.ts';
 import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { assistantRepository } from './assistant.repository.ts';
@@ -116,7 +120,10 @@ export class AssistantService {
   }
 
   getConversations(options: ScopeOptions = {}) {
-    return applyOwnershipToList(this.repository.load('conversations'), options.scope);
+    const visible = this.repository
+      .load('conversations')
+      .filter((conversation) => isResourceVisibleForRequestScope(conversation, options.scope));
+    return applyOwnershipToList(visible, options.scope);
   }
 
   saveConversations(conversations: DynamicValue[], options: ScopeOptions = {}) {
@@ -125,13 +132,21 @@ export class AssistantService {
   }
 
   deleteConversation(id: DynamicValue, _options: ScopeOptions = {}) {
-    const next = this.repository.load('conversations').filter((conversation) => conversation.id !== id);
+    const next = this.repository
+      .load('conversations')
+      .filter(
+        (conversation) =>
+          conversation.id !== id || !isResourceVisibleForRequestScope(conversation, _options.scope),
+      );
     this.repository.save('conversations', next);
     logger.info('assistant conversation deleted', { conversationId: id });
   }
 
   getImages(options: ScopeOptions = {}) {
-    return applyOwnershipToList(this.repository.load('gallery'), options.scope);
+    const visible = this.repository
+      .load('gallery')
+      .filter((image) => isResourceVisibleForRequestScope(image, options.scope));
+    return applyOwnershipToList(visible, options.scope);
   }
 
   async materializeRemoteVideoCandidates({ id, candidateUrls = [], scope = undefined }: RemoteVideoCandidatePayload) {
@@ -227,25 +242,33 @@ export class AssistantService {
   }
 
   clearImages(_options: ScopeOptions = {}) {
-    this.repository.save('gallery', []);
+    const next = this.repository
+      .load('gallery')
+      .filter((entry) => !isResourceVisibleForRequestScope(entry, _options.scope));
+    this.repository.save('gallery', next);
   }
 
   deleteImage(id: DynamicValue, _options: ScopeOptions = {}) {
     const gallery = this.repository.load('gallery');
-    const item = gallery.find((entry) => entry.id === id);
+    const item = gallery.find(
+      (entry) => entry.id === id && isResourceVisibleForRequestScope(entry, _options.scope),
+    );
     if (item?.localUrl?.startsWith('/api/assistant/files/')) {
       const rel = item.localUrl.replace('/api/assistant/files/', '');
       this.repository.deleteGeneratedFile(rel);
     }
     this.repository.save(
       'gallery',
-      gallery.filter((entry) => entry.id !== id),
+      gallery.filter((entry) => entry.id !== id || !isResourceVisibleForRequestScope(entry, _options.scope)),
     );
     logger.info('assistant image deleted', { imageId: id });
   }
 
   getVideos(options: ScopeOptions = {}) {
-    return applyOwnershipToList(this.repository.load('videos'), options.scope);
+    const visible = this.repository
+      .load('videos')
+      .filter((video) => isResourceVisibleForRequestScope(video, options.scope));
+    return applyOwnershipToList(visible, options.scope);
   }
 
   async saveVideo(video: PlainObject, options: ScopeOptions = {}) {
@@ -288,19 +311,22 @@ export class AssistantService {
   }
 
   clearVideos(_options: ScopeOptions = {}) {
-    this.repository.save('videos', []);
+    const next = this.repository
+      .load('videos')
+      .filter((video) => !isResourceVisibleForRequestScope(video, _options.scope));
+    this.repository.save('videos', next);
   }
 
   deleteVideo(id: DynamicValue, _options: ScopeOptions = {}) {
     const videos = this.repository.load('videos');
-    const item = videos.find((video) => video.id === id);
+    const item = videos.find((video) => video.id === id && isResourceVisibleForRequestScope(video, _options.scope));
     if (item?.localUrl?.startsWith('/api/assistant/files/')) {
       const rel = item.localUrl.replace('/api/assistant/files/', '');
       this.repository.deleteGeneratedFile(rel);
     }
     this.repository.save(
       'videos',
-      videos.filter((video) => video.id !== id),
+      videos.filter((video) => video.id !== id || !isResourceVisibleForRequestScope(video, _options.scope)),
     );
     logger.info('assistant video deleted', { videoId: id });
   }

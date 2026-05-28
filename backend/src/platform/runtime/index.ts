@@ -12,4 +12,9 @@ export {
   normalizeRequestScope,
   summarizeScopeFoundation,
 } from './request-scope.ts';
-export { applyOwnershipToList, createOwnershipMetadata, ensureResourceOwnership } from './resource-ownership.ts';
+export {
+  applyOwnershipToList,
+  createOwnershipMetadata,
+  ensureResourceOwnership,
+  isResourceVisibleForRequestScope,
+} from './resource-ownership.ts';

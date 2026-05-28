@@ -146,7 +146,7 @@ export function isResourceVisibleForScope(
   const ownerUserId = resource?.ownerUserId || existingScope?.userId;
   const workspaceId = resource?.workspaceId || existingScope?.workspaceId;
 
-  if (!ownerUserId && !workspaceId) return true;
+  if (!ownerUserId && !workspaceId) return normalized.runtimeMode !== 'server-multi-user';
 
   return ownerUserId === normalized.userId && workspaceId === normalized.workspaceId;
 }

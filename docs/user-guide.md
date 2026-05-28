@@ -140,6 +140,15 @@ Server-web repository deployment:
 - if the host was already deployed with the older repository-checkout flow, running `update.sh` once will migrate the live compose build context to the minimized `runtime/app` directory automatically
 - `uninstall.sh` keeps runtime data by default; set `SUE_LR_REMOVE_DATA=1` if you really want to delete stored files and settings
 
+Server-web authentication modes:
+
+- the provided compose files and Dockerfile default to `APP_RUNTIME_MODE=server-single-user`
+- `server-single-user` opens the app without a login gate and uses the default `single-user/default` scope
+- `server-multi-user` must be enabled explicitly through deployment environment variables
+- when `APP_RUNTIME_MODE=server-multi-user`, configure `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD` for the initial login account
+- in `server-multi-user`, unauthenticated users see the login screen before the main app
+- changing `APP_ADMIN_ACCESS_KEY` only protects the independent admin console; it is not the normal app login password
+
 Existing server-web image deployment:
 
 1. Choose the remote image name. Use the registry host, namespace, repository, and tag that your server will pull later:
@@ -182,6 +191,7 @@ Existing server-web image deployment:
        environment:
          APP_ALLOWED_ORIGINS: https://studio.suelr.com,https://admin.studio.suelr.com
          APP_ADMIN_ACCESS_KEY: change-this-admin-key
+         APP_RUNTIME_MODE: server-single-user
          APP_CONFIG_DIR: /data
        volumes:
          - ./data:/data
@@ -202,6 +212,8 @@ SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web bash ./scripts/deplo
 ```
 
 The public app reverse-proxies to `127.0.0.1:3001`. The independent admin console runs on `127.0.0.1:3002`; expose it with a separate nginx server such as `admin.studio.suelr.com`, and include that origin in `APP_ALLOWED_ORIGINS`. The admin console access key is `APP_ADMIN_ACCESS_KEY`.
+
+To test the multi-user login path on a prepared release candidate, set `APP_RUNTIME_MODE=server-multi-user` plus `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD`, restart the deployment, open the public app, and sign in with that bootstrap account. Keep production server-web deployments on `server-single-user` unless the release readiness gate in `docs/deployment-variants-plan.md` has been completed.
 
 Default local addresses:
 

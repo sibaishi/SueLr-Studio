@@ -98,6 +98,9 @@ npm.cmd run dev:frontend
 ```
 
 ## 当前 server-web 语义
+- 默认部署仍是 `APP_RUNTIME_MODE=server-single-user`，无需登录即可进入应用
+- `APP_RUNTIME_MODE=server-multi-user` 已有认证与隔离基础，但必须通过部署环境变量显式启用，并配置 `APP_AUTH_BOOTSTRAP_USERNAME` / `APP_AUTH_BOOTSTRAP_PASSWORD`
+- 多用户发布前必须满足 `docs/deployment-variants-plan.md` 中的 Server Multi-User Readiness Gate
 
 - `外部数据路径` 在 `server-web` 下表示浏览器客户端自动下载目录语义，不表示服务器宿主机路径
 - 生成结果会临时保留在服务器侧，通过 `/api/outputs/...` 提供访问

@@ -135,7 +135,7 @@ export class AgentService {
   }
 
   getStatus(_options: PlainObject = {}) {
-    return { ok: true, version: '1.0.0', sessions: this.sessionStore.list().length };
+    return { ok: true, version: '1.0.0', sessions: this.sessionStore.list(_options).length };
   }
 
   getProfiles(_options: PlainObject = {}) {
@@ -172,7 +172,7 @@ export class AgentService {
 
   deleteMemory(id: string, _options: PlainObject = {}) {
     try {
-      return this.memoryService.delete(id);
+      return this.memoryService.delete(id, _options);
     } catch (error) {
       throw fromLegacyError(error);
     }
@@ -180,7 +180,7 @@ export class AgentService {
 
   clearMemories(_options: PlainObject = {}) {
     try {
-      return this.memoryService.clear();
+      return this.memoryService.clear(_options);
     } catch (error) {
       throw fromLegacyError(error);
     }
@@ -188,7 +188,7 @@ export class AgentService {
 
   getSession(sessionId: string, _options: PlainObject = {}) {
     try {
-      return this.sessionStore.get(sessionId);
+      return this.sessionStore.get(sessionId, _options);
     } catch (error) {
       throw fromLegacyError(error);
     }
@@ -200,11 +200,11 @@ export class AgentService {
       if (runningSession) {
         runningSession.abortController.abort();
       }
-      const existing = this.sessionStore.get(sessionId);
+      const existing = this.sessionStore.get(sessionId, _options);
       if (!existing) {
         throw new ValidationError('AGENT_SESSION_NOT_FOUND', 'Session not found');
       }
-      return this.sessionStore.cancel(sessionId);
+      return this.sessionStore.cancel(sessionId, _options);
     } catch (error) {
       throw fromLegacyError(error);
     }

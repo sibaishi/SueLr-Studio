@@ -409,18 +409,19 @@ The public URL contract remains rooted at `/api/outputs/...` for generated outpu
 
 ## Server Runtime Guardrails
 
-When the runtime is running as `server-web` in either its single-user or future multi-user phase, shared code should assume a stricter boundary than local or desktop mode:
+When the runtime is running as `server-web` in either `server-single-user` or explicitly enabled `server-multi-user`, shared code should assume a stricter boundary than local or desktop mode:
 
 - storage settings APIs must not expose absolute host filesystem paths
 - settings UI must not imply direct control over server host filesystem roots
 - backend restart controls must remain unavailable from the browser UI
 - workflow output results must not return absolute `savedPaths`
 - request-scoped metadata should be attached through `request-context`, not inferred from globals
-- single-user request scope defaults to `userId: single-user` and `workspaceId: default`; future multi-user work should extend that shared model instead of inventing route-local scope fields
-- internal scope headers are `X-SueLr-User-Id`, `X-SueLr-Workspace-Id`, and `X-SueLr-Runtime-Mode`; they are metadata carriers only and do not introduce authentication or authorization by themselves
+- single-user request scope defaults to `userId: single-user` and `workspaceId: default`
+- in `server-multi-user`, request scope must come from the authenticated server-side session, not browser-supplied identity headers
+- browser-supplied `X-SueLr-User-Id`, `X-SueLr-Workspace-Id`, and `X-SueLr-Runtime-Mode` must not be trusted as authentication or authorization identity for public requests
 - persisted resources should use `ownerUserId`, `workspaceId`, and `ownershipScope` for ownership metadata; do not reuse domain fields such as memory `scope` for request ownership
-- missing ownership metadata on legacy single-user records should be filled through default fallback on read, not by forcing an immediate data migration
-- Milestone 5 is implemented and covered by `npm.cmd run check`; representative local-web, desktop, and server-web deployments still require manual smoke acceptance before release sign-off
+- missing ownership metadata on legacy single-user records may use default fallback in non-multi-user runtimes, but must not become globally visible in `server-multi-user`
+- Milestone 5 and the Phase 6 isolation matrix are implemented and covered by `npm.cmd run check`; representative local-web, desktop, and server-web deployments still require manual smoke acceptance before release sign-off
 - scoped storage preparation keeps `single-user/default` on the existing storage layout while reserving `scopes/v1/workspaces/<workspaceId>/users/<userId>/...` for future physical namespace moves
 
 If a new API needs to surface storage or generated outputs, prefer relative URLs or semantic state, never raw host paths.
@@ -482,6 +483,8 @@ When changing behavior:
 - run the narrowest relevant tests first
 - broaden to adjacent tests if the change touches shared workflow, settings, or storage code
 - for public release work, re-run `npm run check:docs`
+- for multi-user isolation changes, run `node --test --experimental-strip-types backend/tests/phase6-isolation-regression.test.ts`
+- for server browser auth gate changes, run `npm run test:e2e -- --grep "server multi user"`
 
 High-value regression areas:
 

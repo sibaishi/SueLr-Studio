@@ -56,3 +56,17 @@ export function applyOwnershipToList<T>(list: unknown, scope?: RequestScopeInput
 export function applyOwnershipToList<T>(list: unknown, scope?: RequestScopeInput): T[] {
   return Array.isArray(list) ? list.map((item) => ensureResourceOwnership(item, scope) as T) : [];
 }
+
+export function isResourceVisibleForRequestScope(resource: unknown, scope?: RequestScopeInput): boolean {
+  if (!isRecord(resource)) return true;
+  if (!scope) return true;
+  const normalized = normalizeRequestScope(scope);
+  const ownable = resource as OwnableResource;
+  const existingScope = readExistingScope(ownable);
+  const ownerUserId = ownable.ownerUserId || existingScope?.userId;
+  const workspaceId = ownable.workspaceId || existingScope?.workspaceId;
+
+  if (!ownerUserId && !workspaceId) return normalized.runtimeMode !== 'server-multi-user';
+
+  return ownerUserId === normalized.userId && workspaceId === normalized.workspaceId;
+}

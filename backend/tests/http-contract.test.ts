@@ -255,6 +255,11 @@ test('HTTP contract: runtime capabilities endpoint returns envelope-only payload
       canSelectDirectory: true,
       canRestartBackend: true,
       hasEmbeddedShell: false,
+      auth: {
+        required: false,
+        mode: 'none',
+        user: null,
+      },
       search: {
         enabled: false,
         provider: 'tavily',

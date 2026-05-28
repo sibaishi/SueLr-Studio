@@ -1,4 +1,4 @@
-import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import { ensureResourceOwnership, isResourceVisibleForRequestScope } from '../../platform/runtime/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { agentRepository } from './agent.repository.ts';
 
@@ -42,17 +42,21 @@ export class AgentSessionStore {
     return next;
   }
 
-  get(sessionId: string): PlainObject | null {
+  get(sessionId: string, options: PlainObject = {}): PlainObject | null {
     const session = this.activeSessions.get(sessionId) || this.repository.readSessionFile(sessionId);
-    return session ? ensureResourceOwnership(session, session.ownershipScope || session.scope) : null;
+    if (!session) return null;
+    const owned = ensureResourceOwnership(session, session.ownershipScope || session.scope) as PlainObject;
+    return isResourceVisibleForRequestScope(owned, options.scope) ? owned : null;
   }
 
-  list() {
-    return Array.from(this.activeSessions.values());
+  list(options: PlainObject = {}) {
+    return Array.from(this.activeSessions.values())
+      .map((session) => ensureResourceOwnership(session, session.ownershipScope || session.scope) as PlainObject)
+      .filter((session) => isResourceVisibleForRequestScope(session, options.scope));
   }
 
-  cancel(sessionId: string) {
-    const current = this.get(sessionId);
+  cancel(sessionId: string, options: PlainObject = {}) {
+    const current = this.get(sessionId, options);
     if (!current) return null;
     return this.update(sessionId, {
       status: 'cancelled',

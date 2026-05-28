@@ -31,6 +31,7 @@ export function LoginGate({ runtime, onAuthenticated }: LoginGateProps) {
 
   return (
     <div
+      data-testid="auth-login-gate"
       style={{
         minHeight: '100vh',
         display: 'grid',
@@ -63,6 +64,7 @@ export function LoginGate({ runtime, onAuthenticated }: LoginGateProps) {
         <label style={{ display: 'grid', gap: 8, fontSize: 13, color: 'rgba(247,250,252,0.78)' }}>
           用户名
           <input
+            data-testid="auth-login-username"
             autoComplete="username"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
@@ -81,6 +83,7 @@ export function LoginGate({ runtime, onAuthenticated }: LoginGateProps) {
         <label style={{ display: 'grid', gap: 8, fontSize: 13, color: 'rgba(247,250,252,0.78)' }}>
           密码
           <input
+            data-testid="auth-login-password"
             autoComplete="current-password"
             type="password"
             value={password}
@@ -97,9 +100,14 @@ export function LoginGate({ runtime, onAuthenticated }: LoginGateProps) {
           />
         </label>
 
-        {error && <div style={{ color: '#ffb4a8', fontSize: 13 }}>{error}</div>}
+        {error && (
+          <div data-testid="auth-login-error" style={{ color: '#ffb4a8', fontSize: 13 }}>
+            {error}
+          </div>
+        )}
 
         <button
+          data-testid="auth-login-submit"
           type="submit"
           disabled={submitting}
           style={{

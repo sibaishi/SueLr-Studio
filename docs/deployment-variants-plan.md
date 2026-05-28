@@ -63,7 +63,7 @@ Still pending for long-term cleanup:
 长期治理仍待完成：
 
 - Broader audit of chat, image, video, and workflow surfaces for non-desktop assumptions.
-- Future multi-user server delivery, including authentication, storage isolation, ownership enforcement, and user-scoped observability.
+- Multi-user server rollout readiness beyond the core isolation foundation, including production account operations, deployment smoke, and operator runbooks.
 
 - 更广泛审计 chat、image、video 和 workflow 表面中的非桌面假设。
 - 未来多用户服务端交付，包括认证、存储隔离、归属强制执行和用户级可观测性。
@@ -226,6 +226,26 @@ Manual release smoke still required:
 
 ## Server-Web Deployment Precheck And SOP / Server-Web 部署预检与 SOP
 
+## Server Multi-User Readiness Gate
+
+The trusted `server-multi-user` foundation is implemented on `main`, but the default server-web deployment remains `server-single-user`.
+
+Before enabling `APP_RUNTIME_MODE=server-multi-user` for a release candidate, confirm all of these gates:
+
+- Milestone 5 manual server-web smoke passed on a real deployment.
+- `server-multi-user` authentication is configured with `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD`.
+- Request scope is derived from the authenticated server session.
+- Browser-supplied scope headers cannot impersonate users.
+- Workflow, file/generated output, execution, assistant, agent, and settings surfaces have cross-user negative tests.
+- Legacy records without ownership metadata are not globally visible in `server-multi-user`.
+- `npm.cmd run check` passes on the candidate branch.
+- `npm.cmd run test:e2e -- --grep "server multi user"` passes when the browser auth gate changes.
+- `scripts/deploy/server-web/compose.yaml`, `scripts/deploy/server-web/compose.image.yaml`, and `scripts/deploy/server-web/Dockerfile` still default to `APP_RUNTIME_MODE=server-single-user`.
+- Multi-user mode is enabled only through explicit deployment environment configuration.
+- `APP_ADMIN_ACCESS_KEY` remains admin-console protection only; it is not regular user authentication.
+
+Do not switch the default compose or Dockerfile runtime mode to `server-multi-user` without a separate release decision.
+
 Precheck:
 
 预检：
@@ -285,7 +305,7 @@ Operational notes:
 | 3. Desktop Variant Cleanup / 桌面变体清理 | Closed on trunk; manual release smoke still required / 主干已关闭；发布前仍需人工冒烟 |
 | 4. Server Single-User Release / 服务端单用户发布 | Code and release-surface hardening complete; real deployment smoke still required / 代码和发布面加固已完成；仍需真实部署冒烟 |
 | 5. Scope, Ownership, And Scoped Storage / Scope、归属与 scoped 存储 | Implemented and covered by `npm.cmd run check`; manual cross-variant smoke still required / 已实现并由 `npm.cmd run check` 覆盖；仍需跨变体人工冒烟 |
-| 6. Multi-User Server Delivery / 多用户服务端交付 | Future work / 后续工作 |
+| 6. Multi-User Server Delivery / 多用户服务端交付 | Core isolation foundation implemented and covered by regression tests; explicit deployment enablement still gated / 核心隔离基础已实现并有回归测试覆盖；部署启用仍需显式门槛 |
 
 Milestone 6 scope:
 

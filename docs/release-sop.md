@@ -80,6 +80,8 @@ This document defines the standard release workflow for SueLr Studio variants. T
    - prefer `update-image.sh` on low-resource hosts so production frontend builds happen on a workstation or CI runner; this path pulls the prebuilt image and skips source checkout updates unless `SUE_LR_PULL_SOURCE=1` is set
    - for image-based host rollouts, preserve `/srv/suelr-studio/runtime/compose.yaml` settings such as `APP_ALLOWED_ORIGINS`, `APP_ADMIN_ACCESS_KEY`, ports, and data volumes
    - when exposing the independent admin console, route a separate origin such as `https://admin.studio.suelr.com` to `127.0.0.1:3002` and add that exact origin to `APP_ALLOWED_ORIGINS`
+   - keep `APP_RUNTIME_MODE` defaulting to `server-single-user` in compose and Docker assets unless the release explicitly enables `server-multi-user`
+   - when testing `server-multi-user`, configure `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD`; do not use `APP_ADMIN_ACCESS_KEY` as regular app authentication
    - do not deploy repository `tests/`, `e2e`, `docs/`, or other development-only surfaces into the server-web runtime app tree
    - keep the server-web Docker runtime image limited to built frontend assets, backend runtime files, backend production dependencies, and shared workflow contracts
 
@@ -97,6 +99,7 @@ This document defines the standard release workflow for SueLr Studio variants. T
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
    - For the Milestone 5 release candidate, confirm request scope diagnostics, representative ownership metadata, scoped storage behavior, and stable file URLs by inspecting real workflows, run logs, generated files, assistant/agent records, memory records, uploads, and `/api/outputs/...` responses. Automated `npm.cmd run check` is required but does not replace this manual acceptance.
+   - For a `server-multi-user` release candidate, confirm the Phase 6 readiness gate: auth is enabled, request scope comes from the server session, spoofed browser scope headers cannot impersonate users, cross-user negative tests cover workflow/files/execution/assistant/agent/settings, legacy unowned records are not globally visible, and `npm.cmd run test:e2e -- --grep "server multi user"` passes.
 
 7. Commit and push source changes:
 

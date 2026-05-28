@@ -1,4 +1,4 @@
-import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
+import { ensureResourceOwnership, isResourceVisibleForRequestScope } from '../../platform/runtime/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import {
   isDuplicateMemory,
@@ -118,11 +118,12 @@ export class AgentMemoryService {
 
   list(options: PlainObject = {}) {
     const current = this.repository.loadMemories();
-    const normalized = current
+    const visibleCurrent = current.filter((item) => isResourceVisibleForRequestScope(item, options.scope));
+    const normalized = visibleCurrent
       .map((item) => normalizeMemory(item, options.scope))
       .filter((item): item is PlainObject => Boolean(item));
     const deduped = dedupeMemories(normalized);
-    if (deduped.length !== current.length || deduped.length !== normalized.length) {
+    if (visibleCurrent.length === current.length && deduped.length !== normalized.length) {
       this.save(deduped);
     }
     return deduped;
@@ -209,15 +210,18 @@ export class AgentMemoryService {
     };
   }
 
-  delete(id: string) {
-    const next = this.list().filter((item) => item.id !== id);
+  delete(id: string, options: PlainObject = {}) {
+    const next = this.list().filter(
+      (item) => item.id !== id || !isResourceVisibleForRequestScope(item, options.scope),
+    );
     this.save(next);
     return next;
   }
 
-  clear() {
-    this.save([]);
-    return [];
+  clear(options: PlainObject = {}) {
+    const next = this.list().filter((item) => !isResourceVisibleForRequestScope(item, options.scope));
+    this.save(next);
+    return this.list(options);
   }
 
   search(query: DynamicValue, { limit = 5, scope = undefined }: PlainObject = {}) {
