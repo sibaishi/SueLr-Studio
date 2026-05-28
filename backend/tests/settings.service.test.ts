@@ -114,12 +114,7 @@ test('settings response does not expose secrets in plaintext', async () => {
   assert.equal(response.apiKey, undefined);
   assert.equal(response.tavilyApiKey, undefined);
   assert.equal(response.tavilyApiKeySet, true);
-  assert.deepEqual(response.runtime.outboundProxy, {
-    mode: 'system',
-    httpProxySet: false,
-    httpsProxySet: false,
-    noProxy: '',
-  });
+  assert.equal(response.runtime.outboundProxy, undefined);
   assert.equal(response.activeConfig.apiKey, '');
   assert.equal(response.activeConfig.apiKeySet, true);
 });
@@ -158,7 +153,7 @@ test('settings service discovers models with stored secrets when configId is pro
   }
 });
 
-test('settings service persists outbound proxy settings without exposing proxy URLs publicly', async () => {
+test('studio settings no longer exposes legacy outbound proxy settings', async () => {
   const root = createStorageDir('settings-outbound-proxy');
   process.env.APP_CONFIG_DIR = root;
   process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
@@ -184,11 +179,44 @@ test('settings service persists outbound proxy settings without exposing proxy U
   });
 
   const response = settingsService.getSettingsResponse();
-  assert.deepEqual(response.runtime.outboundProxy, {
+  assert.equal(response.runtime.outboundProxy, undefined);
+});
+
+test('runtime config uses admin outbound proxy instead of legacy studio proxy', async () => {
+  const root = createStorageDir('settings-admin-proxy-source');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { settingsService } = await import(`../src/modules/settings/settings.service.ts?test=${Date.now()}`);
+  const { adminConfigService } = await import(`../src/modules/admin-config/admin-config.service.ts?test=${Date.now()}`);
+
+  settingsService.updateStudioSettings({
+    runtime: {
+      outboundProxy: {
+        mode: 'direct',
+        httpProxy: '',
+        httpsProxy: '',
+        noProxy: '',
+      },
+    },
+  });
+  adminConfigService.updateAdminConfig({
+    network: {
+      outboundProxy: {
+        mode: 'custom',
+        httpProxy: '127.0.0.1:7890',
+        httpsProxy: 'http://127.0.0.1:7897',
+        noProxy: 'localhost',
+      },
+    },
+  });
+
+  assert.deepEqual(settingsService.buildRuntimeConfig().outboundProxy, {
     mode: 'custom',
-    httpProxySet: true,
-    httpsProxySet: true,
-    noProxy: 'localhost,*.internal',
+    httpProxy: '127.0.0.1:7890',
+    httpsProxy: 'http://127.0.0.1:7897',
+    noProxy: 'localhost',
   });
 });
 

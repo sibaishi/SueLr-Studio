@@ -1,9 +1,4 @@
-import type {
-  OutboundProxySettingsPayload,
-  StreamMode,
-  StudioSettingsPayload,
-  WorkflowConcurrencySettingsPayload,
-} from '@/features/settings';
+import type { StreamMode, StudioSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
 import type { StudioSettingsState } from '@/features/settings';
 import {
   checkSettingsServer,
@@ -40,7 +35,6 @@ function buildStudioSettingsPayload(params: {
   imageStreamingMode: StreamMode;
   sidebarCollapsed: boolean;
   tab: Tab;
-  outboundProxy: OutboundProxySettingsPayload;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   themeMode: ThemeMode;
   videoStreamingMode: StreamMode;
@@ -58,7 +52,6 @@ function buildStudioSettingsPayload(params: {
     runtime: {
       configs: params.apiConfigs,
       activeConfigId: params.activeConfigId,
-      outboundProxy: params.outboundProxy,
     },
     workflow: {
       concurrency: params.workflowConcurrency,
@@ -78,7 +71,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     settings.activeConfigId,
     params.themeMode,
     settings.customRoles,
-    settings.outboundProxy,
     settings.workflowConcurrency,
     params.tab,
     params.sidebarCollapsed,
@@ -98,7 +90,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       imageStreamingMode: settings.imageStreamingMode,
       sidebarCollapsed: params.sidebarCollapsed,
       tab: params.tab,
-      outboundProxy: settings.outboundProxy,
       workflowConcurrency: settings.workflowConcurrency,
       themeMode: params.themeMode,
       videoStreamingMode: settings.videoStreamingMode,
@@ -132,7 +123,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     settings.setModels,
     params.setSidebarCollapsed,
     params.setTab,
-    settings.setOutboundProxy,
     settings.setWorkflowConcurrency,
     params.setThemeMode,
     settings.setVideoStreamingMode,
@@ -164,8 +154,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
           if (Array.isArray(loadedSettings.ui?.customRoles) && loadedSettings.ui.customRoles.length > 0) {
             params.settings.setCustomRoles(loadedSettings.ui.customRoles);
           }
-          if (loadedSettings.runtime?.outboundProxy)
-            params.settings.setOutboundProxy(loadedSettings.runtime.outboundProxy);
           if (loadedSettings.workflow?.concurrency)
             params.settings.setWorkflowConcurrency(loadedSettings.workflow.concurrency);
           if (loadedSettings.ui?.lastTab) params.setTab(loadedSettings.ui.lastTab as Tab);

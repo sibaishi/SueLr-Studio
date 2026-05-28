@@ -10,6 +10,17 @@ export const REMOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
 const DATA_URL_LOG_PREVIEW_LENGTH = 48;
 const IMAGE_REQUEST_RETRY_DELAYS_MS = [1_000, 2_000];
+const BASE64_IMAGE_MIME_BY_MAGIC = [
+  { mimeType: 'image/png', magic: Buffer.from([0x89, 0x50, 0x4e, 0x47]) },
+  { mimeType: 'image/jpeg', magic: Buffer.from([0xff, 0xd8, 0xff]) },
+  { mimeType: 'image/webp', magic: Buffer.from('RIFF') },
+];
+
+type ImageResponseReadResult = {
+  bytesRead: number;
+  error?: DynamicValue;
+  text: string;
+};
 
 export function cleanText(value: DynamicValue): string {
   return String(value || '').trim();
@@ -97,6 +108,122 @@ function getFetchErrorCode(error: DynamicValue): string {
 function isRetryableImageRequestError(error: DynamicValue): boolean {
   const code = getFetchErrorCode(error);
   return code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'ETIMEDOUT' || code === 'ECONNRESET';
+}
+
+async function readImageResponseText(response: Response): Promise<ImageResponseReadResult> {
+  const body = response.body;
+  if (!body) {
+    const text = await response.text();
+    return { text, bytesRead: Buffer.byteLength(text) };
+  }
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  let bytesRead = 0;
+
+  while (true) {
+    try {
+      const { done, value } = await reader.read();
+      if (done) {
+        chunks.push(decoder.decode());
+        return { text: chunks.join(''), bytesRead };
+      }
+      if (value) {
+        bytesRead += value.byteLength;
+        chunks.push(decoder.decode(value, { stream: true }));
+      }
+    } catch (error) {
+      chunks.push(decoder.decode());
+      return { text: chunks.join(''), bytesRead, error };
+    }
+  }
+}
+
+function unescapeJsonString(value: string): string {
+  try {
+    return JSON.parse(`"${value}"`);
+  } catch {
+    return value.replace(/\\\//g, '/').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
+}
+
+function normalizeBase64(value: DynamicValue): string {
+  return cleanText(value).replace(/\s+/g, '');
+}
+
+function detectImageMimeFromBase64(value: string): string {
+  const normalized = normalizeBase64(value);
+  if (!normalized || normalized.length < 16 || normalized.length % 4 === 1) return '';
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(normalized, 'base64');
+  } catch {
+    return '';
+  }
+  if (buffer.byteLength < 8) return '';
+  const riffWebp =
+    buffer.byteLength >= 12 &&
+    buffer.subarray(0, 4).equals(Buffer.from('RIFF')) &&
+    buffer.subarray(8, 12).equals(Buffer.from('WEBP'));
+  if (riffWebp) return 'image/webp';
+  const match = BASE64_IMAGE_MIME_BY_MAGIC.find((item) => buffer.subarray(0, item.magic.length).equals(item.magic));
+  return match?.mimeType || '';
+}
+
+function toVerifiedDataUrl(base64: DynamicValue, fallbackMimeType = 'image/png'): string {
+  const normalized = normalizeBase64(base64);
+  const detectedMimeType = detectImageMimeFromBase64(normalized);
+  if (!detectedMimeType) return '';
+  const mimeType = cleanText(fallbackMimeType).startsWith('image/') ? fallbackMimeType : detectedMimeType;
+  return `data:${mimeType};base64,${normalized}`;
+}
+
+function addUniqueImage(images: string[], image: DynamicValue): void {
+  const value = cleanText(image);
+  if (value && !images.includes(value)) images.push(value);
+}
+
+function recoverImagesFromPartialText(text: string): string[] {
+  const images: string[] = [];
+  const addVerifiedBase64 = (base64: string, mimeType = 'image/png') => {
+    addUniqueImage(images, toVerifiedDataUrl(unescapeJsonString(base64), mimeType));
+  };
+
+  for (const match of text.matchAll(/"(?:url|image_url|imageUrl|output_url|outputUrl)"\s*:\s*"(https?:\/\/(?:\\.|[^"\\])+)"/g)) {
+    addUniqueImage(images, unescapeJsonString(match[1]));
+  }
+
+  for (const match of text.matchAll(/"(?:b64_json|base64|image_base64|imageBase64)"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g)) {
+    addVerifiedBase64(match[1]);
+  }
+
+  for (const match of text.matchAll(/"inlineData"\s*:\s*\{[^{}]{0,8000}?"mimeType"\s*:\s*"([^"]+)"[^{}]{0,8000}?"data"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g)) {
+    addVerifiedBase64(match[2], unescapeJsonString(match[1]));
+  }
+
+  for (const match of text.matchAll(/"inline_data"\s*:\s*\{[^{}]{0,8000}?"mime_type"\s*:\s*"([^"]+)"[^{}]{0,8000}?"data"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g)) {
+    addVerifiedBase64(match[2], unescapeJsonString(match[1]));
+  }
+
+  for (const match of text.matchAll(/(data:image\/[\w.+-]+(?:;charset=[^;,]+)?;base64,[A-Za-z0-9+/=\s]+)/g)) {
+    const dataUrl = cleanText(match[1]).replace(/\s+/g, '');
+    const base64 = dataUrl.replace(DATA_URL_PREFIX, '');
+    if (detectImageMimeFromBase64(base64)) addUniqueImage(images, dataUrl);
+  }
+
+  return images;
+}
+
+function hasPotentialIncompleteBase64(text: string): boolean {
+  return /"(?:data|b64_json|base64|image_base64|imageBase64)"\s*:\s*"[A-Za-z0-9+/=\s]*$/i.test(text);
+}
+
+function buildRecoveredImageResponse(images: string[]): LooseRecord {
+  return {
+    recoveredFromPartialResponse: true,
+    outputs: images,
+  };
 }
 
 export async function fetchWithImageTimeout(
@@ -277,14 +404,33 @@ export async function parseImageApiResponse(
     `${context}响应头已收到: status=${response.status}; contentType=${contentType}; contentLength=${contentLength}`,
   );
 
+  let readResult: ImageResponseReadResult;
   try {
-    responseText = await response.text();
+    readResult = await readImageResponseText(response);
+    responseText = readResult.text;
   } catch (error) {
     sendProgress?.(`${context}响应体读取失败: elapsedMs=${Date.now() - readStart}; ${describeFetchError(error)}`);
     throw new Error(`${context}响应读取失败: contentType=${contentType}; ${describeFetchError(error)}`);
   }
 
-  sendProgress?.(`${context}响应体读取完成: bytes=${responseText.length}; elapsedMs=${Date.now() - readStart}`);
+  if (readResult.error) {
+    const recoveredImages = recoverImagesFromPartialText(responseText);
+    sendProgress?.(
+      `${context}响应体读取失败: elapsedMs=${Date.now() - readStart}; bytesRead=${readResult.bytesRead}; recoveredImages=${recoveredImages.length}; ${describeFetchError(readResult.error)}`,
+    );
+    if (recoveredImages.length > 0) {
+      sendProgress?.(`${context}已从中断响应中恢复 ${recoveredImages.length} 个完整图片结果`);
+      return buildRecoveredImageResponse(recoveredImages);
+    }
+    const incompleteHint = hasPotentialIncompleteBase64(responseText) ? '; incomplete base64 image data' : '';
+    throw new Error(
+      `${context}响应读取失败: contentType=${contentType}; bytesRead=${readResult.bytesRead}${incompleteHint}; ${describeFetchError(readResult.error)}`,
+    );
+  }
+
+  sendProgress?.(
+    `${context}响应体读取完成: bytes=${readResult.bytesRead}; chars=${responseText.length}; elapsedMs=${Date.now() - readStart}`,
+  );
 
   if (!responseText.trim()) {
     throw new Error(`${context}响应为空: contentType=${contentType}`);

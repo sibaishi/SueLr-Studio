@@ -310,8 +310,6 @@ export default function App() {
                         onDeleteMemory={memory.deleteMemory}
                         onClearMemories={memory.clearMemories}
                         exportMemories={memory.exportMemories}
-                        outboundProxy={settings.outboundProxy}
-                        setOutboundProxy={settings.setOutboundProxy}
                         workflowConcurrency={settings.workflowConcurrency}
                         setWorkflowConcurrency={settings.setWorkflowConcurrency}
                         projectBusy={projectBusy}

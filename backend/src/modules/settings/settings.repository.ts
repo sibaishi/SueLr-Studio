@@ -574,7 +574,6 @@ export class SettingsRepository {
     const current = this.readSettings();
     const next = mergeSettingsPreservingSecrets(current, patch);
     const sanitized = sanitizeSettingsShape(next);
-    configureOutboundProxy(sanitized.runtime.outboundProxy);
     writeJsonFile(STORAGE_PATHS.settingsFile, sanitized);
     return sanitized;
   }
@@ -633,13 +632,13 @@ export class SettingsRepository {
     const currentSettings = settings || this.readSettings();
     const active = getActiveRuntimeConfig(currentSettings);
     const projectModels = normalizeProjectModels(active?.projectModels || []);
+    const { outboundProxy: _legacyOutboundProxy, ...publicRuntime } = currentSettings.runtime;
     return {
       version: currentSettings.version,
       ui: currentSettings.ui,
       runtime: {
-        ...currentSettings.runtime,
+        ...publicRuntime,
         tavilyApiKey: undefined,
-        outboundProxy: summarizeOutboundProxy(currentSettings.runtime.outboundProxy),
         configs: currentSettings.runtime.configs.map((config: DynamicValue) => ({
           ...config,
           apiKey: undefined,

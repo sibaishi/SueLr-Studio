@@ -6,7 +6,7 @@ import type { ProviderConfig } from '@/shared/providers';
 import { ftime, gid, loadJSON } from '@/shared/runtime';
 import type { AgentRole, ApiConfig, LogEntry, ModelInfo } from '@/shared/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { OutboundProxySettingsPayload, StreamMode, WorkflowConcurrencySettingsPayload } from './types';
+import type { StreamMode, WorkflowConcurrencySettingsPayload } from './types';
 
 const MAX_LOGS = 500;
 
@@ -97,12 +97,6 @@ export function useStudioSettingsState() {
   const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>(() => {
     const localRoles = loadJSON<AgentRole[]>('ai_custom_roles', []);
     return [...defaultAgentProfiles(), ...localRoles.map((role) => ({ ...toAgentProfile(role), isCustom: true }))];
-  });
-  const [outboundProxy, setOutboundProxy] = useState<OutboundProxySettingsPayload>({
-    mode: 'system',
-    httpProxy: '',
-    httpsProxy: '',
-    noProxy: '',
   });
   const [workflowConcurrency, setWorkflowConcurrency] = useState<WorkflowConcurrencySettingsPayload>({
     enabled: false,
@@ -266,7 +260,6 @@ export function useStudioSettingsState() {
     imageStreamingMode,
     logs,
     models,
-    outboundProxy,
     providerConfig,
     roles,
     setActiveConfigId,
@@ -277,7 +270,6 @@ export function useStudioSettingsState() {
     setCustomRoles,
     setImageStreamingMode,
     setModels,
-    setOutboundProxy,
     setWorkflowConcurrency,
     setVideoStreamingMode,
     upsertAgentProfile,

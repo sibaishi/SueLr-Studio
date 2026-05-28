@@ -146,8 +146,6 @@ export type SettingsPanelProps = {
   onDeleteMemory: (id: string) => void;
   onClearMemories: () => void;
   exportMemories: () => string;
-  outboundProxy: OutboundProxySettingsPayload;
-  setOutboundProxy: (value: OutboundProxySettingsPayload) => void;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   projectBusy: boolean;

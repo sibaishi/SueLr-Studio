@@ -2,7 +2,6 @@ import type {
   AccountDetailsLogsPayload,
   AccountDetailsPayload,
   ClientDownloadDirectoryState,
-  OutboundProxySettingsPayload,
   StorageSettingsPayload,
   WorkflowConcurrencySettingsPayload,
 } from '@/features/settings';
@@ -92,7 +91,6 @@ export type SettingsActions = {
   setBase: (value: string) => void;
   setApiKey: (value: string) => void;
   setModels: (models: ModelInfo[]) => void;
-  setOutboundProxy: (value: OutboundProxySettingsPayload) => void;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   testConnection: () => Promise<void>;
@@ -129,7 +127,6 @@ export type SettingsViewModel = {
   memories: Memory[];
   memoryQuery: string;
   models: ModelInfo[];
-  outboundProxy: OutboundProxySettingsPayload;
   providerConfig: ProviderConfig;
   projectModelSearch: string;
   projectModels: ProjectModel[];

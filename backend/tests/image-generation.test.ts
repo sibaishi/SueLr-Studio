@@ -9,6 +9,9 @@ import { generateImages, normalizeImageGenerationRequest, resolveImageGeneration
 import { configureOutboundProxy } from '../src/platform/http/proxy-aware-fetch.ts';
 import { ensureStorageDirectories, STORAGE_PATHS } from '../src/platform/storage/index.ts';
 
+const VALID_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l6c9VQAAAABJRU5ErkJggg==';
+
 function withTempStorage() {
   const previous = process.env.APP_CONFIG_DIR;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'suelr-image-generation-'));
@@ -1094,8 +1097,130 @@ test('generateImages supports Gemini generateContent image endpoints without cha
         imageSize: '4K',
       },
     });
+    assert.equal(requestBody.response_format, 'url');
     assert.equal(requestBody.model, undefined);
     assert.equal(requestBody.messages, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages can disable Gemini url response probing via provider config', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'YWJj',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gemini-3-pro-image-preview-4k',
+      prompt: 'poster',
+    }, createRuntimeConfig({
+      providerConfig: {
+        geminiImageResponseFormat: 'default',
+      },
+      projectModels: [
+        {
+          id: 'demo-image-model',
+          modelId: 'gemini-3-pro-image-preview-4k',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'gemini-generate-content',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requestBody.response_format, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages falls back when Gemini url response format is unsupported', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestBodies = [];
+  const progress = [];
+
+  globalThis.fetch = async (_url, options = {}) => {
+    const requestBody = JSON.parse(String(options.body));
+    requestBodies.push(requestBody);
+
+    if (requestBodies.length === 1) {
+      return new Response(JSON.stringify({
+        error: { message: 'Unknown parameter: response_format' },
+      }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'YWJj',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gemini-3-pro-image-preview-4k',
+      prompt: 'poster',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'demo-image-model',
+          modelId: 'gemini-3-pro-image-preview-4k',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'gemini-generate-content',
+        },
+      ],
+    }), (message) => progress.push(message));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requestBodies.length, 2);
+    assert.equal(requestBodies[0].response_format, 'url');
+    assert.equal(requestBodies[1].response_format, undefined);
+    assert.match(progress.join('\n'), /Gemini endpoint retry: drop response_format/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1331,6 +1456,91 @@ test('generateImages sets non-streaming chat image payloads and logs body read f
   }
 });
 
+test('generateImages recovers complete image data from interrupted partial responses', async () => {
+  const originalFetch = globalThis.fetch;
+  const progress = [];
+
+  globalThis.fetch = async () => {
+    const error = new Error('terminated');
+    error.cause = {
+      code: 'ECONNRESET',
+      message: 'read ECONNRESET',
+    };
+    const partial = `{"data":[{"b64_json":"${VALID_PNG_BASE64}"}]`;
+
+    let sent = false;
+    return new Response(new ReadableStream({
+      pull(controller) {
+        if (!sent) {
+          sent = true;
+          controller.enqueue(new TextEncoder().encode(partial));
+          return;
+        }
+        controller.error(error);
+      },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json; charset=UTF-8' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'demo-image-model',
+      prompt: 'draw a mountain',
+    }, createRuntimeConfig(), (message) => progress.push(message));
+
+    assertGeneratedPngOutput(result);
+    assert.match(progress.join('\n'), /recoveredImages=1/);
+    assert.match(progress.join('\n'), /已从中断响应中恢复 1 个完整图片结果/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages does not recover interrupted incomplete base64 image data', async () => {
+  const originalFetch = globalThis.fetch;
+  const progress = [];
+
+  globalThis.fetch = async () => {
+    const error = new Error('terminated');
+    error.cause = {
+      code: 'ECONNRESET',
+      message: 'read ECONNRESET',
+    };
+    const partial = `{"data":[{"b64_json":"${VALID_PNG_BASE64.slice(0, 32)}`;
+
+    let sent = false;
+    return new Response(new ReadableStream({
+      pull(controller) {
+        if (!sent) {
+          sent = true;
+          controller.enqueue(new TextEncoder().encode(partial));
+          return;
+        }
+        controller.error(error);
+      },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json; charset=UTF-8' },
+    });
+  };
+
+  try {
+    await assert.rejects(
+      generateImages({
+        model: 'demo-image-model',
+        prompt: 'draw a mountain',
+      }, createRuntimeConfig(), (message) => progress.push(message)),
+      /ECONNRESET.*bytesRead=.*incomplete base64 image data|bytesRead=.*incomplete base64 image data.*ECONNRESET/,
+    );
+
+    assert.match(progress.join('\n'), /recoveredImages=0/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateImages falls back for chat response format type errors', async () => {
   const originalFetch = globalThis.fetch;
   const requestBodies = [];
@@ -1434,6 +1644,7 @@ test('generateImages logs one ImageRequest entry for a single image edit request
     requests.push({
       url: String(url),
       method: options.method,
+      headers: options.headers,
       body: options.body,
     });
 
@@ -1460,6 +1671,7 @@ test('generateImages logs one ImageRequest entry for a single image edit request
     assert.equal(requests.length, 1);
     assert.equal(requests[0].url, 'https://example.com/v1/images/edits');
     assert.equal(requests[0].method, 'POST');
+    assert.equal(requests[0].headers['Content-Type'], undefined);
     assert.equal(requests[0].body instanceof FormData, true);
     assert.equal(imageRequestLogs.length, 1);
   } finally {
