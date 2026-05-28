@@ -171,6 +171,19 @@ Existing server-web image deployment:
 
    `build-image.sh` runs `scripts/build-server-web-release.mjs` first, so the Docker build context is `.server-web-release/app` rather than the full development checkout.
 
+   On Windows PowerShell without a working Bash environment, run the equivalent commands from the repository root:
+
+   ```powershell
+   node .\scripts\build-server-web-release.mjs
+
+   docker build `
+     -t git.suelr.com/sueadmin/suelr-studio:server-web `
+     -f .\.server-web-release\app\scripts\deploy\server-web\Dockerfile `
+     .\.server-web-release\app
+
+   docker push git.suelr.com/sueadmin/suelr-studio:server-web
+   ```
+
 4. Log in to the same registry once on the server:
 
    ```bash
@@ -211,7 +224,19 @@ If the server also has a current source checkout and should refresh the reposito
 SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web bash ./scripts/deploy/server-web/update-image.sh
 ```
 
-The public app reverse-proxies to `127.0.0.1:3001`. The independent admin console runs on `127.0.0.1:3002`; expose it with a separate nginx server such as `admin.studio.suelr.com`, and include that origin in `APP_ALLOWED_ORIGINS`. The admin console access key is `APP_ADMIN_ACCESS_KEY`.
+`update-image.sh` lives in the source checkout, not in `/srv/suelr-studio/runtime`. If the server does not keep a source checkout, update `/srv/suelr-studio/runtime/compose.yaml` and `/etc/nginx/sites-available/studio.suelr.com` manually, then run the two compose commands above plus `sudo nginx -t && sudo systemctl reload nginx`.
+
+The public app reverse-proxies to `127.0.0.1:3001`. The independent admin console runs on `127.0.0.1:3002`; expose it with a separate nginx server such as `admin.studio.suelr.com`, and include that origin in `APP_ALLOWED_ORIGINS`. The admin console access key is `APP_ADMIN_ACCESS_KEY`; it is checked by `/api/admin/...` and is separate from regular app user login.
+
+After updating nginx and compose, verify both admin routes from the server:
+
+```bash
+curl -I https://admin.studio.suelr.com
+curl -I http://127.0.0.1:3002/admin.html
+curl -sS -X POST http://127.0.0.1:3002/api/admin/access/validate \
+  -H 'Content-Type: application/json' \
+  -d '{"accessKey":"<admin-access-key>"}'
+```
 
 To test the multi-user login path on a prepared release candidate, set `APP_RUNTIME_MODE=server-multi-user` plus `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD`, restart the deployment, open the public app, and sign in with that bootstrap account. Keep production server-web deployments on `server-single-user` unless the release readiness gate in `docs/deployment-variants-plan.md` has been completed.
 

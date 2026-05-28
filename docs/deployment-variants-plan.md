@@ -269,14 +269,18 @@ Recommended environment contract:
 - `APP_RUNTIME_MODE=server-single-user`
 - `APP_HOST=127.0.0.1` behind reverse proxy, or `0.0.0.0` inside the container runtime
 - `APP_PORT=3001`
-- `APP_ALLOWED_ORIGINS=<comma-separated allowed browser origins>`
+- `ADMIN_PORT=3002`
+- `APP_ALLOWED_ORIGINS=https://studio.suelr.com,https://admin.studio.suelr.com`
+- `APP_ADMIN_ACCESS_KEY=<admin-console-access-key>`
 - `APP_FRONTEND_DIST=<absolute path to built frontend dist>`
 - `APP_CONFIG_DIR=<absolute runtime data root>` when needed
 
 - `APP_RUNTIME_MODE=server-single-user`
 - 反向代理后使用 `APP_HOST=127.0.0.1`，容器运行时可使用 `0.0.0.0`
 - `APP_PORT=3001`
-- `APP_ALLOWED_ORIGINS=<逗号分隔的允许浏览器来源>`
+- `ADMIN_PORT=3002`
+- `APP_ALLOWED_ORIGINS=https://studio.suelr.com,https://admin.studio.suelr.com`
+- `APP_ADMIN_ACCESS_KEY=<管理端访问密钥>`
 - `APP_FRONTEND_DIST=<构建后前端 dist 的绝对路径>`
 - 需要时设置 `APP_CONFIG_DIR=<运行时数据绝对根路径>`
 
@@ -285,13 +289,17 @@ Operational notes:
 运维说明：
 
 - Repository-checkout deployments may use `install.sh`, `update.sh`, and `uninstall.sh`.
-- Prebuilt image deployments may use `build-image.sh` and `update-image.sh`.
+- Prebuilt image deployments may use `build-image.sh` and `update-image.sh` when the server has a source checkout; servers with only `/srv/suelr-studio/runtime` must update compose and nginx manually before `docker compose pull`.
+- The public app origin should route to `127.0.0.1:3001`; the independent admin origin should route to `127.0.0.1:3002`.
+- Validate the admin origin with `curl -I https://admin.studio.suelr.com`, `curl -I http://127.0.0.1:3002/admin.html`, and `POST /api/admin/access/validate`.
 - The live compose build context should be synchronized into a minimized `runtime/app` tree.
 - Server-web Docker builds should use `scripts/deploy/server-web/app.dockerignore`.
 - Runtime data is kept by default on uninstall unless `SUE_LR_REMOVE_DATA=1`.
 
 - 仓库检出式部署可使用 `install.sh`、`update.sh` 和 `uninstall.sh`。
-- 预构建镜像部署可使用 `build-image.sh` 和 `update-image.sh`。
+- 服务器上有源码检出时，预构建镜像部署可使用 `build-image.sh` 和 `update-image.sh`；只有 `/srv/suelr-studio/runtime` 的服务器需要先手动更新 compose 和 nginx，再执行 `docker compose pull`。
+- 公共应用域名应反代到 `127.0.0.1:3001`；独立管理端域名应反代到 `127.0.0.1:3002`。
+- 用 `curl -I https://admin.studio.suelr.com`、`curl -I http://127.0.0.1:3002/admin.html` 和 `POST /api/admin/access/validate` 验证管理端入口。
 - 在线 compose 构建上下文应同步到最小化的 `runtime/app` 目录。
 - server-web Docker 构建应使用 `scripts/deploy/server-web/app.dockerignore`。
 - 卸载默认保留运行时数据，除非设置 `SUE_LR_REMOVE_DATA=1`。

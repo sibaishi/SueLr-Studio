@@ -624,6 +624,17 @@ Image-based host update flow:
   ```
 
   `build-image.sh` always rebuilds `.server-web-release/app` before `docker build`, and it only pushes when `SUE_LR_PUSH=1` is set.
+- On Windows PowerShell hosts where `bash` is not available, run the equivalent sequence:
+
+  ```powershell
+  node .\scripts\build-server-web-release.mjs
+  docker build `
+    -t git.suelr.com/sueadmin/suelr-studio:server-web `
+    -f .\.server-web-release\app\scripts\deploy\server-web\Dockerfile `
+    .\.server-web-release\app
+  docker push git.suelr.com/sueadmin/suelr-studio:server-web
+  ```
+
 - Run `docker login git.suelr.com` once on every server that must pull the private image.
 - On an existing host where `/srv/suelr-studio/runtime/compose.yaml` already uses `image: git.suelr.com/sueadmin/suelr-studio:server-web`, update with:
 
@@ -634,8 +645,10 @@ Image-based host update flow:
   ```
 
 - If the host has a current source checkout and should refresh repository-managed deployment files before restarting, use `SUE_LR_IMAGE=<image> bash ./scripts/deploy/server-web/update-image.sh` instead of the two compose commands.
+- If the host does not have a current source checkout, `update-image.sh` is not available under `/srv/suelr-studio/runtime`; update the runtime `compose.yaml` and nginx site file manually, then run `docker compose pull`, `docker compose up -d --no-build`, `nginx -t`, and `systemctl reload nginx`.
 - The app container exposes the public app on `127.0.0.1:3001` and the independent admin console on `127.0.0.1:3002`.
 - If the admin console is exposed as `https://admin.studio.suelr.com`, nginx must proxy that origin to `127.0.0.1:3002`, `APP_ALLOWED_ORIGINS` must include both `https://studio.suelr.com` and `https://admin.studio.suelr.com`, and `APP_ADMIN_ACCESS_KEY` must be set in compose.
+- Validate the admin route with `curl -I https://admin.studio.suelr.com`, `curl -I http://127.0.0.1:3002/admin.html`, and `POST /api/admin/access/validate` through port `3002`.
 - Preserve `/srv/suelr-studio/runtime/data` across image updates; it contains runtime settings and generated data.
 
 Variant release-surface rule:

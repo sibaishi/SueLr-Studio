@@ -61,6 +61,17 @@ This document defines the standard release workflow for SueLr Studio variants. T
    SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
    ```
 
+   On Windows PowerShell without a working Bash environment, build and push the same image with:
+
+   ```powershell
+   node .\scripts\build-server-web-release.mjs
+   docker build `
+     -t git.suelr.com/sueadmin/suelr-studio:server-web `
+     -f .\.server-web-release\app\scripts\deploy\server-web\Dockerfile `
+     .\.server-web-release\app
+   docker push git.suelr.com/sueadmin/suelr-studio:server-web
+   ```
+
    Then on the server:
 
    ```bash
@@ -72,6 +83,8 @@ This document defines the standard release workflow for SueLr Studio variants. T
 
    Use `update-image.sh` when the server has a current source checkout and should refresh `compose.image.yaml` or nginx from the repository. For an already migrated image deployment under `/srv/suelr-studio/runtime`, the normal rollout is only `docker compose pull` plus `up -d --no-build`.
 
+   If the server does not have a source checkout, do not run `update-image.sh` from `/srv/suelr-studio/runtime`; manually update `/srv/suelr-studio/runtime/compose.yaml` and `/etc/nginx/sites-available/studio.suelr.com`, then reload nginx.
+
    `server-web` release rule:
 
    - keep the source checkout on the host only as the update source
@@ -80,6 +93,7 @@ This document defines the standard release workflow for SueLr Studio variants. T
    - prefer `update-image.sh` on low-resource hosts so production frontend builds happen on a workstation or CI runner; this path pulls the prebuilt image and skips source checkout updates unless `SUE_LR_PULL_SOURCE=1` is set
    - for image-based host rollouts, preserve `/srv/suelr-studio/runtime/compose.yaml` settings such as `APP_ALLOWED_ORIGINS`, `APP_ADMIN_ACCESS_KEY`, ports, and data volumes
    - when exposing the independent admin console, route a separate origin such as `https://admin.studio.suelr.com` to `127.0.0.1:3002` and add that exact origin to `APP_ALLOWED_ORIGINS`
+   - verify the independent admin console with `curl -I https://admin.studio.suelr.com`, `curl -I http://127.0.0.1:3002/admin.html`, and an `/api/admin/access/validate` request carrying the configured admin key
    - keep `APP_RUNTIME_MODE` defaulting to `server-single-user` in compose and Docker assets unless the release explicitly enables `server-multi-user`
    - when testing `server-multi-user`, configure `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD`; do not use `APP_ADMIN_ACCESS_KEY` as regular app authentication
    - do not deploy repository `tests/`, `e2e`, `docs/`, or other development-only surfaces into the server-web runtime app tree
