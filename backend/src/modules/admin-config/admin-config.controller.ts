@@ -1,4 +1,5 @@
 import { successEnvelope } from '../../app/http/envelope.ts';
+import { getRuntimeMode } from '../../platform/runtime/index.ts';
 import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
 import { adminConfigService } from './admin-config.service.ts';
 
@@ -40,9 +41,7 @@ export class AdminConfigController {
       const bodyKey = String(req.body?.accessKey || '').trim();
       const provided = headerKey || bodyKey;
       const required = String(process.env.APP_ADMIN_ACCESS_KEY || '').trim();
-      const requiresAccessKey = String(process.env.APP_RUNTIME_MODE || '')
-        .trim()
-        .startsWith('server');
+      const requiresAccessKey = getRuntimeMode().startsWith('server');
       const valid = !requiresAccessKey || (required && provided === required);
       res.json(
         successEnvelope({

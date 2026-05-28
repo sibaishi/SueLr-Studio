@@ -1,4 +1,5 @@
 import { AppError } from '../errors/index.ts';
+import { getRuntimeMode } from '../../platform/runtime/index.ts';
 
 type NextFunction = (error?: unknown) => void;
 
@@ -7,7 +8,7 @@ interface AdminAccessRequest {
 }
 
 export function requireAdminAccess(req: AdminAccessRequest, _res: unknown, next: NextFunction): void {
-  const mode = String(process.env.APP_RUNTIME_MODE || '').trim();
+  const mode = getRuntimeMode();
   const isServerRuntime = mode.startsWith('server');
   if (!isServerRuntime) {
     next();

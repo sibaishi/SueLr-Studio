@@ -21,7 +21,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV APP_HOST=0.0.0.0
 ENV APP_PORT=3001
-ENV APP_RUNTIME_MODE=server-single-user
+ENV APP_SERVER_WEB=1
+ENV APP_RUNTIME_MODE=server-multi-user
 ENV APP_FRONTEND_DIST=/app/dist
 
 COPY --from=build /app/dist ./dist

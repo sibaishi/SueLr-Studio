@@ -12,6 +12,10 @@ export function getRuntimeMode(): RuntimeMode {
     return 'desktop';
   }
 
+  if (process.env.APP_SERVER_WEB === '1') {
+    return 'server-multi-user';
+  }
+
   if (process.env.APP_SERVER_MODE === 'multi-user') {
     return 'server-multi-user';
   }

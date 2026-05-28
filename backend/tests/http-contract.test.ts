@@ -276,6 +276,77 @@ test('HTTP contract: runtime capabilities endpoint returns envelope-only payload
   }
 });
 
+test('HTTP contract: server-web context defaults to multi-user capabilities', async () => {
+  process.env.APP_SERVER_WEB = '1';
+  process.env.APP_ADMIN_ACCESS_KEY = 'test-admin-key';
+  const { server, baseUrl } = await createTestServer('server-web-runtime-capabilities');
+  try {
+    const runtime = await requestJson(baseUrl, '/api/capabilities/runtime');
+    assert.equal(runtime.status, 200);
+    assertEnvelopeShape(runtime.body);
+    assert.equal(runtime.body.data.mode, 'server-multi-user');
+    assert.equal(runtime.body.data.auth.required, true);
+    assert.equal(runtime.body.data.auth.mode, 'session');
+    assert.equal(runtime.body.data.adminConsole.requiresAccessKey, true);
+    assert.equal(runtime.body.data.adminConsole.configured, true);
+  } finally {
+    delete process.env.APP_SERVER_WEB;
+    delete process.env.APP_ADMIN_ACCESS_KEY;
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: explicit single-user runtime overrides server-web default', async () => {
+  process.env.APP_SERVER_WEB = '1';
+  process.env.APP_RUNTIME_MODE = 'server-single-user';
+  process.env.APP_ADMIN_ACCESS_KEY = 'test-admin-key';
+  const { server, baseUrl } = await createTestServer('server-web-single-user-override');
+  try {
+    const runtime = await requestJson(baseUrl, '/api/capabilities/runtime');
+    assert.equal(runtime.status, 200);
+    assertEnvelopeShape(runtime.body);
+    assert.equal(runtime.body.data.mode, 'server-single-user');
+    assert.equal(runtime.body.data.auth.required, false);
+    assert.equal(runtime.body.data.auth.mode, 'none');
+  } finally {
+    delete process.env.APP_SERVER_WEB;
+    delete process.env.APP_RUNTIME_MODE;
+    delete process.env.APP_ADMIN_ACCESS_KEY;
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: server-web default protects admin APIs with admin access key', async () => {
+  process.env.APP_SERVER_WEB = '1';
+  process.env.APP_ADMIN_ACCESS_KEY = 'test-admin-key';
+  const { server, baseUrl } = await createTestServer('server-web-admin-guard');
+  try {
+    const denied = await requestJson(baseUrl, '/api/admin/settings');
+    assert.equal(denied.status, 403);
+    assertEnvelopeShape(denied.body);
+    assert.equal(denied.body.error.code, 'ADMIN_ACCESS_DENIED');
+
+    const allowed = await requestJson(baseUrl, '/api/admin/settings', {
+      headers: { 'X-Admin-Access-Key': 'test-admin-key' },
+    });
+    assert.equal(allowed.status, 200);
+    assertEnvelopeShape(allowed.body);
+    assert.equal(allowed.body.success, true);
+
+    const validation = await requestJson(baseUrl, '/api/admin/access/validate', {
+      method: 'POST',
+      body: JSON.stringify({ accessKey: 'test-admin-key' }),
+    });
+    assert.equal(validation.status, 200);
+    assert.equal(validation.body.data.requiresAccessKey, true);
+    assert.equal(validation.body.data.valid, true);
+  } finally {
+    delete process.env.APP_SERVER_WEB;
+    delete process.env.APP_ADMIN_ACCESS_KEY;
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: server runtime blocks local-only settings actions', async () => {
   process.env.APP_RUNTIME_MODE = 'server-single-user';
   const { server, baseUrl } = await createTestServer('server-runtime-settings');

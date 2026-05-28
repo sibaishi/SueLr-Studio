@@ -44,9 +44,19 @@ describe('server-web release directory', () => {
     expect(nginxConfig).toContain('proxy_pass http://127.0.0.1:3002;');
 
     for (const source of [compose, imageCompose]) {
+      expect(source).toContain('APP_SERVER_WEB: 1');
+      expect(source).toContain('APP_RUNTIME_MODE: server-multi-user');
       expect(source).toContain('APP_ALLOWED_ORIGINS: https://studio.suelr.com,https://admin.studio.suelr.com');
       expect(source).toContain('APP_ADMIN_ACCESS_KEY: change-this-admin-key');
       expect(source).toContain('"127.0.0.1:3002:3002"');
     }
+  });
+
+  test('defaults Docker runtime to server multi-user mode', () => {
+    const repoRoot = resolve(__dirname, '../..');
+    const dockerfile = readFileSync(resolve(repoRoot, 'scripts/deploy/server-web/Dockerfile'), 'utf8');
+
+    expect(dockerfile).toContain('ENV APP_SERVER_WEB=1');
+    expect(dockerfile).toContain('ENV APP_RUNTIME_MODE=server-multi-user');
   });
 });
