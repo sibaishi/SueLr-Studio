@@ -179,6 +179,26 @@ export class AuthRepository {
     return updated;
   }
 
+  updateUserStatusById(userId: string, status: UserStatus): StoredAuthUser | null {
+    const state = this.readState();
+    const existingIndex = state.users.findIndex((user) => user.id === userId);
+    if (existingIndex < 0) return null;
+
+    const now = Date.now();
+    const updated = {
+      ...state.users[existingIndex],
+      status,
+      workspaceId: 'default' as const,
+      updatedAt: now,
+      approvedAt: status === 'active' ? now : state.users[existingIndex].approvedAt,
+      rejectedAt: status === 'rejected' ? now : state.users[existingIndex].rejectedAt,
+      disabledAt: status === 'disabled' ? now : state.users[existingIndex].disabledAt,
+    };
+    state.users[existingIndex] = updated;
+    this.writeState(state);
+    return updated;
+  }
+
   createSession(input: Omit<StoredAuthSession, 'id' | 'createdAt'>): StoredAuthSession {
     const state = this.readState();
     const now = Date.now();

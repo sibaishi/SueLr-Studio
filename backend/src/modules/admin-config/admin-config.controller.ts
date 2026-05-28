@@ -2,6 +2,7 @@ import { successEnvelope } from '../../app/http/envelope.ts';
 import { getRuntimeMode } from '../../platform/runtime/index.ts';
 import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
 import { adminConfigService } from './admin-config.service.ts';
+import { adminUsersService } from './admin-users.service.ts';
 
 export class AdminConfigController {
   getSettings(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
@@ -49,6 +50,54 @@ export class AdminConfigController {
           requiresAccessKey,
         }),
       );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  listUsers(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(adminUsersService.listUsers(String(req.query?.status || ''))));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  approveUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(adminUsersService.updateStatus(String(req.params?.id || ''), 'active')));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  rejectUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(adminUsersService.updateStatus(String(req.params?.id || ''), 'rejected')));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  disableUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(adminUsersService.updateStatus(String(req.params?.id || ''), 'disabled')));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  enableUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(adminUsersService.updateStatus(String(req.params?.id || ''), 'active')));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  getAudit(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope({ entries: [] }));
     } catch (error) {
       next(error);
     }

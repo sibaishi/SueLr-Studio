@@ -1,24 +1,37 @@
 import { DARK, LIGHT } from '@/app/theme/constants';
 import { TCtx, useT } from '@/providers/ThemeContext';
-import { Gauge, Globe, KeyRound, Network } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import '@/index.css';
 import {
   type AdminSettingsPayload,
+  type AdminUser,
+  approveAdminUser,
+  disableAdminUser,
+  enableAdminUser,
   loadAdminSettings,
+  loadAdminUsers,
+  rejectAdminUser,
   saveAdminSettings,
   testAdminSearch,
   validateAdminAccess,
 } from '@/shared/api/admin';
 import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
+import { Gauge, Globe, KeyRound, Network, UserCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import '@/index.css';
 
 type AccessState = 'checking' | 'required' | 'ready' | 'denied';
+
+const STATUS_LABELS: Record<AdminUser['status'], string> = {
+  pending: '待审核',
+  active: '已启用',
+  rejected: '已拒绝',
+  disabled: '已停用',
+};
 
 function panelStyle(): React.CSSProperties {
   return {
     background: 'rgba(255,255,255,0.72)',
     border: '1px solid var(--t-border)',
-    borderRadius: 24,
+    borderRadius: 20,
     backdropFilter: 'blur(28px)',
     WebkitBackdropFilter: 'blur(28px)',
     boxShadow: '0 18px 48px rgba(0,0,0,0.12)',
@@ -37,6 +50,7 @@ function chipStyle(color?: string): React.CSSProperties {
     color: color || 'var(--t-text2)',
     fontSize: 11,
     fontWeight: 700,
+    whiteSpace: 'nowrap',
   };
 }
 
@@ -58,12 +72,13 @@ function Section({
           style={{
             width: 38,
             height: 38,
-            borderRadius: 14,
+            borderRadius: 12,
             background: 'rgba(0,122,255,0.12)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'var(--t-blue)',
+            flex: '0 0 auto',
           }}
         >
           {icon}
@@ -96,7 +111,7 @@ function AccessGate({
       <div style={{ ...panelStyle(), width: '100%', maxWidth: 460, padding: 24 }}>
         <div style={{ fontSize: 22, fontWeight: 900, color: '#111827' }}>SueLr Studio Admin Console</div>
         <div style={{ fontSize: 13, color: '#374151', marginTop: 8 }}>
-          独立管理端用于统一配置部署级能力，不承接用户自己的上游 API 与模型设置。
+          独立管理端用于部署级设置和用户审核，不使用普通用户登录凭证。
         </div>
         <div style={{ marginTop: 18 }}>
           <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 700, color: '#111827' }}>
@@ -106,11 +121,11 @@ function AccessGate({
             value={accessKey}
             onChange={(event) => setAccessKey(event.target.value)}
             type="password"
-            placeholder="server-web 需要，local-web / desktop 可留空"
+            placeholder="server-web 必填"
             style={{
               width: '100%',
               height: 44,
-              borderRadius: 14,
+              borderRadius: 12,
               border: '1px solid #d1d5db',
               background: '#ffffff',
               color: '#111827',
@@ -134,12 +149,77 @@ function AccessGate({
   );
 }
 
+function UserTable({
+  users,
+  accessKey,
+  onChanged,
+}: {
+  users: AdminUser[];
+  accessKey?: string;
+  onChanged: () => Promise<void>;
+}) {
+  const run = async (action: () => Promise<unknown>) => {
+    await action();
+    await onChanged();
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {users.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--t-text2)', padding: '12px 0' }}>暂无用户</div>
+      ) : (
+        users.map((user) => (
+          <div
+            key={user.id}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(180px, 1fr) 120px minmax(220px, auto)',
+              gap: 12,
+              alignItems: 'center',
+              padding: 12,
+              border: '1px solid var(--t-border)',
+              borderRadius: 12,
+              background: 'rgba(255,255,255,0.52)',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--t-text)' }}>{user.username}</div>
+              <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 3 }}>
+                {user.email || '未填写邮箱'} · {user.workspaceId}
+              </div>
+            </div>
+            <span style={chipStyle()}>{STATUS_LABELS[user.status]}</span>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              {user.status === 'pending' ? (
+                <>
+                  <IOSButton label="通过" onClick={() => void run(() => approveAdminUser(user.id, accessKey))} />
+                  <IOSButton label="拒绝" onClick={() => void run(() => rejectAdminUser(user.id, accessKey))} />
+                </>
+              ) : null}
+              {user.status === 'active' ? (
+                <IOSButton label="停用" onClick={() => void run(() => disableAdminUser(user.id, accessKey))} />
+              ) : null}
+              {user.status === 'disabled' ? (
+                <IOSButton label="启用" onClick={() => void run(() => enableAdminUser(user.id, accessKey))} />
+              ) : null}
+              {user.status === 'rejected' ? (
+                <IOSButton label="重新启用" onClick={() => void run(() => enableAdminUser(user.id, accessKey))} />
+              ) : null}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 function AdminScreen() {
   const T = useT();
   const [themeMode] = useState<'light' | 'dark'>('light');
   const [accessState, setAccessState] = useState<AccessState>('checking');
   const [accessKey, setAccessKey] = useState('');
   const [settings, setSettings] = useState<AdminSettingsPayload | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [searchEnabled, setSearchEnabled] = useState(false);
   const [searchProvider, setSearchProvider] = useState('tavily');
   const [tavilyApiKey, setTavilyApiKey] = useState('');
@@ -152,6 +232,16 @@ function AdminScreen() {
   const [saving, setSaving] = useState(false);
 
   const theme = themeMode === 'dark' ? DARK : LIGHT;
+
+  const loadUsers = async (nextAccessKey = accessKey) => {
+    const [pending, active, disabled, rejected] = await Promise.all([
+      loadAdminUsers(nextAccessKey, 'pending'),
+      loadAdminUsers(nextAccessKey, 'active'),
+      loadAdminUsers(nextAccessKey, 'disabled'),
+      loadAdminUsers(nextAccessKey, 'rejected'),
+    ]);
+    setUsers([...pending.users, ...active.users, ...disabled.users, ...rejected.users]);
+  };
 
   const load = async (nextAccessKey?: string) => {
     const access = await validateAdminAccess(nextAccessKey);
@@ -168,6 +258,7 @@ function AdminScreen() {
     setProxyMode(next.network.outboundProxy.mode);
     setNoProxy(next.network.outboundProxy.noProxy || '');
     setFeatureEnabled(next.features.adminConsoleEnabled);
+    await loadUsers(nextAccessKey || '');
   };
 
   useEffect(() => {
@@ -175,12 +266,13 @@ function AdminScreen() {
   }, []);
 
   const statusChips = useMemo(() => {
+    const pendingCount = users.filter((user) => user.status === 'pending').length;
     return [
       { label: searchEnabled ? '联网搜索已启用' : '联网搜索已关闭', color: searchEnabled ? T.purple : undefined },
       { label: `Provider: ${searchProvider}`, color: T.blue },
-      { label: `代理模式: ${proxyMode}`, color: T.green },
+      { label: `待审核: ${pendingCount}`, color: pendingCount > 0 ? '#f59e0b' : T.green },
     ];
-  }, [T.blue, T.green, T.purple, proxyMode, searchEnabled, searchProvider]);
+  }, [T.blue, T.green, T.purple, searchEnabled, searchProvider, users]);
 
   const handleAccessSubmit = async () => {
     setAccessState('checking');
@@ -268,17 +360,15 @@ function AdminScreen() {
                 style={{
                   fontSize: 12,
                   fontWeight: 800,
-                  letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                   color: 'var(--t-text2)',
                 }}
               >
                 Separate Admin Console
               </div>
-              <div style={{ fontSize: 30, fontWeight: 900, color: 'var(--t-text)', marginTop: 6 }}>部署级统一配置</div>
-              <div style={{ fontSize: 13, color: 'var(--t-text2)', marginTop: 8, maxWidth: 620 }}>
-                这里控制联网搜索总闸、统一搜索凭据、代理配置和少量部署开关。用户自己的 Base URL、API
-                Key、模型发现与启停仍留在主应用设置页。
+              <div style={{ fontSize: 30, fontWeight: 900, color: 'var(--t-text)', marginTop: 6 }}>部署管理</div>
+              <div style={{ fontSize: 13, color: 'var(--t-text2)', marginTop: 8, maxWidth: 640 }}>
+                管理部署级搜索、代理、用户审核和账号启停。管理员密钥不作为普通用户登录凭证。
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignSelf: 'flex-start' }}>
@@ -290,16 +380,17 @@ function AdminScreen() {
             </div>
           </header>
 
+          <Section title="用户审核" description="审核注册申请并管理账号状态。" icon={<UserCheck size={18} />}>
+            <UserTable users={users} accessKey={accessKey || undefined} onChanged={() => loadUsers(accessKey || '')} />
+          </Section>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 18 }}>
-            <Section title="搜索服务" description="部署级联网搜索总闸与统一凭据。" icon={<Globe size={18} />}>
+            <Section title="搜索服务" description="部署级联网搜索总开关与统一凭据。" icon={<Globe size={18} />}>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
-                    <IOSLabel>联网搜索总开关</IOSLabel>
-                    <IOSSelect
-                      value={searchEnabled ? 'on' : 'off'}
-                      onChange={(value) => setSearchEnabled(value === 'on')}
-                    >
+                    <IOSLabel>联网搜索</IOSLabel>
+                    <IOSSelect value={searchEnabled ? 'on' : 'off'} onChange={(value) => setSearchEnabled(value === 'on')}>
                       <option value="on">启用</option>
                       <option value="off">关闭</option>
                     </IOSSelect>
@@ -317,9 +408,7 @@ function AdminScreen() {
                     value={tavilyApiKey}
                     onChange={setTavilyApiKey}
                     type="password"
-                    placeholder={
-                      settings?.search.providerConfig.tavilyApiKeySet ? '已配置，留空表示沿用已存储密钥' : 'tvly-...'
-                    }
+                    placeholder={settings?.search.providerConfig.tavilyApiKeySet ? '已配置，留空沿用' : 'tvly-...'}
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -331,7 +420,7 @@ function AdminScreen() {
               </div>
             </Section>
 
-            <Section title="网络与代理" description="统一的出站代理配置。" icon={<Network size={18} />}>
+            <Section title="网络代理" description="统一的出站代理配置。" icon={<Network size={18} />}>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div>
                   <IOSLabel>代理模式</IOSLabel>
@@ -364,16 +453,12 @@ function AdminScreen() {
             </Section>
           </div>
 
-          <Section
-            title="部署能力"
-            description="第一版只保留少量部署级开关，为后续管理员后台扩展预留位置。"
-            icon={<Gauge size={18} />}
-          >
+          <Section title="部署能力" description="少量部署级开关。" icon={<Gauge size={18} />}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t-text)' }}>管理端可用</div>
                 <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 4 }}>
-                  关闭后可保留后端接口能力，但管理端入口会标记为禁用。
+                  关闭后管理端入口会被标记为禁用，后端接口仍由管理员密钥保护。
                 </div>
               </div>
               <IOSSelect value={featureEnabled ? 'on' : 'off'} onChange={(value) => setFeatureEnabled(value === 'on')}>
@@ -409,9 +494,7 @@ function AdminScreen() {
               >
                 <KeyRound size={16} />
               </div>
-              <div style={{ fontSize: 12, color: 'var(--t-text2)' }}>
-                {message || '保存后主应用会直接读取新的部署级搜索与代理配置。'}
-              </div>
+              <div style={{ fontSize: 12, color: 'var(--t-text2)' }}>{message || '保存后主应用会读取新的部署级配置。'}</div>
             </div>
             <IOSButton label={saving ? '保存中...' : '保存管理员配置'} onClick={() => void handleSave()} />
           </footer>

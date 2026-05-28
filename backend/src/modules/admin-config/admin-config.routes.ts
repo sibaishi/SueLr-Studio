@@ -14,6 +14,12 @@ router.post(
   adminConfigController.validateAccess.bind(adminConfigController),
 );
 router.use(requireAdminAccess);
+router.get('/users', adminConfigController.listUsers.bind(adminConfigController));
+router.post('/users/:id/approve', adminConfigController.approveUser.bind(adminConfigController));
+router.post('/users/:id/reject', adminConfigController.rejectUser.bind(adminConfigController));
+router.post('/users/:id/disable', adminConfigController.disableUser.bind(adminConfigController));
+router.post('/users/:id/enable', adminConfigController.enableUser.bind(adminConfigController));
+router.get('/audit', adminConfigController.getAudit.bind(adminConfigController));
 router.get('/settings', adminConfigController.getSettings.bind(adminConfigController));
 router.put(
   '/settings',
