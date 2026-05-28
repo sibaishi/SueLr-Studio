@@ -398,3 +398,53 @@ test('settings service redacts storage roots and blocks storage path changes in 
     return true;
   });
 });
+
+test('settings service scopes user settings in server multi-user mode', async () => {
+  const root = createStorageDir('settings-user-scope');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { settingsService } = await import(`../src/modules/settings/settings.service.ts?test=${Date.now()}`);
+  const scopeA = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+  const scopeB = { userId: 'user_b', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+
+  settingsService.updateStudioSettings(
+    {
+      ui: { theme: 'light' },
+      runtime: {
+        activeConfigId: 'default',
+        configs: [{ id: 'default', name: 'User A', base: 'https://a.example.com/v1', apiKey: 'sk-a', models: [] }],
+      },
+    },
+    scopeA,
+  );
+
+  assert.equal(settingsService.getStudioSettings(scopeA).ui.theme, 'light');
+  assert.equal(settingsService.getStudioSettings(scopeA).runtime.configs[0].name, 'User A');
+  assert.equal(settingsService.buildRuntimeConfig({}, scopeA).apiKey, 'sk-a');
+
+  const userB = settingsService.getStudioSettings(scopeB);
+  assert.equal(userB.ui.theme, 'dark');
+  assert.notEqual(userB.runtime.configs[0].name, 'User A');
+  assert.equal(settingsService.buildRuntimeConfig({}, scopeB).apiKey, '');
+});
+
+test('settings service rejects deployment-level fields through user settings routes', async () => {
+  const root = createStorageDir('settings-admin-boundary');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const { settingsService } = await import(`../src/modules/settings/settings.service.ts?test=${Date.now()}`);
+  const scope = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+
+  assert.throws(
+    () => settingsService.updateStudioSettings({ runtime: { tavilyApiKey: 'tvly-user' } }, scope),
+    { code: 'SETTINGS_DEPLOYMENT_FIELD_FORBIDDEN' },
+  );
+  assert.throws(
+    () => settingsService.updateRuntimeConfig({ tavilyApiKey: 'tvly-user' }, scope),
+    { code: 'SETTINGS_DEPLOYMENT_FIELD_FORBIDDEN' },
+  );
+});

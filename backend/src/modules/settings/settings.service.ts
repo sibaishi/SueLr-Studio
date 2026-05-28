@@ -1,4 +1,4 @@
-import { AppError, ConflictError, fromLegacyError } from '../../app/errors/index.ts';
+import { AppError, ConflictError, ValidationError, fromLegacyError } from '../../app/errors/index.ts';
 import { createLogger } from '../../platform/logging/logger.ts';
 import { getRuntimeCapabilities } from '../../platform/runtime/index.ts';
 import { scheduleBackendRestart } from '../../platform/system/restart-backend.ts';
@@ -9,6 +9,7 @@ import { settingsRepository } from './settings.repository.ts';
 
 const logger = createLogger({ module: 'settings-service' });
 const REDACTED_STORAGE_LABEL = '[server-managed]';
+const DEPLOYMENT_RUNTIME_KEYS = new Set(['tavilyApiKey', 'outboundProxy']);
 
 type SettingsServiceOptions = {
   executionService?: DynamicValue;
@@ -39,6 +40,20 @@ function sanitizeStorageSettingsForRuntime(settings: DynamicValue, runtime: Dyna
   };
 }
 
+function assertNoDeploymentSettingsPatch(patch: PlainObject, scope?: DynamicValue) {
+  if (scope?.runtimeMode !== 'server-multi-user') return;
+  const runtimePatch = patch.runtime;
+  const nestedBlocked =
+    runtimePatch && typeof runtimePatch === 'object' && !Array.isArray(runtimePatch)
+      ? Object.keys(runtimePatch).find((key) => DEPLOYMENT_RUNTIME_KEYS.has(key))
+      : '';
+  const flatBlocked = Object.keys(patch).find((key) => DEPLOYMENT_RUNTIME_KEYS.has(key));
+  const blocked = nestedBlocked || flatBlocked;
+  if (blocked) {
+    throw new ValidationError('SETTINGS_DEPLOYMENT_FIELD_FORBIDDEN', '部署级设置只能在管理端修改');
+  }
+}
+
 export class SettingsService {
   repository;
   executionService;
@@ -67,17 +82,17 @@ export class SettingsService {
     throw new AppError(403, code, message);
   }
 
-  getSettingsResponse() {
+  getSettingsResponse(scope?: DynamicValue) {
     try {
-      return this.repository.buildSettingsResponse(this.repository.readSettings());
+      return this.repository.buildSettingsResponse(this.repository.readSettings(scope));
     } catch (error) {
       throw fromLegacyError(error);
     }
   }
 
-  getStudioSettings() {
+  getStudioSettings(scope?: DynamicValue) {
     try {
-      return this.repository.buildStudioSettingsResponse(this.repository.readSettings());
+      return this.repository.buildStudioSettingsResponse(this.repository.readSettings(scope));
     } catch (error) {
       throw fromLegacyError(error);
     }
@@ -157,9 +172,10 @@ export class SettingsService {
     }
   }
 
-  updateRuntimeConfig(patch: PlainObject) {
+  updateRuntimeConfig(patch: PlainObject, scope?: DynamicValue) {
+    assertNoDeploymentSettingsPatch(patch, scope);
     try {
-      const updated = this.repository.updateActiveRuntimeConfig(patch);
+      const updated = this.repository.updateActiveRuntimeConfig(patch, scope);
       logger.info('runtime settings updated');
       return this.repository.buildSettingsResponse(updated);
     } catch (error) {
@@ -167,9 +183,10 @@ export class SettingsService {
     }
   }
 
-  updateStudioSettings(patch: PlainObject) {
+  updateStudioSettings(patch: PlainObject, scope?: DynamicValue) {
+    assertNoDeploymentSettingsPatch(patch, scope);
     try {
-      const updated = this.repository.updateSettings(patch);
+      const updated = this.repository.updateSettings(patch, scope);
       logger.info('studio settings updated');
       return this.repository.buildStudioSettingsResponse(updated);
     } catch (error) {
@@ -177,9 +194,9 @@ export class SettingsService {
     }
   }
 
-  resetSettings() {
+  resetSettings(scope?: DynamicValue) {
     try {
-      const nextSettings = this.repository.resetSettings();
+      const nextSettings = this.repository.resetSettings(scope);
       logger.info('settings reset');
       return this.repository.buildSettingsResponse(nextSettings);
     } catch (error) {
@@ -187,9 +204,9 @@ export class SettingsService {
     }
   }
 
-  buildRuntimeConfig(overrides: PlainObject = {}) {
+  buildRuntimeConfig(overrides: PlainObject = {}, scope?: DynamicValue) {
     try {
-      return this.repository.buildRuntimeApiConfig(overrides);
+      return this.repository.buildRuntimeApiConfig(overrides, scope);
     } catch (error) {
       throw fromLegacyError(error);
     }
@@ -197,7 +214,7 @@ export class SettingsService {
 
   async discoverModels(payload: PlainObject = {}) {
     try {
-      const runtimeConfig = this.repository.buildRuntimeApiConfig(payload);
+      const runtimeConfig = this.repository.buildRuntimeApiConfig(payload, payload.scope);
       const models = await this.repository.fetchModelsFromProvider(runtimeConfig);
       return {
         runtimeConfig,

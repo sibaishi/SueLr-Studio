@@ -6,7 +6,7 @@ import { settingsService } from './settings.service.ts';
 export class SettingsController {
   getSettings(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(settingsService.getSettingsResponse()));
+      res.json(successEnvelope(settingsService.getSettingsResponse(_req.scope)));
     } catch (error) {
       next(error);
     }
@@ -14,7 +14,7 @@ export class SettingsController {
 
   updateSettings(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(settingsService.updateRuntimeConfig(req.body)));
+      res.json(successEnvelope(settingsService.updateRuntimeConfig(req.body, req.scope)));
     } catch (error) {
       next(error);
     }
@@ -23,7 +23,7 @@ export class SettingsController {
   resetSettings(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       res.json({
-        ...successEnvelope(settingsService.resetSettings()),
+        ...successEnvelope(settingsService.resetSettings(_req.scope)),
         message: '已恢复默认设置。工作流本身未被修改。',
       });
     } catch (error) {
@@ -33,7 +33,7 @@ export class SettingsController {
 
   async testApi(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      const { models } = await settingsService.discoverModels(req.body);
+      const { models } = await settingsService.discoverModels({ ...req.body, scope: req.scope });
       res.json(
         successEnvelope({
           message: `连接成功，已加载 ${models.all.length} 个模型`,
@@ -52,7 +52,7 @@ export class SettingsController {
 
   getModels(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(settingsService.getSettingsResponse().availableProjectModels));
+      res.json(successEnvelope(settingsService.getSettingsResponse(_req.scope).availableProjectModels));
     } catch (error) {
       next(error);
     }
@@ -60,7 +60,7 @@ export class SettingsController {
 
   async discoverModels(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      const { models } = await settingsService.discoverModels(req.body);
+      const { models } = await settingsService.discoverModels({ ...req.body, scope: req.scope });
       res.json(successEnvelope(models));
     } catch (error) {
       next(error);
@@ -69,7 +69,7 @@ export class SettingsController {
 
   getStudioSettings(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(settingsService.getStudioSettings()));
+      res.json(successEnvelope(settingsService.getStudioSettings(_req.scope)));
     } catch (error) {
       next(error);
     }
@@ -157,7 +157,7 @@ export class SettingsController {
 
   updateStudioSettings(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(settingsService.updateStudioSettings(req.body)));
+      res.json(successEnvelope(settingsService.updateStudioSettings(req.body, req.scope)));
     } catch (error) {
       next(error);
     }

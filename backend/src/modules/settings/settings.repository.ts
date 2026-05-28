@@ -21,6 +21,7 @@ import {
   writeJsonFile,
   writeStoredStorageRootOverride,
 } from '../../platform/storage/index.ts';
+import { ensureScopedStorageDirectories, getScopedStoragePaths } from '../../platform/storage/scoped-storage.ts';
 import { adminConfigRepository } from '../admin-config/admin-config.repository.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.ts';
@@ -447,8 +448,8 @@ function getActiveRuntimeConfig(settings: DynamicValue = readSettingsInternal())
   return configs.find((config: DynamicValue) => config.id === activeId) || configs[0] || null;
 }
 
-function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}) {
-  const settings = readSettingsInternal();
+function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: DynamicValue) {
+  const settings = readSettingsForScope(scope);
   const adminConfig = adminConfigRepository.readAdminConfig();
   const adminSearch = adminConfigRepository.buildSearchConfig(adminConfig);
   const adminNetwork = adminConfigRepository.buildNetworkConfig(adminConfig);
@@ -545,6 +546,51 @@ function readSettingsInternal() {
   return sanitizeSettingsShape(readJsonFile(STORAGE_PATHS.settingsFile, cloneDefaultSettings()));
 }
 
+function shouldUseScopedSettings(scope?: DynamicValue): boolean {
+  return scope?.runtimeMode === 'server-multi-user';
+}
+
+function getSettingsFileForScope(scope?: DynamicValue): string {
+  if (!shouldUseScopedSettings(scope)) return STORAGE_PATHS.settingsFile;
+  ensureScopedStorageDirectories(scope);
+  return getScopedStoragePaths(scope).settingsFile;
+}
+
+function ensureSettingsForScope(scope?: DynamicValue) {
+  if (!shouldUseScopedSettings(scope)) {
+    ensureSettings();
+    return;
+  }
+
+  ensureStorageDirectories();
+  migrateLegacyStorageIfNeeded();
+  const settingsFile = getSettingsFileForScope(scope);
+  const existing = readJsonFile(settingsFile, null);
+  if (!existing) {
+    const defaults = cloneDefaultSettings();
+    defaults.runtime.configs = [createDefaultRuntimeConfig()];
+    defaults.runtime.activeConfigId = 'default';
+    writeJsonFile(settingsFile, defaults);
+    return;
+  }
+
+  ensureJsonFile(settingsFile, cloneDefaultSettings());
+  const sanitized = sanitizeSettingsShape(existing);
+  if (JSON.stringify(existing) !== JSON.stringify(sanitized)) {
+    writeJsonFile(settingsFile, sanitized);
+  }
+}
+
+function readSettingsForScope(scope?: DynamicValue) {
+  if (!shouldUseScopedSettings(scope)) return readSettingsInternal();
+  ensureSettingsForScope(scope);
+  return sanitizeSettingsShape(readJsonFile(getSettingsFileForScope(scope), cloneDefaultSettings()));
+}
+
+function writeSettingsForScope(settings: DynamicValue, scope?: DynamicValue) {
+  writeJsonFile(getSettingsFileForScope(scope), settings);
+}
+
 export class SettingsRepository {
   readStorageSettings() {
     return getEffectiveStorageRootInfo();
@@ -565,22 +611,22 @@ export class SettingsRepository {
     return this.readStorageSettings();
   }
 
-  readSettings() {
-    return readSettingsInternal();
+  readSettings(scope?: DynamicValue) {
+    return readSettingsForScope(scope);
   }
 
-  updateSettings(patch: DynamicValue) {
+  updateSettings(patch: DynamicValue, scope?: DynamicValue) {
     assertPlainObject(patch, '设置更新体必须为对象');
-    const current = this.readSettings();
+    const current = this.readSettings(scope);
     const next = mergeSettingsPreservingSecrets(current, patch);
     const sanitized = sanitizeSettingsShape(next);
-    writeJsonFile(STORAGE_PATHS.settingsFile, sanitized);
+    writeSettingsForScope(sanitized, scope);
     return sanitized;
   }
 
-  updateActiveRuntimeConfig(patch: DynamicValue) {
+  updateActiveRuntimeConfig(patch: DynamicValue, scope?: DynamicValue) {
     assertPlainObject(patch, '运行时设置更新体必须为对象');
-    const settings = this.readSettings();
+    const settings = this.readSettings(scope);
     const active = getActiveRuntimeConfig(settings);
     if (!active) {
       throw new ValidationError('SETTINGS_NO_ACTIVE_CONFIG', '当前没有可更新的配置');
@@ -612,20 +658,20 @@ export class SettingsRepository {
         configs,
       },
     });
-    writeJsonFile(STORAGE_PATHS.settingsFile, next);
+    writeSettingsForScope(next, scope);
     return next;
   }
 
-  resetSettings() {
+  resetSettings(scope?: DynamicValue) {
     const defaults = cloneDefaultSettings();
     defaults.runtime.configs = [createDefaultRuntimeConfig()];
     defaults.runtime.activeConfigId = 'default';
-    writeJsonFile(STORAGE_PATHS.settingsFile, defaults);
+    writeSettingsForScope(defaults, scope);
     return defaults;
   }
 
-  buildRuntimeApiConfig(overrides: DynamicValue = {}) {
-    return buildRuntimeApiConfigInternal(overrides);
+  buildRuntimeApiConfig(overrides: DynamicValue = {}, scope?: DynamicValue) {
+    return buildRuntimeApiConfigInternal(overrides, scope);
   }
 
   buildSettingsResponse(settings?: DynamicValue) {

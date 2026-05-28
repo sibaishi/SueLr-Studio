@@ -351,3 +351,35 @@ test('phase 6 settings matrix keeps server settings redacted and protected', asy
     canManagePath: true,
   });
 });
+
+test('phase 6 settings matrix isolates user-owned settings by request scope', async () => {
+  const root = createStorageDir('settings-user-scope');
+  const previousEnv = {
+    APP_CONFIG_DIR: process.env.APP_CONFIG_DIR,
+    APP_STORAGE_BOOTSTRAP_FILE: process.env.APP_STORAGE_BOOTSTRAP_FILE,
+    APP_DISABLE_LEGACY_STORAGE_MIGRATION: process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION,
+  };
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+  try {
+    const { SettingsService } = await import(`../src/modules/settings/settings.service.ts?phase6settings=${Date.now()}`);
+    const service = new SettingsService();
+    const scopeA = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+    const scopeB = { userId: 'user_b', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+
+    service.updateStudioSettings({ ui: { theme: 'light' } }, scopeA);
+
+    assert.equal(service.getStudioSettings(scopeA).ui.theme, 'light');
+    assert.equal(service.getStudioSettings(scopeB).ui.theme, 'dark');
+    assert.throws(
+      () => service.updateStudioSettings({ runtime: { tavilyApiKey: 'tvly-user' } }, scopeA),
+      { code: 'SETTINGS_DEPLOYMENT_FIELD_FORBIDDEN' },
+    );
+  } finally {
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
