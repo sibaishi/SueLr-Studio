@@ -3,6 +3,7 @@ import { getRuntimeMode } from '../../platform/runtime/index.ts';
 import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
 import { adminConfigService } from './admin-config.service.ts';
 import { adminUsersService } from './admin-users.service.ts';
+import { authService } from '../auth/auth.service.ts';
 
 export class AdminConfigController {
   getSettings(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
@@ -98,6 +99,30 @@ export class AdminConfigController {
   getAudit(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       res.json(successEnvelope({ entries: [] }));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  listPasswordResetRequests(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(authService.listPasswordResetRequests()));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  issuePasswordResetRequest(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(authService.issuePasswordResetToken(String(req.params?.id || ''))));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  revokePasswordResetRequest(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(authService.revokePasswordResetToken(String(req.params?.id || ''))));
     } catch (error) {
       next(error);
     }

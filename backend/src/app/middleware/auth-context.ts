@@ -11,6 +11,8 @@ export const PUBLIC_MULTI_USER_PATHS = [
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/me',
+  '/api/auth/password-reset/request',
+  '/api/auth/password-reset/complete',
   '/api/capabilities/runtime',
   '/api/admin',
 ];

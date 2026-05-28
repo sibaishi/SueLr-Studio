@@ -72,6 +72,28 @@ export type AdminUserPayload = {
   user: AdminUser;
 };
 
+export type PasswordResetRequest = {
+  id: string;
+  userId: string;
+  username: string;
+  email?: string;
+  status: 'pending' | 'issued' | 'used' | 'revoked' | 'expired';
+  expiresAt?: number;
+  createdAt: number;
+  issuedAt?: number;
+  usedAt?: number;
+  revokedAt?: number;
+};
+
+export type PasswordResetRequestsPayload = {
+  requests: PasswordResetRequest[];
+};
+
+export type PasswordResetIssuePayload = {
+  request: PasswordResetRequest;
+  token?: string;
+};
+
 function buildAdminHeaders(accessKey?: string): HeadersInit | undefined {
   if (!accessKey) return undefined;
   return { 'X-Admin-Access-Key': accessKey };
@@ -140,4 +162,30 @@ export async function enableAdminUser(userId: string, accessKey?: string) {
     method: 'POST',
     headers: buildAdminHeaders(accessKey),
   });
+}
+
+export async function loadPasswordResetRequests(accessKey?: string) {
+  return apiRequestOrThrow<PasswordResetRequestsPayload>('/api/admin/password-reset-requests', {
+    headers: buildAdminHeaders(accessKey),
+  });
+}
+
+export async function issuePasswordResetRequest(requestId: string, accessKey?: string) {
+  return apiRequestOrThrow<PasswordResetIssuePayload>(
+    `/api/admin/password-reset-requests/${encodeURIComponent(requestId)}/issue`,
+    {
+      method: 'POST',
+      headers: buildAdminHeaders(accessKey),
+    },
+  );
+}
+
+export async function revokePasswordResetRequest(requestId: string, accessKey?: string) {
+  return apiRequestOrThrow<{ request: PasswordResetRequest }>(
+    `/api/admin/password-reset-requests/${encodeURIComponent(requestId)}/revoke`,
+    {
+      method: 'POST',
+      headers: buildAdminHeaders(accessKey),
+    },
+  );
 }

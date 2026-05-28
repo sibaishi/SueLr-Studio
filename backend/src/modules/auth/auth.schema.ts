@@ -22,5 +22,20 @@ export const registerSchema = z.object({
     .or(z.literal('').transform(() => undefined)),
 });
 
+export const passwordResetRequestSchema = z
+  .object({
+    usernameOrEmail: z.string().trim().min(1, '用户名或邮箱不能为空').max(320, '用户名或邮箱不能超过 320 个字符'),
+  })
+  .strict();
+
+export const passwordResetCompleteSchema = z
+  .object({
+    token: z.string().trim().min(20, '重置 token 无效').max(500, '重置 token 无效'),
+    password: z.string().min(8, '密码至少需要 8 个字符').max(500, '密码不能超过 500 个字符'),
+  })
+  .strict();
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
+export type PasswordResetCompleteInput = z.infer<typeof passwordResetCompleteSchema>;

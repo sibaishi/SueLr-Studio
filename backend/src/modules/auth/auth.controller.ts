@@ -87,6 +87,22 @@ export class AuthController {
       next(error);
     }
   }
+
+  requestPasswordReset(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(authService.requestPasswordReset(req.body)));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async completePasswordReset(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(await authService.completePasswordReset(req.body)));
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const authController = new AuthController();

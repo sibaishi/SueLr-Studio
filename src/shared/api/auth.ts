@@ -26,6 +26,28 @@ export async function register(username: string, password: string, email?: strin
   });
 }
 
+export async function requestPasswordReset(usernameOrEmail: string) {
+  return apiRequestOrThrow<{
+    request: {
+      id: string;
+      username: string;
+      email?: string;
+      status: string;
+      createdAt: number;
+    };
+  }>('/api/auth/password-reset/request', {
+    method: 'POST',
+    body: JSON.stringify({ usernameOrEmail }),
+  });
+}
+
+export async function completePasswordReset(token: string, password: string) {
+  return apiRequestOrThrow<{ ok: boolean }>('/api/auth/password-reset/complete', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 export async function logout() {
   return apiRequestOrThrow<{ ok: boolean }>('/api/auth/logout', {
     method: 'POST',

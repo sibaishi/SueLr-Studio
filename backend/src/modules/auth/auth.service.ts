@@ -1,14 +1,21 @@
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { ConflictError, UnauthorizedError, ValidationError } from '../../app/errors/index.ts';
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../../app/errors/index.ts';
 import { getRuntimeMode } from '../../platform/runtime/index.ts';
 import type { PlainObject } from '../types.ts';
-import { type AuthRepository, type StoredAuthSession, type StoredAuthUser, authRepository } from './auth.repository.ts';
-import type { LoginInput, RegisterInput } from './auth.schema.ts';
+import {
+  type AuthRepository,
+  type StoredAuthSession,
+  type StoredAuthUser,
+  type StoredPasswordResetRequest,
+  authRepository,
+} from './auth.repository.ts';
+import type { LoginInput, PasswordResetCompleteInput, PasswordResetRequestInput, RegisterInput } from './auth.schema.ts';
 
 const scrypt = promisify(scryptCallback);
 const PASSWORD_HASH_PREFIX = 'scrypt';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 export interface PublicAuthUser {
   id: string;
@@ -38,6 +45,14 @@ function createSessionToken(): string {
 
 function hashSessionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
+}
+
+function createResetToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+function hashResetToken(token: string): string {
+  return createHash('sha256').update(`reset:${token}`).digest('hex');
 }
 
 async function hashPassword(password: string, salt = randomBytes(16).toString('base64url')): Promise<string> {
@@ -76,6 +91,21 @@ function assertCanLogin(user: StoredAuthUser): void {
   if (user.status === 'rejected') throw new UnauthorizedError('AUTH_USER_REJECTED', '账号申请已被拒绝');
   if (user.status === 'disabled') throw new UnauthorizedError('AUTH_USER_DISABLED', '账号已被停用');
   throw new UnauthorizedError('AUTH_USER_NOT_ACTIVE', '账号不可登录');
+}
+
+function toPublicResetRequest(request: StoredPasswordResetRequest) {
+  return {
+    id: request.id,
+    userId: request.userId,
+    username: request.username,
+    email: request.email,
+    status: request.status,
+    expiresAt: request.expiresAt,
+    createdAt: request.createdAt,
+    issuedAt: request.issuedAt,
+    usedAt: request.usedAt,
+    revokedAt: request.revokedAt,
+  };
 }
 
 export class AuthService {
@@ -119,6 +149,77 @@ export class AuthService {
     });
 
     return { user: toPublicUser(user) };
+  }
+
+  requestPasswordReset(input: Partial<PasswordResetRequestInput> & PlainObject = {}) {
+    const identity = cleanString(input.usernameOrEmail, 320).toLowerCase();
+    const user = identity.includes('@')
+      ? this.repository.findUserByEmail(identity)
+      : this.repository.findUserByUsername(identity);
+    if (!user) {
+      throw new NotFoundError('AUTH_RESET_USER_NOT_FOUND', '账号不存在');
+    }
+
+    const request = this.repository.createPasswordResetRequest({
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+    });
+    return { request: toPublicResetRequest(request) };
+  }
+
+  listPasswordResetRequests() {
+    return {
+      requests: this.repository.listPasswordResetRequests().map(toPublicResetRequest),
+    };
+  }
+
+  issuePasswordResetToken(requestId: string) {
+    const request = this.repository.findPasswordResetRequestById(requestId);
+    if (!request) throw new NotFoundError('AUTH_RESET_REQUEST_NOT_FOUND', '重置申请不存在');
+    if (request.status === 'used' || request.status === 'revoked') {
+      throw new ValidationError('AUTH_RESET_REQUEST_CLOSED', '重置申请已关闭');
+    }
+
+    const token = createResetToken();
+    const updated = this.repository.updatePasswordResetRequest(requestId, {
+      status: 'issued',
+      tokenHash: hashResetToken(token),
+      expiresAt: Date.now() + RESET_TOKEN_TTL_MS,
+      issuedAt: Date.now(),
+    });
+    if (!updated) throw new NotFoundError('AUTH_RESET_REQUEST_NOT_FOUND', '重置申请不存在');
+    return { request: toPublicResetRequest(updated), token };
+  }
+
+  revokePasswordResetToken(requestId: string) {
+    const updated = this.repository.updatePasswordResetRequest(requestId, {
+      status: 'revoked',
+      tokenHash: undefined,
+      revokedAt: Date.now(),
+    });
+    if (!updated) throw new NotFoundError('AUTH_RESET_REQUEST_NOT_FOUND', '重置申请不存在');
+    return { request: toPublicResetRequest(updated) };
+  }
+
+  async completePasswordReset(input: Partial<PasswordResetCompleteInput> & PlainObject = {}) {
+    const token = cleanString(input.token, 500);
+    const request = this.repository.findPasswordResetRequestByTokenHash(hashResetToken(token));
+    if (!request || request.status !== 'issued' || !request.expiresAt || request.expiresAt <= Date.now()) {
+      if (request?.expiresAt && request.expiresAt <= Date.now()) {
+        this.repository.updatePasswordResetRequest(request.id, { status: 'expired', tokenHash: undefined });
+      }
+      throw new ValidationError('AUTH_RESET_TOKEN_INVALID', '重置 token 无效或已过期');
+    }
+
+    const user = this.repository.updateUserPasswordHash(request.userId, await hashPassword(String(input.password || '')));
+    if (!user) throw new NotFoundError('AUTH_RESET_USER_NOT_FOUND', '账号不存在');
+    this.repository.updatePasswordResetRequest(request.id, {
+      status: 'used',
+      tokenHash: undefined,
+      usedAt: Date.now(),
+    });
+    return { ok: true };
   }
 
   async login(input: Partial<LoginInput> & PlainObject = {}) {

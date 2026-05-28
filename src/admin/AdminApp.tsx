@@ -3,12 +3,16 @@ import { TCtx, useT } from '@/providers/ThemeContext';
 import {
   type AdminSettingsPayload,
   type AdminUser,
+  type PasswordResetRequest,
   approveAdminUser,
   disableAdminUser,
   enableAdminUser,
+  issuePasswordResetRequest,
   loadAdminSettings,
   loadAdminUsers,
+  loadPasswordResetRequests,
   rejectAdminUser,
+  revokePasswordResetRequest,
   saveAdminSettings,
   testAdminSearch,
   validateAdminAccess,
@@ -220,6 +224,7 @@ function AdminScreen() {
   const [accessKey, setAccessKey] = useState('');
   const [settings, setSettings] = useState<AdminSettingsPayload | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [resetRequests, setResetRequests] = useState<PasswordResetRequest[]>([]);
   const [searchEnabled, setSearchEnabled] = useState(false);
   const [searchProvider, setSearchProvider] = useState('tavily');
   const [tavilyApiKey, setTavilyApiKey] = useState('');
@@ -243,6 +248,11 @@ function AdminScreen() {
     setUsers([...pending.users, ...active.users, ...disabled.users, ...rejected.users]);
   };
 
+  const loadResetRequests = async (nextAccessKey = accessKey) => {
+    const next = await loadPasswordResetRequests(nextAccessKey);
+    setResetRequests(next.requests);
+  };
+
   const load = async (nextAccessKey?: string) => {
     const access = await validateAdminAccess(nextAccessKey);
     if (!access.valid) {
@@ -258,7 +268,7 @@ function AdminScreen() {
     setProxyMode(next.network.outboundProxy.mode);
     setNoProxy(next.network.outboundProxy.noProxy || '');
     setFeatureEnabled(next.features.adminConsoleEnabled);
-    await loadUsers(nextAccessKey || '');
+    await Promise.all([loadUsers(nextAccessKey || ''), loadResetRequests(nextAccessKey || '')]);
   };
 
   useEffect(() => {
@@ -382,6 +392,59 @@ function AdminScreen() {
 
           <Section title="用户审核" description="审核注册申请并管理账号状态。" icon={<UserCheck size={18} />}>
             <UserTable users={users} accessKey={accessKey || undefined} onChanged={() => loadUsers(accessKey || '')} />
+          </Section>
+
+          <Section title="密码重置" description="签发一次性重置 token，手动发送给用户。" icon={<KeyRound size={18} />}>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {resetRequests.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--t-text2)', padding: '12px 0' }}>暂无重置申请</div>
+              ) : (
+                resetRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(180px, 1fr) 120px minmax(220px, auto)',
+                      gap: 12,
+                      alignItems: 'center',
+                      padding: 12,
+                      border: '1px solid var(--t-border)',
+                      borderRadius: 12,
+                      background: 'rgba(255,255,255,0.52)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--t-text)' }}>{request.username}</div>
+                      <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 3 }}>{request.email || '未填写邮箱'}</div>
+                    </div>
+                    <span style={chipStyle()}>{request.status}</span>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      {request.status === 'pending' || request.status === 'issued' ? (
+                        <>
+                          <IOSButton
+                            label="签发"
+                            onClick={() =>
+                              void issuePasswordResetRequest(request.id, accessKey || undefined).then((result) => {
+                                setMessage(result.token ? `重置 token：${result.token}` : '重置 token 已签发');
+                                return loadResetRequests(accessKey || '');
+                              })
+                            }
+                          />
+                          <IOSButton
+                            label="撤销"
+                            onClick={() =>
+                              void revokePasswordResetRequest(request.id, accessKey || undefined).then(() =>
+                                loadResetRequests(accessKey || ''),
+                              )
+                            }
+                          />
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </Section>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 18 }}>

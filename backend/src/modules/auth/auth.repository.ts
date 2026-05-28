@@ -27,9 +27,24 @@ export interface StoredAuthSession {
   clientIp: string;
 }
 
+export interface StoredPasswordResetRequest {
+  id: string;
+  userId: string;
+  username: string;
+  email?: string;
+  status: 'pending' | 'issued' | 'used' | 'revoked' | 'expired';
+  tokenHash?: string;
+  expiresAt?: number;
+  createdAt: number;
+  issuedAt?: number;
+  usedAt?: number;
+  revokedAt?: number;
+}
+
 interface AuthState {
   users: StoredAuthUser[];
   sessions: StoredAuthSession[];
+  passwordResetRequests: StoredPasswordResetRequest[];
 }
 
 export type UserStatus = 'pending' | 'active' | 'rejected' | 'disabled';
@@ -37,6 +52,7 @@ export type UserStatus = 'pending' | 'active' | 'rejected' | 'disabled';
 const DEFAULT_AUTH_STATE: AuthState = {
   users: [],
   sessions: [],
+  passwordResetRequests: [],
 };
 
 function getAuthStatePath(): string {
@@ -75,6 +91,7 @@ function sanitizeAuthState(value: PlainObject): AuthState {
       ? (value.users.map((user) => sanitizeUserRecord(user as PlainObject)).filter(Boolean) as StoredAuthUser[])
       : [],
     sessions: Array.isArray(value?.sessions) ? value.sessions : [],
+    passwordResetRequests: Array.isArray(value?.passwordResetRequests) ? value.passwordResetRequests : [],
   };
 }
 
@@ -195,6 +212,59 @@ export class AuthRepository {
       disabledAt: status === 'disabled' ? now : state.users[existingIndex].disabledAt,
     };
     state.users[existingIndex] = updated;
+    this.writeState(state);
+    return updated;
+  }
+
+  updateUserPasswordHash(userId: string, passwordHash: string): StoredAuthUser | null {
+    const state = this.readState();
+    const existingIndex = state.users.findIndex((user) => user.id === userId);
+    if (existingIndex < 0) return null;
+    const updated = {
+      ...state.users[existingIndex],
+      passwordHash,
+      updatedAt: Date.now(),
+    };
+    state.users[existingIndex] = updated;
+    state.sessions = state.sessions.filter((session) => session.userId !== userId);
+    this.writeState(state);
+    return updated;
+  }
+
+  listPasswordResetRequests(): StoredPasswordResetRequest[] {
+    return this.readState().passwordResetRequests;
+  }
+
+  createPasswordResetRequest(input: Omit<StoredPasswordResetRequest, 'id' | 'createdAt' | 'status'>): StoredPasswordResetRequest {
+    const state = this.readState();
+    const request = {
+      ...input,
+      id: `reset_${randomUUID()}`,
+      status: 'pending' as const,
+      createdAt: Date.now(),
+    };
+    state.passwordResetRequests.push(request);
+    this.writeState(state);
+    return request;
+  }
+
+  findPasswordResetRequestById(requestId: string): StoredPasswordResetRequest | null {
+    return this.listPasswordResetRequests().find((request) => request.id === requestId) || null;
+  }
+
+  findPasswordResetRequestByTokenHash(tokenHash: string): StoredPasswordResetRequest | null {
+    return this.listPasswordResetRequests().find((request) => request.tokenHash === tokenHash) || null;
+  }
+
+  updatePasswordResetRequest(requestId: string, patch: Partial<StoredPasswordResetRequest>): StoredPasswordResetRequest | null {
+    const state = this.readState();
+    const existingIndex = state.passwordResetRequests.findIndex((request) => request.id === requestId);
+    if (existingIndex < 0) return null;
+    const updated = {
+      ...state.passwordResetRequests[existingIndex],
+      ...patch,
+    };
+    state.passwordResetRequests[existingIndex] = updated;
     this.writeState(state);
     return updated;
   }
