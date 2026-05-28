@@ -41,6 +41,14 @@ function buildClearSessionCookie(): string {
 }
 
 export class AuthController {
+  async register(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(await authService.register(req.body)));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async login(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       const result = await authService.login({

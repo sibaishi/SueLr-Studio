@@ -73,6 +73,83 @@ test('auth service rejects invalid credentials and can invalidate sessions', asy
   });
 });
 
+test('auth service registers pending users with optional unique email', async () => {
+  await withAuthService('register', async (authService, root) => {
+    const created = await authService.register({
+      username: 'new-user',
+      password: 'new-password-123',
+      email: 'New.User@Example.COM',
+    });
+
+    assert.equal(created.user.username, 'new-user');
+    assert.equal(created.user.email, 'new.user@example.com');
+    assert.equal(created.user.status, 'pending');
+    assert.equal(created.user.workspaceId, 'default');
+    assert.equal(created.user.passwordHash, undefined);
+
+    const stored = JSON.parse(fs.readFileSync(path.join(root, 'config', 'auth.json'), 'utf8'));
+    assert.equal(stored.users.length, 1);
+    assert.equal(stored.users[0].email, 'new.user@example.com');
+    assert.equal(stored.users[0].status, 'pending');
+    assert.equal(stored.users[0].workspaceId, 'default');
+    assert.notEqual(stored.users[0].passwordHash, 'new-password-123');
+
+    const withoutEmail = await authService.register({
+      username: 'second-user',
+      password: 'new-password-456',
+    });
+    assert.equal(withoutEmail.user.email, undefined);
+    assert.equal(withoutEmail.user.status, 'pending');
+  });
+});
+
+test('auth service rejects duplicate username and email registration', async () => {
+  await withAuthService('register-duplicates', async (authService) => {
+    await authService.register({
+      username: 'new-user',
+      password: 'new-password-123',
+      email: 'new-user@example.com',
+    });
+
+    await assert.rejects(
+      () => authService.register({ username: 'NEW-USER', password: 'new-password-123' }),
+      (error) => error?.code === 'AUTH_USERNAME_TAKEN',
+    );
+
+    await assert.rejects(
+      () => authService.register({ username: 'other-user', password: 'new-password-123', email: 'NEW-USER@example.com' }),
+      (error) => error?.code === 'AUTH_EMAIL_TAKEN',
+    );
+  });
+});
+
+test('auth service gates login by user status', async () => {
+  await withAuthService('status-login', async (authService) => {
+    await authService.register({ username: 'pending-user', password: 'password-123' });
+    await assert.rejects(
+      () => authService.login({ username: 'pending-user', password: 'password-123' }),
+      (error) => error?.code === 'AUTH_USER_PENDING',
+    );
+
+    authService.repository.updateUserStatus('pending-user', 'active');
+    const activeLogin = await authService.login({ username: 'pending-user', password: 'password-123' });
+    assert.equal(activeLogin.user.username, 'pending-user');
+    assert.equal(activeLogin.user.status, 'active');
+
+    authService.repository.updateUserStatus('pending-user', 'rejected');
+    await assert.rejects(
+      () => authService.login({ username: 'pending-user', password: 'password-123' }),
+      (error) => error?.code === 'AUTH_USER_REJECTED',
+    );
+
+    authService.repository.updateUserStatus('pending-user', 'disabled');
+    await assert.rejects(
+      () => authService.login({ username: 'pending-user', password: 'password-123' }),
+      (error) => error?.code === 'AUTH_USER_DISABLED',
+    );
+  });
+});
+
 test('execution service hides and refuses cancellation for runs outside request scope', async () => {
   const { ExecutionService } = await import('../src/modules/execution/execution.service.ts');
   const execution = new ExecutionService({

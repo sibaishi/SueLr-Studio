@@ -109,6 +109,60 @@ test('auth HTTP routes login, expose current user, and logout', async () => {
   }
 });
 
+test('auth HTTP routes register pending users and gate login by status', async () => {
+  const { server, baseUrl, restoreEnv } = await createTestServer('register-status', {
+    APP_AUTH_BOOTSTRAP_USERNAME: '',
+    APP_AUTH_BOOTSTRAP_PASSWORD: '',
+  });
+  try {
+    const registered = await requestJson(baseUrl, '/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: 'new-user',
+        password: 'new-password-123',
+        email: 'NEW.User@example.COM',
+      }),
+    });
+    assert.equal(registered.status, 200);
+    assert.equal(registered.body.success, true);
+    assert.equal(registered.body.data.user.username, 'new-user');
+    assert.equal(registered.body.data.user.email, 'new.user@example.com');
+    assert.equal(registered.body.data.user.status, 'pending');
+    assert.equal(registered.body.data.user.passwordHash, undefined);
+
+    const pendingLogin = await requestJson(baseUrl, '/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'new-user', password: 'new-password-123' }),
+    });
+    assert.equal(pendingLogin.status, 401);
+    assert.equal(pendingLogin.body.error.code, 'AUTH_USER_PENDING');
+
+    const duplicateUsername = await requestJson(baseUrl, '/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'NEW-USER', password: 'new-password-123' }),
+    });
+    assert.equal(duplicateUsername.status, 409);
+    assert.equal(duplicateUsername.body.error.code, 'AUTH_USERNAME_TAKEN');
+
+    const duplicateEmail = await requestJson(baseUrl, '/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'other-user', password: 'new-password-123', email: 'new.user@example.com' }),
+    });
+    assert.equal(duplicateEmail.status, 409);
+    assert.equal(duplicateEmail.body.error.code, 'AUTH_EMAIL_TAKEN');
+
+    const invalidEmail = await requestJson(baseUrl, '/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'email-user', password: 'new-password-123', email: 'not-an-email' }),
+    });
+    assert.equal(invalidEmail.status, 400);
+    assert.equal(invalidEmail.body.error.code, 'VALIDATION_ERROR');
+  } finally {
+    restoreEnv();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('server-multi-user protects data APIs while health stays public', async () => {
   const { server, baseUrl, restoreEnv } = await createTestServer('protected');
   try {

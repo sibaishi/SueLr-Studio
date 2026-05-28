@@ -7,6 +7,7 @@ import { UnauthorizedError } from '../errors/index.ts';
 export const PUBLIC_MULTI_USER_PATHS = [
   '/api/health',
   '/api/status',
+  '/api/auth/register',
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/me',
