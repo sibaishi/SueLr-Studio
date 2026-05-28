@@ -29,7 +29,7 @@ export class CapabilitiesService {
   }
 
   getRuntimeCapabilities(_options: PlainObject = {}) {
-    return getRuntimeCapabilities();
+    return getRuntimeCapabilities(undefined, { user: _options.user || null });
   }
 
   async chat(body: DynamicValue, _options: PlainObject = {}) {

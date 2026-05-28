@@ -5,6 +5,7 @@ import { getProcessInstanceId } from '../../platform/logging/runtime-observabili
 import { WORKFLOW_SSE_EVENTS } from '../../platform/logging/workflow-events.ts';
 import { sanitizeNodeOutputsForLogs } from '../../platform/logging/workflow-log-sanitizer.ts';
 import { createWorkflowRunLogger } from '../../platform/logging/workflow-run-logger.ts';
+import { isResourceVisibleForScope } from '../../platform/storage/index.ts';
 import { settingsService } from '../settings/settings.service.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { workflowsRepository } from '../workflows/workflows.repository.ts';
@@ -57,10 +58,16 @@ type RunningExecution = {
   source: string;
   snapshotVersion: number;
   abortController: AbortController;
+  ownerUserId?: string;
+  workspaceId?: string;
+  ownershipScope?: PlainObject;
 };
 
 type RecentExecution = {
   status: RunStatus;
+  ownerUserId?: string;
+  workspaceId?: string;
+  ownershipScope?: PlainObject;
   expiresAt: number;
 };
 
@@ -477,6 +484,9 @@ export class ExecutionService {
     if (!run) {
       const recentRun = this.recentExecutions.get(runId);
       if (recentRun) {
+        if (!isResourceVisibleForScope(recentRun, _options.scope)) {
+          return { status: 'idle', runId };
+        }
         logger.info('execution status resolved from recent cache', {
           runId,
           processInstanceId: getProcessInstanceId(),
@@ -490,6 +500,10 @@ export class ExecutionService {
         runningExecutionCount: this.runningExecutions.size,
         recentExecutionCount: this.recentExecutions.size,
       });
+      return { status: 'idle', runId };
+    }
+
+    if (!isResourceVisibleForScope(run, _options.scope)) {
       return { status: 'idle', runId };
     }
 
@@ -516,6 +530,13 @@ export class ExecutionService {
       });
       return false;
     }
+    if (!isResourceVisibleForScope(run, _options.scope)) {
+      logger.warn('execution cancel ignored because run is outside request scope', {
+        runId,
+        processInstanceId: getProcessInstanceId(),
+      });
+      return false;
+    }
     logger.warn('execution cancel requested', {
       runId,
       workflowId: run.workflowId,
@@ -533,10 +554,13 @@ export class ExecutionService {
     }
   }
 
-  rememberRecentExecution(status: RunStatus, now = Date.now()) {
+  rememberRecentExecution(status: RunStatus, scope: PlainObject = {}, now = Date.now()) {
     this.pruneRecentExecutions(now);
     this.recentExecutions.set(status.runId, {
       status,
+      ownerUserId: scope?.userId,
+      workspaceId: scope?.workspaceId,
+      ownershipScope: scope,
       expiresAt: now + RECENT_RUN_TTL_MS,
     });
   }
@@ -544,7 +568,11 @@ export class ExecutionService {
   resolveWorkflowReference({ workflowId, workflowName }: PlainObject, _options: PlainObject = {}) {
     const normalizedId = cleanString(workflowId, 120);
     if (normalizedId) {
-      return this.repository.read(normalizedId).workflow;
+      const workflow = this.repository.read(normalizedId).workflow;
+      if (!isResourceVisibleForScope(workflow, _options.scope)) {
+        throw new Error(`Workflow "${workflowId}" was not found.`);
+      }
+      return workflow;
     }
 
     const normalizedName = normalizeForMatch(workflowName);
@@ -552,7 +580,7 @@ export class ExecutionService {
       throw new Error('workflow.execute requires workflowId or workflowName');
     }
 
-    const workflows = this.repository.list();
+    const workflows = this.repository.list().filter((workflow) => isResourceVisibleForScope(workflow, _options.scope));
     const exactMatch = workflows.find((workflow) => normalizeForMatch(workflow.name) === normalizedName);
     if (exactMatch) return exactMatch;
 
@@ -599,6 +627,9 @@ export class ExecutionService {
       source: snapshot.source,
       snapshotVersion: snapshot.snapshotVersion,
       abortController,
+      ownerUserId: scope?.userId,
+      workspaceId: scope?.workspaceId,
+      ownershipScope: scope,
     });
     onRunStarted?.({
       runId: snapshot.runId,
@@ -701,7 +732,7 @@ export class ExecutionService {
       signal?.removeEventListener?.('abort', handleAbort);
       this.runningExecutions.delete(snapshot.runId);
       if (terminalStatus) {
-        this.rememberRecentExecution(terminalStatus);
+        this.rememberRecentExecution(terminalStatus, scope);
       }
     }
   }
@@ -751,6 +782,9 @@ export class ExecutionService {
       source: snapshot.source,
       snapshotVersion: snapshot.snapshotVersion,
       abortController,
+      ownerUserId: scope?.userId,
+      workspaceId: scope?.workspaceId,
+      ownershipScope: scope,
     });
     logger.info('execution run registered', {
       runId: snapshot.runId,
@@ -853,7 +887,7 @@ export class ExecutionService {
         runningExecutionCount: this.runningExecutions.size,
       });
       if (completedStatus) {
-        this.rememberRecentExecution(completedStatus);
+        this.rememberRecentExecution(completedStatus, scope);
         logger.info('execution terminal status cached', {
           runId: snapshot.runId,
           workflowId,

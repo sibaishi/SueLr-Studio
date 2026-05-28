@@ -8,6 +8,7 @@ import {
   testSettingsConnection,
 } from '@/features/settings';
 import { debouncedSaveJSON } from '@/shared/runtime';
+import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/shared/types';
 import type { DependencyList, MutableRefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -63,6 +64,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
   const { settings } = params;
   const [splashFading, setSplashFading] = useState(false);
   const [splashHidden, setSplashHidden] = useState(false);
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilities | null>(null);
   const bootstrappedRef = useRef(false);
 
   const persistDeps: DependencyList = [
@@ -138,8 +140,15 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       const serverOk = await checkSettingsServer().catch(() => false);
 
       if (serverOk) {
-        await loadRuntimeCapabilities().catch(() => null);
+        const runtime = await loadRuntimeCapabilities().catch(() => null);
+        setRuntimeCapabilities(runtime);
         settings.addLog('success', '本地存储服务已连接');
+        if (runtime?.auth.required && !runtime.auth.user) {
+          params.hydratedRef.current = true;
+          setSplashFading(true);
+          setTimeout(() => setSplashHidden(true), 500);
+          return;
+        }
         const loadedSettings = await loadStudioSettings().catch(() => null);
         if (loadedSettings) {
           if (loadedSettings.runtime?.configs?.length) {
@@ -209,7 +218,15 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     void init();
   }, bootstrapDeps);
 
+  const refreshRuntimeCapabilities = async () => {
+    const runtime = await loadRuntimeCapabilities().catch(() => null);
+    setRuntimeCapabilities(runtime);
+    return runtime;
+  };
+
   return {
+    refreshRuntimeCapabilities,
+    runtimeCapabilities,
     splashFading,
     splashHidden,
   };

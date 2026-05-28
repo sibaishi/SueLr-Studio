@@ -4,9 +4,9 @@ import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
 import { capabilitiesService } from './capabilities.service.ts';
 
 export class CapabilitiesController {
-  runtime(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+  runtime(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(capabilitiesService.getRuntimeCapabilities()));
+      res.json(successEnvelope(capabilitiesService.getRuntimeCapabilities({ user: req.auth?.user || null })));
     } catch (error) {
       next(error);
     }

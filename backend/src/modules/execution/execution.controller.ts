@@ -47,7 +47,7 @@ export class ExecutionController {
         writableEnded: res.writableEnded,
       });
       if (activeRunId) {
-        executionService.cancel(activeRunId);
+        executionService.cancel(activeRunId, { scope: req.scope });
       }
     });
 

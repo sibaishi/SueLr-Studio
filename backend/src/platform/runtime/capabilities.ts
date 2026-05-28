@@ -6,6 +6,14 @@ interface RuntimeCapabilities {
   canSelectDirectory: boolean;
   canRestartBackend: boolean;
   hasEmbeddedShell: boolean;
+  auth: {
+    required: boolean;
+    mode: 'none' | 'session';
+    user: {
+      id: string;
+      username: string;
+    } | null;
+  };
   search: {
     enabled: boolean;
     provider: string;
@@ -18,8 +26,19 @@ interface RuntimeCapabilities {
   };
 }
 
-export function getRuntimeCapabilities(mode: RuntimeMode = getRuntimeMode()): RuntimeCapabilities {
+interface RuntimeCapabilitiesOptions {
+  user?: {
+    id: string;
+    username: string;
+  } | null;
+}
+
+export function getRuntimeCapabilities(
+  mode: RuntimeMode = getRuntimeMode(),
+  options: RuntimeCapabilitiesOptions = {},
+): RuntimeCapabilities {
   const serverMode = isServerRuntimeMode(mode);
+  const multiUserMode = mode === 'server-multi-user';
   const adminConfig = adminConfigRepository.readAdminConfig();
   const adminAccessKey = String(process.env.APP_ADMIN_ACCESS_KEY || '').trim();
 
@@ -28,6 +47,11 @@ export function getRuntimeCapabilities(mode: RuntimeMode = getRuntimeMode()): Ru
     canSelectDirectory: !serverMode,
     canRestartBackend: !serverMode,
     hasEmbeddedShell: mode === 'desktop',
+    auth: {
+      required: multiUserMode,
+      mode: multiUserMode ? 'session' : 'none',
+      user: options.user ? { id: options.user.id, username: options.user.username } : null,
+    },
     search: {
       enabled: Boolean(adminConfig.search.enabled && adminConfig.search.providerConfig.tavilyApiKey),
       provider: adminConfig.search.provider,

@@ -1,6 +1,13 @@
-import { AppError, ConflictError, NotFoundError, ProviderError, ValidationError } from './app-error.ts';
+import {
+  AppError,
+  ConflictError,
+  NotFoundError,
+  ProviderError,
+  UnauthorizedError,
+  ValidationError,
+} from './app-error.ts';
 
-export { AppError, ValidationError, NotFoundError, ConflictError, ProviderError };
+export { AppError, ValidationError, NotFoundError, ConflictError, ProviderError, UnauthorizedError };
 
 interface LegacyErrorLike {
   status?: unknown;

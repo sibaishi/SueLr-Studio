@@ -126,7 +126,7 @@ export class FilesService {
   }
 
   clearGeneratedOutputs(_options: ScopeOptions = {}) {
-    const result = this.repository.clearGeneratedOutputs();
+    const result = this.repository.clearGeneratedOutputs(_options);
     logger.info('generated outputs cleared', result);
     return result;
   }

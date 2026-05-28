@@ -1,6 +1,7 @@
 export * from './client';
 export * from './assistant';
 export * from './agent';
+export * from './auth';
 export * from './capabilities';
 export * from './errors';
 export * from './files';

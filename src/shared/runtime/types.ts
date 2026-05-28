@@ -5,6 +5,14 @@ export type RuntimeCapabilities = {
   canSelectDirectory: boolean;
   canRestartBackend: boolean;
   hasEmbeddedShell: boolean;
+  auth: {
+    required: boolean;
+    mode: 'none' | 'session';
+    user: {
+      id: string;
+      username: string;
+    } | null;
+  };
   search: {
     enabled: boolean;
     provider: string;

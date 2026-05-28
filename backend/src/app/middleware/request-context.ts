@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { runWithRequestContext } from '../../platform/logging/request-context.ts';
-import { createRequestScopeFromHeaders } from '../../platform/runtime/index.ts';
+import {
+  createDefaultRequestScope,
+  createRequestScopeFromHeaders,
+  getRuntimeMode,
+} from '../../platform/runtime/index.ts';
 import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 
 type HeaderValue = string | string[] | undefined;
@@ -17,6 +21,11 @@ interface RequestContextRequest {
   };
   requestId?: string;
   scope?: RequestScope;
+  auth?: {
+    user?: {
+      scope?: RequestScope;
+    };
+  };
 }
 
 interface RequestContextResponse {
@@ -34,7 +43,11 @@ export function requestContextMiddleware(
   next: NextFunction,
 ): void {
   const requestId = firstHeaderValue(req.headers['x-request-id']) || randomUUID();
-  const scope = createRequestScopeFromHeaders(req.headers);
+  const runtimeMode = getRuntimeMode();
+  const scope =
+    runtimeMode === 'server-multi-user'
+      ? req.auth?.user?.scope || createDefaultRequestScope(runtimeMode)
+      : createRequestScopeFromHeaders(req.headers);
   const forwardedFor =
     typeof req.headers['x-forwarded-for'] === 'string' ? req.headers['x-forwarded-for'].split(',')[0]?.trim() : '';
   const origin = typeof req.headers.origin === 'string' ? req.headers.origin : '';

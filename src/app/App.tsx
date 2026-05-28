@@ -1,3 +1,4 @@
+import { LoginGate } from '@/app/auth/LoginGate';
 import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
 import { DesktopSidebar } from '@/app/navigation/Navigation';
 import type { ModelOption } from '@/domains/workflow/lib/projectModels';
@@ -60,7 +61,7 @@ export default function App() {
   const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<Tab>>(() => new Set([tab]));
   const projectBusy = workflowBusy || chatBusy || imageBusy || videoBusy;
 
-  const { splashFading, splashHidden } = useAppBootstrap({
+  const { refreshRuntimeCapabilities, runtimeCapabilities, splashFading, splashHidden } = useAppBootstrap({
     hydratedRef,
     setSidebarCollapsed,
     setTab,
@@ -76,6 +77,7 @@ export default function App() {
       (config.projectModels || []).some((model) => model.configured),
   );
   const showOnboarding = splashHidden && !hasUsableConfig && !onboardingDismissed;
+  const showLoginGate = Boolean(splashHidden && runtimeCapabilities?.auth.required && !runtimeCapabilities.auth.user);
   const chatPanelStyle = panelDisplayStyle(tab === 'chat');
   const imagePanelStyle = panelDisplayStyle(tab === 'image');
   const videoPanelStyle = panelDisplayStyle(tab === 'video');
@@ -153,7 +155,10 @@ export default function App() {
     <TCtx.Provider value={colors}>
       <ToastProvider>
         {!splashHidden && <SplashScreen fading={splashFading} />}
-        {showOnboarding && (
+        {showLoginGate && runtimeCapabilities && (
+          <LoginGate runtime={runtimeCapabilities} onAuthenticated={refreshRuntimeCapabilities} />
+        )}
+        {!showLoginGate && showOnboarding && (
           <Suspense fallback={<WorkspaceLoading />}>
             <FirstRunOnboarding
               activeConfigId={settings.activeConfigId}
@@ -173,7 +178,7 @@ export default function App() {
             />
           </Suspense>
         )}
-        {!showOnboarding && (
+        {!showLoginGate && !showOnboarding && (
           <div
             style={{
               display: 'flex',

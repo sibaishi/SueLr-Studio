@@ -164,9 +164,9 @@ export class FilesRepository {
     return items.sort((a, b) => b.modifiedAt - a.modifiedAt);
   }
 
-  clearGeneratedOutputs() {
+  clearGeneratedOutputs(options: ScopeOptions = {}) {
     ensureStorageDirectories();
-    const root = STORAGE_PATHS.generatedDir;
+    const root = getScopedStoragePaths(options.scope).generatedDir;
     let removed = 0;
 
     const visit = (dir: string): void => {
