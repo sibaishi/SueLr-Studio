@@ -114,6 +114,7 @@ export function createApp() {
           filename: original.filename,
           sourcePath: original.absolutePath,
           mimeType: getMimeType(original.absolutePath),
+          scope: req.scope,
         });
       }
       res.sendFile(targetPath);

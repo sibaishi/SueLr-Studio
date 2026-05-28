@@ -2,14 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import { STORAGE_PATHS, ensureStorageDirectories } from '../../platform/storage/index.ts';
+import { ensureScopedStorageDirectories } from '../../platform/storage/index.ts';
 import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
-const UPLOADS_DIR = STORAGE_PATHS.uploadsDir;
-
-function ensureUploadsDir() {
-  ensureStorageDirectories();
+function ensureUploadsDir(apiConfig: RuntimeApiConfig) {
+  return ensureScopedStorageDirectories(apiConfig.scope).uploadsDir;
 }
 
 function dataUrlToBuffer(dataUrl: string) {
@@ -24,7 +22,7 @@ function dataUrlToBuffer(dataUrl: string) {
   };
 }
 
-async function imageSourceToBuffer(imageSource: DynamicValue) {
+async function imageSourceToBuffer(imageSource: DynamicValue, apiConfig: RuntimeApiConfig) {
   if (!imageSource) {
     throw new Error('未选择遮罩源图片');
   }
@@ -35,7 +33,7 @@ async function imageSourceToBuffer(imageSource: DynamicValue) {
     return dataUrlToBuffer(source);
   }
 
-  const localPath = urlToLocalPath(source);
+  const localPath = urlToLocalPath(source, { scope: apiConfig.scope });
   if (localPath) {
     return {
       buffer: fs.readFileSync(localPath),
@@ -74,7 +72,7 @@ function normalizeThreshold(value: DynamicValue) {
 export async function execute(
   node: WorkflowNode,
   _inputs: NodeInputs,
-  _apiConfig: RuntimeApiConfig,
+  apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
   const fileUrl = String(node.data?.fileUrl || '');
@@ -82,7 +80,7 @@ export async function execute(
   const invertMask = Boolean(node.data?.invertMask);
 
   sendProgress?.('读取遮罩源图片...');
-  const { buffer } = await imageSourceToBuffer(fileUrl);
+  const { buffer } = await imageSourceToBuffer(fileUrl, apiConfig);
   const sourceImage = sharp(buffer, { failOn: 'none' });
   const metadata = await sourceImage.metadata();
   const width = Number(metadata.width || 0);
@@ -128,9 +126,9 @@ export async function execute(
     .png()
     .toBuffer();
 
-  ensureUploadsDir();
+  const uploadsDir = ensureUploadsDir(apiConfig);
   const filename = `${uuidv4()}_mask.png`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), rgbaBuffer);
+  fs.writeFileSync(path.join(uploadsDir, filename), rgbaBuffer);
 
   sendProgress?.(`遮罩已生成: ${width} × ${height}; threshold=${threshold}; invert=${invertMask ? 'on' : 'off'}`);
   return { mask: `/api/files/${filename}` };

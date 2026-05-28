@@ -20,7 +20,7 @@ async function readImageDimensions(filePath: string) {
   }
 }
 
-async function processImage(filename: string, filePath: string, mimeType: string) {
+async function processImage(filename: string, filePath: string, mimeType: string, scope?: UploadRecord['scope']) {
   const startedAt = Date.now();
   uploadMetadataRepository.patch(filename, {
     processingStatus: 'processing',
@@ -38,6 +38,7 @@ async function processImage(filename: string, filePath: string, mimeType: string
         filename,
         sourcePath: filePath,
         mimeType,
+        scope,
       }).catch(() => ''),
     ]);
 
@@ -69,11 +70,11 @@ async function processImage(filename: string, filePath: string, mimeType: string
   }
 }
 
-export function enqueueUploadImageProcessing({ filename, filePath, mimeType }: UploadRecord) {
+export function enqueueUploadImageProcessing({ filename, filePath, mimeType, scope }: UploadRecord) {
   const resolvedFilename = String(filename || '');
   if (!resolvedFilename || activeJobs.has(resolvedFilename)) return activeJobs.get(resolvedFilename) || null;
   const job = Promise.resolve().then(() =>
-    processImage(resolvedFilename, String(filePath || ''), String(mimeType || '')),
+    processImage(resolvedFilename, String(filePath || ''), String(mimeType || ''), scope),
   );
   activeJobs.set(resolvedFilename, job);
   return job;
@@ -85,6 +86,7 @@ export function resumePendingUploadImageProcessing() {
       filename: item.filename,
       filePath: item.filePath,
       mimeType: item.mimeType,
+      scope: item.ownershipScope || item.scope,
     });
   }
 }

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { STORAGE_PATHS, safeResolveWithin } from '../storage/index.ts';
+import { getScopedStoragePaths, safeResolveWithin } from '../storage/index.ts';
+import type { RequestScope } from '../runtime/request-scope.ts';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
 const DATA_URL_CACHE_LIMIT = 32;
@@ -27,6 +28,10 @@ const MIME_BY_EXT: Record<string, string> = {
   '.m4a': 'audio/mp4',
   '.json': 'application/json',
   '.txt': 'text/plain',
+};
+
+export type MediaResolveOptions = {
+  scope?: RequestScope;
 };
 
 function decodeUrlPathSegment(segment: string): string {
@@ -66,30 +71,31 @@ export function getLocalApiPath(source: unknown): string {
   return '';
 }
 
-export function localApiPathToFilePath(apiPath: unknown): string | null {
+export function localApiPathToFilePath(apiPath: unknown, options: MediaResolveOptions = {}): string | null {
   const value = String(apiPath || '').trim();
+  const storagePaths = getScopedStoragePaths(options.scope);
   if (value.startsWith('/api/files/')) {
-    return resolveUrlPath(STORAGE_PATHS.uploadsDir, value.slice('/api/files/'.length));
+    return resolveUrlPath(storagePaths.uploadsDir, value.slice('/api/files/'.length));
   }
   if (value.startsWith('/api/outputs/')) {
-    return resolveUrlPath(STORAGE_PATHS.generatedDir, value.slice('/api/outputs/'.length));
+    return resolveUrlPath(storagePaths.generatedDir, value.slice('/api/outputs/'.length));
   }
   if (value.startsWith('/api/assistant/files/')) {
-    return resolveUrlPath(STORAGE_PATHS.generatedDir, value.slice('/api/assistant/files/'.length));
+    return resolveUrlPath(storagePaths.generatedDir, value.slice('/api/assistant/files/'.length));
   }
   return null;
 }
 
-export function localUrlToFilePath(source: unknown): string | null {
+export function localUrlToFilePath(source: unknown, options: MediaResolveOptions = {}): string | null {
   const apiPath = getLocalApiPath(source);
   if (!apiPath) return null;
-  const filePath = localApiPathToFilePath(apiPath);
+  const filePath = localApiPathToFilePath(apiPath, options);
   if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null;
   return filePath;
 }
 
-export function localUrlToDataUrl(source: unknown): string {
-  const filePath = localUrlToFilePath(source);
+export function localUrlToDataUrl(source: unknown, options: MediaResolveOptions = {}): string {
+  const filePath = localUrlToFilePath(source, options);
   if (!filePath) return String(source || '');
   const stat = fs.statSync(filePath);
   const cacheKey = `${filePath}:${stat.size}:${stat.mtimeMs}`;
@@ -109,7 +115,7 @@ export function localUrlToDataUrl(source: unknown): string {
   return dataUrl;
 }
 
-export async function mediaSourceToDataUrl(source: unknown): Promise<string | null> {
+export async function mediaSourceToDataUrl(source: unknown, options: MediaResolveOptions = {}): Promise<string | null> {
   const value = String(source || '').trim();
   if (!value) return null;
   if (value.startsWith('data:')) return value;
@@ -117,11 +123,11 @@ export async function mediaSourceToDataUrl(source: unknown): Promise<string | nu
     throw new Error('检测到浏览器本地预览文件，后端无法直接读取。请等待文件上传完成后再执行。');
   }
   if (/^https?:\/\//i.test(value)) {
-    const localDataUrl = localUrlToDataUrl(value);
+    const localDataUrl = localUrlToDataUrl(value, options);
     return localDataUrl === value ? value : localDataUrl;
   }
 
-  const localDataUrl = localUrlToDataUrl(value);
+  const localDataUrl = localUrlToDataUrl(value, options);
   return localDataUrl || value;
 }
 

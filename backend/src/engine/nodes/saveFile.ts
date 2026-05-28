@@ -6,7 +6,7 @@ import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, Work
 export async function execute(
   node: WorkflowNode,
   inputs: NodeInputs,
-  _apiConfig: RuntimeApiConfig,
+  apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
   const content = inputs.content;
@@ -28,6 +28,7 @@ export async function execute(
   const savedFiles = await saveContentByType(content, {
     outputPath,
     prefix: node.data?.filenamePrefix || 'saved',
+    scope: apiConfig.scope,
   });
   const exposeHostPaths = !isServerRuntimeMode();
 

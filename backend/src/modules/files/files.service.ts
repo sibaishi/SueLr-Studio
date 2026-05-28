@@ -45,6 +45,7 @@ export class FilesService {
       {
         filename: file.filename,
         filePath: file.path,
+        scope: options.scope,
         url: `/api/files/${file.filename}`,
         fileName: this.repository.decodeOriginalName(file.originalname),
         fileSize: file.size,
@@ -67,6 +68,7 @@ export class FilesService {
         filename: file.filename,
         filePath: file.path,
         mimeType: file.mimetype,
+        scope: options.scope,
       });
     }
 
@@ -116,7 +118,7 @@ export class FilesService {
 
   deleteUpload(filename: DynamicValue, _options: ScopeOptions = {}) {
     this.repository.deleteUpload(filename, _options);
-    deleteUploadThumbnail(filename);
+    deleteUploadThumbnail(filename, { scope: _options.scope });
     uploadMetadataRepository.delete(filename);
     logger.info('file deleted', { filename });
   }

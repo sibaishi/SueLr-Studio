@@ -358,10 +358,12 @@ test('phase 6 settings matrix isolates user-owned settings by request scope', as
     APP_CONFIG_DIR: process.env.APP_CONFIG_DIR,
     APP_STORAGE_BOOTSTRAP_FILE: process.env.APP_STORAGE_BOOTSTRAP_FILE,
     APP_DISABLE_LEGACY_STORAGE_MIGRATION: process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION,
+    APP_RUNTIME_MODE: process.env.APP_RUNTIME_MODE,
   };
   process.env.APP_CONFIG_DIR = root;
   process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
   process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+  process.env.APP_RUNTIME_MODE = 'server-multi-user';
   try {
     const { SettingsService } = await import(`../src/modules/settings/settings.service.ts?phase6settings=${Date.now()}`);
     const service = new SettingsService();
@@ -376,6 +378,65 @@ test('phase 6 settings matrix isolates user-owned settings by request scope', as
       () => service.updateStudioSettings({ runtime: { tavilyApiKey: 'tvly-user' } }, scopeA),
       { code: 'SETTINGS_DEPLOYMENT_FIELD_FORBIDDEN' },
     );
+  } finally {
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('phase 6 artifact matrix isolates output, assistant, and upload files by physical scope', async () => {
+  const root = createStorageDir('artifact-physical-scope');
+  const previousEnv = {
+    APP_CONFIG_DIR: process.env.APP_CONFIG_DIR,
+    APP_STORAGE_BOOTSTRAP_FILE: process.env.APP_STORAGE_BOOTSTRAP_FILE,
+    APP_DISABLE_LEGACY_STORAGE_MIGRATION: process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION,
+  };
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+  try {
+    const { ensureScopedStorageDirectories } = await import(`../src/platform/storage/scoped-storage.ts?artifact=${Date.now()}`);
+    const { FilesRepository } = await import(`../src/modules/files/files.repository.ts?artifact=${Date.now()}`);
+    const { AssistantService } = await import(`../src/modules/assistant/assistant.service.ts?artifact=${Date.now()}`);
+    const { materializeContentForOutput } = await import(`../src/engine/helpers/saveHelper.ts?artifact=${Date.now()}`);
+    const scopeA = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+    const scopeB = { userId: 'user_b', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+    const pathsA = ensureScopedStorageDirectories(scopeA);
+    const pathsB = ensureScopedStorageDirectories(scopeB);
+
+    const saved = await materializeContentForOutput('data:text/plain;base64,QQ==', {
+      prefix: 'artifact-a',
+      scope: scopeA,
+      exposeHostPaths: false,
+    });
+    assert.equal(saved.savedPaths, undefined);
+    assert.equal(fs.existsSync(path.join(pathsA.generatedDir, saved.savedFiles[0].url.replace('/api/outputs/', ''))), true);
+    assert.equal(fs.existsSync(path.join(pathsB.generatedDir, saved.savedFiles[0].url.replace('/api/outputs/', ''))), false);
+
+    const files = new FilesRepository();
+    fs.mkdirSync(pathsB.generatedDir, { recursive: true });
+    fs.writeFileSync(path.join(pathsB.generatedDir, 'b.txt'), 'B', 'utf8');
+    assert.equal((await files.listGeneratedOutputs({ scope: scopeA })).some((item) => item.name === 'b.txt'), false);
+    files.clearGeneratedOutputs({ scope: scopeA });
+    assert.equal(fs.existsSync(path.join(pathsB.generatedDir, 'b.txt')), true);
+
+    const assistant = new AssistantService();
+    const imageResult = assistant.saveImage(
+      { id: 'img_a', data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lJYx2wAAAABJRU5ErkJggg==' },
+      { scope: scopeA },
+    );
+    const assistantRelative = imageResult.localUrl.replace('/api/assistant/files/', '');
+    assert.equal(fs.existsSync(path.join(pathsA.generatedDir, assistantRelative)), true);
+    assert.equal(assistant.openGeneratedFile(assistantRelative, { scope: scopeA }).contentType, 'image/png');
+    assert.throws(() => assistant.openGeneratedFile(assistantRelative, { scope: scopeB }), { code: 'FILE_NOT_FOUND' });
+
+    fs.mkdirSync(pathsA.uploadsDir, { recursive: true });
+    fs.mkdirSync(pathsB.uploadsDir, { recursive: true });
+    fs.writeFileSync(path.join(pathsA.uploadsDir, 'upload-a.txt'), 'A', 'utf8');
+    assert.equal(files.resolveUploadFile('upload-a.txt', { scope: scopeA }), path.join(pathsA.uploadsDir, 'upload-a.txt'));
+    assert.equal(fs.existsSync(files.resolveUploadFile('upload-a.txt', { scope: scopeB })), false);
   } finally {
     for (const [key, value] of Object.entries(previousEnv)) {
       if (value === undefined) delete process.env[key];

@@ -255,7 +255,7 @@ export class AssistantService {
     );
     if (item?.localUrl?.startsWith('/api/assistant/files/')) {
       const rel = item.localUrl.replace('/api/assistant/files/', '');
-      this.repository.deleteGeneratedFile(rel);
+      this.repository.deleteGeneratedFile(rel, { scope: _options.scope });
     }
     this.repository.save(
       'gallery',
@@ -322,7 +322,7 @@ export class AssistantService {
     const item = videos.find((video) => video.id === id && isResourceVisibleForRequestScope(video, _options.scope));
     if (item?.localUrl?.startsWith('/api/assistant/files/')) {
       const rel = item.localUrl.replace('/api/assistant/files/', '');
-      this.repository.deleteGeneratedFile(rel);
+      this.repository.deleteGeneratedFile(rel, { scope: _options.scope });
     }
     this.repository.save(
       'videos',
@@ -332,7 +332,7 @@ export class AssistantService {
   }
 
   openGeneratedFile(relativePath: string, _options: ScopeOptions = {}) {
-    const filePath = this.repository.resolveGeneratedFile(relativePath);
+    const filePath = this.repository.resolveGeneratedFile(relativePath, { scope: _options.scope });
     if (!filePath) throw new ValidationError('FILE_ACCESS_DENIED', '非法文件路径');
     if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
       throw new NotFoundError('FILE_NOT_FOUND', '文件不存在');

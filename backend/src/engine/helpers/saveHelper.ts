@@ -3,7 +3,8 @@ import path from 'node:path';
 import { ensureGeneratedThumbnailFromFile } from '../../platform/media/image-thumbnails.ts';
 import { getMimeType } from '../../platform/media/media-resolver.ts';
 import { isServerRuntimeMode } from '../../platform/runtime/mode.ts';
-import { PROJECT_ROOT, STORAGE_PATHS, safeResolveWithin } from '../../platform/storage/index.ts';
+import type { RequestScope } from '../../platform/runtime/request-scope.ts';
+import { PROJECT_ROOT, STORAGE_PATHS, getScopedStoragePaths, safeResolveWithin } from '../../platform/storage/index.ts';
 
 const TYPE_DIRS = {
   image: 'images',
@@ -36,6 +37,7 @@ interface SaveOptions {
   exposeHostPaths?: boolean;
   outputPath?: string;
   prefix?: string;
+  scope?: RequestScope;
 }
 
 interface SavedFile {
@@ -74,8 +76,8 @@ function safeSegment(value: unknown, fallback: string): string {
   );
 }
 
-function resolveBaseDir(customPath?: string): string {
-  if (!customPath) return STORAGE_PATHS.generatedDir;
+function resolveBaseDir(customPath?: string, options: SaveOptions = {}): string {
+  if (!customPath) return getScopedStoragePaths(options.scope).generatedDir;
   return path.isAbsolute(customPath) ? customPath : path.join(PROJECT_ROOT, customPath);
 }
 
@@ -83,21 +85,21 @@ function targetPath(type: ContentType, options: SaveOptions = {}, ext = 'txt'): 
   const typeDir = TYPE_DIRS[type] || TYPE_DIRS.data;
   const prefix = safeSegment(options.prefix, type);
   const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const dir = path.join(resolveBaseDir(options.outputPath), typeDir);
+  const dir = path.join(resolveBaseDir(options.outputPath, options), typeDir);
   ensureDir(dir);
   return path.join(dir, filename);
 }
 
-function toApiOutputUrl(filePath: string): string | null {
-  const normalizedDefaultDir = path.resolve(STORAGE_PATHS.generatedDir);
+function toApiOutputUrl(filePath: string, options: SaveOptions = {}): string | null {
+  const normalizedDefaultDir = path.resolve(getScopedStoragePaths(options.scope).generatedDir);
   const normalizedFilePath = path.resolve(filePath);
   const relativePath = path.relative(normalizedDefaultDir, normalizedFilePath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) return null;
   return `/api/outputs/${relativePath.split(path.sep).join('/')}`;
 }
 
-async function toPublicSavedFile(file: SavedFile): Promise<PublicSavedFile> {
-  const url = file.url || toApiOutputUrl(file.path) || '';
+async function toPublicSavedFile(file: SavedFile, options: SaveOptions = {}): Promise<PublicSavedFile> {
+  const url = file.url || toApiOutputUrl(file.path, options) || '';
   const mimeType = getMimeType(file.path);
   const publicFile = {
     type: file.type,
@@ -110,11 +112,12 @@ async function toPublicSavedFile(file: SavedFile): Promise<PublicSavedFile> {
   };
 
   if (file.type === 'image' && url) {
-    const relativePath = path.relative(STORAGE_PATHS.generatedDir, file.path).split(path.sep).join('/');
+    const relativePath = path.relative(getScopedStoragePaths(options.scope).generatedDir, file.path).split(path.sep).join('/');
     publicFile.thumbnailUrl = await ensureGeneratedThumbnailFromFile({
       relativePath,
       absolutePath: file.path,
       mimeType,
+      scope: options.scope,
     }).catch(() => '');
   }
 
@@ -146,13 +149,13 @@ function detectUrlType(value: string): ContentType {
   return 'text';
 }
 
-function resolveLocalApiPath(value: string): string | null {
+function resolveLocalApiPath(value: string, options: SaveOptions = {}): string | null {
   if (value.startsWith('/api/outputs/'))
-    return safeResolveWithin(STORAGE_PATHS.generatedDir, value.replace('/api/outputs/', ''));
+    return safeResolveWithin(getScopedStoragePaths(options.scope).generatedDir, value.replace('/api/outputs/', ''));
   if (value.startsWith('/api/files/'))
-    return safeResolveWithin(STORAGE_PATHS.uploadsDir, value.replace('/api/files/', ''));
+    return safeResolveWithin(getScopedStoragePaths(options.scope).uploadsDir, value.replace('/api/files/', ''));
   if (value.startsWith('/api/assistant/files/'))
-    return safeResolveWithin(STORAGE_PATHS.generatedDir, value.replace('/api/assistant/files/', ''));
+    return safeResolveWithin(getScopedStoragePaths(options.scope).generatedDir, value.replace('/api/assistant/files/', ''));
   return null;
 }
 
@@ -170,7 +173,7 @@ async function saveString(value: string, options: SaveOptions): Promise<SavedFil
     }
   }
 
-  const localApiPath = resolveLocalApiPath(value);
+  const localApiPath = resolveLocalApiPath(value, options);
   if (localApiPath && fs.existsSync(localApiPath)) {
     const type = detectUrlType(value);
     if (value.startsWith('/api/outputs/')) {
@@ -206,8 +209,8 @@ export async function saveContentByType(content: unknown, options: SaveOptions =
 export async function materializeContentForOutput(content: unknown, options: SaveOptions = {}): Promise<SaveResult> {
   const savedFiles = await saveContentByType(content, options);
   const savedPaths = savedFiles.map((file) => file.path);
-  const publicSavedFiles = await Promise.all(savedFiles.map((file) => toPublicSavedFile(file)));
-  const urls = savedPaths.map(toApiOutputUrl).filter(Boolean);
+  const publicSavedFiles = await Promise.all(savedFiles.map((file) => toPublicSavedFile(file, options)));
+  const urls = savedPaths.map((filePath) => toApiOutputUrl(filePath, options)).filter(Boolean);
   const exposeHostPaths = options.exposeHostPaths ?? !isServerRuntimeMode();
 
   if (typeof content === 'string') {

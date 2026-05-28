@@ -4,7 +4,7 @@ import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, Work
 export async function execute(
   node: WorkflowNode,
   inputs: NodeInputs,
-  _apiConfig: RuntimeApiConfig,
+  apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
   const content = inputs.content || null;
@@ -21,5 +21,6 @@ export async function execute(
   sendProgress?.('正在自动保存输出内容...');
   return materializeContentForOutput(content, {
     prefix: 'output',
+    scope: apiConfig.scope,
   });
 }

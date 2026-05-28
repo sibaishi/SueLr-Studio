@@ -128,7 +128,9 @@ export class FilesRepository {
         const extension = path.extname(entry.name).toLowerCase();
         const fileType = OUTPUT_FILE_TYPES.get(extension) || { type: 'file', mimeType: 'application/octet-stream' };
         const thumbnailTarget =
-          fileType.type === 'image' ? getGeneratedThumbnailPath(relativePath.split(path.sep).join('/')) : null;
+          fileType.type === 'image'
+            ? getGeneratedThumbnailPath(relativePath.split(path.sep).join('/'), { scope: options.scope })
+            : null;
         const thumbnailUrl =
           thumbnailTarget?.absolutePath && fs.existsSync(thumbnailTarget.absolutePath)
             ? toOutputUrl(thumbnailTarget.relativePath)
@@ -155,6 +157,7 @@ export class FilesRepository {
             relativePath: relativePath.split(path.sep).join('/'),
             absolutePath: filePath,
             mimeType: fileType.mimeType,
+            scope: options.scope,
           }).catch(() => {});
         }
       }
@@ -188,7 +191,7 @@ export class FilesRepository {
 
         const relativePath = path.relative(root, filePath).split(path.sep).join('/');
         fs.unlinkSync(filePath);
-        deleteGeneratedThumbnail(relativePath);
+        deleteGeneratedThumbnail(relativePath, { scope: options.scope });
         removed += 1;
       }
     };

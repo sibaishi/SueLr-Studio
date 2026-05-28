@@ -2,14 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import { STORAGE_PATHS, ensureStorageDirectories } from '../../platform/storage/index.ts';
+import { ensureScopedStorageDirectories } from '../../platform/storage/index.ts';
 import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
-const UPLOADS_DIR = STORAGE_PATHS.uploadsDir;
-
-function ensureUploadsDir() {
-  ensureStorageDirectories();
+function ensureUploadsDir(apiConfig: RuntimeApiConfig) {
+  return ensureScopedStorageDirectories(apiConfig.scope).uploadsDir;
 }
 
 function dataUrlToBuffer(dataUrl: string) {
@@ -24,7 +22,7 @@ function dataUrlToBuffer(dataUrl: string) {
   };
 }
 
-async function imageSourceToBuffer(imageSource: DynamicValue) {
+async function imageSourceToBuffer(imageSource: DynamicValue, apiConfig: RuntimeApiConfig) {
   if (!imageSource) {
     throw new Error('图像缩放节点未接收到图片输入');
   }
@@ -35,7 +33,7 @@ async function imageSourceToBuffer(imageSource: DynamicValue) {
     return dataUrlToBuffer(source);
   }
 
-  const localPath = urlToLocalPath(source);
+  const localPath = urlToLocalPath(source, { scope: apiConfig.scope });
   if (localPath) {
     return {
       buffer: fs.readFileSync(localPath),
@@ -71,6 +69,7 @@ function getFileExtension(format: string) {
 async function resizeSingleImage(
   imageSource: DynamicValue,
   node: WorkflowNode,
+  apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
   progressPrefix = '',
 ) {
@@ -80,7 +79,7 @@ async function resizeSingleImage(
   const targetHeight = Number(node.data?.targetHeight || 0);
 
   sendProgress?.(`${progressPrefix}读取图片...`);
-  const { buffer, mimeType } = await imageSourceToBuffer(imageSource);
+  const { buffer, mimeType } = await imageSourceToBuffer(imageSource, apiConfig);
   const sourceImage = sharp(buffer, { failOn: 'none' });
   const metadata = await sourceImage.metadata();
   const sourceWidth = Number(metadata.width || 0);
@@ -128,9 +127,9 @@ async function resizeSingleImage(
   const outputFormat = normalizeOutputFormat(metadata.format || mimeType.split('/')[1] || 'png');
   const outputBuffer = await pipeline.toFormat(outputFormat).toBuffer();
 
-  ensureUploadsDir();
+  const uploadsDir = ensureUploadsDir(apiConfig);
   const filename = `${uuidv4()}_resized.${getFileExtension(outputFormat)}`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), outputBuffer);
+  fs.writeFileSync(path.join(uploadsDir, filename), outputBuffer);
 
   return {
     image: `/api/files/${filename}`,
@@ -142,7 +141,7 @@ async function resizeSingleImage(
 export async function execute(
   node: WorkflowNode,
   inputs: NodeInputs,
-  _apiConfig: RuntimeApiConfig,
+  apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
   const imageInput = inputs.image;
@@ -160,7 +159,7 @@ export async function execute(
     const results = [];
     for (let index = 0; index < imageInput.length; index += 1) {
       const progressPrefix = imageInput.length > 1 ? `处理第 ${index + 1}/${imageInput.length} 张图片：` : '';
-      const result = await resizeSingleImage(imageInput[index], node, sendProgress, progressPrefix);
+      const result = await resizeSingleImage(imageInput[index], node, apiConfig, sendProgress, progressPrefix);
       results.push(result.image);
     }
 
@@ -169,5 +168,5 @@ export async function execute(
     };
   }
 
-  return resizeSingleImage(imageInput, node, sendProgress);
+  return resizeSingleImage(imageInput, node, apiConfig, sendProgress);
 }

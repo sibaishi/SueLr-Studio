@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ValidationError } from '../../app/errors/index.ts';
 import { getProviderAdapter } from '../../platform/providers/index.ts';
 import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
-import { STORAGE_PATHS } from '../../platform/storage/index.ts';
+import { getScopedStoragePaths } from '../../platform/storage/index.ts';
 import { resolveModelRuntime } from './apiConfig.ts';
 import { fileToBase64 } from './fileHelper.ts';
 import {
@@ -624,6 +624,13 @@ function stringifyForLog(value: DynamicValue): string {
   }
 }
 
+function writeGeneratedImageFile(fileName: string, buffer: Buffer, runtimeConfig: RuntimeConfig): string {
+  const filePath = path.join(getScopedStoragePaths(runtimeConfig.scope).generatedDir, fileName);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, buffer);
+  return `/api/outputs/${fileName}`;
+}
+
 function isChatCompletionsEndpoint(endpoint: DynamicValue): boolean {
   return String(endpoint || '')
     .toLowerCase()
@@ -730,10 +737,10 @@ export async function generateImages(
 
   const referenceImages: string[] = [];
   for (const image of normalized.image) {
-    const encodedImage = await fileToBase64(image);
+    const encodedImage = await fileToBase64(image, { scope: runtimeConfig.scope });
     if (encodedImage) referenceImages.push(encodedImage);
   }
-  const mask = normalized.mask ? (await fileToBase64(normalized.mask)) || '' : '';
+  const mask = normalized.mask ? (await fileToBase64(normalized.mask, { scope: runtimeConfig.scope })) || '' : '';
 
   const payload = normalizeProviderImageSizing(
     {
@@ -1016,10 +1023,7 @@ export async function generateImages(
           }
           const ext = (match[1] || 'image/png').split('/').pop() || 'png';
           const fileName = `images/${randomUUID()}.${ext}`;
-          const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
-          fs.mkdirSync(path.dirname(filePath), { recursive: true });
-          fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
-          return `/api/outputs/${fileName}`;
+          return writeGeneratedImageFile(fileName, Buffer.from(match[2], 'base64'), runtimeConfig);
         }
       } catch {
         return imageStr;
@@ -1037,10 +1041,7 @@ export async function generateImages(
             }
             const ext = (match[1] || 'image/png').split('/').pop() || 'png';
             const fileName = `images/${randomUUID()}.${ext}`;
-            const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
-            fs.mkdirSync(path.dirname(filePath), { recursive: true });
-            fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
-            return `/api/outputs/${fileName}`;
+            return writeGeneratedImageFile(fileName, Buffer.from(match[2], 'base64'), runtimeConfig);
           }
         } catch {
           return downloaded;

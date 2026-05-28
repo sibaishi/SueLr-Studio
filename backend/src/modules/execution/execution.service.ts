@@ -857,11 +857,11 @@ export class ExecutionService {
       source: snapshot.source,
     });
 
-    const apiConfig = settingsService.buildRuntimeConfig(body.apiConfig || {});
+    const apiConfig = settingsService.buildRuntimeConfig(body.apiConfig || {}, scope);
 
     try {
       await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
-        await executeWorkflow(snapshot, { ...apiConfig, abortSignal: abortController.signal }, sendSSE, {
+        await executeWorkflow(snapshot, { ...apiConfig, scope, abortSignal: abortController.signal }, sendSSE, {
           getNodeLogOutputs(outputs: DynamicValue) {
             return sanitizeNodeOutputsForLogs(outputs, runLogger);
           },

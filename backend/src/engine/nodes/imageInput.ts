@@ -7,9 +7,9 @@ import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, Work
 import sharp from 'sharp';
 import { urlToLocalPath } from '../helpers/fileHelper.ts';
 
-async function hasMaskPaint(maskUrl: DynamicValue) {
+async function hasMaskPaint(maskUrl: DynamicValue, apiConfig: RuntimeApiConfig) {
   if (!maskUrl) return false;
-  const localPath = urlToLocalPath(maskUrl);
+  const localPath = urlToLocalPath(maskUrl, { scope: apiConfig.scope });
   if (!localPath) return true;
 
   const { data } = await sharp(localPath, { failOn: 'none' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -39,6 +39,6 @@ export async function execute(
   const mask = maskFileUrl || maskPreviewUrl || '';
   return {
     image: fileUrl,
-    mask: (await hasMaskPaint(mask)) ? mask : undefined,
+    mask: (await hasMaskPaint(mask, apiConfig)) ? mask : undefined,
   };
 }

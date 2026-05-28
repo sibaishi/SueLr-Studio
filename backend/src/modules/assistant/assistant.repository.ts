@@ -4,6 +4,7 @@ import { deleteGeneratedThumbnail, ensureGeneratedThumbnailFromBuffer } from '..
 import {
   STORAGE_PATHS,
   ensureJsonFile,
+  getScopedStoragePaths,
   ensureStorageDirectories,
   readJsonFile,
   safeResolveWithin,
@@ -42,7 +43,8 @@ export class AssistantRepository {
     content: string | NodeJS.ArrayBufferView,
     _options: WriteOptions = {},
   ) {
-    const dir = path.join(STORAGE_PATHS.generatedDir, directoryName);
+    const dir = path.join(getScopedStoragePaths(_options.scope).generatedDir, directoryName);
+    fs.mkdirSync(dir, { recursive: true });
     const filePath = path.join(dir, filename);
     fs.writeFileSync(filePath, content);
     return filePath;
@@ -54,6 +56,7 @@ export class AssistantRepository {
       relativePath: `assistant-images/${filename}`,
       buffer: content,
       mimeType: `image/${path.extname(filename).toLowerCase().replace('.', '') || 'png'}`,
+      scope: options.scope,
     }).catch(() => {});
     return filePath;
   }
@@ -62,16 +65,16 @@ export class AssistantRepository {
     return this.writeAssistantFile('assistant-videos', filename, content, options);
   }
 
-  deleteGeneratedFile(relativePath: string) {
-    const filePath = safeResolveWithin(STORAGE_PATHS.generatedDir, relativePath);
+  deleteGeneratedFile(relativePath: string, options: WriteOptions = {}) {
+    const filePath = safeResolveWithin(getScopedStoragePaths(options.scope).generatedDir, relativePath);
     if (filePath && fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
-    deleteGeneratedThumbnail(relativePath);
+    deleteGeneratedThumbnail(relativePath, { scope: options.scope });
   }
 
-  resolveGeneratedFile(relativePath: string) {
-    return safeResolveWithin(STORAGE_PATHS.generatedDir, relativePath);
+  resolveGeneratedFile(relativePath: string, options: WriteOptions = {}) {
+    return safeResolveWithin(getScopedStoragePaths(options.scope).generatedDir, relativePath);
   }
 }
 

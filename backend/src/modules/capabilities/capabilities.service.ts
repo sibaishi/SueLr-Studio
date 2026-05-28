@@ -24,8 +24,8 @@ export class CapabilitiesService {
     this.imagesService = dependencies.imagesService || imagesService;
   }
 
-  buildRuntimeConfig(apiConfig: PlainObject = {}) {
-    return this.settingsService.buildRuntimeConfig(apiConfig || {});
+  buildRuntimeConfig(apiConfig: PlainObject = {}, scope?: DynamicValue) {
+    return this.settingsService.buildRuntimeConfig(apiConfig || {}, scope);
   }
 
   getRuntimeCapabilities(_options: PlainObject = {}) {
@@ -34,7 +34,7 @@ export class CapabilitiesService {
 
   async chat(body: DynamicValue, _options: PlainObject = {}) {
     try {
-      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
+      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {}, _options.scope);
       const response = await runChatCompletion({
         apiKey: runtimeConfig.apiKey,
         baseUrl: runtimeConfig.baseUrl,
@@ -58,7 +58,7 @@ export class CapabilitiesService {
 
   async chatStream(body: DynamicValue, _options: PlainObject = {}) {
     try {
-      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
+      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {}, _options.scope);
       return await runChatCompletion({
         apiKey: runtimeConfig.apiKey,
         baseUrl: runtimeConfig.baseUrl,
@@ -81,7 +81,7 @@ export class CapabilitiesService {
 
   async search(body: DynamicValue, _options: PlainObject = {}) {
     try {
-      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
+      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {}, _options.scope);
       if (!runtimeConfig.webSearchEnabled) {
         throw new ValidationError('SEARCH_DISABLED', '当前部署未启用联网搜索');
       }
@@ -108,12 +108,13 @@ export class CapabilitiesService {
 
   async submitVideo(body: DynamicValue, _options: PlainObject = {}) {
     try {
-      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
+      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {}, _options.scope);
       return await submitVideoGeneration({
         apiKey: runtimeConfig.apiKey,
         baseUrl: runtimeConfig.baseUrl,
         providerConfig: runtimeConfig.providerConfig,
         projectModels: runtimeConfig.projectModels,
+        scope: _options.scope,
         model: body.model,
         prompt: body.prompt,
         duration: body.duration,
@@ -138,7 +139,7 @@ export class CapabilitiesService {
 
   async video(body: DynamicValue, _options: PlainObject = {}) {
     try {
-      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {});
+      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {}, _options.scope);
       return await executeVideoGeneration(
         {
           model: body.model,
@@ -152,6 +153,7 @@ export class CapabilitiesService {
         },
         {
           ...runtimeConfig,
+          scope: _options.scope,
           abortSignal: body.signal,
         },
       );
@@ -169,7 +171,7 @@ export class CapabilitiesService {
   async getVideoStatus(taskId: string, apiConfig: PlainObject = {}, _options: PlainObject = {}) {
     if (!taskId) throw new ValidationError('VALIDATION_ERROR', 'taskId 不能为空');
     try {
-      const runtimeConfig = this.buildRuntimeConfig(apiConfig || {});
+      const runtimeConfig = this.buildRuntimeConfig(apiConfig || {}, _options.scope);
       return await pollVideoTask({
         baseUrl: runtimeConfig.baseUrl,
         apiKey: runtimeConfig.apiKey,

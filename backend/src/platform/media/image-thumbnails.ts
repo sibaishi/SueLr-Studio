@@ -17,6 +17,7 @@ interface UploadThumbnailInput {
   filename: string;
   sourcePath: string;
   mimeType?: string;
+  scope?: RequestScope;
 }
 
 interface GeneratedThumbnailFromFileInput {
@@ -87,10 +88,10 @@ export function getGeneratedThumbnailPath(
   };
 }
 
-export async function ensureUploadThumbnail({ filename, sourcePath, mimeType }: UploadThumbnailInput): Promise<string> {
+export async function ensureUploadThumbnail({ filename, sourcePath, mimeType, scope = undefined }: UploadThumbnailInput): Promise<string> {
   if (!shouldGenerateThumbnail(mimeType, filename)) return '';
 
-  const thumbnailPath = getUploadThumbnailPath(filename);
+  const thumbnailPath = getUploadThumbnailPath(filename, { scope });
   if (!thumbnailPath) return '';
 
   await sharp(sourcePath)
@@ -199,15 +200,15 @@ export function resolveGeneratedOriginalFromThumbnailRelativePath(
   return null;
 }
 
-export function deleteUploadThumbnail(filename: string): void {
-  const thumbnailPath = getUploadThumbnailPath(filename);
+export function deleteUploadThumbnail(filename: string, options: ThumbnailOptions = {}): void {
+  const thumbnailPath = getUploadThumbnailPath(filename, options);
   if (thumbnailPath && fs.existsSync(thumbnailPath)) {
     fs.unlinkSync(thumbnailPath);
   }
 }
 
-export function deleteGeneratedThumbnail(relativePath: string): void {
-  const target = getGeneratedThumbnailPath(relativePath);
+export function deleteGeneratedThumbnail(relativePath: string, options: ThumbnailOptions = {}): void {
+  const target = getGeneratedThumbnailPath(relativePath, options);
   if (target?.absolutePath && fs.existsSync(target.absolutePath)) {
     fs.unlinkSync(target.absolutePath);
   }

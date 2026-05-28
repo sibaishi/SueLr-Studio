@@ -17,7 +17,7 @@ export class ImagesService {
 
   async generate(body: DynamicValue, options: PlainObject = {}) {
     try {
-      const runtimeConfig = this.settingsService.buildRuntimeConfig(body?.apiConfig || {});
+      const runtimeConfig = this.settingsService.buildRuntimeConfig(body?.apiConfig || {}, options.scope);
       return await this.runImageGeneration(body || {}, {
         ...runtimeConfig,
         abortSignal: options.signal || body?.signal,
