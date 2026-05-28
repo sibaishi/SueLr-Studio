@@ -136,6 +136,34 @@ test('server-multi-user protects data APIs while health stays public', async () 
   }
 });
 
+test('server-multi-user leaves admin console APIs on admin access key authentication', async () => {
+  const { server, baseUrl, restoreEnv } = await createTestServer('admin-console', {
+    APP_ADMIN_ACCESS_KEY: 'admin-secret',
+  });
+  try {
+    const denied = await requestJson(baseUrl, '/api/admin/settings');
+    assert.equal(denied.status, 403);
+    assert.equal(denied.body.error.code, 'ADMIN_ACCESS_DENIED');
+
+    const validation = await requestJson(baseUrl, '/api/admin/access/validate', {
+      method: 'POST',
+      body: JSON.stringify({ accessKey: 'admin-secret' }),
+    });
+    assert.equal(validation.status, 200);
+    assert.equal(validation.body.data.valid, true);
+    assert.equal(validation.body.data.requiresAccessKey, true);
+
+    const settings = await requestJson(baseUrl, '/api/admin/settings', {
+      headers: { 'X-Admin-Access-Key': 'admin-secret' },
+    });
+    assert.equal(settings.status, 200);
+    assert.equal(settings.body.success, true);
+  } finally {
+    restoreEnv();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('server-multi-user derives request scope from authenticated session instead of spoofed headers', async () => {
   const { server, baseUrl, restoreEnv } = await createTestServer('trusted-scope');
   try {

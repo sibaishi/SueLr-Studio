@@ -11,6 +11,7 @@ export const PUBLIC_MULTI_USER_PATHS = [
   '/api/auth/logout',
   '/api/auth/me',
   '/api/capabilities/runtime',
+  '/api/admin',
 ];
 
 function isServerMultiUser(): boolean {
