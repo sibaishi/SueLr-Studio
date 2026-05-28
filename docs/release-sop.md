@@ -54,10 +54,17 @@ This document defines the standard release workflow for SueLr Studio variants. T
    bash ./scripts/deploy/server-web/uninstall.sh
    ```
 
-   For `server-web` prebuilt image deployments through a self-hosted Gitea container registry, build and push from the local workstation or CI runner, then update from the server that can pull the registry image:
+   For `server-web` prebuilt image deployments through the self-hosted Gitea container registry, build and push from the local workstation or CI runner, then update from the server that can pull the registry image:
 
    ```bash
-   SUE_LR_IMAGE=git.example.com/owner/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
+   docker login git.suelr.com
+   SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
+   ```
+
+   Then on the server:
+
+   ```bash
+   docker login git.suelr.com
    cd /srv/suelr-studio/runtime
    sudo docker compose -f compose.yaml pull
    sudo docker compose -f compose.yaml up -d --no-build

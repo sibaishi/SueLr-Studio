@@ -130,7 +130,7 @@ Server-web repository deployment:
 - later updates on the same host can use `bash ./scripts/deploy/server-web/update.sh`
 - low-resource hosts should prefer prebuilt image updates with `bash ./scripts/deploy/server-web/update-image.sh`
 - build and optionally push that image from a workstation with `bash ./scripts/deploy/server-web/build-image.sh`
-- for a self-hosted Gitea container registry flow, build locally with `SUE_LR_IMAGE=git.example.com/owner/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh`, then run `sudo docker compose -f /srv/suelr-studio/runtime/compose.yaml pull && sudo docker compose -f /srv/suelr-studio/runtime/compose.yaml up -d --no-build` on an existing image-based server deployment
+- for the self-hosted Gitea container registry flow, build locally with `SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh`, then run `sudo docker compose -f /srv/suelr-studio/runtime/compose.yaml pull && sudo docker compose -f /srv/suelr-studio/runtime/compose.yaml up -d --no-build` on an existing image-based server deployment
 - removal can use `bash ./scripts/deploy/server-web/uninstall.sh`
 - the scripts refresh docker compose and nginx config together, so browser routing and app container stay aligned
 - the scripts now sync a minimized runtime app directory under `runtime/app` before rebuilding, so the deployed host no longer needs to keep the full repository checkout as the live build context
@@ -142,19 +142,33 @@ Server-web repository deployment:
 
 Existing server-web image deployment:
 
-1. Build and push the image from a workstation or CI runner:
+1. Choose the remote image name. Use the registry host, namespace, repository, and tag that your server will pull later:
 
    ```bash
-   SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
+   export SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web
    ```
 
-2. Log in to the registry once on the server:
+2. Log in to the remote registry from the workstation or CI runner that builds and pushes the image:
 
    ```bash
    docker login git.suelr.com
    ```
 
-3. Keep `/srv/suelr-studio/runtime/compose.yaml` image-based:
+3. Build the minimized server-web release tree, build the Docker image, and push it to the remote registry:
+
+   ```bash
+   SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
+   ```
+
+   `build-image.sh` runs `scripts/build-server-web-release.mjs` first, so the Docker build context is `.server-web-release/app` rather than the full development checkout.
+
+4. Log in to the same registry once on the server:
+
+   ```bash
+   docker login git.suelr.com
+   ```
+
+5. Keep `/srv/suelr-studio/runtime/compose.yaml` image-based:
 
    ```yaml
    services:
@@ -168,15 +182,24 @@ Existing server-web image deployment:
        environment:
          APP_ALLOWED_ORIGINS: https://studio.suelr.com,https://admin.studio.suelr.com
          APP_ADMIN_ACCESS_KEY: change-this-admin-key
+         APP_CONFIG_DIR: /data
+       volumes:
+         - ./data:/data
    ```
 
-4. Pull and restart without rebuilding on the server:
+6. Pull and restart without rebuilding on the server:
 
    ```bash
    cd /srv/suelr-studio/runtime
    sudo docker compose -f compose.yaml pull
    sudo docker compose -f compose.yaml up -d --no-build
    ```
+
+If the server also has a current source checkout and should refresh the repository-provided image compose file and nginx config, run the scripted image update instead:
+
+```bash
+SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web bash ./scripts/deploy/server-web/update-image.sh
+```
 
 The public app reverse-proxies to `127.0.0.1:3001`. The independent admin console runs on `127.0.0.1:3002`; expose it with a separate nginx server such as `admin.studio.suelr.com`, and include that origin in `APP_ALLOWED_ORIGINS`. The admin console access key is `APP_ADMIN_ACCESS_KEY`.
 

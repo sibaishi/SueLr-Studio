@@ -612,8 +612,17 @@ Server-web deployment assets:
 
 Image-based host update flow:
 
-- Build and push on a workstation or CI runner with `SUE_LR_IMAGE=<registry>/<owner>/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh`.
-- On an existing host where `/srv/suelr-studio/runtime/compose.yaml` already uses `image: <registry>/<owner>/suelr-studio:server-web`, update with:
+- Use the project Gitea container registry image reference: `git.suelr.com/sueadmin/suelr-studio:server-web`.
+- Run `docker login git.suelr.com` on the workstation or CI runner that will push the image.
+- Build the minimized release tree, build the image, and push it with:
+
+  ```bash
+  SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
+  ```
+
+  `build-image.sh` always rebuilds `.server-web-release/app` before `docker build`, and it only pushes when `SUE_LR_PUSH=1` is set.
+- Run `docker login git.suelr.com` once on every server that must pull the private image.
+- On an existing host where `/srv/suelr-studio/runtime/compose.yaml` already uses `image: git.suelr.com/sueadmin/suelr-studio:server-web`, update with:
 
   ```bash
   cd /srv/suelr-studio/runtime
@@ -621,6 +630,7 @@ Image-based host update flow:
   sudo docker compose -f compose.yaml up -d --no-build
   ```
 
+- If the host has a current source checkout and should refresh repository-managed deployment files before restarting, use `SUE_LR_IMAGE=<image> bash ./scripts/deploy/server-web/update-image.sh` instead of the two compose commands.
 - The app container exposes the public app on `127.0.0.1:3001` and the independent admin console on `127.0.0.1:3002`.
 - If the admin console is exposed as `https://admin.studio.suelr.com`, nginx must proxy that origin to `127.0.0.1:3002`, `APP_ALLOWED_ORIGINS` must include both `https://studio.suelr.com` and `https://admin.studio.suelr.com`, and `APP_ADMIN_ACCESS_KEY` must be set in compose.
 - Preserve `/srv/suelr-studio/runtime/data` across image updates; it contains runtime settings and generated data.
