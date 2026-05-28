@@ -12,7 +12,8 @@ services:
       ADMIN_HOST: 0.0.0.0
       ADMIN_PORT: 3002
       APP_RUNTIME_MODE: server-single-user
-      APP_ALLOWED_ORIGINS: https://studio.suelr.com
+      APP_ALLOWED_ORIGINS: https://studio.suelr.com,https://admin.studio.suelr.com
+      APP_ADMIN_ACCESS_KEY: change-this-admin-key
       APP_FRONTEND_DIST: /app/dist
       ADMIN_FRONTEND_DIST: /app/dist
       APP_CONFIG_DIR: /data
