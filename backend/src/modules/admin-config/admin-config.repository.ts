@@ -31,6 +31,17 @@ const DEFAULT_ADMIN_CONFIG = {
   features: {
     adminConsoleEnabled: true,
   },
+  email: {
+    provider: 'none',
+    from: 'SueLr Studio <no-reply@studio.suelr.com>',
+    smtp: {
+      host: '',
+      port: 587,
+      secure: false,
+      user: '',
+      pass: '',
+    },
+  },
 };
 
 function isPlainObject(value: DynamicValue): value is PlainObject {
@@ -44,6 +55,11 @@ function cleanOptionalString(value: DynamicValue, maxLength = 5000): string {
 
 function validateBoolean(value: DynamicValue, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+function validateNumber(value: DynamicValue, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function sanitizeOutboundProxy(value: DynamicValue) {
@@ -80,6 +96,17 @@ function sanitizeAdminConfigShape(input: DynamicValue) {
   };
   config.features = {
     adminConsoleEnabled: validateBoolean(value.features?.adminConsoleEnabled, true),
+  };
+  config.email = {
+    provider: value.email?.provider === 'smtp' ? 'smtp' : 'none',
+    from: cleanOptionalString(value.email?.from, 320) || DEFAULT_ADMIN_CONFIG.email.from,
+    smtp: {
+      host: cleanOptionalString(value.email?.smtp?.host, 320),
+      port: Math.min(Math.max(Math.trunc(validateNumber(value.email?.smtp?.port, 587)), 1), 65535),
+      secure: validateBoolean(value.email?.smtp?.secure, false),
+      user: cleanOptionalString(value.email?.smtp?.user, 320),
+      pass: cleanOptionalString(value.email?.smtp?.pass, 4000),
+    },
   };
   return config;
 }
@@ -167,6 +194,14 @@ export class AdminConfigRepository {
         ...current.features,
         ...(isPlainObject(patch.features) ? patch.features : {}),
       },
+      email: {
+        ...current.email,
+        ...(isPlainObject(patch.email) ? patch.email : {}),
+        smtp: {
+          ...current.email.smtp,
+          ...(isPlainObject(patch.email?.smtp) ? patch.email.smtp : {}),
+        },
+      },
     });
 
     writeJsonFile(STORAGE_PATHS.adminConfigFile, next);
@@ -188,6 +223,20 @@ export class AdminConfigRepository {
         outboundProxy: summarizeOutboundProxy(config.network.outboundProxy),
       },
       features: config.features,
+      email: {
+        provider: config.email.provider,
+        from: config.email.from,
+        smtp: {
+          host: undefined,
+          hostSet: Boolean(config.email.smtp.host),
+          port: config.email.smtp.port,
+          secure: config.email.smtp.secure,
+          user: undefined,
+          userSet: Boolean(config.email.smtp.user),
+          pass: undefined,
+          passSet: Boolean(config.email.smtp.pass),
+        },
+      },
     };
   }
 
@@ -202,6 +251,20 @@ export class AdminConfigRepository {
   buildNetworkConfig(config = this.readAdminConfig()) {
     return {
       outboundProxy: sanitizeOutboundProxy(config.network.outboundProxy),
+    };
+  }
+
+  buildEmailConfig(config = this.readAdminConfig()) {
+    return {
+      provider: config.email.provider,
+      from: config.email.from,
+      smtp: {
+        host: config.email.smtp.host,
+        port: config.email.smtp.port,
+        secure: config.email.smtp.secure,
+        user: config.email.smtp.user,
+        pass: config.email.smtp.pass,
+      },
     };
   }
 }

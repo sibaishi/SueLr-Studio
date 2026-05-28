@@ -1,7 +1,10 @@
 import { ValidationError, fromLegacyError } from '../../app/errors/index.ts';
 import { runWebSearch } from '../../platform/ai/search-service.ts';
+import { emailService } from '../../platform/notifications/email.service.ts';
 import type { DynamicValue } from '../types.ts';
 import { adminConfigRepository } from './admin-config.repository.ts';
+
+emailService.setConfigProvider(() => adminConfigRepository.buildEmailConfig(adminConfigRepository.readAdminConfig()));
 
 export class AdminConfigService {
   repository;
@@ -42,6 +45,22 @@ export class AdminConfigService {
     }
   }
 
+  getResolvedEmailConfig() {
+    try {
+      return this.repository.buildEmailConfig(this.repository.readAdminConfig());
+    } catch (error) {
+      throw fromLegacyError(error);
+    }
+  }
+
+  getEmailStatus() {
+    try {
+      return emailService.getStatus();
+    } catch (error) {
+      throw fromLegacyError(error);
+    }
+  }
+
   async testSearch(payload: DynamicValue = {}) {
     const search = this.getResolvedSearchConfig();
     if (!search.enabled) {
@@ -59,6 +78,14 @@ export class AdminConfigService {
       includeAnswer: true,
       signal: undefined,
     });
+  }
+
+  async testEmail(payload: DynamicValue = {}) {
+    try {
+      return await emailService.test(String(payload.to || ''));
+    } catch (error) {
+      throw fromLegacyError(error);
+    }
   }
 }
 

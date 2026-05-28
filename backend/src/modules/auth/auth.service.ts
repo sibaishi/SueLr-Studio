@@ -1,7 +1,9 @@
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../../app/errors/index.ts';
+import { emailService, type EmailSendResult } from '../../platform/notifications/email.service.ts';
 import { getRuntimeMode } from '../../platform/runtime/index.ts';
+import { adminConfigRepository } from '../admin-config/admin-config.repository.ts';
 import type { PlainObject } from '../types.ts';
 import {
   type AuthRepository,
@@ -11,6 +13,8 @@ import {
   authRepository,
 } from './auth.repository.ts';
 import type { LoginInput, PasswordResetCompleteInput, PasswordResetRequestInput, RegisterInput } from './auth.schema.ts';
+
+emailService.setConfigProvider(() => adminConfigRepository.buildEmailConfig(adminConfigRepository.readAdminConfig()));
 
 const scrypt = promisify(scryptCallback);
 const PASSWORD_HASH_PREFIX = 'scrypt';
@@ -148,7 +152,13 @@ export class AuthService {
       status: 'pending',
     });
 
-    return { user: toPublicUser(user) };
+    const notification = await this.sendOptionalEmail({
+      to: user.email,
+      subject: 'SueLr Studio 注册申请已提交',
+      text: `你的 SueLr Studio 账号 ${user.username} 已提交注册申请，请等待管理员审核。`,
+    });
+
+    return { user: toPublicUser(user), notification };
   }
 
   requestPasswordReset(input: Partial<PasswordResetRequestInput> & PlainObject = {}) {
@@ -174,7 +184,7 @@ export class AuthService {
     };
   }
 
-  issuePasswordResetToken(requestId: string) {
+  async issuePasswordResetToken(requestId: string) {
     const request = this.repository.findPasswordResetRequestById(requestId);
     if (!request) throw new NotFoundError('AUTH_RESET_REQUEST_NOT_FOUND', '重置申请不存在');
     if (request.status === 'used' || request.status === 'revoked') {
@@ -189,7 +199,12 @@ export class AuthService {
       issuedAt: Date.now(),
     });
     if (!updated) throw new NotFoundError('AUTH_RESET_REQUEST_NOT_FOUND', '重置申请不存在');
-    return { request: toPublicResetRequest(updated), token };
+    const notification = await this.sendOptionalEmail({
+      to: updated.email,
+      subject: 'SueLr Studio 密码重置 token',
+      text: `你的 SueLr Studio 密码重置 token 是：${token}\n该 token 将在 1 小时后过期，且只能使用一次。`,
+    });
+    return { request: toPublicResetRequest(updated), token, notification };
   }
 
   revokePasswordResetToken(requestId: string) {
@@ -268,6 +283,19 @@ export class AuthService {
       id: session.id,
       expiresAt: session.expiresAt,
     };
+  }
+
+  async sendUserApprovedEmail(userId: string): Promise<EmailSendResult> {
+    const user = this.repository.findUserById(userId);
+    return await this.sendOptionalEmail({
+      to: user?.email,
+      subject: 'SueLr Studio 注册申请已通过',
+      text: `你的 SueLr Studio 账号 ${user?.username || 'unknown'} 已通过审核，现在可以登录。`,
+    });
+  }
+
+  private async sendOptionalEmail(message: { to?: string; subject: string; text: string }): Promise<EmailSendResult> {
+    return await emailService.send(message);
   }
 }
 

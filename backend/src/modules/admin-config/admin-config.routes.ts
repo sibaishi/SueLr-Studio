@@ -4,7 +4,12 @@ import { requireAdminAccess } from '../../app/middleware/require-admin-access.ts
 import { validateBody } from '../../app/middleware/validate-request.ts';
 import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import { adminConfigController } from './admin-config.controller.ts';
-import { adminAccessSchema, adminConfigPatchSchema, adminSearchTestSchema } from './admin-config.schema.ts';
+import {
+  adminAccessSchema,
+  adminConfigPatchSchema,
+  adminEmailTestSchema,
+  adminSearchTestSchema,
+} from './admin-config.schema.ts';
 
 const router = Router();
 
@@ -33,6 +38,11 @@ router.post(
   '/search/test',
   validateBody(zodValidator(adminSearchTestSchema)),
   adminConfigController.testSearch.bind(adminConfigController),
+);
+router.post(
+  '/email/test',
+  validateBody(zodValidator(adminEmailTestSchema)),
+  adminConfigController.testEmail.bind(adminConfigController),
 );
 
 export default router;

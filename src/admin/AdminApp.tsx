@@ -14,11 +14,12 @@ import {
   rejectAdminUser,
   revokePasswordResetRequest,
   saveAdminSettings,
+  testAdminEmail,
   testAdminSearch,
   validateAdminAccess,
 } from '@/shared/api/admin';
 import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { Gauge, Globe, KeyRound, Network, UserCheck } from 'lucide-react';
+import { Gauge, Globe, KeyRound, Mail, Network, UserCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import '@/index.css';
 
@@ -233,6 +234,14 @@ function AdminScreen() {
   const [httpsProxy, setHttpsProxy] = useState('');
   const [noProxy, setNoProxy] = useState('');
   const [featureEnabled, setFeatureEnabled] = useState(true);
+  const [emailProvider, setEmailProvider] = useState<'none' | 'smtp'>('none');
+  const [emailFrom, setEmailFrom] = useState('');
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [smtpSecure, setSmtpSecure] = useState(false);
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [testEmailTo, setTestEmailTo] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -268,6 +277,10 @@ function AdminScreen() {
     setProxyMode(next.network.outboundProxy.mode);
     setNoProxy(next.network.outboundProxy.noProxy || '');
     setFeatureEnabled(next.features.adminConsoleEnabled);
+    setEmailProvider(next.email.provider);
+    setEmailFrom(next.email.from || '');
+    setSmtpPort(String(next.email.smtp.port || 587));
+    setSmtpSecure(Boolean(next.email.smtp.secure));
     await Promise.all([loadUsers(nextAccessKey || ''), loadResetRequests(nextAccessKey || '')]);
   };
 
@@ -317,6 +330,17 @@ function AdminScreen() {
           features: {
             adminConsoleEnabled: featureEnabled,
           },
+          email: {
+            provider: emailProvider,
+            from: emailFrom,
+            smtp: {
+              ...(smtpHost ? { host: smtpHost } : {}),
+              port: Number(smtpPort) || 587,
+              secure: smtpSecure,
+              ...(smtpUser ? { user: smtpUser } : {}),
+              ...(smtpPass ? { pass: smtpPass } : {}),
+            },
+          },
         },
         accessKey || undefined,
       );
@@ -337,6 +361,13 @@ function AdminScreen() {
         ? String((result.data as { message?: string }).message || '搜索测试成功')
         : '搜索测试成功';
     setMessage(result.success ? successMessage : result.error || '搜索测试失败');
+  };
+
+  const handleTestEmail = async () => {
+    setMessage('');
+    const result = await testAdminEmail(accessKey || undefined, testEmailTo);
+    const payload = result.data as { message?: string; error?: string } | undefined;
+    setMessage(result.success ? payload?.message || '测试邮件已发送' : result.error || payload?.error || '测试邮件发送失败');
   };
 
   if (accessState !== 'ready') {
@@ -528,6 +559,78 @@ function AdminScreen() {
                 <option value="on">启用</option>
                 <option value="off">关闭</option>
               </IOSSelect>
+            </div>
+          </Section>
+
+          <Section title="邮件通知" description="可选 SMTP 通知，未配置时账号流程仍会正常继续。" icon={<Mail size={18} />}>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <IOSLabel>邮件提供方</IOSLabel>
+                  <IOSSelect value={emailProvider} onChange={(value) => setEmailProvider(value as 'none' | 'smtp')}>
+                    <option value="none">不启用</option>
+                    <option value="smtp">SMTP</option>
+                  </IOSSelect>
+                </div>
+                <div>
+                  <IOSLabel>发件人</IOSLabel>
+                  <IOSInput value={emailFrom} onChange={setEmailFrom} placeholder="SueLr Studio <no-reply@example.com>" />
+                </div>
+              </div>
+              {emailProvider === 'smtp' ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px', gap: 12 }}>
+                    <div>
+                      <IOSLabel>SMTP Host</IOSLabel>
+                      <IOSInput
+                        value={smtpHost}
+                        onChange={setSmtpHost}
+                        placeholder={settings?.email.smtp.hostSet ? '已配置，留空沿用' : 'smtp.example.com'}
+                      />
+                    </div>
+                    <div>
+                      <IOSLabel>SMTP Port</IOSLabel>
+                      <IOSInput value={smtpPort} onChange={setSmtpPort} placeholder="587" />
+                    </div>
+                    <div>
+                      <IOSLabel>加密</IOSLabel>
+                      <IOSSelect value={smtpSecure ? 'true' : 'false'} onChange={(value) => setSmtpSecure(value === 'true')}>
+                        <option value="false">STARTTLS</option>
+                        <option value="true">TLS</option>
+                      </IOSSelect>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <IOSLabel>SMTP User</IOSLabel>
+                      <IOSInput
+                        value={smtpUser}
+                        onChange={setSmtpUser}
+                        placeholder={settings?.email.smtp.userSet ? '已配置，留空沿用' : 'user@example.com'}
+                      />
+                    </div>
+                    <div>
+                      <IOSLabel>SMTP Pass</IOSLabel>
+                      <IOSInput
+                        value={smtpPass}
+                        onChange={setSmtpPass}
+                        type="password"
+                        placeholder={settings?.email.smtp.passSet ? '已配置，留空沿用' : 'password'}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : null}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'end' }}>
+                <div>
+                  <IOSLabel>测试收件人</IOSLabel>
+                  <IOSInput value={testEmailTo} onChange={setTestEmailTo} placeholder="admin@example.com" />
+                </div>
+                <IOSButton label="测试邮件" onClick={() => void handleTestEmail()} />
+                <span style={chipStyle(emailProvider === 'smtp' && settings?.email.smtp.hostSet ? T.green : '#f59e0b')}>
+                  {emailProvider === 'smtp' && settings?.email.smtp.hostSet ? 'SMTP 已配置' : '邮件未配置'}
+                </span>
+              </div>
             </div>
           </Section>
 

@@ -26,6 +26,17 @@ export type AdminSettingsPayload = {
   features: {
     adminConsoleEnabled: boolean;
   };
+  email: {
+    provider: 'none' | 'smtp';
+    from: string;
+    smtp: {
+      hostSet: boolean;
+      port: number;
+      secure: boolean;
+      userSet: boolean;
+      passSet: boolean;
+    };
+  };
 };
 
 export type AdminSettingsPatch = {
@@ -46,6 +57,17 @@ export type AdminSettingsPatch = {
   };
   features?: {
     adminConsoleEnabled?: boolean;
+  };
+  email?: {
+    provider?: 'none' | 'smtp';
+    from?: string;
+    smtp?: {
+      host?: string;
+      port?: number;
+      secure?: boolean;
+      user?: string;
+      pass?: string;
+    };
   };
 };
 
@@ -92,6 +114,14 @@ export type PasswordResetRequestsPayload = {
 export type PasswordResetIssuePayload = {
   request: PasswordResetRequest;
   token?: string;
+  notification?: EmailSendResult;
+};
+
+export type EmailSendResult = {
+  ok: boolean;
+  status: 'disabled' | 'sent' | 'failed';
+  message: string;
+  error?: string;
 };
 
 function buildAdminHeaders(accessKey?: string): HeadersInit | undefined {
@@ -126,6 +156,14 @@ export async function testAdminSearch(accessKey?: string, query = 'AI 最新资�
     method: 'POST',
     headers: buildAdminHeaders(accessKey),
     body: JSON.stringify({ query, maxResults: 3 }),
+  });
+}
+
+export async function testAdminEmail(accessKey: string | undefined, to: string) {
+  return apiRequest('/api/admin/email/test', {
+    method: 'POST',
+    headers: buildAdminHeaders(accessKey),
+    body: JSON.stringify({ to }),
   });
 }
 

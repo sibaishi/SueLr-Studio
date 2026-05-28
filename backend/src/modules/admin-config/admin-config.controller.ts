@@ -37,6 +37,14 @@ export class AdminConfigController {
     }
   }
 
+  async testEmail(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(await adminConfigService.testEmail(req.body)));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   validateAccess(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       const headerKey = String(req.headers?.['x-admin-access-key'] || '').trim();
@@ -64,9 +72,11 @@ export class AdminConfigController {
     }
   }
 
-  approveUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+  async approveUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(adminUsersService.updateStatus(String(req.params?.id || ''), 'active')));
+      const data = adminUsersService.updateStatus(String(req.params?.id || ''), 'active');
+      const notification = await authService.sendUserApprovedEmail(data.user.id);
+      res.json(successEnvelope({ ...data, notification }));
     } catch (error) {
       next(error);
     }
@@ -112,9 +122,9 @@ export class AdminConfigController {
     }
   }
 
-  issuePasswordResetRequest(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+  async issuePasswordResetRequest(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(authService.issuePasswordResetToken(String(req.params?.id || ''))));
+      res.json(successEnvelope(await authService.issuePasswordResetToken(String(req.params?.id || ''))));
     } catch (error) {
       next(error);
     }

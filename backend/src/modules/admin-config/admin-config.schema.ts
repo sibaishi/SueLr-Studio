@@ -41,6 +41,25 @@ export const adminConfigPatchSchema = z
       .strict()
       .partial()
       .optional(),
+    email: z
+      .object({
+        provider: z.enum(['none', 'smtp']).optional(),
+        from: z.string().trim().max(320).optional(),
+        smtp: z
+          .object({
+            host: z.string().trim().max(320).optional(),
+            port: z.number().int().min(1).max(65535).optional(),
+            secure: z.boolean().optional(),
+            user: z.string().trim().max(320).optional(),
+            pass: z.string().max(4000).optional(),
+          })
+          .strict()
+          .partial()
+          .optional(),
+      })
+      .strict()
+      .partial()
+      .optional(),
   })
   .strict();
 
@@ -55,5 +74,11 @@ export const adminSearchTestSchema = z
 export const adminAccessSchema = z
   .object({
     accessKey: z.string().max(4000).optional(),
+  })
+  .strict();
+
+export const adminEmailTestSchema = z
+  .object({
+    to: z.string().trim().email('测试邮箱格式无效').max(320),
   })
   .strict();
