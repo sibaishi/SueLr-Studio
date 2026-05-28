@@ -11,6 +11,9 @@ export type RuntimeCapabilities = {
     user: {
       id: string;
       username: string;
+      email?: string;
+      status?: 'pending' | 'active' | 'rejected' | 'disabled';
+      workspaceId?: 'default';
     } | null;
   };
   search: {

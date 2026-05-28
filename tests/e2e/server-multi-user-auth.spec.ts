@@ -101,6 +101,72 @@ test.describe('server multi user auth gate', () => {
     await expect(page.getByTestId('workflow-page')).toBeVisible();
   });
 
+  test('submits registration request and shows pending approval state', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('suelr_onboarding_dismissed', 'true');
+    });
+
+    await page.route('**/api/health', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { status: 'ok', version: 'test', timestamp: Date.now() },
+        }),
+      });
+    });
+    await page.route('**/api/capabilities/runtime', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            mode: 'server-multi-user',
+            canSelectDirectory: false,
+            canRestartBackend: false,
+            hasEmbeddedShell: false,
+            auth: {
+              required: true,
+              mode: 'session',
+              user: null,
+            },
+          },
+        }),
+      });
+    });
+    await page.route('**/api/auth/register', async (route) => {
+      const body = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            user: {
+              id: 'user_pending',
+              username: body.username,
+              email: body.email,
+              status: 'pending',
+              workspaceId: 'default',
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await page.getByTestId('auth-register-mode').click();
+    await page.getByTestId('auth-login-username').fill('new-user');
+    await page.getByTestId('auth-register-email').fill('new-user@example.com');
+    await page.getByTestId('auth-login-password').fill('new-password-123');
+    await page.getByTestId('auth-login-submit').click();
+
+    await expect(page.getByTestId('auth-login-error')).toContainText('注册申请已提交');
+    await expect(page.getByTestId('workflow-page')).toHaveCount(0);
+  });
+
   test('server single user opens the app without login gate', async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem('suelr_onboarding_dismissed', 'true');
