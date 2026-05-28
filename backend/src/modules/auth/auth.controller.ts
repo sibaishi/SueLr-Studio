@@ -1,5 +1,6 @@
 import { UnauthorizedError } from '../../app/errors/index.ts';
 import { successEnvelope } from '../../app/http/envelope.ts';
+import { getClientIp } from '../../platform/security/rate-limit.ts';
 import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
 import { authService } from './auth.service.ts';
 
@@ -43,7 +44,15 @@ function buildClearSessionCookie(): string {
 export class AuthController {
   async register(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(await authService.register(req.body)));
+      res.json(
+        successEnvelope(
+          await authService.register({
+            ...req.body,
+            userAgent: req.headers?.['user-agent'],
+            clientIp: getClientIp(req),
+          }),
+        ),
+      );
     } catch (error) {
       next(error);
     }
@@ -54,7 +63,7 @@ export class AuthController {
       const result = await authService.login({
         ...req.body,
         userAgent: req.headers?.['user-agent'],
-        clientIp: req.ip || req.socket?.remoteAddress,
+        clientIp: getClientIp(req),
       });
       res.setHeader('Set-Cookie', buildSessionCookie(result.sessionToken, result.session.expiresAt));
       res.json(
@@ -90,7 +99,15 @@ export class AuthController {
 
   requestPasswordReset(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(authService.requestPasswordReset(req.body)));
+      res.json(
+        successEnvelope(
+          authService.requestPasswordReset({
+            ...req.body,
+            userAgent: req.headers?.['user-agent'],
+            clientIp: getClientIp(req),
+          }),
+        ),
+      );
     } catch (error) {
       next(error);
     }

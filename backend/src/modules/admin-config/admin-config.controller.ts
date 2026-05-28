@@ -1,4 +1,5 @@
 import { successEnvelope } from '../../app/http/envelope.ts';
+import { auditLog } from '../../platform/audit/audit-log.ts';
 import { getRuntimeMode } from '../../platform/runtime/index.ts';
 import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
 import { adminConfigService } from './admin-config.service.ts';
@@ -77,6 +78,21 @@ export class AdminConfigController {
     try {
       const data = adminUsersService.updateStatus(String(req.params?.id || ''), 'active');
       const notification = await authService.sendUserApprovedEmail(data.user.id);
+      auditLog.write({
+        action: 'admin.user.approved',
+        actorType: 'admin',
+        targetType: 'user',
+        targetId: data.user.id,
+        details: { username: data.user.username, notificationStatus: notification.status },
+      });
+      if (notification.status === 'failed') {
+        auditLog.write({
+          action: 'notification.email.failed',
+          actorType: 'system',
+          targetType: 'email',
+          details: { sourceAction: 'admin.user.approved', userId: data.user.id, username: data.user.username, message: notification.message },
+        });
+      }
       res.json(successEnvelope({ ...data, notification }));
     } catch (error) {
       next(error);
@@ -85,7 +101,15 @@ export class AdminConfigController {
 
   rejectUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(adminUsersService.updateStatus(String(req.params?.id || ''), 'rejected')));
+      const data = adminUsersService.updateStatus(String(req.params?.id || ''), 'rejected');
+      auditLog.write({
+        action: 'admin.user.rejected',
+        actorType: 'admin',
+        targetType: 'user',
+        targetId: data.user.id,
+        details: { username: data.user.username },
+      });
+      res.json(successEnvelope(data));
     } catch (error) {
       next(error);
     }
@@ -93,7 +117,15 @@ export class AdminConfigController {
 
   disableUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(adminUsersService.updateStatus(String(req.params?.id || ''), 'disabled')));
+      const data = adminUsersService.updateStatus(String(req.params?.id || ''), 'disabled');
+      auditLog.write({
+        action: 'admin.user.disabled',
+        actorType: 'admin',
+        targetType: 'user',
+        targetId: data.user.id,
+        details: { username: data.user.username },
+      });
+      res.json(successEnvelope(data));
     } catch (error) {
       next(error);
     }
@@ -101,7 +133,15 @@ export class AdminConfigController {
 
   enableUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(adminUsersService.updateStatus(String(req.params?.id || ''), 'active')));
+      const data = adminUsersService.updateStatus(String(req.params?.id || ''), 'active');
+      auditLog.write({
+        action: 'admin.user.enabled',
+        actorType: 'admin',
+        targetType: 'user',
+        targetId: data.user.id,
+        details: { username: data.user.username },
+      });
+      res.json(successEnvelope(data));
     } catch (error) {
       next(error);
     }
@@ -109,7 +149,7 @@ export class AdminConfigController {
 
   getAudit(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope({ entries: [] }));
+      res.json(successEnvelope({ entries: auditLog.list() }));
     } catch (error) {
       next(error);
     }
@@ -157,7 +197,19 @@ export class AdminConfigController {
 
   migrateLegacyData(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(legacyMigrationService.migrate(req.body)));
+      const data = legacyMigrationService.migrate(req.body);
+      auditLog.write({
+        action: 'admin.legacy_data.migrated',
+        actorType: 'admin',
+        targetType: 'legacy_data',
+        targetId: String(data.manifest?.id || ''),
+        details: {
+          targetUserId: data.manifest?.targetUser?.id,
+          countsBefore: data.manifest?.countsBefore,
+          countsAfter: data.countsAfter,
+        },
+      });
+      res.json(successEnvelope(data));
     } catch (error) {
       next(error);
     }

@@ -1,8 +1,14 @@
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../../app/errors/index.ts';
+import { auditLog } from '../../platform/audit/audit-log.ts';
 import { emailService, type EmailSendResult } from '../../platform/notifications/email.service.ts';
 import { getRuntimeMode } from '../../platform/runtime/index.ts';
+import {
+  enforceAnyRateLimit,
+  getAuthRateLimitConfig,
+  identityFingerprint,
+} from '../../platform/security/rate-limit.ts';
 import { adminConfigRepository } from '../admin-config/admin-config.repository.ts';
 import type { PlainObject } from '../types.ts';
 import {
@@ -138,6 +144,19 @@ export class AuthService {
   async register(input: Partial<RegisterInput> & PlainObject = {}) {
     const username = cleanString(input.username, 120);
     const email = cleanString(input.email, 320).toLowerCase() || undefined;
+    const limitConfig = getAuthRateLimitConfig();
+    enforceAnyRateLimit([
+      {
+        key: `auth:register:ip:${identityFingerprint(input.clientIp)}`,
+        max: limitConfig.registerMax,
+        windowMs: limitConfig.windowMs,
+      },
+      {
+        key: `auth:register:identity:${identityFingerprint(username, email)}`,
+        max: limitConfig.registerMax,
+        windowMs: limitConfig.windowMs,
+      },
+    ]);
     if (this.repository.findUserByUsername(username)) {
       throw new ConflictError('AUTH_USERNAME_TAKEN', '用户名已被占用');
     }
@@ -157,12 +176,38 @@ export class AuthService {
       subject: 'SueLr Studio 注册申请已提交',
       text: `你的 SueLr Studio 账号 ${user.username} 已提交注册申请，请等待管理员审核。`,
     });
+    auditLog.write({
+      action: 'auth.registration.submitted',
+      actorType: 'public',
+      targetType: 'user',
+      targetId: user.id,
+      clientIp: cleanString(input.clientIp, 120),
+      userAgent: cleanString(input.userAgent, 500),
+      details: { username: user.username, email: user.email, notificationStatus: notification.status },
+    });
+    this.auditEmailFailure(notification, 'auth.registration.email_failed', {
+      userId: user.id,
+      username: user.username,
+    });
 
     return { user: toPublicUser(user), notification };
   }
 
   requestPasswordReset(input: Partial<PasswordResetRequestInput> & PlainObject = {}) {
     const identity = cleanString(input.usernameOrEmail, 320).toLowerCase();
+    const limitConfig = getAuthRateLimitConfig();
+    enforceAnyRateLimit([
+      {
+        key: `auth:password-reset:ip:${identityFingerprint(input.clientIp)}`,
+        max: limitConfig.passwordResetMax,
+        windowMs: limitConfig.windowMs,
+      },
+      {
+        key: `auth:password-reset:identity:${identityFingerprint(identity)}`,
+        max: limitConfig.passwordResetMax,
+        windowMs: limitConfig.windowMs,
+      },
+    ]);
     const user = identity.includes('@')
       ? this.repository.findUserByEmail(identity)
       : this.repository.findUserByUsername(identity);
@@ -174,6 +219,15 @@ export class AuthService {
       userId: user.id,
       username: user.username,
       email: user.email,
+    });
+    auditLog.write({
+      action: 'auth.password_reset.requested',
+      actorType: 'public',
+      targetType: 'password_reset_request',
+      targetId: request.id,
+      clientIp: cleanString(input.clientIp, 120),
+      userAgent: cleanString(input.userAgent, 500),
+      details: { userId: user.id, username: user.username },
     });
     return { request: toPublicResetRequest(request) };
   }
@@ -204,6 +258,18 @@ export class AuthService {
       subject: 'SueLr Studio 密码重置 token',
       text: `你的 SueLr Studio 密码重置 token 是：${token}\n该 token 将在 1 小时后过期，且只能使用一次。`,
     });
+    auditLog.write({
+      action: 'admin.password_reset.token_issued',
+      actorType: 'admin',
+      targetType: 'password_reset_request',
+      targetId: updated.id,
+      details: { userId: updated.userId, username: updated.username, notificationStatus: notification.status },
+    });
+    this.auditEmailFailure(notification, 'admin.password_reset.email_failed', {
+      requestId: updated.id,
+      userId: updated.userId,
+      username: updated.username,
+    });
     return { request: toPublicResetRequest(updated), token, notification };
   }
 
@@ -214,6 +280,13 @@ export class AuthService {
       revokedAt: Date.now(),
     });
     if (!updated) throw new NotFoundError('AUTH_RESET_REQUEST_NOT_FOUND', '重置申请不存在');
+    auditLog.write({
+      action: 'admin.password_reset.token_revoked',
+      actorType: 'admin',
+      targetType: 'password_reset_request',
+      targetId: updated.id,
+      details: { userId: updated.userId, username: updated.username },
+    });
     return { request: toPublicResetRequest(updated) };
   }
 
@@ -234,6 +307,13 @@ export class AuthService {
       tokenHash: undefined,
       usedAt: Date.now(),
     });
+    auditLog.write({
+      action: 'auth.password_reset.token_used',
+      actorType: 'public',
+      targetType: 'password_reset_request',
+      targetId: request.id,
+      details: { userId: user.id, username: user.username },
+    });
     return { ok: true };
   }
 
@@ -243,6 +323,19 @@ export class AuthService {
     const password = String(input.password || '');
     const user = this.repository.findUserByUsername(username);
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      const limitConfig = getAuthRateLimitConfig();
+      enforceAnyRateLimit([
+        {
+          key: `auth:login-failure:ip:${identityFingerprint(input.clientIp)}`,
+          max: limitConfig.loginFailureMax,
+          windowMs: limitConfig.windowMs,
+        },
+        {
+          key: `auth:login-failure:identity:${identityFingerprint(username)}`,
+          max: limitConfig.loginFailureMax,
+          windowMs: limitConfig.windowMs,
+        },
+      ]);
       throw new UnauthorizedError('AUTH_INVALID_CREDENTIALS', '用户名或密码无效');
     }
     assertCanLogin(user);
@@ -296,6 +389,16 @@ export class AuthService {
 
   private async sendOptionalEmail(message: { to?: string; subject: string; text: string }): Promise<EmailSendResult> {
     return await emailService.send(message);
+  }
+
+  private auditEmailFailure(notification: EmailSendResult, sourceAction: string, details: PlainObject): void {
+    if (notification.status !== 'failed') return;
+    auditLog.write({
+      action: 'notification.email.failed',
+      actorType: 'system',
+      targetType: 'email',
+      details: { ...details, sourceAction, message: notification.message },
+    });
   }
 }
 
