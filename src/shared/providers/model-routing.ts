@@ -23,6 +23,12 @@ export function resolveModelConfig(apiConfigs: ApiConfig[], model: ModelInfo | n
   return apiConfigs.find((config) => config.id === model.configId) || null;
 }
 
+export function resolveStoredApiKey(config: Pick<ApiConfig, 'apiKey' | 'apiKeySet'> | null | undefined, fallback = '') {
+  if (config?.apiKey) return config.apiKey;
+  if (config?.apiKeySet) return 'use-stored';
+  return fallback;
+}
+
 export function buildApiConfigPayload(
   config: ApiConfig | null,
   fallback: {
@@ -33,7 +39,7 @@ export function buildApiConfigPayload(
 ): ApiConfigPayload {
   return {
     configId: config?.id,
-    apiKey: config?.apiKey || fallback.apiKey,
+    apiKey: resolveStoredApiKey(config, fallback.apiKey),
     baseUrl: config?.base || fallback.baseUrl,
     providerConfig: config?.providerConfig || fallback.providerConfig,
     projectModels: config?.projectModels,

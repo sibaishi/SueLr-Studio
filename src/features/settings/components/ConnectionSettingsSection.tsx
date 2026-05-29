@@ -83,7 +83,12 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
           </div>
           <div data-testid="settings-api-key-field">
             <IOSLabel>API 密钥</IOSLabel>
-            <IOSInput value={view.apiKey} onChange={actions.setConnectionApiKey} type="password" placeholder="sk-..." />
+            <IOSInput
+              value={view.apiKey}
+              onChange={actions.setConnectionApiKey}
+              type="password"
+              placeholder={view.activeConfig?.apiKeySet ? '已保存，留空则继续使用' : 'sk-...'}
+            />
           </div>
           {(!view.base || !hasApiKey) && (
             <EmptyStateCard

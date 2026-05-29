@@ -1232,16 +1232,16 @@ export function ChatPanel({
                   <span style={chipStyle(chat.canUseWebSearch ? T.purple : undefined)}>
                     {chat.canUseWebSearch ? '联网搜索可用' : '联网搜索未启用'}
                   </span>
-                  <span style={chipStyle(apiKey ? T.blue : undefined)}>
-                    {apiKey ? 'API Key 已配置' : 'API Key 还未配置'}
+                  <span style={chipStyle(chat.apiKeyConfigured ? T.blue : undefined)}>
+                    {chat.apiKeyConfigured ? 'API Key 已配置' : 'API Key 还未配置'}
                   </span>
                 </div>
-                {(!chat.currentModel || !apiKey || !chat.canUseWebSearch) && (
+                {(!chat.currentModel || !chat.apiKeyConfigured || !chat.canUseWebSearch) && (
                   <div style={{ marginTop: 10 }}>
                     <InlineHint
                       title="当前能力还未完全就绪"
                       body={
-                        !apiKey
+                        !chat.apiKeyConfigured
                           ? '先在设置中填写 API Key，再选择模型并发送消息。'
                           : !chat.currentModel
                             ? '当前还没有选中对话模型，选择后即可开始发送消息。'

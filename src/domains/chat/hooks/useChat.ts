@@ -46,6 +46,7 @@ type UseChatResult = {
   currentModel: string;
   currentModelDisabledReason: string;
   currentRole: AgentRole;
+  apiKeyConfigured: boolean;
   canSend: boolean;
   setActiveId: (id: string) => void;
   setConvModel: (model: string, id?: string) => void;
@@ -359,6 +360,7 @@ export function useChat(
   const currentModelInfo = resolveSelectedModel(chatModels, currentModel);
   const providerModel = resolveProviderModelId(chatModels, currentModel);
   const currentModelConfig = resolveModelConfig(apiConfigs, currentModelInfo);
+  const apiKeyConfigured = Boolean(currentModelConfig?.apiKey || currentModelConfig?.apiKeySet || apiKey);
   const currentRole = roles.find((role) => role.id === conv.roleId) ||
     roles[0] || { id: 'default', name: 'Default', icon: 'bot', systemPrompt: '', tools: [] };
   const currentModelDisabledReason = currentModel ? '' : 'Please configure a chat model in settings first.';
@@ -1044,6 +1046,7 @@ export function useChat(
     currentModel,
     currentModelDisabledReason,
     currentRole,
+    apiKeyConfigured,
     canSend,
     setActiveId,
     setConvModel,
