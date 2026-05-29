@@ -292,7 +292,8 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
 - `backend/src/modules/capabilities/`
   - feature capability reporting used by frontend bootstrap and diagnostics
 - `backend/src/modules/agent/`
-  - agent profiles, chat runtime, tool registry, sessions, and long-term memory governance
+  - legacy/transitional agent profiles, chat runtime, tool registry, sessions, and long-term memory governance
+  - the long-term replacement direction is the Agent + Skills + Knowledge Base intelligence program documented under `docs/intelligence/`
 - `backend/src/modules/execution/execution.routes.ts`
   - workflow execution endpoints with Zod route-boundary validation
 - `backend/src/modules/execution/execution.service.ts`
@@ -528,17 +529,21 @@ High-value regression areas:
 
 ## Public Documentation Policy
 
-Only these public markdown docs belong under `docs/`:
+Only these public markdown docs and approved public documentation directories belong under `docs/`:
 
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
+- `docs/intelligence/`
+
+The `docs/intelligence/` directory is the public home for the Agent + Skills + Knowledge Base intelligence program. It contains the engineering execution version and a separate Chinese reading version under `docs/intelligence/zh/`.
 
 Rules for future work:
 
 - every structural or behavior change that affects user flows must update `docs/user-guide.md`
 - every structural or ownership change that affects developer navigation must update `docs/developer-guide.md`
 - every desktop release workflow change must update `docs/release-sop.md`
+- every durable intelligence architecture, rollout, or acceptance-policy change must update the relevant file under `docs/intelligence/`
 - do not add private working notes, weekly scratch files, or internal-only plans under `docs/`
 - keep this guide aligned with the actual file layout so maintainers can jump directly to the right module instead of re-scanning the repo
 

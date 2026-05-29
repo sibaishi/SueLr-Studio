@@ -28,6 +28,22 @@ const allowedMarkdownDocs = new Set([
   'docs/user-guide.md',
   'docs/developer-guide.md',
   'docs/release-sop.md',
+  'docs/intelligence/README.md',
+  'docs/intelligence/00-master-plan.md',
+  'docs/intelligence/01-phased-execution-plan.md',
+  'docs/intelligence/02-acceptance-plan.md',
+  'docs/intelligence/03-legacy-agent-replacement-plan.md',
+  'docs/intelligence/04-knowledge-base-taxonomy.md',
+  'docs/intelligence/05-design-team-operating-model.md',
+  'docs/intelligence/06-governance-and-gates.md',
+  'docs/intelligence/zh/README.md',
+  'docs/intelligence/zh/00-总计划方案.md',
+  'docs/intelligence/zh/01-分阶段执行方案.md',
+  'docs/intelligence/zh/02-分阶段验收与总验收计划.md',
+  'docs/intelligence/zh/03-现有Agent替换计划.md',
+  'docs/intelligence/zh/04-知识库分类与治理方案.md',
+  'docs/intelligence/zh/05-设计团队与工作流自动搭建方案.md',
+  'docs/intelligence/zh/06-治理门禁与推进规则.md',
 ]);
 
 function collectMarkdownFiles(dir, bucket = []) {
