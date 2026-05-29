@@ -59,12 +59,7 @@ function formatSaveStatus(isSavingWorkflow: boolean, hasUnsavedChanges: boolean,
   if (isSavingWorkflow) return '保存中...';
   if (hasUnsavedChanges) return '有未保存修改';
   if (!lastSavedAt) return '未保存草稿';
-
-  const time = new Date(lastSavedAt).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `已保存于 ${time}`;
+  return '已保存';
 }
 
 function getSaveStatusTone(isSavingWorkflow: boolean, hasUnsavedChanges: boolean, lastSavedAt: number | null) {
