@@ -1,4 +1,11 @@
-function buildApplicationMenuTemplate({ appName, platform, onOpenAdmin }) {
+function buildApplicationMenuTemplate({
+  appName,
+  platform,
+  onOpenAdmin,
+  onOpenDataDirectory,
+  onOpenLogsDirectory,
+  onRelaunch,
+}) {
   return [
     ...(platform === 'darwin'
       ? [{
@@ -23,6 +30,18 @@ function buildApplicationMenuTemplate({ appName, platform, onOpenAdmin }) {
       ],
     },
     {
+      label: '编辑',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
       label: '查看',
       submenu: [
         { role: 'reload' },
@@ -42,6 +61,19 @@ function buildApplicationMenuTemplate({ appName, platform, onOpenAdmin }) {
         {
           label: '打开管理端',
           click: onOpenAdmin,
+        },
+        {
+          label: '打开数据目录',
+          click: onOpenDataDirectory,
+        },
+        {
+          label: '打开日志目录',
+          click: onOpenLogsDirectory,
+        },
+        { type: 'separator' },
+        {
+          label: '重启应用',
+          click: onRelaunch,
         },
       ],
     },

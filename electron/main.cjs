@@ -5,6 +5,7 @@ const { buildApplicationMenuTemplate } = require('./menu.cjs');
 const { setupSingleInstance } = require('./single-instance.cjs');
 const { createMainWindow, focusWindow } = require('./window-lifecycle.cjs');
 const { startEmbeddedBackend } = require('./embedded-backend.cjs');
+const { openDataDirectory, openLogsDirectory } = require('./runtime-paths.cjs');
 
 let mainWindow = null;
 let backendServer = null;
@@ -59,6 +60,13 @@ function installApplicationMenu() {
         void shell.openExternal(adminUrl);
       }
     },
+    onOpenDataDirectory: () => {
+      void openDataDirectory({ resolveAppPath, shell });
+    },
+    onOpenLogsDirectory: () => {
+      void openLogsDirectory({ resolveAppPath, shell });
+    },
+    onRelaunch: relaunchApp,
   });
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
