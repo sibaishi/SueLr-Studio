@@ -386,6 +386,113 @@ test('phase 6 settings matrix isolates user-owned settings by request scope', as
   }
 });
 
+test('phase 6 assistant legacy settings endpoint uses request scope', async () => {
+  const root = createStorageDir('assistant-settings-scope');
+  const previousEnv = {
+    APP_CONFIG_DIR: process.env.APP_CONFIG_DIR,
+    APP_STORAGE_BOOTSTRAP_FILE: process.env.APP_STORAGE_BOOTSTRAP_FILE,
+    APP_DISABLE_LEGACY_STORAGE_MIGRATION: process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION,
+    APP_RUNTIME_MODE: process.env.APP_RUNTIME_MODE,
+  };
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+  process.env.APP_RUNTIME_MODE = 'server-multi-user';
+  try {
+    const { settingsService } = await import(`../src/modules/settings/settings.service.ts?assistantsettings=${Date.now()}`);
+    const { assistantController } = await import(
+      `../src/modules/assistant/assistant.controller.ts?assistantsettings=${Date.now()}`
+    );
+    const scopeA = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+    const scopeB = { userId: 'user_b', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+    settingsService.updateStudioSettings({ ui: { theme: 'light' } }, scopeA);
+
+    let bodyA = null;
+    let bodyB = null;
+    assistantController.getSettings({ scope: scopeA }, { json: (payload) => (bodyA = payload) });
+    assistantController.getSettings({ scope: scopeB }, { json: (payload) => (bodyB = payload) });
+
+    assert.equal(bodyA.data.ui.theme, 'light');
+    assert.equal(bodyB.data.ui.theme, 'dark');
+  } finally {
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('phase 6 agent runtime and profiles use request-scoped settings', async () => {
+  const { AgentProfileService } = await import('../src/modules/agent/agent-profile.service.ts');
+  const { AgentRuntime } = await import('../src/modules/agent/agent-runtime.ts');
+  const { AgentService } = await import('../src/modules/agent/agent.service.ts');
+  const scopeA = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+  const scopeB = { userId: 'user_b', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+  const profileFiles = new Map();
+  const repository = {
+    loadProfiles: (scope) => profileFiles.get(scope?.userId) || [],
+    saveProfiles: (profiles, scope) => profileFiles.set(scope?.userId, profiles),
+  };
+  const settings = {
+    getStudioSettings: (scope) => ({
+      ui: {
+        customRoles: [
+          {
+            id: `role_${scope?.userId || 'unknown'}`,
+            name: `Role ${scope?.userId || 'unknown'}`,
+            icon: 'bot',
+            systemPrompt: 'Scoped role',
+            tools: [],
+          },
+        ],
+      },
+    }),
+  };
+  const profiles = new AgentProfileService(repository, settings);
+  assert.equal(profiles.getProfiles({ scope: scopeA }).some((profile) => profile.id === 'role_user_a'), true);
+  assert.equal(profiles.getProfiles({ scope: scopeB }).some((profile) => profile.id === 'role_user_a'), false);
+
+  profiles.saveProfiles(
+    [{ id: 'custom_a', name: 'Custom A', instruction: 'A', enabledTools: [], isCustom: true }],
+    { scope: scopeA },
+  );
+  assert.equal(profiles.getProfiles({ scope: scopeA })[0].id, 'custom_a');
+  assert.equal(profiles.getProfiles({ scope: scopeB }).some((profile) => profile.id === 'custom_a'), false);
+
+  const runtime = new AgentRuntime({
+    profileService: profiles,
+    memoryService: { search: () => [], create: () => [] },
+    toolRegistry: { getDefinitions: () => [], toModelTools: () => [] },
+    sessionStore: { create: () => {}, update: () => {} },
+  });
+  assert.equal(runtime.buildRunContext({ profileId: 'custom_a', options: { scope: scopeA } }).profile.id, 'custom_a');
+  assert.notEqual(runtime.buildRunContext({ profileId: 'custom_a', options: { scope: scopeB } }).profile.id, 'custom_a');
+
+  const seenScopes = [];
+  const agent = new AgentService({
+    settingsService: {
+      buildRuntimeConfig: (_apiConfig, scope) => {
+        seenScopes.push(scope);
+        return { configId: scope?.userId || '' };
+      },
+    },
+    runtime: {
+      run: async ({ options }) => ({
+        sessionId: options.sessionId,
+        conversationId: 'conv',
+        profileId: 'default',
+        model: 'model',
+        assistantMessage: { role: 'assistant', content: 'ok' },
+        toolTrace: [],
+        memoryWrites: [],
+      }),
+    },
+    sessionStore: { update: () => {}, get: () => null, list: () => [] },
+  });
+  await agent.chat({ messages: [], model: 'model' }, { scope: scopeA });
+  assert.deepEqual(seenScopes, [scopeA]);
+});
+
 test('phase 6 artifact matrix isolates output, assistant, and upload files by physical scope', async () => {
   const root = createStorageDir('artifact-physical-scope');
   const previousEnv = {

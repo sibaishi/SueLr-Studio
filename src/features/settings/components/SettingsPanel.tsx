@@ -721,30 +721,6 @@ export function SettingsPanel({
                 {runtimeCapabilities?.search?.enabled ? '联网搜索可用' : '联网搜索未启用'}
               </span>
               {authUser ? <span style={chipStyle(T.green)}>{authUser.username}</span> : null}
-              {onLogout ? (
-                <button
-                  type="button"
-                  data-testid="settings-logout"
-                  onClick={() => {
-                    void onLogout();
-                  }}
-                  title="退出登录"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 8,
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-secondary)',
-                    color: 'var(--color-text-primary)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <LogOut size={16} aria-hidden="true" />
-                </button>
-              ) : null}
             </div>
           </div>
         </div>
@@ -888,6 +864,42 @@ export function SettingsPanel({
                   当前工作室显示风格
                 </div>
               </div>
+
+              {view.canLogout ? (
+                <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>账户操作</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                    {view.authUser?.username || '已登录账户'}
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="settings-logout"
+                    onClick={() => {
+                      void actions.logout();
+                    }}
+                    style={{
+                      marginTop: 12,
+                      width: '100%',
+                      minHeight: 36,
+                      borderRadius: 10,
+                      border: '1px solid rgba(217, 45, 32, 0.55)',
+                      background: '#D92D20',
+                      color: '#fff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      boxShadow: '0 10px 22px rgba(217, 45, 32, 0.18)',
+                    }}
+                  >
+                    <LogOut size={15} aria-hidden="true" />
+                    退出登录
+                  </button>
+                </div>
+              ) : null}
 
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Agent 覆盖情况</div>

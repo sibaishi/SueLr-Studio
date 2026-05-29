@@ -142,12 +142,12 @@ Server-web repository deployment:
 
 Server-web authentication modes:
 
-- the provided compose files and Dockerfile default to `APP_RUNTIME_MODE=server-single-user`
-- `server-single-user` opens the app without a login gate and uses the default `single-user/default` scope
-- `server-multi-user` must be enabled explicitly through deployment environment variables
-- when `APP_RUNTIME_MODE=server-multi-user`, configure `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD` for the initial login account
-- in `server-multi-user`, unauthenticated users see the login screen before the main app
-- changing `APP_ADMIN_ACCESS_KEY` only protects the independent admin console; it is not the normal app login password
+- the provided compose files and Dockerfile default to `APP_RUNTIME_MODE=server-multi-user`
+- in `server-multi-user`, unauthenticated users see the login and registration screen before the main app
+- public registration creates pending users; an administrator must approve the user before login is allowed
+- `APP_ADMIN_ACCESS_KEY` protects only the independent admin console and `/api/admin/...`; it is not a normal app login password
+- SMTP is optional; disabled or misconfigured SMTP must not block registration, approval, login, or password reset fallback flows
+- `server-single-user` remains available only as an explicit compatibility override and uses the default `single-user/default` scope without a login gate
 
 Existing server-web image deployment:
 
@@ -204,7 +204,7 @@ Existing server-web image deployment:
        environment:
          APP_ALLOWED_ORIGINS: https://studio.suelr.com,https://admin.studio.suelr.com
          APP_ADMIN_ACCESS_KEY: change-this-admin-key
-         APP_RUNTIME_MODE: server-single-user
+         APP_RUNTIME_MODE: server-multi-user
          APP_CONFIG_DIR: /data
        volumes:
          - ./data:/data
@@ -238,7 +238,7 @@ curl -sS -X POST http://127.0.0.1:3002/api/admin/access/validate \
   -d '{"accessKey":"<admin-access-key>"}'
 ```
 
-To test the multi-user login path on a prepared release candidate, set `APP_RUNTIME_MODE=server-multi-user` plus `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD`, restart the deployment, open the public app, and sign in with that bootstrap account. Keep production server-web deployments on `server-single-user` unless the release readiness gate in `docs/deployment-variants-plan.md` has been completed.
+To test the multi-user login path on a prepared release candidate, keep `APP_RUNTIME_MODE=server-multi-user`, restart the deployment, open the public app, submit a registration request, approve it from the independent admin console, and then sign in as the approved user. Use `APP_RUNTIME_MODE=server-single-user` only when you intentionally need the legacy no-login compatibility mode.
 
 Default local addresses:
 

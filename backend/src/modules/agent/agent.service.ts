@@ -140,7 +140,7 @@ export class AgentService {
 
   getProfiles(_options: PlainObject = {}) {
     try {
-      return this.profileService.getProfiles();
+      return this.profileService.getProfiles(_options);
     } catch (error) {
       throw fromLegacyError(error);
     }
@@ -148,7 +148,7 @@ export class AgentService {
 
   saveProfiles(profiles: DynamicValue[], _options: PlainObject = {}) {
     try {
-      return this.profileService.saveProfiles(profiles);
+      return this.profileService.saveProfiles(profiles, _options);
     } catch (error) {
       throw fromLegacyError(error);
     }
@@ -236,7 +236,7 @@ export class AgentService {
         options: {
           ...body.options,
           sessionId,
-          apiConfig: this.settingsService.buildRuntimeConfig(body.apiConfig || {}),
+          apiConfig: this.settingsService.buildRuntimeConfig(body.apiConfig || {}, options.scope),
           scope: options.scope,
         },
         signal: abortController.signal,
@@ -360,7 +360,7 @@ export class AgentService {
         options: {
           ...body.options,
           sessionId,
-          apiConfig: this.settingsService.buildRuntimeConfig(body.apiConfig || {}),
+          apiConfig: this.settingsService.buildRuntimeConfig(body.apiConfig || {}, handlers.scope),
           scope: handlers.scope,
         },
         signal: abortController.signal,

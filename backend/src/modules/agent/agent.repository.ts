@@ -4,6 +4,8 @@ import {
   STORAGE_PATHS,
   ensureJsonFile,
   ensureStorageDirectories,
+  ensureScopedStorageDirectories,
+  getScopedStoragePaths,
   readJsonFile,
   safeResolveWithin,
   writeJsonFile,
@@ -26,12 +28,20 @@ export class AgentRepository {
     ensureAgentStorage();
   }
 
-  loadProfiles(): DynamicValue[] {
-    return readJsonFile(STORAGE_PATHS.agentProfilesFile, DEFAULT_PROFILES);
+  getProfilesFile(scope?: DynamicValue) {
+    if (scope?.runtimeMode === 'server-multi-user') {
+      ensureScopedStorageDirectories(scope);
+      return getScopedStoragePaths(scope).agentProfilesFile;
+    }
+    return STORAGE_PATHS.agentProfilesFile;
   }
 
-  saveProfiles(profiles: DynamicValue[]) {
-    writeJsonFile(STORAGE_PATHS.agentProfilesFile, profiles);
+  loadProfiles(scope?: DynamicValue): DynamicValue[] {
+    return readJsonFile(this.getProfilesFile(scope), DEFAULT_PROFILES);
+  }
+
+  saveProfiles(profiles: DynamicValue[], scope?: DynamicValue) {
+    writeJsonFile(this.getProfilesFile(scope), profiles);
   }
 
   loadMemories(): DynamicValue[] {

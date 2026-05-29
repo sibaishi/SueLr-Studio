@@ -38,7 +38,59 @@ function panelDisplayStyle(active: boolean) {
 
 function WorkspaceLoading() {
   return (
-    <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'rgba(255, 255, 255, 0.68)' }}>加载中...</div>
+    <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'rgba(255, 255, 255, 0.68)' }}>
+      加载中...
+    </div>
+  );
+}
+
+function BootstrapBlocker({ message, onRetry }: { message: string | null; onRetry: () => void }) {
+  return (
+    <div
+      data-testid="bootstrap-blocker"
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 24,
+        color: 'rgba(255, 255, 255, 0.86)',
+      }}
+    >
+      <div
+        style={{
+          width: 'min(420px, 100%)',
+          borderRadius: 16,
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          background: 'rgba(15, 23, 42, 0.72)',
+          padding: 24,
+          textAlign: 'center',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.24)',
+        }}
+      >
+        <div style={{ fontSize: 18, fontWeight: 700 }}>无法确认登录状态</div>
+        <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.7, color: 'rgba(255, 255, 255, 0.68)' }}>
+          {message || '请刷新页面后重试。'}
+        </div>
+        <button
+          type="button"
+          data-testid="bootstrap-retry"
+          onClick={onRetry}
+          style={{
+            marginTop: 18,
+            border: 0,
+            borderRadius: 12,
+            background: '#38bdf8',
+            color: '#082f49',
+            cursor: 'pointer',
+            fontSize: 14,
+            fontWeight: 700,
+            padding: '10px 16px',
+          }}
+        >
+          重试
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -63,7 +115,16 @@ export default function App() {
   const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<Tab>>(() => new Set([tab]));
   const projectBusy = workflowBusy || chatBusy || imageBusy || videoBusy;
 
-  const { refreshRuntimeCapabilities, runtimeCapabilities, splashFading, splashHidden } = useAppBootstrap({
+  const {
+    authenticateAndHydrate,
+    bootstrapError,
+    bootstrapMode,
+    clearAuthenticatedHydration,
+    refreshRuntimeCapabilities,
+    runtimeCapabilities,
+    splashFading,
+    splashHidden,
+  } = useAppBootstrap({
     hydratedRef,
     setSidebarCollapsed,
     setTab,
@@ -78,8 +139,13 @@ export default function App() {
       Boolean(config.base && (config.apiKey || config.apiKeySet)) &&
       (config.projectModels || []).some((model) => model.configured),
   );
-  const showOnboarding = splashHidden && !hasUsableConfig && !onboardingDismissed;
+  const canEnterWorkspace = Boolean(
+    bootstrapMode === 'browser-only' ||
+      (runtimeCapabilities && (!runtimeCapabilities.auth.required || runtimeCapabilities.auth.user)),
+  );
   const showLoginGate = Boolean(splashHidden && runtimeCapabilities?.auth.required && !runtimeCapabilities.auth.user);
+  const showBootstrapBlocker = Boolean(splashHidden && !showLoginGate && !canEnterWorkspace);
+  const showOnboarding = canEnterWorkspace && splashHidden && !hasUsableConfig && !onboardingDismissed;
   const chatPanelStyle = panelDisplayStyle(tab === 'chat');
   const imagePanelStyle = panelDisplayStyle(tab === 'image');
   const videoPanelStyle = panelDisplayStyle(tab === 'video');
@@ -98,9 +164,12 @@ export default function App() {
   useEffect(() => {
     if (!runtimeCapabilities?.auth.required) return undefined;
     return subscribeAuthInvalidated(() => {
+      clearAuthenticatedHydration();
+      settings.resetUserSettings();
+      useWorkflowStore.getState().resetUserWorkspace();
       void refreshRuntimeCapabilities();
     });
-  }, [refreshRuntimeCapabilities, runtimeCapabilities?.auth.required]);
+  }, [clearAuthenticatedHydration, refreshRuntimeCapabilities, runtimeCapabilities?.auth.required, settings]);
 
   useEffect(() => {
     if (!runtimeCapabilities?.auth.required || !runtimeCapabilities.auth.user) return undefined;
@@ -111,7 +180,10 @@ export default function App() {
   }, [refreshRuntimeCapabilities, runtimeCapabilities?.auth.required, runtimeCapabilities?.auth.user]);
 
   const handleLogout = async () => {
+    clearAuthenticatedHydration();
     await logout().catch(() => undefined);
+    settings.resetUserSettings();
+    useWorkflowStore.getState().resetUserWorkspace();
     await refreshRuntimeCapabilities();
     setTab('workflow');
   };
@@ -179,7 +251,15 @@ export default function App() {
       <ToastProvider>
         {!splashHidden && <SplashScreen fading={splashFading} />}
         {showLoginGate && runtimeCapabilities && (
-          <LoginGate runtime={runtimeCapabilities} onAuthenticated={refreshRuntimeCapabilities} />
+          <LoginGate runtime={runtimeCapabilities} onAuthenticated={authenticateAndHydrate} />
+        )}
+        {showBootstrapBlocker && (
+          <BootstrapBlocker
+            message={bootstrapError}
+            onRetry={() => {
+              window.location.reload();
+            }}
+          />
         )}
         {!showLoginGate && showOnboarding && (
           <Suspense fallback={<WorkspaceLoading />}>
@@ -201,7 +281,7 @@ export default function App() {
             />
           </Suspense>
         )}
-        {!showLoginGate && !showOnboarding && (
+        {canEnterWorkspace && !showLoginGate && !showOnboarding && (
           <div
             style={{
               display: 'flex',
@@ -342,7 +422,9 @@ export default function App() {
                         setWorkflowConcurrency={settings.setWorkflowConcurrency}
                         projectBusy={projectBusy}
                         authUser={runtimeCapabilities?.auth.user || null}
-                        onLogout={runtimeCapabilities?.auth.required ? handleLogout : undefined}
+                        onLogout={
+                          runtimeCapabilities?.auth.required && runtimeCapabilities.auth.user ? handleLogout : undefined
+                        }
                       />
                     </Suspense>
                   </ErrorBoundary>

@@ -69,12 +69,12 @@ export class AssistantController {
     res.json(successEnvelope(null));
   }
 
-  getSettings(_req: RequestLike, res: ResponseLike) {
-    res.json(successEnvelope(settingsService.getStudioSettings()));
+  getSettings(req: RequestLike, res: ResponseLike) {
+    res.json(successEnvelope(settingsService.getStudioSettings(req.scope)));
   }
 
   updateSettings(req: RequestLike, res: ResponseLike) {
-    settingsService.updateStudioSettings(req.body);
+    settingsService.updateStudioSettings(req.body, req.scope);
     res.json(successEnvelope(null));
   }
 

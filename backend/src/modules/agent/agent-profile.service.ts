@@ -102,23 +102,23 @@ export class AgentProfileService {
     this.settings = settings;
   }
 
-  getProfiles() {
-    const stored = this.repository.loadProfiles().map(normalizeProfile).filter(Boolean);
+  getProfiles(options: PlainObject = {}) {
+    const stored = this.repository.loadProfiles(options.scope).map(normalizeProfile).filter(Boolean);
     if (stored.length > 0) return stored;
-    return [DEFAULT_PROFILE, ...mapLegacyRoles(this.settings.getStudioSettings())];
+    return [DEFAULT_PROFILE, ...mapLegacyRoles(this.settings.getStudioSettings(options.scope))];
   }
 
-  saveProfiles(profiles: DynamicValue[]) {
+  saveProfiles(profiles: DynamicValue[], options: PlainObject = {}) {
     const normalized = profiles.map(normalizeProfile).filter(Boolean);
     if (normalized.length === 0) {
       throw new ValidationError('VALIDATION_ERROR', 'profiles cannot be empty');
     }
-    this.repository.saveProfiles(normalized);
+    this.repository.saveProfiles(normalized, options.scope);
     return normalized;
   }
 
-  resolveProfile(profileId: string, model?: string) {
-    const profiles = this.getProfiles();
+  resolveProfile(profileId: string, model?: string, options: PlainObject = {}) {
+    const profiles = this.getProfiles(options);
     const fallback = (profiles.find(
       (profile): profile is PlainObject => Boolean(profile) && (profile as PlainObject).id === 'default',
     ) || DEFAULT_PROFILE) as PlainObject;

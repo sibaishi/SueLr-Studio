@@ -92,6 +92,7 @@ export function createBaseWorkflowState(overrides: Partial<WorkflowState> = {}):
     markWorkflowDirty: () => undefined,
     setShowDebugSizes: () => undefined,
     setSnapToGridEnabled: () => undefined,
+    resetUserWorkspace: () => undefined,
     executeWorkflow: createNoopAsync(undefined),
     executeWorkflowToNode: createNoopAsync(undefined),
     cancelWorkflowExecution: createNoopAsync(undefined),

@@ -130,6 +130,7 @@ export interface WorkflowState {
   markWorkflowDirty: () => void;
   setShowDebugSizes: (show: boolean) => void;
   setSnapToGridEnabled: (enabled: boolean) => void;
+  resetUserWorkspace: () => void;
 
   executeWorkflow: () => Promise<void>;
   executeWorkflowToNode: (nodeId: string) => Promise<void>;

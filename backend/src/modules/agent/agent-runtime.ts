@@ -508,7 +508,7 @@ export class AgentRuntime {
 
   buildRunContext({ conversationId, profileId, model, messages, options = {} }: PlainObject) {
     const sessionId = options.sessionId || randomUUID();
-    const profile = this.profileService.resolveProfile(profileId, model);
+    const profile = this.profileService.resolveProfile(profileId, model, { scope: options.scope });
     const resolvedModel = cleanString(model, 200) || profile.defaultModel || 'gpt-4o-mini';
     const normalizedMessages = this.normalizeMessages(messages);
     const workflowExecutionEnabled = profileAllowsTool(profile, 'workflow_execute');

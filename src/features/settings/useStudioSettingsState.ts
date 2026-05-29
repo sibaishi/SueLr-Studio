@@ -9,6 +9,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { StreamMode, WorkflowConcurrencySettingsPayload } from './types';
 
 const MAX_LOGS = 500;
+const DEFAULT_WORKFLOW_CONCURRENCY: WorkflowConcurrencySettingsPayload = {
+  enabled: false,
+  maxConcurrency: 5,
+};
 
 export const mapLegacyStreamingMode = (value: unknown): StreamMode =>
   value === 'real' || value === 'stream' ? 'stream' : 'non-stream';
@@ -98,10 +102,8 @@ export function useStudioSettingsState() {
     const localRoles = loadJSON<AgentRole[]>('ai_custom_roles', []);
     return [...defaultAgentProfiles(), ...localRoles.map((role) => ({ ...toAgentProfile(role), isCustom: true }))];
   });
-  const [workflowConcurrency, setWorkflowConcurrency] = useState<WorkflowConcurrencySettingsPayload>({
-    enabled: false,
-    maxConcurrency: 5,
-  });
+  const [workflowConcurrency, setWorkflowConcurrency] =
+    useState<WorkflowConcurrencySettingsPayload>(DEFAULT_WORKFLOW_CONCURRENCY);
   const [chatStreamingMode, setChatStreamingMode] = useState<StreamMode>(() =>
     mapLegacyStreamingMode(loadJSON('ai_chat_streaming_mode', loadJSON('ai_streaming_mode', 'non-stream'))),
   );
@@ -240,6 +242,19 @@ export function useStudioSettingsState() {
     [persistAgentProfiles],
   );
 
+  const resetUserSettings = useCallback(() => {
+    setApiConfigs([]);
+    setActiveConfigId('');
+    setBase('');
+    setApiKey('');
+    setModels([]);
+    setAgentProfiles(defaultAgentProfiles());
+    setWorkflowConcurrency(DEFAULT_WORKFLOW_CONCURRENCY);
+    setChatStreamingMode('non-stream');
+    setImageStreamingMode('stream');
+    setVideoStreamingMode('stream');
+  }, []);
+
   return {
     activeConfig,
     activeConfigId,
@@ -262,6 +277,7 @@ export function useStudioSettingsState() {
     models,
     providerConfig,
     roles,
+    resetUserSettings,
     setActiveConfigId,
     setApiConfigs,
     setApiKey,

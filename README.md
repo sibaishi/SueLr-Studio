@@ -6,7 +6,7 @@ SueLr Studio 是一个本地优先的多模态 AI 工作台，用于对话、图
 
 - `local-web`：本地前后端 + 浏览器访问
 - `desktop`：Electron 桌面壳
-- `server-web`：服务器部署版本，当前先以单用户阶段收口
+- `server-web`：服务器部署版本，默认多用户登录、注册审批和独立管理端
 
 当前主干分支是 `main`。
 
@@ -81,7 +81,8 @@ Desktop packaging targets are configured for Windows portable x64, macOS dmg/zip
 后端：
 
 ```powershell
-$env:APP_RUNTIME_MODE='server-single-user'
+$env:APP_RUNTIME_MODE='server-multi-user'
+$env:APP_ADMIN_ACCESS_KEY='change-this-admin-key'
 $env:APP_HOST='127.0.0.1'
 $env:APP_PORT='3001'
 $env:APP_ALLOWED_ORIGINS='http://127.0.0.1:5173,http://localhost:5173'
@@ -98,9 +99,10 @@ npm.cmd run dev:frontend
 ```
 
 ## 当前 server-web 语义
-- 默认部署仍是 `APP_RUNTIME_MODE=server-single-user`，无需登录即可进入应用
-- `APP_RUNTIME_MODE=server-multi-user` 已有认证与隔离基础，但必须通过部署环境变量显式启用，并配置 `APP_AUTH_BOOTSTRAP_USERNAME` / `APP_AUTH_BOOTSTRAP_PASSWORD`
-- 多用户发布前必须满足 `docs/deployment-variants-plan.md` 中的 Server Multi-User Readiness Gate
+- 默认部署是 `APP_RUNTIME_MODE=server-multi-user`，普通用户必须先注册并由管理员审批后才能登录
+- `APP_RUNTIME_MODE=server-single-user` 只作为显式兼容模式保留，无登录门并使用默认 `single-user/default` scope
+- 独立管理端由 `APP_ADMIN_ACCESS_KEY` 保护；这个密钥只用于 `/api/admin/...` 和管理端，不是普通用户登录密码
+- SMTP 是可选能力；未配置 SMTP 时，注册审批、登录和密码重置仍可通过管理端手动流程完成
 
 - `外部数据路径` 在 `server-web` 下表示浏览器客户端自动下载目录语义，不表示服务器宿主机路径
 - 生成结果会临时保留在服务器侧，通过 `/api/outputs/...` 提供访问
@@ -126,7 +128,6 @@ npm.cmd run check:encoding
 - [User Guide](docs/user-guide.md)
 - [Developer Guide](docs/developer-guide.md)
 - [Release SOP](docs/release-sop.md)
-- [Deployment Variants Plan](docs/deployment-variants-plan.md)
 - [Backend TypeScript Migration Plan](docs/backend-typescript-migration-plan.md)
 
 ## 本地生成物

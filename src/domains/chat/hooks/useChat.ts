@@ -74,6 +74,10 @@ function getDefaultChatModel(models: ModelInfo[]) {
   return models.find((model) => model.cat === 'chat')?.id || '';
 }
 
+function isServerMultiUserRuntime() {
+  return getCachedRuntimeCapabilities()?.mode === 'server-multi-user';
+}
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -116,9 +120,10 @@ function mergeServerConversations(
   localConvs: Conv[],
   fallbackModel: string,
   fallbackRoleId?: string,
+  options: { allowLocalFallback: boolean } = { allowLocalFallback: true },
 ) {
   if (serverConvs.length > 0) return serverConvs;
-  if (localConvs.length > 0) return localConvs;
+  if (options.allowLocalFallback && localConvs.length > 0) return localConvs;
   return [createConversation(fallbackModel, fallbackRoleId)];
 }
 
@@ -324,10 +329,11 @@ export function useChat(
   const chatModels = useMemo(() => models.filter((model) => model.cat === 'chat'), [models]);
   const defaultModel = getDefaultChatModel(models);
   const [convs, setConvs] = useState<Conv[]>(() => {
+    if (isServerMultiUserRuntime()) return [createConversation(defaultModel, roles[0]?.id)];
     const saved = loadJSON<Conv[]>(STORAGE_KEY, []);
     return saved.length > 0 ? saved : [createConversation(defaultModel, roles[0]?.id)];
   });
-  const [activeId, setActiveIdState] = useState(() => loadJSON<string>(ACTIVE_KEY, ''));
+  const [activeId, setActiveIdState] = useState(() => (isServerMultiUserRuntime() ? '' : loadJSON<string>(ACTIVE_KEY, '')));
   const [input, setInput] = useState('');
   const [sendings, setSendings] = useState<Set<string>>(new Set());
   const [pendingImages, setPendingImages] = useState<string[]>([]);
@@ -343,6 +349,7 @@ export function useChat(
   const useAgentStreaming = backendAvailable;
   const runtimeCapabilities = getCachedRuntimeCapabilities();
   const runtimeSearchEnabled = runtimeCapabilities?.search.enabled ?? false;
+  const isServerMultiUser = runtimeCapabilities?.mode === 'server-multi-user';
 
   const activeIdResolved = activeId && convs.some((conv) => conv.id === activeId) ? activeId : convs[0]?.id || '';
   const conv =
@@ -374,8 +381,9 @@ export function useChat(
   }, [backendAvailable, convs]);
 
   useEffect(() => {
+    if (isServerMultiUser) return;
     debouncedSaveJSON(ACTIVE_KEY, activeIdResolved);
-  }, [activeIdResolved]);
+  }, [activeIdResolved, isServerMultiUser]);
 
   useEffect(() => {
     debouncedSaveJSON(WEB_SEARCH_KEY, webSearchEnabled);
@@ -392,10 +400,14 @@ export function useChat(
     }
 
     void loadConversations().then((serverConvs) => {
-      setConvs((current) => mergeServerConversations(serverConvs, current, defaultModel, roles[0]?.id));
+      setConvs((current) =>
+        mergeServerConversations(serverConvs, current, defaultModel, roles[0]?.id, {
+          allowLocalFallback: !isServerMultiUser,
+        }),
+      );
       backendConversationsLoadedRef.current = true;
     });
-  }, [backendAvailable, defaultModel, roles]);
+  }, [backendAvailable, defaultModel, isServerMultiUser, roles]);
 
   const setActiveId = useCallback((id: string) => setActiveIdState(id), []);
 

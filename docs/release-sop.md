@@ -1,6 +1,8 @@
 # Release SOP
 
-This document defines the standard release workflow for SueLr Studio variants. The detailed execution roadmap for the current `main` trunk plus `local-web`, `desktop`, and `server-web` lives in `docs/deployment-variants-plan.md`.
+This document defines the standard release workflow for SueLr Studio variants. Current `local-web`, `desktop`, and `server-web` release commands and deployment checks are tracked here plus `docs/user-guide.md` and `docs/developer-guide.md`.
+
+Historical variant planning remains in `docs/deployment-variants-plan.md`, but current release execution should follow this SOP and the user/developer guides.
 
 ## Branching
 
@@ -94,12 +96,13 @@ This document defines the standard release workflow for SueLr Studio variants. T
    - for image-based host rollouts, preserve `/srv/suelr-studio/runtime/compose.yaml` settings such as `APP_ALLOWED_ORIGINS`, `APP_ADMIN_ACCESS_KEY`, ports, and data volumes
    - when exposing the independent admin console, route a separate origin such as `https://admin.studio.suelr.com` to `127.0.0.1:3002` and add that exact origin to `APP_ALLOWED_ORIGINS`
    - verify the independent admin console with `curl -I https://admin.studio.suelr.com`, `curl -I http://127.0.0.1:3002/admin.html`, and an `/api/admin/access/validate` request carrying the configured admin key
-   - keep `APP_RUNTIME_MODE` defaulting to `server-single-user` in compose and Docker assets unless the release explicitly enables `server-multi-user`
-   - when testing `server-multi-user`, configure `APP_AUTH_BOOTSTRAP_USERNAME` and `APP_AUTH_BOOTSTRAP_PASSWORD`; do not use `APP_ADMIN_ACCESS_KEY` as regular app authentication
+   - keep `APP_RUNTIME_MODE` defaulting to `server-multi-user` in compose and Docker assets; use `APP_RUNTIME_MODE=server-single-user` only as an explicit compatibility override
+   - validate the public app registration -> pending user -> admin approval -> approved user login flow; do not use `APP_ADMIN_ACCESS_KEY` as regular app authentication
+   - confirm disabled or misconfigured SMTP does not block registration, approval, login, or password reset fallback flows
    - do not deploy repository `tests/`, `e2e`, `docs/`, or other development-only surfaces into the server-web runtime app tree
    - keep the server-web Docker runtime image limited to built frontend assets, backend runtime files, backend production dependencies, and shared workflow contracts
 
-   For other variants, follow the build steps defined in `docs/deployment-variants-plan.md`.
+   For other variants, follow the build steps defined in this SOP and `docs/user-guide.md`.
 
 6. Verify the packaged or deployed app manually.
 
@@ -113,7 +116,7 @@ This document defines the standard release workflow for SueLr Studio variants. T
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
    - For the Milestone 5 release candidate, confirm request scope diagnostics, representative ownership metadata, scoped storage behavior, and stable file URLs by inspecting real workflows, run logs, generated files, assistant/agent records, memory records, uploads, and `/api/outputs/...` responses. Automated `npm.cmd run check` is required but does not replace this manual acceptance.
-   - For a `server-multi-user` release candidate, confirm the Phase 6 readiness gate: auth is enabled, request scope comes from the server session, spoofed browser scope headers cannot impersonate users, cross-user negative tests cover workflow/files/execution/assistant/agent/settings, legacy unowned records are not globally visible, and `npm.cmd run test:e2e -- --grep "server multi user"` passes.
+   - For a `server-multi-user` release candidate, confirm the Phase 6 readiness gate: auth is enabled, request scope comes from the server session, spoofed browser scope headers cannot impersonate users, cross-user negative tests cover workflow/files/execution/assistant/agent/settings, legacy unowned records are not globally visible, the public registration and admin approval loop works, the independent admin routes work on both the public admin origin and `127.0.0.1:3002/admin.html`, and `npx.cmd playwright test tests/e2e/server-multi-user-auth.spec.ts` passes.
 
 7. Commit and push source changes:
 
@@ -150,5 +153,5 @@ This document defines the standard release workflow for SueLr Studio variants. T
 ## Notes
 
 - `local-web` release validation should explicitly cover both `build:local-web` and `start:local-web`.
-- Variant-specific launchers and packaging steps must stay documented in `docs/deployment-variants-plan.md`.
-- `server-web` deployment precheck, environment contract, and rollout smoke SOP live in `docs/deployment-variants-plan.md`.
+- Variant-specific launchers and packaging steps must stay documented in this SOP and the user/developer guides.
+- `server-web` deployment precheck, environment contract, and rollout smoke steps are tracked in this SOP and `docs/user-guide.md`.
