@@ -1,76 +1,74 @@
+import type { WorkflowDocument } from '@/domains/workflow/lib/store';
 import { APP_VERSION } from '@/domains/workflow/lib/constants';
-import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
+import { X } from 'lucide-react';
 
 interface StatusBarProps {
+  documents: WorkflowDocument[];
+  activeDocumentId: string;
   nodeCount: number;
   edgeCount: number;
-  isExecuting: boolean;
-  executionMessage?: string | null;
-  currentRunId?: string | null;
-  lastExecutionStatus?: 'success' | 'error' | null;
-  lastExecutionTime?: number;
-  lastExecutionError?: string | null;
-  lastExecutionSummary?: {
-    successCount: number;
-    failCount: number;
-    totalDuration: number;
-  } | null;
   canUndo: boolean;
   canRedo: boolean;
+  onSelectDocument: (documentId: string) => void;
+  onCloseDocument: (documentId: string) => void;
 }
 
 export default function StatusBar({
+  documents,
+  activeDocumentId,
   nodeCount,
   edgeCount,
-  isExecuting,
-  executionMessage,
-  currentRunId,
-  lastExecutionStatus,
-  lastExecutionTime,
-  lastExecutionError,
-  lastExecutionSummary,
   canUndo,
   canRedo,
+  onSelectDocument,
+  onCloseDocument,
 }: StatusBarProps) {
   return (
     <div className="workflow-statusbar">
       <div className="workflow-statusbar__frame glass">
+        <div className="workflow-document-tabs" data-testid="workflow-document-tabs">
+          {documents.map((document) => (
+            <button
+              key={document.documentId}
+              type="button"
+              className={`workflow-document-tab ${document.documentId === activeDocumentId ? 'workflow-document-tab--active' : ''}`}
+              onClick={() => onSelectDocument(document.documentId)}
+              data-testid={`workflow-document-tab-${document.documentId}`}
+              title={document.name}
+            >
+              {document.isExecuting && <span className="workflow-document-tab__run-dot" title="运行中" />}
+              <span className="workflow-document-tab__label">
+                {document.name || '未命名工作流'}
+                {document.hasUnsavedChanges ? ' *' : ''}
+              </span>
+              <span
+                role="button"
+                tabIndex={0}
+                className="workflow-document-tab__close"
+                aria-label="关闭标签"
+                title="关闭标签"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCloseDocument(document.documentId);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onCloseDocument(document.documentId);
+                }}
+              >
+                <X size={12} />
+              </span>
+            </button>
+          ))}
+        </div>
+
         <div className="workflow-statusbar__items">
           <StatusPill label="节点" value={String(nodeCount)} testId="workflow-node-count" />
           <StatusPill label="连线" value={String(edgeCount)} />
           <StatusPill label="撤销" value={canUndo ? '可用' : '不可用'} />
           <StatusPill label="重做" value={canRedo ? '可用' : '不可用'} />
-        </div>
-
-        <div className="workflow-statusbar__message">
-          {isExecuting && (
-            <span className="workflow-statusbar__tone workflow-statusbar__tone--accent">
-              {executionMessage || '正在执行工作流...'}
-            </span>
-          )}
-          {isExecuting && currentRunId && <span className="workflow-statusbar__runid">运行 ID: {currentRunId}</span>}
-          {!isExecuting && lastExecutionStatus === 'success' && (
-            <span className="workflow-statusbar__tone workflow-statusbar__tone--success">
-              运行成功
-              {lastExecutionSummary
-                ? ` 路 ${lastExecutionSummary.successCount} 成功 / ${lastExecutionSummary.failCount} 失败`
-                : ''}
-              {lastExecutionTime ? ` 路 ${formatDurationSeconds(lastExecutionTime)}` : ''}
-            </span>
-          )}
-          {!isExecuting && lastExecutionStatus === 'error' && (
-            <span
-              className="workflow-statusbar__tone workflow-statusbar__tone--danger"
-              title={lastExecutionError || undefined}
-            >
-              运行失败
-              {lastExecutionSummary
-                ? ` 路 ${lastExecutionSummary.successCount} 成功 / ${lastExecutionSummary.failCount} 失败`
-                : ''}
-              {lastExecutionError ? ` 路 请检查节点配置或运行日志：${lastExecutionError}` : ''}
-            </span>
-          )}
-          {!isExecuting && !lastExecutionStatus && <span>准备就绪，可以开始搭建、保存或执行工作流。</span>}
         </div>
 
         <div className="workflow-statusbar__version">Flow Studio v{APP_VERSION}</div>

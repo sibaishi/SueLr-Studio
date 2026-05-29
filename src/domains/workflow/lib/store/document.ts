@@ -279,25 +279,8 @@ export function createWorkflowDocumentActions(
 
       await get().fetchWorkflowList();
 
-      if (sourceWorkflowId) {
-        const latest = get();
-        const documents = patchActiveWorkflowDocument(latest).map((document) =>
-          document.sourceWorkflowId === sourceWorkflowId
-            ? {
-                ...document,
-                workflowId: gid(),
-                sourceWorkflowId: undefined,
-                origin: 'new' as const,
-                hasUnsavedChanges: true,
-                lastSavedAt: null,
-              }
-            : document,
-        );
-        const active = documents.find((document) => document.documentId === latest.activeDocumentId) || documents[0];
-        set({
-          documents,
-          ...getDocumentViewPatch(active),
-        });
+      if (activeDocument) {
+        await get().closeWorkflowDocument(activeDocument.documentId, { discardUnsaved: true });
       }
 
       get().persistLocalDraft();

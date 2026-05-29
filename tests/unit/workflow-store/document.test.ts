@@ -320,7 +320,7 @@ describe('workflow store document actions', () => {
     });
   });
 
-  it('turns an opened saved workflow into an unsaved draft after deleting its library record', async () => {
+  it('closes the active saved document after deleting its library record', async () => {
     vi.mocked(api.deleteWorkflow).mockResolvedValue({ success: true });
     vi.mocked(api.fetchWorkflows).mockResolvedValue({ success: true, data: [] });
 
@@ -337,6 +337,14 @@ describe('workflow store document actions', () => {
           name: 'Saved Workflow',
           origin: 'saved',
         },
+        {
+          ...createBaseWorkflowState().documents[0],
+          documentId: 'doc_other',
+          workflowId: 'wf_other',
+          sourceWorkflowId: undefined,
+          name: 'Other Draft',
+          origin: 'new',
+        },
       ],
       activeDocumentId: 'doc_saved',
     });
@@ -344,11 +352,9 @@ describe('workflow store document actions', () => {
 
     await actions.deleteCurrentWorkflowDetailed();
 
-    const active = harness.getState().documents[0];
     expect(api.deleteWorkflow).toHaveBeenCalledWith('wf_saved');
-    expect(active.sourceWorkflowId).toBeUndefined();
-    expect(active.origin).toBe('new');
-    expect(active.hasUnsavedChanges).toBe(true);
+    expect(harness.getState().documents.map((document) => document.documentId)).toEqual(['doc_other']);
+    expect(harness.getState().activeDocumentId).toBe('doc_other');
     expect(harness.getState().workflowList).toEqual([]);
   });
 

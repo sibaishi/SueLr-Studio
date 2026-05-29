@@ -1,5 +1,4 @@
 import type { WorkflowListItem } from '@/domains/workflow/lib/api';
-import type { WorkflowDocument } from '@/domains/workflow/lib/store';
 import {
   AlignStartVertical,
   Copy,
@@ -19,7 +18,6 @@ import {
   Undo2,
   Upload,
   Workflow,
-  X,
 } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
 
@@ -27,13 +25,9 @@ interface ToolbarProps {
   workflowId: string;
   workflowName: string;
   workflows: WorkflowListItem[];
-  documents: WorkflowDocument[];
-  activeDocumentId: string;
   onWorkflowNameChange: (name: string) => void;
   onNewWorkflow: () => void;
   onSelectWorkflow: (workflowId: string) => void;
-  onSelectDocument: (documentId: string) => void;
-  onCloseDocument: (documentId: string) => void;
   onDuplicateWorkflow: () => void;
   onDeleteWorkflow: () => void;
   onImportWorkflow: () => void;
@@ -86,13 +80,9 @@ export default function Toolbar(props: ToolbarProps) {
     workflowId,
     workflowName,
     workflows,
-    documents,
-    activeDocumentId,
     onWorkflowNameChange,
     onNewWorkflow,
     onSelectWorkflow,
-    onSelectDocument,
-    onCloseDocument,
     onDuplicateWorkflow,
     onDeleteWorkflow,
     onImportWorkflow,
@@ -131,43 +121,6 @@ export default function Toolbar(props: ToolbarProps) {
   return (
     <div className="workflow-toolbar glass">
       <div className="workflow-toolbar__frame">
-        <div className="workflow-document-tabs" data-testid="workflow-document-tabs">
-          {documents.map((document) => (
-            <button
-              key={document.documentId}
-              type="button"
-              className={`workflow-document-tab ${document.documentId === activeDocumentId ? 'workflow-document-tab--active' : ''}`}
-              onClick={() => onSelectDocument(document.documentId)}
-              data-testid={`workflow-document-tab-${document.documentId}`}
-              title={document.name}
-            >
-              <span className="workflow-document-tab__label">
-                {document.name || '未命名工作流'}
-                {document.hasUnsavedChanges ? ' *' : ''}
-              </span>
-              <span
-                role="button"
-                tabIndex={0}
-                className="workflow-document-tab__close"
-                aria-label="关闭标签"
-                title="关闭标签"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onCloseDocument(document.documentId);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onCloseDocument(document.documentId);
-                }}
-              >
-                <X size={12} />
-              </span>
-            </button>
-          ))}
-        </div>
-
         <div className="workflow-toolbar__identity">
           <div className="workflow-toolbar__badge">
             <Workflow size={16} />
