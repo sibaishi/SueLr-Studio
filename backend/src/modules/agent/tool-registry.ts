@@ -592,9 +592,9 @@ export class ToolRegistry {
               items: { type: 'string' },
             },
             duration: {
-              type: 'number',
-              enum: [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-              description: '-1 means automatic duration; otherwise use an integer from 4 to 15 seconds.',
+              type: 'string',
+              enum: ['auto', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'],
+              description: 'Use auto for automatic duration; otherwise use a string integer from 4 to 15 seconds.',
             },
             aspect_ratio: {
               type: 'string',

@@ -507,6 +507,11 @@ test('ToolRegistry exposes video_generate aliases and returns video artifacts', 
   const videoTool = tools.find((tool) => tool.function.name === 'video_generate');
   assert.ok(videoTool);
   assert.deepEqual(videoTool.function.parameters.required, ['prompt']);
+  assert.deepEqual(videoTool.function.parameters.properties.duration, {
+    type: 'string',
+    enum: ['auto', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'],
+    description: 'Use auto for automatic duration; otherwise use a string integer from 4 to 15 seconds.',
+  });
 
   const result = await registry.execute('video.generate', {
     prompt: 'make a short product video',

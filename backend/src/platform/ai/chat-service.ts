@@ -1,6 +1,7 @@
 import { ProviderError } from '../../app/errors/index.ts';
 import { resolveModelRuntime } from '../../engine/helpers/apiConfig.ts';
 import { localUrlToDataUrl } from '../media/media-resolver.ts';
+import type { RequestScope } from '../runtime/request-scope.ts';
 import { getProviderAdapter } from '../providers/index.ts';
 
 interface ChatContentImageUrl {
@@ -26,6 +27,7 @@ interface ChatCompletionRequest {
   maxTokens?: number;
   stream?: boolean;
   signal?: AbortSignal;
+  scope?: RequestScope;
 }
 
 function cleanText(value: unknown): string {
@@ -36,7 +38,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
-function normalizeContentPart(part: unknown): unknown {
+function normalizeContentPart(part: unknown, scope?: RequestScope): unknown {
   if (!isRecord(part) || part.type !== 'image_url') return part;
   const typedPart = part as ChatContentPart;
   const url = typedPart.image_url?.url;
@@ -45,19 +47,19 @@ function normalizeContentPart(part: unknown): unknown {
     ...typedPart,
     image_url: {
       ...typedPart.image_url,
-      url: localUrlToDataUrl(url),
+      url: localUrlToDataUrl(url, { scope }),
     },
   };
 }
 
-export function normalizeChatMessagesForUpstream(messages: unknown = []): unknown[] {
+export function normalizeChatMessagesForUpstream(messages: unknown = [], scope?: RequestScope): unknown[] {
   return (Array.isArray(messages) ? messages : []).map((message) => {
     if (!isRecord(message) || !Array.isArray(message.content)) {
       return message;
     }
     return {
       ...message,
-      content: message.content.map(normalizeContentPart),
+      content: message.content.map((part) => normalizeContentPart(part, scope)),
     };
   });
 }
@@ -74,6 +76,7 @@ export async function runChatCompletion({
   maxTokens,
   stream = false,
   signal,
+  scope,
 }: ChatCompletionRequest): Promise<Response> {
   if (!apiKey) throw new Error(`${cleanText('未配置')} API Key`);
   if (!model) throw new Error('缺少对话模型');
@@ -96,7 +99,7 @@ export async function runChatCompletion({
     errorCode: 'CHAT_FAILED',
     body: {
       model,
-      messages: normalizeChatMessagesForUpstream(messages),
+      messages: normalizeChatMessagesForUpstream(messages, scope),
       ...(typeof temperature === 'number' ? { temperature } : {}),
       ...(typeof maxTokens === 'number' ? { max_tokens: maxTokens } : {}),
       ...(tools?.length ? { tools } : {}),

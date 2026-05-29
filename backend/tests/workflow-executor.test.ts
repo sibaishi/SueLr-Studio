@@ -7,6 +7,7 @@ import { NODE_EXECUTORS } from '../src/engine/nodes/index.ts';
 import { WORKFLOW_SSE_EVENTS } from '../src/platform/logging/workflow-events.ts';
 import { createWorkflowRunLogger } from '../src/platform/logging/workflow-run-logger.ts';
 import { sanitizeNodeOutputsForLogs } from '../src/platform/logging/workflow-log-sanitizer.ts';
+import { ensureScopedStorageDirectories } from '../src/platform/storage/scoped-storage.ts';
 import fs from 'fs';
 import path from 'path';
 
@@ -254,6 +255,77 @@ test('legacy image handle aliases still flow imageGen output into output nodes',
     assert.equal(typeof outputEvent.data.outputs.savedFiles[0].thumbnailUrl, 'string');
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test('aiChat resolves merged image inputs from request-scoped upload storage', async () => {
+  const previousConfigDir = process.env.APP_CONFIG_DIR;
+  const storageRoot = createStorageDir('aichat-scoped-image');
+  process.env.APP_CONFIG_DIR = storageRoot;
+  const scope = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+  const scopedPaths = ensureScopedStorageDirectories(scope);
+  fs.writeFileSync(path.join(scopedPaths.uploadsDir, 'source.png'), Buffer.from('ABC'));
+
+  const originalFetch = global.fetch;
+  let requestBody = null;
+  global.fetch = async (_url, options) => {
+    requestBody = JSON.parse(String(options.body || '{}'));
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: 'ok' } }],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const events = [];
+    await executeWorkflow(
+      {
+        nodes: [
+          { id: 'prompt', type: 'textInput', data: { text: 'describe image' } },
+          { id: 'image', type: 'imageInput', data: { fileUrl: '/api/files/source.png' } },
+          { id: 'merge', type: 'imageMerge', data: { inputCount: 1 } },
+          {
+            id: 'chat',
+            type: 'aiChat',
+            data: { model: 'vision-model', systemPrompt: 'system' },
+          },
+        ],
+        edges: [
+          { source: 'prompt', sourceHandle: 'text', target: 'chat', targetHandle: 'prompt' },
+          { source: 'image', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
+          { source: 'merge', sourceHandle: 'merged', target: 'chat', targetHandle: 'image' },
+        ],
+      },
+      {
+        apiKey: 'sk-test',
+        baseUrl: 'http://127.0.0.1:3001/v1',
+        projectModels: [
+          {
+            modelId: 'vision-model',
+            type: 'chat',
+            enabled: true,
+            endpointMode: 'category',
+            endpointCategory: 'chat',
+          },
+        ],
+        scope,
+      },
+      (event, data) => events.push({ event, data }),
+    );
+
+    assert.equal(events.some(({ event }) => event === WORKFLOW_SSE_EVENTS.NODE_FAILED), false);
+    const imagePart = requestBody.messages[1].content.find((part) => part?.type === 'image_url');
+    assert.equal(imagePart.image_url.url, 'data:image/png;base64,QUJD');
+  } finally {
+    global.fetch = originalFetch;
+    if (previousConfigDir === undefined) {
+      delete process.env.APP_CONFIG_DIR;
+    } else {
+      process.env.APP_CONFIG_DIR = previousConfigDir;
+    }
+    fs.rmSync(storageRoot, { recursive: true, force: true });
   }
 });
 

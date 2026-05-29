@@ -11,7 +11,7 @@ function normalizeTextInput(value: DynamicValue) {
   return String(value || '').trim();
 }
 
-async function buildMessageContent(text: string, inputs: NodeInputs) {
+async function buildMessageContent(text: string, inputs: NodeInputs, apiConfig: RuntimeApiConfig) {
   const parts: DynamicValue[] = [];
 
   if (text) {
@@ -21,7 +21,7 @@ async function buildMessageContent(text: string, inputs: NodeInputs) {
   const images = inputs.image ? (Array.isArray(inputs.image) ? inputs.image : [inputs.image]) : [];
   for (const imageUrl of images) {
     if (!imageUrl) continue;
-    const base64 = await fileToBase64(imageUrl);
+    const base64 = await fileToBase64(imageUrl, { scope: apiConfig.scope });
     parts.push({ type: 'image_url', image_url: { url: base64 } });
   }
 
@@ -159,7 +159,7 @@ export async function execute(
   const maxTokens = normalizeMaxTokens(node.data?.maxTokens);
 
   sendProgress?.('正在准备输入内容...');
-  const userContent = await buildMessageContent(prompt, inputs);
+  const userContent = await buildMessageContent(prompt, inputs, apiConfig);
   const enableWebSearch = Boolean(node.data?.enableWebSearch);
   const tavilyKey = String(apiConfig.tavilyApiKey || '').trim();
 
@@ -228,6 +228,7 @@ export async function execute(
       tools: undefined,
       stream: false,
       signal: apiConfig.abortSignal,
+      scope: apiConfig.scope,
     });
     const finalResult = await parseChatResponse(finalResponse);
     content = finalResult.content;
@@ -250,6 +251,7 @@ export async function execute(
       tools: undefined,
       stream: false,
       signal: apiConfig.abortSignal,
+      scope: apiConfig.scope,
     });
 
     const result = await parseChatResponse(response);

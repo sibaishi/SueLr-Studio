@@ -45,6 +45,7 @@ export class CapabilitiesService {
         tools: body.tools,
         stream: false,
         signal: body.signal,
+        scope: _options.scope,
       });
       return response.json();
     } catch (error: unknown) {
@@ -69,6 +70,7 @@ export class CapabilitiesService {
         tools: body.tools,
         stream: true,
         signal: body.signal,
+        scope: _options.scope,
       });
     } catch (error: unknown) {
       const normalizedError = error as DynamicValue;

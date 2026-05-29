@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { ensureStorageDirectories, STORAGE_PATHS } from '../src/platform/storage/index.ts';
+import { ensureScopedStorageDirectories } from '../src/platform/storage/scoped-storage.ts';
 import { normalizeChatMessagesForUpstream } from '../src/platform/ai/chat-service.ts';
 
 function withTempStorage() {
@@ -64,4 +65,26 @@ test('normalizeChatMessagesForUpstream leaves remote and existing data image URL
 
   assert.equal(messages[0].content[0].image_url.url, dataUrl);
   assert.equal(messages[0].content[1].image_url.url, remoteUrl);
+});
+
+test('normalizeChatMessagesForUpstream resolves local API image URLs inside request scope', () => {
+  const cleanup = withTempStorage();
+  try {
+    const scope = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+    const scopedPaths = ensureScopedStorageDirectories(scope);
+    fs.writeFileSync(path.join(scopedPaths.uploadsDir, 'scoped.png'), Buffer.from('SCOPED'));
+
+    const messages = normalizeChatMessagesForUpstream([
+      {
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: '/api/files/scoped.png' } },
+        ],
+      },
+    ], scope);
+
+    assert.equal(messages[0].content[0].image_url.url, 'data:image/png;base64,U0NPUEVE');
+  } finally {
+    cleanup();
+  }
 });
