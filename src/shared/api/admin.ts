@@ -94,6 +94,17 @@ export type AdminUserPayload = {
   user: AdminUser;
 };
 
+export type AdminDeleteUserPayload = {
+  deletedUser: AdminUser;
+  deleted: {
+    sessions: number;
+    passwordResetRequests: number;
+    workflows: number;
+    records: number;
+    scopedStorage: boolean;
+  };
+};
+
 export type PasswordResetRequest = {
   id: string;
   userId: string;
@@ -222,6 +233,14 @@ export async function enableAdminUser(userId: string, accessKey?: string) {
   return apiRequestOrThrow<AdminUserPayload>(`/api/admin/users/${encodeURIComponent(userId)}/enable`, {
     method: 'POST',
     headers: buildAdminHeaders(accessKey),
+  });
+}
+
+export async function deleteAdminUser(userId: string, accessKey: string | undefined, confirmAccessKey: string) {
+  return apiRequestOrThrow<AdminDeleteUserPayload>(`/api/admin/users/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+    headers: buildAdminHeaders(accessKey),
+    body: JSON.stringify({ confirmAccessKey }),
   });
 }
 

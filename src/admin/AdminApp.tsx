@@ -6,6 +6,7 @@ import {
   type LegacyMigrationSummary,
   type PasswordResetRequest,
   approveAdminUser,
+  deleteAdminUser,
   disableAdminUser,
   dryRunLegacyMigration,
   enableAdminUser,
@@ -163,13 +164,30 @@ function UserTable({
   users,
   accessKey,
   onChanged,
+  onMessage,
 }: {
   users: AdminUser[];
   accessKey?: string;
   onChanged: () => Promise<void>;
+  onMessage?: (message: string) => void;
 }) {
   const run = async (action: () => Promise<unknown>) => {
     await action();
+    await onChanged();
+  };
+
+  const handleDelete = async (user: AdminUser) => {
+    if (user.status === 'active') return;
+    const confirmed = window.confirm(
+      `将永久删除用户「${user.username}」及其关联数据，包括会话、重置请求和用户作用域内的数据。此操作不可恢复，是否继续？`,
+    );
+    if (!confirmed) return;
+    const confirmAccessKey = window.prompt('请再次输入管理员密钥确认删除');
+    if (!confirmAccessKey) return;
+    const result = await deleteAdminUser(user.id, accessKey, confirmAccessKey);
+    onMessage?.(
+      `已删除用户 ${result.deletedUser.username}，清理会话 ${result.deleted.sessions} 个、数据记录 ${result.deleted.records} 条`,
+    );
     await onChanged();
   };
 
@@ -215,6 +233,7 @@ function UserTable({
               {user.status === 'rejected' ? (
                 <IOSButton label="重新启用" onClick={() => void run(() => enableAdminUser(user.id, accessKey))} />
               ) : null}
+              {user.status !== 'active' ? <IOSButton label="删除" onClick={() => void handleDelete(user)} /> : null}
             </div>
           </div>
         ))
@@ -514,7 +533,12 @@ function AdminScreen() {
               {activeView === 'users' ? (
                 <>
           <Section title="用户审核" description="审核注册申请并管理账号状态。" icon={<UserCheck size={18} />}>
-            <UserTable users={users} accessKey={accessKey || undefined} onChanged={() => loadUsers(accessKey || '')} />
+            <UserTable
+              users={users}
+              accessKey={accessKey || undefined}
+              onChanged={() => loadUsers(accessKey || '')}
+              onMessage={setMessage}
+            />
           </Section>
 
           <Section title="密码重置" description="签发一次性重置 token，手动发送给用户。" icon={<KeyRound size={18} />}>

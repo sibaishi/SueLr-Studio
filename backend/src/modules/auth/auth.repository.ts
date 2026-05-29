@@ -269,6 +269,24 @@ export class AuthRepository {
     return updated;
   }
 
+  deleteUserCascade(userId: string): { user: StoredAuthUser | null; sessionsDeleted: number; passwordResetRequestsDeleted: number } {
+    const state = this.readState();
+    const user = state.users.find((item) => item.id === userId) || null;
+    if (!user) return { user: null, sessionsDeleted: 0, passwordResetRequestsDeleted: 0 };
+
+    const sessionsBefore = state.sessions.length;
+    const resetRequestsBefore = state.passwordResetRequests.length;
+    state.users = state.users.filter((item) => item.id !== userId);
+    state.sessions = state.sessions.filter((session) => session.userId !== userId);
+    state.passwordResetRequests = state.passwordResetRequests.filter((request) => request.userId !== userId);
+    this.writeState(state);
+    return {
+      user,
+      sessionsDeleted: sessionsBefore - state.sessions.length,
+      passwordResetRequestsDeleted: resetRequestsBefore - state.passwordResetRequests.length,
+    };
+  }
+
   createSession(input: Omit<StoredAuthSession, 'id' | 'createdAt'>): StoredAuthSession {
     const state = this.readState();
     const now = Date.now();

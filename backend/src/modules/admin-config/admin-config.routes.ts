@@ -7,6 +7,7 @@ import { adminConfigController } from './admin-config.controller.ts';
 import {
   adminAccessSchema,
   adminConfigPatchSchema,
+  adminDeleteUserSchema,
   adminEmailTestSchema,
   adminSearchTestSchema,
   legacyMigrationSchema,
@@ -25,6 +26,11 @@ router.post('/users/:id/approve', adminConfigController.approveUser.bind(adminCo
 router.post('/users/:id/reject', adminConfigController.rejectUser.bind(adminConfigController));
 router.post('/users/:id/disable', adminConfigController.disableUser.bind(adminConfigController));
 router.post('/users/:id/enable', adminConfigController.enableUser.bind(adminConfigController));
+router.delete(
+  '/users/:id',
+  validateBody(zodValidator(adminDeleteUserSchema)),
+  adminConfigController.deleteUser.bind(adminConfigController),
+);
 router.get('/audit', adminConfigController.getAudit.bind(adminConfigController));
 router.get('/password-reset-requests', adminConfigController.listPasswordResetRequests.bind(adminConfigController));
 router.post('/password-reset-requests/:id/issue', adminConfigController.issuePasswordResetRequest.bind(adminConfigController));

@@ -77,6 +77,12 @@ export const adminAccessSchema = z
   })
   .strict();
 
+export const adminDeleteUserSchema = z
+  .object({
+    confirmAccessKey: z.string().trim().min(1, 'confirmAccessKey is required').max(4000),
+  })
+  .strict();
+
 export const adminEmailTestSchema = z
   .object({
     to: z.string().trim().email('测试邮箱格式无效').max(320),

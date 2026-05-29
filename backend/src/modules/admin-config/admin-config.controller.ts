@@ -147,6 +147,18 @@ export class AdminConfigController {
     }
   }
 
+  deleteUser(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(
+        successEnvelope(
+          adminUsersService.deleteUser(String(req.params?.id || ''), String(req.body?.confirmAccessKey || '')),
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
   getAudit(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       res.json(successEnvelope({ entries: auditLog.list() }));

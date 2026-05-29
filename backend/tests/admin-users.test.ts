@@ -155,3 +155,115 @@ test('admin user governance can approve, reject, disable, and enable users', asy
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('admin user governance can delete only non-active users with confirmed admin key', async () => {
+  const { server, baseUrl, restoreEnv } = await createTestServer('delete');
+  try {
+    const registered = await requestJson(baseUrl, '/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'delete-user', password: 'password-123', email: 'delete@example.com' }),
+    });
+    const userId = registered.body.data.user.id;
+    const root = process.env.APP_CONFIG_DIR;
+
+    const approve = await requestJson(baseUrl, `/api/admin/users/${userId}/approve`, {
+      method: 'POST',
+      headers: { 'X-Admin-Access-Key': 'admin-secret' },
+    });
+    assert.equal(approve.status, 200);
+
+    const activeDelete = await requestJson(baseUrl, `/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Access-Key': 'admin-secret' },
+      body: JSON.stringify({ confirmAccessKey: 'admin-secret' }),
+    });
+    assert.equal(activeDelete.status, 400);
+    assert.equal(activeDelete.body.error.code, 'ADMIN_ACTIVE_USER_DELETE_FORBIDDEN');
+
+    const login = await requestJson(baseUrl, '/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'delete-user', password: 'password-123' }),
+    });
+    assert.equal(login.status, 200);
+
+    const reset = await requestJson(baseUrl, '/api/auth/password-reset/request', {
+      method: 'POST',
+      body: JSON.stringify({ usernameOrEmail: 'delete-user' }),
+    });
+    assert.equal(reset.status, 200);
+
+    const disable = await requestJson(baseUrl, `/api/admin/users/${userId}/disable`, {
+      method: 'POST',
+      headers: { 'X-Admin-Access-Key': 'admin-secret' },
+    });
+    assert.equal(disable.status, 200);
+
+    const scopedUserDir = path.join(root, 'scopes', 'v1', 'workspaces', 'default', 'users', userId);
+    fs.mkdirSync(path.join(scopedUserDir, 'files', 'generated'), { recursive: true });
+    fs.writeFileSync(path.join(scopedUserDir, 'files', 'generated', 'owned.txt'), 'owned', 'utf8');
+
+    fs.mkdirSync(path.join(root, 'workflows'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'workflows', 'owned.json'),
+      JSON.stringify({ id: 'owned', ownerUserId: userId, workspaceId: 'default' }, null, 2),
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(root, 'workflows', 'other.json'),
+      JSON.stringify({ id: 'other', ownerUserId: 'other-user', workspaceId: 'default' }, null, 2),
+      'utf8',
+    );
+
+    fs.mkdirSync(path.join(root, 'assistant'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'assistant', 'conversations.json'),
+      JSON.stringify(
+        [
+          { id: 'owned-conversation', ownerUserId: userId, workspaceId: 'default' },
+          { id: 'other-conversation', ownerUserId: 'other-user', workspaceId: 'default' },
+        ],
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const wrongConfirm = await requestJson(baseUrl, `/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Access-Key': 'admin-secret' },
+      body: JSON.stringify({ confirmAccessKey: 'wrong-secret' }),
+    });
+    assert.equal(wrongConfirm.status, 400);
+    assert.equal(wrongConfirm.body.error.code, 'ADMIN_DELETE_CONFIRMATION_INVALID');
+
+    const deleted = await requestJson(baseUrl, `/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Access-Key': 'admin-secret' },
+      body: JSON.stringify({ confirmAccessKey: 'admin-secret' }),
+    });
+    assert.equal(deleted.status, 200);
+    assert.equal(deleted.body.data.deletedUser.id, userId);
+    assert.equal(deleted.body.data.deleted.sessions, 1);
+    assert.equal(deleted.body.data.deleted.passwordResetRequests, 1);
+    assert.equal(deleted.body.data.deleted.workflows, 1);
+    assert.equal(deleted.body.data.deleted.records, 1);
+    assert.equal(deleted.body.data.deleted.scopedStorage, true);
+
+    const authState = JSON.parse(fs.readFileSync(path.join(root, 'config', 'auth.json'), 'utf8'));
+    assert.equal(authState.users.some((user) => user.id === userId), false);
+    assert.equal(authState.sessions.some((session) => session.userId === userId), false);
+    assert.equal(authState.passwordResetRequests.some((request) => request.userId === userId), false);
+    assert.equal(fs.existsSync(scopedUserDir), false);
+    assert.equal(fs.existsSync(path.join(root, 'workflows', 'owned.json')), false);
+    assert.equal(fs.existsSync(path.join(root, 'workflows', 'other.json')), true);
+
+    const conversations = JSON.parse(fs.readFileSync(path.join(root, 'assistant', 'conversations.json'), 'utf8'));
+    assert.deepEqual(
+      conversations.map((item) => item.id),
+      ['other-conversation'],
+    );
+  } finally {
+    restoreEnv();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
