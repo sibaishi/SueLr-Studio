@@ -3,7 +3,7 @@ import type { Edge, Node } from '@xyflow/react';
 import { createWorkflowExecutionActions } from '@/domains/workflow/lib/store/execution';
 import { createWorkflowStoreHarness } from './testHarness';
 
-vi.mock('@/domains/workflow/lib/api', () => ({
+vi.mock('@/domains/workflow/lib/api/execution', () => ({
   executeWorkflow: vi.fn(),
   cancelExecution: vi.fn(),
   fetchExecutionStatus: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock('@/domains/workflow/lib/store/persistence', () => ({
   saveActiveRunSnapshot: vi.fn(),
 }));
 
-import * as api from '@/domains/workflow/lib/api';
+import * as api from '@/domains/workflow/lib/api/execution';
 import {
   clearActiveRunSnapshot,
   loadActiveRunSnapshot,
@@ -815,6 +815,45 @@ describe('workflow store execution actions', () => {
     expect(addExecutionLog).toHaveBeenLastCalledWith(expect.objectContaining({
       level: 'error',
       message: '工作流执行失败',
+    }));
+  });
+
+  it('settles synced cancelled runs into final stopped state', async () => {
+    vi.mocked(api.fetchExecutionStatus).mockResolvedValue({
+      success: true,
+      data: {
+        runId: 'run_cancelled_sync',
+        status: 'cancelled',
+        totalDuration: 500,
+      },
+    } as Awaited<ReturnType<typeof api.fetchExecutionStatus>>);
+
+    const addExecutionLog = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      currentRunId: 'run_cancelled_sync',
+      isExecuting: true,
+      nodeExecStatus: { node_c: 'running' },
+      nodeExecutionStartedAt: { node_c: Date.now() - 300 },
+      addExecutionLog,
+    });
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    await actions.syncExecutionRunStatus();
+
+    const stateAfterCancel = harness.getState();
+    expect(clearActiveRunSnapshot).toHaveBeenCalledTimes(1);
+    expect(stateAfterCancel.isExecuting).toBe(false);
+    expect(stateAfterCancel.currentRunId).toBeNull();
+    expect(stateAfterCancel.executingNodeId).toBeNull();
+    expect(stateAfterCancel.lastExecutionStatus).toBe('error');
+    expect(stateAfterCancel.lastExecutionError).toBe('工作流执行已取消');
+    expect(stateAfterCancel.lastExecutionSummary).toBeNull();
+    expect(stateAfterCancel.nodeExecStatus.node_c).toBe('error');
+    expect(stateAfterCancel.nodeErrors.node_c).toBe('工作流执行已取消');
+    expect(addExecutionLog).toHaveBeenLastCalledWith(expect.objectContaining({
+      level: 'error',
+      message: '工作流执行已停止',
     }));
   });
 

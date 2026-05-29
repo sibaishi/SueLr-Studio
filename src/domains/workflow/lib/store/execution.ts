@@ -1,4 +1,4 @@
-import * as api from '@/domains/workflow/lib/api';
+import * as api from '@/domains/workflow/lib/api/execution';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import {
   filterExecutionGraphToUpstreamTarget,

@@ -1,4 +1,4 @@
-import * as api from '@/domains/workflow/lib/api';
+import * as api from '@/domains/workflow/lib/api/workflows';
 import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
 import type {
@@ -21,10 +21,14 @@ type WorkflowStoreDocumentActions = Pick<
   WorkflowState,
   | 'saveWorkflow'
   | 'loadWorkflow'
+  | 'loadWorkflowDetailed'
   | 'fetchWorkflowList'
   | 'initializeWorkflowPersistence'
   | 'duplicateCurrentWorkflow'
+  | 'duplicateCurrentWorkflowDetailed'
   | 'deleteCurrentWorkflow'
+  | 'deleteCurrentWorkflowDetailed'
+  | 'saveWorkflowDetailed'
   | 'exportCurrentWorkflow'
   | 'importWorkflowDataWithMode'
   | 'importWorkflowData'
@@ -34,13 +38,50 @@ type DocumentActionDeps = {
   initialDraft: ReturnType<typeof loadLocalDraft>;
 };
 
+function getApiErrorMessage(result: { error?: string } | undefined, fallback: string) {
+  const message = String(result?.error || '').trim();
+  return message || fallback;
+}
+
+function getApiErrorStatus(result: { status?: number } | undefined) {
+  return typeof result?.status === 'number' ? result.status : undefined;
+}
+
+function resetWorkflowRuntimeStatePatch() {
+  return {
+    selectedNodeId: null,
+    isExecuting: false,
+    executionProgress: null,
+    executionMessage: null,
+    currentRunId: null,
+    executingNodeId: null,
+    lastExecutionStatus: null,
+    lastExecutionTime: null,
+    lastExecutionError: null,
+    lastExecutionSummary: null,
+    nodeExecStatus: {},
+    nodeExecutionTime: {},
+    nodeExecutionStartedAt: {},
+    nodeExecutionActiveCounts: {},
+    nodeExecutionStartedCounts: {},
+    nodeExecutionCompletedCounts: {},
+    nodeExecutionExpectedCounts: {},
+    nodeErrors: {},
+    nodeWarnings: {},
+    nodeOutputs: {},
+    aiResultOutputs: {},
+    executionLogs: [],
+    workflowWarningMessage: null,
+  } satisfies Partial<WorkflowState>;
+}
+
 export function createWorkflowDocumentActions(
   set: WorkflowStoreSet,
   get: WorkflowStoreGet,
   deps: DocumentActionDeps,
 ): WorkflowStoreDocumentActions {
   return {
-    saveWorkflow: async () => {
+    saveWorkflowDetailed: async () => {
       const state = get();
       set({ isSavingWorkflow: true });
 
@@ -55,7 +96,7 @@ export function createWorkflowDocumentActions(
           lastSavedAt: Date.now(),
         });
         get().persistLocalDraft();
-        return true;
+        return { success: true, data: { workflowId: state.workflowId } };
       }
 
       const createResult = await api.createWorkflow(workflowData);
@@ -71,17 +112,34 @@ export function createWorkflowDocumentActions(
         });
         await get().fetchWorkflowList();
         get().persistLocalDraft();
-        return true;
+        return { success: true, data: { workflowId: savedId } };
       }
 
       set({ isSavingWorkflow: false });
-      return false;
+      return {
+        success: false,
+        code: 'WORKFLOW_SAVE_FAILED',
+        message: getApiErrorMessage(createResult, getApiErrorMessage(updateResult, '保存工作流失败')),
+        status: getApiErrorStatus(createResult) ?? getApiErrorStatus(updateResult),
+      };
     },
 
-    loadWorkflow: async (id) => {
+    saveWorkflow: async () => {
+      const result = await get().saveWorkflowDetailed();
+      return result.success;
+    },
+
+    loadWorkflowDetailed: async (id) => {
       clearActiveRunSnapshot();
       const result = await api.fetchWorkflow(id);
-      if (!result.success || !result.data) return false;
+      if (!result.success || !result.data) {
+        return {
+          success: false,
+          code: 'WORKFLOW_LOAD_FAILED',
+          message: getApiErrorMessage(result, '加载工作流失败'),
+          status: getApiErrorStatus(result),
+        };
+      }
 
       const workflow = result.data as Workflow;
       const rawNodes = normalizeNodes(workflow.nodes);
@@ -95,35 +153,18 @@ export function createWorkflowDocumentActions(
         workflowName: typeof workflow.name === 'string' ? workflow.name : DEFAULT_WORKFLOW_NAME,
         nodes,
         edges,
-        selectedNodeId: null,
-        isExecuting: false,
-        executionProgress: null,
-        executionMessage: null,
-        currentRunId: null,
-        executingNodeId: null,
-        lastExecutionStatus: null,
-        lastExecutionTime: null,
-        lastExecutionError: null,
-        lastExecutionSummary: null,
-        nodeExecStatus: {},
-        nodeExecutionTime: {},
-        nodeExecutionStartedAt: {},
-        nodeExecutionActiveCounts: {},
-        nodeExecutionStartedCounts: {},
-        nodeExecutionCompletedCounts: {},
-        nodeExecutionExpectedCounts: {},
-        nodeErrors: {},
-        nodeWarnings: {},
-        nodeOutputs: {},
-        aiResultOutputs: {},
-        executionLogs: [],
-        workflowWarningMessage: null,
+        ...resetWorkflowRuntimeStatePatch(),
         hasUnsavedChanges: false,
         lastSavedAt: typeof workflow.updatedAt === 'number' ? workflow.updatedAt : Date.now(),
       });
 
       get().persistLocalDraft();
-      return true;
+      return { success: true, data: { workflowId: id } };
+    },
+
+    loadWorkflow: async (id) => {
+      const result = await get().loadWorkflowDetailed(id);
+      return result.success;
     },
 
     fetchWorkflowList: async () => {
@@ -145,7 +186,7 @@ export function createWorkflowDocumentActions(
       set({ isHydratingWorkflow: false });
     },
 
-    duplicateCurrentWorkflow: async () => {
+    duplicateCurrentWorkflowDetailed: async () => {
       const state = get();
       const existsInList = state.workflowList.some((workflow) => workflow.id === state.workflowId);
 
@@ -154,40 +195,71 @@ export function createWorkflowDocumentActions(
           ...buildWorkflowPayload(`wf_${Date.now()}`, `${state.workflowName} (副本)`, state.nodes, state.edges),
         });
 
-        if (!result.success || !result.data) return false;
+        if (!result.success || !result.data) {
+          return {
+            success: false,
+            code: 'WORKFLOW_DUPLICATE_FAILED',
+            message: getApiErrorMessage(result, '复制工作流失败'),
+            status: getApiErrorStatus(result),
+          };
+        }
 
         const newId = (result.data as Workflow).id;
         await get().fetchWorkflowList();
-        return get().loadWorkflow(newId);
+        return get().loadWorkflowDetailed(newId);
       }
 
       const result = await api.duplicateWorkflow(state.workflowId);
-      if (!result.success || !result.data) return false;
+      if (!result.success || !result.data) {
+        return {
+          success: false,
+          code: 'WORKFLOW_DUPLICATE_FAILED',
+          message: getApiErrorMessage(result, '复制工作流失败'),
+          status: getApiErrorStatus(result),
+        };
+      }
 
       const newId = (result.data as Record<string, unknown>).id as string;
       await get().fetchWorkflowList();
-      return get().loadWorkflow(newId);
+      return get().loadWorkflowDetailed(newId);
     },
 
-    deleteCurrentWorkflow: async () => {
+    duplicateCurrentWorkflow: async () => {
+      const result = await get().duplicateCurrentWorkflowDetailed();
+      return result.success;
+    },
+
+    deleteCurrentWorkflowDetailed: async () => {
       const state = get();
       const existsInList = state.workflowList.some((workflow) => workflow.id === state.workflowId);
 
       if (existsInList) {
         const result = await api.deleteWorkflow(state.workflowId);
-        if (!result.success) return false;
+        if (!result.success) {
+          return {
+            success: false,
+            code: 'WORKFLOW_DELETE_FAILED',
+            message: getApiErrorMessage(result, '删除工作流失败'),
+            status: getApiErrorStatus(result),
+          };
+        }
       }
 
       await get().fetchWorkflowList();
       const nextWorkflow = get().workflowList[0];
 
       if (nextWorkflow) {
-        return get().loadWorkflow(nextWorkflow.id);
+        return get().loadWorkflowDetailed(nextWorkflow.id);
       }
 
       get().newWorkflow();
       get().persistLocalDraft();
-      return true;
+      return { success: true, data: {} };
+    },
+
+    deleteCurrentWorkflow: async () => {
+      const result = await get().deleteCurrentWorkflowDetailed();
+      return result.success;
     },
 
     exportCurrentWorkflow: () => {
@@ -225,29 +297,7 @@ export function createWorkflowDocumentActions(
         workflowName: importedName,
         nodes,
         edges,
-        selectedNodeId: null,
-        isExecuting: false,
-        executionProgress: null,
-        executionMessage: null,
-        currentRunId: null,
-        executingNodeId: null,
-        lastExecutionStatus: null,
-        lastExecutionTime: null,
-        lastExecutionError: null,
-        lastExecutionSummary: null,
-        nodeExecStatus: {},
-        nodeExecutionTime: {},
-        nodeExecutionStartedAt: {},
-        nodeExecutionActiveCounts: {},
-        nodeExecutionStartedCounts: {},
-        nodeExecutionCompletedCounts: {},
-        nodeExecutionExpectedCounts: {},
-        nodeErrors: {},
-        nodeWarnings: {},
-        nodeOutputs: {},
-        aiResultOutputs: {},
-        executionLogs: [],
-        workflowWarningMessage: null,
+        ...resetWorkflowRuntimeStatePatch(),
         hasUnsavedChanges: true,
         lastSavedAt: null,
       });

@@ -334,6 +334,7 @@ body {
 .workflow-toolbar__status-chip {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 36px;
   padding: 0 12px;
   border-radius: 12px;
@@ -345,6 +346,30 @@ body {
   font-weight: 500;
   color: var(--color-text-secondary);
   flex: 0 1 16ch;
+}
+
+.workflow-toolbar__status-chip::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.workflow-toolbar__status-chip--saved {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, var(--color-bg-tertiary));
+}
+
+.workflow-toolbar__status-chip--dirty,
+.workflow-toolbar__status-chip--saving {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, var(--color-bg-tertiary));
+}
+
+.workflow-toolbar__status-chip--draft {
+  color: var(--color-text-tertiary);
 }
 
 .workflow-toolbar__progress {
@@ -1267,6 +1292,29 @@ body {
   word-break: break-word;
 }
 
+.workflow-import-modal__meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.workflow-import-modal__meta-row strong {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
 .workflow-import-modal__actions {
   margin-top: 16px;
   border-radius: 18px;
@@ -1310,6 +1358,42 @@ body {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.workflow-import-modal__mode-button {
+  display: flex;
+  min-width: min(100%, 210px);
+  flex: 1 1 210px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 11px 12px;
+  background: var(--glass-bg);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.workflow-import-modal__mode-button:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--glass-bg));
+}
+
+.workflow-import-modal__mode-button > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-import-modal__mode-button small {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .workflow-import-modal__button--primary {

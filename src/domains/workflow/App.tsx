@@ -1,64 +1,22 @@
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
-import type { PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import Sidebar from '@/domains/workflow/components/Sidebar';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
 import WorkflowImportConflictModal from '@/domains/workflow/components/WorkflowImportConflictModal';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
-import { getNodeDef, getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
+import { useWorkflowImport } from '@/domains/workflow/hooks/useWorkflowImport';
+import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
+import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
-import {
-  buildImportConflictMessage,
-  getSuggestedImportModes,
-  parseWorkflowImport,
-  serializeWorkflowExport,
-} from '@/domains/workflow/lib/importExport';
-import type { WorkflowImportError, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
-import { type WorkflowEditorSnapshot, useWorkflowStore } from '@/domains/workflow/lib/store';
+import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { useWorkflowPageStore } from '@/domains/workflow/lib/store/selectors';
-import type { NodeTypeDef } from '@/domains/workflow/lib/types';
 import { Boxes } from 'lucide-react';
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-const DISABLED_NEW_NODE_TYPES = new Set<string>();
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface WorkflowPageProps {
   onOpenStudioSettings?: () => void;
-}
-
-function buildSnapshot(
-  store: Pick<WorkflowEditorSnapshot, 'workflowId' | 'workflowName' | 'nodes' | 'edges' | 'selectedNodeId'>,
-): WorkflowEditorSnapshot {
-  return {
-    workflowId: store.workflowId,
-    workflowName: store.workflowName,
-    nodes: store.nodes,
-    edges: store.edges,
-    selectedNodeId: store.selectedNodeId,
-  };
-}
-
-function snapshotSignature(snapshot: WorkflowEditorSnapshot) {
-  return JSON.stringify({
-    workflowId: snapshot.workflowId,
-    workflowName: snapshot.workflowName,
-    selectedNodeId: snapshot.selectedNodeId,
-    nodes: snapshot.nodes,
-    edges: snapshot.edges,
-  });
-}
-
-function formatWorkflowImportError(message?: string | null) {
-  const detail = String(message || '').trim();
-  return detail
-    ? `导入工作流失败，请检查文件内容或更换导入模式。${detail}`
-    : '导入工作流失败，请检查文件内容或更换导入模式。';
-}
-
-function formatWorkflowActionError(action: string, message?: string | null) {
-  const detail = String(message || '').trim();
-  return detail ? `${action}没有完成，请稍后重试。${detail}` : `${action}没有完成，请稍后重试。`;
 }
 
 export default function WorkflowPage({ onOpenStudioSettings }: WorkflowPageProps) {
@@ -67,30 +25,11 @@ export default function WorkflowPage({ onOpenStudioSettings }: WorkflowPageProps
 
 function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
   const store = useWorkflowPageStore();
-  const viewportCenterRef = useRef<{ x: number; y: number } | null>(null);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-  const [importReport, setImportReport] = useState<WorkflowImportReport | null>(null);
-  const [importReportFileName, setImportReportFileName] = useState<string>('');
-  const [importConflict, setImportConflict] = useState<WorkflowImportError | null>(null);
-  const [importErrorMessage, setImportErrorMessage] = useState<string | null>(null);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
-  const importInputRef = useRef<HTMLInputElement | null>(null);
-  const pendingImportRef = useRef<{ payload: Record<string, unknown>; fallbackName: string; fileName: string } | null>(
-    null,
-  );
-  const historyPastRef = useRef<WorkflowEditorSnapshot[]>([]);
-  const historyFutureRef = useRef<WorkflowEditorSnapshot[]>([]);
-  const currentSnapshotRef = useRef<WorkflowEditorSnapshot | null>(null);
-  const historyTimerRef = useRef<number | null>(null);
-  const isApplyingHistoryRef = useRef(false);
-
-  const syncHistoryState = useCallback(() => {
-    setCanUndo(historyPastRef.current.length > 0);
-    setCanRedo(historyFutureRef.current.length > 0);
-  }, []);
+  const { canUndo, canRedo, handleUndo, handleRedo, resetHistory, captureImmediateHistory } =
+    useWorkflowHistory(store);
 
   useEffect(() => {
     void useWorkflowStore.getState().initializeWorkflowPersistence();
@@ -114,108 +53,6 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     store.persistLocalDraft();
   }, [store.workflowId, store.workflowName, store.nodes, store.edges]);
 
-  useEffect(() => {
-    if (store.isHydratingWorkflow || isApplyingHistoryRef.current) return;
-
-    const nextSnapshot = buildSnapshot(store);
-    if (!currentSnapshotRef.current) {
-      currentSnapshotRef.current = nextSnapshot;
-      syncHistoryState();
-      return;
-    }
-
-    if (historyTimerRef.current) {
-      window.clearTimeout(historyTimerRef.current);
-    }
-
-    historyTimerRef.current = window.setTimeout(() => {
-      const current = currentSnapshotRef.current;
-      if (!current) {
-        currentSnapshotRef.current = nextSnapshot;
-        syncHistoryState();
-        return;
-      }
-
-      if (snapshotSignature(current) === snapshotSignature(nextSnapshot)) return;
-
-      const latestPast = historyPastRef.current[historyPastRef.current.length - 1];
-      if (!latestPast || snapshotSignature(latestPast) !== snapshotSignature(current)) {
-        historyPastRef.current.push(current);
-      }
-      if (historyPastRef.current.length > 80) historyPastRef.current.shift();
-      historyFutureRef.current = [];
-      currentSnapshotRef.current = nextSnapshot;
-      syncHistoryState();
-    }, 180);
-
-    return () => {
-      if (historyTimerRef.current) window.clearTimeout(historyTimerRef.current);
-    };
-  }, [
-    store.workflowId,
-    store.workflowName,
-    store.nodes,
-    store.edges,
-    store.selectedNodeId,
-    store.isHydratingWorkflow,
-    syncHistoryState,
-  ]);
-
-  const applyHistorySnapshot = useCallback(
-    (snapshot: WorkflowEditorSnapshot) => {
-      isApplyingHistoryRef.current = true;
-      store.applyEditorSnapshot(snapshot, true);
-      store.persistLocalDraft();
-      currentSnapshotRef.current = snapshot;
-      window.setTimeout(() => {
-        isApplyingHistoryRef.current = false;
-      }, 0);
-    },
-    [store],
-  );
-
-  const handleUndo = useCallback(() => {
-    const previous = historyPastRef.current.pop();
-    if (!previous) return;
-    const current = currentSnapshotRef.current || buildSnapshot(store);
-    historyFutureRef.current.unshift(current);
-    applyHistorySnapshot(previous);
-    syncHistoryState();
-  }, [applyHistorySnapshot, store, syncHistoryState]);
-
-  const handleRedo = useCallback(() => {
-    const next = historyFutureRef.current.shift();
-    if (!next) return;
-    const current = currentSnapshotRef.current || buildSnapshot(store);
-    historyPastRef.current.push(current);
-    applyHistorySnapshot(next);
-    syncHistoryState();
-  }, [applyHistorySnapshot, store, syncHistoryState]);
-
-  const captureImmediateHistory = useCallback(() => {
-    if (store.isHydratingWorkflow || isApplyingHistoryRef.current) return;
-    if (historyTimerRef.current) {
-      window.clearTimeout(historyTimerRef.current);
-      historyTimerRef.current = null;
-    }
-
-    const currentSnapshot = buildSnapshot(store);
-    const previousSnapshot = currentSnapshotRef.current;
-    if (!previousSnapshot) {
-      currentSnapshotRef.current = currentSnapshot;
-      syncHistoryState();
-      return;
-    }
-
-    const latestPast = historyPastRef.current[historyPastRef.current.length - 1];
-    if (latestPast && snapshotSignature(latestPast) === snapshotSignature(currentSnapshot)) return;
-    historyPastRef.current.push(currentSnapshot);
-    if (historyPastRef.current.length > 80) historyPastRef.current.shift();
-    historyFutureRef.current = [];
-    currentSnapshotRef.current = currentSnapshot;
-    syncHistoryState();
-  }, [store, syncHistoryState]);
-
   const confirmDiscardChanges = useCallback(
     (actionLabel: string) => {
       if (!store.hasUnsavedChanges) return true;
@@ -224,91 +61,46 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     [store.hasUnsavedChanges],
   );
 
-  const handleAddNode = useCallback(
-    (nodeTypeDef: NodeTypeDef) => {
-      if (DISABLED_NEW_NODE_TYPES.has(nodeTypeDef.type)) return;
-      const center = viewportCenterRef.current || { x: 300, y: 200 };
-      const size = getNodeDefaultSize(nodeTypeDef.type);
-      const stagger = (store.nodes.length % 5) * 24;
-      store.addNode(nodeTypeDef.type, {
-        x: center.x - size.w / 2 + stagger,
-        y: center.y - size.h / 2 + stagger,
-      });
-    },
-    [store],
-  );
-
-  const handleViewportCenterChange = useCallback((position: { x: number; y: number }) => {
-    viewportCenterRef.current = position;
-  }, []);
-
-  const handleBackfillImageToCanvas = useCallback(
-    (image: PreviewImageItem) => {
-      const center = viewportCenterRef.current || { x: 300, y: 200 };
-      const size = getNodeDefaultSize('imageInput');
-      const stagger = (store.nodes.length % 5) * 24;
-      const name = image.name || 'image';
-      store.addNode(
-        'imageInput',
-        {
-          x: center.x - size.w / 2 + stagger,
-          y: center.y - size.h / 2 + stagger,
-        },
-        {
-          fileUrl: image.src,
-          previewUrl: image.src,
-          localPath: name,
-          fileName: name,
-          fileKind: 'image',
-          _uploading: false,
-          _uploadError: '',
-          canvasOriginalFileUrl: '',
-          canvasOriginalPreviewUrl: '',
-          canvasOriginalFileName: '',
-          canvasOriginalFileSize: undefined,
-        },
-      );
-    },
-    [store],
-  );
-
-  const handleBackfillTextToCanvas = useCallback(
-    (text: string) => {
-      const center = viewportCenterRef.current || { x: 300, y: 200 };
-      const size = getNodeDefaultSize('textInput');
-      const stagger = (store.nodes.length % 5) * 24;
-      store.addNode(
-        'textInput',
-        {
-          x: center.x - size.w / 2 + stagger,
-          y: center.y - size.h / 2 + stagger,
-        },
-        {
-          text,
-        },
-      );
-    },
-    [store],
-  );
-
-  const handleSave = useCallback(async () => {
-    const success = await store.saveWorkflow();
-    if (!success) {
-      setWorkflowErrorMessage(formatWorkflowActionError('保存工作流'));
-      return;
-    }
-    setWorkflowErrorMessage(null);
-  }, [store]);
-
-  const handleExecute = useCallback(async () => {
-    await store.executeWorkflow();
-  }, [store]);
-
-  const handleCreateSelectedNodeGroup = useCallback(() => {
-    const selectedNodeIds = store.nodes.filter((node) => node.selected).map((node) => node.id);
-    if (selectedNodeIds.length < 2) return;
-    store.createNodeGroup(selectedNodeIds);
-  }, [store]);
+  const {
+    importInputRef,
+    importReport,
+    importReportFileName,
+    importConflict,
+    importErrorMessage,
+    retryModes,
+    reportRetryModes,
+    handleImportClick,
+    handleImportWorkflow,
+    retryImport,
+    setImportReport,
+    setImportConflict,
+    setImportErrorMessage,
+  } = useWorkflowImport({
+    store,
+    confirmDiscardChanges,
+    resetHistory,
+    clearWorkflowError: () => setWorkflowErrorMessage(null),
+  });
+  const {
+    handleAddNode,
+    handleViewportCenterChange,
+    handleBackfillImageToCanvas,
+    handleBackfillTextToCanvas,
+    handleSave,
+    handleExecute,
+    handleCreateSelectedNodeGroup,
+    handleCancelExecution,
+    handleNewWorkflow,
+    handleSelectWorkflow,
+    handleDuplicateWorkflow,
+    handleDeleteWorkflow,
+    handleExportWorkflow,
+  } = useWorkflowPageCommands({
+    store,
+    confirmDiscardChanges,
+    resetHistory,
+    setWorkflowErrorMessage,
+  });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -344,121 +136,6 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleCreateSelectedNodeGroup, handleExecute, handleRedo, handleUndo]);
-
-  const handleCancelExecution = useCallback(async () => {
-    await store.cancelWorkflowExecution();
-  }, [store]);
-
-  const resetHistory = useCallback(() => {
-    currentSnapshotRef.current = null;
-    historyPastRef.current = [];
-    historyFutureRef.current = [];
-    syncHistoryState();
-  }, [syncHistoryState]);
-
-  const handleNewWorkflow = useCallback(() => {
-    if (!confirmDiscardChanges('新建工作流')) return;
-    store.newWorkflow();
-    setWorkflowErrorMessage(null);
-    resetHistory();
-  }, [confirmDiscardChanges, resetHistory, store]);
-
-  const handleSelectWorkflow = useCallback(
-    async (workflowId: string) => {
-      if (!workflowId || workflowId === store.workflowId) return;
-      if (!confirmDiscardChanges('切换工作流')) return;
-      const success = await store.loadWorkflow(workflowId);
-      if (!success) {
-        setWorkflowErrorMessage(formatWorkflowActionError('加载工作流'));
-        return;
-      }
-      setWorkflowErrorMessage(null);
-      resetHistory();
-    },
-    [confirmDiscardChanges, resetHistory, store],
-  );
-
-  const handleDuplicateWorkflow = useCallback(async () => {
-    const success = await store.duplicateCurrentWorkflow();
-    if (!success) {
-      setWorkflowErrorMessage(formatWorkflowActionError('复制工作流'));
-      return;
-    }
-    setWorkflowErrorMessage(null);
-    resetHistory();
-  }, [resetHistory, store]);
-
-  const handleDeleteWorkflow = useCallback(async () => {
-    const workflowLabel = store.workflowName || '当前工作流';
-    const confirmed = window.confirm(`确定要删除“${workflowLabel}”吗？此操作不可撤销。`);
-    if (!confirmed) return;
-
-    const success = await store.deleteCurrentWorkflow();
-    if (!success) {
-      setWorkflowErrorMessage(formatWorkflowActionError('删除工作流'));
-      return;
-    }
-    setWorkflowErrorMessage(null);
-    resetHistory();
-  }, [resetHistory, store]);
-
-  const handleExportWorkflow = useCallback(() => {
-    const payload = store.exportCurrentWorkflow();
-    const safeName = (payload.name || 'workflow').replace(/[\\/:*?"<>|]/g, '-').trim() || 'workflow';
-    const blob = new Blob([serializeWorkflowExport(payload)], {
-      type: 'application/json;charset=utf-8',
-    });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${safeName}.json`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-  }, [store]);
-
-  const handleImportClick = useCallback(() => {
-    if (!confirmDiscardChanges('导入工作流')) return;
-    importInputRef.current?.click();
-  }, [confirmDiscardChanges]);
-
-  const handleImportWorkflow = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = '';
-      if (!file) return;
-
-      try {
-        const content = await file.text();
-        const parsed = parseWorkflowImport(content);
-        const fallbackName = file.name.replace(/\.json$/i, '');
-        pendingImportRef.current = { payload: parsed, fallbackName, fileName: file.name };
-        setImportErrorMessage(null);
-        const result = await store.importWorkflowData(parsed, fallbackName);
-        if (!result.success) {
-          const conflictMessage = buildImportConflictMessage(result.error);
-          if (conflictMessage) {
-            setImportConflict(result.error || null);
-            setImportReport(null);
-            setImportReportFileName(file.name);
-            return;
-          }
-          setImportErrorMessage(formatWorkflowImportError(result.error?.message || '文件格式不正确。'));
-          return;
-        }
-        setImportConflict(null);
-        setImportErrorMessage(null);
-        setWorkflowErrorMessage(null);
-        setImportReport(result.report || null);
-        setImportReportFileName(file.name);
-        resetHistory();
-      } catch (error) {
-        setImportErrorMessage(
-          formatWorkflowImportError(error instanceof Error ? error.message : '无法读取或解析 JSON 文件。'),
-        );
-      }
-    },
-    [resetHistory, store],
-  );
 
   const toolbarExecutingNodeLabel = useMemo(() => {
     if (!store.executingNodeId) return undefined;
@@ -584,28 +261,9 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
         <WorkflowImportConflictModal
           fileName={importReportFileName}
           conflict={importConflict}
-          retryModes={getSuggestedImportModes(importConflict.details)}
+          retryModes={retryModes}
           onClose={() => setImportConflict(null)}
-          onRetry={async (mode) => {
-            const pending = pendingImportRef.current;
-            if (!pending) return;
-            const result = await store.importWorkflowDataWithMode(pending.payload, mode, pending.fallbackName);
-            if (!result.success) {
-              const nextConflictMessage = buildImportConflictMessage(result.error);
-              if (nextConflictMessage) {
-                setImportConflict(result.error || null);
-                return;
-              }
-              setImportErrorMessage(formatWorkflowImportError(result.error?.message));
-              return;
-            }
-            setImportConflict(null);
-            setImportErrorMessage(null);
-            setWorkflowErrorMessage(null);
-            setImportReport(result.report || null);
-            setImportReportFileName(pending.fileName);
-            resetHistory();
-          }}
+          onRetry={retryImport}
         />
       )}
 
@@ -614,28 +272,8 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
           fileName={importReportFileName}
           report={importReport}
           onClose={() => setImportReport(null)}
-          onRetry={async (mode) => {
-            const pending = pendingImportRef.current;
-            if (!pending) return;
-            const result = await store.importWorkflowDataWithMode(pending.payload, mode, pending.fallbackName);
-            if (!result.success) {
-              const nextConflictMessage = buildImportConflictMessage(result.error);
-              if (nextConflictMessage) {
-                setImportReport(null);
-                setImportConflict(result.error || null);
-                return;
-              }
-              setImportErrorMessage(formatWorkflowImportError(result.error?.message));
-              return;
-            }
-            setImportConflict(null);
-            setImportErrorMessage(null);
-            setWorkflowErrorMessage(null);
-            setImportReport(result.report || null);
-            setImportReportFileName(pending.fileName);
-            resetHistory();
-          }}
-          retryModes={pendingImportRef.current ? getSuggestedImportModes() : []}
+          onRetry={retryImport}
+          retryModes={reportRetryModes}
         />
       )}
 

@@ -3,7 +3,7 @@ import type { PersistedWorkflow, WorkflowImportReport } from '@/domains/workflow
 import { createWorkflowDocumentActions } from '@/domains/workflow/lib/store/document';
 import { createWorkflowStoreHarness } from './testHarness';
 
-vi.mock('@/domains/workflow/lib/api', () => ({
+vi.mock('@/domains/workflow/lib/api/workflows', () => ({
   updateWorkflow: vi.fn(),
   createWorkflow: vi.fn(),
   fetchWorkflow: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock('@/domains/workflow/lib/store/persistence', () => ({
   loadLocalDraft: vi.fn(() => null),
 }));
 
-import * as api from '@/domains/workflow/lib/api';
+import * as api from '@/domains/workflow/lib/api/workflows';
 import { clearActiveRunSnapshot } from '@/domains/workflow/lib/store/persistence';
 
 function createPersistedWorkflow(overrides: Partial<PersistedWorkflow> = {}): PersistedWorkflow {
@@ -215,5 +215,162 @@ describe('workflow store document actions', () => {
     expect(state.hasUnsavedChanges).toBe(true);
     expect(state.lastSavedAt).toBeNull();
     expect(persistLocalDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to creating a workflow when update fails during save', async () => {
+    vi.mocked(api.updateWorkflow).mockResolvedValue({
+      success: false,
+      error: 'not found',
+    });
+    vi.mocked(api.createWorkflow).mockResolvedValue({
+      success: true,
+      data: createPersistedWorkflow({ id: 'wf_created_from_save', name: 'Saved Workflow' }),
+    });
+    vi.mocked(api.fetchWorkflows).mockResolvedValue({ success: true, data: [] });
+
+    const persistLocalDraft = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      workflowId: 'wf_local',
+      workflowName: 'Saved Workflow',
+      hasUnsavedChanges: true,
+      persistLocalDraft,
+    });
+    const actions = createWorkflowDocumentActions(harness.set, harness.get, { initialDraft: null });
+    harness.attachActions(actions);
+
+    const result = await actions.saveWorkflow();
+    const state = harness.getState();
+
+    expect(result).toBe(true);
+    expect(api.updateWorkflow).toHaveBeenCalledTimes(1);
+    expect(api.createWorkflow).toHaveBeenCalledTimes(1);
+    expect(state.workflowId).toBe('wf_created_from_save');
+    expect(state.isSavingWorkflow).toBe(false);
+    expect(state.hasUnsavedChanges).toBe(false);
+    expect(state.lastSavedAt).toEqual(expect.any(Number));
+    expect(persistLocalDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false and clears saving state when save update and create both fail', async () => {
+    vi.mocked(api.updateWorkflow).mockResolvedValue({
+      success: false,
+      error: 'update failed',
+    });
+    vi.mocked(api.createWorkflow).mockResolvedValue({
+      success: false,
+      error: 'create failed',
+    });
+
+    const persistLocalDraft = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      hasUnsavedChanges: true,
+      persistLocalDraft,
+    });
+    const actions = createWorkflowDocumentActions(harness.set, harness.get, { initialDraft: null });
+    harness.attachActions(actions);
+
+    const result = await actions.saveWorkflow();
+    const state = harness.getState();
+
+    expect(result).toBe(false);
+    expect(state.isSavingWorkflow).toBe(false);
+    expect(state.hasUnsavedChanges).toBe(true);
+    expect(persistLocalDraft).not.toHaveBeenCalled();
+  });
+
+  it('returns structured save failure details from the detailed save action', async () => {
+    vi.mocked(api.updateWorkflow).mockResolvedValue({
+      success: false,
+      error: 'update failed',
+      status: 404,
+    });
+    vi.mocked(api.createWorkflow).mockResolvedValue({
+      success: false,
+      error: 'create failed',
+      status: 500,
+    });
+
+    const harness = createWorkflowStoreHarness({ hasUnsavedChanges: true });
+    const actions = createWorkflowDocumentActions(harness.set, harness.get, { initialDraft: null });
+    harness.attachActions(actions);
+
+    const result = await actions.saveWorkflowDetailed();
+
+    expect(result).toEqual({
+      success: false,
+      code: 'WORKFLOW_SAVE_FAILED',
+      message: 'create failed',
+      status: 500,
+    });
+    expect(harness.getState().isSavingWorkflow).toBe(false);
+  });
+
+  it('returns structured load failure details from the detailed load action', async () => {
+    vi.mocked(api.fetchWorkflow).mockResolvedValue({
+      success: false,
+      error: 'workflow missing',
+      status: 404,
+    });
+
+    const harness = createWorkflowStoreHarness({
+      workflowId: 'wf_current',
+      workflowName: 'Current Workflow',
+    });
+    const actions = createWorkflowDocumentActions(harness.set, harness.get, { initialDraft: null });
+    harness.attachActions(actions);
+
+    const result = await actions.loadWorkflowDetailed('wf_missing');
+
+    expect(result).toEqual({
+      success: false,
+      code: 'WORKFLOW_LOAD_FAILED',
+      message: 'workflow missing',
+      status: 404,
+    });
+    expect(harness.getState().workflowId).toBe('wf_current');
+  });
+
+  it('returns import conflict details without mutating the current workflow', async () => {
+    vi.mocked(api.importWorkflow).mockResolvedValue({
+      success: false,
+      error: 'Workflow already exists',
+      status: 409,
+      importError: {
+        code: 'WORKFLOW_IMPORT_CONFLICT',
+        message: 'Workflow already exists',
+        details: {
+          workflowId: 'wf_conflict',
+          suggestedModes: ['overwrite', 'generate_new_id'],
+        },
+      },
+    });
+
+    const persistLocalDraft = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      workflowId: 'wf_current',
+      workflowName: 'Current Workflow',
+      persistLocalDraft,
+    });
+    const actions = createWorkflowDocumentActions(harness.set, harness.get, { initialDraft: null });
+    harness.attachActions(actions);
+
+    const result = await actions.importWorkflowDataWithMode({ id: 'wf_conflict' }, 'preserve_id');
+    const state = harness.getState();
+
+    expect(result).toEqual({
+      success: false,
+      report: null,
+      error: {
+        code: 'WORKFLOW_IMPORT_CONFLICT',
+        message: 'Workflow already exists',
+        details: {
+          workflowId: 'wf_conflict',
+          suggestedModes: ['overwrite', 'generate_new_id'],
+        },
+      },
+    });
+    expect(state.workflowId).toBe('wf_current');
+    expect(state.workflowName).toBe('Current Workflow');
+    expect(persistLocalDraft).not.toHaveBeenCalled();
   });
 });

@@ -46,9 +46,6 @@ export class ExecutionController {
         processInstanceId: getProcessInstanceId(),
         writableEnded: res.writableEnded,
       });
-      if (activeRunId) {
-        executionService.cancel(activeRunId, { scope: req.scope });
-      }
     });
 
     try {

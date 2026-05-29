@@ -59,13 +59,20 @@ interface ToolbarProps {
 function formatSaveStatus(isSavingWorkflow: boolean, hasUnsavedChanges: boolean, lastSavedAt: number | null) {
   if (isSavingWorkflow) return '保存中...';
   if (hasUnsavedChanges) return '有未保存修改';
-  if (!lastSavedAt) return '还没有保存记录';
+  if (!lastSavedAt) return '仅本地草稿';
 
   const time = new Date(lastSavedAt).toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
   });
   return `已保存于 ${time}`;
+}
+
+function getSaveStatusTone(isSavingWorkflow: boolean, hasUnsavedChanges: boolean, lastSavedAt: number | null) {
+  if (isSavingWorkflow) return 'saving';
+  if (hasUnsavedChanges) return 'dirty';
+  if (!lastSavedAt) return 'draft';
+  return 'saved';
 }
 
 export default function Toolbar(props: ToolbarProps) {
@@ -109,6 +116,7 @@ export default function Toolbar(props: ToolbarProps) {
   }, [workflowId, workflows]);
 
   const saveStatus = formatSaveStatus(isSavingWorkflow, hasUnsavedChanges, lastSavedAt);
+  const saveStatusTone = getSaveStatusTone(isSavingWorkflow, hasUnsavedChanges, lastSavedAt);
 
   return (
     <div className="workflow-toolbar glass">
@@ -162,26 +170,50 @@ export default function Toolbar(props: ToolbarProps) {
             value={workflowName}
             onChange={(e) => onWorkflowNameChange(e.target.value)}
             className="workflow-toolbar__input"
+            data-testid="workflow-name-input"
             placeholder="请输入工作流名称"
           />
         </div>
 
         <div className="workflow-toolbar__group">
-          <ToolbarIconButton icon={<Plus size={15} />} label="新建" onClick={onNewWorkflow} />
-          <ToolbarIconButton icon={<Copy size={15} />} label="复制" onClick={onDuplicateWorkflow} />
-          <ToolbarIconButton icon={<Trash2 size={15} />} label="删除" onClick={onDeleteWorkflow} />
-          <ToolbarIconButton icon={<Upload size={15} />} label="导入" onClick={onImportWorkflow} />
-          <ToolbarIconButton icon={<Download size={15} />} label="导出" onClick={onExportWorkflow} />
+          <ToolbarIconButton icon={<Plus size={15} />} label="新建" onClick={onNewWorkflow} testId="workflow-new" />
+          <ToolbarIconButton
+            icon={<Copy size={15} />}
+            label="复制"
+            onClick={onDuplicateWorkflow}
+            testId="workflow-duplicate"
+          />
+          <ToolbarIconButton
+            icon={<Trash2 size={15} />}
+            label="删除"
+            onClick={onDeleteWorkflow}
+            testId="workflow-delete"
+          />
+          <ToolbarIconButton icon={<Upload size={15} />} label="导入" onClick={onImportWorkflow} testId="workflow-import" />
+          <ToolbarIconButton
+            icon={<Download size={15} />}
+            label="导出"
+            onClick={onExportWorkflow}
+            testId="workflow-export"
+          />
         </div>
 
         <div className="workflow-toolbar__group">
           <ToolbarIconButton icon={<Undo2 size={15} />} label="撤销" onClick={onUndo} disabled={!canUndo} />
           <ToolbarIconButton icon={<Redo2 size={15} />} label="重做" onClick={onRedo} disabled={!canRedo} />
-          <ToolbarIconButton icon={<Save size={15} />} label="保存" onClick={onSave} />
+          <ToolbarIconButton
+            icon={<Save size={15} />}
+            label="保存"
+            onClick={onSave}
+            disabled={isSavingWorkflow}
+            testId="workflow-save"
+          />
         </div>
 
         <div className="workflow-toolbar__status">
-          <div className="workflow-toolbar__status-chip">{saveStatus}</div>
+          <div className={`workflow-toolbar__status-chip workflow-toolbar__status-chip--${saveStatusTone}`}>
+            {saveStatus}
+          </div>
           {isExecuting && (
             <div className="workflow-toolbar__progress">
               <div className="workflow-toolbar__progress-copy">

@@ -1,4 +1,8 @@
-import { buildImportReportSections, getImportModeLabel } from '@/domains/workflow/lib/importExport';
+import {
+  buildImportReportSections,
+  getImportModeDescription,
+  getImportModeLabel,
+} from '@/domains/workflow/lib/importExport';
 import type { WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
 import { AlertTriangle, CheckCircle2, GitBranch, RefreshCw } from 'lucide-react';
 import { useEffect } from 'react';
@@ -36,7 +40,7 @@ export default function WorkflowImportReportModal({
           <div>
             <div className="workflow-panel__eyebrow">导入结果</div>
             <div className="workflow-panel__title">{fileName || 'workflow.json'}</div>
-            <div className="workflow-panel__desc">查看迁移、警告和字段处理结果。</div>
+            <div className="workflow-panel__desc">导入已完成。下面列出版本迁移、提示和被忽略字段。</div>
           </div>
           <div
             className={`workflow-import-modal__status ${hasWarnings ? 'workflow-import-modal__status--warning' : 'workflow-import-modal__status--success'}`}
@@ -65,18 +69,21 @@ export default function WorkflowImportReportModal({
           <div className="workflow-import-modal__actions">
             <div className="workflow-import-modal__actions-label">
               <GitBranch size={14} />
-              <span>重新导入为</span>
+              <span>用其他方式重新导入</span>
             </div>
             <div className="workflow-import-modal__actions-row">
               {retryModes.map((mode) => (
                 <button
                   key={mode}
                   type="button"
-                  className="workflow-import-modal__button"
+                  className="workflow-import-modal__mode-button"
                   onClick={() => void onRetry(mode)}
                 >
-                  <RefreshCw size={13} />
-                  {getImportModeLabel(mode)}
+                  <span>
+                    <RefreshCw size={13} />
+                    <strong>{getImportModeLabel(mode)}</strong>
+                  </span>
+                  <small>{getImportModeDescription(mode)}</small>
                 </button>
               ))}
             </div>

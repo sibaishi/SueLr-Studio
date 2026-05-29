@@ -62,6 +62,17 @@ export function getImportModeLabel(mode: WorkflowImportMode) {
   }
 }
 
+export function getImportModeDescription(mode: WorkflowImportMode) {
+  switch (mode) {
+    case 'overwrite':
+      return '用导入文件替换当前同 ID 工作流，适合确认要更新已有流程时使用。';
+    case 'preserve_id':
+      return '继续使用文件中的原始 ID；如果冲突仍存在，后端会继续拦截。';
+    default:
+      return '为导入内容分配新 ID，保留现有工作流不变，通常是最安全的选择。';
+  }
+}
+
 export function buildImportConflictMessage(error?: WorkflowImportError | null) {
   if (!error || error.code !== 'WORKFLOW_IMPORT_CONFLICT') return '';
   return error.message;

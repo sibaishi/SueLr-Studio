@@ -1,4 +1,4 @@
-import type { WorkflowListItem } from '@/domains/workflow/lib/api';
+import type { WorkflowListItem } from '@/domains/workflow/lib/api/workflows';
 import type { GroupPort, GroupPortSide } from '@/domains/workflow/lib/groupPorts';
 import type {
   PersistedWorkflow,
@@ -37,6 +37,19 @@ export type WorkflowImportResult = {
   report: WorkflowImportReport | null;
   error?: WorkflowImportError | null;
 };
+
+export type WorkflowOperationCode =
+  | 'WORKFLOW_SAVE_FAILED'
+  | 'WORKFLOW_LOAD_FAILED'
+  | 'WORKFLOW_DELETE_FAILED'
+  | 'WORKFLOW_DUPLICATE_FAILED'
+  | 'WORKFLOW_IMPORT_FAILED'
+  | 'WORKFLOW_CONFLICT'
+  | 'WORKFLOW_VALIDATION_FAILED';
+
+export type WorkflowOperationResult<T = undefined> =
+  | { success: true; data?: T }
+  | { success: false; code: WorkflowOperationCode; message: string; status?: number; details?: unknown };
 
 export type NodeExecStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -141,8 +154,12 @@ export interface WorkflowState {
   initializeWorkflowPersistence: () => Promise<void>;
   restoreExecutionRun: () => Promise<void>;
   syncExecutionRunStatus: () => Promise<void>;
+  saveWorkflowDetailed: () => Promise<WorkflowOperationResult<{ workflowId: string }>>;
   duplicateCurrentWorkflow: () => Promise<boolean>;
+  duplicateCurrentWorkflowDetailed: () => Promise<WorkflowOperationResult<{ workflowId: string }>>;
   deleteCurrentWorkflow: () => Promise<boolean>;
+  deleteCurrentWorkflowDetailed: () => Promise<WorkflowOperationResult<{ workflowId?: string }>>;
+  loadWorkflowDetailed: (id: string) => Promise<WorkflowOperationResult<{ workflowId: string }>>;
   exportCurrentWorkflow: () => PersistedWorkflow;
   importWorkflowData: (payload: unknown, fallbackName?: string) => Promise<WorkflowImportResult>;
   importWorkflowDataWithMode: (

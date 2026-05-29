@@ -53,6 +53,63 @@ async function readStableNodeCount(page: import('@playwright/test').Page) {
   return Number((await nodeCount.textContent()) || '0');
 }
 
+async function readWorkflowByName(page: import('@playwright/test').Page, name: string) {
+  return page.evaluate(async (workflowName) => {
+    const response = await fetch('/api/workflows');
+    const payload = await response.json();
+    const workflows = Array.isArray(payload?.data) ? payload.data : [];
+    return workflows.find((workflow: { name?: string }) => workflow.name === workflowName) ?? null;
+  }, name);
+}
+
+async function readWorkflowDocument(page: import('@playwright/test').Page, workflowId: string) {
+  return page.evaluate(async (id) => {
+    const response = await fetch(`/api/workflows/${encodeURIComponent(id)}`);
+    const payload = await response.json();
+    return payload?.data ?? null;
+  }, workflowId);
+}
+
+async function readDuplicateWorkflow(
+  page: import('@playwright/test').Page,
+  originalId: string,
+  workflowName: string,
+) {
+  return page.evaluate(
+    async ({ sourceId, sourceName }) => {
+      const response = await fetch('/api/workflows');
+      const payload = await response.json();
+      const workflows = Array.isArray(payload?.data) ? payload.data : [];
+      return (
+        workflows.find(
+          (workflow: { id?: string; name?: string }) =>
+            workflow.id !== sourceId && typeof workflow.name === 'string' && workflow.name.startsWith(sourceName),
+        ) ?? null
+      );
+    },
+    { sourceId: originalId, sourceName: workflowName },
+  );
+}
+
+async function readWorkflowExistence(
+  page: import('@playwright/test').Page,
+  originalId: string,
+  duplicatedId: string,
+) {
+  return page.evaluate(
+    async ({ sourceId, copyId }) => {
+      const response = await fetch('/api/workflows');
+      const payload = await response.json();
+      const workflows = Array.isArray(payload?.data) ? payload.data : [];
+      return {
+        originalExists: workflows.some((workflow: { id?: string }) => workflow.id === sourceId),
+        duplicateExists: workflows.some((workflow: { id?: string }) => workflow.id === copyId),
+      };
+    },
+    { sourceId: originalId, copyId: duplicatedId },
+  );
+}
+
 test.describe('studio smoke', () => {
   test('public developer docs reflect the current main plus release branch model', async ({ page }) => {
     await page.goto('/docs/developer-guide.md');
@@ -117,6 +174,139 @@ test.describe('studio smoke', () => {
     await page.getByTestId('workflow-node-item-textInput').click();
 
     await expect(nodeCount).toHaveText(String(beforeCount + 1));
+  });
+
+  test('workflow can save and reload a created workflow', async ({ page }) => {
+    const workflowName = `E2E Workflow Save ${Date.now().toString(36)}`;
+
+    await clearLocalState(page);
+
+    await page.getByTestId('nav-tab-workflow').click();
+    await expect(page.getByTestId('workflow-page')).toBeVisible();
+
+    await page.getByTestId('workflow-new').click();
+    await page.getByTestId('workflow-name-input').fill(workflowName);
+    const beforeCount = await readStableNodeCount(page);
+    await page.getByTestId('workflow-node-item-textInput').click();
+    const expectedNodeCount = beforeCount + 1;
+    await page.getByTestId('workflow-save').click();
+
+    await expect
+      .poll(async () => Boolean(await readWorkflowByName(page, workflowName)), {
+        timeout: 10_000,
+        intervals: [250, 500, 1_000],
+      })
+      .toBe(true);
+
+    const savedWorkflow = await readWorkflowByName(page, workflowName);
+    const workflowId = (savedWorkflow as { id?: string }).id;
+    expect(typeof workflowId).toBe('string');
+
+    const savedDocument = await readWorkflowDocument(page, workflowId as string);
+    expect(savedDocument?.name).toBe(workflowName);
+    expect(Array.isArray(savedDocument?.nodes) ? savedDocument.nodes.length : 0).toBe(expectedNodeCount);
+
+    await page.reload();
+    await expect(page.getByTestId('workflow-page')).toBeVisible();
+    await expect(page.getByTestId('workflow-name-input')).toHaveValue(workflowName);
+    await expect(page.getByTestId('workflow-node-count').locator('strong')).toHaveText(String(expectedNodeCount));
+  });
+
+  test('workflow can duplicate and delete a saved workflow', async ({ page }) => {
+    const workflowName = `E2E Workflow Duplicate ${Date.now().toString(36)}`;
+
+    await clearLocalState(page);
+
+    await page.getByTestId('nav-tab-workflow').click();
+    await expect(page.getByTestId('workflow-page')).toBeVisible();
+
+    await page.getByTestId('workflow-new').click();
+    await page.getByTestId('workflow-name-input').fill(workflowName);
+    await page.getByTestId('workflow-node-item-textInput').click();
+    await page.getByTestId('workflow-save').click();
+
+    await expect
+      .poll(async () => Boolean(await readWorkflowByName(page, workflowName)), {
+        timeout: 10_000,
+        intervals: [250, 500, 1_000],
+      })
+      .toBe(true);
+    const original = await readWorkflowByName(page, workflowName);
+    const originalId = (original as { id?: string }).id;
+    expect(typeof originalId).toBe('string');
+
+    await page.getByTestId('workflow-duplicate').click();
+
+    await expect
+      .poll(
+        async () => Boolean(await readDuplicateWorkflow(page, originalId as string, workflowName)),
+        {
+          timeout: 10_000,
+          intervals: [250, 500, 1_000],
+        },
+      )
+      .toBe(true);
+
+    const duplicated = await readDuplicateWorkflow(page, originalId as string, workflowName);
+    const duplicatedId = (duplicated as { id?: string }).id;
+    expect(typeof duplicatedId).toBe('string');
+    await expect(page.getByTestId('workflow-name-input')).toHaveValue((duplicated as { name: string }).name);
+
+    page.once('dialog', async (dialog) => {
+      await dialog.accept();
+    });
+    await page.getByTestId('workflow-delete').click();
+
+    await expect
+      .poll(
+        async () => readWorkflowExistence(page, originalId as string, duplicatedId as string),
+        {
+          timeout: 10_000,
+          intervals: [250, 500, 1_000],
+        },
+      )
+      .toEqual({ originalExists: true, duplicateExists: false });
+  });
+
+  test('workflow import report explains retry handling modes after id rewrite', async ({ page }) => {
+    await clearLocalState(page);
+
+    await page.getByTestId('nav-tab-workflow').click();
+    await expect(page.getByTestId('workflow-page')).toBeVisible();
+
+    await page.getByTestId('workflow-node-item-textInput').click();
+    await page.getByRole('button', { name: '保存' }).click();
+
+    const currentWorkflowId = await page.evaluate(async () => {
+      const response = await fetch('/api/workflows');
+      const payload = await response.json();
+      return payload.data?.[0]?.id;
+    });
+    expect(typeof currentWorkflowId).toBe('string');
+
+    const importedWorkflow = {
+      id: currentWorkflowId,
+      name: '冲突导入工作流',
+      version: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      nodes: [],
+      edges: [],
+      settings: {},
+    };
+
+    await page.locator('input[type="file"][accept=".json,application/json"]').setInputFiles({
+      name: 'conflict-workflow.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(importedWorkflow), 'utf8'),
+    });
+
+    await expect(page.locator('.workflow-import-modal__dialog')).toBeVisible();
+    await expect(page.getByText('导入已完成。下面列出版本迁移、提示和被忽略字段。')).toBeVisible();
+    await expect(page.getByText(/workflow\.id/)).toBeVisible();
+    await expect(page.getByText('用其他方式重新导入')).toBeVisible();
+    await expect(page.getByRole('button', { name: /生成新 ID/ })).toContainText('保留现有工作流不变');
+    await expect(page.getByRole('button', { name: /覆盖现有工作流/ })).toContainText('替换当前同 ID 工作流');
   });
 
   test('workflow toolbar can navigate back to settings', async ({ page }) => {

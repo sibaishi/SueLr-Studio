@@ -1,4 +1,4 @@
-import { getImportModeLabel } from '@/domains/workflow/lib/importExport';
+import { getImportModeDescription, getImportModeLabel } from '@/domains/workflow/lib/importExport';
 import type { WorkflowImportError, WorkflowImportMode } from '@/domains/workflow/lib/persistenceTypes';
 import { AlertTriangle, GitBranch, RefreshCw } from 'lucide-react';
 import { useEffect } from 'react';
@@ -33,7 +33,7 @@ export default function WorkflowImportConflictModal({
           <div>
             <div className="workflow-panel__eyebrow">导入冲突</div>
             <div className="workflow-panel__title">{fileName || 'workflow.json'}</div>
-            <div className="workflow-panel__desc">检测到工作流 ID 冲突，请选择导入策略继续。</div>
+            <div className="workflow-panel__desc">检测到同 ID 工作流。选择一种处理方式后再继续导入。</div>
           </div>
           <div className="workflow-import-modal__status workflow-import-modal__status--warning">
             <AlertTriangle size={14} />
@@ -46,25 +46,31 @@ export default function WorkflowImportConflictModal({
             <div className="workflow-results__section-title">冲突说明</div>
             <div className="workflow-import-modal__item">{conflict.message}</div>
             {conflict.details?.workflowId && (
-              <div className="workflow-import-modal__item">冲突工作流 ID: {conflict.details.workflowId}</div>
+              <div className="workflow-import-modal__meta-row">
+                <span>冲突 ID</span>
+                <strong>{conflict.details.workflowId}</strong>
+              </div>
             )}
           </section>
 
           <section className="workflow-import-modal__actions">
             <div className="workflow-import-modal__actions-label">
               <GitBranch size={14} />
-              <span>继续导入</span>
+              <span>选择处理方式</span>
             </div>
             <div className="workflow-import-modal__actions-row">
               {retryModes.map((mode) => (
                 <button
                   key={mode}
                   type="button"
-                  className="workflow-import-modal__button"
+                  className="workflow-import-modal__mode-button"
                   onClick={() => void onRetry(mode)}
                 >
-                  <RefreshCw size={13} />
-                  {getImportModeLabel(mode)}
+                  <span>
+                    <RefreshCw size={13} />
+                    <strong>{getImportModeLabel(mode)}</strong>
+                  </span>
+                  <small>{getImportModeDescription(mode)}</small>
                 </button>
               ))}
             </div>
