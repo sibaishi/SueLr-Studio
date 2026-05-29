@@ -27,9 +27,8 @@ describe('repository documentation and branch hygiene', () => {
     const contributing = readUtf8('CONTRIBUTING.md');
     const developerGuide = readUtf8('docs/developer-guide.md');
     const releaseSop = readUtf8('docs/release-sop.md');
-    const deploymentPlan = readUtf8('docs/deployment-variants-plan.md');
 
-    for (const source of [contributing, developerGuide, releaseSop, deploymentPlan]) {
+    for (const source of [contributing, developerGuide, releaseSop]) {
       expect(source).toContain('main');
       expect(source).toContain('release/local-web');
       expect(source).toContain('release/desktop');
@@ -37,20 +36,11 @@ describe('repository documentation and branch hygiene', () => {
     }
   });
 
-  it('keeps the public deployment plan in the allowed documentation surface', () => {
-    const developerGuide = readUtf8('docs/developer-guide.md');
-    const contributing = readUtf8('CONTRIBUTING.md');
-
-    expect(developerGuide).toContain('docs/deployment-variants-plan.md');
-    expect(contributing).toContain('docs/deployment-variants-plan.md');
-  });
-
   it('documents domains, providers, and shared runtime ownership consistently', () => {
     const agents = readUtf8('AGENTS.md');
     const developerGuide = readUtf8('docs/developer-guide.md');
-    const deploymentPlan = readUtf8('docs/deployment-variants-plan.md');
 
-    for (const source of [agents, developerGuide, deploymentPlan]) {
+    for (const source of [agents, developerGuide]) {
       expect(source).toContain('src/domains/');
       expect(source).toContain('src/providers/');
       expect(source).toContain('src/shared/runtime/');
@@ -66,9 +56,8 @@ describe('repository documentation and branch hygiene', () => {
     }
   });
 
-  it('keeps local-web launcher scripts and package entrypoints aligned with the public plan', () => {
+  it('keeps local-web launcher scripts and package entrypoints aligned with the public docs', () => {
     const packageJson = readUtf8('package.json');
-    const deploymentPlan = readUtf8('docs/deployment-variants-plan.md');
     const userGuide = readUtf8('docs/user-guide.md');
     const startDev = readUtf8('scripts/start-dev.mjs');
     const startLocalWeb = readUtf8('scripts/start-local-web.mjs');
@@ -82,8 +71,6 @@ describe('repository documentation and branch hygiene', () => {
     expect(startLocalWeb).toContain("APP_RUNTIME_MODE: 'local-web'");
     expect(startLocalWeb).toContain('const frontendUrl = `http://localhost:${backendPort}`');
     expect(buildLocalWeb).toContain("runNpmChecked(['run', 'build']");
-    expect(deploymentPlan).toContain('scripts/start-local-web.mjs');
-    expect(deploymentPlan).toContain('scripts/build-local-web.mjs');
     expect(userGuide).toContain('npm.cmd run dev:local-web');
     expect(userGuide).toContain('npm.cmd run build:local-web');
     expect(userGuide).toContain('npm.cmd run start:local-web');

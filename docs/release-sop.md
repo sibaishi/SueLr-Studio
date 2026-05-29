@@ -2,8 +2,6 @@
 
 This document defines the standard release workflow for SueLr Studio variants. Current `local-web`, `desktop`, and `server-web` release commands and deployment checks are tracked here plus `docs/user-guide.md` and `docs/developer-guide.md`.
 
-Historical variant planning remains in `docs/deployment-variants-plan.md`, but current release execution should follow this SOP and the user/developer guides.
-
 ## Branching
 
 - `main` is the shared long-lived source branch in this repository.

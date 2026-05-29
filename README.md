@@ -128,7 +128,6 @@ npm.cmd run check:encoding
 - [User Guide](docs/user-guide.md)
 - [Developer Guide](docs/developer-guide.md)
 - [Release SOP](docs/release-sop.md)
-- [Backend TypeScript Migration Plan](docs/backend-typescript-migration-plan.md)
 
 ## 本地生成物
 

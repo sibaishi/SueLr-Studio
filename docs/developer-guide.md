@@ -78,7 +78,6 @@ Backend TypeScript cleanup note:
 - backend runtime is TypeScript-first: `backend/server.ts`, `backend/src/**/*.ts`, and `backend/tests/**/*.test.ts` run through Node 22 `--experimental-strip-types`
 - do not recreate `backend/server.js`, `backend/src/**/*.js` facades, or `backend/tests/**/*.js`
 - backend runtime code should import backend modules through `.ts` paths; frontend shared workflow `.js` modules remain out of scope
-- the completed backend JavaScript facade removal record is tracked in `docs/backend-typescript-migration-plan.md`
 
 Current cleanup and ownership notes:
 
@@ -509,16 +508,12 @@ Only these public markdown docs belong under `docs/`:
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
-- `docs/deployment-variants-plan.md`
-- `docs/backend-typescript-migration-plan.md`
 
 Rules for future work:
 
 - every structural or behavior change that affects user flows must update `docs/user-guide.md`
 - every structural or ownership change that affects developer navigation must update `docs/developer-guide.md`
 - every desktop release workflow change must update `docs/release-sop.md`
-- every mainline-and-variant execution-plan change must update `docs/deployment-variants-plan.md`
-- every backend runtime-entry, restart, server-web backend packaging, or JavaScript-facade cleanup change must update `docs/backend-typescript-migration-plan.md`
 - do not add private working notes, weekly scratch files, or internal-only plans under `docs/`
 - keep this guide aligned with the actual file layout so maintainers can jump directly to the right module instead of re-scanning the repo
 
@@ -535,11 +530,7 @@ Working rules:
 
 - implement shared behavior on `main` first in this repository
 - keep release branches focused on packaging, deployment, and shell-specific differences
-- use `docs/deployment-variants-plan.md` as the public execution reference for:
-  - which shared-trunk files move first
-  - which variant scripts must be added
-  - which server interfaces change by phase
-  - what each milestone must prove before the next one starts
+- keep release commands and deployment checks in `docs/release-sop.md`, `docs/user-guide.md`, and this guide
 
 ## Maintenance Workflow
 

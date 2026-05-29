@@ -98,7 +98,6 @@ Critical ownership rules:
 - Backend runtime is TypeScript-first: `backend/server.ts`, `backend/src/**/*.ts`, and `backend/tests/**/*.test.ts` run through Node 22 `--experimental-strip-types`
 - Do not recreate `backend/server.js`, `backend/src/**/*.js` facades, or `backend/tests/**/*.js`
 - Backend runtime code should import backend modules through `.ts` paths; frontend shared workflow `.js` modules remain out of scope
-- The completed backend TypeScript migration record lives in `docs/backend-typescript-migration-plan.md`
 
 ## Runtime Paths
 
@@ -119,8 +118,6 @@ Never hardcode app-data paths. Use the config-dir resolver:
   - `docs/user-guide.md`
   - `docs/developer-guide.md`
   - `docs/release-sop.md`
-  - `docs/deployment-variants-plan.md`
-  - `docs/backend-typescript-migration-plan.md` when backend runtime entrypoints, Docker runtime files, or restart behavior change
 
 ## UTF-8 Checks
 
