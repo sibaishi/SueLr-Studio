@@ -366,7 +366,7 @@ body {
   border-color: var(--color-border);
 }
 
-.workflow-toolbar__select,
+.workflow-toolbar__library-button,
 .workflow-toolbar__input,
 .workflow-sidebar__search input {
   border: 1px solid var(--color-border);
@@ -375,7 +375,7 @@ body {
   outline: none;
 }
 
-.workflow-toolbar__select,
+.workflow-toolbar__library-button,
 .workflow-toolbar__input {
   height: 36px;
   border-radius: 12px;
@@ -384,10 +384,35 @@ body {
   padding: 0 12px;
 }
 
-.workflow-toolbar__select {
-  width: 190px;
-  min-width: 168px;
-  flex: 0 0 190px;
+.workflow-toolbar__library-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 128px;
+  flex: 0 0 auto;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.workflow-toolbar__library-button:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 34%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-tertiary));
+}
+
+.workflow-toolbar__library-button span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  padding: 0 6px;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .workflow-toolbar__input {
@@ -1437,6 +1462,295 @@ body {
   background: rgba(10, 132, 255, 0.14);
   border-color: rgba(10, 132, 255, 0.24);
   color: var(--color-accent);
+}
+
+.workflow-library-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(7, 9, 13, 0.58);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.workflow-library-modal__dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(880px, 100%);
+  max-height: min(86vh, 860px);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.workflow-library-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.workflow-library-modal__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.workflow-library-modal__title {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.workflow-library-modal__desc {
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.workflow-library-modal__close,
+.workflow-library-modal__icon-action,
+.workflow-library-modal__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.workflow-library-modal__close {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  flex: 0 0 auto;
+}
+
+.workflow-library-modal__close:hover,
+.workflow-library-modal__icon-action:hover:not(:disabled),
+.workflow-library-modal__action:hover:not(:disabled) {
+  background: var(--glass-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.workflow-library-modal__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.workflow-library-modal__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 360px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  padding: 0 12px;
+  color: var(--color-text-tertiary);
+}
+
+.workflow-library-modal__search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+
+.workflow-library-modal__count {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-library-modal__error {
+  margin: 12px 20px 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 32%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+.workflow-library-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px 20px;
+}
+
+.workflow-library-modal__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  padding: 13px;
+}
+
+.workflow-library-modal__row--active {
+  border-color: color-mix(in srgb, var(--color-accent) 44%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-bg-secondary));
+}
+
+.workflow-library-modal__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.workflow-library-modal__name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.workflow-library-modal__name-button {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 750;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-library-modal__name-button:hover {
+  color: var(--color-accent);
+}
+
+.workflow-library-modal__rename-input {
+  width: min(420px, 100%);
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  outline: none;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.workflow-library-modal__tag {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.workflow-library-modal__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 7px;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
+.workflow-library-modal__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.workflow-library-modal__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.workflow-library-modal__icon-action {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+}
+
+.workflow-library-modal__icon-action--danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 9%, transparent);
+}
+
+.workflow-library-modal__action {
+  min-height: 32px;
+  border-radius: 11px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-library-modal__action--primary {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+}
+
+.workflow-library-modal__icon-action:disabled,
+.workflow-library-modal__action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.workflow-library-modal__empty {
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 18px;
+  border: 1px dashed var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.workflow-library-modal__empty strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.workflow-library-modal__empty span {
+  font-size: 12px;
 }
 
 ::-webkit-scrollbar {

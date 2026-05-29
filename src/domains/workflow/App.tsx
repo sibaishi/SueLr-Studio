@@ -3,10 +3,12 @@ import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import Sidebar from '@/domains/workflow/components/Sidebar';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
+import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
 import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
 import { useWorkflowImport } from '@/domains/workflow/hooks/useWorkflowImport';
 import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
+import { deleteWorkflow, fetchWorkflow, updateWorkflow } from '@/domains/workflow/lib/api';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
@@ -26,6 +28,8 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
   const store = useWorkflowPageStore();
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [workflowLibraryOpen, setWorkflowLibraryOpen] = useState(false);
+  const [workflowLibraryBusy, setWorkflowLibraryBusy] = useState(false);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
   const { canUndo, canRedo, handleUndo, handleRedo, resetHistory, captureImmediateHistory } =
     useWorkflowHistory(store);
@@ -165,15 +169,69 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     })();
   }, []);
 
+  const handleLibraryOpenWorkflow = useCallback(
+    (workflowId: string) => {
+      void (async () => {
+        await handleSelectWorkflow(workflowId);
+        setWorkflowLibraryOpen(false);
+      })();
+    },
+    [handleSelectWorkflow],
+  );
+
+  const handleLibraryRenameWorkflow = useCallback(async (workflowId: string, name: string) => {
+    setWorkflowLibraryBusy(true);
+    try {
+      const workflowResult = await fetchWorkflow(workflowId);
+      if (!workflowResult.success || !workflowResult.data) return false;
+      const updateResult = await updateWorkflow(workflowId, { ...workflowResult.data, name });
+      if (!updateResult.success) return false;
+
+      await useWorkflowStore.getState().fetchWorkflowList();
+      const state = useWorkflowStore.getState();
+      const openedDocument = state.documents.find((document) => document.sourceWorkflowId === workflowId);
+      if (openedDocument) {
+        const documents = state.documents.map((document) =>
+          document.documentId === openedDocument.documentId ? { ...document, name } : document,
+        );
+        useWorkflowStore.setState({
+          documents,
+          ...(state.activeDocumentId === openedDocument.documentId ? { workflowName: name } : {}),
+        });
+      }
+      setWorkflowErrorMessage(null);
+      return true;
+    } finally {
+      setWorkflowLibraryBusy(false);
+    }
+  }, []);
+
+  const handleLibraryDeleteWorkflow = useCallback(async (workflowId: string) => {
+    setWorkflowLibraryBusy(true);
+    try {
+      const result = await deleteWorkflow(workflowId);
+      if (!result.success) return false;
+      const workflowStore = useWorkflowStore.getState();
+      const openedDocument = workflowStore.documents.find((document) => document.sourceWorkflowId === workflowId);
+      if (openedDocument) {
+        await workflowStore.closeWorkflowDocument(openedDocument.documentId, { discardUnsaved: true });
+      }
+      await useWorkflowStore.getState().fetchWorkflowList();
+      setWorkflowErrorMessage(null);
+      return true;
+    } finally {
+      setWorkflowLibraryBusy(false);
+    }
+  }, []);
+
   return (
     <div className="workflow-page flex h-full w-full min-w-0 flex-col overflow-hidden" data-testid="workflow-page">
       <Toolbar
-        workflowId={store.workflowId}
         workflowName={store.workflowName}
         workflows={store.workflowList}
         onWorkflowNameChange={store.setWorkflowName}
         onNewWorkflow={handleNewWorkflow}
-        onSelectWorkflow={handleSelectWorkflow}
+        onOpenWorkflowLibrary={() => setWorkflowLibraryOpen(true)}
         onDuplicateWorkflow={handleDuplicateWorkflow}
         onDeleteWorkflow={handleDeleteWorkflow}
         onImportWorkflow={handleImportClick}
@@ -276,6 +334,21 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
           fileName={importReportFileName}
           report={importReport}
           onClose={() => setImportReport(null)}
+        />
+      )}
+
+      {workflowLibraryOpen && (
+        <WorkflowLibraryModal
+          workflows={store.workflowList}
+          activeWorkflowId={store.workflowId}
+          openDocumentWorkflowIds={store.documents
+            .map((document) => document.sourceWorkflowId)
+            .filter((workflowId): workflowId is string => Boolean(workflowId))}
+          isBusy={workflowLibraryBusy}
+          onClose={() => setWorkflowLibraryOpen(false)}
+          onOpenWorkflow={handleLibraryOpenWorkflow}
+          onRenameWorkflow={handleLibraryRenameWorkflow}
+          onDeleteWorkflow={handleLibraryDeleteWorkflow}
         />
       )}
 

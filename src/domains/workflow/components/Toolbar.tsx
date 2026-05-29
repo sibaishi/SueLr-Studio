@@ -19,15 +19,14 @@ import {
   Upload,
   Workflow,
 } from 'lucide-react';
-import { type ReactNode, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 interface ToolbarProps {
-  workflowId: string;
   workflowName: string;
   workflows: WorkflowListItem[];
   onWorkflowNameChange: (name: string) => void;
   onNewWorkflow: () => void;
-  onSelectWorkflow: (workflowId: string) => void;
+  onOpenWorkflowLibrary: () => void;
   onDuplicateWorkflow: () => void;
   onDeleteWorkflow: () => void;
   onImportWorkflow: () => void;
@@ -77,12 +76,11 @@ function getSaveStatusTone(isSavingWorkflow: boolean, hasUnsavedChanges: boolean
 
 export default function Toolbar(props: ToolbarProps) {
   const {
-    workflowId,
     workflowName,
     workflows,
     onWorkflowNameChange,
     onNewWorkflow,
-    onSelectWorkflow,
+    onOpenWorkflowLibrary,
     onDuplicateWorkflow,
     onDeleteWorkflow,
     onImportWorkflow,
@@ -110,10 +108,6 @@ export default function Toolbar(props: ToolbarProps) {
     executionProgress,
     executingNodeLabel,
   } = props;
-
-  const currentWorkflowValue = useMemo(() => {
-    return workflows.some((workflow) => workflow.id === workflowId) ? workflowId : '';
-  }, [workflowId, workflows]);
 
   const saveStatus = formatSaveStatus(isSavingWorkflow, hasUnsavedChanges, lastSavedAt);
   const saveStatusTone = getSaveStatusTone(isSavingWorkflow, hasUnsavedChanges, lastSavedAt);
@@ -152,19 +146,17 @@ export default function Toolbar(props: ToolbarProps) {
         </div>
 
         <div className="workflow-toolbar__group workflow-toolbar__group--workflow">
-          <select
-            value={currentWorkflowValue}
-            onChange={(event) => onSelectWorkflow(event.target.value)}
-            className="workflow-toolbar__select"
-            title="打开已有工作流"
+          <button
+            type="button"
+            onClick={onOpenWorkflowLibrary}
+            className="workflow-toolbar__library-button"
+            data-testid="workflow-open-library"
+            title="打开工作流库"
           >
-            <option value="">打开已有工作流</option>
-            {workflows.map((workflow) => (
-              <option key={workflow.id} value={workflow.id}>
-                {workflow.name}
-              </option>
-            ))}
-          </select>
+            <Workflow size={14} />
+            工作流库
+            <span>{workflows.length}</span>
+          </button>
 
           <input
             type="text"
