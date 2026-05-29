@@ -11,9 +11,8 @@ async function clearLocalState(page: import('@playwright/test').Page) {
   await page.reload();
 
   const settingsTab = page.getByTestId('nav-tab-settings');
-  if (await settingsTab.isVisible({ timeout: 10_000 }).catch(() => false)) {
-    await settingsTab.click();
-  }
+  await expect(settingsTab).toBeVisible({ timeout: 10_000 });
+  await settingsTab.click();
 
   await expect(page.getByTestId('settings-page')).toBeVisible();
 }
@@ -436,6 +435,10 @@ test.describe('studio smoke', () => {
             canSelectDirectory: false,
             canRestartBackend: false,
             hasEmbeddedShell: false,
+            auth: {
+              required: false,
+              user: null,
+            },
           },
         }),
       });
@@ -533,6 +536,10 @@ test.describe('studio smoke', () => {
             canSelectDirectory: false,
             canRestartBackend: false,
             hasEmbeddedShell: false,
+            auth: {
+              required: false,
+              user: null,
+            },
           },
         }),
       });
@@ -582,6 +589,10 @@ test.describe('studio smoke', () => {
             canSelectDirectory: false,
             canRestartBackend: false,
             hasEmbeddedShell: false,
+            auth: {
+              required: false,
+              user: null,
+            },
           },
         }),
       });
