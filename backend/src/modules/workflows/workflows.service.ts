@@ -138,6 +138,16 @@ export class WorkflowsService {
     logger.info('workflow imported', { workflowId: workflow.id, result: report.result });
     return { workflow, report };
   }
+
+  importDraft(input: PlainObject, options: ScopeOptions = {}) {
+    const { workflow, report } = importWorkflowDocument(input, {
+      generateNewId: true,
+      mode: 'generate_new_id',
+    });
+    const scopedWorkflow = ensureResourceOwnership(workflow, options.scope);
+    logger.info('workflow draft imported', { workflowId: scopedWorkflow.id, result: report.result });
+    return { workflow: scopedWorkflow, report };
+  }
 }
 
 export const workflowsService = new WorkflowsService();

@@ -267,7 +267,7 @@ test.describe('studio smoke', () => {
       .toEqual({ originalExists: true, duplicateExists: false });
   });
 
-  test('workflow import report explains retry handling modes after id rewrite', async ({ page }) => {
+  test('workflow import opens a new unsaved draft tab without persisting to the library', async ({ page }) => {
     await clearLocalState(page);
 
     await page.getByTestId('nav-tab-workflow').click();
@@ -276,11 +276,15 @@ test.describe('studio smoke', () => {
     await page.getByTestId('workflow-node-item-textInput').click();
     await page.getByRole('button', { name: '保存' }).click();
 
-    const currentWorkflowId = await page.evaluate(async () => {
+    const beforeImport = await page.evaluate(async () => {
       const response = await fetch('/api/workflows');
       const payload = await response.json();
-      return payload.data?.[0]?.id;
+      return {
+        count: payload.data?.length,
+        id: payload.data?.[0]?.id,
+      };
     });
+    const currentWorkflowId = beforeImport.id;
     expect(typeof currentWorkflowId).toBe('string');
 
     const importedWorkflow = {
@@ -301,11 +305,32 @@ test.describe('studio smoke', () => {
     });
 
     await expect(page.locator('.workflow-import-modal__dialog')).toBeVisible();
-    await expect(page.getByText('导入已完成。下面列出版本迁移、提示和被忽略字段。')).toBeVisible();
+    await expect(page.getByText('已打开为新的未保存标签页。保存时会创建新的工作流记录。')).toBeVisible();
     await expect(page.getByText(/workflow\.id/)).toBeVisible();
-    await expect(page.getByText('用其他方式重新导入')).toBeVisible();
-    await expect(page.getByRole('button', { name: /生成新 ID/ })).toContainText('保留现有工作流不变');
-    await expect(page.getByRole('button', { name: /覆盖现有工作流/ })).toContainText('替换当前同 ID 工作流');
+    await expect(page.getByText('用其他方式重新导入')).toHaveCount(0);
+    await expect(page.getByTestId('workflow-document-tabs')).toContainText('conflict-workflow *');
+
+    const afterImport = await page.evaluate(async (originalId) => {
+      const response = await fetch('/api/workflows');
+      const payload = await response.json();
+      return {
+        count: payload.data?.length,
+        originalCount: payload.data?.filter((workflow: { id: string }) => workflow.id === originalId).length,
+      };
+    }, currentWorkflowId);
+    expect(afterImport).toEqual({ count: beforeImport.count, originalCount: 1 });
+
+    await page.locator('.workflow-import-modal__button--primary').click();
+    await page.getByRole('button', { name: '保存' }).click();
+    await expect
+      .poll(async () => {
+        const response = await page.evaluate(async () => {
+          const result = await fetch('/api/workflows');
+          return result.json();
+        });
+        return response.data?.length;
+      })
+      .toBe((beforeImport.count || 0) + 1);
   });
 
   test('workflow toolbar can navigate back to settings', async ({ page }) => {

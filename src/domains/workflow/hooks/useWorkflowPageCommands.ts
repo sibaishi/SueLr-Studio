@@ -33,7 +33,6 @@ function formatWorkflowActionError(action: string, message?: string | null) {
 
 export function useWorkflowPageCommands({
   store,
-  confirmDiscardChanges,
   resetHistory,
   setWorkflowErrorMessage,
 }: {
@@ -103,9 +102,7 @@ export function useWorkflowPageCommands({
           x: center.x - size.w / 2 + stagger,
           y: center.y - size.h / 2 + stagger,
         },
-        {
-          text,
-        },
+        { text },
       );
     },
     [store],
@@ -135,16 +132,14 @@ export function useWorkflowPageCommands({
   }, [store]);
 
   const handleNewWorkflow = useCallback(() => {
-    if (!confirmDiscardChanges('新建工作流')) return;
     store.newWorkflow();
     setWorkflowErrorMessage(null);
     resetHistory();
-  }, [confirmDiscardChanges, resetHistory, setWorkflowErrorMessage, store]);
+  }, [resetHistory, setWorkflowErrorMessage, store]);
 
   const handleSelectWorkflow = useCallback(
     async (workflowId: string) => {
       if (!workflowId || workflowId === store.workflowId) return;
-      if (!confirmDiscardChanges('切换工作流')) return;
       const result = await store.loadWorkflowDetailed(workflowId);
       if (!result.success) {
         setWorkflowErrorMessage(formatWorkflowActionError('加载工作流', result.message));
@@ -153,7 +148,7 @@ export function useWorkflowPageCommands({
       setWorkflowErrorMessage(null);
       resetHistory();
     },
-    [confirmDiscardChanges, resetHistory, setWorkflowErrorMessage, store],
+    [resetHistory, setWorkflowErrorMessage, store],
   );
 
   const handleDuplicateWorkflow = useCallback(async () => {
@@ -169,7 +164,9 @@ export function useWorkflowPageCommands({
   const handleDeleteWorkflow = useCallback(async () => {
     const workflowLabel = store.workflowName || '当前工作流';
     const isSavedWorkflow = store.workflowList.some((workflow) => workflow.id === store.workflowId);
-    const scopeCopy = isSavedWorkflow ? '将从工作流列表中删除已保存记录。' : '当前内容仅存在于本地草稿中。';
+    const scopeCopy = isSavedWorkflow
+      ? '将从工作流库中删除已保存记录。已打开的标签页会变为未保存草稿。'
+      : '当前内容还没有保存到工作流库。';
     const confirmed = window.confirm(`确定要删除“${workflowLabel}”吗？\n\n${scopeCopy}\n此操作不可撤销。`);
     if (!confirmed) return;
 

@@ -3,7 +3,6 @@ import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import Sidebar from '@/domains/workflow/components/Sidebar';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
-import WorkflowImportConflictModal from '@/domains/workflow/components/WorkflowImportConflictModal';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
 import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
 import { useWorkflowImport } from '@/domains/workflow/hooks/useWorkflowImport';
@@ -65,15 +64,10 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     importInputRef,
     importReport,
     importReportFileName,
-    importConflict,
     importErrorMessage,
-    retryModes,
-    reportRetryModes,
     handleImportClick,
     handleImportWorkflow,
-    retryImport,
     setImportReport,
-    setImportConflict,
     setImportErrorMessage,
   } = useWorkflowImport({
     store,
@@ -154,9 +148,34 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
         workflowId={store.workflowId}
         workflowName={store.workflowName}
         workflows={store.workflowList}
+        documents={store.documents}
+        activeDocumentId={store.activeDocumentId}
         onWorkflowNameChange={store.setWorkflowName}
         onNewWorkflow={handleNewWorkflow}
         onSelectWorkflow={handleSelectWorkflow}
+        onSelectDocument={store.setActiveWorkflowDocument}
+        onCloseDocument={(documentId) => {
+          void (async () => {
+            const target = useWorkflowStore.getState().documents.find((document) => document.documentId === documentId);
+            if (target?.hasUnsavedChanges) {
+              const shouldSave = window.confirm('这个标签页有未保存修改。点击“确定”先保存，点击“取消”继续选择是否放弃。');
+              if (shouldSave) {
+                if (target.documentId !== useWorkflowStore.getState().activeDocumentId) {
+                  useWorkflowStore.getState().setActiveWorkflowDocument(target.documentId);
+                }
+                const saved = await useWorkflowStore.getState().saveWorkflow();
+                if (!saved) return;
+                await useWorkflowStore.getState().closeWorkflowDocument(target.documentId, { discardUnsaved: true });
+                return;
+              }
+              const discard = window.confirm('放弃这个标签页的未保存修改并关闭？');
+              if (!discard) return;
+              await useWorkflowStore.getState().closeWorkflowDocument(documentId, { discardUnsaved: true });
+              return;
+            }
+            await useWorkflowStore.getState().closeWorkflowDocument(documentId);
+          })();
+        }}
         onDuplicateWorkflow={handleDuplicateWorkflow}
         onDeleteWorkflow={handleDeleteWorkflow}
         onImportWorkflow={handleImportClick}
@@ -257,23 +276,11 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
         canRedo={canRedo}
       />
 
-      {importConflict && (
-        <WorkflowImportConflictModal
-          fileName={importReportFileName}
-          conflict={importConflict}
-          retryModes={retryModes}
-          onClose={() => setImportConflict(null)}
-          onRetry={retryImport}
-        />
-      )}
-
       {importReport && (
         <WorkflowImportReportModal
           fileName={importReportFileName}
           report={importReport}
           onClose={() => setImportReport(null)}
-          onRetry={retryImport}
-          retryModes={reportRetryModes}
         />
       )}
 

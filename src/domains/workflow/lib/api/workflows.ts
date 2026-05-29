@@ -105,3 +105,27 @@ export async function importWorkflow(
     },
   };
 }
+
+export async function importWorkflowDraft(data: Record<string, unknown>): Promise<WorkflowImportResult> {
+  const result = await workflowApiFetch<{ workflow: PersistedWorkflow; report: WorkflowImportReport }>(
+    '/workflows/import/draft',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+  );
+
+  return {
+    success: result.success,
+    data: result.data?.workflow,
+    error: result.error,
+    report: result.data?.report,
+    status: result.status,
+    importError: result.error
+      ? {
+          code: result.errorCode,
+          message: result.error,
+        }
+      : undefined,
+  };
+}

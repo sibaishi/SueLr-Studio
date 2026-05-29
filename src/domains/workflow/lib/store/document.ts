@@ -6,10 +6,16 @@ import type {
   WorkflowImportMode,
   WorkflowImportReport,
 } from '@/domains/workflow/lib/persistenceTypes';
+import {
+  createEmptyRuntimePatch,
+  getDocumentViewPatch,
+  patchActiveWorkflowDocument,
+} from '@/domains/workflow/lib/store/documents';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
 import { buildWorkflowPayload, gid, normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
 import { clearActiveRunSnapshot, type loadLocalDraft } from '@/domains/workflow/lib/store/persistence';
 import type {
+  WorkflowDocument,
   WorkflowImportResult,
   WorkflowState,
   WorkflowStoreGet,
@@ -47,31 +53,58 @@ function getApiErrorStatus(result: { status?: number } | undefined) {
   return typeof result?.status === 'number' ? result.status : undefined;
 }
 
-function resetWorkflowRuntimeStatePatch() {
+function normalizeWorkflowGraph(workflow: Workflow) {
+  const rawNodes = normalizeNodes(workflow.nodes);
+  const normalizedEdges = normalizeEdges(workflow.edges, new Set(rawNodes.map((node) => node.id)));
+  const normalizedNodes = normalizeEditorNodes(rawNodes, normalizedEdges);
+  const edges = pruneGroupPortEdges(normalizedNodes, normalizedEdges);
+  const nodes = normalizeEditorNodes(rawNodes, edges);
+  return { nodes, edges };
+}
+
+function createDocumentFromWorkflow(
+  workflow: Workflow,
+  options: {
+    documentId: string;
+    sourceWorkflowId?: string;
+    origin: WorkflowDocument['origin'];
+    hasUnsavedChanges: boolean;
+    lastSavedAt: number | null;
+    fallbackName?: string;
+  },
+): WorkflowDocument {
+  const { nodes, edges } = normalizeWorkflowGraph(workflow);
   return {
+    documentId: options.documentId,
+    workflowId: typeof workflow.id === 'string' ? workflow.id : gid(),
+    sourceWorkflowId: options.sourceWorkflowId,
+    name: typeof workflow.name === 'string' ? workflow.name : options.fallbackName || DEFAULT_WORKFLOW_NAME,
+    nodes,
+    edges,
     selectedNodeId: null,
-    isExecuting: false,
-    executionProgress: null,
-    executionMessage: null,
-    currentRunId: null,
-    executingNodeId: null,
-    lastExecutionStatus: null,
-    lastExecutionTime: null,
-    lastExecutionError: null,
-    lastExecutionSummary: null,
-    nodeExecStatus: {},
-    nodeExecutionTime: {},
-    nodeExecutionStartedAt: {},
-    nodeExecutionActiveCounts: {},
-    nodeExecutionStartedCounts: {},
-    nodeExecutionCompletedCounts: {},
-    nodeExecutionExpectedCounts: {},
-    nodeErrors: {},
-    nodeWarnings: {},
-    nodeOutputs: {},
-    aiResultOutputs: {},
-    executionLogs: [],
-    workflowWarningMessage: null,
+    hasUnsavedChanges: options.hasUnsavedChanges,
+    lastSavedAt: options.lastSavedAt,
+    origin: options.origin,
+    ...createEmptyRuntimePatch(),
+  };
+}
+
+function bindActiveDocumentAfterSave(state: WorkflowState, workflow: Workflow) {
+  const workflowId = typeof workflow.id === 'string' ? workflow.id : state.workflowId;
+  const savedAt = typeof workflow.updatedAt === 'number' ? workflow.updatedAt : Date.now();
+  return {
+    documents: patchActiveWorkflowDocument(state, {
+      workflowId,
+      sourceWorkflowId: workflowId,
+      name: state.workflowName,
+      hasUnsavedChanges: false,
+      lastSavedAt: savedAt,
+      origin: 'saved',
+    }),
+    workflowId,
+    isSavingWorkflow: false,
+    hasUnsavedChanges: false,
+    lastSavedAt: savedAt,
   } satisfies Partial<WorkflowState>;
 }
 
@@ -83,45 +116,51 @@ export function createWorkflowDocumentActions(
   return {
     saveWorkflowDetailed: async () => {
       const state = get();
+      const activeDocument = state.documents.find((document) => document.documentId === state.activeDocumentId);
+      const targetWorkflowId = activeDocument?.sourceWorkflowId;
+      const workflowData = buildWorkflowPayload(
+        targetWorkflowId || state.workflowId || gid(),
+        state.workflowName,
+        state.nodes,
+        state.edges,
+      );
+
       set({ isSavingWorkflow: true });
 
-      const workflowData = buildWorkflowPayload(state.workflowId, state.workflowName, state.nodes, state.edges);
+      if (targetWorkflowId) {
+        const updateResult = await api.updateWorkflow(targetWorkflowId, workflowData);
+        if (!updateResult.success) {
+          set({ isSavingWorkflow: false });
+          return {
+            success: false,
+            code: 'WORKFLOW_SAVE_FAILED',
+            message: getApiErrorMessage(updateResult, '保存工作流失败'),
+            status: getApiErrorStatus(updateResult),
+          };
+        }
 
-      const updateResult = await api.updateWorkflow(state.workflowId, workflowData);
-      if (updateResult.success) {
         await get().fetchWorkflowList();
-        set({
-          isSavingWorkflow: false,
-          hasUnsavedChanges: false,
-          lastSavedAt: Date.now(),
-        });
+        set(bindActiveDocumentAfterSave(get(), (updateResult.data || workflowData) as Workflow));
         get().persistLocalDraft();
-        return { success: true, data: { workflowId: state.workflowId } };
+        return { success: true, data: { workflowId: targetWorkflowId } };
       }
 
-      const createResult = await api.createWorkflow(workflowData);
-      if (createResult.success && createResult.data) {
-        const savedWorkflow = createResult.data as Workflow;
-        const savedId = typeof savedWorkflow.id === 'string' ? savedWorkflow.id : state.workflowId;
-
-        set({
-          workflowId: savedId,
-          isSavingWorkflow: false,
-          hasUnsavedChanges: false,
-          lastSavedAt: Date.now(),
-        });
-        await get().fetchWorkflowList();
-        get().persistLocalDraft();
-        return { success: true, data: { workflowId: savedId } };
+      const createResult = await api.createWorkflow({ ...workflowData, id: workflowData.id || gid() });
+      if (!createResult.success || !createResult.data) {
+        set({ isSavingWorkflow: false });
+        return {
+          success: false,
+          code: 'WORKFLOW_SAVE_FAILED',
+          message: getApiErrorMessage(createResult, '保存工作流失败'),
+          status: getApiErrorStatus(createResult),
+        };
       }
 
-      set({ isSavingWorkflow: false });
-      return {
-        success: false,
-        code: 'WORKFLOW_SAVE_FAILED',
-        message: getApiErrorMessage(createResult, getApiErrorMessage(updateResult, '保存工作流失败')),
-        status: getApiErrorStatus(createResult) ?? getApiErrorStatus(updateResult),
-      };
+      const savedWorkflow = createResult.data as Workflow;
+      await get().fetchWorkflowList();
+      set(bindActiveDocumentAfterSave(get(), savedWorkflow));
+      get().persistLocalDraft();
+      return { success: true, data: { workflowId: savedWorkflow.id } };
     },
 
     saveWorkflow: async () => {
@@ -131,6 +170,13 @@ export function createWorkflowDocumentActions(
 
     loadWorkflowDetailed: async (id) => {
       clearActiveRunSnapshot();
+
+      const alreadyOpen = get().documents.find((document) => document.sourceWorkflowId === id);
+      if (alreadyOpen) {
+        get().setActiveWorkflowDocument(alreadyOpen.documentId);
+        return { success: true, data: { workflowId: id } };
+      }
+
       const result = await api.fetchWorkflow(id);
       if (!result.success || !result.data) {
         return {
@@ -142,22 +188,18 @@ export function createWorkflowDocumentActions(
       }
 
       const workflow = result.data as Workflow;
-      const rawNodes = normalizeNodes(workflow.nodes);
-      const normalizedEdges = normalizeEdges(workflow.edges, new Set(rawNodes.map((node) => node.id)));
-      const normalizedNodes = normalizeEditorNodes(rawNodes, normalizedEdges);
-      const edges = pruneGroupPortEdges(normalizedNodes, normalizedEdges);
-      const nodes = normalizeEditorNodes(rawNodes, edges);
-
-      set({
-        workflowId: id,
-        workflowName: typeof workflow.name === 'string' ? workflow.name : DEFAULT_WORKFLOW_NAME,
-        nodes,
-        edges,
-        ...resetWorkflowRuntimeStatePatch(),
+      const document = createDocumentFromWorkflow(workflow, {
+        documentId: gid(),
+        sourceWorkflowId: id,
+        origin: 'saved',
         hasUnsavedChanges: false,
         lastSavedAt: typeof workflow.updatedAt === 'number' ? workflow.updatedAt : Date.now(),
       });
 
+      set({
+        documents: [...patchActiveWorkflowDocument(get()), document],
+        ...getDocumentViewPatch(document),
+      });
       get().persistLocalDraft();
       return { success: true, data: { workflowId: id } };
     },
@@ -188,28 +230,9 @@ export function createWorkflowDocumentActions(
 
     duplicateCurrentWorkflowDetailed: async () => {
       const state = get();
-      const existsInList = state.workflowList.some((workflow) => workflow.id === state.workflowId);
-
-      if (!existsInList) {
-        const result = await api.createWorkflow({
-          ...buildWorkflowPayload(`wf_${Date.now()}`, `${state.workflowName} (副本)`, state.nodes, state.edges),
-        });
-
-        if (!result.success || !result.data) {
-          return {
-            success: false,
-            code: 'WORKFLOW_DUPLICATE_FAILED',
-            message: getApiErrorMessage(result, '复制工作流失败'),
-            status: getApiErrorStatus(result),
-          };
-        }
-
-        const newId = (result.data as Workflow).id;
-        await get().fetchWorkflowList();
-        return get().loadWorkflowDetailed(newId);
-      }
-
-      const result = await api.duplicateWorkflow(state.workflowId);
+      const result = await api.createWorkflow(
+        buildWorkflowPayload(gid(), `${state.workflowName} (副本)`, state.nodes, state.edges),
+      );
       if (!result.success || !result.data) {
         return {
           success: false,
@@ -219,9 +242,14 @@ export function createWorkflowDocumentActions(
         };
       }
 
-      const newId = (result.data as Record<string, unknown>).id as string;
+      const savedWorkflow = result.data as Workflow;
       await get().fetchWorkflowList();
-      return get().loadWorkflowDetailed(newId);
+      set({
+        ...bindActiveDocumentAfterSave(get(), savedWorkflow),
+        workflowName: typeof savedWorkflow.name === 'string' ? savedWorkflow.name : `${state.workflowName} (副本)`,
+      });
+      get().persistLocalDraft();
+      return { success: true, data: { workflowId: savedWorkflow.id } };
     },
 
     duplicateCurrentWorkflow: async () => {
@@ -231,10 +259,14 @@ export function createWorkflowDocumentActions(
 
     deleteCurrentWorkflowDetailed: async () => {
       const state = get();
-      const existsInList = state.workflowList.some((workflow) => workflow.id === state.workflowId);
+      const activeDocument = state.documents.find((document) => document.documentId === state.activeDocumentId);
+      const sourceWorkflowId = activeDocument?.sourceWorkflowId;
+      const existsInList = Boolean(
+        sourceWorkflowId && state.workflowList.some((workflow) => workflow.id === sourceWorkflowId),
+      );
 
-      if (existsInList) {
-        const result = await api.deleteWorkflow(state.workflowId);
+      if (sourceWorkflowId && existsInList) {
+        const result = await api.deleteWorkflow(sourceWorkflowId);
         if (!result.success) {
           return {
             success: false,
@@ -246,15 +278,30 @@ export function createWorkflowDocumentActions(
       }
 
       await get().fetchWorkflowList();
-      const nextWorkflow = get().workflowList[0];
 
-      if (nextWorkflow) {
-        return get().loadWorkflowDetailed(nextWorkflow.id);
+      if (sourceWorkflowId) {
+        const latest = get();
+        const documents = patchActiveWorkflowDocument(latest).map((document) =>
+          document.sourceWorkflowId === sourceWorkflowId
+            ? {
+                ...document,
+                workflowId: gid(),
+                sourceWorkflowId: undefined,
+                origin: 'new' as const,
+                hasUnsavedChanges: true,
+                lastSavedAt: null,
+              }
+            : document,
+        );
+        const active = documents.find((document) => document.documentId === latest.activeDocumentId) || documents[0];
+        set({
+          documents,
+          ...getDocumentViewPatch(active),
+        });
       }
 
-      get().newWorkflow();
       get().persistLocalDraft();
-      return { success: true, data: {} };
+      return { success: true, data: { workflowId: sourceWorkflowId } };
     },
 
     deleteCurrentWorkflow: async () => {
@@ -272,7 +319,10 @@ export function createWorkflowDocumentActions(
         return { success: false, report: null, error: { message: '导入失败：文件格式不正确。' } };
       }
 
-      const importResult = await api.importWorkflow(payload as Record<string, unknown>, mode);
+      const importResult =
+        mode === 'generate_new_id'
+          ? await api.importWorkflowDraft(payload as Record<string, unknown>)
+          : await api.importWorkflow(payload as Record<string, unknown>, mode);
       if (!importResult.success || !importResult.data) {
         return {
           success: false,
@@ -284,22 +334,22 @@ export function createWorkflowDocumentActions(
       }
 
       const record = importResult.data as Workflow;
-      const rawNodes = normalizeNodes(record.nodes);
-      const normalizedEdges = normalizeEdges(record.edges, new Set(rawNodes.map((node) => node.id)));
-      const normalizedNodes = normalizeEditorNodes(rawNodes, normalizedEdges);
-      const edges = pruneGroupPortEdges(normalizedNodes, normalizedEdges);
-      const nodes = normalizeEditorNodes(rawNodes, edges);
-      const importedName = typeof record.name === 'string' ? record.name : fallbackName || DEFAULT_WORKFLOW_NAME;
+      const importedName = fallbackName || (typeof record.name === 'string' ? record.name : DEFAULT_WORKFLOW_NAME);
+      const document = createDocumentFromWorkflow(
+        { ...record, id: typeof record.id === 'string' ? record.id : gid(), name: importedName },
+        {
+          documentId: gid(),
+          origin: 'imported',
+          hasUnsavedChanges: true,
+          lastSavedAt: null,
+          fallbackName,
+        },
+      );
 
       clearActiveRunSnapshot();
       set({
-        workflowId: typeof record.id === 'string' ? record.id : gid(),
-        workflowName: importedName,
-        nodes,
-        edges,
-        ...resetWorkflowRuntimeStatePatch(),
-        hasUnsavedChanges: true,
-        lastSavedAt: null,
+        documents: [...patchActiveWorkflowDocument(get()), document],
+        ...getDocumentViewPatch(document),
       });
 
       get().persistLocalDraft();

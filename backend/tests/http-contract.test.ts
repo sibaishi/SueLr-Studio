@@ -561,6 +561,26 @@ test('HTTP contract: workflows CRUD endpoints return expected envelopes', async 
     assert.equal(imported.body.data.workflow.name, 'Contract Workflow');
     assert.equal(imported.body.data.report.result, 'imported_with_warnings');
 
+    const beforeDraftList = await requestJson(baseUrl, '/api/workflows');
+    const draftImported = await requestJson(baseUrl, '/api/workflows/import/draft', {
+      method: 'POST',
+      body: JSON.stringify(exported.body.data),
+    });
+    assert.equal(draftImported.status, 200);
+    assert.equal(draftImported.body.success, true);
+    assertEnvelopeShape(draftImported.body);
+    assert.equal(draftImported.body.data.workflow.name, 'Contract Workflow');
+    assert.notEqual(draftImported.body.data.workflow.id, workflowId);
+    assert.equal(draftImported.body.data.report.result, 'imported_with_warnings');
+    assert.ok(Array.isArray(draftImported.body.data.report.warnings));
+    assert.ok(Array.isArray(draftImported.body.data.report.rejectedFields));
+    const afterDraftList = await requestJson(baseUrl, '/api/workflows');
+    assert.equal(afterDraftList.body.data.length, beforeDraftList.body.data.length);
+    assert.equal(
+      afterDraftList.body.data.some((workflow) => workflow.id === draftImported.body.data.workflow.id),
+      false,
+    );
+
     const conflict = await requestJson(baseUrl, '/api/workflows/import?mode=preserve_id', {
       method: 'POST',
       body: JSON.stringify(exported.body.data),

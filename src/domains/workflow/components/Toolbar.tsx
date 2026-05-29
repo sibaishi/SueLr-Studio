@@ -1,4 +1,5 @@
 import type { WorkflowListItem } from '@/domains/workflow/lib/api';
+import type { WorkflowDocument } from '@/domains/workflow/lib/store';
 import {
   AlignStartVertical,
   Copy,
@@ -18,6 +19,7 @@ import {
   Undo2,
   Upload,
   Workflow,
+  X,
 } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
 
@@ -25,9 +27,13 @@ interface ToolbarProps {
   workflowId: string;
   workflowName: string;
   workflows: WorkflowListItem[];
+  documents: WorkflowDocument[];
+  activeDocumentId: string;
   onWorkflowNameChange: (name: string) => void;
   onNewWorkflow: () => void;
   onSelectWorkflow: (workflowId: string) => void;
+  onSelectDocument: (documentId: string) => void;
+  onCloseDocument: (documentId: string) => void;
   onDuplicateWorkflow: () => void;
   onDeleteWorkflow: () => void;
   onImportWorkflow: () => void;
@@ -59,7 +65,7 @@ interface ToolbarProps {
 function formatSaveStatus(isSavingWorkflow: boolean, hasUnsavedChanges: boolean, lastSavedAt: number | null) {
   if (isSavingWorkflow) return '保存中...';
   if (hasUnsavedChanges) return '有未保存修改';
-  if (!lastSavedAt) return '仅本地草稿';
+  if (!lastSavedAt) return '未保存草稿';
 
   const time = new Date(lastSavedAt).toLocaleTimeString('zh-CN', {
     hour: '2-digit',
@@ -80,9 +86,13 @@ export default function Toolbar(props: ToolbarProps) {
     workflowId,
     workflowName,
     workflows,
+    documents,
+    activeDocumentId,
     onWorkflowNameChange,
     onNewWorkflow,
     onSelectWorkflow,
+    onSelectDocument,
+    onCloseDocument,
     onDuplicateWorkflow,
     onDeleteWorkflow,
     onImportWorkflow,
@@ -121,13 +131,50 @@ export default function Toolbar(props: ToolbarProps) {
   return (
     <div className="workflow-toolbar glass">
       <div className="workflow-toolbar__frame">
+        <div className="workflow-document-tabs" data-testid="workflow-document-tabs">
+          {documents.map((document) => (
+            <button
+              key={document.documentId}
+              type="button"
+              className={`workflow-document-tab ${document.documentId === activeDocumentId ? 'workflow-document-tab--active' : ''}`}
+              onClick={() => onSelectDocument(document.documentId)}
+              data-testid={`workflow-document-tab-${document.documentId}`}
+              title={document.name}
+            >
+              <span className="workflow-document-tab__label">
+                {document.name || '未命名工作流'}
+                {document.hasUnsavedChanges ? ' *' : ''}
+              </span>
+              <span
+                role="button"
+                tabIndex={0}
+                className="workflow-document-tab__close"
+                aria-label="关闭标签"
+                title="关闭标签"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCloseDocument(document.documentId);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onCloseDocument(document.documentId);
+                }}
+              >
+                <X size={12} />
+              </span>
+            </button>
+          ))}
+        </div>
+
         <div className="workflow-toolbar__identity">
           <div className="workflow-toolbar__badge">
             <Workflow size={16} />
           </div>
           <div className="min-w-0">
             <div className="workflow-toolbar__eyebrow">Workflow Studio</div>
-            <div className="workflow-toolbar__title">{workflowName || '当前工作流还没有名称'}</div>
+            <div className="workflow-toolbar__title">{workflowName || '未命名工作流'}</div>
           </div>
         </div>
 
@@ -154,10 +201,11 @@ export default function Toolbar(props: ToolbarProps) {
         <div className="workflow-toolbar__group workflow-toolbar__group--workflow">
           <select
             value={currentWorkflowValue}
-            onChange={(e) => onSelectWorkflow(e.target.value)}
+            onChange={(event) => onSelectWorkflow(event.target.value)}
             className="workflow-toolbar__select"
+            title="打开已有工作流"
           >
-            <option value="">当前工作流未保存</option>
+            <option value="">打开已有工作流</option>
             {workflows.map((workflow) => (
               <option key={workflow.id} value={workflow.id}>
                 {workflow.name}
@@ -168,7 +216,7 @@ export default function Toolbar(props: ToolbarProps) {
           <input
             type="text"
             value={workflowName}
-            onChange={(e) => onWorkflowNameChange(e.target.value)}
+            onChange={(event) => onWorkflowNameChange(event.target.value)}
             className="workflow-toolbar__input"
             data-testid="workflow-name-input"
             placeholder="请输入工作流名称"
@@ -179,7 +227,7 @@ export default function Toolbar(props: ToolbarProps) {
           <ToolbarIconButton icon={<Plus size={15} />} label="新建" onClick={onNewWorkflow} testId="workflow-new" />
           <ToolbarIconButton
             icon={<Copy size={15} />}
-            label="复制"
+            label="另存为副本"
             onClick={onDuplicateWorkflow}
             testId="workflow-duplicate"
           />

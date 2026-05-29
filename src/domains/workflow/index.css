@@ -205,6 +205,63 @@ body {
   min-width: 0;
 }
 
+.workflow-document-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.workflow-document-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  max-width: 220px;
+  min-width: 96px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  padding: 0 8px 0 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.workflow-document-tab--active {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+
+.workflow-document-tab__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-document-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  color: var(--color-text-tertiary);
+  flex: 0 0 auto;
+}
+
+.workflow-document-tab__close:hover {
+  background: var(--glass-bg-hover);
+  color: var(--color-text-primary);
+}
+
 .workflow-toolbar__identity {
   display: flex;
   align-items: center;

@@ -14,6 +14,11 @@ router.post(
   validateBody(ensureWorkflowBody),
   workflowsController.import.bind(workflowsController),
 );
+router.post(
+  '/import/draft',
+  validateBody(ensureWorkflowBody),
+  workflowsController.importDraft.bind(workflowsController),
+);
 router.get('/:id', validateParam('id', validateWorkflowId), workflowsController.get.bind(workflowsController));
 router.get(
   '/:id/export',

@@ -76,6 +76,20 @@ export class WorkflowsController {
       next(error);
     }
   }
+
+  importDraft(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      const result = workflowsService.importDraft(req.body, { scope: req.scope });
+      res.json(
+        successEnvelope({
+          workflow: result.workflow,
+          report: result.report,
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const workflowsController = new WorkflowsController();

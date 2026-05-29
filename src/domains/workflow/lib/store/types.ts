@@ -32,6 +32,43 @@ export type WorkflowEditorSnapshot = {
   selectedNodeId: string | null;
 };
 
+export type WorkflowDocumentOrigin = 'new' | 'saved' | 'imported';
+
+export type WorkflowDocument = {
+  documentId: string;
+  workflowId: string;
+  sourceWorkflowId?: string;
+  name: string;
+  nodes: Node[];
+  edges: Edge[];
+  selectedNodeId: string | null;
+  hasUnsavedChanges: boolean;
+  lastSavedAt: number | null;
+  origin: WorkflowDocumentOrigin;
+  isExecuting: boolean;
+  executionProgress: { current: number; total: number } | null;
+  executionMessage: string | null;
+  currentRunId: string | null;
+  executingNodeId: string | null;
+  lastExecutionStatus: 'success' | 'error' | null;
+  lastExecutionTime: number | null;
+  lastExecutionError: string | null;
+  lastExecutionSummary: { successCount: number; failCount: number; totalDuration: number } | null;
+  nodeExecStatus: Record<string, NodeExecStatus>;
+  nodeExecutionTime: Record<string, number>;
+  nodeExecutionStartedAt: Record<string, number>;
+  nodeExecutionActiveCounts: Record<string, number>;
+  nodeExecutionStartedCounts: Record<string, number>;
+  nodeExecutionCompletedCounts: Record<string, number>;
+  nodeExecutionExpectedCounts: Record<string, number>;
+  nodeErrors: Record<string, string>;
+  nodeWarnings: Record<string, string>;
+  nodeOutputs: Record<string, Record<string, unknown>>;
+  aiResultOutputs: Record<string, Record<string, unknown>>;
+  executionLogs: ExecutionLogEntry[];
+  workflowWarningMessage: string | null;
+};
+
 export type WorkflowImportResult = {
   success: boolean;
   report: WorkflowImportReport | null;
@@ -63,6 +100,8 @@ export interface ExecutionLogEntry {
 }
 
 export interface WorkflowState {
+  documents: WorkflowDocument[];
+  activeDocumentId: string;
   workflowId: string;
   workflowName: string;
   workflowList: WorkflowListItem[];
@@ -144,6 +183,9 @@ export interface WorkflowState {
   setShowDebugSizes: (show: boolean) => void;
   setSnapToGridEnabled: (enabled: boolean) => void;
   resetUserWorkspace: () => void;
+  setActiveWorkflowDocument: (documentId: string) => void;
+  closeWorkflowDocument: (documentId: string, options?: { discardUnsaved?: boolean }) => Promise<boolean>;
+  createWorkflowDocument: (options?: { origin?: WorkflowDocumentOrigin; name?: string }) => void;
 
   executeWorkflow: () => Promise<void>;
   executeWorkflowToNode: (nodeId: string) => Promise<void>;

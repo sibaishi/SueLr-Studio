@@ -5,9 +5,17 @@ type WorkflowHistoryStore = Pick<
   WorkflowEditorSnapshot,
   'workflowId' | 'workflowName' | 'nodes' | 'edges' | 'selectedNodeId'
 > & {
+  activeDocumentId: string;
   isHydratingWorkflow: boolean;
+  hasUnsavedChanges: boolean;
   applyEditorSnapshot: (snapshot: WorkflowEditorSnapshot, markDirty?: boolean) => void;
   persistLocalDraft: () => void;
+};
+
+type DocumentHistory = {
+  past: WorkflowEditorSnapshot[];
+  future: WorkflowEditorSnapshot[];
+  current: WorkflowEditorSnapshot | null;
 };
 
 function buildSnapshot(
@@ -35,23 +43,45 @@ function snapshotSignature(snapshot: WorkflowEditorSnapshot) {
 export function useWorkflowHistory(store: WorkflowHistoryStore) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const historyPastRef = useRef<WorkflowEditorSnapshot[]>([]);
-  const historyFutureRef = useRef<WorkflowEditorSnapshot[]>([]);
-  const currentSnapshotRef = useRef<WorkflowEditorSnapshot | null>(null);
+  const historiesRef = useRef(new Map<string, DocumentHistory>());
   const historyTimerRef = useRef<number | null>(null);
   const isApplyingHistoryRef = useRef(false);
 
-  const syncHistoryState = useCallback(() => {
-    setCanUndo(historyPastRef.current.length > 0);
-    setCanRedo(historyFutureRef.current.length > 0);
+  const getDocumentHistory = useCallback((documentId: string) => {
+    const existing = historiesRef.current.get(documentId);
+    if (existing) return existing;
+    const next: DocumentHistory = { past: [], future: [], current: null };
+    historiesRef.current.set(documentId, next);
+    return next;
   }, []);
+
+  const syncHistoryState = useCallback(() => {
+    const history = getDocumentHistory(store.activeDocumentId);
+    setCanUndo(history.past.length > 0);
+    setCanRedo(history.future.length > 0);
+  }, [getDocumentHistory, store.activeDocumentId]);
 
   useEffect(() => {
     if (store.isHydratingWorkflow || isApplyingHistoryRef.current) return;
 
+    const history = getDocumentHistory(store.activeDocumentId);
     const nextSnapshot = buildSnapshot(store);
-    if (!currentSnapshotRef.current) {
-      currentSnapshotRef.current = nextSnapshot;
+    if (!history.current) {
+      history.current = nextSnapshot;
+      syncHistoryState();
+      return;
+    }
+
+    if (history.current.workflowId !== nextSnapshot.workflowId) {
+      history.current = nextSnapshot;
+      history.past = [];
+      history.future = [];
+      syncHistoryState();
+      return;
+    }
+
+    if (!store.hasUnsavedChanges && history.past.length === 0 && history.future.length === 0) {
+      history.current = nextSnapshot;
       syncHistoryState();
       return;
     }
@@ -61,22 +91,23 @@ export function useWorkflowHistory(store: WorkflowHistoryStore) {
     }
 
     historyTimerRef.current = window.setTimeout(() => {
-      const current = currentSnapshotRef.current;
+      const currentHistory = getDocumentHistory(store.activeDocumentId);
+      const current = currentHistory.current;
       if (!current) {
-        currentSnapshotRef.current = nextSnapshot;
+        currentHistory.current = nextSnapshot;
         syncHistoryState();
         return;
       }
 
       if (snapshotSignature(current) === snapshotSignature(nextSnapshot)) return;
 
-      const latestPast = historyPastRef.current[historyPastRef.current.length - 1];
+      const latestPast = currentHistory.past[currentHistory.past.length - 1];
       if (!latestPast || snapshotSignature(latestPast) !== snapshotSignature(current)) {
-        historyPastRef.current.push(current);
+        currentHistory.past.push(current);
       }
-      if (historyPastRef.current.length > 80) historyPastRef.current.shift();
-      historyFutureRef.current = [];
-      currentSnapshotRef.current = nextSnapshot;
+      if (currentHistory.past.length > 80) currentHistory.past.shift();
+      currentHistory.future = [];
+      currentHistory.current = nextSnapshot;
       syncHistoryState();
     }, 180);
 
@@ -84,12 +115,15 @@ export function useWorkflowHistory(store: WorkflowHistoryStore) {
       if (historyTimerRef.current) window.clearTimeout(historyTimerRef.current);
     };
   }, [
+    store.activeDocumentId,
     store.workflowId,
     store.workflowName,
     store.nodes,
     store.edges,
     store.selectedNodeId,
     store.isHydratingWorkflow,
+    store.hasUnsavedChanges,
+    getDocumentHistory,
     syncHistoryState,
   ]);
 
@@ -98,31 +132,33 @@ export function useWorkflowHistory(store: WorkflowHistoryStore) {
       isApplyingHistoryRef.current = true;
       store.applyEditorSnapshot(snapshot, true);
       store.persistLocalDraft();
-      currentSnapshotRef.current = snapshot;
+      getDocumentHistory(store.activeDocumentId).current = snapshot;
       window.setTimeout(() => {
         isApplyingHistoryRef.current = false;
       }, 0);
     },
-    [store],
+    [getDocumentHistory, store],
   );
 
   const handleUndo = useCallback(() => {
-    const previous = historyPastRef.current.pop();
+    const history = getDocumentHistory(store.activeDocumentId);
+    const previous = history.past.pop();
     if (!previous) return;
-    const current = currentSnapshotRef.current || buildSnapshot(store);
-    historyFutureRef.current.unshift(current);
+    const current = history.current || buildSnapshot(store);
+    history.future.unshift(current);
     applyHistorySnapshot(previous);
     syncHistoryState();
-  }, [applyHistorySnapshot, store, syncHistoryState]);
+  }, [applyHistorySnapshot, getDocumentHistory, store, syncHistoryState]);
 
   const handleRedo = useCallback(() => {
-    const next = historyFutureRef.current.shift();
+    const history = getDocumentHistory(store.activeDocumentId);
+    const next = history.future.shift();
     if (!next) return;
-    const current = currentSnapshotRef.current || buildSnapshot(store);
-    historyPastRef.current.push(current);
+    const current = history.current || buildSnapshot(store);
+    history.past.push(current);
     applyHistorySnapshot(next);
     syncHistoryState();
-  }, [applyHistorySnapshot, store, syncHistoryState]);
+  }, [applyHistorySnapshot, getDocumentHistory, store, syncHistoryState]);
 
   const captureImmediateHistory = useCallback(() => {
     if (store.isHydratingWorkflow || isApplyingHistoryRef.current) return;
@@ -132,28 +168,27 @@ export function useWorkflowHistory(store: WorkflowHistoryStore) {
     }
 
     const currentSnapshot = buildSnapshot(store);
-    const previousSnapshot = currentSnapshotRef.current;
+    const history = getDocumentHistory(store.activeDocumentId);
+    const previousSnapshot = history.current;
     if (!previousSnapshot) {
-      currentSnapshotRef.current = currentSnapshot;
+      history.current = currentSnapshot;
       syncHistoryState();
       return;
     }
 
-    const latestPast = historyPastRef.current[historyPastRef.current.length - 1];
-    if (latestPast && snapshotSignature(latestPast) === snapshotSignature(currentSnapshot)) return;
-    historyPastRef.current.push(currentSnapshot);
-    if (historyPastRef.current.length > 80) historyPastRef.current.shift();
-    historyFutureRef.current = [];
-    currentSnapshotRef.current = currentSnapshot;
+    const latestPast = history.past[history.past.length - 1];
+    if (latestPast && snapshotSignature(latestPast) === snapshotSignature(previousSnapshot)) return;
+    history.past.push(previousSnapshot);
+    if (history.past.length > 80) history.past.shift();
+    history.future = [];
+    history.current = currentSnapshot;
     syncHistoryState();
-  }, [store, syncHistoryState]);
+  }, [getDocumentHistory, store, syncHistoryState]);
 
   const resetHistory = useCallback(() => {
-    currentSnapshotRef.current = null;
-    historyPastRef.current = [];
-    historyFutureRef.current = [];
+    historiesRef.current.set(store.activeDocumentId, { past: [], future: [], current: null });
     syncHistoryState();
-  }, [syncHistoryState]);
+  }, [store.activeDocumentId, syncHistoryState]);
 
   return {
     canUndo,
