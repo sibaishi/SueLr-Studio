@@ -25,7 +25,7 @@ import { useT } from '@/providers/ThemeContext';
 import { useToast } from '@/providers/ToastContext';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
 import { LogPanel } from '@/shared/ui/ios';
-import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, Wallet } from 'lucide-react';
+import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, LogOut, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AccountDetailsSection } from './AccountDetailsSection';
 import { AgentPersonaSection } from './AgentPersonaSection';
@@ -75,6 +75,8 @@ export function SettingsPanel({
   workflowConcurrency,
   setWorkflowConcurrency,
   projectBusy,
+  authUser,
+  onLogout,
 }: SettingsPanelProps) {
   const T = useT();
   const toast = useToast();
@@ -607,6 +609,8 @@ export function SettingsPanel({
     themeMode,
     themeOptions,
     workflowConcurrency,
+    authUser,
+    canLogout: Boolean(onLogout),
   };
 
   const actions: SettingsActions = {
@@ -626,6 +630,9 @@ export function SettingsPanel({
     removeProjectModel,
     resetStoragePath: resetStoragePathAction,
     restartBackend: restartBackendAction,
+    logout: async () => {
+      await onLogout?.();
+    },
     refreshAccountDetails: refreshAccountDetailsAction,
     refreshAccountDetailsLogs: refreshAccountDetailsLogsAction,
     saveAgentProfile,
@@ -713,6 +720,31 @@ export function SettingsPanel({
               <span style={chipStyle(runtimeCapabilities?.search?.enabled ? T.purple : undefined)}>
                 {runtimeCapabilities?.search?.enabled ? '联网搜索可用' : '联网搜索未启用'}
               </span>
+              {authUser ? <span style={chipStyle(T.green)}>{authUser.username}</span> : null}
+              {onLogout ? (
+                <button
+                  type="button"
+                  data-testid="settings-logout"
+                  onClick={() => {
+                    void onLogout();
+                  }}
+                  title="退出登录"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 8,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <LogOut size={16} aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

@@ -23,11 +23,12 @@ import {
   validateAdminAccess,
 } from '@/shared/api/admin';
 import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { DatabaseBackup, Gauge, Globe, KeyRound, Mail, Network, UserCheck } from 'lucide-react';
+import { DatabaseBackup, Gauge, Globe, KeyRound, Mail, Network, Settings2, UserCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import '@/index.css';
 
 type AccessState = 'checking' | 'required' | 'ready' | 'denied';
+type AdminView = 'users' | 'deployment';
 
 const STATUS_LABELS: Record<AdminUser['status'], string> = {
   pending: '待审核',
@@ -250,6 +251,7 @@ function AdminScreen() {
   const [testEmailTo, setTestEmailTo] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [activeView, setActiveView] = useState<AdminView>('users');
 
   const theme = themeMode === 'dark' ? DARK : LIGHT;
 
@@ -311,6 +313,23 @@ function AdminScreen() {
       { label: `待审核: ${pendingCount}`, color: pendingCount > 0 ? '#f59e0b' : T.green },
     ];
   }, [T.blue, T.green, T.purple, searchEnabled, searchProvider, users]);
+
+  const navigationItems = [
+    {
+      id: 'users' as const,
+      label: '用户治理',
+      description: '审核、停用、重置密码和迁移旧数据',
+      icon: UserCheck,
+      stat: `${users.filter((user) => user.status === 'pending').length} 待审`,
+    },
+    {
+      id: 'deployment' as const,
+      label: '部署配置',
+      description: '搜索、代理、邮件和管理端能力',
+      icon: Settings2,
+      stat: searchEnabled ? '搜索开启' : '搜索关闭',
+    },
+  ];
 
   const handleAccessSubmit = async () => {
     setAccessState('checking');
@@ -412,8 +431,17 @@ function AdminScreen() {
 
   return (
     <TCtx.Provider value={theme}>
-      <div data-theme={themeMode} style={{ minHeight: '100vh', padding: 24, overflow: 'auto' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
+      <div data-theme={themeMode} style={{ height: '100vh', padding: 24, overflow: 'hidden', boxSizing: 'border-box' }}>
+        <div
+          style={{
+            maxWidth: 1280,
+            height: '100%',
+            margin: '0 auto',
+            display: 'grid',
+            gridTemplateRows: 'auto minmax(0, 1fr)',
+            gap: 18,
+          }}
+        >
           <header
             style={{
               ...panelStyle(),
@@ -449,6 +477,42 @@ function AdminScreen() {
             </div>
           </header>
 
+          <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1fr)', gap: 18, minHeight: 0 }}>
+            <aside style={{ ...panelStyle(), padding: 14, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'auto' }}>
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const active = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveView(item.id)}
+                    style={{
+                      border: `1px solid ${active ? 'rgba(0,122,255,0.36)' : 'var(--t-border)'}`,
+                      borderRadius: 14,
+                      background: active ? 'rgba(0,122,255,0.12)' : 'rgba(255,255,255,0.48)',
+                      color: 'var(--t-text)',
+                      padding: 14,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <Icon size={18} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800 }}>{item.label}</div>
+                        <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 4, lineHeight: 1.45 }}>{item.description}</div>
+                      </div>
+                      <span style={chipStyle(active ? T.blue : undefined)}>{item.stat}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </aside>
+
+            <main style={{ minHeight: 0, overflow: 'auto', display: 'grid', alignContent: 'start', gap: 18, paddingRight: 4 }}>
+              {activeView === 'users' ? (
+                <>
           <Section title="用户审核" description="审核注册申请并管理账号状态。" icon={<UserCheck size={18} />}>
             <UserTable users={users} accessKey={accessKey || undefined} onChanged={() => loadUsers(accessKey || '')} />
           </Section>
@@ -536,8 +600,12 @@ function AdminScreen() {
               </div>
             </div>
           </Section>
+                </>
+              ) : null}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 18 }}>
+              {activeView === 'deployment' ? (
+                <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: 18 }}>
             <Section title="搜索服务" description="部署级联网搜索总开关与统一凭据。" icon={<Globe size={18} />}>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -692,6 +760,8 @@ function AdminScreen() {
               </div>
             </div>
           </Section>
+                </>
+              ) : null}
 
           <footer
             style={{
@@ -719,10 +789,19 @@ function AdminScreen() {
               >
                 <KeyRound size={16} />
               </div>
-              <div style={{ fontSize: 12, color: 'var(--t-text2)' }}>{message || '保存后主应用会读取新的部署级配置。'}</div>
+              <div style={{ fontSize: 12, color: 'var(--t-text2)' }}>
+                {message ||
+                  (activeView === 'deployment'
+                    ? '保存后主应用会读取新的部署级配置。'
+                    : '用户状态变更会立即影响登录和现有会话。')}
+              </div>
             </div>
-            <IOSButton label={saving ? '保存中...' : '保存管理员配置'} onClick={() => void handleSave()} />
+            {activeView === 'deployment' ? (
+              <IOSButton label={saving ? '保存中...' : '保存管理员配置'} onClick={() => void handleSave()} />
+            ) : null}
           </footer>
+            </main>
+          </div>
         </div>
       </div>
     </TCtx.Provider>

@@ -1,4 +1,5 @@
 import type { AgentProfile } from '@/shared/api/agent';
+import type { AuthUser } from '@/shared/api/auth';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/shared/types';
 import type { Dispatch, SetStateAction } from 'react';
@@ -149,4 +150,6 @@ export type SettingsPanelProps = {
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   projectBusy: boolean;
+  authUser?: AuthUser | null;
+  onLogout?: () => Promise<void> | void;
 };

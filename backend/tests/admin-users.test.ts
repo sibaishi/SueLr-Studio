@@ -55,8 +55,15 @@ async function requestJson(baseUrl, pathname, options = {}) {
   });
   return {
     status: response.status,
+    headers: response.headers,
     body: await response.json(),
   };
+}
+
+function readSessionCookie(response) {
+  const cookie = response.headers.get('set-cookie') || '';
+  const match = cookie.match(/suelr_session=([^;]+)/);
+  return match ? `suelr_session=${match[1]}` : '';
 }
 
 test('admin user governance APIs require admin access key and not user session', async () => {
@@ -107,6 +114,8 @@ test('admin user governance can approve, reject, disable, and enable users', asy
       body: JSON.stringify({ username: 'review-user', password: 'password-123' }),
     });
     assert.equal(login.status, 200);
+    const cookie = readSessionCookie(login);
+    assert.match(cookie, /^suelr_session=/);
 
     const disable = await requestJson(baseUrl, `/api/admin/users/${userId}/disable`, {
       method: 'POST',
@@ -114,6 +123,12 @@ test('admin user governance can approve, reject, disable, and enable users', asy
     });
     assert.equal(disable.status, 200);
     assert.equal(disable.body.data.user.status, 'disabled');
+
+    const oldSession = await requestJson(baseUrl, '/api/auth/me', {
+      headers: { Cookie: cookie },
+    });
+    assert.equal(oldSession.status, 401);
+    assert.equal(oldSession.body.error.code, 'AUTH_REQUIRED');
 
     const disabledLogin = await requestJson(baseUrl, '/api/auth/login', {
       method: 'POST',

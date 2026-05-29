@@ -362,6 +362,10 @@ export class AuthService {
     const session = this.repository.findSessionByTokenHash(hashSessionToken(token));
     if (!session) return null;
     const user = this.repository.findUserById(session.userId);
+    if (user && user.status !== 'active') {
+      this.repository.deleteSessionByTokenHash(hashSessionToken(token));
+      return null;
+    }
     return user ? toPublicUser(user) : null;
   }
 

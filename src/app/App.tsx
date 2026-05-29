@@ -7,6 +7,8 @@ import { saveActiveRunSnapshot } from '@/domains/workflow/lib/store/persistence'
 import { useStudioSettingsState } from '@/features/settings';
 import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
+import { logout } from '@/shared/api/auth';
+import { subscribeAuthInvalidated } from '@/shared/api/client';
 import { useMemory } from '@/shared/hooks/useMemory';
 import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
 import type { BridgeRef, Tab } from '@/shared/types';
@@ -92,6 +94,27 @@ export default function App() {
       return next;
     });
   }, [tab]);
+
+  useEffect(() => {
+    if (!runtimeCapabilities?.auth.required) return undefined;
+    return subscribeAuthInvalidated(() => {
+      void refreshRuntimeCapabilities();
+    });
+  }, [refreshRuntimeCapabilities, runtimeCapabilities?.auth.required]);
+
+  useEffect(() => {
+    if (!runtimeCapabilities?.auth.required || !runtimeCapabilities.auth.user) return undefined;
+    const timer = window.setInterval(() => {
+      void refreshRuntimeCapabilities();
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [refreshRuntimeCapabilities, runtimeCapabilities?.auth.required, runtimeCapabilities?.auth.user]);
+
+  const handleLogout = async () => {
+    await logout().catch(() => undefined);
+    await refreshRuntimeCapabilities();
+    setTab('workflow');
+  };
 
   useEffect(() => {
     const grouped: Record<'all' | 'chat' | 'image' | 'video', ModelOption[]> = {
@@ -318,6 +341,8 @@ export default function App() {
                         workflowConcurrency={settings.workflowConcurrency}
                         setWorkflowConcurrency={settings.setWorkflowConcurrency}
                         projectBusy={projectBusy}
+                        authUser={runtimeCapabilities?.auth.user || null}
+                        onLogout={runtimeCapabilities?.auth.required ? handleLogout : undefined}
                       />
                     </Suspense>
                   </ErrorBoundary>
