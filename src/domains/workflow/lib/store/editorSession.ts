@@ -6,6 +6,7 @@ import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared'
 import { normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
 import { formatLogDetails, gid, sanitizeLogMessage } from '@/domains/workflow/lib/store/helpers';
 import { clearActiveRunSnapshot, saveLocalDraft } from '@/domains/workflow/lib/store/persistence';
+import { createEmptyWorkflowDocument, getDocumentViewPatch, patchActiveWorkflowDocument } from './documents';
 import type {
   WorkflowEditorSnapshot,
   WorkflowState,
@@ -151,36 +152,12 @@ export function createWorkflowEditorSessionActions(
 
     newWorkflow: () => {
       clearActiveRunSnapshot();
-      set({
-        workflowId: gid(),
-        workflowName: DEFAULT_WORKFLOW_NAME,
-        nodes: [],
-        edges: [],
-        selectedNodeId: null,
-        isExecuting: false,
-        executionProgress: null,
-        executionMessage: null,
-        currentRunId: null,
-        executingNodeId: null,
-        lastExecutionStatus: null,
-        lastExecutionTime: null,
-        lastExecutionError: null,
-        lastExecutionSummary: null,
-        nodeExecStatus: {},
-        nodeExecutionTime: {},
-        nodeExecutionStartedAt: {},
-        nodeExecutionActiveCounts: {},
-        nodeExecutionStartedCounts: {},
-        nodeExecutionCompletedCounts: {},
-        nodeExecutionExpectedCounts: {},
-        nodeErrors: {},
-        nodeWarnings: {},
-        nodeOutputs: {},
-        aiResultOutputs: {},
-        executionLogs: [],
-        workflowWarningMessage: null,
-        hasUnsavedChanges: false,
-        lastSavedAt: null,
+      set((state) => {
+        const document = createEmptyWorkflowDocument({ name: DEFAULT_WORKFLOW_NAME, origin: 'new' });
+        return {
+          documents: [...patchActiveWorkflowDocument(state), document],
+          ...getDocumentViewPatch(document),
+        };
       });
     },
 

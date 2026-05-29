@@ -1,8 +1,10 @@
 import { ValidationError } from '../../app/errors/index.ts';
+import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import { getNodeContract, getNodeDataDefaults } from '../../engine/contracts/node-registry.ts';
 import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { CURRENT_WORKFLOW_SCHEMA_VERSION } from './workflow-migrations.ts';
+import { z } from 'zod';
 
 type WorkflowNormalizeOptions = {
   preserveCreatedAt?: boolean;
@@ -14,7 +16,29 @@ function isPlainObject(value: DynamicValue): value is PlainObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+const workflowIdSchema = z
+  .string()
+  .trim()
+  .min(1, 'workflow.id 不能为空')
+  .max(120, 'workflow.id 长度超限')
+  .regex(/^[a-zA-Z0-9._-]+$/, 'workflow.id 包含非法字符');
+
+const workflowBodySchema = z.custom<PlainObject>(isPlainObject, {
+  message: '工作流请求体必须为对象',
+});
+
+export const workflowImportQuerySchema = z
+  .object({
+    generateNewId: z.enum(['true', 'false']).optional(),
+    mode: z.enum(['generate_new_id', 'preserve_id', 'overwrite']).optional(),
+  })
+  .passthrough();
+
+const validateWorkflowIdBoundary = zodValidator(workflowIdSchema);
+const ensureWorkflowBodyBoundary = zodValidator(workflowBodySchema);
+
 export function validateWorkflowId(value: DynamicValue, fieldName = 'workflow.id') {
+  if (fieldName === 'workflow.id') return validateWorkflowIdBoundary(String(value || ''));
   const normalized = String(value || '').trim();
   if (!normalized) throw new ValidationError('VALIDATION_ERROR', `${fieldName} 不能为空`);
   if (normalized.length > 120) throw new ValidationError('VALIDATION_ERROR', `${fieldName} 长度超限`);
@@ -23,8 +47,7 @@ export function validateWorkflowId(value: DynamicValue, fieldName = 'workflow.id
 }
 
 export function ensureWorkflowBody(value: DynamicValue): PlainObject {
-  if (!isPlainObject(value)) throw new ValidationError('VALIDATION_ERROR', '工作流请求体必须为对象');
-  return value;
+  return ensureWorkflowBodyBoundary(value);
 }
 
 function normalizeNode(node: DynamicValue, index: number) {

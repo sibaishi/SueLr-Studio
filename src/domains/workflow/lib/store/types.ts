@@ -1,4 +1,4 @@
-import type { WorkflowListItem } from '@/domains/workflow/lib/api';
+import type { WorkflowListItem } from '@/domains/workflow/lib/api/workflows';
 import type { GroupPort, GroupPortSide } from '@/domains/workflow/lib/groupPorts';
 import type {
   PersistedWorkflow,
@@ -32,11 +32,61 @@ export type WorkflowEditorSnapshot = {
   selectedNodeId: string | null;
 };
 
+export type WorkflowDocumentOrigin = 'new' | 'saved' | 'imported';
+
+export type WorkflowDocument = {
+  documentId: string;
+  workflowId: string;
+  sourceWorkflowId?: string;
+  name: string;
+  nodes: Node[];
+  edges: Edge[];
+  selectedNodeId: string | null;
+  hasUnsavedChanges: boolean;
+  lastSavedAt: number | null;
+  origin: WorkflowDocumentOrigin;
+  isExecuting: boolean;
+  executionProgress: { current: number; total: number } | null;
+  executionMessage: string | null;
+  currentRunId: string | null;
+  executingNodeId: string | null;
+  lastExecutionStatus: 'success' | 'error' | null;
+  lastExecutionTime: number | null;
+  lastExecutionError: string | null;
+  lastExecutionSummary: { successCount: number; failCount: number; totalDuration: number } | null;
+  nodeExecStatus: Record<string, NodeExecStatus>;
+  nodeExecutionTime: Record<string, number>;
+  nodeExecutionStartedAt: Record<string, number>;
+  nodeExecutionActiveCounts: Record<string, number>;
+  nodeExecutionStartedCounts: Record<string, number>;
+  nodeExecutionCompletedCounts: Record<string, number>;
+  nodeExecutionExpectedCounts: Record<string, number>;
+  nodeErrors: Record<string, string>;
+  nodeWarnings: Record<string, string>;
+  nodeOutputs: Record<string, Record<string, unknown>>;
+  aiResultOutputs: Record<string, Record<string, unknown>>;
+  executionLogs: ExecutionLogEntry[];
+  workflowWarningMessage: string | null;
+};
+
 export type WorkflowImportResult = {
   success: boolean;
   report: WorkflowImportReport | null;
   error?: WorkflowImportError | null;
 };
+
+export type WorkflowOperationCode =
+  | 'WORKFLOW_SAVE_FAILED'
+  | 'WORKFLOW_LOAD_FAILED'
+  | 'WORKFLOW_DELETE_FAILED'
+  | 'WORKFLOW_DUPLICATE_FAILED'
+  | 'WORKFLOW_IMPORT_FAILED'
+  | 'WORKFLOW_CONFLICT'
+  | 'WORKFLOW_VALIDATION_FAILED';
+
+export type WorkflowOperationResult<T = undefined> =
+  | { success: true; data?: T }
+  | { success: false; code: WorkflowOperationCode; message: string; status?: number; details?: unknown };
 
 export type NodeExecStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -50,6 +100,8 @@ export interface ExecutionLogEntry {
 }
 
 export interface WorkflowState {
+  documents: WorkflowDocument[];
+  activeDocumentId: string;
   workflowId: string;
   workflowName: string;
   workflowList: WorkflowListItem[];
@@ -131,6 +183,9 @@ export interface WorkflowState {
   setShowDebugSizes: (show: boolean) => void;
   setSnapToGridEnabled: (enabled: boolean) => void;
   resetUserWorkspace: () => void;
+  setActiveWorkflowDocument: (documentId: string) => void;
+  closeWorkflowDocument: (documentId: string, options?: { discardUnsaved?: boolean }) => Promise<boolean>;
+  createWorkflowDocument: (options?: { origin?: WorkflowDocumentOrigin; name?: string }) => void;
 
   executeWorkflow: () => Promise<void>;
   executeWorkflowToNode: (nodeId: string) => Promise<void>;
@@ -141,8 +196,12 @@ export interface WorkflowState {
   initializeWorkflowPersistence: () => Promise<void>;
   restoreExecutionRun: () => Promise<void>;
   syncExecutionRunStatus: () => Promise<void>;
+  saveWorkflowDetailed: () => Promise<WorkflowOperationResult<{ workflowId: string }>>;
   duplicateCurrentWorkflow: () => Promise<boolean>;
+  duplicateCurrentWorkflowDetailed: () => Promise<WorkflowOperationResult<{ workflowId: string }>>;
   deleteCurrentWorkflow: () => Promise<boolean>;
+  deleteCurrentWorkflowDetailed: () => Promise<WorkflowOperationResult<{ workflowId?: string }>>;
+  loadWorkflowDetailed: (id: string) => Promise<WorkflowOperationResult<{ workflowId: string }>>;
   exportCurrentWorkflow: () => PersistedWorkflow;
   importWorkflowData: (payload: unknown, fallbackName?: string) => Promise<WorkflowImportResult>;
   importWorkflowDataWithMode: (

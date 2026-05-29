@@ -205,8 +205,22 @@ Current cleanup and ownership notes:
   - shared editor helpers for layout, locking, disabling, group movement, and related graph updates
 - `src/domains/workflow/lib/store/execution.ts`
   - run lifecycle and execution status
+- `src/domains/workflow/hooks/useWorkflowHistory.ts`
+  - local undo/redo history orchestration backed by React refs, not Zustand
+- `src/domains/workflow/hooks/useWorkflowImport.ts`
+  - workflow import file parsing, conflict retry, and report modal state
+- `src/domains/workflow/hooks/useWorkflowPageCommands.ts`
+  - page-level workflow commands such as save, load, duplicate, delete, execute, cancel, export, and node backfill
 - `src/domains/workflow/lib/api.ts`
-  - workflow API bridge to backend execution and persistence routes
+  - compatibility re-export for workflow API helpers
+- `src/domains/workflow/lib/api/workflows.ts`
+  - workflow CRUD, duplicate, import, and export API helpers
+- `src/domains/workflow/lib/api/execution.ts`
+  - workflow execution SSE, cancellation, and run-status API helpers
+- `src/domains/workflow/lib/api/files.ts`
+  - generated output, upload, and uploaded-file metadata API helpers
+- `src/domains/workflow/lib/api/settings.ts`
+  - settings, provider connection, model discovery, and available-model API helpers
 - `src/domains/workflow/lib/importExport.ts`
   - workflow import/export serialization helpers
 - `src/domains/workflow/lib/hotkeys.ts`
@@ -278,11 +292,14 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
 - `backend/src/modules/capabilities/`
   - feature capability reporting used by frontend bootstrap and diagnostics
 - `backend/src/modules/agent/`
-  - agent profiles, chat runtime, tool registry, sessions, and long-term memory governance
+  - legacy/transitional agent profiles, chat runtime, tool registry, sessions, and long-term memory governance
+  - the long-term replacement direction is the Agent + Skills + Knowledge Base intelligence program documented under `docs/intelligence/`
 - `backend/src/modules/execution/execution.routes.ts`
-  - workflow execution endpoints
+  - workflow execution endpoints with Zod route-boundary validation
 - `backend/src/modules/execution/execution.service.ts`
   - run-state tracking, execution orchestration, and stop behavior
+- `backend/src/modules/execution/execution.schema.ts`
+  - Zod schemas for execution params and request bodies
 - `backend/src/modules/images/images.routes.ts`
   - image generation endpoints
 - `backend/src/modules/images/images.service.ts`
@@ -300,7 +317,7 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
 - `backend/src/modules/files/files.service.ts`
   - path resolution, file listing, and storage-facing operations
 - `backend/src/modules/workflows/`
-  - workflow persistence, import/export, and migration chain
+  - workflow persistence, import/export, migration chain, and Zod route-boundary schemas
 
 ### Agent memory governance
 
@@ -469,6 +486,15 @@ For the product-facing `外部数据路径` entry:
 6. workflow run logger stores sanitized logs and artifacts
 7. frontend results panel renders outputs and logs
 
+#### Workflow management and execution contracts
+
+- React Flow owns canvas nodes, edges, and viewport. Workflow Zustand state may keep workflow metadata, editor UI state, execution status, and persistence status, but not React Flow viewport ownership.
+- Workflow document operations return structured results for save, load, duplicate, delete, and import paths so the UI can show action-specific errors instead of generic boolean failures.
+- Workflow and execution HTTP routes validate params, query strings, and request bodies with Zod at the route boundary. Deeper graph normalization remains in workflow migration and persistence services.
+- Execution SSE transport errors should be normalized before reaching UI state. Non-JSON backend errors and fetch/read failures should produce a user-facing workflow error rather than leaking raw transport text.
+- Closing an SSE connection is treated as a client disconnect, not as workflow cancellation. Explicit cancellation must go through the cancel endpoint, and polling `/api/execute/runs/:runId/status` is the recovery path after refresh or reconnect.
+- Terminal execution status is cached briefly after a run leaves the active registry so refreshed clients can settle completed, failed, or cancelled state.
+
 ## Testing Strategy
 
 Current test layers:
@@ -503,17 +529,21 @@ High-value regression areas:
 
 ## Public Documentation Policy
 
-Only these public markdown docs belong under `docs/`:
+Only these public markdown docs and approved public documentation directories belong under `docs/`:
 
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
+- `docs/intelligence/`
+
+The `docs/intelligence/` directory is the public home for the Agent + Skills + Knowledge Base intelligence program. It contains the engineering execution version and a separate Chinese reading version under `docs/intelligence/zh/`.
 
 Rules for future work:
 
 - every structural or behavior change that affects user flows must update `docs/user-guide.md`
 - every structural or ownership change that affects developer navigation must update `docs/developer-guide.md`
 - every desktop release workflow change must update `docs/release-sop.md`
+- every durable intelligence architecture, rollout, or acceptance-policy change must update the relevant file under `docs/intelligence/`
 - do not add private working notes, weekly scratch files, or internal-only plans under `docs/`
 - keep this guide aligned with the actual file layout so maintainers can jump directly to the right module instead of re-scanning the repo
 

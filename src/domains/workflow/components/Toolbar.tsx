@@ -19,15 +19,14 @@ import {
   Upload,
   Workflow,
 } from 'lucide-react';
-import { type ReactNode, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 interface ToolbarProps {
-  workflowId: string;
   workflowName: string;
   workflows: WorkflowListItem[];
   onWorkflowNameChange: (name: string) => void;
   onNewWorkflow: () => void;
-  onSelectWorkflow: (workflowId: string) => void;
+  onOpenWorkflowLibrary: () => void;
   onDuplicateWorkflow: () => void;
   onDeleteWorkflow: () => void;
   onImportWorkflow: () => void;
@@ -59,23 +58,24 @@ interface ToolbarProps {
 function formatSaveStatus(isSavingWorkflow: boolean, hasUnsavedChanges: boolean, lastSavedAt: number | null) {
   if (isSavingWorkflow) return '保存中...';
   if (hasUnsavedChanges) return '有未保存修改';
-  if (!lastSavedAt) return '还没有保存记录';
+  if (!lastSavedAt) return '未保存草稿';
+  return '已保存';
+}
 
-  const time = new Date(lastSavedAt).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `已保存于 ${time}`;
+function getSaveStatusTone(isSavingWorkflow: boolean, hasUnsavedChanges: boolean, lastSavedAt: number | null) {
+  if (isSavingWorkflow) return 'saving';
+  if (hasUnsavedChanges) return 'dirty';
+  if (!lastSavedAt) return 'draft';
+  return 'saved';
 }
 
 export default function Toolbar(props: ToolbarProps) {
   const {
-    workflowId,
     workflowName,
     workflows,
     onWorkflowNameChange,
     onNewWorkflow,
-    onSelectWorkflow,
+    onOpenWorkflowLibrary,
     onDuplicateWorkflow,
     onDeleteWorkflow,
     onImportWorkflow,
@@ -104,11 +104,8 @@ export default function Toolbar(props: ToolbarProps) {
     executingNodeLabel,
   } = props;
 
-  const currentWorkflowValue = useMemo(() => {
-    return workflows.some((workflow) => workflow.id === workflowId) ? workflowId : '';
-  }, [workflowId, workflows]);
-
   const saveStatus = formatSaveStatus(isSavingWorkflow, hasUnsavedChanges, lastSavedAt);
+  const saveStatusTone = getSaveStatusTone(isSavingWorkflow, hasUnsavedChanges, lastSavedAt);
 
   return (
     <div className="workflow-toolbar glass">
@@ -119,7 +116,7 @@ export default function Toolbar(props: ToolbarProps) {
           </div>
           <div className="min-w-0">
             <div className="workflow-toolbar__eyebrow">Workflow Studio</div>
-            <div className="workflow-toolbar__title">{workflowName || '当前工作流还没有名称'}</div>
+            <div className="workflow-toolbar__title">{workflowName || '未命名工作流'}</div>
           </div>
         </div>
 
@@ -144,44 +141,67 @@ export default function Toolbar(props: ToolbarProps) {
         </div>
 
         <div className="workflow-toolbar__group workflow-toolbar__group--workflow">
-          <select
-            value={currentWorkflowValue}
-            onChange={(e) => onSelectWorkflow(e.target.value)}
-            className="workflow-toolbar__select"
+          <button
+            type="button"
+            onClick={onOpenWorkflowLibrary}
+            className="workflow-toolbar__library-button"
+            data-testid="workflow-open-library"
+            title="打开工作流库"
           >
-            <option value="">当前工作流未保存</option>
-            {workflows.map((workflow) => (
-              <option key={workflow.id} value={workflow.id}>
-                {workflow.name}
-              </option>
-            ))}
-          </select>
+            <Workflow size={14} />
+            工作流库
+            <span>{workflows.length}</span>
+          </button>
 
           <input
             type="text"
             value={workflowName}
-            onChange={(e) => onWorkflowNameChange(e.target.value)}
+            onChange={(event) => onWorkflowNameChange(event.target.value)}
             className="workflow-toolbar__input"
+            data-testid="workflow-name-input"
             placeholder="请输入工作流名称"
           />
         </div>
 
         <div className="workflow-toolbar__group">
-          <ToolbarIconButton icon={<Plus size={15} />} label="新建" onClick={onNewWorkflow} />
-          <ToolbarIconButton icon={<Copy size={15} />} label="复制" onClick={onDuplicateWorkflow} />
-          <ToolbarIconButton icon={<Trash2 size={15} />} label="删除" onClick={onDeleteWorkflow} />
-          <ToolbarIconButton icon={<Upload size={15} />} label="导入" onClick={onImportWorkflow} />
-          <ToolbarIconButton icon={<Download size={15} />} label="导出" onClick={onExportWorkflow} />
+          <ToolbarIconButton icon={<Plus size={15} />} label="新建" onClick={onNewWorkflow} testId="workflow-new" />
+          <ToolbarIconButton
+            icon={<Copy size={15} />}
+            label="另存为副本"
+            onClick={onDuplicateWorkflow}
+            testId="workflow-duplicate"
+          />
+          <ToolbarIconButton
+            icon={<Trash2 size={15} />}
+            label="删除"
+            onClick={onDeleteWorkflow}
+            testId="workflow-delete"
+          />
+          <ToolbarIconButton icon={<Upload size={15} />} label="导入" onClick={onImportWorkflow} testId="workflow-import" />
+          <ToolbarIconButton
+            icon={<Download size={15} />}
+            label="导出"
+            onClick={onExportWorkflow}
+            testId="workflow-export"
+          />
         </div>
 
         <div className="workflow-toolbar__group">
           <ToolbarIconButton icon={<Undo2 size={15} />} label="撤销" onClick={onUndo} disabled={!canUndo} />
           <ToolbarIconButton icon={<Redo2 size={15} />} label="重做" onClick={onRedo} disabled={!canRedo} />
-          <ToolbarIconButton icon={<Save size={15} />} label="保存" onClick={onSave} />
+          <ToolbarIconButton
+            icon={<Save size={15} />}
+            label="保存"
+            onClick={onSave}
+            disabled={isSavingWorkflow}
+            testId="workflow-save"
+          />
         </div>
 
         <div className="workflow-toolbar__status">
-          <div className="workflow-toolbar__status-chip">{saveStatus}</div>
+          <div className={`workflow-toolbar__status-chip workflow-toolbar__status-chip--${saveStatusTone}`}>
+            {saveStatus}
+          </div>
           {isExecuting && (
             <div className="workflow-toolbar__progress">
               <div className="workflow-toolbar__progress-copy">

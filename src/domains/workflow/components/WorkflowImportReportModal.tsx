@@ -1,23 +1,15 @@
-import { buildImportReportSections, getImportModeLabel } from '@/domains/workflow/lib/importExport';
-import type { WorkflowImportMode, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
-import { AlertTriangle, CheckCircle2, GitBranch, RefreshCw } from 'lucide-react';
+import { buildImportReportSections } from '@/domains/workflow/lib/importExport';
+import type { WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useEffect } from 'react';
 
 interface WorkflowImportReportModalProps {
   fileName: string;
   report: WorkflowImportReport;
-  retryModes: WorkflowImportMode[];
-  onRetry: (mode: WorkflowImportMode) => Promise<void>;
   onClose: () => void;
 }
 
-export default function WorkflowImportReportModal({
-  fileName,
-  report,
-  retryModes,
-  onRetry,
-  onClose,
-}: WorkflowImportReportModalProps) {
+export default function WorkflowImportReportModal({ fileName, report, onClose }: WorkflowImportReportModalProps) {
   const sections = buildImportReportSections(report);
   const hasWarnings = report.warnings.length > 0 || report.rejectedFields.length > 0;
 
@@ -36,7 +28,9 @@ export default function WorkflowImportReportModal({
           <div>
             <div className="workflow-panel__eyebrow">导入结果</div>
             <div className="workflow-panel__title">{fileName || 'workflow.json'}</div>
-            <div className="workflow-panel__desc">查看迁移、警告和字段处理结果。</div>
+            <div className="workflow-panel__desc">
+              已打开为新的未保存标签页。保存时会创建新的工作流记录。
+            </div>
           </div>
           <div
             className={`workflow-import-modal__status ${hasWarnings ? 'workflow-import-modal__status--warning' : 'workflow-import-modal__status--success'}`}
@@ -60,28 +54,6 @@ export default function WorkflowImportReportModal({
             </section>
           ))}
         </div>
-
-        {retryModes.length > 0 && (
-          <div className="workflow-import-modal__actions">
-            <div className="workflow-import-modal__actions-label">
-              <GitBranch size={14} />
-              <span>重新导入为</span>
-            </div>
-            <div className="workflow-import-modal__actions-row">
-              {retryModes.map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className="workflow-import-modal__button"
-                  onClick={() => void onRetry(mode)}
-                >
-                  <RefreshCw size={13} />
-                  {getImportModeLabel(mode)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="workflow-import-modal__footer">
           <button

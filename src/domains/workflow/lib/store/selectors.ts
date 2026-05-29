@@ -4,6 +4,8 @@ import { useShallow } from 'zustand/react/shallow';
 export function useWorkflowPageStore() {
   return useWorkflowStore(
     useShallow((state) => ({
+      documents: state.documents,
+      activeDocumentId: state.activeDocumentId,
       workflowId: state.workflowId,
       workflowName: state.workflowName,
       workflowList: state.workflowList,
@@ -31,17 +33,23 @@ export function useWorkflowPageStore() {
       cancelWorkflowExecution: state.cancelWorkflowExecution,
       createNodeGroup: state.createNodeGroup,
       deleteCurrentWorkflow: state.deleteCurrentWorkflow,
+      deleteCurrentWorkflowDetailed: state.deleteCurrentWorkflowDetailed,
       duplicateCurrentWorkflow: state.duplicateCurrentWorkflow,
+      duplicateCurrentWorkflowDetailed: state.duplicateCurrentWorkflowDetailed,
       executeWorkflow: state.executeWorkflow,
       executeWorkflowToNode: state.executeWorkflowToNode,
       exportCurrentWorkflow: state.exportCurrentWorkflow,
       importWorkflowData: state.importWorkflowData,
       importWorkflowDataWithMode: state.importWorkflowDataWithMode,
       loadWorkflow: state.loadWorkflow,
+      loadWorkflowDetailed: state.loadWorkflowDetailed,
       newWorkflow: state.newWorkflow,
       persistLocalDraft: state.persistLocalDraft,
       saveWorkflow: state.saveWorkflow,
+      saveWorkflowDetailed: state.saveWorkflowDetailed,
       setSnapToGridEnabled: state.setSnapToGridEnabled,
+      setActiveWorkflowDocument: state.setActiveWorkflowDocument,
+      closeWorkflowDocument: state.closeWorkflowDocument,
     })),
   );
 }

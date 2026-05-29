@@ -10,10 +10,25 @@ interface ParamRequest<TValue> {
   params: Record<string, TValue>;
 }
 
+interface QueryRequest<TQuery> {
+  query: TQuery;
+}
+
 export function validateBody<TInput, TOutput>(validator: Validator<TInput, TOutput>) {
   return (req: BodyRequest<TInput | TOutput>, _res: unknown, next: NextFunction): void => {
     try {
       req.body = validator(req.body as TInput);
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+export function validateQuery<TInput, TOutput>(validator: Validator<TInput, TOutput>) {
+  return (req: QueryRequest<TInput | TOutput>, _res: unknown, next: NextFunction): void => {
+    try {
+      req.query = validator(req.query as TInput);
       next();
     } catch (error) {
       next(error);

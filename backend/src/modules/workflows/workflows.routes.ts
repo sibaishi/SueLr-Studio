@@ -1,13 +1,24 @@
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import { Router } from 'express';
-import { validateBody, validateParam } from '../../app/middleware/validate-request.ts';
+import { validateBody, validateParam, validateQuery } from '../../app/middleware/validate-request.ts';
+import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import { workflowsController } from './workflows.controller.ts';
-import { ensureWorkflowBody, validateWorkflowId } from './workflows.schema.ts';
+import { ensureWorkflowBody, validateWorkflowId, workflowImportQuerySchema } from './workflows.schema.ts';
 
 const router = Router();
 
 router.get('/', workflowsController.list.bind(workflowsController));
-router.post('/import', validateBody(ensureWorkflowBody), workflowsController.import.bind(workflowsController));
+router.post(
+  '/import',
+  validateQuery(zodValidator(workflowImportQuerySchema)),
+  validateBody(ensureWorkflowBody),
+  workflowsController.import.bind(workflowsController),
+);
+router.post(
+  '/import/draft',
+  validateBody(ensureWorkflowBody),
+  workflowsController.importDraft.bind(workflowsController),
+);
 router.get('/:id', validateParam('id', validateWorkflowId), workflowsController.get.bind(workflowsController));
 router.get(
   '/:id/export',

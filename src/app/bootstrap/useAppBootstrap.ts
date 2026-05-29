@@ -123,7 +123,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
         return runtime;
       }
 
-      if (runtime?.auth.required && !runtime.auth.user) {
+      if (runtime?.auth?.required && !runtime.auth.user) {
         params.hydratedRef.current = false;
         activeHydrationUserRef.current = null;
         setBootstrapError(null);
@@ -170,7 +170,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
 
       await applyActiveConfig(cfgs, activeId);
       params.hydratedRef.current = true;
-      activeHydrationUserRef.current = runtime?.auth.required ? runtime.auth.user?.id || null : 'single-user';
+      activeHydrationUserRef.current = runtime?.auth?.required ? runtime.auth.user?.id || null : 'single-user';
       setBootstrapError(null);
       setBootstrapMode('server');
       finishSplash();

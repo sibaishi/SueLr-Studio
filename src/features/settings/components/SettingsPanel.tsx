@@ -36,7 +36,6 @@ import { AgentMemorySection } from './MemorySection';
 import { ModelsSection } from './ModelsSection';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
 import {
-  EmptyStateCard,
   chipStyle,
   eyebrowStyle,
   fuzzyMatch,
@@ -147,7 +146,6 @@ export function SettingsPanel({
     [memories, memoryQuery],
   );
   const themeOptions = Object.entries(THEME_LABELS).map(([value, label]) => ({ l: label, v: value }));
-  const logSummary = useMemo(() => logs.slice(0, 5), [logs]);
   const runtimeCapabilities = getRuntimeCapabilitiesSnapshot();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? false;
   const canRestartBackend = runtimeCapabilities?.canRestartBackend ?? false;
@@ -586,7 +584,7 @@ export function SettingsPanel({
     filteredMemories,
     filteredProjectModels,
     importableModels,
-    logSummary,
+    logSummary: [],
     logs,
     memories,
     memoryQuery,
@@ -914,27 +912,6 @@ export function SettingsPanel({
                 </div>
               </div>
 
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>最近系统反馈</div>
-                <div className="flex-col" style={{ gap: 8 }}>
-                  {logSummary.length === 0 && (
-                    <EmptyStateCard
-                      title="最近还没有日志"
-                      body="连接测试、模型导入和诊断操作完成后，这里会显示最近的系统反馈。"
-                      action="先做一次连接测试或搜索测试，就能看到这一栏开始产生内容。"
-                    />
-                  )}
-                  {logSummary.map((log, index) => (
-                    <div
-                      key={`${log.time}-${index}`}
-                      style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)' }}
-                    >
-                      <span style={{ color: 'var(--color-text-tertiary)' }}>[{log.time}] </span>
-                      {log.msg}
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
 

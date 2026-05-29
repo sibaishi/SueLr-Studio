@@ -50,6 +50,7 @@ function emitChatCompletionResult(result: ChatCompletionResult, callbacks: Strea
 
 export function createProvider(base: string, apiKey: string, config?: Partial<ProviderConfig>): AIProvider {
   const cfg: ProviderConfig = { ...DEFAULT_PROVIDER_CONFIG, ...config };
+  const apiConfig = { apiKey, baseUrl: base, providerConfig: cfg };
 
   function buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -73,11 +74,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
       model: params.model,
       messages: params.messages,
       tools: params.tools,
-      apiConfig: {
-        apiKey,
-        baseUrl: base,
-        providerConfig: cfg,
-      },
+      apiConfig,
     });
     return buildChatResult(data);
   }
@@ -86,10 +83,8 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
     const data = await capabilitySubmitVideoGeneration({
       ...params,
       apiConfig: {
+        ...apiConfig,
         ...params.apiConfig,
-        apiKey,
-        baseUrl: base,
-        providerConfig: cfg,
       },
       signal: params.signal,
     });
@@ -106,10 +101,8 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
     return capabilityGenerateImage({
       ...params,
       apiConfig: {
+        ...apiConfig,
         ...params.apiConfig,
-        apiKey,
-        baseUrl: base,
-        providerConfig: cfg,
       },
       signal: params.signal,
     });
@@ -124,11 +117,7 @@ export function createProvider(base: string, apiKey: string, config?: Partial<Pr
           model: params.model,
           messages: params.messages,
           tools: params.tools,
-          apiConfig: {
-            apiKey,
-            baseUrl: base,
-            providerConfig: cfg,
-          },
+          apiConfig,
           signal: params.signal,
         });
         const contentType = res.headers.get('content-type') || '';

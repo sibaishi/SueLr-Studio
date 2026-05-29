@@ -2,7 +2,11 @@ import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/com
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { NODE_ICONS } from '@/domains/workflow/components/nodes/nodeConstants';
-import { type GeneratedOutputFile, clearGeneratedOutputs, fetchGeneratedOutputs } from '@/domains/workflow/lib/api';
+import {
+  type GeneratedOutputFile,
+  clearGeneratedOutputs,
+  fetchGeneratedOutputs,
+} from '@/domains/workflow/lib/api/files';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { formatDurationSeconds, getExecutionStatusLabel } from '@/domains/workflow/lib/executionFormat';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';

@@ -333,6 +333,21 @@ Typical flow:
 6. Click `Execute`
 7. Read outputs and logs in the results panel
 
+Workflow management:
+
+- `New` starts a local draft. Save it before relying on it as a reusable workflow.
+- `Save` writes the current workflow to the backend workflow store. The toolbar shows whether the canvas is still a local draft, has unsaved changes, is saving, or was saved recently.
+- `Duplicate` creates a copy of the current workflow and opens the copy.
+- `Delete` asks for confirmation and explains whether the current item is a saved workflow or only a local draft.
+- `Import` reports migrations, warnings, ignored fields, and ID conflicts. Conflict handling can generate a new ID, preserve the imported ID, or overwrite the existing workflow when that mode is selected.
+
+Execution behavior:
+
+- `Execute` starts a backend workflow run and streams progress to the canvas.
+- `Stop` is the explicit way to cancel a running workflow.
+- Closing the browser tab, refreshing the page, or losing the streaming connection does not by itself cancel the backend run. The app can recover run status by polling after reconnecting.
+- If a run finishes while the stream is disconnected, the latest terminal status is still available from the run-status endpoint for recovery.
+
 Common node groups:
 
 - input nodes
