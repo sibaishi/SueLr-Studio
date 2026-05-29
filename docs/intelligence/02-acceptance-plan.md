@@ -4,6 +4,8 @@
 
 The intelligence program must be accepted as a set of reliable production loops, not as isolated model demos.
 
+The first total acceptance target is local: `desktop` and `local-web` must prove the complete Agent + Skills + Knowledge Base + workflow generation + execution + review + asset packaging loop before `server-web` migration begins.
+
 Every accepted phase must prove:
 
 - the feature is grounded in existing SueLr Studio architecture
@@ -14,6 +16,8 @@ Every accepted phase must prove:
 - workflow state ownership rules are preserved
 - side effects are approved when required
 - traces are sufficient to debug wrong behavior
+
+`server-web`, multi-user shared knowledge, per-user provider consumption, and cross-runtime synchronization are not local MVP pass conditions. They have separate acceptance gates after the local loop passes.
 
 ## Phase Acceptance Gates
 
@@ -50,6 +54,7 @@ Backend acceptance:
 - Invalid requests return `{ error, code, status }`.
 - Read-only Skills cannot mutate workflows, files, or knowledge.
 - Run trace is created and retrievable.
+- The runtime works locally without server-side user isolation.
 
 Regression acceptance:
 
@@ -121,6 +126,7 @@ Knowledge acceptance:
 
 - Each knowledge category has schema validation.
 - Records include source, scope, timestamps, and confidence or evidence where relevant.
+- Records default to local personal or project ownership.
 - Search returns typed records with source metadata.
 - Run knowledge requires actual run evidence.
 - Brand rules and project rules require user confirmation before promotion to durable knowledge.
@@ -130,6 +136,7 @@ Migration acceptance:
 
 - Existing memories can be imported into typed knowledge.
 - Existing memory governance remains true during migration.
+- `ownerUserId`, `workspaceId`, `ownershipScope`, and source metadata are preserved where useful for future server migration, but no shared-review flow is required for local MVP.
 
 ### Phase 5 Acceptance
 
@@ -187,6 +194,7 @@ Cutover acceptance:
 - Old memory records are migrated or intentionally archived.
 - Legacy routes are removed only after tests and frontend callers are migrated.
 - Developer docs no longer list `backend/src/modules/agent/` as the active runtime.
+- The cutover is verified locally before any `server-web` Agent migration.
 
 ### Phase 8 Acceptance
 
@@ -203,9 +211,70 @@ Automation acceptance:
 - Optional embedding retrieval has fallback behavior.
 - SQLite or embedding storage migration has rollback or import/export support.
 
-## Total Program Acceptance
+### Phase 9 Acceptance: Server Migration Design
 
-The whole program is accepted when:
+Required checks:
+
+```bash
+npm run check:docs
+npm run check:encoding
+```
+
+Migration design acceptance:
+
+- Local MVP total acceptance has already passed.
+- Data export/import contracts cover runs, knowledge, teams, Skills, templates, and artifacts.
+- Ownership fields and provider attribution rules are documented.
+- Conflict handling and rollback are specified before server rollout.
+
+### Phase 10 Acceptance: Server-Web Multi-User Agent
+
+Required checks:
+
+```bash
+npm run check
+```
+
+Server acceptance:
+
+- Authenticated users can run Agents in `server-web`.
+- Agent model calls consume the requesting user's provider configuration or approved workspace billing policy.
+- Private runs, knowledge, and provider settings are isolated between users.
+- Server rate limits and audit traces exist.
+- Local `desktop` and `local-web` acceptance still passes.
+
+### Phase 11 Acceptance: Shared Knowledge Review and Sync
+
+Required checks:
+
+```bash
+npm run check
+```
+
+Shared knowledge acceptance:
+
+- User-contributed knowledge is private or workspace-scoped by default.
+- Public knowledge requires review before becoming global guidance.
+- Records retain source, evidence, owner, reviewer, visibility, and version metadata.
+- Sync conflicts are detected and can be resolved or rolled back.
+
+### Phase 12 Acceptance: Cross-Runtime Sync or Server-Centered Expansion
+
+Required checks:
+
+```bash
+npm run check
+```
+
+Expansion acceptance:
+
+- The product has documented whether it uses bidirectional three-runtime sync or server-centered sharing.
+- Offline behavior, conflict handling, and rollback are tested.
+- Users can still run the local studio loop without server sharing when they choose local-only operation.
+
+## Local MVP Total Acceptance
+
+The local MVP is accepted when:
 
 1. A user can describe a design project in natural language.
 2. The system asks clarifying questions only when required.
@@ -220,7 +289,13 @@ The whole program is accepted when:
 11. Reusable knowledge is written only with source and governance.
 12. Legacy Agent code is removed or reduced to a compatibility shim.
 13. `npm run check` passes.
-14. Manual smoke testing covers Chat, Workflow, Settings, generated outputs, and restart/storage behavior.
+14. Manual smoke testing covers Chat, Workflow, Settings, generated outputs, and restart/storage behavior in local runtime shapes.
+
+`server-web` migration is explicitly not required for this local MVP gate. It starts only after this acceptance passes.
+
+## Full Program Acceptance
+
+The full program, including server migration, is accepted when local MVP acceptance passes and Phases 9 through 12 also pass.
 
 ## Total Manual Smoke Script
 

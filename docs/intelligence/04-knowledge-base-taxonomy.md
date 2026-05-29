@@ -6,6 +6,8 @@ The knowledge base should become the Studio Brain: a structured, searchable, evi
 
 It must not be a bag of unsourced text snippets.
 
+For the local MVP, the knowledge base is local personal and project knowledge for `desktop` and `local-web`. Public knowledge, cross-user contributions, review queues, and server synchronization are later `server-web` migration concerns.
+
 ## Storage Evolution
 
 ### Stage 1: JSON Stores
@@ -46,6 +48,16 @@ Add local embedding-backed retrieval only after:
 
 No external vector database is required for the first implementation.
 
+### Later Stage: Server Migration
+
+After the local MVP passes total acceptance, add server-ready storage and synchronization only with explicit migration design:
+
+- private, workspace, and public visibility scopes
+- per-user and per-workspace ownership
+- contribution and review workflow for public knowledge
+- conflict detection and rollback
+- provider and run attribution for every server Agent action
+
 ## Record Contract
 
 Every knowledge record should include:
@@ -66,9 +78,12 @@ updatedAt
 ownerUserId
 workspaceId
 ownershipScope
+sourceRuntime
+version
+syncStatus
 ```
 
-`ownerUserId`, `workspaceId`, and `ownershipScope` should follow existing resource ownership patterns.
+`ownerUserId`, `workspaceId`, `ownershipScope`, `sourceRuntime`, `version`, and `syncStatus` are migration-ready fields. In the local MVP they can default to a single local user, a local workspace, `local`, and `localOnly`. They do not require cross-user sharing or server sync in the first implementation.
 
 ## Knowledge Categories
 
@@ -348,6 +363,13 @@ User confirmation is required for:
 - model preference changes
 - deletion or destructive cleanup
 - any knowledge that could alter future production behavior materially
+
+Visibility rules:
+
+- local MVP records default to private local or project scope
+- workspace and public visibility are server migration features
+- public knowledge must never be created directly from a user run without review
+- shared records must retain original source, owner, evidence, reviewer, version, and visibility metadata
 
 ## Anti-Patterns
 

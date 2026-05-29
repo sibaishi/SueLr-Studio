@@ -6,6 +6,8 @@ Every phase must obey these rules:
 
 - keep the app usable at the end of the phase
 - keep current Agent APIs working until the replacement gate explicitly removes them
+- treat `desktop` and `local-web` as the first implementation and acceptance environments
+- defer `server-web`, multi-user shared knowledge, and three-runtime synchronization until the local loop passes total acceptance
 - prefer additive APIs before rewiring product surfaces
 - validate API boundaries with Zod
 - keep workflow execution routed through `backend/src/modules/execution/`
@@ -56,11 +58,11 @@ High-signal files to inspect:
 - Encoding gate passes.
 - Current branch has no unexplained doc policy drift.
 
-## Phase 1: Intelligence Runtime Skeleton
+## Phase 1: Local Intelligence Runtime Skeleton
 
 ### Goal
 
-Add a parallel, non-disruptive intelligence backend module.
+Add a parallel, non-disruptive local intelligence backend module for `desktop` and `local-web`.
 
 ### Scope
 
@@ -102,6 +104,7 @@ GET  /api/intelligence/knowledge
 - No workflow execution.
 - No automatic knowledge writeback.
 - No frontend replacement.
+- No `server-web` user isolation or synchronization.
 
 ### Dependencies
 
@@ -115,11 +118,11 @@ GET  /api/intelligence/knowledge
 - Old `/api/agent` still works.
 - New run trace is persisted under runtime storage.
 
-## Phase 2: Workflow Architect MVP
+## Phase 2: Local Workflow Architect MVP
 
 ### Goal
 
-Generate valid workflow drafts from user requirements without executing or saving by default.
+Generate valid local workflow drafts from user requirements without executing or saving by default.
 
 ### Scope
 
@@ -163,6 +166,7 @@ Frontend entry:
 - No automatic saving.
 - No automatic execution.
 - No free-form node mutation from the model.
+- No server-side workflow drafting requirement.
 
 ### Exit Criteria
 
@@ -171,11 +175,11 @@ Frontend entry:
 - The draft can be imported into the workflow editor only after explicit confirmation.
 - React Flow state remains owned by React Flow.
 
-## Phase 3: Workflow Execution Loop
+## Phase 3: Local Workflow Execution Loop
 
 ### Goal
 
-Allow approved intelligence plans to execute workflows through the existing execution engine.
+Allow approved local intelligence plans to execute workflows through the existing execution engine.
 
 ### Scope
 
@@ -202,11 +206,11 @@ Rules:
 - A successful run produces artifact references and a concise result report.
 - Closing SSE does not count as cancellation; explicit cancel still uses the cancel endpoint.
 
-## Phase 4: Studio Brain MVP
+## Phase 4: Local Studio Brain MVP
 
 ### Goal
 
-Replace loose memory behavior with typed knowledge records.
+Replace loose local memory behavior with typed personal and project knowledge records.
 
 ### Scope
 
@@ -243,6 +247,8 @@ Frontend:
 
 - No embedding requirement yet.
 - No external vector database.
+- No cross-user shared knowledge.
+- No global knowledge review queue.
 
 ### Exit Criteria
 
@@ -251,11 +257,11 @@ Frontend:
 - Run knowledge is written only with execution evidence.
 - Memory cannot select workflow target or supply workflow input without confirmation.
 
-## Phase 5: Design Team MVP
+## Phase 5: Local Design Team MVP
 
 ### Goal
 
-Introduce multi-role orchestration without uncontrolled multi-agent loops.
+Introduce local multi-role orchestration without uncontrolled multi-agent loops.
 
 ### Scope
 
@@ -293,11 +299,11 @@ review-and-retry
 - A quality reviewer role can score outputs against explicit criteria.
 - All role outputs are traceable.
 
-## Phase 6: Asset Pipeline Expansion
+## Phase 6: Local Asset Pipeline Expansion
 
 ### Goal
 
-Bring image, video, prompt, copy, and packaging flows into the Skill system.
+Bring local image, video, prompt, copy, and packaging flows into the Skill system.
 
 ### Scope
 
@@ -327,11 +333,11 @@ Rules:
 - Generated assets are visible in existing result surfaces.
 - Assets are indexed into knowledge with source and usage metadata.
 
-## Phase 7: Legacy Agent Cutover
+## Phase 7: Local Legacy Agent Cutover
 
 ### Goal
 
-Move product surfaces from old Agent APIs to intelligence APIs.
+Move local product surfaces from old Agent APIs to intelligence APIs.
 
 ### Scope
 
@@ -347,11 +353,11 @@ Move product surfaces from old Agent APIs to intelligence APIs.
 - No frontend code depends on `src/shared/api/agent.ts` except compatibility shims.
 - `backend/src/modules/agent/` is deleted or reduced to a documented compatibility wrapper.
 
-## Phase 8: Advanced Studio Automation
+## Phase 8: Local Template and Review Enhancement
 
 ### Goal
 
-Turn repeated successful runs into reusable operating assets.
+Turn repeated successful local runs into reusable operating assets.
 
 ### Scope
 
@@ -367,4 +373,85 @@ Turn repeated successful runs into reusable operating assets.
 - The system recommends prior workflows based on current brief.
 - Users can save a successful team + workflow + prompt set as a reusable studio template.
 - Knowledge retrieval improves planning accuracy without bypassing approvals.
+
+## Phase 9: Server Migration Design
+
+### Goal
+
+Design the `server-web` migration only after the local MVP has passed total acceptance.
+
+### Scope
+
+- Define migration boundaries for local JSON or SQLite knowledge stores.
+- Define user, workspace, and public ownership rules.
+- Define provider ownership so Agent calls consume the requesting user's configured providers or allowed budget.
+- Define data export, import, rollback, and conflict resolution.
+- Map local APIs to server-safe API contracts.
+
+### Out of Scope
+
+- No production multi-user Agent rollout yet.
+- No public shared knowledge ingestion yet.
+
+### Exit Criteria
+
+- A migration design document or ADR exists.
+- Local data can be exported in a server-importable format.
+- Ownership, provider consumption, and conflict rules are testable before server rollout.
+
+## Phase 10: Server-Web Multi-User Agent Rollout
+
+### Goal
+
+Expose the intelligence runtime to `server-web` users without breaking local runtime behavior.
+
+### Scope
+
+- Add authenticated user and workspace ownership to intelligence runs.
+- Route model calls through the current user's provider configuration or server-approved billing policy.
+- Keep local `desktop` and `local-web` behavior intact.
+- Add server-safe rate limits, audit traces, and error handling.
+
+### Exit Criteria
+
+- Two users can run Agents without seeing each other's private runs, knowledge, or provider configuration.
+- Provider usage is attributable to the requesting user or workspace.
+- Local runtime acceptance remains green.
+
+## Phase 11: Shared Knowledge Review and Sync
+
+### Goal
+
+Allow knowledge from all users to become shared only through governance.
+
+### Scope
+
+- Add contribution, review, approval, rejection, and versioning flows.
+- Separate private, workspace, and public knowledge scopes.
+- Add synchronization or import/export for approved knowledge where needed.
+- Preserve source, evidence, owner, reviewer, and visibility metadata.
+
+### Exit Criteria
+
+- User-contributed knowledge is private or workspace-scoped by default.
+- Public knowledge requires review before use as global guidance.
+- Sync conflicts are detectable and resolvable.
+
+## Phase 12: Cross-Runtime Sync or Server-Centered Expansion
+
+### Goal
+
+Decide whether the mature product should use three-runtime synchronization or a server-centered operating model.
+
+### Scope
+
+- Evaluate `desktop`, `local-web`, and `server-web` data flows after real server usage exists.
+- Add bidirectional sync only if it is justified by product workflows.
+- Otherwise keep server as the shared center and local runtimes as local-first clients with explicit import/export.
+
+### Exit Criteria
+
+- The chosen model has documented tradeoffs.
+- Conflict handling, offline behavior, and rollback are tested.
+- Local-first operation remains available for users who do not need server sharing.
 

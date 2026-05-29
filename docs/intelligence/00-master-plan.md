@@ -2,7 +2,9 @@
 
 ## Purpose
 
-SueLr Studio should evolve from a local-first multimodal tool into a local-first AI design studio operating system.
+SueLr Studio should evolve from a local-first multimodal tool into a complete local AI design studio operating system first.
+
+The first product milestone is a full local loop in `desktop` and `local-web`: Agent + Skills + Knowledge Base + automatic workflow construction + design-team collaboration + review + asset output + knowledge writeback. `server-web`, multi-user shared knowledge, and cross-runtime synchronization are later migration targets after the local loop is stable.
 
 The new intelligence system should be able to:
 
@@ -18,6 +20,18 @@ The new intelligence system should be able to:
 - write reusable knowledge, prompts, workflow templates, and run lessons back into the studio brain
 
 This plan intentionally allows a complete replacement of the current `backend/src/modules/agent/` module. The replacement must be gradual and verifiable so the app keeps working during the migration.
+
+## Rollout Priority
+
+The rollout order is intentionally conservative:
+
+1. Complete the local studio loop in `desktop` and `local-web`.
+2. Replace the immature local Agent runtime with the new intelligence module.
+3. Stabilize local templates, knowledge governance, workflow generation, execution, review, and asset packaging.
+4. Design `server-web` migration only after local total acceptance passes.
+5. Then implement multi-user Agent access, shared knowledge review, per-user provider ownership, and synchronization.
+
+The local MVP must not depend on server-side user isolation, global knowledge review, or three-runtime synchronization. Data contracts may keep `ownerUserId`, `workspaceId`, `source`, and runtime metadata so the later migration has a clean path, but those fields are not a reason to add server complexity to the first implementation.
 
 ## Current Project Facts
 
@@ -35,6 +49,8 @@ As of this plan, SueLr Studio already has:
 - current assistant routes under `backend/src/modules/assistant/`
 - runtime storage resolver under `backend/src/platform/storage/`
 - generated file URL contracts rooted at `/api/outputs/...` and `/api/assistant/files/...`
+- supported local runtime shapes: `desktop` and `local-web`
+- `server-web` deployment assets exist as a later rollout surface, not as a local MVP dependency
 
 The new system must not violate existing hard constraints:
 
@@ -308,7 +324,7 @@ Detailed replacement steps are in `03-legacy-agent-replacement-plan.md`.
 
 ## Program Success Criteria
 
-The program is successful when:
+The local MVP is successful when, in both `desktop` and `local-web` where applicable:
 
 - users can ask for a design outcome rather than manually assemble every node
 - the system can create a validated workflow draft from a brief
@@ -320,4 +336,12 @@ The program is successful when:
 - run lessons and reusable prompts are written to knowledge with evidence
 - the legacy Agent module is removed or reduced to a compatibility shim
 - all public docs, gates, and tests agree with the implemented architecture
+
+Server success is a later program layer. It is successful only after local acceptance, when:
+
+- `server-web` exposes Agent capabilities to authenticated users
+- every Agent run consumes the requesting user's configured provider credentials or allowed provider budget
+- shared knowledge can be contributed by users but requires review before becoming public or global
+- user-owned, workspace-owned, and public knowledge are isolated correctly
+- local and server data migration, conflict handling, and rollback are tested
 

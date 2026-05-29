@@ -50,6 +50,34 @@ Required:
 - explicit confirmation before save or execution
 - run through existing execution service
 
+## Local MVP Gate
+
+The first implementation gate is a complete local studio loop in `desktop` and `local-web`:
+
+- Agent runtime works without `server-web`
+- Workflow Architect can create and validate drafts locally
+- Approved workflows execute through the existing local backend execution service
+- Studio Brain uses local personal and project knowledge by default
+- Design team roles can plan, review, and request retries locally
+- Asset outputs use existing app URL contracts
+- Legacy Agent replacement is verified locally before server migration
+
+This gate must pass before treating server synchronization, public knowledge, or multi-user Agent access as implementation requirements.
+
+## Server Migration Gate
+
+`server-web` migration may start only after local MVP total acceptance passes.
+
+Before implementing server migration, the design must cover:
+
+- user and workspace isolation
+- provider ownership and per-user Agent consumption
+- private, workspace, and public knowledge scopes
+- contribution, review, and approval for shared knowledge
+- migration import/export
+- sync conflict handling and rollback
+- continued support for local-only operation
+
 ## Knowledge Gates
 
 Knowledge writes must include:
