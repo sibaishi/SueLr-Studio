@@ -623,6 +623,28 @@ test('HTTP contract: upload endpoint returns envelope-only payloads', async () =
   }
 });
 
+test('HTTP contract: upload endpoint rejects files without a basename', async () => {
+  const { server, baseUrl } = await createTestServer('upload-missing-basename');
+  try {
+    const formData = new FormData();
+    formData.append('file', new Blob(['fake png bytes'], { type: 'image/png' }), '.png');
+
+    const response = await fetch(`${baseUrl}/api/files/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assertEnvelopeShape(body);
+    assert.equal(body.success, false);
+    assert.equal(body.error.code, 'UPLOAD_FAILED');
+    assert.equal(body.error.message, '文件无文件名，请重命名后重新上传');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('HTTP contract: assistant image save returns envelope-only payloads', async () => {
   const { server, baseUrl } = await createTestServer('assistant-images');
   try {

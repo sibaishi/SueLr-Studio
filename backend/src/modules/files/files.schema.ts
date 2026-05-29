@@ -38,12 +38,16 @@ const ALLOWED_EXTENSIONS = new Set([
   '.wav',
 ]);
 
+const MISSING_UPLOAD_BASENAME_MESSAGE = '文件无文件名，请重命名后重新上传';
+
 export function validateUploadFile(file: Partial<UploadedFileLike> | undefined | null) {
   if (!file) throw new ValidationError('UPLOAD_FILE_REQUIRED', '未选择文件');
+  const originalName = String(file.originalname || '').trim();
+  if (!originalName || !originalName.replace(/\.[^.]+$/, '')) {
+    throw new ValidationError('UPLOAD_FAILED', MISSING_UPLOAD_BASENAME_MESSAGE);
+  }
   const extension =
-    String(file.originalname || '')
-      .toLowerCase()
-      .match(/\.[^.]+$/)?.[0] || '.bin';
+    originalName.toLowerCase().match(/\.[^.]+$/)?.[0] || '.bin';
   if (!ALLOWED_MIME_TYPES.has(String(file.mimetype || '')) || !ALLOWED_EXTENSIONS.has(extension)) {
     throw new ValidationError('UPLOAD_FAILED', '不支持的文件类型');
   }
