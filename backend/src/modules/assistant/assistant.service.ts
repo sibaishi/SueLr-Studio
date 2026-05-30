@@ -135,8 +135,7 @@ export class AssistantService {
     const next = this.repository
       .load('conversations')
       .filter(
-        (conversation) =>
-          conversation.id !== id || !isResourceVisibleForRequestScope(conversation, _options.scope),
+        (conversation) => conversation.id !== id || !isResourceVisibleForRequestScope(conversation, _options.scope),
       );
     this.repository.save('conversations', next);
     logger.info('assistant conversation deleted', { conversationId: id });
@@ -250,9 +249,7 @@ export class AssistantService {
 
   deleteImage(id: DynamicValue, _options: ScopeOptions = {}) {
     const gallery = this.repository.load('gallery');
-    const item = gallery.find(
-      (entry) => entry.id === id && isResourceVisibleForRequestScope(entry, _options.scope),
-    );
+    const item = gallery.find((entry) => entry.id === id && isResourceVisibleForRequestScope(entry, _options.scope));
     if (item?.localUrl?.startsWith('/api/assistant/files/')) {
       const rel = item.localUrl.replace('/api/assistant/files/', '');
       this.repository.deleteGeneratedFile(rel, { scope: _options.scope });

@@ -1,8 +1,8 @@
-import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
+import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
+import { type WorkflowArchitectDsl, workflowArchitectDslSchema } from './workflow-architect.schema.ts';
 import type { WorkflowDraft } from './workflow-draft.schema.ts';
 import type { WorkflowIntent } from './workflow-intent.schema.ts';
-import { workflowArchitectDslSchema, type WorkflowArchitectDsl } from './workflow-architect.schema.ts';
 
 const NODE_DEFAULT_DATA: Record<string, PlainObject> = {
   textInput: { text: '' },
@@ -29,7 +29,14 @@ const NODE_DEFAULT_DATA: Record<string, PlainObject> = {
   output: {},
 };
 
-const VARIABLE_INPUT_NODE_TYPES = new Set(['textMerge', 'imageMerge', 'videoMerge', 'audioMerge', 'iterateRun', 'iterateImageRun']);
+const VARIABLE_INPUT_NODE_TYPES = new Set([
+  'textMerge',
+  'imageMerge',
+  'videoMerge',
+  'audioMerge',
+  'iterateRun',
+  'iterateImageRun',
+]);
 const VARIABLE_OUTPUT_NODE_TYPES = new Set(['textSplit']);
 
 function clampInteger(value: DynamicValue, fallback: number, min: number, max: number) {
@@ -135,7 +142,10 @@ export function compileWorkflowArchitectDsl(
     {
       id: `draft_${draft.id}`,
       name: parsed.name || draft.name,
-      description: [parsed.description || draft.description, parsed.reasoningSummary ? `Architect：${parsed.reasoningSummary}` : '']
+      description: [
+        parsed.description || draft.description,
+        parsed.reasoningSummary ? `Architect：${parsed.reasoningSummary}` : '',
+      ]
         .filter(Boolean)
         .join('\n'),
       nodes,

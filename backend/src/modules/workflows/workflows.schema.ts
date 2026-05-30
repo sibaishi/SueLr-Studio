@@ -1,10 +1,10 @@
+import { z } from 'zod';
 import { ValidationError } from '../../app/errors/index.ts';
 import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import { getNodeContract, getNodeDataDefaults } from '../../engine/contracts/node-registry.ts';
 import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { CURRENT_WORKFLOW_SCHEMA_VERSION } from './workflow-migrations.ts';
-import { z } from 'zod';
 
 type WorkflowNormalizeOptions = {
   preserveCreatedAt?: boolean;

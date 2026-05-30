@@ -39,9 +39,7 @@ function panelDisplayStyle(active: boolean) {
 
 function WorkspaceLoading() {
   return (
-    <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'rgba(255, 255, 255, 0.68)' }}>
-      加载中...
-    </div>
+    <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'rgba(255, 255, 255, 0.68)' }}>加载中...</div>
   );
 }
 

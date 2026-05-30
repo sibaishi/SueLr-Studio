@@ -1,8 +1,8 @@
 import { ProviderError } from '../../app/errors/index.ts';
 import { resolveModelRuntime } from '../../engine/helpers/apiConfig.ts';
 import { localUrlToDataUrl } from '../media/media-resolver.ts';
-import type { RequestScope } from '../runtime/request-scope.ts';
 import { getProviderAdapter } from '../providers/index.ts';
+import type { RequestScope } from '../runtime/request-scope.ts';
 
 interface ChatContentImageUrl {
   url?: unknown;

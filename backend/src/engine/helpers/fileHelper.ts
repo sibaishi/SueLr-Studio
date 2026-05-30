@@ -19,7 +19,10 @@ export function isLocalFileUrl(url: string): boolean {
   return isLocalApiMediaUrl(url);
 }
 
-export function getFileInfo(url: string, options: MediaResolveOptions = {}): { exists: true; size: number; mime: string } | null {
+export function getFileInfo(
+  url: string,
+  options: MediaResolveOptions = {},
+): { exists: true; size: number; mime: string } | null {
   const localPath = urlToLocalPath(url, options);
   if (!localPath) return null;
 

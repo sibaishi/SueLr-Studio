@@ -190,19 +190,27 @@ function recoverImagesFromPartialText(text: string): string[] {
     addUniqueImage(images, toVerifiedDataUrl(unescapeJsonString(base64), mimeType));
   };
 
-  for (const match of text.matchAll(/"(?:url|image_url|imageUrl|output_url|outputUrl)"\s*:\s*"(https?:\/\/(?:\\.|[^"\\])+)"/g)) {
+  for (const match of text.matchAll(
+    /"(?:url|image_url|imageUrl|output_url|outputUrl)"\s*:\s*"(https?:\/\/(?:\\.|[^"\\])+)"/g,
+  )) {
     addUniqueImage(images, unescapeJsonString(match[1]));
   }
 
-  for (const match of text.matchAll(/"(?:b64_json|base64|image_base64|imageBase64)"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g)) {
+  for (const match of text.matchAll(
+    /"(?:b64_json|base64|image_base64|imageBase64)"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g,
+  )) {
     addVerifiedBase64(match[1]);
   }
 
-  for (const match of text.matchAll(/"inlineData"\s*:\s*\{[^{}]{0,8000}?"mimeType"\s*:\s*"([^"]+)"[^{}]{0,8000}?"data"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g)) {
+  for (const match of text.matchAll(
+    /"inlineData"\s*:\s*\{[^{}]{0,8000}?"mimeType"\s*:\s*"([^"]+)"[^{}]{0,8000}?"data"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g,
+  )) {
     addVerifiedBase64(match[2], unescapeJsonString(match[1]));
   }
 
-  for (const match of text.matchAll(/"inline_data"\s*:\s*\{[^{}]{0,8000}?"mime_type"\s*:\s*"([^"]+)"[^{}]{0,8000}?"data"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g)) {
+  for (const match of text.matchAll(
+    /"inline_data"\s*:\s*\{[^{}]{0,8000}?"mime_type"\s*:\s*"([^"]+)"[^{}]{0,8000}?"data"\s*:\s*"([A-Za-z0-9+/=\\r\\n\\t ]+)"/g,
+  )) {
     addVerifiedBase64(match[2], unescapeJsonString(match[1]));
   }
 

@@ -4,11 +4,15 @@ import { createLogger } from '../../../platform/logging/logger.ts';
 import { settingsService } from '../../settings/settings.service.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import type { WorkflowDraftRequest } from '../intelligence.schema.ts';
-import type { WorkflowIntent } from './workflow-intent.schema.ts';
-import type { WorkflowDraft } from './workflow-draft.schema.ts';
-import { WORKFLOW_ARCHITECT_NODE_TYPES, workflowArchitectDslSchema, type WorkflowArchitectDsl } from './workflow-architect.schema.ts';
 import { compileWorkflowArchitectDsl } from './workflow-architect-compiler.ts';
-import { validateCompiledWorkflow, type WorkflowValidationIssue } from './workflow-validator.ts';
+import {
+  WORKFLOW_ARCHITECT_NODE_TYPES,
+  type WorkflowArchitectDsl,
+  workflowArchitectDslSchema,
+} from './workflow-architect.schema.ts';
+import type { WorkflowDraft } from './workflow-draft.schema.ts';
+import type { WorkflowIntent } from './workflow-intent.schema.ts';
+import { type WorkflowValidationIssue, validateCompiledWorkflow } from './workflow-validator.ts';
 
 const logger = createLogger({ module: 'workflow-architect-service' });
 type ChatCompletionRunner = typeof runChatCompletion;
@@ -22,7 +26,9 @@ export type WorkflowArchitectAttempt = {
 };
 
 function cleanText(value: DynamicValue, maxLength = 12000) {
-  return String(value ?? '').trim().slice(0, maxLength);
+  return String(value ?? '')
+    .trim()
+    .slice(0, maxLength);
 }
 
 function readJsonObject(content: DynamicValue): PlainObject | null {
@@ -94,14 +100,33 @@ function getWorkflowEdges(workflow: PlainObject) {
 function isComplexRequest(input: WorkflowDraftRequest, intent: WorkflowIntent) {
   const text = `${input.input || ''}\n${intent.sourceText || ''}`;
   return (
-    includesAny(text, ['素材包', '多条链路', '多链路', '并行链路', '复合工作流', 'asset pack', 'multi-branch', 'multiple branches']) ||
+    includesAny(text, [
+      '素材包',
+      '多条链路',
+      '多链路',
+      '并行链路',
+      '复合工作流',
+      'asset pack',
+      'multi-branch',
+      'multiple branches',
+    ]) ||
     (includesAny(text, ['主图', '详情页']) && includesAny(text, ['文案', '分镜图', '品牌规范']))
   );
 }
 
 function isBatchRequest(input: WorkflowDraftRequest, intent: WorkflowIntent) {
   const text = `${input.input || ''}\n${intent.sourceText || ''}`;
-  return includesAny(text, ['逐项', '批量', '每个镜头', '每镜头', '分镜图', '故事板', 'storyboard shots', 'batch', 'for each']);
+  return includesAny(text, [
+    '逐项',
+    '批量',
+    '每个镜头',
+    '每镜头',
+    '分镜图',
+    '故事板',
+    'storyboard shots',
+    'batch',
+    'for each',
+  ]);
 }
 
 function isLineSeparator(value: string) {
@@ -111,7 +136,18 @@ function isLineSeparator(value: string) {
 function promptMentionsSeparator(prompt: string, separator: string) {
   if (!prompt) return false;
   if (isLineSeparator(separator)) {
-    return includesAny(prompt, ['每行', '一行一个', '每一行', '按行', '换行', '不要输出解释', 'line', 'newline', 'one per line', 'line-separated']);
+    return includesAny(prompt, [
+      '每行',
+      '一行一个',
+      '每一行',
+      '按行',
+      '换行',
+      '不要输出解释',
+      'line',
+      'newline',
+      'one per line',
+      'line-separated',
+    ]);
   }
   return prompt.includes(separator) || includesAny(prompt, ['分隔符', 'separator', 'delimiter', 'split']);
 }
@@ -196,7 +232,9 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
       });
     }
     const iterateIds = new Set(
-      nodes.filter((node) => ['iterateRun', 'iterateImageRun'].includes(String(node.type || ''))).map((node) => String(node.id || '')),
+      nodes
+        .filter((node) => ['iterateRun', 'iterateImageRun'].includes(String(node.type || '')))
+        .map((node) => String(node.id || '')),
     );
     const hasIterateAiDownstream = edges.some((edge) => {
       if (!iterateIds.has(String(edge.source || ''))) return false;
@@ -224,7 +262,9 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
       }
     }
     for (const node of nodes.filter((item) => item.type === 'imageGen')) {
-      const configured = ['ratio', 'resolution', 'n', 'output_format'].filter((key) => node.data?.[key] !== undefined && node.data?.[key] !== '');
+      const configured = ['ratio', 'resolution', 'n', 'output_format'].filter(
+        (key) => node.data?.[key] !== undefined && node.data?.[key] !== '',
+      );
       if (configured.length < 2) {
         issues.push({
           code: 'ARCHITECT_IMAGE_PARAMS_TOO_WEAK',
@@ -235,7 +275,9 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
       }
     }
     for (const node of nodes.filter((item) => item.type === 'videoGen')) {
-      const configured = ['duration', 'resolution', 'ratio'].filter((key) => node.data?.[key] !== undefined && node.data?.[key] !== '');
+      const configured = ['duration', 'resolution', 'ratio'].filter(
+        (key) => node.data?.[key] !== undefined && node.data?.[key] !== '',
+      );
       if (configured.length < 2) {
         issues.push({
           code: 'ARCHITECT_VIDEO_PARAMS_TOO_WEAK',
@@ -250,7 +292,12 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
   return issues;
 }
 
-function validateArchitectWorkflow(workflow: PlainObject, input: WorkflowDraftRequest, intent: WorkflowIntent, options: { scope?: DynamicValue } = {}) {
+function validateArchitectWorkflow(
+  workflow: PlainObject,
+  input: WorkflowDraftRequest,
+  intent: WorkflowIntent,
+  options: { scope?: DynamicValue } = {},
+) {
   const validation = validateCompiledWorkflow(workflow, { scope: options.scope });
   const qualityIssues = validation.workflow ? buildArchitectQualityIssues(validation.workflow, input, intent) : [];
   const issues = [...validation.issues, ...qualityIssues];
@@ -471,7 +518,9 @@ export class WorkflowArchitectService {
         const repairedRaw = readJsonObject(repairPayload?.choices?.[0]?.message?.content);
         const repairedDsl = workflowArchitectDslSchema.parse(repairedRaw);
         const repairedWorkflow = compileWorkflowArchitectDsl(repairedDsl, intent, draft, { scope: options.scope });
-        const repairedValidation = validateArchitectWorkflow(repairedWorkflow, request, intent, { scope: options.scope });
+        const repairedValidation = validateArchitectWorkflow(repairedWorkflow, request, intent, {
+          scope: options.scope,
+        });
         const repairedDslQualityIssues = buildArchitectDslQualityIssues(repairedDsl);
         repairedValidation.issues.push(...repairedDslQualityIssues);
         repairedValidation.valid =
@@ -510,7 +559,12 @@ export class WorkflowArchitectService {
         } satisfies WorkflowArchitectAttempt,
       };
     } catch (error) {
-      const message = error instanceof z.ZodError ? 'LLM Architect 返回的 DSL 结构无效。' : error instanceof Error ? error.message : 'LLM Architect 调用失败。';
+      const message =
+        error instanceof z.ZodError
+          ? 'LLM Architect 返回的 DSL 结构无效。'
+          : error instanceof Error
+            ? error.message
+            : 'LLM Architect 调用失败。';
       logger.warn('workflow architect failed, using local compiler', {
         model: plannerModel.modelId,
         error: message,

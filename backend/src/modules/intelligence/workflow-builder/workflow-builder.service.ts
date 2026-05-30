@@ -1,10 +1,10 @@
 import type { DynamicValue } from '../../types.ts';
-import { knowledgeService } from '../knowledge/knowledge.service.ts';
 import type { WorkflowDraftRequest } from '../intelligence.schema.ts';
-import { compileWorkflowDraft } from './workflow-compiler.ts';
-import { planWorkflowDraft, parseWorkflowIntent } from './workflow-planner.ts';
-import { validateCompiledWorkflow } from './workflow-validator.ts';
+import { knowledgeService } from '../knowledge/knowledge.service.ts';
 import { workflowArchitectService } from './workflow-architect.service.ts';
+import { compileWorkflowDraft } from './workflow-compiler.ts';
+import { parseWorkflowIntent, planWorkflowDraft } from './workflow-planner.ts';
+import { validateCompiledWorkflow } from './workflow-validator.ts';
 
 function readAgentContext(input: WorkflowDraftRequest) {
   const plannerModel = input.context?.agent?.plannerModel;
@@ -38,7 +38,8 @@ export class WorkflowBuilderService {
       knowledgeItems: knowledgeContext.items,
     });
     const workflow =
-      architect.workflow || compileWorkflowDraft(intent, draft, { scope: options.scope, knowledgeItems: knowledgeContext.items });
+      architect.workflow ||
+      compileWorkflowDraft(intent, draft, { scope: options.scope, knowledgeItems: knowledgeContext.items });
     const validation = validateCompiledWorkflow(workflow, { scope: options.scope });
     const agentContext = readAgentContext(input);
 

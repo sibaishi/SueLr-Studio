@@ -334,7 +334,9 @@ export function useChat(
     const saved = loadJSON<Conv[]>(STORAGE_KEY, []);
     return saved.length > 0 ? saved : [createConversation(defaultModel, roles[0]?.id)];
   });
-  const [activeId, setActiveIdState] = useState(() => (isServerMultiUserRuntime() ? '' : loadJSON<string>(ACTIVE_KEY, '')));
+  const [activeId, setActiveIdState] = useState(() =>
+    isServerMultiUserRuntime() ? '' : loadJSON<string>(ACTIVE_KEY, ''),
+  );
   const [input, setInput] = useState('');
   const [sendings, setSendings] = useState<Set<string>>(new Set());
   const [pendingImages, setPendingImages] = useState<string[]>([]);

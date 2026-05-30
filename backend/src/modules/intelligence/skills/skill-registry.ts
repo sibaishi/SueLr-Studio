@@ -1,7 +1,7 @@
-import { settingsService } from '../../settings/settings.service.ts';
-import { workflowsService } from '../../workflows/workflows.service.ts';
 import { executionService } from '../../execution/execution.service.ts';
+import { settingsService } from '../../settings/settings.service.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
+import { workflowsService } from '../../workflows/workflows.service.ts';
 import { KNOWLEDGE_CATEGORIES, knowledgeService } from '../knowledge/knowledge.service.ts';
 import { teamOrchestrator } from '../teams/team-orchestrator.ts';
 import { workflowBuilderService } from '../workflow-builder/workflow-builder.service.ts';
@@ -140,9 +140,12 @@ function getWorkflowForInputHints(input: PlainObject, scope?: DynamicValue) {
   const workflowName = typeof input.workflowName === 'string' ? input.workflowName.trim().toLowerCase() : '';
   if (!workflowName) return null;
   return (
-    workflowsService
-      .list({ scope })
-      .find((workflow: PlainObject) => String(workflow.name || '').trim().toLowerCase() === workflowName) || null
+    workflowsService.list({ scope }).find(
+      (workflow: PlainObject) =>
+        String(workflow.name || '')
+          .trim()
+          .toLowerCase() === workflowName,
+    ) || null
   );
 }
 
@@ -459,7 +462,9 @@ export class SkillRegistry {
           },
         },
         execute: (input, options) => ({
-          workflow: summarizeWorkflow(workflowsService.getById(String(input.workflowId || ''), { scope: options.scope })),
+          workflow: summarizeWorkflow(
+            workflowsService.getById(String(input.workflowId || ''), { scope: options.scope }),
+          ),
         }),
       },
       {
@@ -501,8 +506,8 @@ export class SkillRegistry {
         execute: async (input, options) => ({
           intent: (
             await workflowBuilderService.createDraft(
-            { input: String(input.input || ''), context: {} },
-            { scope: options.scope },
+              { input: String(input.input || ''), context: {} },
+              { scope: options.scope },
             )
           ).intent,
         }),
@@ -529,8 +534,8 @@ export class SkillRegistry {
         execute: async (input, options) => ({
           draft: (
             await workflowBuilderService.createDraft(
-            { input: String(input.input || ''), context: {} },
-            { scope: options.scope },
+              { input: String(input.input || ''), context: {} },
+              { scope: options.scope },
             )
           ).draft,
         }),
@@ -562,7 +567,10 @@ export class SkillRegistry {
             {
               input: String(input.input || ''),
               name: typeof input.name === 'string' ? input.name : undefined,
-              context: input.context && typeof input.context === 'object' && !Array.isArray(input.context) ? input.context : {},
+              context:
+                input.context && typeof input.context === 'object' && !Array.isArray(input.context)
+                  ? input.context
+                  : {},
             },
             { scope: options.scope },
           ),
@@ -587,7 +595,8 @@ export class SkillRegistry {
             issues: { type: 'array' },
           },
         },
-        execute: (input, options) => workflowBuilderService.validateWorkflow(input.workflow || {}, { scope: options.scope }),
+        execute: (input, options) =>
+          workflowBuilderService.validateWorkflow(input.workflow || {}, { scope: options.scope }),
       },
       {
         id: 'workflow.suggestInputs',

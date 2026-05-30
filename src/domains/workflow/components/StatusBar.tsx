@@ -1,5 +1,5 @@
-import type { WorkflowDocument } from '@/domains/workflow/lib/store';
 import { APP_VERSION } from '@/domains/workflow/lib/constants';
+import type { WorkflowDocument } from '@/domains/workflow/lib/store';
 import { X } from 'lucide-react';
 
 interface StatusBarProps {

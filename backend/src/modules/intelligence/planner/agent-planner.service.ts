@@ -23,10 +23,11 @@ export type AgentPlan = {
     label?: string;
   };
   summary: string;
-  toolName: 'workflow.createDraft';
+  toolName: 'chat.respond' | 'workflow.createDraft';
   toolInput: {
     input: string;
     plannerNotes?: string;
+    response?: string;
   };
   reasoningSummary: string;
   warnings: string[];
@@ -49,7 +50,9 @@ function gid(prefix = 'plan') {
 }
 
 function cleanText(value: DynamicValue, maxLength = 12000) {
-  return String(value ?? '').trim().slice(0, maxLength);
+  return String(value ?? '')
+    .trim()
+    .slice(0, maxLength);
 }
 
 function readJsonObject(text: string): PlainObject | null {
@@ -96,6 +99,50 @@ function fallbackPlan(input: AgentPlanRequest, reason = '', knowledgeContext = g
   };
 }
 
+function shouldUseWorkflowFallback(input: string) {
+  return includesAny(input, [
+    '工作流',
+    '画布',
+    '节点',
+    '搭建',
+    '创建',
+    '生成',
+    '执行',
+    '运行',
+    '批量',
+    '分镜图',
+    '主图',
+    '详情页',
+    'workflow',
+    'canvas',
+    'node',
+    'run',
+    'execute',
+  ]);
+}
+
+function fallbackChatPlan(
+  input: AgentPlanRequest,
+  reason = '',
+  knowledgeContext = getEmptyKnowledgeContext(),
+): AgentPlan {
+  return {
+    id: gid(),
+    source: 'local-fallback',
+    plannerModel: input.plannerModel,
+    summary: '已按普通对话回复。',
+    toolName: 'chat.respond',
+    toolInput: {
+      input: input.input,
+      response:
+        reason || '我理解你的问题。当前没有调用工作流工具；你可以继续补充需求，我会根据需要再决定是否生成工作流草案。',
+    },
+    reasoningSummary: reason || 'Planner 未选择工具，按普通对话处理。',
+    warnings: [],
+    knowledgeContext,
+  };
+}
+
 function looksLikePromptInstruction(text: string, original: string) {
   if (!text || text === original) return false;
   const promptSignals = [
@@ -114,13 +161,33 @@ function looksLikePromptInstruction(text: string, original: string) {
   return signalCount >= 2 || text.length > original.length * 2.5;
 }
 
-function normalizePlan(raw: PlainObject | null, input: AgentPlanRequest, knowledgeContext = getEmptyKnowledgeContext()): AgentPlan | null {
+function normalizePlan(
+  raw: PlainObject | null,
+  input: AgentPlanRequest,
+  knowledgeContext = getEmptyKnowledgeContext(),
+): AgentPlan | null {
   if (!raw) return null;
   const toolName = cleanText(raw.toolName || raw.tool, 120);
-  if (toolName !== 'workflow.createDraft') return null;
-  const toolInput = raw.toolInput && typeof raw.toolInput === 'object' && !Array.isArray(raw.toolInput)
-    ? (raw.toolInput as PlainObject)
-    : {};
+  if (!['chat.respond', 'workflow.createDraft'].includes(toolName)) return null;
+  if (toolName === 'chat.respond') {
+    const response = cleanText(raw.response || raw.toolInput?.response || raw.message || raw.content, 4000);
+    if (!response) return null;
+    return {
+      id: gid(),
+      source: 'llm',
+      plannerModel: input.plannerModel,
+      summary: cleanText(raw.summary, 500) || '已按普通对话回复。',
+      toolName: 'chat.respond',
+      toolInput: { input: input.input, response },
+      reasoningSummary: cleanText(raw.reasoningSummary, 1000) || 'Planner 判断当前输入不需要调用工具。',
+      warnings: normalizeWarnings(raw.warnings),
+      knowledgeContext,
+    };
+  }
+  const toolInput =
+    raw.toolInput && typeof raw.toolInput === 'object' && !Array.isArray(raw.toolInput)
+      ? (raw.toolInput as PlainObject)
+      : {};
   const rawPlannedInput = cleanText(toolInput.input || input.input);
   const originalInput = cleanText(input.input);
   const plannedInput = looksLikePromptInstruction(rawPlannedInput, originalInput) ? originalInput : rawPlannedInput;
@@ -146,7 +213,8 @@ function normalizePlan(raw: PlainObject | null, input: AgentPlanRequest, knowled
 
 function summarizeToolSchema(schema: DynamicValue) {
   if (!schema || typeof schema !== 'object') return {};
-  const properties = schema.properties && typeof schema.properties === 'object' ? Object.keys(schema.properties).slice(0, 12) : [];
+  const properties =
+    schema.properties && typeof schema.properties === 'object' ? Object.keys(schema.properties).slice(0, 12) : [];
   return {
     required: Array.isArray(schema.required) ? schema.required.slice(0, 12) : [],
     properties,
@@ -167,7 +235,16 @@ function buildToolContext(skills: SkillRegistryLike) {
     }));
 }
 
-function buildKnowledgeContext(input: AgentPlanRequest, knowledge: KnowledgeServiceLike, options: { scope?: DynamicValue }) {
+function includesAny(text: string, needles: string[]) {
+  const normalized = text.toLowerCase();
+  return needles.some((needle) => normalized.includes(needle.toLowerCase()));
+}
+
+function buildKnowledgeContext(
+  input: AgentPlanRequest,
+  knowledge: KnowledgeServiceLike,
+  options: { scope?: DynamicValue },
+) {
   knowledge.rebuildSeedKnowledge({ scope: options.scope });
   const result = knowledge.search(
     {
@@ -204,24 +281,30 @@ function compactKnowledgeContext(context: ReturnType<typeof buildKnowledgeContex
   };
 }
 
-function buildPlannerMessages(input: AgentPlanRequest, tools: DynamicValue[], knowledgeContext: ReturnType<typeof buildKnowledgeContext>) {
+function buildPlannerMessages(
+  input: AgentPlanRequest,
+  tools: DynamicValue[],
+  knowledgeContext: ReturnType<typeof buildKnowledgeContext>,
+) {
   return [
     {
       role: 'system',
-      content:
-        [
-          '你是 SueLr-Studio 的 Agent Planner。',
-          '你只负责把用户需求转成受控工具计划，不直接执行工具，不修改画布。',
-          '你必须基于“可用工具”和“本地知识库上下文”判断工具调用。',
-          '当前第一批可执行工具只有 workflow.createDraft，用于生成可编辑工作流草案。',
-          'workflow.createDraft.toolInput.input 必须保持用户原始任务语义，不能改写成给另一个模型看的提示词模板。',
-          '可以把额外判断写入 toolInput.plannerNotes，但不要覆盖用户需求。',
-          '如果用户说分镜图、故事板图片、storyboard sheet，这是图片序列/图片生成任务，不是视频生成任务。',
-          '如果用户说分镜脚本、镜头脚本、旁白脚本，这是文本/对话任务，不是视频生成任务。',
-          'promptHelper 不是通用提示词优化器；只有明确需要分镜图版式、三视图、视角或光照控制时才建议使用。',
-          '必须只输出 JSON，不要输出 Markdown。',
-          'JSON 结构：{"summary":"一句给用户看的计划总结","toolName":"workflow.createDraft","toolInput":{"input":"用户原始任务或等价短句","plannerNotes":"可选，简短说明领域、节点选择约束"},"reasoningSummary":"简短说明为什么调用该工具以及参考了哪些知识","warnings":[]}',
-        ].join('\n'),
+      content: [
+        '你是 SueLr-Studio 的 Agent Planner。',
+        '你负责判断用户输入应当普通对话回复，还是转成受控工具计划；不要直接修改画布。',
+        '你必须基于“可用工具”和“本地知识库上下文”判断工具调用。',
+        '当前第一批可执行工具只有 workflow.createDraft，用于生成可编辑工作流草案。',
+        '如果用户是在问概念、问原因、讨论方案、确认下一步、闲聊或要求解释，请使用 chat.respond，直接给出简洁自然语言回答，不要调用工作流工具。',
+        '只有用户明确要求创建、搭建、生成、修改、运行、检查工作流或画布内容时，才使用 workflow.createDraft。',
+        'workflow.createDraft.toolInput.input 必须保持用户原始任务语义，不能改写成给另一个模型看的提示词模板。',
+        '可以把额外判断写入 toolInput.plannerNotes，但不要覆盖用户需求。',
+        '如果用户说分镜图、故事板图片、storyboard sheet，这是图片序列/图片生成任务，不是视频生成任务。',
+        '如果用户说分镜脚本、镜头脚本、旁白脚本，这是文本/对话任务，不是视频生成任务。',
+        'promptHelper 不是通用提示词优化器；只有明确需要分镜图版式、三视图、视角或光照控制时才建议使用。',
+        '必须只输出 JSON，不要输出 Markdown。',
+        '普通对话 JSON：{"summary":"一句总结","toolName":"chat.respond","toolInput":{"response":"直接给用户看的回复"},"reasoningSummary":"为什么不调用工具","warnings":[]}',
+        '工作流工具 JSON：{"summary":"一句给用户看的计划总结","toolName":"workflow.createDraft","toolInput":{"input":"用户原始任务或等价短句","plannerNotes":"可选，简短说明领域、节点选择约束"},"reasoningSummary":"简短说明为什么调用该工具以及参考了哪些知识","warnings":[]}',
+      ].join('\n'),
     },
     {
       role: 'user',
@@ -279,6 +362,9 @@ export class AgentPlannerService {
       const normalized = normalizePlan(readJsonObject(content), input, knowledgeContext);
       if (normalized) return normalized;
       logger.warn('planner returned unusable plan', { model: input.plannerModel.modelId });
+      if (!shouldUseWorkflowFallback(input.input)) {
+        return fallbackChatPlan(input, 'Planner 返回内容不是可执行的结构化计划，已按普通对话处理。', knowledgeContext);
+      }
       return fallbackPlan(input, 'Planner 返回内容不是可执行的结构化计划。', knowledgeContext);
     } catch (error) {
       const normalizedError = error as DynamicValue;

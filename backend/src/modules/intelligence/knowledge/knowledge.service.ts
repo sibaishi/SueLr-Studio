@@ -10,10 +10,10 @@ import {
   safeResolveWithin,
   writeJsonFile,
 } from '../../../platform/storage/index.ts';
-import type { DynamicValue, PlainObject } from '../../types.ts';
 import { agentMemoryService } from '../../agent/agent-memory.service.ts';
 import { executionService } from '../../execution/execution.service.ts';
 import { settingsService } from '../../settings/settings.service.ts';
+import type { DynamicValue, PlainObject } from '../../types.ts';
 import { workflowsService } from '../../workflows/workflows.service.ts';
 import { WORKFLOW_NODE_CAPABILITY_SEEDS } from '../workflow-builder/node-capabilities.ts';
 
@@ -122,7 +122,9 @@ function createKnowledgeId(category: KnowledgeCategory) {
 }
 
 function cleanString(value: DynamicValue, maxLength = 12000) {
-  return String(value ?? '').trim().slice(0, maxLength);
+  return String(value ?? '')
+    .trim()
+    .slice(0, maxLength);
 }
 
 function normalizeTags(value: DynamicValue): string[] {
@@ -187,7 +189,11 @@ function scoreRecord(record: KnowledgeRecord, query: string) {
   return phrase + termScore + Math.min(characterOverlap, 2) + record.confidence;
 }
 
-function normalizeRecord(input: DynamicValue, category: KnowledgeCategory, scope?: DynamicValue): KnowledgeRecord | null {
+function normalizeRecord(
+  input: DynamicValue,
+  category: KnowledgeCategory,
+  scope?: DynamicValue,
+): KnowledgeRecord | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const now = Date.now();
   const rawScope = input.scope === 'local-project' ? 'local-project' : 'local-private';
@@ -198,7 +204,10 @@ function normalizeRecord(input: DynamicValue, category: KnowledgeCategory, scope
     scope: rawScope,
     title: cleanString(input.title, 240) || cleanString(input.content, 80) || category,
     content: cleanString(input.content),
-    structured: input.structured && typeof input.structured === 'object' && !Array.isArray(input.structured) ? input.structured : {},
+    structured:
+      input.structured && typeof input.structured === 'object' && !Array.isArray(input.structured)
+        ? input.structured
+        : {},
     tags: normalizeTags(input.tags),
     source:
       input.source && typeof input.source === 'object' && !Array.isArray(input.source)
@@ -276,18 +285,21 @@ function summarizeWorkflowKnowledge(workflow: PlainObject) {
   };
 }
 
-function createSeedRecord(input: {
-  id: string;
-  category: KnowledgeCategory;
-  title: string;
-  content: string;
-  structured?: PlainObject;
-  tags?: string[];
-  source: { kind: string; id?: string; label?: string };
-  confidence?: number;
-  evidence?: Array<{ kind: string; id?: string; url?: string; summary?: string }>;
-  scope?: 'local-private' | 'local-project';
-}, requestScope?: DynamicValue): KnowledgeRecord | null {
+function createSeedRecord(
+  input: {
+    id: string;
+    category: KnowledgeCategory;
+    title: string;
+    content: string;
+    structured?: PlainObject;
+    tags?: string[];
+    source: { kind: string; id?: string; label?: string };
+    confidence?: number;
+    evidence?: Array<{ kind: string; id?: string; url?: string; summary?: string }>;
+    scope?: 'local-private' | 'local-project';
+  },
+  requestScope?: DynamicValue,
+): KnowledgeRecord | null {
   const now = Date.now();
   return normalizeRecord(
     {
@@ -441,7 +453,12 @@ export class KnowledgeService {
           content: [
             `Provider：${configName}`,
             `模型数量：${models.length}`,
-            models.length > 0 ? `模型：${models.slice(0, 30).map((model: DynamicValue) => cleanString(model, 160)).join(', ')}` : '',
+            models.length > 0
+              ? `模型：${models
+                  .slice(0, 30)
+                  .map((model: DynamicValue) => cleanString(model, 160))
+                  .join(', ')}`
+              : '',
             (config as PlainObject).id === settings?.activeConfigId ? '当前激活配置：是' : '',
           ]
             .filter(Boolean)
@@ -665,7 +682,11 @@ export class KnowledgeService {
 
   linkAsset(input: DynamicValue, options: { scope?: DynamicValue } = {}) {
     const url = cleanString(input?.url, 1000);
-    if (!url.startsWith('/api/outputs/') && !url.startsWith('/api/files/') && !url.startsWith('/api/assistant/files/')) {
+    if (
+      !url.startsWith('/api/outputs/') &&
+      !url.startsWith('/api/files/') &&
+      !url.startsWith('/api/assistant/files/')
+    ) {
       throw new ValidationError('KNOWLEDGE_ASSET_URL_INVALID', '素材知识只能记录运行时相对 URL');
     }
     return this.write(
@@ -699,7 +720,9 @@ export class KnowledgeService {
         structured: input?.workflow && typeof input.workflow === 'object' ? { workflow: input.workflow } : {},
         tags: ['template', ...normalizeTags(input?.tags)],
         source: { kind: 'user_confirmed_template', id: cleanString(input?.workflowId, 200) },
-        evidence: cleanString(input?.workflowId, 200) ? [{ kind: 'workflow', id: cleanString(input.workflowId, 200) }] : [],
+        evidence: cleanString(input?.workflowId, 200)
+          ? [{ kind: 'workflow', id: cleanString(input.workflowId, 200) }]
+          : [],
         confidence: 0.8,
       },
       options,

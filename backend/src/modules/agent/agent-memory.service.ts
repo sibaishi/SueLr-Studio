@@ -211,9 +211,7 @@ export class AgentMemoryService {
   }
 
   delete(id: string, options: PlainObject = {}) {
-    const next = this.list().filter(
-      (item) => item.id !== id || !isResourceVisibleForRequestScope(item, options.scope),
-    );
+    const next = this.list().filter((item) => item.id !== id || !isResourceVisibleForRequestScope(item, options.scope));
     this.save(next);
     return next;
   }

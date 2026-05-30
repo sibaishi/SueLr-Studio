@@ -60,8 +60,10 @@ function inferDomain(text: string): WorkflowIntent['domain'] {
   const asksForStoryboardImage = includesAny(text, ['分镜图', '故事板', 'storyboard', 'storyboard sheet']);
   const asksForStoryboardText = includesAny(text, ['分镜脚本', '镜头脚本', '分镜文案', '镜头文案', '脚本', '剧本']);
   if (asksForStoryboardText && !asksForStoryboardImage) return 'chat-text';
-  if (includesAny(text, ['对话', '聊天', '问答', '客服', '摘要', '改写', '翻译', '文本生成', '文案'])) return 'chat-text';
-  if (includesAny(text, ['图生视频', '文生视频', '视频生成', '短视频', '短片', '成片', '生成视频', '输出视频'])) return 'video-generation';
+  if (includesAny(text, ['对话', '聊天', '问答', '客服', '摘要', '改写', '翻译', '文本生成', '文案']))
+    return 'chat-text';
+  if (includesAny(text, ['图生视频', '文生视频', '视频生成', '短视频', '短片', '成片', '生成视频', '输出视频']))
+    return 'video-generation';
   if (includesAny(text, ['电商', '商品', '主图', '详情页', '卖点'])) return 'ecommerce-image';
   if (includesAny(text, ['品牌', '主视觉', '包装', '定位'])) return 'brand-visual';
   if (includesAny(text, ['小红书', '抖音', '社媒', '微博', 'B站'])) return 'social-image';

@@ -1,5 +1,5 @@
-import { AppError } from '../errors/index.ts';
 import { getRuntimeMode } from '../../platform/runtime/index.ts';
+import { AppError } from '../errors/index.ts';
 
 type NextFunction = (error?: unknown) => void;
 

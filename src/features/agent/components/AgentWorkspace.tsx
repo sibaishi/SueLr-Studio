@@ -1,22 +1,11 @@
-import { createAgentRun, type AgentPlan, type WorkflowDraftResponse } from '@/domains/workflow/lib/api';
+import { type AgentPlan, type WorkflowDraftResponse, createAgentRun } from '@/domains/workflow/lib/api';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ModelInfo } from '@/shared/types';
 import type { Edge, Node } from '@xyflow/react';
-import {
-  Bot,
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Maximize2,
-  Send,
-  Settings2,
-  Sparkles,
-  Wrench,
-  X,
-} from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, Loader2, Maximize2, Send, Settings2, Sparkles, Wrench, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-type AgentToolName = 'agent.plan' | 'workflow.createDraft';
+type AgentToolName = 'agent.plan' | 'chat.respond' | 'workflow.createDraft';
 
 type AgentToolRecord = {
   id: string;
@@ -57,7 +46,8 @@ function getDraftSummary(draft: WorkflowDraftResponse) {
 }
 
 function getAgentResultSummary(plan: AgentPlan, draft: WorkflowDraftResponse) {
-  const prefix = plan.source === 'llm' || draft.architect?.used ? '已根据当前需求生成工作流草案' : '已生成基础工作流草案';
+  const prefix =
+    plan.source === 'llm' || draft.architect?.used ? '已根据当前需求生成工作流草案' : '已生成基础工作流草案';
   const suffix = draft.validation.valid ? '你可以打开画布检查并继续编辑。' : '草案还需要进一步调整后再使用。';
   return `${prefix}。${getDraftSummary(draft)}${suffix}`;
 }
@@ -86,11 +76,17 @@ function getPlannerToolRecord(plan: AgentPlan): AgentToolRecord {
     label: 'Planner',
     status: 'success',
     summary: plan.summary,
-    detail: [
-      `模型：${plan.plannerModel.label || plan.plannerModel.modelId}`,
-    ]
-      .filter(Boolean)
-      .join('；'),
+    detail: [`模型：${plan.plannerModel.label || plan.plannerModel.modelId}`].filter(Boolean).join('；'),
+  };
+}
+
+function getChatToolRecord(plan: AgentPlan): AgentToolRecord {
+  return {
+    id: gid('tool'),
+    name: 'chat.respond',
+    label: '对话',
+    status: 'success',
+    summary: plan.summary || '已按普通对话回复',
   };
 }
 
@@ -102,8 +98,8 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
   const [input, setInput] = useState('');
   const [isWorking, setIsWorking] = useState(false);
   const [expandedTools, setExpandedTools] = useState<ReadonlySet<string>>(() => new Set());
-  const [selectedPlannerModelId, setSelectedPlannerModelId] = useState(() =>
-    localStorage.getItem(PLANNER_MODEL_STORAGE_KEY) || '',
+  const [selectedPlannerModelId, setSelectedPlannerModelId] = useState(
+    () => localStorage.getItem(PLANNER_MODEL_STORAGE_KEY) || '',
   );
   const [messages, setMessages] = useState<AgentMessage[]>(() => [
     {
@@ -233,7 +229,21 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           return;
         }
 
-        const { plan, workflowDraft: draft } = runResult.data;
+        const { plan, response, workflowDraft: draft } = runResult.data;
+        if (plan.toolName === 'chat.respond') {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: gid(),
+              role: 'assistant',
+              content: response || plan.toolInput.response || plan.summary || '我理解了，你可以继续补充。',
+              plan,
+              toolRecords: [getChatToolRecord(plan)],
+            },
+          ]);
+          return;
+        }
+
         if (!draft) {
           setMessages((prev) => [
             ...prev,
@@ -348,11 +358,16 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
                     {message.toolRecords.map((record) => {
                       const expanded = expandedTools.has(record.id);
                       return (
-                        <div key={record.id} className={`agent-workspace__tool agent-workspace__tool--${record.status}`}>
+                        <div
+                          key={record.id}
+                          className={`agent-workspace__tool agent-workspace__tool--${record.status}`}
+                        >
                           <button type="button" onClick={() => toggleToolRecord(record.id)}>
                             {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             <span>{record.label}</span>
-                            <small>{record.status === 'running' ? '执行中' : record.status === 'success' ? '已完成' : '失败'}</small>
+                            <small>
+                              {record.status === 'running' ? '执行中' : record.status === 'success' ? '已完成' : '失败'}
+                            </small>
                           </button>
                           {expanded && (
                             <div className="agent-workspace__tool-detail">
@@ -415,7 +430,9 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           </button>
         </footer>
 
-        {latestDraft && <div className="agent-workspace__hint">最近一次结果已生成。你可以打开画布检查，也可以继续描述修改要求。</div>}
+        {latestDraft && (
+          <div className="agent-workspace__hint">最近一次结果已生成。你可以打开画布检查，也可以继续描述修改要求。</div>
+        )}
       </div>
     </div>
   );

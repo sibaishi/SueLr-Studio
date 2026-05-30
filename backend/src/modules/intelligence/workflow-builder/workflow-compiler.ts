@@ -1,5 +1,5 @@
-import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
+import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
 import type { WorkflowDraft } from './workflow-draft.schema.ts';
 import type { WorkflowIntent } from './workflow-intent.schema.ts';
 
@@ -49,11 +49,16 @@ function chainTextInputToAiChat(id: string, x: number, y: number, inputText: str
 
 function summarizeGuidance(items: CompilerKnowledgeItem[] = []) {
   return items
-    .filter((item) => ['user-memory', 'project-knowledge', 'brand-knowledge', 'prompt-library'].includes(String(item.category || '')))
+    .filter((item) =>
+      ['user-memory', 'project-knowledge', 'brand-knowledge', 'prompt-library'].includes(String(item.category || '')),
+    )
     .slice(0, 4)
     .map((item) => {
       const title = String(item.title || '').trim();
-      const content = String(item.content || '').trim().replace(/\s+/g, ' ').slice(0, 180);
+      const content = String(item.content || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .slice(0, 180);
       return [title, content].filter(Boolean).join('：');
     })
     .filter(Boolean);
@@ -83,7 +88,19 @@ function buildPrompt(intent: WorkflowIntent, knowledgeItems: CompilerKnowledgeIt
 function extractFirstNumber(text: string) {
   const arabic = text.match(/(\d+)/);
   if (arabic) return Number(arabic[1]);
-  const chineseMap: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+  const chineseMap: Record<string, number> = {
+    一: 1,
+    二: 2,
+    两: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+    九: 9,
+    十: 10,
+  };
   const chinese = text.match(/[一二两三四五六七八九十]/);
   return chinese ? chineseMap[chinese[0]] : undefined;
 }
@@ -153,13 +170,23 @@ function hasStage(draft: WorkflowDraft, nodeType: string) {
 function wantsComplexAssetPack(intent: WorkflowIntent) {
   return (
     includesText(intent.sourceText, ['素材包', '多条链路', '多链路']) ||
-    (includesText(intent.sourceText, ['主图', '详情页']) && includesText(intent.sourceText, ['文案', '分镜图', '品牌规范']))
+    (includesText(intent.sourceText, ['主图', '详情页']) &&
+      includesText(intent.sourceText, ['文案', '分镜图', '品牌规范']))
   );
 }
 
 function wantsBatchStoryboard(intent: WorkflowIntent) {
   if (intent.domain === 'chat-text') return false;
-  return includesText(intent.sourceText, ['逐项', '批量', '每个镜头', '每镜头', '8 镜头', '八镜头', '分镜图', '故事板']);
+  return includesText(intent.sourceText, [
+    '逐项',
+    '批量',
+    '每个镜头',
+    '每镜头',
+    '8 镜头',
+    '八镜头',
+    '分镜图',
+    '故事板',
+  ]);
 }
 
 function compileComplexAssetPack(
@@ -228,7 +255,13 @@ function compileComplexAssetPack(
     edge('architect-to-copy-writer', 'brief_architect', 'response', 'copy_writer', 'prompt'),
     edge('architect-to-storyboard-split', 'brief_architect', 'response', 'storyboard_split', 'text'),
     ...Array.from({ length: Math.max(4, Math.min(9, extractFirstNumber(intent.sourceText) || 6)) }, (_, index) =>
-      edge(`storyboard-part-${index + 1}-to-iterate`, 'storyboard_split', `part${index + 1}`, 'storyboard_iterate', `item${index + 1}`),
+      edge(
+        `storyboard-part-${index + 1}-to-iterate`,
+        'storyboard_split',
+        `part${index + 1}`,
+        'storyboard_iterate',
+        `item${index + 1}`,
+      ),
     ),
     edge('iterate-to-storyboard-image', 'storyboard_iterate', 'text', 'storyboard_image_gen', 'prompt'),
     edge('main-image-to-save', 'main_image_gen', 'images', 'main_save', 'content'),
@@ -385,7 +418,9 @@ export function compileWorkflowDraft(
       node('video_prompt', 'textInput', 80, mediaNodes.length > 0 ? 600 : 220, {
         text: intent.goal,
       }),
-      ...(includePromptHelper ? [node('prompt_helper', 'promptHelper', 460, 280, buildPromptHelperData(intent, prompt))] : []),
+      ...(includePromptHelper
+        ? [node('prompt_helper', 'promptHelper', 460, 280, buildPromptHelperData(intent, prompt))]
+        : []),
       node('video_gen', 'videoGen', includePromptHelper ? 820 : 520, 250, {
         model: '',
         duration: 5,
@@ -405,9 +440,15 @@ export function compileWorkflowDraft(
             edge('prompt-helper-to-video-gen', 'prompt_helper', 'prompt', 'video_gen', 'prompt'),
           ]
         : [edge('video-prompt-to-video-gen', 'video_prompt', 'text', 'video_gen', 'prompt')]),
-      ...(intent.requiresImageInput ? [edge('reference-image-to-video-gen', 'reference_image', 'image', 'video_gen', 'reference')] : []),
-      ...(intent.requiresVideoInput ? [edge('reference-video-to-video-gen', 'reference_video', 'video', 'video_gen', 'video')] : []),
-      ...(intent.requiresAudioInput ? [edge('reference-audio-to-video-gen', 'reference_audio', 'audio', 'video_gen', 'audio')] : []),
+      ...(intent.requiresImageInput
+        ? [edge('reference-image-to-video-gen', 'reference_image', 'image', 'video_gen', 'reference')]
+        : []),
+      ...(intent.requiresVideoInput
+        ? [edge('reference-video-to-video-gen', 'reference_video', 'video', 'video_gen', 'video')]
+        : []),
+      ...(intent.requiresAudioInput
+        ? [edge('reference-audio-to-video-gen', 'reference_audio', 'audio', 'video_gen', 'audio')]
+        : []),
       edge('video-gen-to-save-file', 'video_gen', 'video', 'save_file', 'content'),
       edge('save-file-to-output', 'save_file', 'content', 'output', 'content'),
     ];
@@ -431,7 +472,9 @@ export function compileWorkflowDraft(
     node('selling_point', 'textInput', 80, intent.requiresImageInput ? 360 : 160, {
       text: intent.goal,
     }),
-    ...(includePromptHelper ? [node('prompt_helper', 'promptHelper', 460, 220, buildPromptHelperData(intent, prompt))] : []),
+    ...(includePromptHelper
+      ? [node('prompt_helper', 'promptHelper', 460, 220, buildPromptHelperData(intent, prompt))]
+      : []),
     node('image_gen', 'imageGen', includePromptHelper ? 820 : 520, 180, {
       model: '',
       ratio: intent.domain === 'ecommerce-image' ? '1:1' : 'auto',
@@ -452,7 +495,9 @@ export function compileWorkflowDraft(
           edge('prompt-helper-to-image-gen', 'prompt_helper', 'prompt', 'image_gen', 'prompt'),
         ]
       : [edge('selling-point-to-image-gen', 'selling_point', 'text', 'image_gen', 'prompt')]),
-    ...(intent.requiresImageInput ? [edge('product-image-to-image-gen', 'product_image', 'image', 'image_gen', 'reference')] : []),
+    ...(intent.requiresImageInput
+      ? [edge('product-image-to-image-gen', 'product_image', 'image', 'image_gen', 'reference')]
+      : []),
     edge('image-gen-to-save-file', 'image_gen', 'images', 'save_file', 'content'),
     edge('save-file-to-output', 'save_file', 'content', 'output', 'content'),
   ];

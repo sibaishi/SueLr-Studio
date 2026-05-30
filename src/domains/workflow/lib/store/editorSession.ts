@@ -6,13 +6,13 @@ import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared'
 import { normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
 import { formatLogDetails, gid, sanitizeLogMessage } from '@/domains/workflow/lib/store/helpers';
 import { clearActiveRunSnapshot, saveLocalDraft } from '@/domains/workflow/lib/store/persistence';
-import { createEmptyWorkflowDocument, getDocumentViewPatch, patchActiveWorkflowDocument } from './documents';
 import type {
   WorkflowEditorSnapshot,
   WorkflowState,
   WorkflowStoreGet,
   WorkflowStoreSet,
 } from '@/domains/workflow/lib/store/types';
+import { createEmptyWorkflowDocument, getDocumentViewPatch, patchActiveWorkflowDocument } from './documents';
 
 type WorkflowStoreEditorSessionActions = Pick<
   WorkflowState,

@@ -235,7 +235,9 @@ export class AuthRepository {
     return this.readState().passwordResetRequests;
   }
 
-  createPasswordResetRequest(input: Omit<StoredPasswordResetRequest, 'id' | 'createdAt' | 'status'>): StoredPasswordResetRequest {
+  createPasswordResetRequest(
+    input: Omit<StoredPasswordResetRequest, 'id' | 'createdAt' | 'status'>,
+  ): StoredPasswordResetRequest {
     const state = this.readState();
     const request = {
       ...input,
@@ -256,7 +258,10 @@ export class AuthRepository {
     return this.listPasswordResetRequests().find((request) => request.tokenHash === tokenHash) || null;
   }
 
-  updatePasswordResetRequest(requestId: string, patch: Partial<StoredPasswordResetRequest>): StoredPasswordResetRequest | null {
+  updatePasswordResetRequest(
+    requestId: string,
+    patch: Partial<StoredPasswordResetRequest>,
+  ): StoredPasswordResetRequest | null {
     const state = this.readState();
     const existingIndex = state.passwordResetRequests.findIndex((request) => request.id === requestId);
     if (existingIndex < 0) return null;
@@ -269,7 +274,11 @@ export class AuthRepository {
     return updated;
   }
 
-  deleteUserCascade(userId: string): { user: StoredAuthUser | null; sessionsDeleted: number; passwordResetRequestsDeleted: number } {
+  deleteUserCascade(userId: string): {
+    user: StoredAuthUser | null;
+    sessionsDeleted: number;
+    passwordResetRequestsDeleted: number;
+  } {
     const state = this.readState();
     const user = state.users.find((item) => item.id === userId) || null;
     if (!user) return { user: null, sessionsDeleted: 0, passwordResetRequestsDeleted: 0 };

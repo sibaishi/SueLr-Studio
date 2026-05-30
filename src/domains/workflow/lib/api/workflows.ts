@@ -1,3 +1,4 @@
+import { workflowApiFetch } from '@/domains/workflow/lib/api/base';
 import type {
   PersistedWorkflow,
   WorkflowImportConflictDetails,
@@ -5,7 +6,6 @@ import type {
   WorkflowImportMode,
   WorkflowImportReport,
 } from '@/domains/workflow/lib/persistenceTypes';
-import { workflowApiFetch } from '@/domains/workflow/lib/api/base';
 
 export interface WorkflowListItem {
   id: string;

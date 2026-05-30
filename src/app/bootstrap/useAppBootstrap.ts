@@ -176,13 +176,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       finishSplash();
       return runtime;
     },
-    [
-      applyActiveConfig,
-      finishSplash,
-      params,
-      settings.activeConfigId,
-      settings.apiConfigs,
-    ],
+    [applyActiveConfig, finishSplash, params, settings.activeConfigId, settings.apiConfigs],
   );
 
   useEffect(() => {

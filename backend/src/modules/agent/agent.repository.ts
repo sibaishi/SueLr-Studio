@@ -3,8 +3,8 @@ import path from 'node:path';
 import {
   STORAGE_PATHS,
   ensureJsonFile,
-  ensureStorageDirectories,
   ensureScopedStorageDirectories,
+  ensureStorageDirectories,
   getScopedStoragePaths,
   readJsonFile,
   safeResolveWithin,

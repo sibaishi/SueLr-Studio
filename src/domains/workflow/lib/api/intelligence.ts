@@ -109,10 +109,11 @@ export interface AgentPlan {
     modelId: string;
   };
   summary: string;
-  toolName: 'workflow.createDraft';
+  toolName: 'chat.respond' | 'workflow.createDraft';
   toolInput: {
     input: string;
     plannerNotes?: string;
+    response?: string;
     context?: Record<string, unknown>;
   };
   reasoningSummary: string;
@@ -158,6 +159,7 @@ export interface AgentRunResponse {
   plan: AgentPlan;
   trace: AgentRunTrace;
   toolResults: AgentRunToolResult[];
+  response?: string;
   workflowDraft: WorkflowDraftResponse | null;
 }
 

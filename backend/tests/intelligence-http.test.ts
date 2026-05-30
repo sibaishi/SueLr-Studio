@@ -1,8 +1,8 @@
 // @ts-nocheck
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import test from 'node:test';
 
 function createStorageDir(name) {
   const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `intelligence-${name}-${Date.now()}`);
@@ -100,7 +100,10 @@ test('intelligence routes expose read-only skills and local knowledge baseline',
     assert.equal(knowledge.body.data.scope, 'local');
     assert.equal(Array.isArray(knowledge.body.data.categories), true);
     assert.equal(knowledge.body.data.categories.length, 8);
-    assert.equal(knowledge.body.data.files.every((file) => file.count === 0), true);
+    assert.equal(
+      knowledge.body.data.files.every((file) => file.count === 0),
+      true,
+    );
     assert.equal(knowledge.body.data.governance.runKnowledgeRequiresTrace, true);
   } finally {
     await new Promise((resolve) => server.close(resolve));
@@ -126,25 +129,36 @@ test('intelligence workflow draft endpoint compiles a preview-only ecommerce ima
       response.body.data.knowledgeContext.items.some((item) => item.source.kind === 'system_seed'),
       true,
     );
-    assert.equal(response.body.data.draft.stages.some((stage) => stage.nodeType === 'imageGen'), true);
+    assert.equal(
+      response.body.data.draft.stages.some((stage) => stage.nodeType === 'imageGen'),
+      true,
+    );
     assert.equal(response.body.data.workflow.name, '电商图片生成工作流草稿');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
       ['imageInput', 'textInput', 'imageGen', 'saveFile', 'output'],
     );
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'), false);
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'),
+      false,
+    );
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'image_gen').data.n, 6);
     assert.equal(response.body.data.workflow.metadata.intentDomain, 'ecommerce-image');
     assert.equal(response.body.data.validation.valid, true);
     assert.equal(
-      response.body.data.validation.issues.some((issue) => issue.code === 'MODEL_MISSING' && issue.severity === 'warning'),
+      response.body.data.validation.issues.some(
+        (issue) => issue.code === 'MODEL_MISSING' && issue.severity === 'warning',
+      ),
       true,
     );
     assert.equal(response.body.data.approvalsRequired.includes('executeWorkflow'), true);
 
     const workflows = await requestJson(baseUrl, '/api/workflows');
     assert.equal(workflows.status, 200);
-    assert.equal(workflows.body.data.some((workflow) => workflow.id === response.body.data.workflow.id), false);
+    assert.equal(
+      workflows.body.data.some((workflow) => workflow.id === response.body.data.workflow.id),
+      false,
+    );
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -186,7 +200,9 @@ test('intelligence workflow draft preserves agent planner model context', async 
 });
 
 test('agent planner normalizes an LLM JSON plan into a governed tool plan', async () => {
-  const { AgentPlannerService } = await import(`../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`);
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
   let plannerMessages = [];
   const service = new AgentPlannerService({
     settings: {
@@ -291,7 +307,9 @@ test('agent planner normalizes an LLM JSON plan into a governed tool plan', asyn
 });
 
 test('agent planner falls back to local tool plan when LLM output is unusable', async () => {
-  const { AgentPlannerService } = await import(`../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`);
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
   const service = new AgentPlannerService({
     settings: {
       buildRuntimeConfig() {
@@ -366,8 +384,92 @@ test('agent planner falls back to local tool plan when LLM output is unusable', 
   assert.equal(plan.toolInput.input, '帮我做客服问答工作流');
 });
 
+test('agent planner can return a normal chat response without workflow tool use', async () => {
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    skills: {
+      list() {
+        return [
+          {
+            id: 'workflow.createDraft',
+            title: '创建工作流草案',
+            description: '生成可预览的工作流草案 JSON。',
+            sideEffect: 'writeDraft',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['input'], properties: { input: { type: 'string' } } },
+            outputSchema: {},
+          },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {
+        return { status: 'rebuilt' };
+      },
+      search() {
+        return {
+          source: 'local-json',
+          items: [],
+        };
+      },
+    },
+    async chatCompletion(request) {
+      assert.match(request.messages[0].content, /chat\.respond/);
+      return {
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    summary: '解释当前阶段',
+                    toolName: 'chat.respond',
+                    toolInput: { response: '当前阶段是在验证 Agent 是否能区分普通对话和工作流工具调用。' },
+                    reasoningSummary: '用户在询问说明，不需要创建工作流。',
+                    warnings: [],
+                  }),
+                },
+              },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  const plan = await service.createPlan({
+    input: '现在这个功能是什么意思？',
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'default',
+      label: 'planner-model · Default',
+    },
+    context: {},
+  });
+
+  assert.equal(plan.source, 'llm');
+  assert.equal(plan.toolName, 'chat.respond');
+  assert.match(plan.toolInput.response, /普通对话和工作流工具调用/);
+});
+
 test('agent planner keeps original task when LLM returns prompt-template text as tool input', async () => {
-  const { AgentPlannerService } = await import(`../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`);
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
   const service = new AgentPlannerService({
     settings: {
       buildRuntimeConfig() {
@@ -534,7 +636,79 @@ test('agent runner executes planner-selected workflow tool and records a trace',
   assert.equal(result.toolResults[0].skillId, 'workflow.createDraft');
   assert.equal(result.workflowDraft.intent.domain, 'chat-text');
   assert.deepEqual(result.workflowDraft.agentContext.plannerModel, plannerModel);
-  assert.deepEqual(calls.map((call) => call[0]), ['planner', 'skill', 'trace']);
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ['planner', 'skill', 'trace'],
+  );
+});
+
+test('agent runner returns normal chat response without calling workflow skills', async () => {
+  const { AgentRunner } = await import(`../src/modules/intelligence/runtime/agent-runner.ts?test=${Date.now()}`);
+  const plannerModel = {
+    id: 'planner-model',
+    modelId: 'planner-model',
+    configId: 'test-config',
+    label: 'planner-model · Test',
+  };
+  const calls = [];
+  const runner = new AgentRunner({
+    planner: {
+      async createPlan(input) {
+        calls.push(['planner', input.input]);
+        return {
+          id: 'plan_chat_test',
+          source: 'llm',
+          plannerModel,
+          summary: '普通对话回复',
+          toolName: 'chat.respond',
+          toolInput: { input: input.input, response: '这是普通对话，不需要生成工作流。' },
+          reasoningSummary: '用户没有要求创建工作流。',
+          warnings: [],
+          knowledgeContext: {
+            source: 'local-json',
+            items: [],
+          },
+        };
+      },
+    },
+    skills: {
+      get() {
+        calls.push(['skill-get']);
+        throw new Error('chat response should not read skill registry');
+      },
+      async run() {
+        calls.push(['skill-run']);
+        throw new Error('chat response should not run skill');
+      },
+    },
+    traces: {
+      create(input) {
+        calls.push(['trace', input.mode, input.requestedSkills]);
+        return {
+          id: 'irun_agent_chat_test',
+          status: 'completed',
+          mode: input.mode,
+          requestedSkills: input.requestedSkills,
+          skillResults: input.skillResults,
+        };
+      },
+    },
+  });
+
+  const result = await runner.run({
+    input: '你解释一下现在是什么阶段',
+    plannerModel,
+    context: {},
+  });
+
+  assert.equal(result.plan.toolName, 'chat.respond');
+  assert.equal(result.response, '这是普通对话，不需要生成工作流。');
+  assert.equal(result.workflowDraft, null);
+  assert.deepEqual(result.trace.requestedSkills, []);
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ['planner', 'trace'],
+  );
 });
 
 test('workflow architect compiles an LLM DSL into a validated workflow', async () => {
@@ -599,12 +773,32 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
                         },
                         position: { x: 440, y: 160 },
                       },
-                      { id: 'split', type: 'textSplit', data: { separator: '\n', outputCount: 4 }, position: { x: 800, y: 260 } },
+                      {
+                        id: 'split',
+                        type: 'textSplit',
+                        data: { separator: '\n', outputCount: 4 },
+                        position: { x: 800, y: 260 },
+                      },
                       { id: 'iterate', type: 'iterateRun', data: {}, position: { x: 1160, y: 260 } },
                       { id: 'mainImage', type: 'imageGen', data: { n: 2, ratio: '1:1' }, position: { x: 800, y: 40 } },
-                      { id: 'shotImage', type: 'imageGen', data: { n: 1, ratio: '16:9' }, position: { x: 1520, y: 260 } },
-                      { id: 'mainSave', type: 'saveFile', data: { filenamePrefix: 'main' }, position: { x: 1160, y: 40 } },
-                      { id: 'shotSave', type: 'saveFile', data: { filenamePrefix: 'shot' }, position: { x: 1880, y: 260 } },
+                      {
+                        id: 'shotImage',
+                        type: 'imageGen',
+                        data: { n: 1, ratio: '16:9' },
+                        position: { x: 1520, y: 260 },
+                      },
+                      {
+                        id: 'mainSave',
+                        type: 'saveFile',
+                        data: { filenamePrefix: 'main' },
+                        position: { x: 1160, y: 40 },
+                      },
+                      {
+                        id: 'shotSave',
+                        type: 'saveFile',
+                        data: { filenamePrefix: 'shot' },
+                        position: { x: 1880, y: 260 },
+                      },
                       { id: 'result', type: 'output', data: {}, position: { x: 2240, y: 160 } },
                     ],
                     edges: [
@@ -657,7 +851,10 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
 
   assert.equal(result.attempt.used, true);
   assert.equal(result.workflow.metadata.source, 'intelligence.workflowArchitectDsl');
-  assert.equal(result.workflow.nodes.some((node) => node.type === 'iterateRun'), true);
+  assert.equal(
+    result.workflow.nodes.some((node) => node.type === 'iterateRun'),
+    true,
+  );
   assert.equal(result.workflow.nodes.find((node) => node.id === 'iterate').data.inputCount, 4);
   assert.equal(result.workflow.settings.workflowExecution.enabled, true);
 });
@@ -703,7 +900,11 @@ test('workflow architect falls back when LLM DSL is invalid', async () => {
       return {
         ok: true,
         async json() {
-          return { choices: [{ message: { content: JSON.stringify({ nodes: [{ id: 'onlyOne', type: 'unknownNode' }], edges: [] }) } }] };
+          return {
+            choices: [
+              { message: { content: JSON.stringify({ nodes: [{ id: 'onlyOne', type: 'unknownNode' }], edges: [] }) } },
+            ],
+          };
         },
       };
     },
@@ -897,7 +1098,8 @@ test('workflow architect rejects an oversimplified complex DSL and repairs it in
         data: {
           temperature: 0.7,
           maxTokens: 4096,
-          systemPrompt: 'Act as an ecommerce copywriter. Produce title, benefit bullets, hero copy, and caption options.',
+          systemPrompt:
+            'Act as an ecommerce copywriter. Produce title, benefit bullets, hero copy, and caption options.',
         },
       },
       { id: 'mainImage', type: 'imageGen', data: { ratio: '1:1', resolution: '1k', n: 4, output_format: 'png' } },
@@ -1095,7 +1297,9 @@ test('workflow architect requires textSplit separator and matching upstream aiCh
       return {
         ok: true,
         async json() {
-          return { choices: [{ message: { content: JSON.stringify(calls === 1 ? missingSeparatorDsl : repairedDsl) } }] };
+          return {
+            choices: [{ message: { content: JSON.stringify(calls === 1 ? missingSeparatorDsl : repairedDsl) } }],
+          };
         },
       };
     },
@@ -1122,7 +1326,10 @@ test('workflow architect requires textSplit separator and matching upstream aiCh
   assert.equal(calls, 2);
   assert.equal(result.attempt.used, true);
   assert.equal(result.workflow.nodes.find((node) => node.id === 'split').data.separator, '\n');
-  assert.match(result.workflow.nodes.find((node) => node.id === 'planner').data.systemPrompt, /one shot per line|newline/);
+  assert.match(
+    result.workflow.nodes.find((node) => node.id === 'planner').data.systemPrompt,
+    /one shot per line|newline/,
+  );
 });
 
 test('intelligence workflow draft can create a chat text workflow instead of image generation', async () => {
@@ -1142,7 +1349,10 @@ test('intelligence workflow draft can create a chat text workflow instead of ima
       response.body.data.workflow.nodes.map((node) => node.type),
       ['textInput', 'aiChat', 'saveFile', 'output'],
     );
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'), false);
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'),
+      false,
+    );
     assert.equal(response.body.data.validation.valid, true);
     assert.equal(response.body.data.workflow.metadata.intentDomain, 'chat-text');
   } finally {
@@ -1167,9 +1377,18 @@ test('intelligence workflow draft can create a video generation workflow', async
       response.body.data.workflow.nodes.map((node) => node.type),
       ['imageInput', 'textInput', 'videoGen', 'saveFile', 'output'],
     );
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'), false);
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'), false);
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'), true);
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'),
+      false,
+    );
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'),
+      false,
+    );
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'),
+      true,
+    );
     assert.equal(response.body.data.validation.valid, true);
     assert.equal(response.body.data.workflow.metadata.intentDomain, 'video-generation');
   } finally {
@@ -1193,12 +1412,16 @@ test('intelligence workflow draft only adds promptHelper for explicit visual con
       response.body.data.workflow.nodes.map((node) => node.type),
       ['imageInput', 'textInput', 'promptHelper', 'imageGen', 'saveFile', 'output'],
     );
-    assert.equal(response.body.data.draft.stages.some((stage) => stage.nodeType === 'promptHelper'), true);
-    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'prompt_helper').data.activeTool, 'layout');
     assert.equal(
-      response.body.data.workflow.edges.some(
-        (edge) => edge.source === 'prompt_helper' && edge.target === 'image_gen',
-      ),
+      response.body.data.draft.stages.some((stage) => stage.nodeType === 'promptHelper'),
+      true,
+    );
+    assert.equal(
+      response.body.data.workflow.nodes.find((node) => node.id === 'prompt_helper').data.activeTool,
+      'layout',
+    );
+    assert.equal(
+      response.body.data.workflow.edges.some((edge) => edge.source === 'prompt_helper' && edge.target === 'image_gen'),
       true,
     );
   } finally {
@@ -1223,7 +1446,10 @@ test('intelligence workflow draft treats storyboard images as image generation, 
       response.body.data.workflow.nodes.map((node) => node.type),
       ['textInput', 'aiChat', 'textSplit', 'iterateRun', 'imageGen', 'saveFile', 'output'],
     );
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'), false);
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'),
+      false,
+    );
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_split').data.outputCount, 6);
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_image_gen').data.n, 1);
     assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
@@ -1249,9 +1475,18 @@ test('intelligence workflow draft treats storyboard scripts as text workflows', 
       response.body.data.workflow.nodes.map((node) => node.type),
       ['textInput', 'aiChat', 'saveFile', 'output'],
     );
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'), false);
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'), false);
-    assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'), false);
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'),
+      false,
+    );
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'),
+      false,
+    );
+    assert.equal(
+      response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'),
+      false,
+    );
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -1284,14 +1519,8 @@ test('intelligence workflow draft builds a multi-branch ecommerce asset pack wor
       ),
       true,
     );
-    assert.equal(
-      response.body.data.workflow.nodes.find((node) => node.id === 'main_image_gen').data.n,
-      4,
-    );
-    assert.equal(
-      response.body.data.workflow.nodes.find((node) => node.id === 'detail_image_gen').data.ratio,
-      '16:9',
-    );
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'main_image_gen').data.n, 4);
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'detail_image_gen').data.ratio, '16:9');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -1317,9 +1546,8 @@ test('intelligence workflow draft builds a batch storyboard workflow with iterat
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_split').data.outputCount, 8);
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_image_gen').data.n, 1);
     assert.equal(
-      response.body.data.workflow.edges.filter(
-        (edge) => edge.source === 'shot_split' && edge.target === 'shot_iterate',
-      ).length,
+      response.body.data.workflow.edges.filter((edge) => edge.source === 'shot_split' && edge.target === 'shot_iterate')
+        .length,
       8,
     );
     assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
@@ -1449,7 +1677,9 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     });
     assert.equal(searchNode.status, 200);
     assert.equal(
-      searchNode.body.data.items.some((item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'aiChat'),
+      searchNode.body.data.items.some(
+        (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'aiChat',
+      ),
       true,
     );
 
@@ -1489,7 +1719,10 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
       (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'textSplit',
     );
     assert.equal(Boolean(textSplitSeed), true);
-    assert.equal(textSplitSeed.structured.inputs.some((input) => input.id === 'text' && input.type === 'string'), true);
+    assert.equal(
+      textSplitSeed.structured.inputs.some((input) => input.id === 'text' && input.type === 'string'),
+      true,
+    );
     assert.equal(textSplitSeed.structured.useWhen.includes('split-script'), true);
 
     const searchIterateRun = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
@@ -1842,7 +2075,10 @@ test('intelligence run can include workflow.createDraft skill in trace', async (
     assertEnvelopeShape(created.body);
     assert.deepEqual(created.body.data.requestedSkills, ['workflow.createDraft']);
     assert.equal(created.body.data.skillResults[0].skillId, 'workflow.createDraft');
-    assert.equal(created.body.data.skillResults[0].output.workflow.nodes.some((node) => node.type === 'imageGen'), true);
+    assert.equal(
+      created.body.data.skillResults[0].output.workflow.nodes.some((node) => node.type === 'imageGen'),
+      true,
+    );
     assert.equal(created.body.data.skillResults[0].output.approvalsRequired.includes('applyDraft'), true);
   } finally {
     await new Promise((resolve) => server.close(resolve));
@@ -1866,19 +2102,31 @@ test('intelligence local team run creates role outputs, review, and workflow dra
     assert.equal(created.status, 200);
     assertEnvelopeShape(created.body);
     assert.deepEqual(created.body.data.requestedSkills, ['team.list', 'team.run']);
-    assert.equal(created.body.data.skillResults[0].output.teams.some((team) => team.id === 'ecommerce-assets'), true);
+    assert.equal(
+      created.body.data.skillResults[0].output.teams.some((team) => team.id === 'ecommerce-assets'),
+      true,
+    );
 
     const teamOutput = created.body.data.skillResults[1].output;
     assert.equal(teamOutput.team.id, 'ecommerce-assets');
-    assert.equal(teamOutput.plan.tasks.some((task) => task.roleHint === 'workflow-architect'), true);
-    assert.equal(teamOutput.roleOutputs.some((output) => output.roleId === 'workflow-architect'), true);
+    assert.equal(
+      teamOutput.plan.tasks.some((task) => task.roleHint === 'workflow-architect'),
+      true,
+    );
+    assert.equal(
+      teamOutput.roleOutputs.some((output) => output.roleId === 'workflow-architect'),
+      true,
+    );
     assert.equal(Array.isArray(teamOutput.workflowDraft.workflow.nodes), true);
     assert.equal(teamOutput.workflowDraft.validation.valid, true);
     assert.equal(teamOutput.workflowDraft.approvalsRequired.includes('applyDraft'), true);
     assert.equal(teamOutput.review.verdict, 'needs-confirmation');
     assert.equal(teamOutput.approvalsRequired.includes('applyDraft'), true);
     assert.equal(teamOutput.approvalsRequired.includes('executeWorkflow'), true);
-    assert.equal(teamOutput.trace.every((item) => item.source === 'local-rule'), true);
+    assert.equal(
+      teamOutput.trace.every((item) => item.source === 'local-rule'),
+      true,
+    );
 
     const workflows = await requestJson(baseUrl, '/api/workflows');
     assert.equal(workflows.status, 200);

@@ -147,14 +147,16 @@ export function getDocumentViewPatch(document: WorkflowDocument): Partial<Workfl
   };
 }
 
-export function createEmptyWorkflowDocument(options: {
-  documentId?: string;
-  workflowId?: string;
-  name?: string;
-  origin?: WorkflowDocumentOrigin;
-  sourceWorkflowId?: string;
-  hasUnsavedChanges?: boolean;
-} = {}): WorkflowDocument {
+export function createEmptyWorkflowDocument(
+  options: {
+    documentId?: string;
+    workflowId?: string;
+    name?: string;
+    origin?: WorkflowDocumentOrigin;
+    sourceWorkflowId?: string;
+    hasUnsavedChanges?: boolean;
+  } = {},
+): WorkflowDocument {
   return {
     documentId: options.documentId || gid(),
     workflowId: options.workflowId || gid(),
@@ -215,7 +217,9 @@ export function createWorkflowDocumentTabActions(set: WorkflowStoreSet, get: Wor
       }
 
       const nextDocument =
-        documentId === state.activeDocumentId ? remaining[Math.max(0, remaining.length - 1)] : currentDocuments.find((document) => document.documentId === state.activeDocumentId);
+        documentId === state.activeDocumentId
+          ? remaining[Math.max(0, remaining.length - 1)]
+          : currentDocuments.find((document) => document.documentId === state.activeDocumentId);
 
       set({
         documents: remaining,

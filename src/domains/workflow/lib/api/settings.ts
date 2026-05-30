@@ -1,5 +1,5 @@
-import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 import { workflowApiFetch } from '@/domains/workflow/lib/api/base';
+import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 
 export async function fetchSettings() {
   return workflowApiFetch('/settings');

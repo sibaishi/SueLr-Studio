@@ -47,6 +47,8 @@ const allowedRootDirectories = new Set([
 ]);
 const allowedRootFiles = new Set([
   '.env.example',
+  '.codex-dev.err.log',
+  '.codex-dev.log',
   '.gitignore',
   'AGENTS.md',
   'admin.html',
@@ -97,7 +99,10 @@ if (failures.length === 0) {
   const gitignore = readUtf8('.gitignore');
   const windowsLauncher = readUtf8('start.bat');
   const unixLauncher = readUtf8('start.sh');
-  const sourceFiles = collectFiles('src', (file) => file.endsWith('.ts') || file.endsWith('.tsx') || file.endsWith('.js') || file.endsWith('.jsx'));
+  const sourceFiles = collectFiles(
+    'src',
+    (file) => file.endsWith('.ts') || file.endsWith('.tsx') || file.endsWith('.js') || file.endsWith('.jsx'),
+  );
 
   const rootScripts = rootPackage?.scripts ?? {};
   const backendScripts = backendPackage?.scripts ?? {};
@@ -128,11 +133,80 @@ if (failures.length === 0) {
   }
 
   const documentChecks = [
-    { file: 'README.md', source: readme, snippets: ['SueLr Studio', '`main`', 'npm run install:all', 'npm run dev', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'CONTRIBUTING.md'] },
-    { file: 'CONTRIBUTING.md', source: contributing, snippets: ['npm run install:all', 'npm run dev', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'http://localhost:5173', 'http://127.0.0.1:3001', '## Branch Model', '`main`', '`release/local-web`', '`release/desktop`', '`release/server-web`'] },
-    { file: 'docs/user-guide.md', source: userGuide, snippets: ['`文本输入`', '`文本清理`', '`文本逐项`', '`图像逐项`', 'Alt+G', 'Ctrl+Shift+Enter', 'Ctrl+C', 'Ctrl+V'] },
-    { file: 'docs/developer-guide.md', source: developerGuide, snippets: ['## Maintenance Workflow', 'npm run check', 'npm run test:e2e', 'npm run test:e2e:install', '.private-docs/', 'UTF-8', '## Variant Delivery Model', '`main`', '`release/local-web`', '`release/desktop`', '`release/server-web`'] },
-    { file: 'docs/release-sop.md', source: releaseSop, snippets: ['`main` is the shared long-lived source branch in this repository.', '`release/local-web`', '`release/desktop`', '`release/server-web`', 'npm.cmd run check:docs'] },
+    {
+      file: 'README.md',
+      source: readme,
+      snippets: [
+        'SueLr Studio',
+        '`main`',
+        'npm run install:all',
+        'npm run dev',
+        'npm run check',
+        'npm run test:e2e',
+        'npm run test:e2e:install',
+        'CONTRIBUTING.md',
+      ],
+    },
+    {
+      file: 'CONTRIBUTING.md',
+      source: contributing,
+      snippets: [
+        'npm run install:all',
+        'npm run dev',
+        'npm run check',
+        'npm run test:e2e',
+        'npm run test:e2e:install',
+        'http://localhost:5173',
+        'http://127.0.0.1:3001',
+        '## Branch Model',
+        '`main`',
+        '`release/local-web`',
+        '`release/desktop`',
+        '`release/server-web`',
+      ],
+    },
+    {
+      file: 'docs/user-guide.md',
+      source: userGuide,
+      snippets: [
+        '`文本输入`',
+        '`文本清理`',
+        '`文本逐项`',
+        '`图像逐项`',
+        'Alt+G',
+        'Ctrl+Shift+Enter',
+        'Ctrl+C',
+        'Ctrl+V',
+      ],
+    },
+    {
+      file: 'docs/developer-guide.md',
+      source: developerGuide,
+      snippets: [
+        '## Maintenance Workflow',
+        'npm run check',
+        'npm run test:e2e',
+        'npm run test:e2e:install',
+        '.private-docs/',
+        'UTF-8',
+        '## Variant Delivery Model',
+        '`main`',
+        '`release/local-web`',
+        '`release/desktop`',
+        '`release/server-web`',
+      ],
+    },
+    {
+      file: 'docs/release-sop.md',
+      source: releaseSop,
+      snippets: [
+        '`main` is the shared long-lived source branch in this repository.',
+        '`release/local-web`',
+        '`release/desktop`',
+        '`release/server-web`',
+        'npm.cmd run check:docs',
+      ],
+    },
   ];
 
   for (const documentCheck of documentChecks) {
@@ -143,13 +217,24 @@ if (failures.length === 0) {
     }
   }
 
-  for (const snippet of ['npm run check', 'npm run test:e2e', 'npm run test:e2e:install', 'actions/checkout@v5', 'actions/setup-node@v5', 'frontend-e2e', 'quality-gate']) {
+  for (const snippet of [
+    'npm run check',
+    'npm run test:e2e',
+    'npm run test:e2e:install',
+    'actions/checkout@v5',
+    'actions/setup-node@v5',
+    'frontend-e2e',
+    'quality-gate',
+  ]) {
     if (!ciWorkflow.includes(snippet)) {
       failures.push(`.github/workflows/ci.yml is missing required CI hygiene detail: ${snippet}`);
     }
   }
 
-  for (const [file, source] of [['start.bat', windowsLauncher], ['start.sh', unixLauncher]]) {
+  for (const [file, source] of [
+    ['start.bat', windowsLauncher],
+    ['start.sh', unixLauncher],
+  ]) {
     if (!source.includes('npm start')) {
       failures.push(`${file} must continue to launch the one-click start command.`);
     }
@@ -174,7 +259,7 @@ if (failures.length === 0) {
   for (const file of sourceFiles) {
     if (file.startsWith('src/lib/')) continue;
     const source = readUtf8(file);
-    if (source.includes(`@/lib/`)) {
+    if (source.includes('@/lib/')) {
       failures.push(`${file} must not import from @/lib/. Use the canonical app/shared/domain path instead.`);
     }
   }

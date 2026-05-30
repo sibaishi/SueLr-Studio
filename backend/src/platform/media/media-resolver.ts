@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getScopedStoragePaths, safeResolveWithin } from '../storage/index.ts';
 import type { RequestScope } from '../runtime/request-scope.ts';
+import { getScopedStoragePaths, safeResolveWithin } from '../storage/index.ts';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
 const DATA_URL_CACHE_LIMIT = 32;

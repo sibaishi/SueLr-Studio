@@ -257,7 +257,6 @@ export function DefaultsSection({ actions, view }: Props) {
           </div>
         </div>
       </SectionCard>
-
     </div>
   );
 }

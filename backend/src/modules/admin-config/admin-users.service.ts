@@ -2,7 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
 import { auditLog } from '../../platform/audit/audit-log.ts';
-import { STORAGE_PATHS, getScopedStoragePaths, readJsonFile, safeResolveWithin, writeJsonFile } from '../../platform/storage/index.ts';
+import {
+  STORAGE_PATHS,
+  getScopedStoragePaths,
+  readJsonFile,
+  safeResolveWithin,
+  writeJsonFile,
+} from '../../platform/storage/index.ts';
 import { type StoredAuthUser, type UserStatus, authRepository } from '../auth/auth.repository.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 
@@ -108,7 +114,7 @@ function pruneOwnedAgentSessionFiles(userId: string): number {
 
 function pruneOwnedLegacyData(userId: string) {
   let records = 0;
-  let workflows = pruneOwnedWorkflowFiles(userId);
+  const workflows = pruneOwnedWorkflowFiles(userId);
 
   for (const filePath of [
     STORAGE_PATHS.conversationsFile,

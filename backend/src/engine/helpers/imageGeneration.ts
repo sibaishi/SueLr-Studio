@@ -240,8 +240,9 @@ function getImageTimeoutMs(providerConfig: LooseRecord | undefined): number {
 }
 
 function shouldRequestGeminiUrlResponse(providerConfig: LooseRecord | undefined): boolean {
-  const configured = cleanText(providerConfig?.geminiImageResponseFormat || providerConfig?.imageResponseFormat)
-    .toLowerCase();
+  const configured = cleanText(
+    providerConfig?.geminiImageResponseFormat || providerConfig?.imageResponseFormat,
+  ).toLowerCase();
   if (!configured) return true;
   return !['default', 'inline', 'none', 'off', 'false'].includes(configured);
 }
@@ -818,6 +819,7 @@ export async function generateImages(
               headers: {},
               body: form,
             });
+            // biome-ignore lint/performance/noDelete: Multipart requests must omit Content-Type so fetch adds the boundary.
             delete (requestConfig.options.headers as Record<string, string | undefined>)['Content-Type'];
             return callDalleImageEditApiWithAdapter(requestConfig, requestBody, timeoutMs, sendProgress, abortSignal);
           };
@@ -853,10 +855,7 @@ export async function generateImages(
               );
             const includeResponseFormat = shouldRequestGeminiUrlResponse(providerConfig);
             try {
-              return await callWithRequestBody(
-                payload.model,
-                buildRequestBody({ includeResponseFormat }),
-              );
+              return await callWithRequestBody(payload.model, buildRequestBody({ includeResponseFormat }));
             } catch (error) {
               if (includeResponseFormat && shouldRetryWithoutResponseFormat(error)) {
                 sendProgress?.('Gemini endpoint retry: drop response_format after first failure');

@@ -35,14 +35,7 @@ import { DiagnosticsSection } from './DiagnosticsSection';
 import { AgentMemorySection } from './MemorySection';
 import { ModelsSection } from './ModelsSection';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
-import {
-  chipStyle,
-  eyebrowStyle,
-  fuzzyMatch,
-  mutedPanelStyle,
-  panelStyle,
-  sectionTitleStyle,
-} from './styles';
+import { chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, panelStyle, sectionTitleStyle } from './styles';
 
 export function SettingsPanel({
   apiConfigs,
@@ -911,7 +904,6 @@ export function SettingsPanel({
                   </span>
                 </div>
               </div>
-
             </div>
           </div>
 

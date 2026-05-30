@@ -1,8 +1,8 @@
 // @ts-expect-error Nodemailer does not ship bundled TypeScript declarations in this backend package.
 import nodemailer from 'nodemailer';
 import { ValidationError } from '../../app/errors/index.ts';
-import { createLogger } from '../logging/logger.ts';
 import type { DynamicValue } from '../../modules/types.ts';
+import { createLogger } from '../logging/logger.ts';
 
 const logger = createLogger({ module: 'email-service' });
 
@@ -104,7 +104,10 @@ export class EmailService {
   private readonly transportFactory: EmailTransportFactory;
   private lastTestResult: EmailSendResult | null = null;
 
-  constructor(configProvider: EmailConfigProvider = () => ({}), transportFactory: EmailTransportFactory = createNodemailerTransport) {
+  constructor(
+    configProvider: EmailConfigProvider = () => ({}),
+    transportFactory: EmailTransportFactory = createNodemailerTransport,
+  ) {
     this.configProvider = configProvider;
     this.transportFactory = transportFactory;
   }

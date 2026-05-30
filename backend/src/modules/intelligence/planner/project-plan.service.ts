@@ -15,7 +15,9 @@ export type ProjectPlan = {
 };
 
 function cleanText(value: DynamicValue, maxLength = 12000) {
-  return String(value ?? '').trim().slice(0, maxLength);
+  return String(value ?? '')
+    .trim()
+    .slice(0, maxLength);
 }
 
 function hasAny(text: string, words: string[]) {

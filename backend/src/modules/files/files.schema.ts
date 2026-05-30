@@ -46,8 +46,7 @@ export function validateUploadFile(file: Partial<UploadedFileLike> | undefined |
   if (!originalName || !originalName.replace(/\.[^.]+$/, '')) {
     throw new ValidationError('UPLOAD_FAILED', MISSING_UPLOAD_BASENAME_MESSAGE);
   }
-  const extension =
-    originalName.toLowerCase().match(/\.[^.]+$/)?.[0] || '.bin';
+  const extension = originalName.toLowerCase().match(/\.[^.]+$/)?.[0] || '.bin';
   if (!ALLOWED_MIME_TYPES.has(String(file.mimetype || '')) || !ALLOWED_EXTENSIONS.has(extension)) {
     throw new ValidationError('UPLOAD_FAILED', '不支持的文件类型');
   }

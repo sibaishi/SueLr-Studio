@@ -1,10 +1,10 @@
 import { successEnvelope } from '../../app/http/envelope.ts';
 import { auditLog } from '../../platform/audit/audit-log.ts';
 import { getRuntimeMode } from '../../platform/runtime/index.ts';
+import { authService } from '../auth/auth.service.ts';
 import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
 import { adminConfigService } from './admin-config.service.ts';
 import { adminUsersService } from './admin-users.service.ts';
-import { authService } from '../auth/auth.service.ts';
 import { legacyMigrationService } from './legacy-migration.service.ts';
 
 export class AdminConfigController {
@@ -90,7 +90,12 @@ export class AdminConfigController {
           action: 'notification.email.failed',
           actorType: 'system',
           targetType: 'email',
-          details: { sourceAction: 'admin.user.approved', userId: data.user.id, username: data.user.username, message: notification.message },
+          details: {
+            sourceAction: 'admin.user.approved',
+            userId: data.user.id,
+            username: data.user.username,
+            message: notification.message,
+          },
         });
       }
       res.json(successEnvelope({ ...data, notification }));

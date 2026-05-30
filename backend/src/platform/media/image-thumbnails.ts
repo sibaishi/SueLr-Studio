@@ -88,7 +88,12 @@ export function getGeneratedThumbnailPath(
   };
 }
 
-export async function ensureUploadThumbnail({ filename, sourcePath, mimeType, scope = undefined }: UploadThumbnailInput): Promise<string> {
+export async function ensureUploadThumbnail({
+  filename,
+  sourcePath,
+  mimeType,
+  scope = undefined,
+}: UploadThumbnailInput): Promise<string> {
   if (!shouldGenerateThumbnail(mimeType, filename)) return '';
 
   const thumbnailPath = getUploadThumbnailPath(filename, { scope });

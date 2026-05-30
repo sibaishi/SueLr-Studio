@@ -1,9 +1,9 @@
 import { ValidationError } from '../../../app/errors/index.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import type { AgentRunRequest } from '../intelligence.schema.ts';
-import { agentPlannerService, type AgentPlan } from '../planner/agent-planner.service.ts';
-import { runTraceRepository } from './run-trace.ts';
+import { type AgentPlan, agentPlannerService } from '../planner/agent-planner.service.ts';
 import { skillRegistry } from '../skills/skill-registry.ts';
+import { runTraceRepository } from './run-trace.ts';
 
 type AgentPlannerLike = {
   createPlan(input: AgentRunRequest, options: { scope?: DynamicValue }): Promise<AgentPlan>;
@@ -45,6 +45,15 @@ function buildToolInput(plan: AgentPlan): PlainObject {
   return toolInput;
 }
 
+function buildChatResult(plan: AgentPlan) {
+  return {
+    skillId: 'chat.respond',
+    output: {
+      response: String(plan.toolInput.response || plan.summary || ''),
+    },
+  };
+}
+
 export class AgentRunner {
   planner: AgentPlannerLike;
   skills: SkillRegistryLike;
@@ -64,6 +73,25 @@ export class AgentRunner {
 
   async run(input: AgentRunRequest, options: { scope?: DynamicValue } = {}) {
     const plan = await this.planner.createPlan(input, { scope: options.scope });
+    if (plan.toolName === 'chat.respond') {
+      const toolResults = [buildChatResult(plan)];
+      const trace = this.traces.create({
+        mode: 'agent',
+        requestInput: input.input,
+        requestedSkills: [],
+        skillResults: toolResults,
+        scope: options.scope,
+      });
+
+      return {
+        plan,
+        trace,
+        toolResults,
+        response: plan.toolInput.response || plan.summary,
+        workflowDraft: null,
+      };
+    }
+
     const tool = this.skills.get(plan.toolName);
     if (!tool) {
       throw new ValidationError('AGENT_TOOL_UNKNOWN', `Planner 选择了未知工具：${plan.toolName}`);

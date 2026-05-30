@@ -1,6 +1,6 @@
 import { ValidationError } from '../../../app/errors/index.ts';
-import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
+import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
 
 export type WorkflowValidationIssue = {
   code: string;
@@ -147,7 +147,8 @@ function getInputPort(node: PlainObject, handleId: string): PortDef | null {
   if (def.inputs[handleId]) return def.inputs[handleId];
   if (def.dynamicInputs) {
     const index = readDynamicHandleIndex(handleId, def.dynamicInputs.prefix);
-    if (index !== null && index >= def.dynamicInputs.min && index <= def.dynamicInputs.max) return { type: def.dynamicInputs.type };
+    if (index !== null && index >= def.dynamicInputs.min && index <= def.dynamicInputs.max)
+      return { type: def.dynamicInputs.type };
   }
   if (def.dynamicOutputInputs) {
     const index = readDynamicHandleIndex(handleId, def.dynamicOutputInputs.prefix);
@@ -164,7 +165,12 @@ function getOutputPort(node: PlainObject, handleId: string): PortDef | null {
   if (def.outputs[handleId]) return def.outputs[handleId];
   if (def.dynamicOutputs) {
     const index = readDynamicHandleIndex(handleId, def.dynamicOutputs.prefix);
-    const count = clampInteger(node.data?.[def.dynamicOutputs.countDataKey], def.dynamicOutputs.min, def.dynamicOutputs.min, def.dynamicOutputs.max);
+    const count = clampInteger(
+      node.data?.[def.dynamicOutputs.countDataKey],
+      def.dynamicOutputs.min,
+      def.dynamicOutputs.min,
+      def.dynamicOutputs.max,
+    );
     if (index !== null && index >= 1 && index <= count) return { type: def.dynamicOutputs.type };
   }
   return null;
@@ -297,7 +303,9 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
       continue;
     }
     for (const handleId of getRequiredInputHandles(node)) {
-      const hasIncoming = edges.some((edge) => String(edge.target || '') === nodeId && String(edge.targetHandle || '') === handleId);
+      const hasIncoming = edges.some(
+        (edge) => String(edge.target || '') === nodeId && String(edge.targetHandle || '') === handleId,
+      );
       if (!hasIncoming && !hasLocalInputValue(node, handleId)) {
         pushIssue(issues, {
           code: 'REQUIRED_INPUT_MISSING',
@@ -321,7 +329,11 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
   }
 
   const inputNodeIds = new Set(
-    nodes.filter((node) => ['imageInput', 'textInput', 'maskInput', 'videoInput', 'audioInput'].includes(String(node.type))).map((node) => String(node.id || '')),
+    nodes
+      .filter((node) =>
+        ['imageInput', 'textInput', 'maskInput', 'videoInput', 'audioInput'].includes(String(node.type)),
+      )
+      .map((node) => String(node.id || '')),
   );
   for (const nodeId of inputNodeIds) {
     const hasOutgoing = edges.some((edge) => edge.source === nodeId);
@@ -363,7 +375,11 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
     const hasOutputs = Boolean(def && (Object.keys(def.outputs).length > 0 || def.dynamicOutputs));
     const hasIncoming = edges.some((edge) => String(edge.target || '') === nodeId);
     const hasOutgoing = edges.some((edge) => String(edge.source || '') === nodeId);
-    if (hasInputs && !hasIncoming && !getRequiredInputHandles(node).some((handleId) => hasLocalInputValue(node, handleId))) {
+    if (
+      hasInputs &&
+      !hasIncoming &&
+      !getRequiredInputHandles(node).some((handleId) => hasLocalInputValue(node, handleId))
+    ) {
       pushIssue(issues, {
         code: 'NODE_INPUTS_DISCONNECTED',
         message: `节点 ${nodeId} 没有接收上游输入。`,

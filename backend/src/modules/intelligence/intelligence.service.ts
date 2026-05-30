@@ -1,19 +1,19 @@
 import { ValidationError } from '../../app/errors/index.ts';
 import type { DynamicValue } from '../types.ts';
-import { knowledgeService } from './knowledge/knowledge.service.ts';
-import { runTraceRepository } from './runtime/run-trace.ts';
-import { agentRunner } from './runtime/agent-runner.ts';
-import { skillRegistry } from './skills/skill-registry.ts';
-import { workflowBuilderService } from './workflow-builder/workflow-builder.service.ts';
-import { agentPlannerService } from './planner/agent-planner.service.ts';
 import type {
-  AgentRunRequest,
   AgentPlanRequest,
+  AgentRunRequest,
   IntelligenceRunRequest,
   KnowledgeSearchRequest,
   KnowledgeWriteRequest,
   WorkflowDraftRequest,
 } from './intelligence.schema.ts';
+import { knowledgeService } from './knowledge/knowledge.service.ts';
+import { agentPlannerService } from './planner/agent-planner.service.ts';
+import { agentRunner } from './runtime/agent-runner.ts';
+import { runTraceRepository } from './runtime/run-trace.ts';
+import { skillRegistry } from './skills/skill-registry.ts';
+import { workflowBuilderService } from './workflow-builder/workflow-builder.service.ts';
 
 const DEFAULT_RUN_SKILLS = ['knowledge.search', 'workflow.list', 'model.list'];
 
@@ -100,7 +100,8 @@ export class IntelligenceService {
       return {
         workflowId: typeof context.workflowId === 'string' ? context.workflowId : '',
         workflowName: typeof context.workflowName === 'string' ? context.workflowName : '',
-        inputs: context.inputs && typeof context.inputs === 'object' && !Array.isArray(context.inputs) ? context.inputs : {},
+        inputs:
+          context.inputs && typeof context.inputs === 'object' && !Array.isArray(context.inputs) ? context.inputs : {},
         confirmed: context.confirmed === true,
       };
     }

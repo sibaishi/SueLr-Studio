@@ -4,8 +4,8 @@ import { deleteGeneratedThumbnail, ensureGeneratedThumbnailFromBuffer } from '..
 import {
   STORAGE_PATHS,
   ensureJsonFile,
-  getScopedStoragePaths,
   ensureStorageDirectories,
+  getScopedStoragePaths,
   readJsonFile,
   safeResolveWithin,
   writeJsonFile,

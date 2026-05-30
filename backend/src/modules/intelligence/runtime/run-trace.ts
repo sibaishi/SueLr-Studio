@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../../app/errors/index.ts';
 import { ensureDir } from '../../../platform/storage/ensure-dir.ts';
-import { getScopedStoragePaths, readJsonFile, safeResolveWithin, writeJsonFile } from '../../../platform/storage/index.ts';
+import {
+  getScopedStoragePaths,
+  readJsonFile,
+  safeResolveWithin,
+  writeJsonFile,
+} from '../../../platform/storage/index.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 
 export type IntelligenceRunTrace = {

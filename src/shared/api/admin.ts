@@ -285,9 +285,12 @@ export async function dryRunLegacyMigration(targetUserId: string, accessKey?: st
 }
 
 export async function migrateLegacyData(targetUserId: string, accessKey?: string) {
-  return apiRequestOrThrow<{ manifestPath: string; countsAfter: LegacyMigrationCounts }>('/api/admin/legacy-data/migrate', {
-    method: 'POST',
-    headers: buildAdminHeaders(accessKey),
-    body: JSON.stringify({ targetUserId }),
-  });
+  return apiRequestOrThrow<{ manifestPath: string; countsAfter: LegacyMigrationCounts }>(
+    '/api/admin/legacy-data/migrate',
+    {
+      method: 'POST',
+      headers: buildAdminHeaders(accessKey),
+      body: JSON.stringify({ targetUserId }),
+    },
+  );
 }

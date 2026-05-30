@@ -2,7 +2,7 @@ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { promisify } from 'node:util';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../../app/errors/index.ts';
 import { auditLog } from '../../platform/audit/audit-log.ts';
-import { emailService, type EmailSendResult } from '../../platform/notifications/email.service.ts';
+import { type EmailSendResult, emailService } from '../../platform/notifications/email.service.ts';
 import { getRuntimeMode } from '../../platform/runtime/index.ts';
 import {
   enforceAnyRateLimit,
@@ -18,7 +18,12 @@ import {
   type StoredPasswordResetRequest,
   authRepository,
 } from './auth.repository.ts';
-import type { LoginInput, PasswordResetCompleteInput, PasswordResetRequestInput, RegisterInput } from './auth.schema.ts';
+import type {
+  LoginInput,
+  PasswordResetCompleteInput,
+  PasswordResetRequestInput,
+  RegisterInput,
+} from './auth.schema.ts';
 
 emailService.setConfigProvider(() => adminConfigRepository.buildEmailConfig(adminConfigRepository.readAdminConfig()));
 
@@ -300,7 +305,10 @@ export class AuthService {
       throw new ValidationError('AUTH_RESET_TOKEN_INVALID', '重置 token 无效或已过期');
     }
 
-    const user = this.repository.updateUserPasswordHash(request.userId, await hashPassword(String(input.password || '')));
+    const user = this.repository.updateUserPasswordHash(
+      request.userId,
+      await hashPassword(String(input.password || '')),
+    );
     if (!user) throw new NotFoundError('AUTH_RESET_USER_NOT_FOUND', '账号不存在');
     this.repository.updatePasswordResetRequest(request.id, {
       status: 'used',

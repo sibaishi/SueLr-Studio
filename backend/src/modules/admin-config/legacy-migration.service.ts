@@ -1,12 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
-import { createStorageNamespace, ensureScopedStorageDirectories } from '../../platform/storage/scoped-storage.ts';
 import { STORAGE_PATHS, ensureStorageDirectories, readJsonFile, writeJsonFile } from '../../platform/storage/index.ts';
+import { createStorageNamespace, ensureScopedStorageDirectories } from '../../platform/storage/scoped-storage.ts';
 import { authRepository } from '../auth/auth.repository.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 
-type LegacyCategory = 'workflows' | 'conversations' | 'gallery' | 'videos' | 'agentMemories' | 'generatedFiles' | 'uploads';
+type LegacyCategory =
+  | 'workflows'
+  | 'conversations'
+  | 'gallery'
+  | 'videos'
+  | 'agentMemories'
+  | 'generatedFiles'
+  | 'uploads';
 
 const JSON_CATEGORIES: Array<{ key: LegacyCategory; filePath: () => string }> = [
   { key: 'conversations', filePath: () => STORAGE_PATHS.conversationsFile },

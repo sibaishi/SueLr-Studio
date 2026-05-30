@@ -43,9 +43,7 @@ export default function WorkflowLibraryModal({
   const filteredWorkflows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return workflows;
-    return workflows.filter((workflow) =>
-      `${workflow.name} ${workflow.id}`.toLowerCase().includes(normalizedQuery),
-    );
+    return workflows.filter((workflow) => `${workflow.name} ${workflow.id}`.toLowerCase().includes(normalizedQuery));
   }, [query, workflows]);
 
   const startRename = (workflow: WorkflowListItem) => {
@@ -154,7 +152,6 @@ export default function WorkflowLibraryModal({
                               setErrorMessage('');
                             }
                           }}
-                          autoFocus
                         />
                       ) : (
                         <button

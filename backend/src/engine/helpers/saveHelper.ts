@@ -112,7 +112,10 @@ async function toPublicSavedFile(file: SavedFile, options: SaveOptions = {}): Pr
   };
 
   if (file.type === 'image' && url) {
-    const relativePath = path.relative(getScopedStoragePaths(options.scope).generatedDir, file.path).split(path.sep).join('/');
+    const relativePath = path
+      .relative(getScopedStoragePaths(options.scope).generatedDir, file.path)
+      .split(path.sep)
+      .join('/');
     publicFile.thumbnailUrl = await ensureGeneratedThumbnailFromFile({
       relativePath,
       absolutePath: file.path,
@@ -155,7 +158,10 @@ function resolveLocalApiPath(value: string, options: SaveOptions = {}): string |
   if (value.startsWith('/api/files/'))
     return safeResolveWithin(getScopedStoragePaths(options.scope).uploadsDir, value.replace('/api/files/', ''));
   if (value.startsWith('/api/assistant/files/'))
-    return safeResolveWithin(getScopedStoragePaths(options.scope).generatedDir, value.replace('/api/assistant/files/', ''));
+    return safeResolveWithin(
+      getScopedStoragePaths(options.scope).generatedDir,
+      value.replace('/api/assistant/files/', ''),
+    );
   return null;
 }
 

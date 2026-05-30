@@ -28,7 +28,11 @@ function nowMs(): number {
   return Date.now();
 }
 
-export function getClientIp(input: { headers?: Record<string, unknown>; ip?: string; socket?: { remoteAddress?: string } }): string {
+export function getClientIp(input: {
+  headers?: Record<string, unknown>;
+  ip?: string;
+  socket?: { remoteAddress?: string };
+}): string {
   const forwarded = String(input.headers?.['x-forwarded-for'] || '')
     .split(',')[0]
     .trim();
@@ -36,7 +40,16 @@ export function getClientIp(input: { headers?: Record<string, unknown>; ip?: str
 }
 
 export function identityFingerprint(...parts: unknown[]): string {
-  return hashFingerprint(parts.map((part) => String(part || '').trim().toLowerCase()).filter(Boolean).join('|') || 'empty');
+  return hashFingerprint(
+    parts
+      .map((part) =>
+        String(part || '')
+          .trim()
+          .toLowerCase(),
+      )
+      .filter(Boolean)
+      .join('|') || 'empty',
+  );
 }
 
 export function enforceRateLimit(rule: RateLimitRule): void {

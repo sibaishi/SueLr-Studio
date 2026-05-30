@@ -16,6 +16,7 @@ storage/**
 !storage/**/.gitkeep
 
 backend/storage/
+backend/.tmp-tests/
 backend/.playwright/
 data/
 outputs/

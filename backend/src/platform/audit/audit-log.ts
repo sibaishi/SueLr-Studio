@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { STORAGE_PATHS, ensureJsonFile, readJsonFile, writeJsonFile } from '../storage/index.ts';
 import type { PlainObject } from '../../modules/types.ts';
+import { STORAGE_PATHS, ensureJsonFile, readJsonFile, writeJsonFile } from '../storage/index.ts';
 
 export interface AuditLogEntry {
   id: string;
@@ -28,7 +28,9 @@ function getAuditLogPath(): string {
 }
 
 function cleanString(value: unknown, maxLength = 500): string | undefined {
-  const text = String(value || '').trim().slice(0, maxLength);
+  const text = String(value || '')
+    .trim()
+    .slice(0, maxLength);
   return text || undefined;
 }
 

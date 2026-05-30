@@ -33,8 +33,14 @@ router.delete(
 );
 router.get('/audit', adminConfigController.getAudit.bind(adminConfigController));
 router.get('/password-reset-requests', adminConfigController.listPasswordResetRequests.bind(adminConfigController));
-router.post('/password-reset-requests/:id/issue', adminConfigController.issuePasswordResetRequest.bind(adminConfigController));
-router.post('/password-reset-requests/:id/revoke', adminConfigController.revokePasswordResetRequest.bind(adminConfigController));
+router.post(
+  '/password-reset-requests/:id/issue',
+  adminConfigController.issuePasswordResetRequest.bind(adminConfigController),
+);
+router.post(
+  '/password-reset-requests/:id/revoke',
+  adminConfigController.revokePasswordResetRequest.bind(adminConfigController),
+);
 router.get('/legacy-data/summary', adminConfigController.getLegacyDataSummary.bind(adminConfigController));
 router.post(
   '/legacy-data/dry-run',

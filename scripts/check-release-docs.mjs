@@ -44,6 +44,7 @@ const allowedMarkdownDocs = new Set([
   'docs/intelligence/zh/04-知识库分类与治理方案.md',
   'docs/intelligence/zh/05-对话式Agent与工具规划方案.md',
   'docs/intelligence/zh/06-治理门禁与推进规则.md',
+  'docs/intelligence/zh/07-Agent实测问题反馈表.md',
 ]);
 
 function collectMarkdownFiles(dir, bucket = []) {

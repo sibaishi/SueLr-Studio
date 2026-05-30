@@ -28,9 +28,7 @@ export default function WorkflowImportReportModal({ fileName, report, onClose }:
           <div>
             <div className="workflow-panel__eyebrow">导入结果</div>
             <div className="workflow-panel__title">{fileName || 'workflow.json'}</div>
-            <div className="workflow-panel__desc">
-              已打开为新的未保存标签页。保存时会创建新的工作流记录。
-            </div>
+            <div className="workflow-panel__desc">已打开为新的未保存标签页。保存时会创建新的工作流记录。</div>
           </div>
           <div
             className={`workflow-import-modal__status ${hasWarnings ? 'workflow-import-modal__status--warning' : 'workflow-import-modal__status--success'}`}

@@ -420,7 +420,9 @@ function AdminScreen() {
     setMessage('');
     const result = await testAdminEmail(accessKey || undefined, testEmailTo);
     const payload = result.data as { message?: string; error?: string } | undefined;
-    setMessage(result.success ? payload?.message || '测试邮件已发送' : result.error || payload?.error || '测试邮件发送失败');
+    setMessage(
+      result.success ? payload?.message || '测试邮件已发送' : result.error || payload?.error || '测试邮件发送失败',
+    );
   };
 
   const handleLegacyDryRun = async () => {
@@ -497,7 +499,16 @@ function AdminScreen() {
           </header>
 
           <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1fr)', gap: 18, minHeight: 0 }}>
-            <aside style={{ ...panelStyle(), padding: 14, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'auto' }}>
+            <aside
+              style={{
+                ...panelStyle(),
+                padding: 14,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                overflow: 'auto',
+              }}
+            >
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 const active = activeView === item.id;
@@ -520,7 +531,9 @@ function AdminScreen() {
                       <Icon size={18} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 14, fontWeight: 800 }}>{item.label}</div>
-                        <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 4, lineHeight: 1.45 }}>{item.description}</div>
+                        <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 4, lineHeight: 1.45 }}>
+                          {item.description}
+                        </div>
                       </div>
                       <span style={chipStyle(active ? T.blue : undefined)}>{item.stat}</span>
                     </div>
@@ -529,301 +542,358 @@ function AdminScreen() {
               })}
             </aside>
 
-            <main style={{ minHeight: 0, overflow: 'auto', display: 'grid', alignContent: 'start', gap: 18, paddingRight: 4 }}>
+            <main
+              style={{
+                minHeight: 0,
+                overflow: 'auto',
+                display: 'grid',
+                alignContent: 'start',
+                gap: 18,
+                paddingRight: 4,
+              }}
+            >
               {activeView === 'users' ? (
                 <>
-          <Section title="用户审核" description="审核注册申请并管理账号状态。" icon={<UserCheck size={18} />}>
-            <UserTable
-              users={users}
-              accessKey={accessKey || undefined}
-              onChanged={() => loadUsers(accessKey || '')}
-              onMessage={setMessage}
-            />
-          </Section>
+                  <Section title="用户审核" description="审核注册申请并管理账号状态。" icon={<UserCheck size={18} />}>
+                    <UserTable
+                      users={users}
+                      accessKey={accessKey || undefined}
+                      onChanged={() => loadUsers(accessKey || '')}
+                      onMessage={setMessage}
+                    />
+                  </Section>
 
-          <Section title="密码重置" description="签发一次性重置 token，手动发送给用户。" icon={<KeyRound size={18} />}>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {resetRequests.length === 0 ? (
-                <div style={{ fontSize: 13, color: 'var(--t-text2)', padding: '12px 0' }}>暂无重置申请</div>
-              ) : (
-                resetRequests.map((request) => (
-                  <div
-                    key={request.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'minmax(180px, 1fr) 120px minmax(220px, auto)',
-                      gap: 12,
-                      alignItems: 'center',
-                      padding: 12,
-                      border: '1px solid var(--t-border)',
-                      borderRadius: 12,
-                      background: 'rgba(255,255,255,0.52)',
-                    }}
+                  <Section
+                    title="密码重置"
+                    description="签发一次性重置 token，手动发送给用户。"
+                    icon={<KeyRound size={18} />}
                   >
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--t-text)' }}>{request.username}</div>
-                      <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 3 }}>{request.email || '未填写邮箱'}</div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {resetRequests.length === 0 ? (
+                        <div style={{ fontSize: 13, color: 'var(--t-text2)', padding: '12px 0' }}>暂无重置申请</div>
+                      ) : (
+                        resetRequests.map((request) => (
+                          <div
+                            key={request.id}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'minmax(180px, 1fr) 120px minmax(220px, auto)',
+                              gap: 12,
+                              alignItems: 'center',
+                              padding: 12,
+                              border: '1px solid var(--t-border)',
+                              borderRadius: 12,
+                              background: 'rgba(255,255,255,0.52)',
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--t-text)' }}>
+                                {request.username}
+                              </div>
+                              <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 3 }}>
+                                {request.email || '未填写邮箱'}
+                              </div>
+                            </div>
+                            <span style={chipStyle()}>{request.status}</span>
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                              {request.status === 'pending' || request.status === 'issued' ? (
+                                <>
+                                  <IOSButton
+                                    label="签发"
+                                    onClick={() =>
+                                      void issuePasswordResetRequest(request.id, accessKey || undefined).then(
+                                        (result) => {
+                                          setMessage(
+                                            result.token ? `重置 token：${result.token}` : '重置 token 已签发',
+                                          );
+                                          return loadResetRequests(accessKey || '');
+                                        },
+                                      )
+                                    }
+                                  />
+                                  <IOSButton
+                                    label="撤销"
+                                    onClick={() =>
+                                      void revokePasswordResetRequest(request.id, accessKey || undefined).then(() =>
+                                        loadResetRequests(accessKey || ''),
+                                      )
+                                    }
+                                  />
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                    <span style={chipStyle()}>{request.status}</span>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                      {request.status === 'pending' || request.status === 'issued' ? (
-                        <>
-                          <IOSButton
-                            label="签发"
-                            onClick={() =>
-                              void issuePasswordResetRequest(request.id, accessKey || undefined).then((result) => {
-                                setMessage(result.token ? `重置 token：${result.token}` : '重置 token 已签发');
-                                return loadResetRequests(accessKey || '');
-                              })
-                            }
-                          />
-                          <IOSButton
-                            label="撤销"
-                            onClick={() =>
-                              void revokePasswordResetRequest(request.id, accessKey || undefined).then(() =>
-                                loadResetRequests(accessKey || ''),
-                              )
-                            }
-                          />
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Section>
+                  </Section>
 
-          <Section title="Legacy Data" description="Assign hidden legacy single-user data to an active user." icon={<DatabaseBackup size={18} />}>
-            <div style={{ display: 'grid', gap: 12 }}>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {legacySummary
-                  ? Object.entries(legacySummary.counts).map(([key, value]) => (
-                      <span key={key} style={chipStyle(value > 0 ? '#f59e0b' : T.green)}>
-                        {key}: {value}
-                      </span>
-                    ))
-                  : null}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'end' }}>
-                <div>
-                  <IOSLabel>Target user</IOSLabel>
-                  <IOSSelect value={legacyTargetUserId} onChange={setLegacyTargetUserId}>
-                    <option value="">Select active user</option>
-                    {users
-                      .filter((user) => user.status === 'active')
-                      .map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.username}
-                        </option>
-                      ))}
-                  </IOSSelect>
-                </div>
-                <IOSButton label="Dry run" onClick={() => void handleLegacyDryRun()} />
-                <IOSButton label="Migrate" onClick={() => void handleLegacyMigrate()} />
-              </div>
-            </div>
-          </Section>
+                  <Section
+                    title="Legacy Data"
+                    description="Assign hidden legacy single-user data to an active user."
+                    icon={<DatabaseBackup size={18} />}
+                  >
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {legacySummary
+                          ? Object.entries(legacySummary.counts).map(([key, value]) => (
+                              <span key={key} style={chipStyle(value > 0 ? '#f59e0b' : T.green)}>
+                                {key}: {value}
+                              </span>
+                            ))
+                          : null}
+                      </div>
+                      <div
+                        style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'end' }}
+                      >
+                        <div>
+                          <IOSLabel>Target user</IOSLabel>
+                          <IOSSelect value={legacyTargetUserId} onChange={setLegacyTargetUserId}>
+                            <option value="">Select active user</option>
+                            {users
+                              .filter((user) => user.status === 'active')
+                              .map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.username}
+                                </option>
+                              ))}
+                          </IOSSelect>
+                        </div>
+                        <IOSButton label="Dry run" onClick={() => void handleLegacyDryRun()} />
+                        <IOSButton label="Migrate" onClick={() => void handleLegacyMigrate()} />
+                      </div>
+                    </div>
+                  </Section>
                 </>
               ) : null}
 
               {activeView === 'deployment' ? (
                 <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: 18 }}>
-            <Section title="搜索服务" description="部署级联网搜索总开关与统一凭据。" icon={<Globe size={18} />}>
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <IOSLabel>联网搜索</IOSLabel>
-                    <IOSSelect value={searchEnabled ? 'on' : 'off'} onChange={(value) => setSearchEnabled(value === 'on')}>
-                      <option value="on">启用</option>
-                      <option value="off">关闭</option>
-                    </IOSSelect>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: 18 }}>
+                    <Section title="搜索服务" description="部署级联网搜索总开关与统一凭据。" icon={<Globe size={18} />}>
+                      <div style={{ display: 'grid', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <div>
+                            <IOSLabel>联网搜索</IOSLabel>
+                            <IOSSelect
+                              value={searchEnabled ? 'on' : 'off'}
+                              onChange={(value) => setSearchEnabled(value === 'on')}
+                            >
+                              <option value="on">启用</option>
+                              <option value="off">关闭</option>
+                            </IOSSelect>
+                          </div>
+                          <div>
+                            <IOSLabel>搜索提供商</IOSLabel>
+                            <IOSSelect value={searchProvider} onChange={setSearchProvider}>
+                              <option value="tavily">Tavily</option>
+                            </IOSSelect>
+                          </div>
+                        </div>
+                        <div>
+                          <IOSLabel>Tavily API Key</IOSLabel>
+                          <IOSInput
+                            value={tavilyApiKey}
+                            onChange={setTavilyApiKey}
+                            type="password"
+                            placeholder={
+                              settings?.search.providerConfig.tavilyApiKeySet ? '已配置，留空沿用' : 'tvly-...'
+                            }
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                          <IOSButton label="测试搜索" onClick={() => void handleTestSearch()} />
+                          <span
+                            style={chipStyle(settings?.search.providerConfig.tavilyApiKeySet ? T.green : '#f59e0b')}
+                          >
+                            {settings?.search.providerConfig.tavilyApiKeySet ? '统一凭据已配置' : '统一凭据未配置'}
+                          </span>
+                        </div>
+                      </div>
+                    </Section>
+
+                    <Section title="网络代理" description="统一的出站代理配置。" icon={<Network size={18} />}>
+                      <div style={{ display: 'grid', gap: 12 }}>
+                        <div>
+                          <IOSLabel>代理模式</IOSLabel>
+                          <IOSSelect
+                            value={proxyMode}
+                            onChange={(value) => setProxyMode(value as 'system' | 'direct' | 'custom')}
+                          >
+                            <option value="system">跟随系统</option>
+                            <option value="direct">直连</option>
+                            <option value="custom">自定义</option>
+                          </IOSSelect>
+                        </div>
+                        {proxyMode === 'custom' ? (
+                          <>
+                            <div>
+                              <IOSLabel>HTTP Proxy</IOSLabel>
+                              <IOSInput value={httpProxy} onChange={setHttpProxy} placeholder="http://host:port" />
+                            </div>
+                            <div>
+                              <IOSLabel>HTTPS Proxy</IOSLabel>
+                              <IOSInput value={httpsProxy} onChange={setHttpsProxy} placeholder="http://host:port" />
+                            </div>
+                          </>
+                        ) : null}
+                        <div>
+                          <IOSLabel>No Proxy</IOSLabel>
+                          <IOSInput value={noProxy} onChange={setNoProxy} placeholder="127.0.0.1,localhost,.internal" />
+                        </div>
+                      </div>
+                    </Section>
                   </div>
-                  <div>
-                    <IOSLabel>搜索提供商</IOSLabel>
-                    <IOSSelect value={searchProvider} onChange={setSearchProvider}>
-                      <option value="tavily">Tavily</option>
-                    </IOSSelect>
-                  </div>
-                </div>
-                <div>
-                  <IOSLabel>Tavily API Key</IOSLabel>
-                  <IOSInput
-                    value={tavilyApiKey}
-                    onChange={setTavilyApiKey}
-                    type="password"
-                    placeholder={settings?.search.providerConfig.tavilyApiKeySet ? '已配置，留空沿用' : 'tvly-...'}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <IOSButton label="测试搜索" onClick={() => void handleTestSearch()} />
-                  <span style={chipStyle(settings?.search.providerConfig.tavilyApiKeySet ? T.green : '#f59e0b')}>
-                    {settings?.search.providerConfig.tavilyApiKeySet ? '统一凭据已配置' : '统一凭据未配置'}
-                  </span>
-                </div>
-              </div>
-            </Section>
 
-            <Section title="网络代理" description="统一的出站代理配置。" icon={<Network size={18} />}>
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div>
-                  <IOSLabel>代理模式</IOSLabel>
-                  <IOSSelect
-                    value={proxyMode}
-                    onChange={(value) => setProxyMode(value as 'system' | 'direct' | 'custom')}
-                  >
-                    <option value="system">跟随系统</option>
-                    <option value="direct">直连</option>
-                    <option value="custom">自定义</option>
-                  </IOSSelect>
-                </div>
-                {proxyMode === 'custom' ? (
-                  <>
-                    <div>
-                      <IOSLabel>HTTP Proxy</IOSLabel>
-                      <IOSInput value={httpProxy} onChange={setHttpProxy} placeholder="http://host:port" />
-                    </div>
-                    <div>
-                      <IOSLabel>HTTPS Proxy</IOSLabel>
-                      <IOSInput value={httpsProxy} onChange={setHttpsProxy} placeholder="http://host:port" />
-                    </div>
-                  </>
-                ) : null}
-                <div>
-                  <IOSLabel>No Proxy</IOSLabel>
-                  <IOSInput value={noProxy} onChange={setNoProxy} placeholder="127.0.0.1,localhost,.internal" />
-                </div>
-              </div>
-            </Section>
-          </div>
-
-          <Section title="部署能力" description="少量部署级开关。" icon={<Gauge size={18} />}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t-text)' }}>管理端可用</div>
-                <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 4 }}>
-                  关闭后管理端入口会被标记为禁用，后端接口仍由管理员密钥保护。
-                </div>
-              </div>
-              <IOSSelect value={featureEnabled ? 'on' : 'off'} onChange={(value) => setFeatureEnabled(value === 'on')}>
-                <option value="on">启用</option>
-                <option value="off">关闭</option>
-              </IOSSelect>
-            </div>
-          </Section>
-
-          <Section title="邮件通知" description="可选 SMTP 通知，未配置时账号流程仍会正常继续。" icon={<Mail size={18} />}>
-            <div style={{ display: 'grid', gap: 12 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <IOSLabel>邮件提供方</IOSLabel>
-                  <IOSSelect value={emailProvider} onChange={(value) => setEmailProvider(value as 'none' | 'smtp')}>
-                    <option value="none">不启用</option>
-                    <option value="smtp">SMTP</option>
-                  </IOSSelect>
-                </div>
-                <div>
-                  <IOSLabel>发件人</IOSLabel>
-                  <IOSInput value={emailFrom} onChange={setEmailFrom} placeholder="SueLr Studio <no-reply@example.com>" />
-                </div>
-              </div>
-              {emailProvider === 'smtp' ? (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px', gap: 12 }}>
-                    <div>
-                      <IOSLabel>SMTP Host</IOSLabel>
-                      <IOSInput
-                        value={smtpHost}
-                        onChange={setSmtpHost}
-                        placeholder={settings?.email.smtp.hostSet ? '已配置，留空沿用' : 'smtp.example.com'}
-                      />
-                    </div>
-                    <div>
-                      <IOSLabel>SMTP Port</IOSLabel>
-                      <IOSInput value={smtpPort} onChange={setSmtpPort} placeholder="587" />
-                    </div>
-                    <div>
-                      <IOSLabel>加密</IOSLabel>
-                      <IOSSelect value={smtpSecure ? 'true' : 'false'} onChange={(value) => setSmtpSecure(value === 'true')}>
-                        <option value="false">STARTTLS</option>
-                        <option value="true">TLS</option>
+                  <Section title="部署能力" description="少量部署级开关。" icon={<Gauge size={18} />}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t-text)' }}>管理端可用</div>
+                        <div style={{ fontSize: 12, color: 'var(--t-text2)', marginTop: 4 }}>
+                          关闭后管理端入口会被标记为禁用，后端接口仍由管理员密钥保护。
+                        </div>
+                      </div>
+                      <IOSSelect
+                        value={featureEnabled ? 'on' : 'off'}
+                        onChange={(value) => setFeatureEnabled(value === 'on')}
+                      >
+                        <option value="on">启用</option>
+                        <option value="off">关闭</option>
                       </IOSSelect>
                     </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <div>
-                      <IOSLabel>SMTP User</IOSLabel>
-                      <IOSInput
-                        value={smtpUser}
-                        onChange={setSmtpUser}
-                        placeholder={settings?.email.smtp.userSet ? '已配置，留空沿用' : 'user@example.com'}
-                      />
+                  </Section>
+
+                  <Section
+                    title="邮件通知"
+                    description="可选 SMTP 通知，未配置时账号流程仍会正常继续。"
+                    icon={<Mail size={18} />}
+                  >
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
+                          <IOSLabel>邮件提供方</IOSLabel>
+                          <IOSSelect
+                            value={emailProvider}
+                            onChange={(value) => setEmailProvider(value as 'none' | 'smtp')}
+                          >
+                            <option value="none">不启用</option>
+                            <option value="smtp">SMTP</option>
+                          </IOSSelect>
+                        </div>
+                        <div>
+                          <IOSLabel>发件人</IOSLabel>
+                          <IOSInput
+                            value={emailFrom}
+                            onChange={setEmailFrom}
+                            placeholder="SueLr Studio <no-reply@example.com>"
+                          />
+                        </div>
+                      </div>
+                      {emailProvider === 'smtp' ? (
+                        <>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px', gap: 12 }}>
+                            <div>
+                              <IOSLabel>SMTP Host</IOSLabel>
+                              <IOSInput
+                                value={smtpHost}
+                                onChange={setSmtpHost}
+                                placeholder={settings?.email.smtp.hostSet ? '已配置，留空沿用' : 'smtp.example.com'}
+                              />
+                            </div>
+                            <div>
+                              <IOSLabel>SMTP Port</IOSLabel>
+                              <IOSInput value={smtpPort} onChange={setSmtpPort} placeholder="587" />
+                            </div>
+                            <div>
+                              <IOSLabel>加密</IOSLabel>
+                              <IOSSelect
+                                value={smtpSecure ? 'true' : 'false'}
+                                onChange={(value) => setSmtpSecure(value === 'true')}
+                              >
+                                <option value="false">STARTTLS</option>
+                                <option value="true">TLS</option>
+                              </IOSSelect>
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div>
+                              <IOSLabel>SMTP User</IOSLabel>
+                              <IOSInput
+                                value={smtpUser}
+                                onChange={setSmtpUser}
+                                placeholder={settings?.email.smtp.userSet ? '已配置，留空沿用' : 'user@example.com'}
+                              />
+                            </div>
+                            <div>
+                              <IOSLabel>SMTP Pass</IOSLabel>
+                              <IOSInput
+                                value={smtpPass}
+                                onChange={setSmtpPass}
+                                type="password"
+                                placeholder={settings?.email.smtp.passSet ? '已配置，留空沿用' : 'password'}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
+                      <div
+                        style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'end' }}
+                      >
+                        <div>
+                          <IOSLabel>测试收件人</IOSLabel>
+                          <IOSInput value={testEmailTo} onChange={setTestEmailTo} placeholder="admin@example.com" />
+                        </div>
+                        <IOSButton label="测试邮件" onClick={() => void handleTestEmail()} />
+                        <span
+                          style={chipStyle(
+                            emailProvider === 'smtp' && settings?.email.smtp.hostSet ? T.green : '#f59e0b',
+                          )}
+                        >
+                          {emailProvider === 'smtp' && settings?.email.smtp.hostSet ? 'SMTP 已配置' : '邮件未配置'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <IOSLabel>SMTP Pass</IOSLabel>
-                      <IOSInput
-                        value={smtpPass}
-                        onChange={setSmtpPass}
-                        type="password"
-                        placeholder={settings?.email.smtp.passSet ? '已配置，留空沿用' : 'password'}
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : null}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'end' }}>
-                <div>
-                  <IOSLabel>测试收件人</IOSLabel>
-                  <IOSInput value={testEmailTo} onChange={setTestEmailTo} placeholder="admin@example.com" />
-                </div>
-                <IOSButton label="测试邮件" onClick={() => void handleTestEmail()} />
-                <span style={chipStyle(emailProvider === 'smtp' && settings?.email.smtp.hostSet ? T.green : '#f59e0b')}>
-                  {emailProvider === 'smtp' && settings?.email.smtp.hostSet ? 'SMTP 已配置' : '邮件未配置'}
-                </span>
-              </div>
-            </div>
-          </Section>
+                  </Section>
                 </>
               ) : null}
 
-          <footer
-            style={{
-              ...panelStyle(),
-              padding: 18,
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 12,
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div
+              <footer
                 style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 12,
-                  background: 'rgba(52,199,89,0.14)',
+                  ...panelStyle(),
+                  padding: 18,
                   display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--t-green)',
+                  flexWrap: 'wrap',
                 }}
               >
-                <KeyRound size={16} />
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--t-text2)' }}>
-                {message ||
-                  (activeView === 'deployment'
-                    ? '保存后主应用会读取新的部署级配置。'
-                    : '用户状态变更会立即影响登录和现有会话。')}
-              </div>
-            </div>
-            {activeView === 'deployment' ? (
-              <IOSButton label={saving ? '保存中...' : '保存管理员配置'} onClick={() => void handleSave()} />
-            ) : null}
-          </footer>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 12,
+                      background: 'rgba(52,199,89,0.14)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--t-green)',
+                    }}
+                  >
+                    <KeyRound size={16} />
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--t-text2)' }}>
+                    {message ||
+                      (activeView === 'deployment'
+                        ? '保存后主应用会读取新的部署级配置。'
+                        : '用户状态变更会立即影响登录和现有会话。')}
+                  </div>
+                </div>
+                {activeView === 'deployment' ? (
+                  <IOSButton label={saving ? '保存中...' : '保存管理员配置'} onClick={() => void handleSave()} />
+                ) : null}
+              </footer>
             </main>
           </div>
         </div>

@@ -189,7 +189,12 @@ export default function Toolbar(props: ToolbarProps) {
             onClick={onDeleteWorkflow}
             testId="workflow-delete"
           />
-          <ToolbarIconButton icon={<Upload size={15} />} label="导入" onClick={onImportWorkflow} testId="workflow-import" />
+          <ToolbarIconButton
+            icon={<Upload size={15} />}
+            label="导入"
+            onClick={onImportWorkflow}
+            testId="workflow-import"
+          />
           <ToolbarIconButton
             icon={<Download size={15} />}
             label="导出"

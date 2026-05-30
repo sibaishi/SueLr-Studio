@@ -1,7 +1,7 @@
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import { Router } from 'express';
-import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import { validateBody, validateParam } from '../../app/middleware/validate-request.ts';
+import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import { intelligenceController } from './intelligence.controller.ts';
 import {
   agentPlanRequestSchema,

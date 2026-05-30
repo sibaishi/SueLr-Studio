@@ -3,8 +3,8 @@ import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import Sidebar from '@/domains/workflow/components/Sidebar';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
-import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
+import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
 import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
 import { useWorkflowImport } from '@/domains/workflow/hooks/useWorkflowImport';
 import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
@@ -32,8 +32,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent }: WorkflowPage
   const [workflowLibraryOpen, setWorkflowLibraryOpen] = useState(false);
   const [workflowLibraryBusy, setWorkflowLibraryBusy] = useState(false);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
-  const { canUndo, canRedo, handleUndo, handleRedo, resetHistory, captureImmediateHistory } =
-    useWorkflowHistory(store);
+  const { canUndo, canRedo, handleUndo, handleRedo, resetHistory, captureImmediateHistory } = useWorkflowHistory(store);
 
   useEffect(() => {
     void useWorkflowStore.getState().initializeWorkflowPersistence();

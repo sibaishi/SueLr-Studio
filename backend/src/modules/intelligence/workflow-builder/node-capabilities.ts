@@ -34,7 +34,8 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_imageInput',
     title: '图片输入节点 imageInput',
-    content: 'imageInput 提供上传或引用图片，输出 image，并可输出 mask，适合接入图片生成、图生视频、图片处理、保存或输出节点。',
+    content:
+      'imageInput 提供上传或引用图片，输出 image，并可输出 mask，适合接入图片生成、图生视频、图片处理、保存或输出节点。',
     tags: ['system-seed', 'node', 'input', 'imageInput', 'image', 'mask'],
     structured: {
       nodeType: 'imageInput',
@@ -89,7 +90,8 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_apiKeyInput',
     title: 'API Key 配置节点 apiKeyInput',
-    content: 'apiKeyInput 输出 apiKey 配置，用于为下游 AI 节点覆盖模型、Base URL 和接口路径。只有需要节点级 API 配置时才使用。',
+    content:
+      'apiKeyInput 输出 apiKey 配置，用于为下游 AI 节点覆盖模型、Base URL 和接口路径。只有需要节点级 API 配置时才使用。',
     tags: ['system-seed', 'node', 'api', 'apiKeyInput', 'apiKey'],
     structured: {
       nodeType: 'apiKeyInput',
@@ -117,7 +119,15 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       ],
       outputs: [{ id: 'response', type: 'string' }],
       params: ['model', 'enableWebSearch', 'temperature', 'maxTokens', 'systemPrompt'],
-      useWhen: ['chat', 'customer-service-qa', 'text-generation', 'summarization', 'copywriting', 'storyboard-script', 'shot-script'],
+      useWhen: [
+        'chat',
+        'customer-service-qa',
+        'text-generation',
+        'summarization',
+        'copywriting',
+        'storyboard-script',
+        'shot-script',
+      ],
       avoidWhen: ['direct-image-output', 'direct-video-output'],
     },
   },
@@ -179,14 +189,20 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       inputs: [{ id: 'text', type: 'string', required: false }],
       outputs: [{ id: 'prompt', type: 'string' }],
       useWhen: ['camera-control', 'lighting-control', 'storyboard-sheet', 'reference-sheet-layout'],
-      avoidWhen: ['generic-prompt-passthrough', 'simple-image-generation', 'simple-video-generation', 'storyboard-script'],
+      avoidWhen: [
+        'generic-prompt-passthrough',
+        'simple-image-generation',
+        'simple-video-generation',
+        'storyboard-script',
+      ],
       notes: ['当前节点不调用 AI，后续能力变化时应更新此能力记录。'],
     },
   },
   {
     id: 'seed_workflow_node_textClean',
     title: '文本清理节点 textClean',
-    content: 'textClean 按开始/结束关键词清理文本，输入 text，输出清理后的 text，适合去除思考区间、包装标签或模型输出中的固定片段。',
+    content:
+      'textClean 按开始/结束关键词清理文本，输入 text，输出清理后的 text，适合去除思考区间、包装标签或模型输出中的固定片段。',
     tags: ['system-seed', 'node', 'tool', 'textClean', 'text'],
     structured: {
       nodeType: 'textClean',
@@ -284,7 +300,8 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_imageResize',
     title: '图像缩放节点 imageResize',
-    content: 'imageResize 对输入 image 做尺寸或百分比缩放，输出缩放后的 image，适合在生成后统一尺寸或为下游节点准备指定规格图片。',
+    content:
+      'imageResize 对输入 image 做尺寸或百分比缩放，输出缩放后的 image，适合在生成后统一尺寸或为下游节点准备指定规格图片。',
     tags: ['system-seed', 'node', 'tool', 'imageResize', 'image'],
     structured: {
       nodeType: 'imageResize',
@@ -299,7 +316,8 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_imageCompare',
     title: '图片对比节点 imageCompare',
-    content: 'imageCompare 接收两张图片用于对比检查，当前不产生下游输出，适合人工或诊断环节，不适合作为生成链路中的转换节点。',
+    content:
+      'imageCompare 接收两张图片用于对比检查，当前不产生下游输出，适合人工或诊断环节，不适合作为生成链路中的转换节点。',
     tags: ['system-seed', 'node', 'tool', 'imageCompare', 'image'],
     structured: {
       nodeType: 'imageCompare',
@@ -346,16 +364,14 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       inputs: [{ id: 'item', type: 'image', required: false, multiple: true }],
       outputs: [{ id: 'image', type: 'image' }],
       useWhen: ['iterate-image-items', 'batch-image-processing', 'run-downstream-once-per-image'],
-      notes: [
-        '这是执行器特殊识别的控制节点，不是普通单次透传节点。',
-        '输入如果是 image[] 会被展开为多次逐项执行。',
-      ],
+      notes: ['这是执行器特殊识别的控制节点，不是普通单次透传节点。', '输入如果是 image[] 会被展开为多次逐项执行。'],
     },
   },
   {
     id: 'seed_workflow_node_saveFile',
     title: '保存文件节点 saveFile',
-    content: 'saveFile 用于把上游内容按配置落盘为运行时结果文件，并透传原 content；如果未设置 outputPath，执行器会跳过显式保存。',
+    content:
+      'saveFile 用于把上游内容按配置落盘为运行时结果文件，并透传原 content；如果未设置 outputPath，执行器会跳过显式保存。',
     tags: ['system-seed', 'node', 'output', 'saveFile', 'artifact'],
     structured: {
       nodeType: 'saveFile',
@@ -370,7 +386,8 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_output',
     title: '结果输出节点 output',
-    content: 'output 是工作流最终结果节点。连接到 output 的内容会作为用户可查看的最终结果返回，并会自动整理可展示结果文件。',
+    content:
+      'output 是工作流最终结果节点。连接到 output 的内容会作为用户可查看的最终结果返回，并会自动整理可展示结果文件。',
     tags: ['system-seed', 'node', 'output', 'result'],
     structured: {
       nodeType: 'output',
