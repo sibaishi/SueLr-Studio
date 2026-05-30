@@ -4,6 +4,7 @@ import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import { validateBody, validateParam } from '../../app/middleware/validate-request.ts';
 import { intelligenceController } from './intelligence.controller.ts';
 import {
+  agentPlanRequestSchema,
   intelligenceRunIdSchema,
   intelligenceRunRequestSchema,
   knowledgeSearchRequestSchema,
@@ -27,6 +28,11 @@ router.post(
 );
 router.post('/knowledge/import-legacy-memory', intelligenceController.importLegacyMemory.bind(intelligenceController));
 router.post('/knowledge/rebuild-seeds', intelligenceController.rebuildSeedKnowledge.bind(intelligenceController));
+router.post(
+  '/agent-plans',
+  validateBody(zodValidator(agentPlanRequestSchema)),
+  intelligenceController.createAgentPlan.bind(intelligenceController),
+);
 router.post(
   '/workflow-drafts',
   validateBody(zodValidator(workflowDraftRequestSchema)),

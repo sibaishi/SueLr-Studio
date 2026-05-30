@@ -59,6 +59,14 @@ export class IntelligenceController {
     }
   }
 
+  async createAgentPlan(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(await intelligenceService.createAgentPlan(req.body, { scope: req.scope })));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   getRun(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       res.json(successEnvelope(intelligenceService.getRun(req.params.id, { scope: req.scope })));

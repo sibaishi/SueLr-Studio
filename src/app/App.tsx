@@ -4,6 +4,7 @@ import { DesktopSidebar } from '@/app/navigation/Navigation';
 import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { saveActiveRunSnapshot } from '@/domains/workflow/lib/store/persistence';
+import { AgentWorkspace } from '@/features/agent';
 import { useStudioSettingsState } from '@/features/settings';
 import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
@@ -109,6 +110,7 @@ export default function App() {
   const [chatBusy, setChatBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [videoBusy, setVideoBusy] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => localStorage.getItem('suelr_onboarding_dismissed') === 'true',
   );
@@ -382,7 +384,10 @@ export default function App() {
                 {visitedTabs.has('workflow') && (
                   <ErrorBoundary>
                     <Suspense fallback={<WorkspaceLoading />}>
-                      <WorkflowPage onOpenStudioSettings={() => setTab('settings')} />
+                      <WorkflowPage
+                        onOpenStudioSettings={() => setTab('settings')}
+                        onOpenAgent={() => setAgentOpen(true)}
+                      />
                     </Suspense>
                   </ErrorBoundary>
                 )}
@@ -431,6 +436,12 @@ export default function App() {
                 )}
               </div>
             </div>
+            <AgentWorkspace
+              open={agentOpen}
+              onClose={() => setAgentOpen(false)}
+              onOpenWorkflow={() => setTab('workflow')}
+              plannerModels={settings.configuredProjectModels.filter((model) => model.cat === 'chat')}
+            />
           </div>
         )}
       </ToastProvider>

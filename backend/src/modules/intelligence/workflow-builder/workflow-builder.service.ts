@@ -5,6 +5,20 @@ import { compileWorkflowDraft } from './workflow-compiler.ts';
 import { planWorkflowDraft, parseWorkflowIntent } from './workflow-planner.ts';
 import { validateCompiledWorkflow } from './workflow-validator.ts';
 
+function readAgentContext(input: WorkflowDraftRequest) {
+  const plannerModel = input.context?.agent?.plannerModel;
+  if (!plannerModel) return undefined;
+  return {
+    plannerModel: {
+      id: plannerModel.id,
+      ...(plannerModel.modelId ? { modelId: plannerModel.modelId } : {}),
+      ...(plannerModel.configId ? { configId: plannerModel.configId } : {}),
+      ...(plannerModel.configName ? { configName: plannerModel.configName } : {}),
+      ...(plannerModel.label ? { label: plannerModel.label } : {}),
+    },
+  };
+}
+
 export class WorkflowBuilderService {
   createDraft(input: WorkflowDraftRequest, options: { scope?: DynamicValue } = {}) {
     knowledgeService.rebuildSeedKnowledge({ scope: options.scope });
@@ -20,6 +34,7 @@ export class WorkflowBuilderService {
     const draft = planWorkflowDraft(intent, { items: knowledgeContext.items });
     const workflow = compileWorkflowDraft(intent, draft, { scope: options.scope, knowledgeItems: knowledgeContext.items });
     const validation = validateCompiledWorkflow(workflow, { scope: options.scope });
+    const agentContext = readAgentContext(input);
 
     return {
       intent,
@@ -35,6 +50,7 @@ export class WorkflowBuilderService {
         source: knowledgeContext.source,
         governance: knowledgeContext.governance,
       },
+      ...(agentContext ? { agentContext } : {}),
     };
   }
 

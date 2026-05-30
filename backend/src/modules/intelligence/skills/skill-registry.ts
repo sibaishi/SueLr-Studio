@@ -3,6 +3,7 @@ import { workflowsService } from '../../workflows/workflows.service.ts';
 import { executionService } from '../../execution/execution.service.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import { KNOWLEDGE_CATEGORIES, knowledgeService } from '../knowledge/knowledge.service.ts';
+import { teamOrchestrator } from '../teams/team-orchestrator.ts';
 import { workflowBuilderService } from '../workflow-builder/workflow-builder.service.ts';
 
 export type SkillSideEffect = 'read' | 'suggest' | 'writeDraft' | 'write' | 'execute' | 'external' | 'destructive';
@@ -93,6 +94,16 @@ const knowledgeWriteInputSchema = {
     title: { type: 'string', minLength: 1, maxLength: 240 },
     content: { type: 'string', minLength: 1, maxLength: 12000 },
     confirmed: { type: 'boolean' },
+  },
+};
+
+const teamRunInputSchema = {
+  type: 'object',
+  additionalProperties: true,
+  required: ['input'],
+  properties: {
+    input: { type: 'string', minLength: 1, maxLength: 12000 },
+    teamId: { type: 'string', maxLength: 120 },
   },
 };
 
@@ -397,6 +408,42 @@ export class SkillRegistry {
         execute: (_input, options) => ({
           workflows: workflowsService.list({ scope: options.scope }),
         }),
+      },
+      {
+        id: 'team.list',
+        title: '团队模板列表',
+        description: '列出本地可用的设计团队模板，不创建任务、不调用模型。',
+        sideEffect: 'read',
+        requiresApproval: false,
+        inputSchema: readOnlySkillSchema,
+        outputSchema: {
+          type: 'object',
+          properties: {
+            teams: { type: 'array' },
+          },
+        },
+        execute: () => teamOrchestrator.listTemplates(),
+      },
+      {
+        id: 'team.run',
+        title: '本地设计团队运行',
+        description: '用本地规则团队拆解需求、运行角色、生成评审和工作流草案。应用草案或执行工作流仍需用户确认。',
+        sideEffect: 'writeDraft',
+        requiresApproval: false,
+        inputSchema: teamRunInputSchema,
+        outputSchema: {
+          type: 'object',
+          properties: {
+            team: { type: 'object' },
+            plan: { type: 'object' },
+            roleOutputs: { type: 'array' },
+            review: { type: 'object' },
+            workflowDraft: { type: 'object' },
+            trace: { type: 'array' },
+            approvalsRequired: { type: 'array' },
+          },
+        },
+        execute: (input, options) => teamOrchestrator.run(input, { scope: options.scope }),
       },
       {
         id: 'workflow.inspect',

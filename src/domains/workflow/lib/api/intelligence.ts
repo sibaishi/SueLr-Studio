@@ -90,6 +90,41 @@ export interface WorkflowDraftKnowledgeContext {
   governance: string;
 }
 
+export interface WorkflowDraftPlannerModel {
+  id: string;
+  modelId?: string;
+  configId?: string;
+  configName?: string;
+  label?: string;
+}
+
+export interface WorkflowDraftAgentContext {
+  plannerModel?: WorkflowDraftPlannerModel;
+}
+
+export interface AgentPlan {
+  id: string;
+  source: 'llm' | 'local-fallback';
+  plannerModel: WorkflowDraftPlannerModel & {
+    modelId: string;
+  };
+  summary: string;
+  toolName: 'workflow.createDraft';
+  toolInput: {
+    input: string;
+  };
+  reasoningSummary: string;
+  warnings: string[];
+}
+
+export interface CreateAgentPlanInput {
+  input: string;
+  plannerModel: WorkflowDraftPlannerModel & {
+    modelId: string;
+  };
+  context?: Record<string, unknown>;
+}
+
 export interface WorkflowDraftResponse {
   intent: WorkflowDraftIntent;
   draft: WorkflowDraftPlan;
@@ -97,11 +132,16 @@ export interface WorkflowDraftResponse {
   validation: WorkflowDraftValidation;
   approvalsRequired: string[];
   knowledgeContext?: WorkflowDraftKnowledgeContext;
+  agentContext?: WorkflowDraftAgentContext;
 }
 
 export interface CreateWorkflowDraftInput {
   input: string;
   name?: string;
+  context?: {
+    agent?: WorkflowDraftAgentContext;
+    [key: string]: unknown;
+  };
 }
 
 export interface IntelligenceSkillRunResult {
@@ -116,8 +156,55 @@ export interface IntelligenceRunTrace {
   skillResults: IntelligenceSkillRunResult[];
 }
 
+export interface IntelligenceTeamRoleOutput {
+  roleId: string;
+  title: string;
+  summary: string;
+  trace?: {
+    source?: string;
+    taskIds?: string[];
+    evidence?: string[];
+  };
+  data?: Record<string, unknown>;
+}
+
+export interface IntelligenceTeamRunOutput {
+  team: {
+    id: string;
+    title: string;
+    description?: string;
+  };
+  plan: {
+    brief: string;
+    intentTags: string[];
+    tasks: Array<{
+      id: string;
+      title: string;
+      description: string;
+      roleHint: string;
+      priority: string;
+    }>;
+  };
+  roleOutputs: IntelligenceTeamRoleOutput[];
+  review: {
+    score: number;
+    verdict: 'pass' | 'needs-confirmation' | 'needs-rework';
+    summary: string;
+    suggestions: string[];
+  };
+  workflowDraft: WorkflowDraftResponse | null;
+  approvalsRequired: string[];
+}
+
 export async function createWorkflowDraft(input: CreateWorkflowDraftInput) {
   return workflowApiFetch<WorkflowDraftResponse>('/intelligence/workflow-drafts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function createAgentPlan(input: CreateAgentPlanInput) {
+  return workflowApiFetch<AgentPlan>('/intelligence/agent-plans', {
     method: 'POST',
     body: JSON.stringify(input),
   });

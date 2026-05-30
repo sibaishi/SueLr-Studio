@@ -13,6 +13,35 @@ export const intelligenceRunIdSchema = z.string().trim().min(1, 'runId 不能为
 export const workflowDraftRequestSchema = z.object({
   input: z.string().trim().min(1, 'input 不能为空').max(12000, 'input 不能超过 12000 字符'),
   name: z.string().trim().max(200, 'name 不能超过 200 字符').optional(),
+  context: z
+    .object({
+      agent: z
+        .object({
+          plannerModel: z
+            .object({
+              id: z.string().trim().min(1).max(240),
+              modelId: z.string().trim().max(240).optional(),
+              configId: z.string().trim().max(240).optional(),
+              configName: z.string().trim().max(240).optional(),
+              label: z.string().trim().max(300).optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .catchall(z.unknown())
+    .default({}),
+});
+
+export const agentPlanRequestSchema = z.object({
+  input: z.string().trim().min(1, 'input 不能为空').max(12000, 'input 不能超过 12000 字符'),
+  plannerModel: z.object({
+    id: z.string().trim().min(1).max(240),
+    modelId: z.string().trim().min(1).max(240),
+    configId: z.string().trim().max(240).optional(),
+    configName: z.string().trim().max(240).optional(),
+    label: z.string().trim().max(300).optional(),
+  }),
   context: z.record(z.string(), z.unknown()).default({}),
 });
 
@@ -53,5 +82,6 @@ export const knowledgeWriteRequestSchema = z.object({
 
 export type IntelligenceRunRequest = z.infer<typeof intelligenceRunRequestSchema>;
 export type WorkflowDraftRequest = z.infer<typeof workflowDraftRequestSchema>;
+export type AgentPlanRequest = z.infer<typeof agentPlanRequestSchema>;
 export type KnowledgeSearchRequest = z.infer<typeof knowledgeSearchRequestSchema>;
 export type KnowledgeWriteRequest = z.infer<typeof knowledgeWriteRequestSchema>;

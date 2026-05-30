@@ -4,7 +4,9 @@ import { knowledgeService } from './knowledge/knowledge.service.ts';
 import { runTraceRepository } from './runtime/run-trace.ts';
 import { skillRegistry } from './skills/skill-registry.ts';
 import { workflowBuilderService } from './workflow-builder/workflow-builder.service.ts';
+import { agentPlannerService } from './planner/agent-planner.service.ts';
 import type {
+  AgentPlanRequest,
   IntelligenceRunRequest,
   KnowledgeSearchRequest,
   KnowledgeWriteRequest,
@@ -42,6 +44,10 @@ export class IntelligenceService {
     return runTraceRepository.read(id, options.scope);
   }
 
+  async createAgentPlan(input: AgentPlanRequest, options: { scope?: DynamicValue } = {}) {
+    return agentPlannerService.createPlan(input, { scope: options.scope });
+  }
+
   async createRun(input: IntelligenceRunRequest, options: { scope?: DynamicValue } = {}) {
     const requestedSkills = input.skills.length > 0 ? input.skills : DEFAULT_RUN_SKILLS;
     const skillResults = [];
@@ -74,6 +80,12 @@ export class IntelligenceService {
     }
     if (['brief.parse', 'workflow.plan', 'workflow.createDraft'].includes(skillId)) {
       return { input: input.input };
+    }
+    if (skillId === 'team.run') {
+      return {
+        input: input.input,
+        teamId: typeof context.teamId === 'string' ? context.teamId : '',
+      };
     }
     if (skillId === 'workflow.inspect') {
       return { workflowId: String(context.workflowId || '') };

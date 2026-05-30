@@ -68,6 +68,8 @@ test('intelligence routes expose read-only skills and local knowledge baseline',
         'knowledge.extractPreference',
         'knowledge.promoteToTemplate',
         'workflow.list',
+        'team.list',
+        'team.run',
         'workflow.inspect',
         'model.list',
         'brief.parse',
@@ -81,6 +83,7 @@ test('intelligence routes expose read-only skills and local knowledge baseline',
       ],
     );
     assert.equal(skills.body.data.find((skill) => skill.id === 'workflow.createDraft')?.sideEffect, 'writeDraft');
+    assert.equal(skills.body.data.find((skill) => skill.id === 'team.run')?.sideEffect, 'writeDraft');
     assert.equal(skills.body.data.find((skill) => skill.id === 'workflow.execute')?.requiresApproval, true);
     assert.equal(skills.body.data.find((skill) => skill.id === 'knowledge.write')?.requiresApproval, true);
     assert.equal(
@@ -145,6 +148,156 @@ test('intelligence workflow draft endpoint compiles a preview-only ecommerce ima
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test('intelligence workflow draft preserves agent planner model context', async () => {
+  const { server, baseUrl } = await createTestServer('workflow-draft-agent-context');
+  try {
+    const response = await requestJson(baseUrl, '/api/intelligence/workflow-drafts', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '帮我做一个商品图生成工作流，输入产品图和一句卖点，输出 3 张电商主图。',
+        context: {
+          agent: {
+            plannerModel: {
+              id: 'planner-chat-1',
+              modelId: 'gpt-5.5',
+              configId: 'provider-1',
+              configName: '主力对话模型',
+              label: 'gpt-5.5 · 主力对话模型',
+            },
+          },
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assertEnvelopeShape(response.body);
+    assert.deepEqual(response.body.data.agentContext.plannerModel, {
+      id: 'planner-chat-1',
+      modelId: 'gpt-5.5',
+      configId: 'provider-1',
+      configName: '主力对话模型',
+      label: 'gpt-5.5 · 主力对话模型',
+    });
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('agent planner normalizes an LLM JSON plan into a governed tool plan', async () => {
+  const { AgentPlannerService } = await import(`../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`);
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [
+            {
+              id: 'planner-model',
+              modelId: 'planner-model',
+              enabled: true,
+              type: 'chat',
+              endpointMode: 'category',
+              endpointCategory: 'chat',
+              customEndpoint: '',
+              configured: true,
+            },
+          ],
+        };
+      },
+    },
+    async chatCompletion() {
+      return {
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    summary: '调用工作流工具生成客服问答草案',
+                    toolName: 'workflow.createDraft',
+                    toolInput: { input: '客服问答工作流，保存文本' },
+                    reasoningSummary: '用户明确要求搭建工作流。',
+                    warnings: ['需要用户后续确认模型参数'],
+                  }),
+                },
+              },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  const plan = await service.createPlan({
+    input: '帮我做客服问答工作流',
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'default',
+      label: 'planner-model · Default',
+    },
+    context: {},
+  });
+
+  assert.equal(plan.source, 'llm');
+  assert.equal(plan.toolName, 'workflow.createDraft');
+  assert.equal(plan.toolInput.input, '客服问答工作流，保存文本');
+  assert.equal(plan.warnings[0], '需要用户后续确认模型参数');
+});
+
+test('agent planner falls back to local tool plan when LLM output is unusable', async () => {
+  const { AgentPlannerService } = await import(`../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`);
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [
+            {
+              id: 'planner-model',
+              modelId: 'planner-model',
+              enabled: true,
+              type: 'chat',
+              endpointMode: 'category',
+              endpointCategory: 'chat',
+              customEndpoint: '',
+              configured: true,
+            },
+          ],
+        };
+      },
+    },
+    async chatCompletion() {
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: '无法处理' } }] };
+        },
+      };
+    },
+  });
+
+  const plan = await service.createPlan({
+    input: '帮我做客服问答工作流',
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'default',
+      label: 'planner-model · Default',
+    },
+    context: {},
+  });
+
+  assert.equal(plan.source, 'local-fallback');
+  assert.equal(plan.toolName, 'workflow.createDraft');
+  assert.equal(plan.toolInput.input, '帮我做客服问答工作流');
 });
 
 test('intelligence workflow draft can create a chat text workflow instead of image generation', async () => {
@@ -443,6 +596,49 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     assert.equal(Boolean(textSplitSeed), true);
     assert.equal(textSplitSeed.structured.inputs.some((input) => input.id === 'text' && input.type === 'string'), true);
     assert.equal(textSplitSeed.structured.useWhen.includes('split-script'), true);
+
+    const searchIterateRun = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
+      method: 'POST',
+      body: JSON.stringify({ query: 'iterateRun 逐项 并行 下游', categories: ['workflow-knowledge'], limit: 10 }),
+    });
+    assert.equal(searchIterateRun.status, 200);
+    const iterateRunSeed = searchIterateRun.body.data.items.find(
+      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'iterateRun',
+    );
+    assert.equal(Boolean(iterateRunSeed), true);
+    assert.match(iterateRunSeed.content, /为每个非空文本创建一次下游段执行/);
+    assert.equal(iterateRunSeed.structured.maturity, 'stable');
+    assert.equal(iterateRunSeed.structured.useWhen.includes('batch-text-processing'), true);
+    assert.equal(
+      iterateRunSeed.structured.notes.some((note) => note.includes('workflow executor')),
+      true,
+    );
+
+    const searchIterateImageRun = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
+      method: 'POST',
+      body: JSON.stringify({ query: 'iterateImageRun 图片数组 逐项', categories: ['workflow-knowledge'], limit: 10 }),
+    });
+    assert.equal(searchIterateImageRun.status, 200);
+    const iterateImageRunSeed = searchIterateImageRun.body.data.items.find(
+      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'iterateImageRun',
+    );
+    assert.equal(Boolean(iterateImageRunSeed), true);
+    assert.match(iterateImageRunSeed.content, /展开图片数组/);
+    assert.equal(iterateImageRunSeed.structured.maturity, 'stable');
+    assert.equal(iterateImageRunSeed.structured.useWhen.includes('batch-image-processing'), true);
+
+    const searchImageMerge = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
+      method: 'POST',
+      body: JSON.stringify({ query: 'imageMerge 多张参考图 拼图', categories: ['workflow-knowledge'], limit: 10 }),
+    });
+    assert.equal(searchImageMerge.status, 200);
+    const imageMergeSeed = searchImageMerge.body.data.items.find(
+      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'imageMerge',
+    );
+    assert.equal(Boolean(imageMergeSeed), true);
+    assert.match(imageMergeSeed.content, /多张图片引用/);
+    assert.equal(imageMergeSeed.structured.useWhen.includes('multi-reference-image-input'), true);
+    assert.equal(imageMergeSeed.structured.avoidWhen.includes('stitch-images-into-one'), true);
 
     const searchWorkflow = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
@@ -753,6 +949,48 @@ test('intelligence run can include workflow.createDraft skill in trace', async (
     assert.equal(created.body.data.skillResults[0].skillId, 'workflow.createDraft');
     assert.equal(created.body.data.skillResults[0].output.workflow.nodes.some((node) => node.type === 'imageGen'), true);
     assert.equal(created.body.data.skillResults[0].output.approvalsRequired.includes('applyDraft'), true);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('intelligence local team run creates role outputs, review, and workflow draft without applying it', async () => {
+  const { server, baseUrl } = await createTestServer('team-run');
+  try {
+    const created = await requestJson(baseUrl, '/api/intelligence/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '帮我设计一个电商新品发布素材工作流，包含主图、详情页首屏和短视频方向。',
+        skills: ['team.list', 'team.run'],
+        context: {
+          teamId: 'ecommerce-assets',
+        },
+      }),
+    });
+
+    assert.equal(created.status, 200);
+    assertEnvelopeShape(created.body);
+    assert.deepEqual(created.body.data.requestedSkills, ['team.list', 'team.run']);
+    assert.equal(created.body.data.skillResults[0].output.teams.some((team) => team.id === 'ecommerce-assets'), true);
+
+    const teamOutput = created.body.data.skillResults[1].output;
+    assert.equal(teamOutput.team.id, 'ecommerce-assets');
+    assert.equal(teamOutput.plan.tasks.some((task) => task.roleHint === 'workflow-architect'), true);
+    assert.equal(teamOutput.roleOutputs.some((output) => output.roleId === 'workflow-architect'), true);
+    assert.equal(Array.isArray(teamOutput.workflowDraft.workflow.nodes), true);
+    assert.equal(teamOutput.workflowDraft.validation.valid, true);
+    assert.equal(teamOutput.workflowDraft.approvalsRequired.includes('applyDraft'), true);
+    assert.equal(teamOutput.review.verdict, 'needs-confirmation');
+    assert.equal(teamOutput.approvalsRequired.includes('applyDraft'), true);
+    assert.equal(teamOutput.approvalsRequired.includes('executeWorkflow'), true);
+    assert.equal(teamOutput.trace.every((item) => item.source === 'local-rule'), true);
+
+    const workflows = await requestJson(baseUrl, '/api/workflows');
+    assert.equal(workflows.status, 200);
+    assert.equal(
+      workflows.body.data.some((workflow) => workflow.id === teamOutput.workflowDraft.workflow.id),
+      false,
+    );
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

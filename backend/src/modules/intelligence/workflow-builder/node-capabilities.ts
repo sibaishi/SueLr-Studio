@@ -216,7 +216,8 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_textMerge',
     title: '文本合并节点 textMerge',
-    content: 'textMerge 合并多个文本输入，输出 string[] 类型 merged，适合把多路文本结果汇总后保存或继续处理。',
+    content:
+      'textMerge 按输入端口顺序收集多个文本输入，过滤空值后输出 string[] 类型 merged。它用于把多段文本汇总为数组并继续向下游输入，例如把多段提示词、脚本片段或多路文本结果交给后续节点。',
     tags: ['system-seed', 'node', 'merge', 'textMerge', 'text'],
     structured: {
       nodeType: 'textMerge',
@@ -224,13 +225,16 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       maturity: 'stable',
       inputs: [{ id: 'item', type: 'string', required: false, multiple: true }],
       outputs: [{ id: 'merged', type: 'string[]' }],
-      useWhen: ['merge-text-results', 'collect-text-items'],
+      useWhen: ['merge-text-results', 'collect-text-items', 'pass-multiple-texts-downstream'],
+      avoidWhen: ['semantic-text-rewrite', 'compose-polished-article'],
+      notes: ['它只汇总文本值，不负责润色、改写或把多段内容写成一篇文章；语义合成应使用 aiChat。'],
     },
   },
   {
     id: 'seed_workflow_node_imageMerge',
     title: '图片合并节点 imageMerge',
-    content: 'imageMerge 合并多个图片输入，输出 image[] 类型 merged，适合把多路图片结果汇总给保存、输出或逐项处理。',
+    content:
+      'imageMerge 按输入端口顺序收集多个图片输入，输出 image[] 类型 merged。它用于向下游一次传递多张图片引用，例如给图像生成、视频生成或逐项运行节点提供多张参考图。',
     tags: ['system-seed', 'node', 'merge', 'imageMerge', 'image'],
     structured: {
       nodeType: 'imageMerge',
@@ -238,13 +242,16 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       maturity: 'stable',
       inputs: [{ id: 'item', type: 'image', required: false, multiple: true }],
       outputs: [{ id: 'merged', type: 'image[]' }],
-      useWhen: ['merge-image-results', 'collect-image-items'],
+      useWhen: ['merge-image-results', 'collect-image-items', 'multi-reference-image-input'],
+      avoidWhen: ['image-compositing', 'contact-sheet-layout', 'stitch-images-into-one'],
+      notes: ['它只汇总图片引用，不会拼图、排版或合成一张新图片。'],
     },
   },
   {
     id: 'seed_workflow_node_videoMerge',
     title: '视频合并节点 videoMerge',
-    content: 'videoMerge 合并多个视频输入，输出 video[] 类型 merged，适合把多路视频结果汇总给保存、输出或逐项处理。',
+    content:
+      'videoMerge 按输入端口顺序收集多个视频输入，输出 video[] 类型 merged。它用于向下游或最终输出传递多个视频引用。',
     tags: ['system-seed', 'node', 'merge', 'videoMerge', 'video'],
     structured: {
       nodeType: 'videoMerge',
@@ -252,13 +259,16 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       maturity: 'stable',
       inputs: [{ id: 'item', type: 'video', required: false, multiple: true }],
       outputs: [{ id: 'merged', type: 'video[]' }],
-      useWhen: ['merge-video-results', 'collect-video-items'],
+      useWhen: ['merge-video-results', 'collect-video-items', 'pass-multiple-videos-downstream'],
+      avoidWhen: ['video-editing', 'video-concatenation', 'transition-compositing'],
+      notes: ['它只汇总视频引用，不会剪辑、拼接、转场或导出合成视频。'],
     },
   },
   {
     id: 'seed_workflow_node_audioMerge',
     title: '音频合并节点 audioMerge',
-    content: 'audioMerge 合并多个音频输入，输出 audio[] 类型 merged，适合把多路音频结果汇总给保存、输出或逐项处理。',
+    content:
+      'audioMerge 按输入端口顺序收集多个音频输入，输出 audio[] 类型 merged。它用于向下游或最终输出传递多段音频引用。',
     tags: ['system-seed', 'node', 'merge', 'audioMerge', 'audio'],
     structured: {
       nodeType: 'audioMerge',
@@ -266,7 +276,9 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       maturity: 'stable',
       inputs: [{ id: 'item', type: 'audio', required: false, multiple: true }],
       outputs: [{ id: 'merged', type: 'audio[]' }],
-      useWhen: ['merge-audio-results', 'collect-audio-items'],
+      useWhen: ['merge-audio-results', 'collect-audio-items', 'pass-multiple-audios-downstream'],
+      avoidWhen: ['audio-mixing', 'audio-concatenation', 'noise-reduction'],
+      notes: ['它只汇总音频引用，不会混音、拼接、降噪或处理音轨。'],
     },
   },
   {
@@ -305,31 +317,39 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_iterateRun',
     title: '文本逐项节点 iterateRun',
-    content: 'iterateRun 从多个文本输入中取当前逐项文本并输出 text，当前执行器偏轻量透传，适合简单逐项流程占位。',
+    content:
+      'iterateRun 是文本逐项运行控制节点。执行调度器会按 item1、item2... 端口顺序收集文本输入，为每个非空文本创建一次下游段执行，并在该次执行中把当前项作为 text 输出；启用工作流并发配置时可并行运行多个 item。',
     tags: ['system-seed', 'node', 'iterate', 'iterateRun', 'text'],
     structured: {
       nodeType: 'iterateRun',
       category: 'iterate',
-      maturity: 'limited',
+      maturity: 'stable',
       inputs: [{ id: 'item', type: 'string', required: false, multiple: true }],
       outputs: [{ id: 'text', type: 'string' }],
-      useWhen: ['iterate-text-items'],
-      notes: ['当前不是完整循环调度器，复杂批处理需要后续 planner/执行器增强。'],
+      useWhen: ['iterate-text-items', 'batch-text-processing', 'run-downstream-once-per-text'],
+      notes: [
+        '这是执行器特殊识别的控制节点，不是普通单次透传节点。',
+        '普通节点 executor 中的单项输出只代表每次迭代内的当前项；完整逐项调度发生在 workflow executor 层。',
+      ],
     },
   },
   {
     id: 'seed_workflow_node_iterateImageRun',
     title: '图像逐项节点 iterateImageRun',
-    content: 'iterateImageRun 从多个图片输入中取当前逐项图片并输出 image，当前执行器偏轻量透传，适合简单逐项图片流程占位。',
+    content:
+      'iterateImageRun 是图像逐项运行控制节点。执行调度器会按 item1、item2... 端口顺序收集图片输入，并会展开图片数组，为每张有效图片创建一次下游段执行，在该次执行中把当前项作为 image 输出；启用工作流并发配置时可并行运行多个 item。',
     tags: ['system-seed', 'node', 'iterate', 'iterateImageRun', 'image'],
     structured: {
       nodeType: 'iterateImageRun',
       category: 'iterate',
-      maturity: 'limited',
+      maturity: 'stable',
       inputs: [{ id: 'item', type: 'image', required: false, multiple: true }],
       outputs: [{ id: 'image', type: 'image' }],
-      useWhen: ['iterate-image-items'],
-      notes: ['当前不是完整循环调度器，复杂批处理需要后续 planner/执行器增强。'],
+      useWhen: ['iterate-image-items', 'batch-image-processing', 'run-downstream-once-per-image'],
+      notes: [
+        '这是执行器特殊识别的控制节点，不是普通单次透传节点。',
+        '输入如果是 image[] 会被展开为多次逐项执行。',
+      ],
     },
   },
   {

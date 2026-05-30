@@ -2,110 +2,97 @@
 
 ## Public Documentation Gate
 
-Public intelligence planning documents are allowed under:
+Durable public intelligence plans may live under:
 
 ```text
 docs/intelligence/
+docs/intelligence/zh/
 ```
 
-This directory is for durable public product and architecture plans only. It is not for scratch notes.
+Temporary or private notes must not be placed there.
 
-Private or temporary planning must stay outside public docs, preferably under `.private-docs/`.
+## Code Ownership
 
-## Code Ownership Gates
-
-Backend intelligence code should live under:
+Backend:
 
 ```text
 backend/src/modules/intelligence/
 ```
 
-Frontend surfaces:
+Frontend:
 
 ```text
-src/domains/chat/
-src/domains/workflow/
-src/features/settings/
-src/shared/api/
+src/features/agent/       global Agent
+src/domains/workflow/     workflow domain
+src/domains/chat/         chat domain
+src/domains/image/        image domain
+src/domains/video/        video domain
+src/features/settings/    settings
 ```
 
-Do not create domain-specific components under `src/components/`.
+Do not put domain-specific UI under `src/components/`.
+
+## Agent Gates
+
+Required:
+
+- global conversational Agent is the primary surface
+- planner model is selected in the Agent window
+- only explicitly enabled chat models can be planner models
+- LLM planner returns structured plans
+- runtime validates plans and calls tools
+- tool records are collapsed by default
+
+Forbidden:
+
+- workflow-page-only Agent identity
+- fixed design-team template as MVP entry
+- silent planner use of image/video models
+- use of discovered but disabled models
+- exposing raw chain-of-thought
 
 ## Workflow Gates
-
-Workflow generation must use a typed intermediate draft and compiler.
 
 Forbidden:
 
 - model directly mutates React Flow state
-- model directly writes arbitrary persisted workflow JSON without validation
-- generated workflow execution without approval
-- knowledge silently selecting workflow target
-- knowledge silently supplying workflow input values
+- model directly writes arbitrary persisted workflow JSON
+- execution without approval
+- knowledge silently chooses workflow target or inputs
 
 Required:
 
-- validate generated workflow draft
-- preview before apply
-- explicit confirmation before save or execution
-- run through existing execution service
+```text
+AgentPlan
+  -> WorkflowDraft
+  -> compiler
+  -> validator
+  -> preview
+  -> user confirmation
+  -> apply/save/run
+```
 
 ## Local MVP Gate
 
-The first implementation gate is a complete local studio loop in `desktop` and `local-web`:
+Local MVP is `desktop` and `local-web` first:
 
-- Agent runtime works without `server-web`
-- Workflow Architect can create and validate drafts locally
-- Approved workflows execute through the existing local backend execution service
-- Studio Brain uses local personal and project knowledge by default
-- Design team roles can plan, review, and request retries locally
-- Asset outputs use existing app URL contracts
-- Legacy Agent replacement is verified locally before server migration
+- Agent runtime works without `server-web`.
+- Agent window can select planner model.
+- LLM planner creates structured plans.
+- Tool runtime validates and executes governed tools.
+- Workflow tools can build, validate, apply, and run drafts locally.
+- Studio Brain defaults to local personal/project knowledge.
+- Legacy Agent replacement is verified locally before server migration.
 
-This gate must pass before treating server synchronization, public knowledge, or multi-user Agent access as implementation requirements.
+## Skill / Tool Gates
 
-## Server Migration Gate
-
-`server-web` migration may start only after local MVP total acceptance passes.
-
-Before implementing server migration, the design must cover:
-
-- user and workspace isolation
-- provider ownership and per-user Agent consumption
-- private, workspace, and public knowledge scopes
-- contribution, review, and approval for shared knowledge
-- migration import/export
-- sync conflict handling and rollback
-- continued support for local-only operation
-
-## Knowledge Gates
-
-Knowledge writes must include:
-
-- type
-- source
-- scope
-- confidence or evidence
-- timestamps
-
-Do not write:
-
-- raw chain-of-thought
-- temporary debug noise
-- giant payloads
-- absolute filesystem paths
-- unapproved brand rules
-- unapproved project constraints
-
-## Skill Gates
-
-Every Skill must define:
+Each Skill/Tool defines:
 
 - input schema
 - output schema
 - side-effect level
 - approval requirement
-- timeout or cancellation behavior
+- timeout/cancel behavior
 - logging policy
 
 Side effect levels:
@@ -124,24 +111,35 @@ Default approval:
 
 - `read`: no approval
 - `suggest`: no approval
-- `writeDraft`: no approval unless applying to current work
+- `writeDraft`: creating draft does not need approval; applying it does
 - `write`: approval when durable or user-visible
-- `execute`: approval unless explicitly pre-authorized
-- `external`: approval or clear user opt-in
+- `execute`: approval by default
+- `external`: approval or explicit opt-in
 - `destructive`: always approval
 
-## Verification Checklist
+## Knowledge Gates
 
-Run the narrowest relevant checks first, then broaden.
+Knowledge writes must include type, source, scope, evidence/confidence, and timestamps.
 
-Documentation-only changes:
+Do not write:
+
+- raw chain-of-thought
+- giant payloads
+- temporary debug noise
+- absolute filesystem paths
+- unapproved brand rules
+- unapproved project constraints
+
+## Verification
+
+Docs only:
 
 ```bash
 npm run check:docs
 npm run check:encoding
 ```
 
-Backend intelligence changes:
+Backend intelligence:
 
 ```bash
 npm run typecheck
@@ -149,7 +147,7 @@ npm run test --prefix backend
 npm run check:encoding
 ```
 
-Frontend intelligence UI changes:
+Frontend Agent UI:
 
 ```bash
 npm run typecheck
@@ -157,33 +155,8 @@ npm run test:unit
 npm run build
 ```
 
-Workflow behavior changes:
-
-```bash
-npm run check:workflow-store
-npm run typecheck
-npm run test --prefix backend
-npm run test:unit
-```
-
-Before major cutover:
+Major cutover:
 
 ```bash
 npm run check
 ```
-
-## Manual Review Checklist
-
-Before merging an intelligence phase:
-
-- Does it respect current repository layout?
-- Does it avoid `src/components/` for domain-specific UI?
-- Does it keep Electron IPC through preload?
-- Does it preserve backend port `3001`?
-- Does it validate API inputs with Zod?
-- Does it keep runtime storage path resolution centralized?
-- Does it avoid moving React Flow state into Zustand?
-- Does it preserve required workflow shortcuts?
-- Does it keep Chinese text readable UTF-8?
-- Does it update docs and tests for behavior changes?
-

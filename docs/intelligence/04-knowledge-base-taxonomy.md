@@ -2,65 +2,48 @@
 
 ## Goal
 
-The knowledge base should become the Studio Brain: a structured, searchable, evidence-aware memory layer for design work, workflow automation, model behavior, assets, and project operations.
+The knowledge base is long-term context for the LLM planner and tool runtime. It is not a team-template database and not a bag of unsourced memory snippets.
 
-It must not be a bag of unsourced text snippets.
+It should help the Agent understand:
 
-For the local MVP, the knowledge base is local personal and project knowledge for `desktop` and `local-web`. Public knowledge, cross-user contributions, review queues, and server synchronization are later `server-web` migration concerns.
+- user preferences
+- project and brand constraints
+- real node semantics
+- tool usage rules
+- model capabilities
+- successful workflow patterns
+- failed run lessons
+- artifacts and assets
 
 ## Storage Evolution
 
-### Stage 1: JSON Stores
-
-Use runtime storage JSON files for the MVP:
+MVP JSON stores:
 
 ```text
 knowledge/
   user-memory.json
   project-knowledge.json
   brand-knowledge.json
-  design-system-knowledge.json
+  node-knowledge.json
+  tool-knowledge.json
   workflow-knowledge.json
-  skill-knowledge.json
   model-knowledge.json
   prompt-library.json
   asset-knowledge.json
   run-knowledge.json
   review-knowledge.json
-  team-knowledge.json
   template-knowledge.json
   domain-knowledge.json
   safety-knowledge.json
 ```
 
-### Stage 2: SQLite
+Later:
 
-Move to `knowledge/studio-brain.db` after JSON access patterns stabilize.
-
-### Stage 3: Embeddings
-
-Add local embedding-backed retrieval only after:
-
-- typed records exist
-- source metadata is reliable
-- keyword retrieval has clear limitations
-- import/export and migration are tested
-
-No external vector database is required for the first implementation.
-
-### Later Stage: Server Migration
-
-After the local MVP passes total acceptance, add server-ready storage and synchronization only with explicit migration design:
-
-- private, workspace, and public visibility scopes
-- per-user and per-workspace ownership
-- contribution and review workflow for public knowledge
-- conflict detection and rollback
-- provider and run attribution for every server Agent action
+- SQLite after JSON access patterns stabilize.
+- Local embeddings after records, provenance, and migration are stable.
+- Server storage only after local MVP acceptance.
 
 ## Record Contract
-
-Every knowledge record should include:
 
 ```text
 id
@@ -83,303 +66,120 @@ version
 syncStatus
 ```
 
-`ownerUserId`, `workspaceId`, `ownershipScope`, `sourceRuntime`, `version`, and `syncStatus` are migration-ready fields. In the local MVP they can default to a single local user, a local workspace, `local`, and `localOnly`. They do not require cross-user sharing or server sync in the first implementation.
+## Key Categories
 
-## Knowledge Categories
+### User Memory
 
-### 1. User Memory
+Stable preferences, language, delivery formats, disliked outputs.
 
-Purpose:
+### Project Knowledge
 
-- stable user preferences
-- language preference
-- default style tendencies
-- disliked formats
-- repeated delivery preferences
+Project goals, client context, deliverables, constraints, decisions.
 
-Write policy:
+### Brand Knowledge
 
-- low-risk preferences may be written automatically when clear
-- ambiguous preferences require confirmation
-- temporary task details must not be written
+Positioning, audience, tone, visual rules, competitors, forbidden styles.
 
-### 2. Project Knowledge
+Durable brand rules require confirmation.
 
-Purpose:
+### Node Knowledge
 
-- project goals
-- client context
-- deliverables
-- deadlines
-- constraints
-- current decisions
+Critical for workflow planning.
 
-Write policy:
+Each node should record:
 
-- requires project context
-- important decisions require confirmation
+- real purpose
+- input ports
+- output ports
+- parameters
+- applicable scenarios
+- non-applicable scenarios
+- common upstream/downstream nodes
+- common misuse
+- typical combinations
 
-### 3. Brand Knowledge
+Priority nodes:
 
-Purpose:
+- prompt helper
+- text/image iteration
+- merge nodes
+- AI chat
+- image generation
+- video generation
+- save file
+- output display
 
-- brand positioning
-- target audience
-- tone
-- color rules
-- typography rules
-- visual references
-- forbidden styles
-- competitor notes
+### Tool Knowledge
 
-Write policy:
+Tool id, schemas, side effects, approval rules, parameter experience, failure signatures, cost risk.
 
-- durable brand rules require user confirmation
-- generated suggestions remain proposals until approved
+### Workflow Knowledge
 
-### 4. Design System Knowledge
+Workflow purpose, input requirements, node patterns, failure modes, recommended models, successful examples.
 
-Purpose:
+### Model Knowledge
 
-- UI component rules
-- spacing
-- typography
-- color tokens
-- layout density
-- product interface guidelines
+Capabilities, suitable tasks, unsuitable tasks, context limits, known issues.
 
-Write policy:
+Planner can only use explicitly enabled chat models.
 
-- requires explicit user or code evidence
-- should link to project files when derived from implementation
+### Prompt Library
 
-### 5. Workflow Knowledge
+Successful prompts, failed prompts, style prompts, camera/shot prompts, brand prompt fragments.
 
-Purpose:
+### Asset Knowledge
 
-- workflow purpose
-- required inputs
-- node descriptions
-- output expectations
-- known failure modes
-- recommended models
+Generated or uploaded images, videos, files, style tags, reuse status.
 
-Write policy:
+Store app URLs or storage-relative identifiers, not absolute paths.
 
-- workflow inspection can write descriptive summaries
-- operational recommendations require execution evidence
+### Run Knowledge
 
-### 6. Skill Knowledge
+Input summary, tools, workflow, model, outputs, errors, duration, diagnosis.
 
-Purpose:
+Must come from real trace.
 
-- when to use each Skill
-- common parameter choices
-- retry strategy
-- failure signatures
-- cost and risk notes
+### Template Knowledge
 
-Write policy:
+Task patterns, workflow templates, tool call patterns, prompt packs, delivery templates.
 
-- requires trace or maintainer input
-
-### 7. Model Knowledge
-
-Purpose:
-
-- model capabilities
-- domain fit
-- context limits
-- image/video behavior
-- known quirks
-- stable parameter recipes
-
-Write policy:
-
-- discovered models are not automatically usable project models
-- capability notes should reference actual provider discovery or run evidence
-
-### 8. Prompt Library
-
-Purpose:
-
-- successful prompts
-- negative prompts
-- style prompts
-- camera and lighting prompts
-- brand-specific prompt fragments
-- failed prompt examples
-
-Write policy:
-
-- successful prompts should link to output artifacts or run traces
-- failed prompts should include failure reason
-
-### 9. Asset Knowledge
-
-Purpose:
-
-- generated images
-- videos
-- audio
-- uploaded references
-- file metadata
-- style tags
-- reuse status
-
-Write policy:
-
-- asset record must reference app URLs or storage-relative identifiers
-- do not store absolute host paths
-
-### 10. Run Knowledge
-
-Purpose:
-
-- execution input summary
-- workflow and model used
-- outputs
-- errors
-- duration
-- retry count
-- final rating
-
-Write policy:
-
-- requires real run trace
-- should not be injected as unquestioned truth into future executions
-
-### 11. Review Knowledge
-
-Purpose:
-
-- quality scores
-- review criteria
-- rejection reasons
-- accepted output characteristics
-
-Write policy:
-
-- should link to reviewer role, criteria, and artifacts
-
-### 12. Team Knowledge
-
-Purpose:
-
-- team templates
-- role descriptions
-- handoff patterns
-- known collaboration strategies
-
-Write policy:
-
-- system-provided templates are versioned
-- custom teams require explicit save
-
-### 13. Template Knowledge
-
-Purpose:
-
-- reusable project templates
-- workflow templates
-- prompt packs
-- asset packaging templates
-
-Write policy:
-
-- promotion to template requires user confirmation
-
-### 14. Domain Knowledge
-
-Purpose:
-
-- branding methods
-- e-commerce design heuristics
-- social media content patterns
-- video production guidelines
-- packaging design conventions
-- UI/UX heuristics
-
-Write policy:
-
-- should separate generic design knowledge from project-specific rules
-
-### 15. Safety Knowledge
-
-Purpose:
-
-- copyright risk notes
-- sensitive topics
-- forbidden brand claims
-- external-call restrictions
-- destructive operation policy
-
-Write policy:
-
-- high-sensitivity records should require explicit confirmation and clear source
+Promotion requires user confirmation.
 
 ## Retrieval Rules
 
-Knowledge retrieval should return:
+Return:
 
-- typed records
-- relevance score
+- type
+- relevance
 - source
 - confidence
-- last updated time
+- updated time
 - governance note
+- whether user-confirmed
 
-The runtime should distinguish:
+## Write Rules
 
-```text
-Context
-  Useful background, may influence reasoning.
+Automatic writeback is allowed for:
 
-Candidate
-  A proposed value that needs confirmation.
+- clear low-risk preferences
+- trace-backed run summaries
+- user-explicitly saved prompts
 
-Evidence
-  Trace-backed record from actual project or workflow output.
-
-Rule
-  User-approved constraint that the system should follow.
-```
-
-## Writeback Rules
-
-Automatic writeback is allowed only when:
-
-- the source is known
-- the category is appropriate
-- the write policy allows it
-- the record is not duplicate
-- the content is not temporary noise
-
-User confirmation is required for:
+Confirmation is required for:
 
 - brand rules
 - project constraints
-- workflow template promotion
-- model preference changes
-- deletion or destructive cleanup
-- any knowledge that could alter future production behavior materially
+- workflow templates
+- tool call templates
+- model preferences
+- destructive cleanup
+- knowledge that materially changes future production behavior
 
-Visibility rules:
+Never write:
 
-- local MVP records default to private local or project scope
-- workspace and public visibility are server migration features
-- public knowledge must never be created directly from a user run without review
-- shared records must retain original source, owner, evidence, reviewer, version, and visibility metadata
-
-## Anti-Patterns
-
-Do not:
-
-- store raw model chain-of-thought
-- store giant base64 payloads
-- store stack traces as user memory
-- use memory to choose workflow targets silently
-- use memory to supply workflow inputs silently
-- store absolute runtime paths
-- merge unrelated domains into one global memory blob
-
+- raw chain-of-thought
+- giant base64 payloads
+- temporary debug noise
+- stack traces as user memory
+- absolute filesystem paths
+- unconfirmed brand rules
