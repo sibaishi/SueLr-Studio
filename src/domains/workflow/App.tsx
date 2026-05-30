@@ -3,16 +3,19 @@ import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import Sidebar from '@/domains/workflow/components/Sidebar';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
+import WorkflowAIDraftRunPanel from '@/domains/workflow/components/WorkflowAIDraftRunPanel';
+import WorkflowAIAssistantPanel from '@/domains/workflow/components/WorkflowAIAssistantPanel';
 import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
 import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
 import { useWorkflowImport } from '@/domains/workflow/hooks/useWorkflowImport';
 import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
-import { deleteWorkflow, fetchWorkflow, updateWorkflow } from '@/domains/workflow/lib/api';
+import { deleteWorkflow, fetchWorkflow, type WorkflowDraftResponse, updateWorkflow } from '@/domains/workflow/lib/api';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { useWorkflowPageStore } from '@/domains/workflow/lib/store/selectors';
+import type { Edge, Node } from '@xyflow/react';
 import { Boxes } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -29,6 +32,8 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [workflowLibraryOpen, setWorkflowLibraryOpen] = useState(false);
+  const [workflowAssistantOpen, setWorkflowAssistantOpen] = useState(false);
+  const [aiDraftDocumentId, setAiDraftDocumentId] = useState<string | null>(null);
   const [workflowLibraryBusy, setWorkflowLibraryBusy] = useState(false);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
   const { canUndo, canRedo, handleUndo, handleRedo, resetHistory, captureImmediateHistory } =
@@ -146,6 +151,29 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     return index >= 0 ? `${baseLabel} ${index + 1}` : baseLabel;
   }, [store.executingNodeId, store.nodes]);
 
+  const failedNodes = useMemo(() => {
+    return Object.entries(store.nodeErrors)
+      .map(([nodeId, error]) => {
+        const node = store.nodes.find((item) => item.id === nodeId);
+        if (!node) return null;
+        const type = node.type || '';
+        const baseLabel = getNodeDef(type)?.label || type || '未知节点';
+        const sameTypeNodes = store.nodes.filter((item) => item.type === node.type);
+        const index = sameTypeNodes.findIndex((item) => item.id === node.id);
+        const label = sameTypeNodes.length > 1 && index >= 0 ? `${baseLabel} ${index + 1}` : baseLabel;
+        return { id: node.id, label, type, error };
+      })
+      .filter((item): item is { id: string; label: string; type: string; error: string } => Boolean(item));
+  }, [store.nodeErrors, store.nodes]);
+
+  const handleSelectFailedNode = useCallback(
+    (nodeId: string) => {
+      store.selectNode(nodeId);
+      window.dispatchEvent(new CustomEvent('workflow:focus-node', { detail: { nodeId } }));
+    },
+    [store],
+  );
+
   const handleCloseDocument = useCallback((documentId: string) => {
     void (async () => {
       const target = useWorkflowStore.getState().documents.find((document) => document.documentId === documentId);
@@ -224,6 +252,34 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
     }
   }, []);
 
+  const handleApplyWorkflowDraft = useCallback(
+    (draft: WorkflowDraftResponse) => {
+      if (!draft.validation.valid) {
+        setWorkflowErrorMessage('草案仍有阻断问题，暂时不能应用到画布。');
+        return;
+      }
+
+      store.createWorkflowDocument({ origin: 'new', name: draft.workflow.name });
+      const createdDocumentId = useWorkflowStore.getState().activeDocumentId;
+      store.applyEditorSnapshot(
+        {
+          workflowId: draft.workflow.id,
+          workflowName: draft.workflow.name,
+          nodes: draft.workflow.nodes as Node[],
+          edges: draft.workflow.edges as Edge[],
+          selectedNodeId: null,
+        },
+        true,
+      );
+      store.persistLocalDraft();
+      setAiDraftDocumentId(createdDocumentId);
+      setWorkflowErrorMessage(null);
+      setWorkflowAssistantOpen(false);
+      resetHistory();
+    },
+    [resetHistory, store],
+  );
+
   return (
     <div className="workflow-page flex h-full w-full min-w-0 flex-col overflow-hidden" data-testid="workflow-page">
       <Toolbar
@@ -232,6 +288,7 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
         onWorkflowNameChange={store.setWorkflowName}
         onNewWorkflow={handleNewWorkflow}
         onOpenWorkflowLibrary={() => setWorkflowLibraryOpen(true)}
+        onOpenAssistant={() => setWorkflowAssistantOpen(true)}
         onDuplicateWorkflow={handleDuplicateWorkflow}
         onDeleteWorkflow={handleDeleteWorkflow}
         onImportWorkflow={handleImportClick}
@@ -276,6 +333,24 @@ function WorkflowPageContent({ onOpenStudioSettings }: WorkflowPageProps) {
               onBeforeCanvasEditorSave={captureImmediateHistory}
             />
             {!store.isHydratingWorkflow && store.nodes.length === 0 && <EmptyCanvasHint />}
+            {workflowAssistantOpen && (
+              <WorkflowAIAssistantPanel
+                onClose={() => setWorkflowAssistantOpen(false)}
+                onApplyDraft={handleApplyWorkflowDraft}
+              />
+            )}
+            {aiDraftDocumentId === store.activeDocumentId && !workflowAssistantOpen && (
+              <WorkflowAIDraftRunPanel
+                hasUnsavedChanges={store.hasUnsavedChanges}
+                isExecuting={store.isExecuting}
+                failedNodes={failedNodes}
+                lastExecutionRunId={store.lastExecutionRunId}
+                lastExecutionStatus={store.lastExecutionStatus}
+                onSave={handleSave}
+                onExecute={handleExecute}
+                onSelectFailedNode={handleSelectFailedNode}
+              />
+            )}
           </div>
         </div>
 

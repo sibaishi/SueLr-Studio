@@ -257,6 +257,7 @@ export function createWorkflowExecutionActions(
       isExecuting: true,
       executionMessage: options.targetNodeId ? '正在准备运行到节点...' : '准备执行工作流...',
       currentRunId: null,
+      lastExecutionRunId: null,
       executingNodeId: null,
       nodeExecStatus: {},
       nodeExecutionTime: {},
@@ -517,7 +518,7 @@ export function createWorkflowExecutionActions(
           source: data.source,
           snapshotVersion: data.snapshotVersion,
         });
-        set({ currentRunId: data.runId });
+        set({ currentRunId: data.runId, lastExecutionRunId: data.runId });
         get().addExecutionLog({
           level: 'info',
           message: '执行运行已启动',
@@ -542,6 +543,7 @@ export function createWorkflowExecutionActions(
           executionProgress: null,
           executionMessage: data.failCount > 0 ? '工作流执行完成，但有节点失败' : '工作流执行完成',
           currentRunId: null,
+          lastExecutionRunId: get().lastExecutionRunId,
           executingNodeId: null,
           lastExecutionStatus: data.failCount > 0 ? 'error' : 'success',
           lastExecutionTime: data.totalDuration,
@@ -565,6 +567,7 @@ export function createWorkflowExecutionActions(
           executionProgress: null,
           executionMessage: '工作流执行失败',
           currentRunId: null,
+          lastExecutionRunId: get().lastExecutionRunId,
           executingNodeId: null,
           lastExecutionStatus: 'error',
           lastExecutionError: data.error || '未知错误',
@@ -618,6 +621,7 @@ export function createWorkflowExecutionActions(
             executionProgress: null,
             executionMessage: '工作流执行已停止',
             currentRunId: null,
+            lastExecutionRunId: state.currentRunId || state.lastExecutionRunId,
             executingNodeId: null,
             lastExecutionStatus: 'error',
             lastExecutionError: '没有可取消的运行 ID',
@@ -649,6 +653,7 @@ export function createWorkflowExecutionActions(
         isExecuting: true,
         executionMessage: state.executionMessage || '已恢复工作流执行状态...',
         currentRunId: status.runId,
+        lastExecutionRunId: status.runId,
         lastExecutionStatus: null,
         lastExecutionError: null,
       }));
@@ -697,6 +702,7 @@ export function createWorkflowExecutionActions(
           executionProgress: null,
           executionMessage: '\u5de5\u4f5c\u6d41\u6267\u884c\u5b8c\u6210',
           currentRunId: null,
+          lastExecutionRunId: syncedStatus.runId || state.currentRunId || state.lastExecutionRunId,
           executingNodeId: null,
           lastExecutionStatus:
             typeof syncedStatus.failCount === 'number' && syncedStatus.failCount > 0 ? 'error' : 'success',
@@ -737,6 +743,7 @@ export function createWorkflowExecutionActions(
               ? '\u5de5\u4f5c\u6d41\u6267\u884c\u5df2\u505c\u6b62'
               : '\u5de5\u4f5c\u6d41\u6267\u884c\u5931\u8d25',
           currentRunId: null,
+          lastExecutionRunId: syncedStatus.runId || state.currentRunId || state.lastExecutionRunId,
           executingNodeId: null,
           lastExecutionStatus: 'error',
           lastExecutionTime: syncedStatus.totalDuration ?? null,
@@ -752,6 +759,7 @@ export function createWorkflowExecutionActions(
         executionProgress: null,
         executionMessage: null,
         currentRunId: null,
+        lastExecutionRunId: state.currentRunId || state.lastExecutionRunId,
         executingNodeId: null,
       });
     },

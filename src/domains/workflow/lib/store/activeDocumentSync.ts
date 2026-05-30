@@ -17,6 +17,7 @@ export function syncActiveDocument(state: WorkflowState): WorkflowState {
           executionProgress: state.executionProgress,
           executionMessage: state.executionMessage,
           currentRunId: state.currentRunId,
+          lastExecutionRunId: state.lastExecutionRunId,
           executingNodeId: state.executingNodeId,
           lastExecutionStatus: state.lastExecutionStatus,
           lastExecutionTime: state.lastExecutionTime,
@@ -40,4 +41,3 @@ export function syncActiveDocument(state: WorkflowState): WorkflowState {
   );
   return documents === state.documents ? state : { ...state, documents };
 }
-

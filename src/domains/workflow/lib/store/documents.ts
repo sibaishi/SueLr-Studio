@@ -15,6 +15,7 @@ export function createEmptyRuntimePatch() {
     executionProgress: null,
     executionMessage: null,
     currentRunId: null,
+    lastExecutionRunId: null,
     executingNodeId: null,
     lastExecutionStatus: null,
     lastExecutionTime: null,
@@ -39,6 +40,7 @@ export function createEmptyRuntimePatch() {
     | 'executionProgress'
     | 'executionMessage'
     | 'currentRunId'
+    | 'lastExecutionRunId'
     | 'executingNodeId'
     | 'lastExecutionStatus'
     | 'lastExecutionTime'
@@ -80,6 +82,7 @@ export function createWorkflowDocumentSnapshot(
     executionProgress: state.executionProgress,
     executionMessage: state.executionMessage,
     currentRunId: state.currentRunId,
+    lastExecutionRunId: state.lastExecutionRunId,
     executingNodeId: state.executingNodeId,
     lastExecutionStatus: state.lastExecutionStatus,
     lastExecutionTime: state.lastExecutionTime,
@@ -122,6 +125,7 @@ export function getDocumentViewPatch(document: WorkflowDocument): Partial<Workfl
     executionProgress: document.executionProgress,
     executionMessage: document.executionMessage,
     currentRunId: document.currentRunId,
+    lastExecutionRunId: document.lastExecutionRunId,
     executingNodeId: document.executingNodeId,
     lastExecutionStatus: document.lastExecutionStatus,
     lastExecutionTime: document.lastExecutionTime,
@@ -201,7 +205,12 @@ export function createWorkflowDocumentTabActions(set: WorkflowStoreSet, get: Wor
 
       const remaining = currentDocuments.filter((document) => document.documentId !== documentId);
       if (remaining.length === 0) {
-        get().createWorkflowDocument();
+        const document = createEmptyWorkflowDocument();
+        set({
+          documents: [document],
+          ...getDocumentViewPatch(document),
+        });
+        get().persistLocalDraft();
         return true;
       }
 

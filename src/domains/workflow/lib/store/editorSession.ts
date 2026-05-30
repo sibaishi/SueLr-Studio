@@ -76,6 +76,7 @@ export function createWorkflowEditorSessionActions(
         executionProgress: progress || null,
         executionMessage: executing ? '准备执行工作流...' : null,
         currentRunId: executing ? get().currentRunId : null,
+        lastExecutionRunId: executing ? get().lastExecutionRunId : get().lastExecutionRunId,
         executingNodeId: executing ? get().executingNodeId : null,
       });
     },
@@ -87,6 +88,7 @@ export function createWorkflowEditorSessionActions(
         executionProgress: null,
         executionMessage: null,
         currentRunId: null,
+        lastExecutionRunId: get().currentRunId || get().lastExecutionRunId,
         executingNodeId: null,
         lastExecutionStatus: status,
         lastExecutionTime: time ?? null,
@@ -129,6 +131,7 @@ export function createWorkflowEditorSessionActions(
         executionProgress: null,
         executionMessage: null,
         currentRunId: null,
+        lastExecutionRunId: null,
         executingNodeId: null,
         lastExecutionStatus: null,
         lastExecutionTime: null,

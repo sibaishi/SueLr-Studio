@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PersistedWorkflow, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
+import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { createWorkflowDocumentActions } from '@/domains/workflow/lib/store/document';
 import { createWorkflowDocumentTabActions } from '@/domains/workflow/lib/store/documents';
 import { createWorkflowEditorSessionActions } from '@/domains/workflow/lib/store/editorSession';
@@ -285,6 +286,48 @@ describe('workflow store document actions', () => {
     expect(harness.getState().workflowName).toBe('Draft A');
     expect(harness.getState().nodes.map((node) => node.id)).toEqual(['draft_node']);
     expect(harness.getState().hasUnsavedChanges).toBe(true);
+  });
+
+  it('replaces the last closed document with a single empty draft tab', async () => {
+    const persistLocalDraft = vi.fn();
+    const harness = createWorkflowStoreHarness({
+      workflowId: 'wf_last',
+      workflowName: 'Last Workflow',
+      nodes: [{ id: 'last_node', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+      hasUnsavedChanges: false,
+      documents: [
+        {
+          ...createBaseWorkflowState().documents[0],
+          documentId: 'doc_last',
+          workflowId: 'wf_last',
+          sourceWorkflowId: 'wf_last',
+          name: 'Last Workflow',
+          nodes: [{ id: 'last_node', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+          origin: 'saved',
+        },
+      ],
+      activeDocumentId: 'doc_last',
+      persistLocalDraft,
+    });
+    attachDocumentActions(harness);
+
+    const result = await harness.getState().closeWorkflowDocument('doc_last');
+    const state = harness.getState();
+
+    expect(result).toBe(true);
+    expect(state.documents).toHaveLength(1);
+    expect(state.documents[0].documentId).not.toBe('doc_last');
+    expect(state.documents[0]).toMatchObject({
+      name: DEFAULT_WORKFLOW_NAME,
+      nodes: [],
+      edges: [],
+      hasUnsavedChanges: false,
+      origin: 'new',
+    });
+    expect(state.activeDocumentId).toBe(state.documents[0].documentId);
+    expect(state.nodes).toEqual([]);
+    expect(state.workflowName).toBe(DEFAULT_WORKFLOW_NAME);
+    expect(saveLocalDraft).toHaveBeenCalledTimes(1);
   });
 
   it('saves imported document by creating a new workflow and binding the tab to the new id', async () => {

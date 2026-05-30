@@ -49,6 +49,7 @@ export type WorkflowDocument = {
   executionProgress: { current: number; total: number } | null;
   executionMessage: string | null;
   currentRunId: string | null;
+  lastExecutionRunId: string | null;
   executingNodeId: string | null;
   lastExecutionStatus: 'success' | 'error' | null;
   lastExecutionTime: number | null;
@@ -116,6 +117,7 @@ export interface WorkflowState {
   executionProgress: { current: number; total: number } | null;
   executionMessage: string | null;
   currentRunId: string | null;
+  lastExecutionRunId: string | null;
   executingNodeId: string | null;
   lastExecutionStatus: 'success' | 'error' | null;
   lastExecutionTime: number | null;

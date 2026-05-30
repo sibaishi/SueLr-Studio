@@ -187,3 +187,125 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('regular workflow execution caches output artifacts for intelligence summaries', async () => {
+  const { server, baseUrl } = await createTestServer('execution-summary-artifacts');
+  try {
+    const response = await fetch(`${baseUrl}/api/execute/wf_summary_artifacts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'draft',
+        name: 'Summary Artifacts Workflow',
+        nodes: [
+          { id: 'input', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'hello summary artifact' } },
+          { id: 'output', type: 'output', position: { x: 220, y: 0 }, data: {} },
+        ],
+        edges: [
+          {
+            id: 'edge-input-output',
+            source: 'input',
+            sourceHandle: 'text',
+            target: 'output',
+            targetHandle: 'content',
+          },
+        ],
+      }),
+    });
+    assert.equal(response.status, 200);
+
+    const runId = await waitForRunIdFromSse(response);
+    assert.equal(typeof runId, 'string');
+
+    const deadline = Date.now() + 1000;
+    let finalStatus = null;
+    while (Date.now() < deadline) {
+      const status = await requestJson(baseUrl, `/api/execute/runs/${runId}/status`);
+      finalStatus = status.body.data.status;
+      if (finalStatus === 'completed') break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(finalStatus, 'completed');
+
+    const summary = await requestJson(baseUrl, '/api/intelligence/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '总结刚才的常规执行结果',
+        skills: ['workflow.summarizeRun'],
+        context: { runId },
+      }),
+    });
+    assert.equal(summary.status, 200);
+    const report = summary.body.data.skillResults[0].output.report;
+    assert.equal(Array.isArray(report.keyOutputs), true);
+    assert.equal(report.keyOutputs.some((item) => item.nodeId === 'output'), true);
+    assert.equal(Array.isArray(report.artifacts), true);
+    assert.equal(report.artifacts.length > 0, true);
+    assert.match(report.artifacts[0].url, /^\/api\/outputs\//);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('intelligence summaries exclude generated thumbnails from output artifacts', async () => {
+  const { server, baseUrl } = await createTestServer('execution-summary-thumbnail-filter');
+  const imageDataUrl =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lx18XwAAAABJRU5ErkJggg==';
+
+  try {
+    const response = await fetch(`${baseUrl}/api/execute/wf_summary_thumbnail_filter`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'draft',
+        name: 'Summary Thumbnail Filter Workflow',
+        nodes: [
+          { id: 'input', type: 'imageInput', position: { x: 0, y: 0 }, data: { fileUrl: imageDataUrl } },
+          { id: 'output', type: 'output', position: { x: 220, y: 0 }, data: {} },
+        ],
+        edges: [
+          {
+            id: 'edge-input-output',
+            source: 'input',
+            sourceHandle: 'image',
+            target: 'output',
+            targetHandle: 'content',
+          },
+        ],
+      }),
+    });
+    assert.equal(response.status, 200);
+
+    const runId = await waitForRunIdFromSse(response);
+    assert.equal(typeof runId, 'string');
+
+    const deadline = Date.now() + 1000;
+    let finalStatus = null;
+    while (Date.now() < deadline) {
+      const status = await requestJson(baseUrl, `/api/execute/runs/${runId}/status`);
+      finalStatus = status.body.data.status;
+      if (finalStatus === 'completed') break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(finalStatus, 'completed');
+
+    const summary = await requestJson(baseUrl, '/api/intelligence/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '总结刚才的图片输出结果',
+        skills: ['workflow.summarizeRun'],
+        context: { runId },
+      }),
+    });
+    assert.equal(summary.status, 200);
+    const report = summary.body.data.skillResults[0].output.report;
+    assert.deepEqual(
+      report.artifacts.map((artifact) => artifact.url),
+      report.artifacts.map((artifact) => artifact.url).filter((url) => !url.includes('/.thumbnails/')),
+    );
+    assert.equal(report.artifacts.length, 1);
+    assert.match(report.artifacts[0].url, /^\/api\/outputs\/images\/.+\.png$/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

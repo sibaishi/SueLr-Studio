@@ -13,6 +13,7 @@ import {
   Redo2,
   Save,
   Settings2,
+  Sparkles,
   Square,
   Trash2,
   Undo2,
@@ -27,6 +28,7 @@ interface ToolbarProps {
   onWorkflowNameChange: (name: string) => void;
   onNewWorkflow: () => void;
   onOpenWorkflowLibrary: () => void;
+  onOpenAssistant: () => void;
   onDuplicateWorkflow: () => void;
   onDeleteWorkflow: () => void;
   onImportWorkflow: () => void;
@@ -76,6 +78,7 @@ export default function Toolbar(props: ToolbarProps) {
     onWorkflowNameChange,
     onNewWorkflow,
     onOpenWorkflowLibrary,
+    onOpenAssistant,
     onDuplicateWorkflow,
     onDeleteWorkflow,
     onImportWorkflow,
@@ -138,6 +141,15 @@ export default function Toolbar(props: ToolbarProps) {
             active={snapToGridEnabled}
           />
           <ToolbarIconButton icon={<AlignStartVertical size={15} />} label="自动整理" onClick={onAutoArrange} />
+        </div>
+
+        <div className="workflow-toolbar__group workflow-toolbar__group--assistant">
+          <ToolbarIconButton
+            icon={<Sparkles size={15} />}
+            label="AI 助手"
+            onClick={onOpenAssistant}
+            testId="workflow-ai-assistant"
+          />
         </div>
 
         <div className="workflow-toolbar__group workflow-toolbar__group--workflow">

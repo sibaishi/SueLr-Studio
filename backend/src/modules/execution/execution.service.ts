@@ -65,6 +65,7 @@ type RunningExecution = {
 
 type RecentExecution = {
   status: RunStatus;
+  summary?: PlainObject;
   ownerUserId?: string;
   workspaceId?: string;
   ownershipScope?: PlainObject;
@@ -148,6 +149,19 @@ function detectArtifactTypeFromUrl(value: DynamicValue): string {
   return 'file';
 }
 
+function isFinalArtifactUrl(value: DynamicValue): boolean {
+  const url = cleanString(value, 4000);
+  if (!url) return false;
+  if (url.includes('/.thumbnails/')) return false;
+  return (
+    url.startsWith('/api/outputs/') ||
+    url.startsWith('/api/files/') ||
+    url.startsWith('data:image/') ||
+    url.startsWith('data:video/') ||
+    url.startsWith('data:audio/')
+  );
+}
+
 function collectWorkflowArtifacts(
   value: DynamicValue,
   bucket: WorkflowArtifact[] = [],
@@ -157,14 +171,7 @@ function collectWorkflowArtifacts(
 
   if (typeof value === 'string') {
     const url = cleanString(value, 4000);
-    if (!url) return bucket;
-    const isArtifactUrl =
-      url.startsWith('/api/outputs/') ||
-      url.startsWith('/api/files/') ||
-      url.startsWith('data:image/') ||
-      url.startsWith('data:video/') ||
-      url.startsWith('data:audio/');
-    if (!isArtifactUrl || seen.has(url)) return bucket;
+    if (!isFinalArtifactUrl(url) || seen.has(url)) return bucket;
     seen.add(url);
     bucket.push({
       type: detectArtifactTypeFromUrl(url),
@@ -182,7 +189,7 @@ function collectWorkflowArtifacts(
   if (!isPlainObject(value)) return bucket;
 
   const url = cleanString(value.url, 4000);
-  if (url && !seen.has(url)) {
+  if (isFinalArtifactUrl(url) && !seen.has(url)) {
     seen.add(url);
     bucket.push({
       type: cleanString(value.type, 40) || detectArtifactTypeFromUrl(url),
@@ -192,7 +199,8 @@ function collectWorkflowArtifacts(
     });
   }
 
-  for (const nested of Object.values(value)) {
+  for (const [key, nested] of Object.entries(value)) {
+    if (key.toLowerCase().includes('thumbnail')) continue;
     collectWorkflowArtifacts(nested, bucket, seen);
   }
   return bucket;
@@ -554,15 +562,23 @@ export class ExecutionService {
     }
   }
 
-  rememberRecentExecution(status: RunStatus, scope: PlainObject = {}, now = Date.now()) {
+  rememberRecentExecution(status: RunStatus, scope: PlainObject = {}, now = Date.now(), summary?: PlainObject) {
     this.pruneRecentExecutions(now);
     this.recentExecutions.set(status.runId, {
       status,
+      summary,
       ownerUserId: scope?.userId,
       workspaceId: scope?.workspaceId,
       ownershipScope: scope,
       expiresAt: now + RECENT_RUN_TTL_MS,
     });
+  }
+
+  getRecentRunSummary(runId: string, _options: PlainObject = {}) {
+    this.pruneRecentExecutions();
+    const recentRun = this.recentExecutions.get(runId);
+    if (!recentRun || !isResourceVisibleForScope(recentRun, _options.scope)) return null;
+    return recentRun.summary || null;
   }
 
   resolveWorkflowReference({ workflowId, workflowName }: PlainObject, _options: PlainObject = {}) {
@@ -692,6 +708,7 @@ export class ExecutionService {
 
     const handleAbort = () => abortController.abort();
     signal?.addEventListener?.('abort', handleAbort, { once: true });
+    let agentSummary: PlainObject | null = null;
 
     try {
       await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
@@ -712,9 +729,10 @@ export class ExecutionService {
         };
       }
       runLogger.close(terminalStatus.status);
-      return buildAgentWorkflowSummary(snapshot, terminalStatus, completedNodes, {
+      agentSummary = buildAgentWorkflowSummary(snapshot, terminalStatus, completedNodes, {
         appliedInputs: overridden.appliedInputs,
       });
+      return agentSummary;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Workflow execution failed';
       terminalStatus = {
@@ -732,7 +750,7 @@ export class ExecutionService {
       signal?.removeEventListener?.('abort', handleAbort);
       this.runningExecutions.delete(snapshot.runId);
       if (terminalStatus) {
-        this.rememberRecentExecution(terminalStatus, scope);
+        this.rememberRecentExecution(terminalStatus, scope, Date.now(), agentSummary || undefined);
       }
     }
   }
@@ -795,11 +813,22 @@ export class ExecutionService {
       runningExecutionCount: this.runningExecutions.size,
     });
     let terminalStatus: RunStatus | null = null;
+    const completedNodes: PlainObject[] = [];
 
     const sendSSE = (event: string, data: DynamicValue) => {
       runLogger.log(event, buildRunLogData(event, data));
       logger.info('workflow event', { runId: runLogger.runId, workflowId, event });
-      if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
+      if (event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED) {
+        const node = Array.isArray(snapshot.nodes)
+          ? snapshot.nodes.find((item: DynamicValue) => item.id === data.nodeId)
+          : undefined;
+        completedNodes.push({
+          nodeId: data.nodeId,
+          nodeType: node?.type || 'unknown',
+          summary: summarizeNodeOutputs(data.outputs),
+          outputs: data.outputs,
+        });
+      } else if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
         terminalStatus = {
           status: 'completed',
           runId: snapshot.runId,
@@ -879,6 +908,9 @@ export class ExecutionService {
     } finally {
       this.runningExecutions.delete(snapshot.runId);
       const completedStatus = terminalStatus as RunStatus | null;
+      const runSummary = completedStatus
+        ? buildAgentWorkflowSummary(snapshot, completedStatus, completedNodes)
+        : undefined;
       logger.info('execution run removed from active registry', {
         runId: snapshot.runId,
         workflowId,
@@ -887,7 +919,7 @@ export class ExecutionService {
         runningExecutionCount: this.runningExecutions.size,
       });
       if (completedStatus) {
-        this.rememberRecentExecution(completedStatus, scope);
+        this.rememberRecentExecution(completedStatus, scope, Date.now(), runSummary);
         logger.info('execution terminal status cached', {
           runId: snapshot.runId,
           workflowId,

@@ -27,6 +27,7 @@ type WorkflowStoreDataState = {
   executionProgress: WorkflowState['executionProgress'];
   executionMessage: string | null;
   currentRunId: string | null;
+  lastExecutionRunId: string | null;
   executingNodeId: string | null;
   lastExecutionStatus: WorkflowState['lastExecutionStatus'];
   lastExecutionTime: number | null;
@@ -95,6 +96,7 @@ export function createInitialWorkflowState(): WorkflowStoreDataState {
     executionProgress: null,
     executionMessage: null,
     currentRunId: null,
+    lastExecutionRunId: null,
     executingNodeId: null,
     lastExecutionStatus: null,
     lastExecutionTime: null,
@@ -137,6 +139,7 @@ export function createResetWorkflowState(): Partial<WorkflowState> {
     executionProgress: null,
     executionMessage: null,
     currentRunId: null,
+    lastExecutionRunId: null,
     executingNodeId: null,
     lastExecutionStatus: null,
     lastExecutionTime: null,

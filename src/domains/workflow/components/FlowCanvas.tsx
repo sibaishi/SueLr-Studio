@@ -95,6 +95,40 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   }, [reportViewportCenter]);
 
   useEffect(() => {
+    const handleFocusNode = (event: Event) => {
+      const nodeId = (event as CustomEvent<{ nodeId?: string }>).detail?.nodeId;
+      if (!nodeId) return;
+
+      const targetNode = reactFlow.getNode(nodeId);
+      if (!targetNode) return;
+
+      useWorkflowStore.setState((state) => ({
+        nodes: state.nodes.map((node) => ({ ...node, selected: node.id === nodeId })),
+        selectedNodeId: nodeId,
+      }));
+
+      requestAnimationFrame(() => {
+        const bounds = reactFlow.getNodesBounds([nodeId]);
+        if (!bounds.width || !bounds.height) return;
+
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        const availableWidth = containerRect?.width ? Math.max(containerRect.width - 96, 240) : 960;
+        const availableHeight = containerRect?.height ? Math.max(containerRect.height - 160, 220) : 560;
+        const fitZoom = Math.min(availableWidth / bounds.width, availableHeight / bounds.height);
+        const currentZoom = reactFlow.getZoom();
+        const targetZoom = Math.min(Math.max(Math.min(currentZoom, fitZoom), 0.42), 1.08);
+        void reactFlow.setCenter(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, {
+          zoom: targetZoom,
+          duration: 260,
+        });
+      });
+    };
+
+    window.addEventListener('workflow:focus-node', handleFocusNode);
+    return () => window.removeEventListener('workflow:focus-node', handleFocusNode);
+  }, [reactFlow, store]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableElement(event.target)) return;
 
