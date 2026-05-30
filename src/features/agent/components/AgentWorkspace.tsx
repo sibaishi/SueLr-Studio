@@ -1,4 +1,4 @@
-import { createAgentPlan, createWorkflowDraft, type AgentPlan, type WorkflowDraftResponse } from '@/domains/workflow/lib/api';
+import { createAgentRun, type AgentPlan, type WorkflowDraftResponse } from '@/domains/workflow/lib/api';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ModelInfo } from '@/shared/types';
 import type { Edge, Node } from '@xyflow/react';
@@ -53,14 +53,13 @@ function gid(prefix = 'agent') {
 function getDraftSummary(draft: WorkflowDraftResponse) {
   const nodeCount = draft.workflow.nodes.length;
   const edgeCount = draft.workflow.edges.length;
-  const warningCount = draft.validation.issues.filter((issue) => issue.severity === 'warning').length;
-  const warningText = warningCount > 0 ? `，还有 ${warningCount} 个需要确认的问题` : '';
-  return `已完成一个可编辑的工作流草案：${draft.workflow.name}。它包含 ${nodeCount} 个节点、${edgeCount} 条连线${warningText}。`;
+  return `已完成一个可编辑的工作流草案：${draft.workflow.name}。它包含 ${nodeCount} 个节点、${edgeCount} 条连线。`;
 }
 
 function getAgentResultSummary(plan: AgentPlan, draft: WorkflowDraftResponse) {
-  const prefix = plan.source === 'llm' ? 'LLM Planner 已完成规划' : 'Planner 已回退到本地计划';
-  return `${prefix}，${getDraftSummary(draft)}`;
+  const prefix = plan.source === 'llm' || draft.architect?.used ? '已根据当前需求生成工作流草案' : '已生成基础工作流草案';
+  const suffix = draft.validation.valid ? '你可以打开画布检查并继续编辑。' : '草案还需要进一步调整后再使用。';
+  return `${prefix}。${getDraftSummary(draft)}${suffix}`;
 }
 
 function getWorkflowToolRecord(draft: WorkflowDraftResponse): AgentToolRecord {
@@ -88,10 +87,7 @@ function getPlannerToolRecord(plan: AgentPlan): AgentToolRecord {
     status: 'success',
     summary: plan.summary,
     detail: [
-      `来源：${plan.source === 'llm' ? 'LLM Planner' : '本地回退'}`,
       `模型：${plan.plannerModel.label || plan.plannerModel.modelId}`,
-      plan.reasoningSummary,
-      ...plan.warnings.map((warning) => `警告：${warning}`),
     ]
       .filter(Boolean)
       .join('；'),
@@ -114,7 +110,7 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
       id: gid(),
       role: 'assistant',
       content:
-        '我是项目 Agent。你可以直接描述想完成的事，我会判断该调用哪些工具并返回结果。当前第一批可执行工具是生成可编辑工作流草案；后续会继续接入运行、诊断、图片、视频、文件与结果检查等工具。',
+        '我是项目 Agent。你可以直接描述想完成的事，我会根据需求生成可编辑的工作流草案，并把结果交给你继续检查和调整。',
     },
   ]);
 
@@ -206,7 +202,7 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
         summary: `Planner：${getPlannerModelLabel(selectedPlannerModel)}，正在根据你的需求生成可编辑草案`,
       };
       try {
-        const planResult = await createAgentPlan({
+        const runResult = await createAgentRun({
           input: task,
           plannerModel: {
             id: selectedPlannerModel.id,
@@ -216,13 +212,13 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
             label: getPlannerModelLabel(selectedPlannerModel),
           },
         });
-        if (!planResult.success || !planResult.data) {
+        if (!runResult.success || !runResult.data) {
           setMessages((prev) => [
             ...prev,
             {
               id: gid(),
               role: 'assistant',
-              content: planResult.error || 'Planner 没有生成可执行计划。请把目标、输入素材和期望产物再描述得更具体一些。',
+              content: runResult.error || 'Agent 没有生成可执行计划。请把目标、输入素材和期望产物再描述得更具体一些。',
               toolRecords: [
                 {
                   id: gid('tool'),
@@ -237,35 +233,20 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           return;
         }
 
-        const plan = planResult.data;
-        const result = await createWorkflowDraft({
-          input: plan.toolInput.input,
-          context: {
-            agent: {
-              plannerModel: {
-                id: selectedPlannerModel.id,
-                modelId: selectedPlannerModel.modelId,
-                configId: selectedPlannerModel.configId,
-                configName: selectedPlannerModel.configName,
-                label: getPlannerModelLabel(selectedPlannerModel),
-              },
-            },
-          },
-        });
-        if (!result.success || !result.data) {
+        const { plan, workflowDraft: draft } = runResult.data;
+        if (!draft) {
           setMessages((prev) => [
             ...prev,
             {
               id: gid(),
               role: 'assistant',
-              content: result.error || '这次没有完成任务。请把目标、输入素材和期望产物再描述得更具体一些。',
+              content: 'Agent 已完成规划，但当前工具没有返回可展示的工作流草案。',
               toolRecords: [{ ...runningTool, status: 'error', summary: '工具调用失败' }],
             },
           ]);
           return;
         }
 
-        const draft = result.data;
         setMessages((prev) => [
           ...prev,
           {

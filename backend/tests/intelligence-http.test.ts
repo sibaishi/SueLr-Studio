@@ -187,6 +187,7 @@ test('intelligence workflow draft preserves agent planner model context', async 
 
 test('agent planner normalizes an LLM JSON plan into a governed tool plan', async () => {
   const { AgentPlannerService } = await import(`../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`);
+  let plannerMessages = [];
   const service = new AgentPlannerService({
     settings: {
       buildRuntimeConfig() {
@@ -209,7 +210,43 @@ test('agent planner normalizes an LLM JSON plan into a governed tool plan', asyn
         };
       },
     },
-    async chatCompletion() {
+    skills: {
+      list() {
+        return [
+          {
+            id: 'workflow.createDraft',
+            title: '创建工作流草案',
+            description: '生成可预览的工作流草案 JSON。',
+            sideEffect: 'writeDraft',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['input'], properties: { input: { type: 'string' } } },
+            outputSchema: {},
+          },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {
+        return { status: 'rebuilt' };
+      },
+      search() {
+        return {
+          source: 'local-json',
+          items: [
+            {
+              id: 'seed_ai_chat',
+              title: 'AI Chat 节点',
+              category: 'workflow-knowledge',
+              content: 'aiChat 用于对话、问答、摘要、改写和文本生成。',
+              structured: { nodeType: 'aiChat' },
+              source: { kind: 'system_seed' },
+            },
+          ],
+        };
+      },
+    },
+    async chatCompletion(request) {
+      plannerMessages = request.messages;
       return {
         ok: true,
         async json() {
@@ -248,6 +285,9 @@ test('agent planner normalizes an LLM JSON plan into a governed tool plan', asyn
   assert.equal(plan.toolName, 'workflow.createDraft');
   assert.equal(plan.toolInput.input, '客服问答工作流，保存文本');
   assert.equal(plan.warnings[0], '需要用户后续确认模型参数');
+  assert.equal(plan.knowledgeContext.items[0].nodeType, 'aiChat');
+  assert.match(plannerMessages[1].content, /本地知识库上下文/);
+  assert.match(plannerMessages[1].content, /AI Chat 节点/);
 });
 
 test('agent planner falls back to local tool plan when LLM output is unusable', async () => {
@@ -271,6 +311,32 @@ test('agent planner falls back to local tool plan when LLM output is unusable', 
               configured: true,
             },
           ],
+        };
+      },
+    },
+    skills: {
+      list() {
+        return [
+          {
+            id: 'workflow.createDraft',
+            title: '创建工作流草案',
+            description: '生成可预览的工作流草案 JSON。',
+            sideEffect: 'writeDraft',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['input'], properties: { input: { type: 'string' } } },
+            outputSchema: {},
+          },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {
+        return { status: 'rebuilt' };
+      },
+      search() {
+        return {
+          source: 'local-json',
+          items: [],
         };
       },
     },
@@ -298,6 +364,765 @@ test('agent planner falls back to local tool plan when LLM output is unusable', 
   assert.equal(plan.source, 'local-fallback');
   assert.equal(plan.toolName, 'workflow.createDraft');
   assert.equal(plan.toolInput.input, '帮我做客服问答工作流');
+});
+
+test('agent planner keeps original task when LLM returns prompt-template text as tool input', async () => {
+  const { AgentPlannerService } = await import(`../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`);
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    skills: {
+      list() {
+        return [
+          {
+            id: 'workflow.createDraft',
+            title: '创建工作流草案',
+            description: '生成可预览的工作流草案 JSON。',
+            sideEffect: 'writeDraft',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['input'], properties: { input: { type: 'string' } } },
+            outputSchema: {},
+          },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {
+        return { status: 'rebuilt' };
+      },
+      search() {
+        return {
+          source: 'local-json',
+          items: [
+            {
+              id: 'seed_video_gen',
+              title: 'Video Gen 节点',
+              category: 'workflow-knowledge',
+              content: '生成分镜图、故事板图片、分镜脚本或镜头文案不应该使用 videoGen。',
+              structured: { nodeType: 'videoGen' },
+              source: { kind: 'system_seed' },
+            },
+          ],
+        };
+      },
+    },
+    async chatCompletion() {
+      return {
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    summary: '规划分镜图工作流',
+                    toolName: 'workflow.createDraft',
+                    toolInput: {
+                      input:
+                        '你是专业提示词工程师。请根据以下需求生成提示词，必须输出 JSON，不要输出解释，输出格式包含 prompt、negativePrompt、style。',
+                    },
+                    reasoningSummary: '参考知识判断为分镜图图片生成任务。',
+                    warnings: [],
+                  }),
+                },
+              },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  const originalInput = '帮我生成 6 格分镜图，画面是一个咖啡广告从清晨到夜晚的故事板。';
+  const plan = await service.createPlan({
+    input: originalInput,
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'default',
+      label: 'planner-model · Default',
+    },
+    context: {},
+  });
+
+  assert.equal(plan.source, 'llm');
+  assert.equal(plan.toolInput.input, originalInput);
+  assert.equal(
+    plan.warnings.some((warning) => warning.includes('疑似提示词模板')),
+    true,
+  );
+  assert.equal(plan.knowledgeContext.items[0].nodeType, 'videoGen');
+});
+
+test('agent runner executes planner-selected workflow tool and records a trace', async () => {
+  const { AgentRunner } = await import(`../src/modules/intelligence/runtime/agent-runner.ts?test=${Date.now()}`);
+  const plannerModel = {
+    id: 'planner-model',
+    modelId: 'planner-model',
+    configId: 'test-config',
+    label: 'planner-model · Test',
+  };
+  const calls = [];
+  const runner = new AgentRunner({
+    planner: {
+      async createPlan(input) {
+        calls.push(['planner', input.input]);
+        return {
+          id: 'plan_test',
+          source: 'llm',
+          plannerModel,
+          summary: '调用工作流工具',
+          toolName: 'workflow.createDraft',
+          toolInput: { input: '客服问答工作流，保存文本' },
+          reasoningSummary: '用户需要搭建工作流。',
+          warnings: [],
+          knowledgeContext: {
+            source: 'local-json',
+            items: [],
+          },
+        };
+      },
+    },
+    skills: {
+      get(id) {
+        assert.equal(id, 'workflow.createDraft');
+        return { id, requiresApproval: false };
+      },
+      async run(id, input) {
+        calls.push(['skill', id, input]);
+        return {
+          skillId: id,
+          output: {
+            intent: { domain: 'chat-text' },
+            workflow: { nodes: [{ type: 'textInput' }, { type: 'aiChat' }] },
+            agentContext: { plannerModel: input.context.agent.plannerModel },
+          },
+        };
+      },
+    },
+    traces: {
+      create(input) {
+        calls.push(['trace', input.mode, input.requestedSkills]);
+        return {
+          id: 'irun_agent_test',
+          status: 'completed',
+          mode: input.mode,
+          requestedSkills: input.requestedSkills,
+          skillResults: input.skillResults,
+        };
+      },
+    },
+  });
+
+  const result = await runner.run({
+    input: '帮我做客服问答工作流',
+    plannerModel,
+    context: {},
+  });
+
+  assert.equal(result.plan.toolName, 'workflow.createDraft');
+  assert.equal(result.trace.mode, 'agent');
+  assert.deepEqual(result.trace.requestedSkills, ['workflow.createDraft']);
+  assert.equal(result.toolResults[0].skillId, 'workflow.createDraft');
+  assert.equal(result.workflowDraft.intent.domain, 'chat-text');
+  assert.deepEqual(result.workflowDraft.agentContext.plannerModel, plannerModel);
+  assert.deepEqual(calls.map((call) => call[0]), ['planner', 'skill', 'trace']);
+});
+
+test('workflow architect compiles an LLM DSL into a validated workflow', async () => {
+  const { WorkflowArchitectService } = await import(
+    `../src/modules/intelligence/workflow-builder/workflow-architect.service.ts?test=${Date.now()}`
+  );
+  const intent = {
+    id: 'intent_architect_test',
+    sourceText: 'Create a multi-branch ecommerce asset workflow with 4 storyboard shots',
+    name: 'Architect test',
+    goal: 'Create a multi-branch ecommerce asset workflow with 4 storyboard shots',
+    domain: 'ecommerce-image',
+    inputs: [],
+    outputCount: 4,
+    requiresImageInput: true,
+    requiresTextInput: true,
+    requiresVideoInput: false,
+    requiresAudioInput: false,
+  };
+  const draft = {
+    id: 'draft_architect_test',
+    name: 'Architect test',
+    description: 'Architect test draft',
+    intentId: intent.id,
+    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    approvalsRequired: ['applyDraft', 'executeWorkflow'],
+    knowledgeInfluences: [],
+  };
+  const service = new WorkflowArchitectService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    async chatCompletion(request) {
+      assert.match(request.messages[0].content, /Workflow Architect/);
+      assert.match(request.messages[1].content, /iterateRun/);
+      return {
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    name: 'LLM designed asset workflow',
+                    description: 'A governed DSL workflow',
+                    nodes: [
+                      { id: 'brief', type: 'textInput', data: { text: 'asset brief' }, position: { x: 80, y: 120 } },
+                      { id: 'reference', type: 'imageInput', data: {}, position: { x: 80, y: 320 } },
+                      {
+                        id: 'planner',
+                        type: 'aiChat',
+                        data: {
+                          systemPrompt:
+                            'Split the request into main image prompt and storyboard shots. Output storyboard shots one per line with no explanation.',
+                        },
+                        position: { x: 440, y: 160 },
+                      },
+                      { id: 'split', type: 'textSplit', data: { separator: '\n', outputCount: 4 }, position: { x: 800, y: 260 } },
+                      { id: 'iterate', type: 'iterateRun', data: {}, position: { x: 1160, y: 260 } },
+                      { id: 'mainImage', type: 'imageGen', data: { n: 2, ratio: '1:1' }, position: { x: 800, y: 40 } },
+                      { id: 'shotImage', type: 'imageGen', data: { n: 1, ratio: '16:9' }, position: { x: 1520, y: 260 } },
+                      { id: 'mainSave', type: 'saveFile', data: { filenamePrefix: 'main' }, position: { x: 1160, y: 40 } },
+                      { id: 'shotSave', type: 'saveFile', data: { filenamePrefix: 'shot' }, position: { x: 1880, y: 260 } },
+                      { id: 'result', type: 'output', data: {}, position: { x: 2240, y: 160 } },
+                    ],
+                    edges: [
+                      { source: 'brief', sourceHandle: 'text', target: 'planner', targetHandle: 'prompt' },
+                      { source: 'reference', sourceHandle: 'image', target: 'planner', targetHandle: 'image' },
+                      { source: 'planner', sourceHandle: 'response', target: 'mainImage', targetHandle: 'prompt' },
+                      { source: 'reference', sourceHandle: 'image', target: 'mainImage', targetHandle: 'reference' },
+                      { source: 'planner', sourceHandle: 'response', target: 'split', targetHandle: 'text' },
+                      { source: 'split', sourceHandle: 'part1', target: 'iterate', targetHandle: 'item1' },
+                      { source: 'split', sourceHandle: 'part2', target: 'iterate', targetHandle: 'item2' },
+                      { source: 'split', sourceHandle: 'part3', target: 'iterate', targetHandle: 'item3' },
+                      { source: 'split', sourceHandle: 'part4', target: 'iterate', targetHandle: 'item4' },
+                      { source: 'iterate', sourceHandle: 'text', target: 'shotImage', targetHandle: 'prompt' },
+                      { source: 'mainImage', sourceHandle: 'images', target: 'mainSave', targetHandle: 'content' },
+                      { source: 'shotImage', sourceHandle: 'images', target: 'shotSave', targetHandle: 'content' },
+                      { source: 'mainSave', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+                      { source: 'shotSave', sourceHandle: 'content', target: 'result', targetHandle: 'content2' },
+                    ],
+                    settings: { workflowExecution: { enabled: true, maxConcurrency: 4 } },
+                    reasoningSummary: 'Designed as a planner branch plus parallel generated asset branches.',
+                    warnings: [],
+                  }),
+                },
+              },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  const result = await service.tryCreateWorkflow(
+    {
+      input: intent.sourceText,
+      plannerModel: undefined,
+      context: {
+        agent: {
+          plannerModel: {
+            id: 'planner-model',
+            modelId: 'planner-model',
+            configId: 'default',
+            label: 'planner-model',
+          },
+        },
+      },
+    },
+    intent,
+    draft,
+  );
+
+  assert.equal(result.attempt.used, true);
+  assert.equal(result.workflow.metadata.source, 'intelligence.workflowArchitectDsl');
+  assert.equal(result.workflow.nodes.some((node) => node.type === 'iterateRun'), true);
+  assert.equal(result.workflow.nodes.find((node) => node.id === 'iterate').data.inputCount, 4);
+  assert.equal(result.workflow.settings.workflowExecution.enabled, true);
+});
+
+test('workflow architect falls back when LLM DSL is invalid', async () => {
+  const { WorkflowArchitectService } = await import(
+    `../src/modules/intelligence/workflow-builder/workflow-architect.service.ts?test=${Date.now()}`
+  );
+  const intent = {
+    id: 'intent_architect_invalid',
+    sourceText: 'Create a workflow',
+    name: 'Invalid architect test',
+    goal: 'Create a workflow',
+    domain: 'generic-image',
+    inputs: [],
+    outputCount: 1,
+    requiresImageInput: false,
+    requiresTextInput: true,
+    requiresVideoInput: false,
+    requiresAudioInput: false,
+  };
+  const draft = {
+    id: 'draft_architect_invalid',
+    name: 'Invalid architect test',
+    description: 'Invalid architect test draft',
+    intentId: intent.id,
+    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    approvalsRequired: ['applyDraft'],
+    knowledgeInfluences: [],
+  };
+  const service = new WorkflowArchitectService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    async chatCompletion() {
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: JSON.stringify({ nodes: [{ id: 'onlyOne', type: 'unknownNode' }], edges: [] }) } }] };
+        },
+      };
+    },
+  });
+
+  const result = await service.tryCreateWorkflow(
+    {
+      input: intent.sourceText,
+      context: {
+        agent: {
+          plannerModel: {
+            id: 'planner-model',
+            modelId: 'planner-model',
+            configId: 'default',
+            label: 'planner-model',
+          },
+        },
+      },
+    },
+    intent,
+    draft,
+  );
+
+  assert.equal(result.workflow, null);
+  assert.equal(result.attempt.used, false);
+  assert.equal(result.attempt.source, 'failed');
+  assert.match(result.attempt.reason, /回退本地编排/);
+});
+
+test('workflow architect repairs an invalid DSL once before falling back', async () => {
+  const { WorkflowArchitectService } = await import(
+    `../src/modules/intelligence/workflow-builder/workflow-architect.service.ts?test=${Date.now()}`
+  );
+  const intent = {
+    id: 'intent_architect_repair',
+    sourceText: 'Create a product image workflow with a planning chat node and saved result',
+    name: 'Repair architect test',
+    goal: 'Create a product image workflow with a planning chat node and saved result',
+    domain: 'ecommerce-image',
+    inputs: [],
+    outputCount: 1,
+    requiresImageInput: false,
+    requiresTextInput: true,
+    requiresVideoInput: false,
+    requiresAudioInput: false,
+  };
+  const draft = {
+    id: 'draft_architect_repair',
+    name: 'Repair architect test',
+    description: 'Repair architect test draft',
+    intentId: intent.id,
+    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    approvalsRequired: ['applyDraft'],
+    knowledgeInfluences: [],
+  };
+  const invalidDsl = {
+    name: 'Invalid ports',
+    nodes: [
+      { id: 'brief', type: 'textInput', data: { text: 'brief' } },
+      { id: 'image', type: 'imageGen', data: { n: 1 } },
+      { id: 'save', type: 'saveFile', data: {} },
+      { id: 'result', type: 'output', data: {} },
+    ],
+    edges: [
+      { source: 'brief', sourceHandle: 'text', target: 'image', targetHandle: 'wrongPrompt' },
+      { source: 'image', sourceHandle: 'images', target: 'save', targetHandle: 'content' },
+      { source: 'save', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+    ],
+    settings: { workflowExecution: { enabled: true, maxConcurrency: 2 } },
+  };
+  const repairedDsl = {
+    ...invalidDsl,
+    name: 'Repaired ports',
+    edges: [
+      { source: 'brief', sourceHandle: 'text', target: 'image', targetHandle: 'prompt' },
+      { source: 'image', sourceHandle: 'images', target: 'save', targetHandle: 'content' },
+      { source: 'save', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+    ],
+  };
+  let calls = 0;
+  const service = new WorkflowArchitectService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    async chatCompletion(request) {
+      calls += 1;
+      if (calls === 2) {
+        assert.match(request.messages.at(-1).content, /EDGE_TARGET_HANDLE_INVALID|REQUIRED_INPUT_MISSING/);
+      }
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: JSON.stringify(calls === 1 ? invalidDsl : repairedDsl) } }] };
+        },
+      };
+    },
+  });
+
+  const result = await service.tryCreateWorkflow(
+    {
+      input: intent.sourceText,
+      context: {
+        agent: {
+          plannerModel: {
+            id: 'planner-model',
+            modelId: 'planner-model',
+            configId: 'default',
+            label: 'planner-model',
+          },
+        },
+      },
+    },
+    intent,
+    draft,
+  );
+
+  assert.equal(calls, 2);
+  assert.equal(result.attempt.used, true);
+  assert.match(result.attempt.reason, /自动修复/);
+  assert.equal(result.workflow.edges[0].targetHandle, 'prompt');
+  assert.equal(result.workflow.metadata.source, 'intelligence.workflowArchitectDsl');
+});
+
+test('workflow architect rejects an oversimplified complex DSL and repairs it into multi-branch batch work', async () => {
+  const { WorkflowArchitectService } = await import(
+    `../src/modules/intelligence/workflow-builder/workflow-architect.service.ts?test=${Date.now()}`
+  );
+  const intent = {
+    id: 'intent_architect_complex_quality',
+    sourceText:
+      'Create a multi-branch ecommerce asset pack with product image, brand brief, main visual, detail hero, copywriting, and 6 storyboard shots.',
+    name: 'Complex architect quality test',
+    goal: 'Create a multi-branch ecommerce asset pack with product image, brand brief, main visual, detail hero, copywriting, and 6 storyboard shots.',
+    domain: 'ecommerce-image',
+    inputs: [],
+    outputCount: 6,
+    requiresImageInput: true,
+    requiresTextInput: true,
+    requiresVideoInput: false,
+    requiresAudioInput: false,
+  };
+  const draft = {
+    id: 'draft_architect_complex_quality',
+    name: 'Complex architect quality test',
+    description: 'Complex architect quality test draft',
+    intentId: intent.id,
+    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    approvalsRequired: ['applyDraft'],
+    knowledgeInfluences: [],
+  };
+  const simpleDsl = {
+    name: 'Too simple asset pack',
+    nodes: [
+      { id: 'brief', type: 'textInput', data: { text: 'asset brief' } },
+      { id: 'image', type: 'imageGen', data: { ratio: '1:1', resolution: '1k', n: 1, output_format: 'png' } },
+      { id: 'save', type: 'saveFile', data: { filenamePrefix: 'asset' } },
+      { id: 'result', type: 'output', data: {} },
+    ],
+    edges: [
+      { source: 'brief', sourceHandle: 'text', target: 'image', targetHandle: 'prompt' },
+      { source: 'image', sourceHandle: 'images', target: 'save', targetHandle: 'content' },
+      { source: 'save', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+    ],
+    settings: { workflowExecution: { enabled: false, maxConcurrency: 1 } },
+  };
+  const complexDsl = {
+    name: 'Multi-branch asset pack',
+    nodes: [
+      { id: 'brief', type: 'textInput', data: { text: 'asset brief' } },
+      { id: 'reference', type: 'imageInput', data: {} },
+      {
+        id: 'designer',
+        type: 'aiChat',
+        data: {
+          temperature: 0.45,
+          maxTokens: 4096,
+          systemPrompt:
+            'Act as an ecommerce design strategist. Split the request into visual, copy, and storyboard production briefs. Output storyboard shots one per line with no explanation.',
+        },
+      },
+      {
+        id: 'copywriter',
+        type: 'aiChat',
+        data: {
+          temperature: 0.7,
+          maxTokens: 4096,
+          systemPrompt: 'Act as an ecommerce copywriter. Produce title, benefit bullets, hero copy, and caption options.',
+        },
+      },
+      { id: 'mainImage', type: 'imageGen', data: { ratio: '1:1', resolution: '1k', n: 4, output_format: 'png' } },
+      { id: 'detailHero', type: 'imageGen', data: { ratio: '16:9', resolution: '1k', n: 2, output_format: 'png' } },
+      { id: 'shotSplit', type: 'textSplit', data: { separator: '\n', outputCount: 6 } },
+      { id: 'shotIterate', type: 'iterateRun', data: {} },
+      { id: 'shotImage', type: 'imageGen', data: { ratio: '16:9', resolution: '1k', n: 1, output_format: 'png' } },
+      { id: 'mainSave', type: 'saveFile', data: { filenamePrefix: 'main-visual' } },
+      { id: 'detailSave', type: 'saveFile', data: { filenamePrefix: 'detail-hero' } },
+      { id: 'copySave', type: 'saveFile', data: { filenamePrefix: 'copywriting' } },
+      { id: 'shotSave', type: 'saveFile', data: { filenamePrefix: 'storyboard-shot' } },
+      { id: 'result', type: 'output', data: {} },
+    ],
+    edges: [
+      { source: 'brief', sourceHandle: 'text', target: 'designer', targetHandle: 'prompt' },
+      { source: 'reference', sourceHandle: 'image', target: 'designer', targetHandle: 'image' },
+      { source: 'designer', sourceHandle: 'response', target: 'mainImage', targetHandle: 'prompt' },
+      { source: 'reference', sourceHandle: 'image', target: 'mainImage', targetHandle: 'reference' },
+      { source: 'designer', sourceHandle: 'response', target: 'detailHero', targetHandle: 'prompt' },
+      { source: 'reference', sourceHandle: 'image', target: 'detailHero', targetHandle: 'reference' },
+      { source: 'designer', sourceHandle: 'response', target: 'copywriter', targetHandle: 'prompt' },
+      { source: 'designer', sourceHandle: 'response', target: 'shotSplit', targetHandle: 'text' },
+      { source: 'shotSplit', sourceHandle: 'part1', target: 'shotIterate', targetHandle: 'item1' },
+      { source: 'shotSplit', sourceHandle: 'part2', target: 'shotIterate', targetHandle: 'item2' },
+      { source: 'shotSplit', sourceHandle: 'part3', target: 'shotIterate', targetHandle: 'item3' },
+      { source: 'shotSplit', sourceHandle: 'part4', target: 'shotIterate', targetHandle: 'item4' },
+      { source: 'shotSplit', sourceHandle: 'part5', target: 'shotIterate', targetHandle: 'item5' },
+      { source: 'shotSplit', sourceHandle: 'part6', target: 'shotIterate', targetHandle: 'item6' },
+      { source: 'shotIterate', sourceHandle: 'text', target: 'shotImage', targetHandle: 'prompt' },
+      { source: 'mainImage', sourceHandle: 'images', target: 'mainSave', targetHandle: 'content' },
+      { source: 'detailHero', sourceHandle: 'images', target: 'detailSave', targetHandle: 'content' },
+      { source: 'copywriter', sourceHandle: 'response', target: 'copySave', targetHandle: 'content' },
+      { source: 'shotImage', sourceHandle: 'images', target: 'shotSave', targetHandle: 'content' },
+      { source: 'mainSave', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+      { source: 'detailSave', sourceHandle: 'content', target: 'result', targetHandle: 'content2' },
+      { source: 'copySave', sourceHandle: 'content', target: 'result', targetHandle: 'content3' },
+      { source: 'shotSave', sourceHandle: 'content', target: 'result', targetHandle: 'content4' },
+    ],
+    settings: { workflowExecution: { enabled: true, maxConcurrency: 4 } },
+  };
+  let calls = 0;
+  const service = new WorkflowArchitectService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    async chatCompletion(request) {
+      calls += 1;
+      assert.match(request.messages[0].content, /多条并行链路/);
+      assert.match(request.messages[0].content, /关键参数/);
+      if (calls === 2) {
+        assert.match(request.messages.at(-1).content, /ARCHITECT_COMPLEX|ARCHITECT_BATCH|多链路|逐项/);
+      }
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: JSON.stringify(calls === 1 ? simpleDsl : complexDsl) } }] };
+        },
+      };
+    },
+  });
+
+  const result = await service.tryCreateWorkflow(
+    {
+      input: intent.sourceText,
+      context: {
+        agent: {
+          plannerModel: {
+            id: 'planner-model',
+            modelId: 'planner-model',
+            configId: 'default',
+            label: 'planner-model',
+          },
+        },
+      },
+    },
+    intent,
+    draft,
+  );
+
+  const nodeTypes = result.workflow.nodes.map((node) => node.type);
+  assert.equal(calls, 2);
+  assert.equal(result.attempt.used, true);
+  assert.equal(nodeTypes.filter((type) => type === 'aiChat').length, 2);
+  assert.equal(nodeTypes.filter((type) => type === 'imageGen').length, 3);
+  assert.equal(nodeTypes.includes('textSplit'), true);
+  assert.equal(nodeTypes.includes('iterateRun'), true);
+  assert.equal(result.workflow.settings.workflowExecution.enabled, true);
+  assert.equal(result.workflow.nodes.find((node) => node.id === 'shotIterate').data.inputCount, 6);
+  assert.equal(result.workflow.nodes.find((node) => node.id === 'mainImage').data.n, 4);
+});
+
+test('workflow architect requires textSplit separator and matching upstream aiChat output format', async () => {
+  const { WorkflowArchitectService } = await import(
+    `../src/modules/intelligence/workflow-builder/workflow-architect.service.ts?test=${Date.now()}`
+  );
+  const intent = {
+    id: 'intent_architect_split_separator',
+    sourceText: 'Create a batch storyboard workflow with 5 shots, split the script and generate each image.',
+    name: 'Split separator architect test',
+    goal: 'Create a batch storyboard workflow with 5 shots, split the script and generate each image.',
+    domain: 'storyboard-image',
+    inputs: [],
+    outputCount: 5,
+    requiresImageInput: false,
+    requiresTextInput: true,
+    requiresVideoInput: false,
+    requiresAudioInput: false,
+  };
+  const draft = {
+    id: 'draft_architect_split_separator',
+    name: 'Split separator architect test',
+    description: 'Split separator architect test draft',
+    intentId: intent.id,
+    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    approvalsRequired: ['applyDraft'],
+    knowledgeInfluences: [],
+  };
+  const missingSeparatorDsl = {
+    name: 'Missing split separator',
+    nodes: [
+      { id: 'script', type: 'textInput', data: { text: 'script' } },
+      {
+        id: 'planner',
+        type: 'aiChat',
+        data: {
+          systemPrompt: 'Act as a storyboard director. Split the script into 5 shots.',
+        },
+      },
+      { id: 'split', type: 'textSplit', data: { outputCount: 5 } },
+      { id: 'iterate', type: 'iterateRun', data: {} },
+      { id: 'image', type: 'imageGen', data: { ratio: '16:9', resolution: '1k', n: 1, output_format: 'png' } },
+      { id: 'save', type: 'saveFile', data: { filenamePrefix: 'shot' } },
+      { id: 'result', type: 'output', data: {} },
+    ],
+    edges: [
+      { source: 'script', sourceHandle: 'text', target: 'planner', targetHandle: 'prompt' },
+      { source: 'planner', sourceHandle: 'response', target: 'split', targetHandle: 'text' },
+      { source: 'split', sourceHandle: 'part1', target: 'iterate', targetHandle: 'item1' },
+      { source: 'split', sourceHandle: 'part2', target: 'iterate', targetHandle: 'item2' },
+      { source: 'split', sourceHandle: 'part3', target: 'iterate', targetHandle: 'item3' },
+      { source: 'split', sourceHandle: 'part4', target: 'iterate', targetHandle: 'item4' },
+      { source: 'split', sourceHandle: 'part5', target: 'iterate', targetHandle: 'item5' },
+      { source: 'iterate', sourceHandle: 'text', target: 'image', targetHandle: 'prompt' },
+      { source: 'image', sourceHandle: 'images', target: 'save', targetHandle: 'content' },
+      { source: 'save', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+    ],
+    settings: { workflowExecution: { enabled: true, maxConcurrency: 4 } },
+  };
+  const repairedDsl = {
+    ...missingSeparatorDsl,
+    name: 'Repaired split separator',
+    nodes: missingSeparatorDsl.nodes.map((node) => {
+      if (node.id === 'planner') {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            systemPrompt:
+              'Act as a storyboard director. Split the script into 5 shots. Output exactly one shot per line, separated by newline, with no explanation.',
+          },
+        };
+      }
+      if (node.id === 'split') return { ...node, data: { separator: '\n', outputCount: 5 } };
+      return node;
+    }),
+  };
+  let calls = 0;
+  const service = new WorkflowArchitectService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    async chatCompletion(request) {
+      calls += 1;
+      assert.match(request.messages[0].content, /textSplit.*separator/s);
+      if (calls === 2) {
+        assert.match(
+          request.messages.at(-1).content,
+          /ARCHITECT_TEXT_SPLIT_SEPARATOR_MISSING|ARCHITECT_TEXT_SPLIT_UPSTREAM_PROMPT_MISSING_SEPARATOR/,
+        );
+      }
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: JSON.stringify(calls === 1 ? missingSeparatorDsl : repairedDsl) } }] };
+        },
+      };
+    },
+  });
+
+  const result = await service.tryCreateWorkflow(
+    {
+      input: intent.sourceText,
+      context: {
+        agent: {
+          plannerModel: {
+            id: 'planner-model',
+            modelId: 'planner-model',
+            configId: 'default',
+            label: 'planner-model',
+          },
+        },
+      },
+    },
+    intent,
+    draft,
+  );
+
+  assert.equal(calls, 2);
+  assert.equal(result.attempt.used, true);
+  assert.equal(result.workflow.nodes.find((node) => node.id === 'split').data.separator, '\n');
+  assert.match(result.workflow.nodes.find((node) => node.id === 'planner').data.systemPrompt, /one shot per line|newline/);
 });
 
 test('intelligence workflow draft can create a chat text workflow instead of image generation', async () => {
@@ -396,13 +1221,12 @@ test('intelligence workflow draft treats storyboard images as image generation, 
     assert.equal(response.body.data.intent.domain, 'generic-image');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['textInput', 'promptHelper', 'imageGen', 'saveFile', 'output'],
+      ['textInput', 'aiChat', 'textSplit', 'iterateRun', 'imageGen', 'saveFile', 'output'],
     );
     assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'), false);
-    const helper = response.body.data.workflow.nodes.find((node) => node.id === 'prompt_helper');
-    assert.equal(helper.data.activeTool, 'storyboard');
-    assert.equal(helper.data.storyboardConfig.shotCount, 6);
-    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'image_gen').data.n, 1);
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_split').data.outputCount, 6);
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_image_gen').data.n, 1);
+    assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -428,6 +1252,77 @@ test('intelligence workflow draft treats storyboard scripts as text workflows', 
     assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'), false);
     assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'), false);
     assert.equal(response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'), false);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('intelligence workflow draft builds a multi-branch ecommerce asset pack workflow', async () => {
+  const { server, baseUrl } = await createTestServer('workflow-draft-complex-asset-pack');
+  try {
+    const response = await requestJson(baseUrl, '/api/intelligence/workflow-drafts', {
+      method: 'POST',
+      body: JSON.stringify({
+        input:
+          '帮我做一个复杂电商素材包工作流，输入产品图、卖点和品牌规范，同时生成主图、详情页首屏、标题文案和 6 个短视频分镜图，多条链路并行输出。',
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assertEnvelopeShape(response.body);
+    assert.equal(response.body.data.validation.valid, true);
+    const nodeTypes = response.body.data.workflow.nodes.map((node) => node.type);
+    assert.equal(nodeTypes.filter((type) => type === 'aiChat').length >= 2, true);
+    assert.equal(nodeTypes.filter((type) => type === 'imageGen').length >= 3, true);
+    assert.equal(nodeTypes.includes('textSplit'), true);
+    assert.equal(nodeTypes.includes('iterateRun'), true);
+    assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
+    assert.equal(response.body.data.workflow.settings.workflowExecution.maxConcurrency, 4);
+    assert.equal(
+      response.body.data.workflow.edges.some(
+        (edge) => edge.source === 'storyboard_iterate' && edge.target === 'storyboard_image_gen',
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.data.workflow.nodes.find((node) => node.id === 'main_image_gen').data.n,
+      4,
+    );
+    assert.equal(
+      response.body.data.workflow.nodes.find((node) => node.id === 'detail_image_gen').data.ratio,
+      '16:9',
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('intelligence workflow draft builds a batch storyboard workflow with iterateRun', async () => {
+  const { server, baseUrl } = await createTestServer('workflow-draft-batch-storyboard');
+  try {
+    const response = await requestJson(baseUrl, '/api/intelligence/workflow-drafts', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '帮我做一个 8 镜头分镜图批量生成工作流，先把文本脚本拆成每个镜头，再逐项运行生成每个镜头图片。',
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assertEnvelopeShape(response.body);
+    assert.equal(response.body.data.validation.valid, true);
+    assert.deepEqual(
+      response.body.data.workflow.nodes.map((node) => node.type),
+      ['textInput', 'aiChat', 'textSplit', 'iterateRun', 'imageGen', 'saveFile', 'output'],
+    );
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_split').data.outputCount, 8);
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_image_gen').data.n, 1);
+    assert.equal(
+      response.body.data.workflow.edges.filter(
+        (edge) => edge.source === 'shot_split' && edge.target === 'shot_iterate',
+      ).length,
+      8,
+    );
+    assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

@@ -4,6 +4,7 @@ import type { WorkflowDraftRequest } from '../intelligence.schema.ts';
 import { compileWorkflowDraft } from './workflow-compiler.ts';
 import { planWorkflowDraft, parseWorkflowIntent } from './workflow-planner.ts';
 import { validateCompiledWorkflow } from './workflow-validator.ts';
+import { workflowArchitectService } from './workflow-architect.service.ts';
 
 function readAgentContext(input: WorkflowDraftRequest) {
   const plannerModel = input.context?.agent?.plannerModel;
@@ -20,7 +21,7 @@ function readAgentContext(input: WorkflowDraftRequest) {
 }
 
 export class WorkflowBuilderService {
-  createDraft(input: WorkflowDraftRequest, options: { scope?: DynamicValue } = {}) {
+  async createDraft(input: WorkflowDraftRequest, options: { scope?: DynamicValue } = {}) {
     knowledgeService.rebuildSeedKnowledge({ scope: options.scope });
     const knowledgeContext = knowledgeService.search(
       {
@@ -32,7 +33,12 @@ export class WorkflowBuilderService {
     );
     const intent = parseWorkflowIntent(input);
     const draft = planWorkflowDraft(intent, { items: knowledgeContext.items });
-    const workflow = compileWorkflowDraft(intent, draft, { scope: options.scope, knowledgeItems: knowledgeContext.items });
+    const architect = await workflowArchitectService.tryCreateWorkflow(input, intent, draft, {
+      scope: options.scope,
+      knowledgeItems: knowledgeContext.items,
+    });
+    const workflow =
+      architect.workflow || compileWorkflowDraft(intent, draft, { scope: options.scope, knowledgeItems: knowledgeContext.items });
     const validation = validateCompiledWorkflow(workflow, { scope: options.scope });
     const agentContext = readAgentContext(input);
 
@@ -50,6 +56,7 @@ export class WorkflowBuilderService {
         source: knowledgeContext.source,
         governance: knowledgeContext.governance,
       },
+      architect: architect.attempt,
       ...(agentContext ? { agentContext } : {}),
     };
   }

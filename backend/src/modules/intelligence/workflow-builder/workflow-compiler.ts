@@ -35,6 +35,18 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
   };
 }
 
+function chainTextInputToAiChat(id: string, x: number, y: number, inputText: string, systemPrompt: string) {
+  return [
+    node(`${id}_input`, 'textInput', x, y, { text: inputText }),
+    node(`${id}_chat`, 'aiChat', x + 360, y - 10, {
+      model: '',
+      systemPrompt,
+      temperature: 0.65,
+      maxTokens: 4096,
+    }),
+  ];
+}
+
 function summarizeGuidance(items: CompilerKnowledgeItem[] = []) {
   return items
     .filter((item) => ['user-memory', 'project-knowledge', 'brand-knowledge', 'prompt-library'].includes(String(item.category || '')))
@@ -138,6 +150,176 @@ function hasStage(draft: WorkflowDraft, nodeType: string) {
   return draft.stages.some((stage) => stage.nodeType === nodeType);
 }
 
+function wantsComplexAssetPack(intent: WorkflowIntent) {
+  return (
+    includesText(intent.sourceText, ['素材包', '多条链路', '多链路']) ||
+    (includesText(intent.sourceText, ['主图', '详情页']) && includesText(intent.sourceText, ['文案', '分镜图', '品牌规范']))
+  );
+}
+
+function wantsBatchStoryboard(intent: WorkflowIntent) {
+  if (intent.domain === 'chat-text') return false;
+  return includesText(intent.sourceText, ['逐项', '批量', '每个镜头', '每镜头', '8 镜头', '八镜头', '分镜图', '故事板']);
+}
+
+function compileComplexAssetPack(
+  intent: WorkflowIntent,
+  draft: WorkflowDraft,
+  options: { scope?: DynamicValue; knowledgeItems?: CompilerKnowledgeItem[] } = {},
+) {
+  const workflowId = `draft_${draft.id}`;
+  const prompt = buildPrompt(intent, options.knowledgeItems || []);
+  const nodes = [
+    node('product_image', 'imageInput', 80, 80, { fileUrl: '' }),
+    node('brand_brief', 'textInput', 80, 260, { text: intent.goal }),
+    node('brief_architect', 'aiChat', 430, 160, {
+      model: '',
+      temperature: 0.45,
+      maxTokens: 4096,
+      systemPrompt:
+        '你是电商设计策略师。把输入产品图、卖点和品牌规范拆成结构化设计 brief，输出 JSON：mainVisualPrompt、detailHeroPrompt、shortVideoStoryboard、copywritingAngles。',
+    }),
+    node('main_image_gen', 'imageGen', 820, 40, {
+      model: '',
+      ratio: '1:1',
+      resolution: '1k',
+      n: 4,
+      output_format: 'png',
+    }),
+    node('detail_image_gen', 'imageGen', 820, 250, {
+      model: '',
+      ratio: '16:9',
+      resolution: '1k',
+      n: 2,
+      output_format: 'png',
+    }),
+    node('copy_writer', 'aiChat', 820, 470, {
+      model: '',
+      temperature: 0.7,
+      maxTokens: 4096,
+      systemPrompt:
+        '你是电商文案。基于设计 brief 输出主标题、利益点、副标题、详情页首屏文案和短视频字幕建议，结构化列出。',
+    }),
+    node('storyboard_split', 'textSplit', 1180, 470, {
+      separator: '\n',
+      outputCount: Math.max(4, Math.min(9, extractFirstNumber(intent.sourceText) || 6)),
+    }),
+    node('storyboard_iterate', 'iterateRun', 1520, 470),
+    node('storyboard_image_gen', 'imageGen', 1860, 430, {
+      model: '',
+      ratio: includesText(intent.sourceText, ['9:16', '竖版', '竖屏']) ? '9:16' : '16:9',
+      resolution: '1k',
+      n: 1,
+      output_format: 'png',
+    }),
+    node('main_save', 'saveFile', 1180, 40, { filenamePrefix: 'main-visual' }),
+    node('detail_save', 'saveFile', 1180, 250, { filenamePrefix: 'detail-hero' }),
+    node('copy_save', 'saveFile', 1520, 250, { filenamePrefix: 'copywriting' }),
+    node('storyboard_save', 'saveFile', 2200, 430, { filenamePrefix: 'storyboard-shot' }),
+    node('asset_output', 'output', 2540, 250),
+  ];
+  const edges = [
+    edge('brand-brief-to-architect', 'brand_brief', 'text', 'brief_architect', 'prompt'),
+    edge('product-image-to-architect', 'product_image', 'image', 'brief_architect', 'image'),
+    edge('architect-to-main-image', 'brief_architect', 'response', 'main_image_gen', 'prompt'),
+    edge('product-image-to-main-image', 'product_image', 'image', 'main_image_gen', 'reference'),
+    edge('architect-to-detail-image', 'brief_architect', 'response', 'detail_image_gen', 'prompt'),
+    edge('product-image-to-detail-image', 'product_image', 'image', 'detail_image_gen', 'reference'),
+    edge('architect-to-copy-writer', 'brief_architect', 'response', 'copy_writer', 'prompt'),
+    edge('architect-to-storyboard-split', 'brief_architect', 'response', 'storyboard_split', 'text'),
+    ...Array.from({ length: Math.max(4, Math.min(9, extractFirstNumber(intent.sourceText) || 6)) }, (_, index) =>
+      edge(`storyboard-part-${index + 1}-to-iterate`, 'storyboard_split', `part${index + 1}`, 'storyboard_iterate', `item${index + 1}`),
+    ),
+    edge('iterate-to-storyboard-image', 'storyboard_iterate', 'text', 'storyboard_image_gen', 'prompt'),
+    edge('main-image-to-save', 'main_image_gen', 'images', 'main_save', 'content'),
+    edge('detail-image-to-save', 'detail_image_gen', 'images', 'detail_save', 'content'),
+    edge('copy-to-save', 'copy_writer', 'response', 'copy_save', 'content'),
+    edge('storyboard-image-to-save', 'storyboard_image_gen', 'images', 'storyboard_save', 'content'),
+    edge('main-save-to-output', 'main_save', 'content', 'asset_output', 'content'),
+    edge('detail-save-to-output', 'detail_save', 'content', 'asset_output', 'content2'),
+    edge('copy-save-to-output', 'copy_save', 'content', 'asset_output', 'content3'),
+    edge('storyboard-save-to-output', 'storyboard_save', 'content', 'asset_output', 'content4'),
+  ];
+
+  return normalizePersistedWorkflow(
+    {
+      id: workflowId,
+      name: draft.name,
+      description: `${draft.description}\n复杂编排：多链路素材包，包含 brief 拆解、主图、详情页首屏、文案和逐项分镜图链路。\n${prompt}`,
+      nodes,
+      edges,
+      settings: {
+        workflowExecution: {
+          enabled: true,
+          maxConcurrency: 4,
+        },
+      },
+      metadata: buildMetadata(intent, draft),
+    },
+    { preserveCreatedAt: false, scope: options.scope },
+  );
+}
+
+function compileBatchStoryboard(
+  intent: WorkflowIntent,
+  draft: WorkflowDraft,
+  options: { scope?: DynamicValue; knowledgeItems?: CompilerKnowledgeItem[] } = {},
+) {
+  const workflowId = `draft_${draft.id}`;
+  const shotCount = Math.max(4, Math.min(9, extractFirstNumber(intent.sourceText) || 8));
+  const nodes = [
+    node('script_input', 'textInput', 80, 160, { text: intent.goal }),
+    node('shot_planner', 'aiChat', 430, 150, {
+      model: '',
+      temperature: 0.55,
+      maxTokens: 4096,
+      systemPrompt: `你是分镜导演。把用户脚本拆成 ${shotCount} 个连续镜头，每行一个镜头。每行包含画面主体、景别、动作、构图、光线、情绪，不要输出解释。`,
+    }),
+    node('shot_split', 'textSplit', 800, 150, {
+      separator: '\n',
+      outputCount: shotCount,
+    }),
+    node('shot_iterate', 'iterateRun', 1140, 150),
+    node('shot_image_gen', 'imageGen', 1480, 130, {
+      model: '',
+      ratio: includesText(intent.sourceText, ['9:16', '竖版', '竖屏']) ? '9:16' : '16:9',
+      resolution: '1k',
+      n: 1,
+      output_format: 'png',
+    }),
+    node('shot_save', 'saveFile', 1840, 130, { filenamePrefix: 'storyboard-shot' }),
+    node('shot_output', 'output', 2180, 170),
+  ];
+  const edges = [
+    edge('script-to-planner', 'script_input', 'text', 'shot_planner', 'prompt'),
+    edge('planner-to-split', 'shot_planner', 'response', 'shot_split', 'text'),
+    ...Array.from({ length: shotCount }, (_, index) =>
+      edge(`shot-part-${index + 1}-to-iterate`, 'shot_split', `part${index + 1}`, 'shot_iterate', `item${index + 1}`),
+    ),
+    edge('iterate-to-image-gen', 'shot_iterate', 'text', 'shot_image_gen', 'prompt'),
+    edge('image-gen-to-save', 'shot_image_gen', 'images', 'shot_save', 'content'),
+    edge('save-to-output', 'shot_save', 'content', 'shot_output', 'content'),
+  ];
+
+  return normalizePersistedWorkflow(
+    {
+      id: workflowId,
+      name: draft.name,
+      description: `${draft.description}\n复杂编排：AI 拆镜头、textSplit 拆分、iterateRun 逐项生成每个镜头画面。`,
+      nodes,
+      edges,
+      settings: {
+        workflowExecution: {
+          enabled: true,
+          maxConcurrency: 4,
+        },
+      },
+      metadata: buildMetadata(intent, draft),
+    },
+    { preserveCreatedAt: false, scope: options.scope },
+  );
+}
+
 export function compileWorkflowDraft(
   intent: WorkflowIntent,
   draft: WorkflowDraft,
@@ -146,6 +328,14 @@ export function compileWorkflowDraft(
   const workflowId = `draft_${draft.id}`;
   const prompt = buildPrompt(intent, options.knowledgeItems || []);
   const includePromptHelper = hasStage(draft, 'promptHelper');
+
+  if (wantsComplexAssetPack(intent)) {
+    return compileComplexAssetPack(intent, draft, options);
+  }
+
+  if (wantsBatchStoryboard(intent)) {
+    return compileBatchStoryboard(intent, draft, options);
+  }
 
   if (intent.domain === 'chat-text') {
     const nodes = [

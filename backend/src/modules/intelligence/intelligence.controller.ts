@@ -67,6 +67,14 @@ export class IntelligenceController {
     }
   }
 
+  async createAgentRun(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    try {
+      res.json(successEnvelope(await intelligenceService.createAgentRun(req.body, { scope: req.scope })));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   getRun(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       res.json(successEnvelope(intelligenceService.getRun(req.params.id, { scope: req.scope })));
@@ -75,9 +83,9 @@ export class IntelligenceController {
     }
   }
 
-  createWorkflowDraft(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+  async createWorkflowDraft(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      res.json(successEnvelope(intelligenceService.createWorkflowDraft(req.body, { scope: req.scope })));
+      res.json(successEnvelope(await intelligenceService.createWorkflowDraft(req.body, { scope: req.scope })));
     } catch (error) {
       next(error);
     }

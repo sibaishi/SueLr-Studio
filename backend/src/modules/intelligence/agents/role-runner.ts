@@ -16,10 +16,10 @@ export type RoleRunOutput = {
 };
 
 export class RoleRunner {
-  run(role: TeamRoleTemplate, plan: ProjectPlan, options: { scope?: PlainObject } = {}): RoleRunOutput {
+  async run(role: TeamRoleTemplate, plan: ProjectPlan, options: { scope?: PlainObject } = {}): Promise<RoleRunOutput> {
     const taskIds = plan.tasks.filter((task) => task.roleHint === role.id).map((task) => task.id);
     if (role.id === 'workflow-architect') {
-      const draft = workflowBuilderService.createDraft(
+      const draft = await workflowBuilderService.createDraft(
         {
           input: plan.brief,
           context: {},

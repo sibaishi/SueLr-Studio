@@ -45,6 +45,8 @@ export const agentPlanRequestSchema = z.object({
   context: z.record(z.string(), z.unknown()).default({}),
 });
 
+export const agentRunRequestSchema = agentPlanRequestSchema;
+
 export const knowledgeSearchRequestSchema = z.object({
   query: z.string().trim().max(2000, 'query 不能超过 2000 字符').default(''),
   categories: z.array(z.enum(KNOWLEDGE_CATEGORIES)).max(KNOWLEDGE_CATEGORIES.length).optional(),
@@ -83,5 +85,6 @@ export const knowledgeWriteRequestSchema = z.object({
 export type IntelligenceRunRequest = z.infer<typeof intelligenceRunRequestSchema>;
 export type WorkflowDraftRequest = z.infer<typeof workflowDraftRequestSchema>;
 export type AgentPlanRequest = z.infer<typeof agentPlanRequestSchema>;
+export type AgentRunRequest = z.infer<typeof agentRunRequestSchema>;
 export type KnowledgeSearchRequest = z.infer<typeof knowledgeSearchRequestSchema>;
 export type KnowledgeWriteRequest = z.infer<typeof knowledgeWriteRequestSchema>;

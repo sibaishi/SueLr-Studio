@@ -2,10 +2,12 @@ import { ValidationError } from '../../app/errors/index.ts';
 import type { DynamicValue } from '../types.ts';
 import { knowledgeService } from './knowledge/knowledge.service.ts';
 import { runTraceRepository } from './runtime/run-trace.ts';
+import { agentRunner } from './runtime/agent-runner.ts';
 import { skillRegistry } from './skills/skill-registry.ts';
 import { workflowBuilderService } from './workflow-builder/workflow-builder.service.ts';
 import { agentPlannerService } from './planner/agent-planner.service.ts';
 import type {
+  AgentRunRequest,
   AgentPlanRequest,
   IntelligenceRunRequest,
   KnowledgeSearchRequest,
@@ -48,6 +50,10 @@ export class IntelligenceService {
     return agentPlannerService.createPlan(input, { scope: options.scope });
   }
 
+  async createAgentRun(input: AgentRunRequest, options: { scope?: DynamicValue } = {}) {
+    return agentRunner.run(input, { scope: options.scope });
+  }
+
   async createRun(input: IntelligenceRunRequest, options: { scope?: DynamicValue } = {}) {
     const requestedSkills = input.skills.length > 0 ? input.skills : DEFAULT_RUN_SKILLS;
     const skillResults = [];
@@ -69,7 +75,7 @@ export class IntelligenceService {
     });
   }
 
-  createWorkflowDraft(input: WorkflowDraftRequest, options: { scope?: DynamicValue } = {}) {
+  async createWorkflowDraft(input: WorkflowDraftRequest, options: { scope?: DynamicValue } = {}) {
     return workflowBuilderService.createDraft(input, options);
   }
 

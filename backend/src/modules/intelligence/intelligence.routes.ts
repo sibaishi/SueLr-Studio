@@ -5,6 +5,7 @@ import { validateBody, validateParam } from '../../app/middleware/validate-reque
 import { intelligenceController } from './intelligence.controller.ts';
 import {
   agentPlanRequestSchema,
+  agentRunRequestSchema,
   intelligenceRunIdSchema,
   intelligenceRunRequestSchema,
   knowledgeSearchRequestSchema,
@@ -32,6 +33,11 @@ router.post(
   '/agent-plans',
   validateBody(zodValidator(agentPlanRequestSchema)),
   intelligenceController.createAgentPlan.bind(intelligenceController),
+);
+router.post(
+  '/agent-runs',
+  validateBody(zodValidator(agentRunRequestSchema)),
+  intelligenceController.createAgentRun.bind(intelligenceController),
 );
 router.post(
   '/workflow-drafts',

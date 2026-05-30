@@ -498,10 +498,12 @@ export class SkillRegistry {
             intent: { type: 'object' },
           },
         },
-        execute: (input, options) => ({
-          intent: workflowBuilderService.createDraft(
+        execute: async (input, options) => ({
+          intent: (
+            await workflowBuilderService.createDraft(
             { input: String(input.input || ''), context: {} },
             { scope: options.scope },
+            )
           ).intent,
         }),
       },
@@ -524,10 +526,12 @@ export class SkillRegistry {
             draft: { type: 'object' },
           },
         },
-        execute: (input, options) => ({
-          draft: workflowBuilderService.createDraft(
+        execute: async (input, options) => ({
+          draft: (
+            await workflowBuilderService.createDraft(
             { input: String(input.input || ''), context: {} },
             { scope: options.scope },
+            )
           ).draft,
         }),
       },
@@ -558,7 +562,7 @@ export class SkillRegistry {
             {
               input: String(input.input || ''),
               name: typeof input.name === 'string' ? input.name : undefined,
-              context: {},
+              context: input.context && typeof input.context === 'object' && !Array.isArray(input.context) ? input.context : {},
             },
             { scope: options.scope },
           ),

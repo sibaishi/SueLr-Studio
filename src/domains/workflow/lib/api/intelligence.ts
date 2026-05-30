@@ -112,9 +112,21 @@ export interface AgentPlan {
   toolName: 'workflow.createDraft';
   toolInput: {
     input: string;
+    plannerNotes?: string;
+    context?: Record<string, unknown>;
   };
   reasoningSummary: string;
   warnings: string[];
+  knowledgeContext: {
+    source: string;
+    items: Array<{
+      id: string;
+      title: string;
+      category: string;
+      sourceKind: string;
+      nodeType?: string;
+    }>;
+  };
 }
 
 export interface CreateAgentPlanInput {
@@ -125,6 +137,30 @@ export interface CreateAgentPlanInput {
   context?: Record<string, unknown>;
 }
 
+export interface AgentRunToolResult {
+  skillId: string;
+  output: unknown;
+}
+
+export interface AgentRunTrace {
+  id: string;
+  status: 'completed' | 'failed';
+  mode: string;
+  input: string;
+  requestedSkills: string[];
+  skillResults: AgentRunToolResult[];
+  createdAt: number;
+  updatedAt: number;
+  sourceRuntime: 'local';
+}
+
+export interface AgentRunResponse {
+  plan: AgentPlan;
+  trace: AgentRunTrace;
+  toolResults: AgentRunToolResult[];
+  workflowDraft: WorkflowDraftResponse | null;
+}
+
 export interface WorkflowDraftResponse {
   intent: WorkflowDraftIntent;
   draft: WorkflowDraftPlan;
@@ -132,6 +168,12 @@ export interface WorkflowDraftResponse {
   validation: WorkflowDraftValidation;
   approvalsRequired: string[];
   knowledgeContext?: WorkflowDraftKnowledgeContext;
+  architect?: {
+    source: 'llm' | 'skipped' | 'failed';
+    used: boolean;
+    reason: string;
+    issues?: WorkflowDraftValidationIssue[];
+  };
   agentContext?: WorkflowDraftAgentContext;
 }
 
@@ -205,6 +247,13 @@ export async function createWorkflowDraft(input: CreateWorkflowDraftInput) {
 
 export async function createAgentPlan(input: CreateAgentPlanInput) {
   return workflowApiFetch<AgentPlan>('/intelligence/agent-plans', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function createAgentRun(input: CreateAgentPlanInput) {
+  return workflowApiFetch<AgentRunResponse>('/intelligence/agent-runs', {
     method: 'POST',
     body: JSON.stringify(input),
   });
