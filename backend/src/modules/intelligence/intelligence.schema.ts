@@ -33,6 +33,8 @@ export const workflowDraftRequestSchema = z.object({
     .default({}),
 });
 
+const agentToolInputSchema = z.record(z.string(), z.unknown()).default({});
+
 export const agentPlanRequestSchema = z.object({
   input: z.string().trim().min(1, 'input 不能为空').max(12000, 'input 不能超过 12000 字符'),
   plannerModel: z.object({
@@ -45,7 +47,16 @@ export const agentPlanRequestSchema = z.object({
   context: z.record(z.string(), z.unknown()).default({}),
 });
 
-export const agentRunRequestSchema = agentPlanRequestSchema;
+export const agentRunRequestSchema = agentPlanRequestSchema.extend({
+  approval: z
+    .object({
+      id: z.string().trim().min(1).max(120),
+      toolName: z.literal('workflow.execute'),
+      toolInput: agentToolInputSchema,
+      summary: z.string().trim().max(500).optional(),
+    })
+    .optional(),
+});
 
 export const knowledgeSearchRequestSchema = z.object({
   query: z.string().trim().max(2000, 'query 不能超过 2000 字符').default(''),

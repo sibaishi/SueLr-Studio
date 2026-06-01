@@ -1,11 +1,36 @@
-import { type AgentPlan, type WorkflowDraftResponse, createAgentRun } from '@/domains/workflow/lib/api';
+import {
+  type AgentPendingApproval,
+  type AgentPlan,
+  type AgentRunResponse,
+  type WorkflowDraftResponse,
+  createAgentRun,
+} from '@/domains/workflow/lib/api';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ModelInfo } from '@/shared/types';
 import type { Edge, Node } from '@xyflow/react';
-import { Bot, ChevronDown, ChevronRight, Loader2, Maximize2, Send, Settings2, Sparkles, Wrench, X } from 'lucide-react';
+import {
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Maximize2,
+  Play,
+  Send,
+  Settings2,
+  Sparkles,
+  Wrench,
+  X,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
-type AgentToolName = 'agent.plan' | 'chat.respond' | 'workflow.createDraft';
+type AgentToolName =
+  | 'agent.plan'
+  | 'chat.respond'
+  | 'workflow.createDraft'
+  | 'workflow.execute'
+  | 'workflow.diagnose'
+  | 'workflow.summarizeRun';
 
 type AgentToolRecord = {
   id: string;
@@ -23,6 +48,8 @@ type AgentMessage = {
   plan?: AgentPlan;
   draft?: WorkflowDraftResponse;
   toolRecords?: AgentToolRecord[];
+  pendingApproval?: AgentPendingApproval;
+  approvalInput?: string;
 };
 
 interface AgentWorkspaceProps {
@@ -90,6 +117,22 @@ function getChatToolRecord(plan: AgentPlan): AgentToolRecord {
   };
 }
 
+function getAgentToolRecord(plan: AgentPlan, response?: string): AgentToolRecord {
+  return {
+    id: gid('tool'),
+    name: plan.toolName,
+    label:
+      plan.toolName === 'workflow.execute'
+        ? '运行工作流'
+        : plan.toolName === 'workflow.diagnose'
+          ? '诊断运行'
+          : '运行汇总',
+    status: 'success',
+    summary: response || plan.summary,
+    detail: plan.reasoningSummary,
+  };
+}
+
 function getPlannerModelLabel(model: ModelInfo) {
   return `${model.modelId || model.id}${model.configName ? ` · ${model.configName}` : ''}`;
 }
@@ -109,6 +152,14 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
         '我是项目 Agent。你可以直接描述想完成的事，我会根据需求生成可编辑的工作流草案，并把结果交给你继续检查和调整。',
     },
   ]);
+  const workflowContext = useWorkflowStore(
+    useShallow((state) => ({
+      workflowId:
+        state.documents.find((document) => document.documentId === state.activeDocumentId)?.sourceWorkflowId || '',
+      workflowName: state.workflowName,
+      runId: state.lastExecutionRunId || '',
+    })),
+  );
 
   const selectedPlannerModel = useMemo(
     () => plannerModels.find((model) => model.id === selectedPlannerModelId) || plannerModels[0] || null,
@@ -170,6 +221,134 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
     onClose();
   };
 
+  const buildAgentContext = () => ({
+    ...(workflowContext.workflowId ? { workflowId: workflowContext.workflowId } : {}),
+    ...(workflowContext.workflowName ? { workflowName: workflowContext.workflowName } : {}),
+    ...(workflowContext.runId ? { runId: workflowContext.runId } : {}),
+  });
+
+  const appendAgentResult = (runResult: AgentRunResponse, task: string) => {
+    const { plan, response, workflowDraft: draft, pendingApproval } = runResult;
+    if (pendingApproval) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: gid(),
+          role: 'assistant',
+          content: response || plan.summary || '这个动作需要你确认后才会执行。',
+          plan,
+          pendingApproval,
+          approvalInput: task,
+          toolRecords: [
+            {
+              id: gid('tool'),
+              name: pendingApproval.toolName,
+              label: '运行工作流',
+              status: 'running',
+              summary: '等待用户确认',
+              detail: plan.reasoningSummary,
+            },
+          ],
+        },
+      ]);
+      return;
+    }
+    if (plan.toolName === 'chat.respond') {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: gid(),
+          role: 'assistant',
+          content: response || plan.toolInput.response || plan.summary || '我理解了，你可以继续补充。',
+          plan,
+          toolRecords: [getChatToolRecord(plan)],
+        },
+      ]);
+      return;
+    }
+    if (plan.toolName !== 'workflow.createDraft') {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: gid(),
+          role: 'assistant',
+          content: response || plan.summary,
+          plan,
+          toolRecords: [getAgentToolRecord(plan, response)],
+        },
+      ]);
+      return;
+    }
+    if (!draft) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: gid(),
+          role: 'assistant',
+          content: 'Agent 已完成规划，但当前工具没有返回可展示的工作流草案。',
+          toolRecords: [
+            {
+              id: gid('tool'),
+              name: 'workflow.createDraft',
+              label: '工作流工具',
+              status: 'error',
+              summary: '工具调用失败',
+            },
+          ],
+        },
+      ]);
+      return;
+    }
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: gid(),
+        role: 'assistant',
+        content: getAgentResultSummary(plan, draft),
+        plan,
+        draft,
+        toolRecords: [getPlannerToolRecord(plan), getWorkflowToolRecord(draft)],
+      },
+    ]);
+  };
+
+  const handleApprove = (message: AgentMessage) => {
+    if (!message.pendingApproval || !selectedPlannerModel || isWorking) return;
+    void (async () => {
+      setIsWorking(true);
+      try {
+        const runResult = await createAgentRun({
+          input: message.approvalInput || message.content,
+          plannerModel: {
+            id: selectedPlannerModel.id,
+            modelId: selectedPlannerModel.modelId || selectedPlannerModel.id,
+            configId: selectedPlannerModel.configId,
+            configName: selectedPlannerModel.configName,
+            label: getPlannerModelLabel(selectedPlannerModel),
+          },
+          context: buildAgentContext(),
+          approval: message.pendingApproval,
+        });
+        if (!runResult.success || !runResult.data) {
+          throw new Error(runResult.error || '确认后的工具调用失败。');
+        }
+        setMessages((prev) => prev.filter((item) => item.id !== message.id));
+        appendAgentResult(runResult.data, message.approvalInput || message.content);
+      } catch (error) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: gid(),
+            role: 'assistant',
+            content: error instanceof Error ? error.message : '确认后的工具调用失败。',
+          },
+        ]);
+      } finally {
+        setIsWorking(false);
+      }
+    })();
+  };
+
   const handleSubmit = () => {
     const task = input.trim();
     if (!task || isWorking) return;
@@ -207,6 +386,7 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
             configName: selectedPlannerModel.configName,
             label: getPlannerModelLabel(selectedPlannerModel),
           },
+          context: buildAgentContext(),
         });
         if (!runResult.success || !runResult.data) {
           setMessages((prev) => [
@@ -229,45 +409,7 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           return;
         }
 
-        const { plan, response, workflowDraft: draft } = runResult.data;
-        if (plan.toolName === 'chat.respond') {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: gid(),
-              role: 'assistant',
-              content: response || plan.toolInput.response || plan.summary || '我理解了，你可以继续补充。',
-              plan,
-              toolRecords: [getChatToolRecord(plan)],
-            },
-          ]);
-          return;
-        }
-
-        if (!draft) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: gid(),
-              role: 'assistant',
-              content: 'Agent 已完成规划，但当前工具没有返回可展示的工作流草案。',
-              toolRecords: [{ ...runningTool, status: 'error', summary: '工具调用失败' }],
-            },
-          ]);
-          return;
-        }
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: gid(),
-            role: 'assistant',
-            content: getAgentResultSummary(plan, draft),
-            plan,
-            draft,
-            toolRecords: [getPlannerToolRecord(plan), getWorkflowToolRecord(draft)],
-          },
-        ]);
+        appendAgentResult(runResult.data, task);
       } catch (error) {
         setMessages((prev) => [
           ...prev,
@@ -395,6 +537,18 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
                     >
                       <Maximize2 size={14} />
                       新建画布
+                    </button>
+                  </div>
+                )}
+                {message.pendingApproval && (
+                  <div className="agent-workspace__result">
+                    <div>
+                      <strong>需要确认</strong>
+                      <span>确认后才会开始运行当前已保存工作流</span>
+                    </div>
+                    <button type="button" onClick={() => handleApprove(message)} disabled={isWorking}>
+                      <Play size={14} />
+                      确认运行
                     </button>
                   </div>
                 )}

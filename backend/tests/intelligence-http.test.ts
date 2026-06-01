@@ -564,6 +564,82 @@ test('agent planner keeps original task when LLM returns prompt-template text as
   assert.equal(plan.knowledgeContext.items[0].nodeType, 'videoGen');
 });
 
+test('agent planner uses the current page workflow when planning a governed execution', async () => {
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    skills: {
+      list() {
+        return [
+          {
+            id: 'workflow.execute',
+            title: '执行已保存工作流',
+            description: '执行当前工作流',
+            sideEffect: 'execute',
+            requiresApproval: true,
+            inputSchema: {},
+          },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {},
+      search() {
+        return { source: 'local-json', items: [] };
+      },
+    },
+    async chatCompletion() {
+      return {
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    summary: '运行当前工作流',
+                    toolName: 'workflow.execute',
+                    toolInput: { workflowId: 'wf_llm_hallucinated' },
+                    reasoningSummary: '用户要求运行当前工作流。',
+                    warnings: [],
+                  }),
+                },
+              },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  const plan = await service.createPlan({
+    input: '运行当前工作流',
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'test-config',
+      label: 'planner-model · Test',
+    },
+    context: { workflowId: 'wf_current_page', workflowName: '当前页面工作流' },
+  });
+
+  assert.equal(plan.toolName, 'workflow.execute');
+  assert.deepEqual(plan.toolInput, {
+    workflowId: 'wf_current_page',
+    workflowName: '当前页面工作流',
+  });
+});
+
 test('agent runner executes planner-selected workflow tool and records a trace', async () => {
   const { AgentRunner } = await import(`../src/modules/intelligence/runtime/agent-runner.ts?test=${Date.now()}`);
   const plannerModel = {
@@ -708,6 +784,169 @@ test('agent runner returns normal chat response without calling workflow skills'
   assert.deepEqual(
     calls.map((call) => call[0]),
     ['planner', 'trace'],
+  );
+});
+
+test('agent runner returns a pending approval before executing a governed workflow tool', async () => {
+  const { AgentRunner } = await import(`../src/modules/intelligence/runtime/agent-runner.ts?test=${Date.now()}`);
+  const plannerModel = {
+    id: 'planner-model',
+    modelId: 'planner-model',
+    configId: 'test-config',
+    label: 'planner-model · Test',
+  };
+  const calls = [];
+  const runner = new AgentRunner({
+    planner: {
+      async createPlan() {
+        return {
+          id: 'plan_execute_test',
+          source: 'llm',
+          plannerModel,
+          summary: '准备运行当前工作流',
+          toolName: 'workflow.execute',
+          toolInput: { workflowId: 'wf_agent_execute' },
+          reasoningSummary: '用户明确要求运行当前工作流。',
+          warnings: [],
+          knowledgeContext: { source: 'local-json', items: [] },
+        };
+      },
+    },
+    skills: {
+      get(id) {
+        calls.push(['get', id]);
+        return { id, requiresApproval: true };
+      },
+      async run() {
+        calls.push(['run']);
+        throw new Error('tool must not execute before approval');
+      },
+    },
+    traces: {
+      create(input) {
+        calls.push(['trace', input.mode, input.requestedSkills]);
+        return { id: 'irun_pending', ...input };
+      },
+    },
+  });
+
+  const result = await runner.run({
+    input: '运行当前工作流',
+    plannerModel,
+    context: { workflowId: 'wf_agent_execute' },
+  });
+
+  assert.equal(result.approvalRequired, true);
+  assert.match(result.pendingApproval.id, /^approval_/);
+  assert.equal(result.pendingApproval.toolName, 'workflow.execute');
+  assert.deepEqual(result.pendingApproval.toolInput, { workflowId: 'wf_agent_execute' });
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ['get', 'trace'],
+  );
+});
+
+test('agent runner executes an approved workflow tool without replanning', async () => {
+  const { AgentRunner } = await import(`../src/modules/intelligence/runtime/agent-runner.ts?test=${Date.now()}`);
+  const plannerModel = {
+    id: 'planner-model',
+    modelId: 'planner-model',
+    configId: 'test-config',
+    label: 'planner-model · Test',
+  };
+  const calls = [];
+  const runner = new AgentRunner({
+    planner: {
+      async createPlan() {
+        calls.push(['planner']);
+        return {
+          id: 'plan_execute_test',
+          source: 'llm',
+          plannerModel,
+          summary: '准备运行当前工作流',
+          toolName: 'workflow.execute',
+          toolInput: { workflowId: 'wf_agent_execute' },
+          reasoningSummary: '用户明确要求运行当前工作流。',
+          warnings: [],
+          knowledgeContext: { source: 'local-json', items: [] },
+        };
+      },
+    },
+    skills: {
+      get(id) {
+        calls.push(['get', id]);
+        return { id, requiresApproval: true };
+      },
+      async run(id, input) {
+        calls.push(['run', id, input]);
+        return { skillId: id, output: { run: { summary: '工作流已完成。' } } };
+      },
+    },
+    traces: {
+      create(input) {
+        calls.push(['trace', input.mode, input.requestedSkills]);
+        return { id: 'irun_approved', ...input };
+      },
+    },
+  });
+
+  const pending = await runner.run({
+    input: '运行当前工作流',
+    plannerModel,
+    context: { workflowId: 'wf_agent_execute' },
+  });
+  calls.length = 0;
+
+  const result = await runner.run({
+    input: '运行当前工作流',
+    plannerModel,
+    context: { workflowId: 'wf_agent_execute' },
+    approval: {
+      id: pending.pendingApproval.id,
+      toolName: 'workflow.execute',
+      toolInput: { workflowId: 'wf_client_tampered' },
+      summary: '准备运行当前工作流',
+    },
+  });
+
+  assert.equal(result.plan.source, 'user-approved');
+  assert.equal(result.approvalRequired, false);
+  assert.equal(result.response, '工作流已完成。');
+  assert.deepEqual(calls[1], ['run', 'workflow.execute', { workflowId: 'wf_agent_execute', confirmed: true }]);
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ['get', 'run', 'trace'],
+  );
+});
+
+test('agent runner rejects forged workflow tool approvals', async () => {
+  const { AgentRunner } = await import(`../src/modules/intelligence/runtime/agent-runner.ts?test=${Date.now()}`);
+  const plannerModel = {
+    id: 'planner-model',
+    modelId: 'planner-model',
+    configId: 'test-config',
+    label: 'planner-model · Test',
+  };
+  const runner = new AgentRunner({
+    planner: {
+      async createPlan() {
+        throw new Error('forged approvals must not invoke the planner');
+      },
+    },
+  });
+
+  await assert.rejects(
+    runner.run({
+      input: '运行当前工作流',
+      plannerModel,
+      context: { workflowId: 'wf_agent_execute' },
+      approval: {
+        id: 'approval_forged',
+        toolName: 'workflow.execute',
+        toolInput: { workflowId: 'wf_agent_execute' },
+      },
+    }),
+    (error) => error?.code === 'AGENT_TOOL_APPROVAL_INVALID',
   );
 });
 

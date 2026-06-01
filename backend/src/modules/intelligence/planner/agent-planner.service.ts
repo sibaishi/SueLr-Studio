@@ -14,7 +14,7 @@ type KnowledgeServiceLike = Pick<typeof knowledgeService, 'rebuildSeedKnowledge'
 
 export type AgentPlan = {
   id: string;
-  source: 'llm' | 'local-fallback';
+  source: 'llm' | 'local-fallback' | 'user-approved';
   plannerModel: {
     id: string;
     modelId: string;
@@ -23,9 +23,14 @@ export type AgentPlan = {
     label?: string;
   };
   summary: string;
-  toolName: 'chat.respond' | 'workflow.createDraft';
-  toolInput: {
-    input: string;
+  toolName:
+    | 'chat.respond'
+    | 'workflow.createDraft'
+    | 'workflow.execute'
+    | 'workflow.diagnose'
+    | 'workflow.summarizeRun';
+  toolInput: PlainObject & {
+    input?: string;
     plannerNotes?: string;
     response?: string;
   };
@@ -168,7 +173,17 @@ function normalizePlan(
 ): AgentPlan | null {
   if (!raw) return null;
   const toolName = cleanText(raw.toolName || raw.tool, 120);
-  if (!['chat.respond', 'workflow.createDraft'].includes(toolName)) return null;
+  if (
+    ![
+      'chat.respond',
+      'workflow.createDraft',
+      'workflow.execute',
+      'workflow.diagnose',
+      'workflow.summarizeRun',
+    ].includes(toolName)
+  ) {
+    return null;
+  }
   if (toolName === 'chat.respond') {
     const response = cleanText(raw.response || raw.toolInput?.response || raw.message || raw.content, 4000);
     if (!response) return null;
@@ -188,6 +203,49 @@ function normalizePlan(
     raw.toolInput && typeof raw.toolInput === 'object' && !Array.isArray(raw.toolInput)
       ? (raw.toolInput as PlainObject)
       : {};
+  if (toolName === 'workflow.execute') {
+    const workflowId = cleanText(input.context.workflowId, 120);
+    const workflowName = cleanText(input.context.workflowName, 200);
+    if (!workflowId && !workflowName) return null;
+    return {
+      id: gid(),
+      source: 'llm',
+      plannerModel: input.plannerModel,
+      summary: cleanText(raw.summary, 500) || '准备执行当前工作流。',
+      toolName,
+      toolInput: {
+        ...(workflowId ? { workflowId } : {}),
+        ...(workflowName ? { workflowName } : {}),
+        ...(toolInput.inputs && typeof toolInput.inputs === 'object' && !Array.isArray(toolInput.inputs)
+          ? { inputs: toolInput.inputs }
+          : {}),
+      },
+      reasoningSummary: cleanText(raw.reasoningSummary, 1000) || 'Planner 判断用户希望执行当前工作流。',
+      warnings: normalizeWarnings(raw.warnings),
+      knowledgeContext,
+    };
+  }
+  if (toolName === 'workflow.diagnose' || toolName === 'workflow.summarizeRun') {
+    const runId = cleanText(input.context.runId, 200);
+    if (!runId) return null;
+    return {
+      id: gid(),
+      source: 'llm',
+      plannerModel: input.plannerModel,
+      summary:
+        cleanText(raw.summary, 500) ||
+        (toolName === 'workflow.diagnose' ? '准备诊断最近一次运行。' : '准备汇总最近一次运行。'),
+      toolName,
+      toolInput: { runId },
+      reasoningSummary:
+        cleanText(raw.reasoningSummary, 1000) ||
+        (toolName === 'workflow.diagnose'
+          ? 'Planner 判断用户希望诊断最近一次运行。'
+          : 'Planner 判断用户希望查看最近一次运行汇总。'),
+      warnings: normalizeWarnings(raw.warnings),
+      knowledgeContext,
+    };
+  }
   const rawPlannedInput = cleanText(toolInput.input || input.input);
   const originalInput = cleanText(input.input);
   const plannedInput = looksLikePromptInstruction(rawPlannedInput, originalInput) ? originalInput : rawPlannedInput;
@@ -224,7 +282,9 @@ function summarizeToolSchema(schema: DynamicValue) {
 function buildToolContext(skills: SkillRegistryLike) {
   return skills
     .list()
-    .filter((skill) => ['workflow.createDraft'].includes(skill.id))
+    .filter((skill) =>
+      ['workflow.createDraft', 'workflow.execute', 'workflow.diagnose', 'workflow.summarizeRun'].includes(skill.id),
+    )
     .map((skill) => ({
       id: skill.id,
       title: skill.title,
@@ -293,9 +353,13 @@ function buildPlannerMessages(
         '你是 SueLr-Studio 的 Agent Planner。',
         '你负责判断用户输入应当普通对话回复，还是转成受控工具计划；不要直接修改画布。',
         '你必须基于“可用工具”和“本地知识库上下文”判断工具调用。',
-        '当前第一批可执行工具只有 workflow.createDraft，用于生成可编辑工作流草案。',
+        '当前可执行工具包括 workflow.createDraft、workflow.execute、workflow.diagnose 和 workflow.summarizeRun。',
         '如果用户是在问概念、问原因、讨论方案、确认下一步、闲聊或要求解释，请使用 chat.respond，直接给出简洁自然语言回答，不要调用工作流工具。',
-        '只有用户明确要求创建、搭建、生成、修改、运行、检查工作流或画布内容时，才使用 workflow.createDraft。',
+        '用户明确要求创建、搭建或生成工作流时，使用 workflow.createDraft。',
+        '用户明确要求运行当前工作流时，使用 workflow.execute。这个工具需要用户确认。',
+        '用户明确要求分析最近一次运行失败原因时，使用 workflow.diagnose。',
+        '用户明确要求查看最近一次运行结果或汇总时，使用 workflow.summarizeRun。',
+        'workflow.execute 的目标工作流、诊断和汇总使用的 runId 都必须来自当前页面上下文，不要猜测 id。',
         'workflow.createDraft.toolInput.input 必须保持用户原始任务语义，不能改写成给另一个模型看的提示词模板。',
         '可以把额外判断写入 toolInput.plannerNotes，但不要覆盖用户需求。',
         '如果用户说分镜图、故事板图片、storyboard sheet，这是图片序列/图片生成任务，不是视频生成任务。',
@@ -304,12 +368,17 @@ function buildPlannerMessages(
         '必须只输出 JSON，不要输出 Markdown。',
         '普通对话 JSON：{"summary":"一句总结","toolName":"chat.respond","toolInput":{"response":"直接给用户看的回复"},"reasoningSummary":"为什么不调用工具","warnings":[]}',
         '工作流工具 JSON：{"summary":"一句给用户看的计划总结","toolName":"workflow.createDraft","toolInput":{"input":"用户原始任务或等价短句","plannerNotes":"可选，简短说明领域、节点选择约束"},"reasoningSummary":"简短说明为什么调用该工具以及参考了哪些知识","warnings":[]}',
+        '执行工具 JSON：{"summary":"一句给用户看的执行说明","toolName":"workflow.execute","toolInput":{},"reasoningSummary":"为什么执行当前工作流","warnings":[]}',
+        '诊断工具 JSON：{"summary":"一句给用户看的诊断说明","toolName":"workflow.diagnose","toolInput":{},"reasoningSummary":"为什么诊断最近一次运行","warnings":[]}',
+        '汇总工具 JSON：{"summary":"一句给用户看的汇总说明","toolName":"workflow.summarizeRun","toolInput":{},"reasoningSummary":"为什么汇总最近一次运行","warnings":[]}',
       ].join('\n'),
     },
     {
       role: 'user',
       content: [
         `用户原始需求：${input.input}`,
+        '',
+        `当前页面上下文：${JSON.stringify(input.context)}`,
         '',
         `可用工具：${JSON.stringify(tools)}`,
         '',

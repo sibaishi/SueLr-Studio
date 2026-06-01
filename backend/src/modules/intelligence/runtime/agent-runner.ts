@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ValidationError } from '../../../app/errors/index.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import type { AgentRunRequest } from '../intelligence.schema.ts';
@@ -54,10 +55,51 @@ function buildChatResult(plan: AgentPlan) {
   };
 }
 
+function buildToolResponse(toolName: AgentPlan['toolName'], toolResult: DynamicValue) {
+  const output = toolResult?.output;
+  if (toolName === 'workflow.execute') {
+    return output?.run?.summary || '工作流执行完成。';
+  }
+  if (toolName === 'workflow.diagnose') {
+    return output?.diagnosis?.summary || '已完成运行诊断。';
+  }
+  if (toolName === 'workflow.summarizeRun') {
+    return output?.summary || '已完成运行汇总。';
+  }
+  return undefined;
+}
+
+const APPROVAL_TTL_MS = 10 * 60 * 1000;
+
+type PendingApproval = {
+  plan: AgentPlan;
+  scopeKey: string;
+  expiresAt: number;
+};
+
+function buildScopeKey(scope?: DynamicValue) {
+  if (!isPlainObject(scope)) return '{}';
+  return JSON.stringify({
+    userId: scope.userId || '',
+    workspaceId: scope.workspaceId || '',
+    runtimeMode: scope.runtimeMode || '',
+  });
+}
+
+function buildApprovedPlan(plan: AgentPlan): AgentPlan {
+  return {
+    ...plan,
+    source: 'user-approved',
+    toolInput: { ...plan.toolInput, confirmed: true },
+    reasoningSummary: '用户已在 Agent 窗口显式确认该工具调用。',
+  };
+}
+
 export class AgentRunner {
   planner: AgentPlannerLike;
   skills: SkillRegistryLike;
   traces: RunTraceRepositoryLike;
+  pendingApprovals = new Map<string, PendingApproval>();
 
   constructor(
     deps: {
@@ -71,8 +113,43 @@ export class AgentRunner {
     this.traces = deps.traces || runTraceRepository;
   }
 
+  createPendingApproval(plan: AgentPlan, scope?: DynamicValue) {
+    const now = Date.now();
+    for (const [id, pending] of this.pendingApprovals) {
+      if (pending.expiresAt < now) this.pendingApprovals.delete(id);
+    }
+    const id = `approval_${randomUUID()}`;
+    this.pendingApprovals.set(id, {
+      plan,
+      scopeKey: buildScopeKey(scope),
+      expiresAt: now + APPROVAL_TTL_MS,
+    });
+    return {
+      id,
+      toolName: plan.toolName,
+      toolInput: buildToolInput(plan),
+      summary: plan.summary,
+    };
+  }
+
+  consumePendingApproval(input: AgentRunRequest, scope?: DynamicValue) {
+    const approval = input.approval;
+    if (!approval) throw new ValidationError('AGENT_TOOL_APPROVAL_MISSING', '缺少待确认工具');
+    const pending = this.pendingApprovals.get(approval.id);
+    this.pendingApprovals.delete(approval.id);
+    if (!pending || pending.expiresAt < Date.now() || pending.scopeKey !== buildScopeKey(scope)) {
+      throw new ValidationError('AGENT_TOOL_APPROVAL_INVALID', '待确认工具已失效，请重新发起执行请求');
+    }
+    if (pending.plan.toolName !== approval.toolName) {
+      throw new ValidationError('AGENT_TOOL_APPROVAL_INVALID', '待确认工具与原始计划不一致');
+    }
+    return buildApprovedPlan(pending.plan);
+  }
+
   async run(input: AgentRunRequest, options: { scope?: DynamicValue } = {}) {
-    const plan = await this.planner.createPlan(input, { scope: options.scope });
+    const plan = input.approval
+      ? this.consumePendingApproval(input, options.scope)
+      : await this.planner.createPlan(input, { scope: options.scope });
     if (plan.toolName === 'chat.respond') {
       const toolResults = [buildChatResult(plan)];
       const trace = this.traces.create({
@@ -97,7 +174,45 @@ export class AgentRunner {
       throw new ValidationError('AGENT_TOOL_UNKNOWN', `Planner 选择了未知工具：${plan.toolName}`);
     }
     if (tool.requiresApproval === true) {
-      throw new ValidationError('AGENT_TOOL_APPROVAL_REQUIRED', `工具 ${plan.toolName} 需要用户确认后才能执行`);
+      if (input.approval) {
+        const toolResult = await this.skills.run(plan.toolName, buildToolInput(plan), { scope: options.scope });
+        const toolResults = [toolResult];
+        const trace = this.traces.create({
+          mode: 'agent-approved',
+          requestInput: input.input,
+          requestedSkills: [plan.toolName],
+          skillResults: toolResults,
+          scope: options.scope,
+        });
+        return {
+          plan,
+          trace,
+          toolResults,
+          response: buildToolResponse(plan.toolName, toolResult),
+          workflowDraft: null,
+          approvalRequired: false,
+          pendingApproval: null,
+        };
+      }
+
+      const pendingApproval = this.createPendingApproval(plan, options.scope);
+      const toolResults = [{ skillId: plan.toolName, output: { approvalRequired: true, pendingApproval } }];
+      const trace = this.traces.create({
+        mode: 'agent-approval-required',
+        requestInput: input.input,
+        requestedSkills: [plan.toolName],
+        skillResults: toolResults,
+        scope: options.scope,
+      });
+      return {
+        plan,
+        trace,
+        toolResults,
+        response: `工具 ${plan.toolName} 需要你确认后才会执行。`,
+        workflowDraft: null,
+        approvalRequired: true,
+        pendingApproval,
+      };
     }
 
     const toolResult = await this.skills.run(plan.toolName, buildToolInput(plan), { scope: options.scope });
@@ -114,7 +229,10 @@ export class AgentRunner {
       plan,
       trace,
       toolResults,
+      response: buildToolResponse(plan.toolName, toolResult),
       workflowDraft: plan.toolName === 'workflow.createDraft' ? toolResult?.output : null,
+      approvalRequired: false,
+      pendingApproval: null,
     };
   }
 }

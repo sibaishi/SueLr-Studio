@@ -104,17 +104,28 @@ export interface WorkflowDraftAgentContext {
 
 export interface AgentPlan {
   id: string;
-  source: 'llm' | 'local-fallback';
+  source: 'llm' | 'local-fallback' | 'user-approved';
   plannerModel: WorkflowDraftPlannerModel & {
     modelId: string;
   };
   summary: string;
-  toolName: 'chat.respond' | 'workflow.createDraft';
+  toolName:
+    | 'chat.respond'
+    | 'workflow.createDraft'
+    | 'workflow.execute'
+    | 'workflow.diagnose'
+    | 'workflow.summarizeRun';
   toolInput: {
-    input: string;
+    input?: string;
     plannerNotes?: string;
     response?: string;
     context?: Record<string, unknown>;
+    workflowId?: string;
+    workflowName?: string;
+    runId?: string;
+    inputs?: Record<string, unknown>;
+    confirmed?: boolean;
+    [key: string]: unknown;
   };
   reasoningSummary: string;
   warnings: string[];
@@ -136,6 +147,14 @@ export interface CreateAgentPlanInput {
     modelId: string;
   };
   context?: Record<string, unknown>;
+  approval?: AgentPendingApproval;
+}
+
+export interface AgentPendingApproval {
+  id: string;
+  toolName: 'workflow.execute';
+  toolInput: Record<string, unknown>;
+  summary?: string;
 }
 
 export interface AgentRunToolResult {
@@ -161,6 +180,8 @@ export interface AgentRunResponse {
   toolResults: AgentRunToolResult[];
   response?: string;
   workflowDraft: WorkflowDraftResponse | null;
+  approvalRequired?: boolean;
+  pendingApproval?: AgentPendingApproval | null;
 }
 
 export interface WorkflowDraftResponse {
