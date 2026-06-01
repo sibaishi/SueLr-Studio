@@ -5,7 +5,8 @@ function resolvePortableRelaunchPath({ platform, isPackaged, portableExecutableF
   if (platform !== 'win32' || !isPackaged || !portableExecutableFile) {
     return null;
   }
-  if (!path.isAbsolute(portableExecutableFile) || !exists(portableExecutableFile)) {
+  const pathModule = platform === 'win32' ? path.win32 : path;
+  if (!pathModule.isAbsolute(portableExecutableFile) || !exists(portableExecutableFile)) {
     return null;
   }
   return portableExecutableFile;
