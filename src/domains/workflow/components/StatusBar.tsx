@@ -65,7 +65,6 @@ export default function StatusBar({
         </div>
 
         <div className="workflow-statusbar__items">
-          <span className="workflow-statusbar__ready">准备就绪，可以开始搭建、保存或执行工作流。</span>
           <StatusPill label="节点" value={String(nodeCount)} testId="workflow-node-count" />
           <StatusPill label="连线" value={String(edgeCount)} />
           <StatusPill label="撤销" value={canUndo ? '可用' : '不可用'} />

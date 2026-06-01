@@ -140,7 +140,7 @@ describe('repository documentation and branch hygiene', () => {
     expect(onboarding).toContain('开始前，先完成你的本地配置');
     expect(appShell).toContain('已连接到聊天触发的工作流运行');
     expect(navigation).toContain('未连接模型');
-    expect(workflowStatusBar).toContain('准备就绪，可以开始搭建、保存或执行工作流。');
+    expect(workflowStatusBar).toContain('未命名工作流');
     expect(developerGuide).toContain('文本逐项');
     expect(developerGuide).toContain('图像逐项');
   });
