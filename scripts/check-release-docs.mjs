@@ -36,6 +36,7 @@ const allowedMarkdownDocs = new Set([
   'docs/intelligence/04-knowledge-base-taxonomy.md',
   'docs/intelligence/05-conversational-agent-planner.md',
   'docs/intelligence/06-governance-and-gates.md',
+  'docs/intelligence/07-local-mvp-manual-acceptance-kit.md',
   'docs/intelligence/zh/README.md',
   'docs/intelligence/zh/00-总计划方案.md',
   'docs/intelligence/zh/01-分阶段执行方案.md',
@@ -44,6 +45,7 @@ const allowedMarkdownDocs = new Set([
   'docs/intelligence/zh/04-知识库分类与治理方案.md',
   'docs/intelligence/zh/05-对话式Agent与工具规划方案.md',
   'docs/intelligence/zh/06-治理门禁与推进规则.md',
+  'docs/intelligence/zh/07-本地MVP人工验收手册.md',
   'docs/intelligence/zh/07-Agent实测问题反馈表.md',
 ]);
 

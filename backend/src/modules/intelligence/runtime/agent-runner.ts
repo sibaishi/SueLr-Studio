@@ -57,8 +57,17 @@ function buildChatResult(plan: AgentPlan) {
 
 function buildToolResponse(toolName: AgentPlan['toolName'], toolResult: DynamicValue) {
   const output = toolResult?.output;
+  if (toolName === 'workflow.inspect') {
+    return output?.note || (output?.workflow ? '已整理当前工作流摘要。' : '当前没有可检查的工作流画布。');
+  }
+  if (toolName === 'workflow.edit') {
+    return output?.patch?.summary || output?.note || '已生成工作流修改草案。';
+  }
+  if (toolName === 'workflow.applyDraft') {
+    return output?.message || (output?.applied ? '已将修改草案应用到当前画布。' : '当前没有可应用的修改草案。');
+  }
   if (toolName === 'workflow.execute') {
-    return output?.run?.summary || '工作流执行完成。';
+    return output?.run?.summary || output?.message || '工作流执行完成。';
   }
   if (toolName === 'workflow.diagnose') {
     return output?.diagnosis?.summary || '已完成运行诊断。';
@@ -86,12 +95,50 @@ function buildScopeKey(scope?: DynamicValue) {
   });
 }
 
-function buildApprovedPlan(plan: AgentPlan): AgentPlan {
+function buildApprovedPlan(plan: AgentPlan, approval?: AgentRunRequest['approval']): AgentPlan {
+  if (plan.toolName === 'workflow.execute') {
+    const mergedInputs = {
+      ...(isPlainObject(plan.toolInput.inputs) ? (plan.toolInput.inputs as PlainObject) : {}),
+      ...(isPlainObject(approval?.toolInput?.inputs) ? (approval?.toolInput?.inputs as PlainObject) : {}),
+    };
+    return {
+      ...plan,
+      source: 'user-approved',
+      toolInput: {
+        ...(typeof plan.toolInput.workflowId === 'string' && plan.toolInput.workflowId
+          ? { workflowId: plan.toolInput.workflowId }
+          : {}),
+        ...(typeof plan.toolInput.workflowName === 'string' && plan.toolInput.workflowName
+          ? { workflowName: plan.toolInput.workflowName }
+          : {}),
+        inputs: mergedInputs,
+        confirmed: true,
+      },
+      reasoningSummary: '用户已在 Agent 窗口显式确认本次运行，并确认了本次输入覆盖值。',
+    };
+  }
+
+  const toolInput: PlainObject = { ...plan.toolInput, confirmed: true };
+  if (plan.toolName === 'workflow.applyDraft' && isPlainObject(approval?.toolInput?.workflowSnapshot)) {
+    toolInput.workflowSnapshot = approval?.toolInput?.workflowSnapshot as PlainObject;
+  }
   return {
     ...plan,
     source: 'user-approved',
-    toolInput: { ...plan.toolInput, confirmed: true },
+    toolInput,
     reasoningSummary: '用户已在 Agent 窗口显式确认该工具调用。',
+  };
+}
+
+function buildWorkflowExecutePreviewOutput(plan: AgentPlan, suggestInputsResult: DynamicValue) {
+  const suggestedOutput = suggestInputsResult?.output;
+  return {
+    approvalRequired: true,
+    approvalCode: 'executeWorkflow',
+    message: '执行当前工作流前，请先确认输入项和本次覆盖值。',
+    workflow: suggestedOutput?.workflow || null,
+    requiredInputs: Array.isArray(suggestedOutput?.requiredInputs) ? suggestedOutput.requiredInputs : [],
+    inputs: isPlainObject(plan.toolInput.inputs) ? (plan.toolInput.inputs as PlainObject) : {},
   };
 }
 
@@ -143,7 +190,7 @@ export class AgentRunner {
     if (pending.plan.toolName !== approval.toolName) {
       throw new ValidationError('AGENT_TOOL_APPROVAL_INVALID', '待确认工具与原始计划不一致');
     }
-    return buildApprovedPlan(pending.plan);
+    return buildApprovedPlan(pending.plan, approval);
   }
 
   async run(input: AgentRunRequest, options: { scope?: DynamicValue } = {}) {
@@ -192,6 +239,83 @@ export class AgentRunner {
           workflowDraft: null,
           approvalRequired: false,
           pendingApproval: null,
+        };
+      }
+
+      if (plan.toolName === 'workflow.applyDraft') {
+        const previewResult = await this.skills.run(plan.toolName, buildToolInput(plan), { scope: options.scope });
+        if (previewResult?.output?.approvalRequired === true) {
+          const pendingApproval = this.createPendingApproval(plan, options.scope);
+          const toolResults = [previewResult];
+          const trace = this.traces.create({
+            mode: 'agent-approval-required',
+            requestInput: input.input,
+            requestedSkills: [plan.toolName],
+            skillResults: toolResults,
+            scope: options.scope,
+          });
+          return {
+            plan,
+            trace,
+            toolResults,
+            response: buildToolResponse(plan.toolName, previewResult),
+            workflowDraft: null,
+            approvalRequired: true,
+            pendingApproval,
+          };
+        }
+
+        const toolResults = [previewResult];
+        const trace = this.traces.create({
+          mode: 'agent',
+          requestInput: input.input,
+          requestedSkills: [plan.toolName],
+          skillResults: toolResults,
+          scope: options.scope,
+        });
+        return {
+          plan,
+          trace,
+          toolResults,
+          response: buildToolResponse(plan.toolName, previewResult),
+          workflowDraft: null,
+          approvalRequired: false,
+          pendingApproval: null,
+        };
+      }
+
+      if (plan.toolName === 'workflow.execute') {
+        const suggestInputsResult = await this.skills.run('workflow.suggestInputs', buildToolInput(plan), {
+          scope: options.scope,
+        });
+        const previewOutput = buildWorkflowExecutePreviewOutput(plan, suggestInputsResult);
+        const previewPlan: AgentPlan = {
+          ...plan,
+          toolInput: {
+            ...plan.toolInput,
+            workflow: previewOutput.workflow,
+            requiredInputs: previewOutput.requiredInputs,
+            inputs: previewOutput.inputs,
+          },
+        };
+        const pendingApproval = this.createPendingApproval(previewPlan, options.scope);
+        const previewResult = { skillId: plan.toolName, output: previewOutput };
+        const toolResults = [suggestInputsResult, previewResult];
+        const trace = this.traces.create({
+          mode: 'agent-approval-required',
+          requestInput: input.input,
+          requestedSkills: ['workflow.suggestInputs', plan.toolName],
+          skillResults: toolResults,
+          scope: options.scope,
+        });
+        return {
+          plan,
+          trace,
+          toolResults,
+          response: buildToolResponse(plan.toolName, previewResult),
+          workflowDraft: null,
+          approvalRequired: true,
+          pendingApproval,
         };
       }
 

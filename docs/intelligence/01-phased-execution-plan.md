@@ -113,20 +113,26 @@ Initial tools:
 
 ```text
 workflow.inspect
-workflow.build
+workflow.createDraft
 workflow.validate
-workflow.applyDraft
-workflow.edit
-workflow.run
+workflow.suggestInputs
+workflow.execute
 workflow.diagnose
 workflow.summarizeRun
 ```
 
+Planned Phase 6 additions:
+
+```text
+workflow.edit
+workflow.applyDraft
+```
+
 Rules:
 
-- Building a draft can be automatic.
-- Applying a draft requires confirmation.
-- Running a workflow requires confirmation.
+- `workflow.createDraft` can be automatic.
+- `workflow.applyDraft` requires confirmation when draft or patch application lands in Phase 6.
+- `workflow.execute` requires confirmation.
 - Every tool call writes trace.
 
 ## Phase 5: Node Semantics and Planning Quality

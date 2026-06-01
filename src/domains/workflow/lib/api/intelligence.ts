@@ -111,6 +111,9 @@ export interface AgentPlan {
   summary: string;
   toolName:
     | 'chat.respond'
+    | 'workflow.inspect'
+    | 'workflow.edit'
+    | 'workflow.applyDraft'
     | 'workflow.createDraft'
     | 'workflow.execute'
     | 'workflow.diagnose'
@@ -152,9 +155,135 @@ export interface CreateAgentPlanInput {
 
 export interface AgentPendingApproval {
   id: string;
-  toolName: 'workflow.execute';
+  toolName: 'workflow.execute' | 'workflow.applyDraft';
   toolInput: Record<string, unknown>;
   summary?: string;
+}
+
+export interface WorkflowSuggestedInput {
+  nodeId: string;
+  nodeType: string;
+  kind: 'text' | 'image' | 'video' | 'audio' | 'mask';
+  label: string;
+  aliases: string[];
+  currentValue?: string;
+}
+
+export interface WorkflowCanvasSummary {
+  id: string;
+  name: string;
+  description?: string;
+  nodeCount: number;
+  edgeCount: number;
+  signature: string;
+  nodeTypes: Array<{
+    type: string;
+    count: number;
+  }>;
+  inputNodes: Array<{
+    nodeId: string;
+    nodeType: string;
+    label: string;
+  }>;
+  nodes: Array<{
+    id: string;
+    type: string;
+    label: string;
+    position: { x: number; y: number };
+    dataKeys: string[];
+  }>;
+  edges: Array<{
+    id: string;
+    source: string;
+    sourceHandle?: string;
+    target: string;
+    targetHandle?: string;
+  }>;
+}
+
+export interface WorkflowEditOperation {
+  type: string;
+  nodeId?: string;
+  nodeType?: string;
+  field?: string;
+  from?: unknown;
+  to?: unknown;
+  summary: string;
+}
+
+export interface WorkflowEditPatch {
+  id: string;
+  workflowId: string;
+  workflowName: string;
+  instruction: string;
+  summary: string;
+  baseSignature: string;
+  approvalsRequired: string[];
+  warnings: string[];
+  operations: WorkflowEditOperation[];
+  workflow: PersistedWorkflow;
+  validation: WorkflowDraftValidation;
+}
+
+export interface WorkflowInspectResult {
+  workflow: WorkflowCanvasSummary | null;
+  note?: string;
+}
+
+export interface WorkflowEditResult {
+  workflow: WorkflowCanvasSummary | null;
+  patch: WorkflowEditPatch | null;
+  note?: string;
+}
+
+export interface WorkflowApplyDraftResult {
+  approvalRequired: boolean;
+  approvalCode?: string;
+  applied?: boolean;
+  message?: string;
+  workflow: PersistedWorkflow | WorkflowCanvasSummary | null;
+  patch: WorkflowEditPatch | null;
+  validation?: WorkflowDraftValidation;
+}
+
+export interface WorkflowSuggestInputsResult {
+  workflow: {
+    id: string;
+    name: string;
+    description?: string;
+    nodeCount: number;
+    edgeCount: number;
+  } | null;
+  requiredInputs: WorkflowSuggestedInput[];
+  note?: string;
+}
+
+export interface WorkflowExecuteResult {
+  approvalRequired: boolean;
+  approvalCode?: string;
+  message?: string;
+  workflow?: {
+    id: string;
+    name: string;
+    description?: string;
+    nodeCount: number;
+    edgeCount: number;
+  } | null;
+  requiredInputs?: WorkflowSuggestedInput[];
+  inputs?: Record<string, unknown>;
+  run?: {
+    runId: string;
+    workflowId: string;
+    workflowName?: string;
+    status: string;
+    summary: string;
+    appliedInputs?: Array<{
+      nodeId: string;
+      nodeType: string;
+      field: string;
+      matchedBy: string;
+    }>;
+  };
 }
 
 export interface AgentRunToolResult {

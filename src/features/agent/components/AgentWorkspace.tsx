@@ -2,7 +2,14 @@ import {
   type AgentPendingApproval,
   type AgentPlan,
   type AgentRunResponse,
+  type WorkflowApplyDraftResult,
+  type WorkflowCanvasSummary,
   type WorkflowDraftResponse,
+  type WorkflowEditPatch,
+  type WorkflowEditResult,
+  type WorkflowExecuteResult,
+  type WorkflowInspectResult,
+  type WorkflowSuggestedInput,
   createAgentRun,
 } from '@/domains/workflow/lib/api';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
@@ -27,6 +34,9 @@ import { useShallow } from 'zustand/react/shallow';
 type AgentToolName =
   | 'agent.plan'
   | 'chat.respond'
+  | 'workflow.inspect'
+  | 'workflow.edit'
+  | 'workflow.applyDraft'
   | 'workflow.createDraft'
   | 'workflow.execute'
   | 'workflow.diagnose'
@@ -47,9 +57,13 @@ type AgentMessage = {
   content: string;
   plan?: AgentPlan;
   draft?: WorkflowDraftResponse;
+  inspectResult?: WorkflowCanvasSummary | null;
+  workflowEditPatch?: WorkflowEditPatch | null;
+  workflowSuggestedInputs?: WorkflowSuggestedInput[];
   toolRecords?: AgentToolRecord[];
   pendingApproval?: AgentPendingApproval;
   approvalInput?: string;
+  approvalValues?: Record<string, string>;
 };
 
 interface AgentWorkspaceProps {
@@ -122,11 +136,17 @@ function getAgentToolRecord(plan: AgentPlan, response?: string): AgentToolRecord
     id: gid('tool'),
     name: plan.toolName,
     label:
-      plan.toolName === 'workflow.execute'
-        ? '运行工作流'
-        : plan.toolName === 'workflow.diagnose'
-          ? '诊断运行'
-          : '运行汇总',
+      plan.toolName === 'workflow.inspect'
+        ? '检查工作流'
+        : plan.toolName === 'workflow.edit'
+          ? '修改草案'
+          : plan.toolName === 'workflow.applyDraft'
+            ? '应用修改'
+            : plan.toolName === 'workflow.execute'
+              ? '运行工作流'
+              : plan.toolName === 'workflow.diagnose'
+                ? '诊断运行'
+                : '运行汇总',
     status: 'success',
     summary: response || plan.summary,
     detail: plan.reasoningSummary,
@@ -135,6 +155,82 @@ function getAgentToolRecord(plan: AgentPlan, response?: string): AgentToolRecord
 
 function getPlannerModelLabel(model: ModelInfo) {
   return `${model.modelId || model.id}${model.configName ? ` · ${model.configName}` : ''}`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function isWorkflowCanvasSummary(value: unknown): value is WorkflowCanvasSummary {
+  const record = asRecord(value);
+  return Boolean(record && typeof record.id === 'string' && typeof record.name === 'string' && typeof record.signature === 'string');
+}
+
+function isWorkflowEditPatch(value: unknown): value is WorkflowEditPatch {
+  const record = asRecord(value);
+  return Boolean(record && typeof record.id === 'string' && typeof record.workflowId === 'string' && asRecord(record.workflow));
+}
+
+function isWorkflowSuggestedInput(value: unknown): value is WorkflowSuggestedInput {
+  const record = asRecord(value);
+  return Boolean(
+    record &&
+      typeof record.nodeId === 'string' &&
+      typeof record.nodeType === 'string' &&
+      typeof record.label === 'string' &&
+      Array.isArray(record.aliases),
+  );
+}
+
+function getPrimaryToolOutput(runResult: AgentRunResponse) {
+  return asRecord(runResult.toolResults[0]?.output);
+}
+
+function getToolOutput(runResult: AgentRunResponse, skillId: string) {
+  return asRecord(runResult.toolResults.find((result) => result.skillId === skillId)?.output);
+}
+
+function stringifyApprovalValue(value: unknown) {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function getWorkflowSuggestedInputs(value: unknown): WorkflowSuggestedInput[] {
+  return Array.isArray(value) ? value.filter(isWorkflowSuggestedInput) : [];
+}
+
+function getInitialApprovalValues(inputs: unknown, suggestedInputs: WorkflowSuggestedInput[]) {
+  const values = asRecord(inputs) || {};
+  return suggestedInputs.reduce<Record<string, string>>((acc, item) => {
+    const matchedValue = [item.nodeId, ...item.aliases]
+      .map((key) => values[key])
+      .find((candidate) => candidate !== undefined && candidate !== null && stringifyApprovalValue(candidate).trim().length > 0);
+    acc[item.nodeId] = matchedValue === undefined ? '' : stringifyApprovalValue(matchedValue);
+    return acc;
+  }, {});
+}
+
+function buildApprovalInputPayload(values?: Record<string, string>) {
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(values || {})) {
+    const trimmed = value.trim();
+    if (trimmed) next[key] = trimmed;
+  }
+  return next;
+}
+
+function getApprovalInputPlaceholder(input: WorkflowSuggestedInput) {
+  if (input.kind === 'text') return '填写本次运行的文本输入，留空则继续使用已保存默认值';
+  if (input.kind === 'image') return '填写图片 URL 或本地路径，留空则继续使用当前素材';
+  if (input.kind === 'video') return '填写视频 URL 或本地路径，留空则继续使用当前素材';
+  if (input.kind === 'audio') return '填写音频 URL 或本地路径，留空则继续使用当前素材';
+  return '填写蒙版 URL 或本地路径，留空则继续使用当前素材';
 }
 
 export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerModels }: AgentWorkspaceProps) {
@@ -170,6 +266,12 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
   const latestDraft = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       if (messages[index].draft) return messages[index].draft;
+    }
+    return null;
+  }, [messages]);
+  const latestWorkflowEditPatch = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].workflowEditPatch) return messages[index].workflowEditPatch;
     }
     return null;
   }, [messages]);
@@ -221,15 +323,50 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
     onClose();
   };
 
-  const buildAgentContext = () => ({
-    ...(workflowContext.workflowId ? { workflowId: workflowContext.workflowId } : {}),
-    ...(workflowContext.workflowName ? { workflowName: workflowContext.workflowName } : {}),
-    ...(workflowContext.runId ? { runId: workflowContext.runId } : {}),
-  });
+  const applyWorkflowSnapshot = (workflow: { id: string; name: string; nodes: unknown[]; edges: unknown[] }) => {
+    const workflowStore = useWorkflowStore.getState();
+    workflowStore.applyEditorSnapshot(
+      {
+        workflowId: workflow.id,
+        workflowName: workflow.name,
+        nodes: workflow.nodes as Node[],
+        edges: workflow.edges as Edge[],
+        selectedNodeId: null,
+      },
+      true,
+    );
+    workflowStore.persistLocalDraft();
+    onOpenWorkflow();
+  };
+
+  const getWorkflowSnapshot = () => {
+    const workflowStore = useWorkflowStore.getState();
+    return workflowStore.exportCurrentWorkflow();
+  };
+
+  const buildAgentContext = (workflowEditPatch?: WorkflowEditPatch | null) => {
+    const workflowSnapshot = getWorkflowSnapshot();
+    return {
+      ...(workflowContext.workflowId ? { workflowId: workflowContext.workflowId } : {}),
+      ...(workflowContext.workflowName ? { workflowName: workflowContext.workflowName } : {}),
+      ...(workflowContext.runId ? { runId: workflowContext.runId } : {}),
+      ...(workflowSnapshot ? { workflowSnapshot } : {}),
+      ...(workflowEditPatch || latestWorkflowEditPatch ? { workflowEditPatch: workflowEditPatch || latestWorkflowEditPatch } : {}),
+    };
+  };
 
   const appendAgentResult = (runResult: AgentRunResponse, task: string) => {
     const { plan, response, workflowDraft: draft, pendingApproval } = runResult;
+    const output = getPrimaryToolOutput(runResult);
+    const inspectResult = asRecord(output) as WorkflowInspectResult | null;
+    const editResult = asRecord(output) as WorkflowEditResult | null;
+    const applyResult = asRecord(output) as WorkflowApplyDraftResult | null;
+    const executeResult = getToolOutput(runResult, 'workflow.execute') as WorkflowExecuteResult | null;
     if (pendingApproval) {
+      const workflowSuggestedInputs =
+        pendingApproval.toolName === 'workflow.execute'
+          ? getWorkflowSuggestedInputs(asRecord(pendingApproval.toolInput)?.requiredInputs || executeResult?.requiredInputs)
+          : [];
       setMessages((prev) => [
         ...prev,
         {
@@ -237,13 +374,20 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           role: 'assistant',
           content: response || plan.summary || '这个动作需要你确认后才会执行。',
           plan,
+          inspectResult: isWorkflowCanvasSummary(inspectResult?.workflow) ? inspectResult.workflow : null,
+          workflowEditPatch: isWorkflowEditPatch(editResult?.patch) ? editResult.patch : isWorkflowEditPatch(applyResult?.patch) ? applyResult.patch : null,
+          workflowSuggestedInputs,
           pendingApproval,
           approvalInput: task,
+          approvalValues:
+            pendingApproval.toolName === 'workflow.execute'
+              ? getInitialApprovalValues(asRecord(pendingApproval.toolInput)?.inputs, workflowSuggestedInputs)
+              : undefined,
           toolRecords: [
             {
               id: gid('tool'),
               name: pendingApproval.toolName,
-              label: '运行工作流',
+              label: pendingApproval.toolName === 'workflow.applyDraft' ? '应用修改' : '运行工作流',
               status: 'running',
               summary: '等待用户确认',
               detail: plan.reasoningSummary,
@@ -267,6 +411,10 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
       return;
     }
     if (plan.toolName !== 'workflow.createDraft') {
+      if (plan.toolName === 'workflow.applyDraft' && applyResult?.applied && asRecord(applyResult.workflow)) {
+        const workflow = applyResult.workflow as unknown as { id: string; name: string; nodes: unknown[]; edges: unknown[] };
+        applyWorkflowSnapshot(workflow);
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -274,6 +422,8 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           role: 'assistant',
           content: response || plan.summary,
           plan,
+          inspectResult: isWorkflowCanvasSummary(inspectResult?.workflow) ? inspectResult.workflow : null,
+          workflowEditPatch: isWorkflowEditPatch(editResult?.patch) ? editResult.patch : null,
           toolRecords: [getAgentToolRecord(plan, response)],
         },
       ]);
@@ -312,8 +462,25 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
     ]);
   };
 
+  const updateApprovalValue = (messageId: string, nodeId: string, value: string) => {
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === messageId
+          ? {
+              ...message,
+              approvalValues: {
+                ...(message.approvalValues || {}),
+                [nodeId]: value,
+              },
+            }
+          : message,
+      ),
+    );
+  };
+
   const handleApprove = (message: AgentMessage) => {
     if (!message.pendingApproval || !selectedPlannerModel || isWorking) return;
+    const pendingApproval = message.pendingApproval;
     void (async () => {
       setIsWorking(true);
       try {
@@ -326,8 +493,22 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
             configName: selectedPlannerModel.configName,
             label: getPlannerModelLabel(selectedPlannerModel),
           },
-          context: buildAgentContext(),
-          approval: message.pendingApproval,
+          context: buildAgentContext(message.workflowEditPatch),
+          approval: {
+            ...pendingApproval,
+            toolInput:
+              pendingApproval.toolName === 'workflow.applyDraft'
+                ? {
+                    ...pendingApproval.toolInput,
+                    workflowSnapshot: getWorkflowSnapshot(),
+                  }
+                : pendingApproval.toolName === 'workflow.execute'
+                  ? {
+                      ...pendingApproval.toolInput,
+                      inputs: buildApprovalInputPayload(message.approvalValues),
+                    }
+                  : pendingApproval.toolInput,
+          },
         });
         if (!runResult.success || !runResult.data) {
           throw new Error(runResult.error || '确认后的工具调用失败。');
@@ -341,6 +522,41 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
             id: gid(),
             role: 'assistant',
             content: error instanceof Error ? error.message : '确认后的工具调用失败。',
+          },
+        ]);
+      } finally {
+        setIsWorking(false);
+      }
+    })();
+  };
+
+  const handleRequestApplyPatch = (message: AgentMessage) => {
+    if (!message.workflowEditPatch || !selectedPlannerModel || isWorking) return;
+    void (async () => {
+      setIsWorking(true);
+      try {
+        const runResult = await createAgentRun({
+          input: '请应用当前工作流修改草案',
+          plannerModel: {
+            id: selectedPlannerModel.id,
+            modelId: selectedPlannerModel.modelId || selectedPlannerModel.id,
+            configId: selectedPlannerModel.configId,
+            configName: selectedPlannerModel.configName,
+            label: getPlannerModelLabel(selectedPlannerModel),
+          },
+          context: buildAgentContext(message.workflowEditPatch),
+        });
+        if (!runResult.success || !runResult.data) {
+          throw new Error(runResult.error || '无法进入修改应用确认流程。');
+        }
+        appendAgentResult(runResult.data, '请应用当前工作流修改草案');
+      } catch (error) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: gid(),
+            role: 'assistant',
+            content: error instanceof Error ? error.message : '无法进入修改应用确认流程。',
           },
         ]);
       } finally {
@@ -540,15 +756,95 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
                     </button>
                   </div>
                 )}
+                {message.inspectResult && (
+                  <div className="agent-workspace__result">
+                    <div>
+                      <strong>当前画布摘要</strong>
+                      <span>
+                        {message.inspectResult.nodeCount} 节点 · {message.inspectResult.edgeCount} 连线 · 签名 {message.inspectResult.signature}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {message.workflowEditPatch && (
+                  <div className="agent-workspace__result">
+                    <div>
+                      <strong>修改草案</strong>
+                      <span>{message.workflowEditPatch.summary}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRequestApplyPatch(message)}
+                      disabled={!message.workflowEditPatch.validation.valid || message.workflowEditPatch.operations.length === 0 || isWorking}
+                    >
+                      <Play size={14} />
+                      申请应用
+                    </button>
+                  </div>
+                )}
                 {message.pendingApproval && (
                   <div className="agent-workspace__result">
                     <div>
                       <strong>需要确认</strong>
-                      <span>确认后才会开始运行当前已保存工作流</span>
+                      <span>
+                        {message.pendingApproval.toolName === 'workflow.applyDraft'
+                          ? '确认后才会把修改草案应用到当前画布'
+                          : '确认输入项和本次覆盖值后，才会开始运行当前已保存工作流'}
+                      </span>
                     </div>
+                    {message.pendingApproval.toolName === 'workflow.execute' && (
+                      <div className="agent-workspace__approval-inputs">
+                        {message.workflowSuggestedInputs && message.workflowSuggestedInputs.length > 0 ? (
+                          message.workflowSuggestedInputs.map((item) => (
+                            <label key={item.nodeId} className="agent-workspace__approval-input">
+                              <div className="agent-workspace__approval-input-copy">
+                                <strong>{item.label}</strong>
+                                <span>
+                                  {item.kind === 'text'
+                                    ? '文本输入'
+                                    : item.kind === 'image'
+                                      ? '图片输入'
+                                      : item.kind === 'video'
+                                        ? '视频输入'
+                                        : item.kind === 'audio'
+                                          ? '音频输入'
+                                          : '蒙版输入'}
+                                  {` · 节点 ${item.nodeId}`}
+                                </span>
+                                <small>当前值：{item.currentValue?.trim() ? item.currentValue : '未设置'}</small>
+                                {item.aliases.length > 0 && (
+                                  <small>可匹配别名：{item.aliases.slice(0, 4).join('、')}</small>
+                                )}
+                              </div>
+                              {item.kind === 'text' ? (
+                                <textarea
+                                  rows={3}
+                                  value={message.approvalValues?.[item.nodeId] || ''}
+                                  onChange={(event) => updateApprovalValue(message.id, item.nodeId, event.target.value)}
+                                  placeholder={getApprovalInputPlaceholder(item)}
+                                  disabled={isWorking}
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={message.approvalValues?.[item.nodeId] || ''}
+                                  onChange={(event) => updateApprovalValue(message.id, item.nodeId, event.target.value)}
+                                  placeholder={getApprovalInputPlaceholder(item)}
+                                  disabled={isWorking}
+                                />
+                              )}
+                            </label>
+                          ))
+                        ) : (
+                          <div className="agent-workspace__approval-empty">
+                            当前工作流没有显式输入节点，本次会按已保存默认值直接运行。
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <button type="button" onClick={() => handleApprove(message)} disabled={isWorking}>
                       <Play size={14} />
-                      确认运行
+                      {message.pendingApproval.toolName === 'workflow.applyDraft' ? '确认应用' : '确认运行'}
                     </button>
                   </div>
                 )}
@@ -584,8 +880,12 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           </button>
         </footer>
 
-        {latestDraft && (
-          <div className="agent-workspace__hint">最近一次结果已生成。你可以打开画布检查，也可以继续描述修改要求。</div>
+        {(latestDraft || latestWorkflowEditPatch) && (
+          <div className="agent-workspace__hint">
+            {latestWorkflowEditPatch
+              ? '最近一次修改草案已生成。你可以继续描述调整要求，或申请把它应用到当前画布。'
+              : '最近一次结果已生成。你可以打开画布检查，也可以继续描述修改要求。'}
+          </div>
         )}
       </div>
     </div>

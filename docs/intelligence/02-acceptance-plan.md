@@ -87,9 +87,9 @@ npm run test:unit
 npm run test --prefix backend
 ```
 
-- `workflow.build` creates a validated draft.
-- `workflow.applyDraft` requires confirmation.
-- `workflow.run` requires confirmation.
+- `workflow.createDraft` creates a validated draft.
+- `workflow.validate` checks draft validity.
+- `workflow.execute` requires confirmation.
 - Tool calls write trace.
 - React Flow state does not move to Zustand.
 
@@ -117,6 +117,8 @@ npm run test:unit
 
 - Agent can inspect current canvas.
 - Agent can propose confirmed edits.
+- `workflow.applyDraft` requires confirmation before changing the canvas.
+- `workflow.execute` requires confirmation before running the workflow.
 - Execution uses `ExecutionService`.
 - Artifacts use `/api/outputs/...` or `/api/assistant/files/...`.
 - Failed runs produce node-level diagnosis when possible.
@@ -159,6 +161,8 @@ npm run check
 - Legacy Agent profile UI is not the primary control path.
 
 ## Local MVP Total Acceptance
+
+Use [07-local-mvp-manual-acceptance-kit.md](/Users/sueliuran/Documents/Codex/2026-05-26/new-chat-3/SueLr-Studio/docs/intelligence/07-local-mvp-manual-acceptance-kit.md) as the step-by-step manual smoke script and sample source.
 
 Manual smoke:
 

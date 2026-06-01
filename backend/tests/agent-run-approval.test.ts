@@ -142,7 +142,7 @@ async function createPendingApproval(baseUrl, workflowId) {
   return pending.body.data.pendingApproval;
 }
 
-async function postApproval(baseUrl, pendingApproval, input = '确认执行') {
+async function postApproval(baseUrl, pendingApproval, input = '确认执行', toolInput = pendingApproval.toolInput) {
   return requestJson(baseUrl, '/api/intelligence/agent-runs', {
     method: 'POST',
     body: JSON.stringify({
@@ -151,7 +151,7 @@ async function postApproval(baseUrl, pendingApproval, input = '确认执行') {
       approval: {
         id: pendingApproval.id,
         toolName: 'workflow.execute',
-        toolInput: pendingApproval.toolInput,
+        toolInput,
       },
     }),
   });
@@ -163,7 +163,15 @@ test('agent-runs confirms workflow.execute approval over HTTP', async () => {
   const { server, baseUrl } = await createTestServer('agent-run-approval');
   try {
     const pendingApproval = await createPendingApproval(baseUrl, workflowId);
-    const confirmed = await postApproval(baseUrl, pendingApproval);
+    assert.equal(Array.isArray(pendingApproval.toolInput.requiredInputs), true);
+    assert.equal(pendingApproval.toolInput.requiredInputs[0].nodeId, 'prompt');
+
+    const confirmed = await postApproval(baseUrl, pendingApproval, '确认执行', {
+      ...pendingApproval.toolInput,
+      inputs: {
+        prompt: '来自确认卡片的输入覆盖',
+      },
+    });
 
     assert.equal(confirmed.status, 200);
     assertEnvelopeShape(confirmed.body);
@@ -171,6 +179,7 @@ test('agent-runs confirms workflow.execute approval over HTTP', async () => {
     assert.equal(confirmed.body.data.pendingApproval, null);
     assert.equal(confirmed.body.data.toolResults[0].skillId, 'workflow.execute');
     assert.equal(confirmed.body.data.toolResults[0].output.run.status, 'completed');
+    assert.equal(confirmed.body.data.toolResults[0].output.run.appliedInputs[0].matchedBy, 'prompt');
   } finally {
     restorePlanner();
     await new Promise((resolve) => server.close(resolve));

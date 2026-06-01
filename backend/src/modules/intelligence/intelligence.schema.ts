@@ -51,7 +51,7 @@ export const agentRunRequestSchema = agentPlanRequestSchema.extend({
   approval: z
     .object({
       id: z.string().trim().min(1).max(120),
-      toolName: z.literal('workflow.execute'),
+      toolName: z.enum(['workflow.execute', 'workflow.applyDraft']),
       toolInput: agentToolInputSchema,
       summary: z.string().trim().max(500).optional(),
     })

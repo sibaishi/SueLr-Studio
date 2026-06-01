@@ -58,7 +58,7 @@ type AgentPlanStep = {
 Planning and knowledge:
 
 ```text
-chat.answer
+chat.respond
 brief.parse
 knowledge.search
 knowledge.write
@@ -68,11 +68,12 @@ Workflow:
 
 ```text
 workflow.inspect
-workflow.build
+workflow.createDraft
 workflow.validate
-workflow.applyDraft
+workflow.suggestInputs
 workflow.edit
-workflow.run
+workflow.applyDraft
+workflow.execute
 workflow.diagnose
 workflow.summarizeRun
 ```

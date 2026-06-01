@@ -67,11 +67,11 @@ src/features/settings/components/MemorySection.tsx
   -> intelligence/runtime/run-trace.ts
 
 旧 workflow_execute
-  -> workflow.run tool
+  -> workflow.execute tool
   -> 继续调用 ExecutionService
 
 旧工作流助手
-  -> 全局 Agent 的 workflow.build / workflow.edit / workflow.run 工具
+  -> 全局 Agent 的 workflow.createDraft / workflow.edit / workflow.execute 工具
 ```
 
 ## 替换阶段

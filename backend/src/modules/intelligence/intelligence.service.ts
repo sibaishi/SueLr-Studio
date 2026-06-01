@@ -84,7 +84,7 @@ export class IntelligenceService {
     if (skillId === 'knowledge.search') {
       return { query: input.input };
     }
-    if (['brief.parse', 'workflow.plan', 'workflow.createDraft'].includes(skillId)) {
+    if (['brief.parse', 'workflow.createDraft'].includes(skillId)) {
       return { input: input.input };
     }
     if (skillId === 'team.run') {
@@ -94,7 +94,42 @@ export class IntelligenceService {
       };
     }
     if (skillId === 'workflow.inspect') {
-      return { workflowId: String(context.workflowId || '') };
+      return {
+        workflowId: String(context.workflowId || ''),
+        workflowName: typeof context.workflowName === 'string' ? context.workflowName : '',
+        workflowSnapshot:
+          context.workflowSnapshot && typeof context.workflowSnapshot === 'object' && !Array.isArray(context.workflowSnapshot)
+            ? context.workflowSnapshot
+            : undefined,
+      };
+    }
+    if (skillId === 'workflow.edit') {
+      return {
+        input: input.input,
+        workflowId: typeof context.workflowId === 'string' ? context.workflowId : '',
+        workflowName: typeof context.workflowName === 'string' ? context.workflowName : '',
+        workflowSnapshot:
+          context.workflowSnapshot && typeof context.workflowSnapshot === 'object' && !Array.isArray(context.workflowSnapshot)
+            ? context.workflowSnapshot
+            : undefined,
+      };
+    }
+    if (skillId === 'workflow.applyDraft') {
+      return {
+        workflowId: typeof context.workflowId === 'string' ? context.workflowId : '',
+        workflowName: typeof context.workflowName === 'string' ? context.workflowName : '',
+        workflowSnapshot:
+          context.workflowSnapshot && typeof context.workflowSnapshot === 'object' && !Array.isArray(context.workflowSnapshot)
+            ? context.workflowSnapshot
+            : undefined,
+        workflowEditPatch:
+          context.workflowEditPatch &&
+          typeof context.workflowEditPatch === 'object' &&
+          !Array.isArray(context.workflowEditPatch)
+            ? context.workflowEditPatch
+            : undefined,
+        confirmed: context.confirmed === true,
+      };
     }
     if (['workflow.suggestInputs', 'workflow.execute'].includes(skillId)) {
       return {

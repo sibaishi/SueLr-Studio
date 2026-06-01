@@ -75,7 +75,7 @@ src/features/settings/    provider and model enablement, not planner selection
 User asks in Agent
   -> select planner model in Agent window
   -> planner reads tool definitions, node knowledge, current context
-  -> planner selects workflow.build
+  -> planner selects workflow.createDraft
   -> runtime validates tool call
   -> workflow draft is generated and validated
   -> Agent shows final result and collapsed tool record
@@ -92,7 +92,7 @@ This is the fastest loop for testing whether node semantics, tool definitions, a
 - Tool records are collapsed by default.
 - Workflow generation is no longer only hard-coded local rules.
 - Workflow drafts are validated before applying to the canvas.
-- Workflow edit/run/diagnose can be added as tools.
+- `workflow.edit` / `workflow.applyDraft` / `workflow.execute` / `workflow.diagnose` can be added as tools.
 - Image, video, text, asset, and knowledge tools can be added to the same runtime.
 - Important knowledge writeback requires confirmation.
 - Legacy Agent and legacy workflow assistant are no longer the primary flow.

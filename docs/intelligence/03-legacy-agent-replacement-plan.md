@@ -53,11 +53,11 @@ Legacy sessions
   -> intelligence/runtime/run-trace
 
 Legacy workflow_execute
-  -> workflow.run tool
+  -> workflow.execute tool
   -> ExecutionService
 
 Legacy workflow assistant
-  -> workflow.build / workflow.edit / workflow.run tools in the global Agent
+  -> workflow.createDraft / workflow.edit / workflow.execute tools in the global Agent
 ```
 
 ## Compatibility Phases

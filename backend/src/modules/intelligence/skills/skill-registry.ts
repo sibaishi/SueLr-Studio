@@ -5,6 +5,7 @@ import { workflowsService } from '../../workflows/workflows.service.ts';
 import { KNOWLEDGE_CATEGORIES, knowledgeService } from '../knowledge/knowledge.service.ts';
 import { teamOrchestrator } from '../teams/team-orchestrator.ts';
 import { workflowBuilderService } from '../workflow-builder/workflow-builder.service.ts';
+import { workflowEditService } from '../workflow-edit/workflow-edit.service.ts';
 
 export type SkillSideEffect = 'read' | 'suggest' | 'writeDraft' | 'write' | 'execute' | 'external' | 'destructive';
 
@@ -41,10 +42,36 @@ const readOnlySkillSchema = {
 
 const workflowInspectInputSchema = {
   type: 'object',
-  additionalProperties: false,
-  required: ['workflowId'],
+  additionalProperties: true,
   properties: {
     workflowId: { type: 'string', minLength: 1, maxLength: 120 },
+    workflowName: { type: 'string', maxLength: 200 },
+    workflowSnapshot: { type: 'object' },
+  },
+};
+
+const workflowEditInputSchema = {
+  type: 'object',
+  additionalProperties: true,
+  required: ['input'],
+  properties: {
+    input: { type: 'string', minLength: 1, maxLength: 12000 },
+    workflowId: { type: 'string', maxLength: 120 },
+    workflowName: { type: 'string', maxLength: 200 },
+    workflowSnapshot: { type: 'object' },
+  },
+};
+
+const workflowApplyDraftInputSchema = {
+  type: 'object',
+  additionalProperties: true,
+  properties: {
+    workflowId: { type: 'string', maxLength: 120 },
+    workflowName: { type: 'string', maxLength: 200 },
+    workflowSnapshot: { type: 'object' },
+    patch: { type: 'object' },
+    workflowEditPatch: { type: 'object' },
+    confirmed: { type: 'boolean' },
   },
 };
 
@@ -149,6 +176,17 @@ function getWorkflowForInputHints(input: PlainObject, scope?: DynamicValue) {
   );
 }
 
+function stringifyInputDefaultValue(value: DynamicValue) {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 function summarizeInputNodes(workflow: PlainObject | null) {
   const nodes = Array.isArray(workflow?.nodes) ? workflow.nodes : [];
   return nodes
@@ -158,11 +196,28 @@ function summarizeInputNodes(workflow: PlainObject | null) {
     })
     .map((node: DynamicValue, index: number) => {
       const item = node as PlainObject;
+      const data = item.data as PlainObject;
+      const nodeType = String(item.type || '');
+      const currentValue =
+        nodeType === 'textInput'
+          ? stringifyInputDefaultValue(data?.text)
+          : stringifyInputDefaultValue(data?.fileUrl || data?.maskFileUrl || data?.maskPreviewUrl);
       return {
         nodeId: String(item.id || ''),
-        nodeType: String(item.type || ''),
-        label: String((item.data as PlainObject)?.label || item.id || `输入 ${index + 1}`),
-        aliases: [String(item.id || ''), `${String(item.type || '')}${index + 1}`].filter(Boolean),
+        nodeType,
+        kind:
+          nodeType === 'textInput'
+            ? 'text'
+            : nodeType === 'imageInput'
+              ? 'image'
+              : nodeType === 'videoInput'
+                ? 'video'
+                : nodeType === 'audioInput'
+                  ? 'audio'
+                  : 'mask',
+        label: String(data?.label || item.id || `输入 ${index + 1}`),
+        aliases: [String(item.id || ''), `${nodeType}${index + 1}`].filter(Boolean),
+        currentValue,
       };
     });
 }
@@ -451,7 +506,7 @@ export class SkillRegistry {
       {
         id: 'workflow.inspect',
         title: '工作流检查',
-        description: '读取一个工作流的结构摘要，不修改画布或持久化数据。',
+        description: '读取当前工作流画布或已保存工作流的结构摘要，不修改画布或持久化数据。',
         sideEffect: 'read',
         requiresApproval: false,
         inputSchema: workflowInspectInputSchema,
@@ -461,11 +516,40 @@ export class SkillRegistry {
             workflow: { type: 'object' },
           },
         },
-        execute: (input, options) => ({
-          workflow: summarizeWorkflow(
-            workflowsService.getById(String(input.workflowId || ''), { scope: options.scope }),
-          ),
-        }),
+        execute: (input, options) => workflowEditService.inspect(input, { scope: options.scope }),
+      },
+      {
+        id: 'workflow.edit',
+        title: '生成工作流修改草案',
+        description: '基于当前画布和用户要求生成可校验 patch 预览，不直接修改 React Flow 状态。',
+        sideEffect: 'writeDraft',
+        requiresApproval: false,
+        inputSchema: workflowEditInputSchema,
+        outputSchema: {
+          type: 'object',
+          properties: {
+            workflow: { type: 'object' },
+            patch: { type: 'object' },
+          },
+        },
+        execute: (input, options) => workflowEditService.edit(input, { scope: options.scope }),
+      },
+      {
+        id: 'workflow.applyDraft',
+        title: '应用工作流修改草案',
+        description: '预览并确认后把 patch 转成新的本地画布快照返回前端，不直接写入后端工作流存储。',
+        sideEffect: 'writeDraft',
+        requiresApproval: true,
+        inputSchema: workflowApplyDraftInputSchema,
+        outputSchema: {
+          type: 'object',
+          properties: {
+            approvalRequired: { type: 'boolean' },
+            workflow: { type: 'object' },
+            patch: { type: 'object' },
+          },
+        },
+        execute: (input, options) => workflowEditService.applyDraft(input, { scope: options.scope }),
       },
       {
         id: 'model.list',
@@ -510,34 +594,6 @@ export class SkillRegistry {
               { scope: options.scope },
             )
           ).intent,
-        }),
-      },
-      {
-        id: 'workflow.plan',
-        title: '工作流规划',
-        description: '根据需求规划 WorkflowDraft 阶段，不保存、不执行。',
-        sideEffect: 'suggest',
-        requiresApproval: false,
-        inputSchema: {
-          type: 'object',
-          required: ['input'],
-          properties: {
-            input: { type: 'string', minLength: 1, maxLength: 12000 },
-          },
-        },
-        outputSchema: {
-          type: 'object',
-          properties: {
-            draft: { type: 'object' },
-          },
-        },
-        execute: async (input, options) => ({
-          draft: (
-            await workflowBuilderService.createDraft(
-              { input: String(input.input || ''), context: {} },
-              { scope: options.scope },
-            )
-          ).draft,
         }),
       },
       {

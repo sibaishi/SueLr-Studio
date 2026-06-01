@@ -71,9 +71,10 @@ test('intelligence routes expose read-only skills and local knowledge baseline',
         'team.list',
         'team.run',
         'workflow.inspect',
+        'workflow.edit',
+        'workflow.applyDraft',
         'model.list',
         'brief.parse',
-        'workflow.plan',
         'workflow.createDraft',
         'workflow.validate',
         'workflow.suggestInputs',
@@ -85,10 +86,16 @@ test('intelligence routes expose read-only skills and local knowledge baseline',
     assert.equal(skills.body.data.find((skill) => skill.id === 'workflow.createDraft')?.sideEffect, 'writeDraft');
     assert.equal(skills.body.data.find((skill) => skill.id === 'team.run')?.sideEffect, 'writeDraft');
     assert.equal(skills.body.data.find((skill) => skill.id === 'workflow.execute')?.requiresApproval, true);
+    assert.equal(skills.body.data.find((skill) => skill.id === 'workflow.applyDraft')?.requiresApproval, true);
     assert.equal(skills.body.data.find((skill) => skill.id === 'knowledge.write')?.requiresApproval, true);
     assert.equal(
       skills.body.data
-        .filter((skill) => !['workflow.execute', 'knowledge.write', 'knowledge.promoteToTemplate'].includes(skill.id))
+        .filter(
+          (skill) =>
+            !['workflow.applyDraft', 'workflow.execute', 'knowledge.write', 'knowledge.promoteToTemplate'].includes(
+              skill.id,
+            ),
+        )
         .every((skill) => skill.requiresApproval === false),
       true,
     );
@@ -817,8 +824,31 @@ test('agent runner returns a pending approval before executing a governed workfl
         calls.push(['get', id]);
         return { id, requiresApproval: true };
       },
-      async run() {
-        calls.push(['run']);
+      async run(id, input) {
+        calls.push(['run', id, input]);
+        if (id === 'workflow.suggestInputs') {
+          return {
+            skillId: id,
+            output: {
+              workflow: {
+                id: 'wf_agent_execute',
+                name: '当前工作流',
+                nodeCount: 2,
+                edgeCount: 1,
+              },
+              requiredInputs: [
+                {
+                  nodeId: 'prompt',
+                  nodeType: 'textInput',
+                  kind: 'text',
+                  label: '提示词',
+                  aliases: ['prompt', 'textInput1'],
+                  currentValue: '默认输入',
+                },
+              ],
+            },
+          };
+        }
         throw new Error('tool must not execute before approval');
       },
     },
@@ -839,10 +869,29 @@ test('agent runner returns a pending approval before executing a governed workfl
   assert.equal(result.approvalRequired, true);
   assert.match(result.pendingApproval.id, /^approval_/);
   assert.equal(result.pendingApproval.toolName, 'workflow.execute');
-  assert.deepEqual(result.pendingApproval.toolInput, { workflowId: 'wf_agent_execute' });
+  assert.deepEqual(result.pendingApproval.toolInput, {
+    workflowId: 'wf_agent_execute',
+    workflow: {
+      id: 'wf_agent_execute',
+      name: '当前工作流',
+      nodeCount: 2,
+      edgeCount: 1,
+    },
+    requiredInputs: [
+      {
+        nodeId: 'prompt',
+        nodeType: 'textInput',
+        kind: 'text',
+        label: '提示词',
+        aliases: ['prompt', 'textInput1'],
+        currentValue: '默认输入',
+      },
+    ],
+    inputs: {},
+  });
   assert.deepEqual(
     calls.map((call) => call[0]),
-    ['get', 'trace'],
+    ['get', 'run', 'trace'],
   );
 });
 
@@ -879,6 +928,29 @@ test('agent runner executes an approved workflow tool without replanning', async
       },
       async run(id, input) {
         calls.push(['run', id, input]);
+        if (id === 'workflow.suggestInputs') {
+          return {
+            skillId: id,
+            output: {
+              workflow: {
+                id: 'wf_agent_execute',
+                name: '当前工作流',
+                nodeCount: 2,
+                edgeCount: 1,
+              },
+              requiredInputs: [
+                {
+                  nodeId: 'prompt',
+                  nodeType: 'textInput',
+                  kind: 'text',
+                  label: '提示词',
+                  aliases: ['prompt', 'textInput1'],
+                  currentValue: '默认输入',
+                },
+              ],
+            },
+          };
+        }
         return { skillId: id, output: { run: { summary: '工作流已完成。' } } };
       },
     },
@@ -904,7 +976,12 @@ test('agent runner executes an approved workflow tool without replanning', async
     approval: {
       id: pending.pendingApproval.id,
       toolName: 'workflow.execute',
-      toolInput: { workflowId: 'wf_client_tampered' },
+      toolInput: {
+        workflowId: 'wf_client_tampered',
+        inputs: {
+          prompt: '新的执行输入',
+        },
+      },
       summary: '准备运行当前工作流',
     },
   });
@@ -912,11 +989,227 @@ test('agent runner executes an approved workflow tool without replanning', async
   assert.equal(result.plan.source, 'user-approved');
   assert.equal(result.approvalRequired, false);
   assert.equal(result.response, '工作流已完成。');
-  assert.deepEqual(calls[1], ['run', 'workflow.execute', { workflowId: 'wf_agent_execute', confirmed: true }]);
+  assert.deepEqual(calls[1], [
+    'run',
+    'workflow.execute',
+    {
+      workflowId: 'wf_agent_execute',
+      inputs: {
+        prompt: '新的执行输入',
+      },
+      confirmed: true,
+    },
+  ]);
   assert.deepEqual(
     calls.map((call) => call[0]),
     ['get', 'run', 'trace'],
   );
+});
+
+test('agent runner previews workflow.applyDraft before requesting approval', async () => {
+  const { AgentRunner } = await import(`../src/modules/intelligence/runtime/agent-runner.ts?test=${Date.now()}`);
+  const plannerModel = {
+    id: 'planner-model',
+    modelId: 'planner-model',
+    configId: 'test-config',
+    label: 'planner-model · Test',
+  };
+  const workflowSnapshot = {
+    id: 'wf_edit_preview',
+    name: '当前画布工作流',
+    version: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    nodes: [],
+    edges: [],
+    settings: {},
+  };
+  const patch = {
+    id: 'patch_preview',
+    workflowId: 'wf_edit_preview',
+    workflowName: '当前画布工作流',
+    instruction: '把这个工作流改成生成 6 张图',
+    summary: '已生成 1 项可预览修改。',
+    baseSignature: 'sig_base',
+    approvalsRequired: ['applyDraft'],
+    warnings: [],
+    operations: [{ type: 'updateNodeData', nodeId: 'image_gen', field: 'n', from: 2, to: 6, summary: '调整数量' }],
+    workflow: workflowSnapshot,
+    validation: { valid: true, issues: [] },
+  };
+  const calls = [];
+  const runner = new AgentRunner({
+    planner: {
+      async createPlan() {
+        return {
+          id: 'plan_apply_patch',
+          source: 'llm',
+          plannerModel,
+          summary: '准备应用当前工作流修改草案',
+          toolName: 'workflow.applyDraft',
+          toolInput: {
+            workflowId: 'wf_edit_preview',
+            workflowSnapshot,
+            patch,
+          },
+          reasoningSummary: '用户要求应用当前修改草案。',
+          warnings: [],
+          knowledgeContext: { source: 'local-json', items: [] },
+        };
+      },
+    },
+    skills: {
+      get(id) {
+        calls.push(['get', id]);
+        return { id, requiresApproval: true };
+      },
+      async run(id, input) {
+        calls.push(['run', id, input]);
+        return {
+          skillId: id,
+          output: {
+            approvalRequired: true,
+            message: '应用工作流修改草案需要用户确认。',
+            workflow: { id: 'wf_edit_preview', name: '当前画布工作流', signature: 'sig_base' },
+            patch,
+          },
+        };
+      },
+    },
+    traces: {
+      create(input) {
+        calls.push(['trace', input.mode, input.requestedSkills]);
+        return { id: 'irun_apply_pending', ...input };
+      },
+    },
+  });
+
+  const result = await runner.run({
+    input: '应用当前修改草案',
+    plannerModel,
+    context: { workflowId: 'wf_edit_preview', workflowSnapshot, workflowEditPatch: patch },
+  });
+
+  assert.equal(result.approvalRequired, true);
+  assert.equal(result.pendingApproval.toolName, 'workflow.applyDraft');
+  assert.equal(result.toolResults[0].output.patch.id, 'patch_preview');
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ['get', 'run', 'trace'],
+  );
+});
+
+test('agent runner reuses approval but refreshes workflowSnapshot for workflow.applyDraft', async () => {
+  const { AgentRunner } = await import(`../src/modules/intelligence/runtime/agent-runner.ts?test=${Date.now()}`);
+  const plannerModel = {
+    id: 'planner-model',
+    modelId: 'planner-model',
+    configId: 'test-config',
+    label: 'planner-model · Test',
+  };
+  const originalSnapshot = {
+    id: 'wf_edit_apply',
+    name: '当前画布工作流',
+    version: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    nodes: [{ id: 'image_gen', type: 'imageGen', position: { x: 0, y: 0 }, data: { n: 2 } }],
+    edges: [],
+    settings: {},
+  };
+  const refreshedSnapshot = {
+    ...originalSnapshot,
+    nodes: [{ id: 'image_gen', type: 'imageGen', position: { x: 0, y: 0 }, data: { n: 3 } }],
+  };
+  const patch = {
+    id: 'patch_apply',
+    workflowId: 'wf_edit_apply',
+    workflowName: '当前画布工作流',
+    instruction: '把这个工作流改成生成 6 张图',
+    summary: '已生成 1 项可预览修改。',
+    baseSignature: 'sig_base',
+    approvalsRequired: ['applyDraft'],
+    warnings: [],
+    operations: [{ type: 'updateNodeData', nodeId: 'image_gen', field: 'n', from: 2, to: 6, summary: '调整数量' }],
+    workflow: {
+      ...originalSnapshot,
+      nodes: [{ id: 'image_gen', type: 'imageGen', position: { x: 0, y: 0 }, data: { n: 6 } }],
+    },
+    validation: { valid: true, issues: [] },
+  };
+  const calls = [];
+  const runner = new AgentRunner({
+    planner: {
+      async createPlan() {
+        return {
+          id: 'plan_apply_patch',
+          source: 'llm',
+          plannerModel,
+          summary: '准备应用当前工作流修改草案',
+          toolName: 'workflow.applyDraft',
+          toolInput: {
+            workflowId: 'wf_edit_apply',
+            workflowSnapshot: originalSnapshot,
+            patch,
+          },
+          reasoningSummary: '用户要求应用当前修改草案。',
+          warnings: [],
+          knowledgeContext: { source: 'local-json', items: [] },
+        };
+      },
+    },
+    skills: {
+      get(id) {
+        calls.push(['get', id]);
+        return { id, requiresApproval: true };
+      },
+      async run(id, input) {
+        calls.push(['run', id, input]);
+        return {
+          skillId: id,
+          output: {
+            approvalRequired: input.confirmed !== true,
+            applied: input.confirmed === true,
+            message: input.confirmed === true ? '已应用修改草案。' : '应用工作流修改草案需要用户确认。',
+            patch,
+            workflow: patch.workflow,
+          },
+        };
+      },
+    },
+    traces: {
+      create(input) {
+        calls.push(['trace', input.mode, input.requestedSkills]);
+        return { id: 'irun_apply', ...input };
+      },
+    },
+  });
+
+  const pending = await runner.run({
+    input: '应用当前修改草案',
+    plannerModel,
+    context: { workflowId: 'wf_edit_apply', workflowSnapshot: originalSnapshot, workflowEditPatch: patch },
+  });
+  calls.length = 0;
+
+  const result = await runner.run({
+    input: '确认应用当前修改草案',
+    plannerModel,
+    approval: {
+      id: pending.pendingApproval.id,
+      toolName: 'workflow.applyDraft',
+      toolInput: {
+        workflowSnapshot: refreshedSnapshot,
+      },
+    },
+  });
+
+  assert.equal(result.plan.source, 'user-approved');
+  assert.equal(result.approvalRequired, false);
+  assert.equal(result.toolResults[0].output.applied, true);
+  assert.equal(calls[1][1], 'workflow.applyDraft');
+  assert.deepEqual(calls[1][2].workflowSnapshot, refreshedSnapshot);
+  assert.equal(calls[1][2].confirmed, true);
 });
 
 test('agent runner rejects forged workflow tool approvals', async () => {
@@ -2294,6 +2587,195 @@ test('confirmed intelligence workflow execution returns run summary and can be d
     assert.equal(diagnosis.body.data.skillResults[1].output.report.keyOutputs.length > 0, true);
     assert.equal(diagnosis.body.data.skillResults[1].output.report.artifacts.length > 0, true);
     assert.match(diagnosis.body.data.skillResults[1].output.report.artifacts[0].url, /^\/api\/outputs\//);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('intelligence workflow inspect and edit skills summarize the current canvas and generate a patch preview', async () => {
+  const { server, baseUrl } = await createTestServer('workflow-edit-preview');
+  try {
+    const workflow = {
+      id: 'wf_edit_preview_http',
+      name: '当前画布工作流',
+      version: 1,
+      createdAt: 1,
+      updatedAt: 1,
+      nodes: [
+        {
+          id: 'prompt',
+          type: 'textInput',
+          position: { x: 0, y: 0 },
+          data: { label: '提示词', text: '默认提示词' },
+        },
+        {
+          id: 'image_gen',
+          type: 'imageGen',
+          position: { x: 220, y: 0 },
+          data: { n: 2, ratio: '1:1', output_format: 'jpeg' },
+        },
+        {
+          id: 'output',
+          type: 'output',
+          position: { x: 440, y: 0 },
+          data: {},
+        },
+      ],
+      edges: [
+        {
+          id: 'edge_prompt_image',
+          source: 'prompt',
+          sourceHandle: 'text',
+          target: 'image_gen',
+          targetHandle: 'prompt',
+        },
+        {
+          id: 'edge_image_output',
+          source: 'image_gen',
+          sourceHandle: 'images',
+          target: 'output',
+          targetHandle: 'content',
+        },
+      ],
+      settings: {},
+    };
+
+    const inspected = await requestJson(baseUrl, '/api/intelligence/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '检查一下当前工作流',
+        skills: ['workflow.inspect'],
+        context: {
+          workflowSnapshot: workflow,
+        },
+      }),
+    });
+    assert.equal(inspected.status, 200);
+    assertEnvelopeShape(inspected.body);
+    assert.equal(inspected.body.data.skillResults[0].output.workflow.nodeCount, 3);
+    assert.equal(inspected.body.data.skillResults[0].output.workflow.inputNodes[0].nodeId, 'prompt');
+
+    const edited = await requestJson(baseUrl, '/api/intelligence/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '把这个工作流改成生成 6 张横版 PNG 图',
+        skills: ['workflow.edit'],
+        context: {
+          workflowSnapshot: workflow,
+        },
+      }),
+    });
+    assert.equal(edited.status, 200);
+    assertEnvelopeShape(edited.body);
+    const patch = edited.body.data.skillResults[0].output.patch;
+    assert.equal(Array.isArray(patch.operations), true);
+    assert.equal(patch.operations.some((operation) => operation.field === 'n' && operation.to === 6), true);
+    assert.equal(patch.operations.some((operation) => operation.field === 'ratio' && operation.to === '16:9'), true);
+    assert.equal(
+      patch.operations.some((operation) => operation.field === 'output_format' && operation.to === 'png'),
+      true,
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('intelligence workflow applyDraft skill previews confirmation and applies validated patch after confirmation', async () => {
+  const { server, baseUrl } = await createTestServer('workflow-apply-draft');
+  try {
+    const workflow = {
+      id: 'wf_apply_preview_http',
+      name: '当前画布工作流',
+      version: 1,
+      createdAt: 1,
+      updatedAt: 1,
+      nodes: [
+        {
+          id: 'prompt',
+          type: 'textInput',
+          position: { x: 0, y: 0 },
+          data: { label: '提示词', text: '默认提示词' },
+        },
+        {
+          id: 'image_gen',
+          type: 'imageGen',
+          position: { x: 220, y: 0 },
+          data: { n: 2, ratio: '1:1', output_format: 'jpeg' },
+        },
+        {
+          id: 'output',
+          type: 'output',
+          position: { x: 440, y: 0 },
+          data: {},
+        },
+      ],
+      edges: [
+        {
+          id: 'edge_prompt_image',
+          source: 'prompt',
+          sourceHandle: 'text',
+          target: 'image_gen',
+          targetHandle: 'prompt',
+        },
+        {
+          id: 'edge_image_output',
+          source: 'image_gen',
+          sourceHandle: 'images',
+          target: 'output',
+          targetHandle: 'content',
+        },
+      ],
+      settings: {},
+    };
+
+    const edited = await requestJson(baseUrl, '/api/intelligence/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '把这个工作流改成生成 6 张横版 PNG 图',
+        skills: ['workflow.edit'],
+        context: {
+          workflowSnapshot: workflow,
+        },
+      }),
+    });
+    assert.equal(edited.status, 200);
+    const patch = edited.body.data.skillResults[0].output.patch;
+
+    const preview = await requestJson(baseUrl, '/api/intelligence/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '应用这些修改',
+        skills: ['workflow.applyDraft'],
+        context: {
+          workflowSnapshot: workflow,
+          workflowEditPatch: patch,
+        },
+      }),
+    });
+    assert.equal(preview.status, 200);
+    assertEnvelopeShape(preview.body);
+    assert.equal(preview.body.data.skillResults[0].output.approvalRequired, true);
+    assert.equal(preview.body.data.skillResults[0].output.approvalCode, 'applyWorkflowDraft');
+
+    const applied = await requestJson(baseUrl, '/api/intelligence/runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '确认应用这些修改',
+        skills: ['workflow.applyDraft'],
+        context: {
+          workflowSnapshot: workflow,
+          workflowEditPatch: patch,
+          confirmed: true,
+        },
+      }),
+    });
+    assert.equal(applied.status, 200);
+    assertEnvelopeShape(applied.body);
+    assert.equal(applied.body.data.skillResults[0].output.applied, true);
+    const imageGen = applied.body.data.skillResults[0].output.workflow.nodes.find((node) => node.id === 'image_gen');
+    assert.equal(imageGen.data.n, 6);
+    assert.equal(imageGen.data.ratio, '16:9');
+    assert.equal(imageGen.data.output_format, 'png');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

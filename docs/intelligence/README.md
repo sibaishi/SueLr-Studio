@@ -13,5 +13,6 @@ Start here:
 - `04-knowledge-base-taxonomy.md`: knowledge categories, write policies, retrieval rules, and storage evolution
 - `05-conversational-agent-planner.md`: Agent UX, planner model selection, LLM planner, and tool orchestration
 - `06-governance-and-gates.md`: documentation gates, safety policy, and verification checklist
+- `07-local-mvp-manual-acceptance-kit.md`: ready-to-run local manual acceptance checklist, prompts, and fixture samples
 
 Workflow creation, editing, running, and diagnosis are tools the Agent may call. They are not the Agent's identity.

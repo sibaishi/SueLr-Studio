@@ -829,8 +829,8 @@ body {
 .agent-workspace__result {
   margin-top: 10px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--color-success) 30%, var(--color-border));
@@ -855,6 +855,7 @@ body {
 }
 
 .agent-workspace__result button {
+  align-self: flex-end;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -872,6 +873,65 @@ body {
 .agent-workspace__result button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
+}
+
+.agent-workspace__approval-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agent-workspace__approval-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-bg-primary) 38%, var(--color-bg-secondary));
+}
+
+.agent-workspace__approval-input-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.agent-workspace__approval-input-copy strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+
+.agent-workspace__approval-input-copy span,
+.agent-workspace__approval-input-copy small,
+.agent-workspace__approval-empty {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.agent-workspace__approval-input input,
+.agent-workspace__approval-input textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  outline: none;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agent-workspace__approval-input textarea {
+  resize: vertical;
+  min-height: 78px;
+}
+
+.agent-workspace__approval-input input:focus,
+.agent-workspace__approval-input textarea:focus {
+  border-color: color-mix(in srgb, var(--color-accent) 56%, var(--color-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 .agent-workspace__tools {

@@ -79,7 +79,7 @@ Agent 工具分为几类。
 ### 对话与规划工具
 
 ```text
-chat.answer
+chat.respond
 brief.parse
 knowledge.search
 knowledge.write
@@ -89,12 +89,12 @@ knowledge.write
 
 ```text
 workflow.inspect
-workflow.build
-workflow.edit
+workflow.createDraft
 workflow.validate
+workflow.suggestInputs
+workflow.edit
 workflow.applyDraft
-workflow.run
-workflow.cancel
+workflow.execute
 workflow.diagnose
 workflow.summarizeRun
 ```
@@ -155,7 +155,7 @@ LLM planner 使用知识库理解节点、工具、历史案例和用户偏好�
 2. 后端 `agent.plan` 接口。
 3. Planner 读取可用工具、节点知识和当前上下文。
 4. Planner 生成结构化计划。
-5. Runtime 先支持 `workflow.build` 一个真实工具。
+5. Runtime 先支持 `workflow.createDraft` 这个真实工作流工具。
 6. 前端展示最终结果和折叠工具记录。
 
 验收案例：
