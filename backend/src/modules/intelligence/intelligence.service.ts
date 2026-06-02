@@ -141,6 +141,12 @@ export class IntelligenceService {
       return {
         workflowId: typeof context.workflowId === 'string' ? context.workflowId : '',
         workflowName: typeof context.workflowName === 'string' ? context.workflowName : '',
+        workflowSnapshot:
+          context.workflowSnapshot &&
+          typeof context.workflowSnapshot === 'object' &&
+          !Array.isArray(context.workflowSnapshot)
+            ? context.workflowSnapshot
+            : undefined,
         inputs:
           context.inputs && typeof context.inputs === 'object' && !Array.isArray(context.inputs) ? context.inputs : {},
         confirmed: context.confirmed === true,

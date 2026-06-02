@@ -101,6 +101,11 @@ function buildApprovedPlan(plan: AgentPlan, approval?: AgentRunRequest['approval
       ...(isPlainObject(plan.toolInput.inputs) ? (plan.toolInput.inputs as PlainObject) : {}),
       ...(isPlainObject(approval?.toolInput?.inputs) ? (approval?.toolInput?.inputs as PlainObject) : {}),
     };
+    const workflowSnapshot = isPlainObject(approval?.toolInput?.workflowSnapshot)
+      ? (approval?.toolInput?.workflowSnapshot as PlainObject)
+      : isPlainObject(plan.toolInput.workflowSnapshot)
+        ? (plan.toolInput.workflowSnapshot as PlainObject)
+        : undefined;
     return {
       ...plan,
       source: 'user-approved',
@@ -111,6 +116,7 @@ function buildApprovedPlan(plan: AgentPlan, approval?: AgentRunRequest['approval
         ...(typeof plan.toolInput.workflowName === 'string' && plan.toolInput.workflowName
           ? { workflowName: plan.toolInput.workflowName }
           : {}),
+        ...(workflowSnapshot ? { workflowSnapshot } : {}),
         inputs: mergedInputs,
         confirmed: true,
       },

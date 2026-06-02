@@ -624,9 +624,17 @@ export class ExecutionService {
     throw new Error(`Workflow "${workflowName}" was not found.`);
   }
 
+  resolveWorkflowExecutionSource({ workflowId, workflowName, workflowSnapshot }: PlainObject, _options: PlainObject = {}) {
+    if (isPlainObject(workflowSnapshot)) {
+      return cloneWorkflow(workflowSnapshot);
+    }
+    return this.resolveWorkflowReference({ workflowId, workflowName }, _options);
+  }
+
   async executeForAgent({
     workflowId,
     workflowName,
+    workflowSnapshot,
     inputs,
     apiConfig = {},
     signal,
@@ -634,10 +642,10 @@ export class ExecutionService {
     onRunStarted = undefined,
     scope = undefined,
   }: PlainObject) {
-    const persistedWorkflow = this.resolveWorkflowReference({ workflowId, workflowName }, { scope });
-    const overridden = applyAgentInputOverrides(persistedWorkflow, inputs);
-    const draftWorkflow = overridden.workflow === persistedWorkflow ? undefined : overridden.workflow;
-    const snapshot = createExecutionSnapshot({ persistedWorkflow, draftWorkflow });
+    const sourceWorkflow = this.resolveWorkflowExecutionSource({ workflowId, workflowName, workflowSnapshot }, { scope });
+    const overridden = applyAgentInputOverrides(sourceWorkflow, inputs);
+    const draftWorkflow = overridden.workflow === sourceWorkflow ? undefined : overridden.workflow;
+    const snapshot = createExecutionSnapshot({ persistedWorkflow: sourceWorkflow, draftWorkflow });
     const runLogger = createWorkflowRunLogger(snapshot, { requestId, scope });
     const abortController = new AbortController();
     const completedNodes: PlainObject[] = [];

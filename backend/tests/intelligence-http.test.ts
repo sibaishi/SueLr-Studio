@@ -391,6 +391,99 @@ test('agent planner falls back to local tool plan when LLM output is unusable', 
   assert.equal(plan.toolInput.input, '帮我做客服问答工作流');
 });
 
+test('agent planner falls back to run diagnosis and summary tools when latest-run intents return unusable plans', async () => {
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    skills: {
+      list() {
+        return [
+          {
+            id: 'workflow.diagnose',
+            title: '诊断最近一次运行',
+            description: '读取最近一次运行状态并返回诊断建议。',
+            sideEffect: 'read',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['runId'], properties: { runId: { type: 'string' } } },
+            outputSchema: {},
+          },
+          {
+            id: 'workflow.summarizeRun',
+            title: '汇总最近一次运行',
+            description: '读取最近一次运行结果并返回摘要。',
+            sideEffect: 'read',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['runId'], properties: { runId: { type: 'string' } } },
+            outputSchema: {},
+          },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {
+        return { status: 'rebuilt' };
+      },
+      search() {
+        return {
+          source: 'local-json',
+          items: [],
+        };
+      },
+    },
+    async chatCompletion() {
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: '无法处理' } }] };
+        },
+      };
+    },
+  });
+
+  const diagnosePlan = await service.createPlan({
+    input: '请诊断最近一次工作流运行。',
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'default',
+      label: 'planner-model · Default',
+    },
+    context: {
+      runId: 'run_recent_test',
+    },
+  });
+  assert.equal(diagnosePlan.source, 'local-fallback');
+  assert.equal(diagnosePlan.toolName, 'workflow.diagnose');
+  assert.deepEqual(diagnosePlan.toolInput, { runId: 'run_recent_test' });
+
+  const summarizePlan = await service.createPlan({
+    input: '请汇总最近一次工作流运行结果。',
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'default',
+      label: 'planner-model · Default',
+    },
+    context: {
+      runId: 'run_recent_test',
+    },
+  });
+  assert.equal(summarizePlan.source, 'local-fallback');
+  assert.equal(summarizePlan.toolName, 'workflow.summarizeRun');
+  assert.deepEqual(summarizePlan.toolInput, { runId: 'run_recent_test' });
+});
+
 test('agent planner can return a normal chat response without workflow tool use', async () => {
   const { AgentPlannerService } = await import(
     `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`

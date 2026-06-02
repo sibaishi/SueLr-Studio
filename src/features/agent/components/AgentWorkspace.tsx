@@ -403,6 +403,14 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
     const editResult = asRecord(output) as WorkflowEditResult | null;
     const applyResult = asRecord(output) as WorkflowApplyDraftResult | null;
     const executeResult = getToolOutput(runResult, 'workflow.execute') as WorkflowExecuteResult | null;
+    if (executeResult?.run?.runId) {
+      useWorkflowStore.setState((state) => ({
+        currentRunId: null,
+        lastExecutionRunId: executeResult.run?.runId || state.lastExecutionRunId,
+        lastExecutionStatus: executeResult.run?.status === 'completed' ? 'success' : 'error',
+        lastExecutionError: executeResult.run?.status === 'completed' ? null : executeResult.run?.summary || null,
+      }));
+    }
     if (pendingApproval) {
       const workflowSuggestedInputs =
         pendingApproval.toolName === 'workflow.execute'
@@ -557,6 +565,7 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
                 : pendingApproval.toolName === 'workflow.execute'
                   ? {
                       ...pendingApproval.toolInput,
+                      workflowSnapshot: getWorkflowSnapshot(),
                       inputs: buildApprovalInputPayload(message.approvalValues),
                     }
                   : pendingApproval.toolInput,

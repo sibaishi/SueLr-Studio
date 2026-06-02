@@ -259,6 +259,30 @@ function buildApplyDraftFallbackPlan(
   };
 }
 
+function buildRunToolFallbackPlan(
+  input: AgentPlanRequest,
+  toolName: 'workflow.diagnose' | 'workflow.summarizeRun',
+  knowledgeContext = getEmptyKnowledgeContext(),
+  reason = '',
+): AgentPlan {
+  const runId = cleanText(input.context.runId, 200);
+  return {
+    id: gid(),
+    source: 'local-fallback',
+    plannerModel: input.plannerModel,
+    summary: toolName === 'workflow.diagnose' ? '已准备诊断最近一次运行。' : '已准备汇总最近一次运行。',
+    toolName,
+    toolInput: { runId },
+    reasoningSummary:
+      reason ||
+      (toolName === 'workflow.diagnose'
+        ? 'Planner 未返回可用结构化计划，已按最近一次运行诊断处理。'
+        : 'Planner 未返回可用结构化计划，已按最近一次运行汇总处理。'),
+    warnings: [],
+    knowledgeContext,
+  };
+}
+
 function normalizePlan(
   raw: PlainObject | null,
   input: AgentPlanRequest,
@@ -312,6 +336,7 @@ function normalizePlan(
       toolInput: {
         ...(workflowId ? { workflowId } : {}),
         ...(workflowName ? { workflowName } : {}),
+        ...(isPlainObject(input.context.workflowSnapshot) ? { workflowSnapshot: input.context.workflowSnapshot } : {}),
         ...(toolInput.inputs && typeof toolInput.inputs === 'object' && !Array.isArray(toolInput.inputs)
           ? { inputs: toolInput.inputs }
           : {}),
@@ -481,6 +506,42 @@ function shouldInspectWorkflow(input: AgentPlanRequest) {
   );
 }
 
+function referencesLatestRun(input: AgentPlanRequest) {
+  return (
+    cleanText(input.context.runId, 200).length > 0 &&
+    includesAny(input.input, [
+      '最近一次运行',
+      '最近一次工作流运行',
+      '最近运行',
+      '最近工作流运行',
+      '刚才的运行',
+      '刚才的工作流运行',
+      '上一次运行',
+      '上一次工作流运行',
+      '本次运行',
+      '本次工作流运行',
+      'run result',
+      'latest run',
+      'recent run',
+      'last run',
+    ])
+  );
+}
+
+function shouldDiagnoseRun(input: AgentPlanRequest) {
+  return (
+    referencesLatestRun(input) &&
+    includesAny(input.input, ['诊断', '分析', '排查', '失败原因', '为什么失败', 'diagnose', 'debug'])
+  );
+}
+
+function shouldSummarizeRun(input: AgentPlanRequest) {
+  return (
+    referencesLatestRun(input) &&
+    includesAny(input.input, ['汇总', '总结', '结果', '报告', 'summary', 'summarize', 'report'])
+  );
+}
+
 function shouldApplyWorkflowEdit(input: AgentPlanRequest) {
   return (
     hasWorkflowEditPatch(input.context) && includesAny(input.input, ['应用', '确认应用', '套用', 'apply', '确认修改'])
@@ -633,6 +694,22 @@ export class AgentPlannerService {
       const normalized = normalizePlan(readJsonObject(content), input, knowledgeContext);
       if (normalized) return normalized;
       logger.warn('planner returned unusable plan', { model: input.plannerModel.modelId });
+      if (shouldDiagnoseRun(input)) {
+        return buildRunToolFallbackPlan(
+          input,
+          'workflow.diagnose',
+          knowledgeContext,
+          'Planner 返回内容不可用，已回退到最近一次运行诊断工具。',
+        );
+      }
+      if (shouldSummarizeRun(input)) {
+        return buildRunToolFallbackPlan(
+          input,
+          'workflow.summarizeRun',
+          knowledgeContext,
+          'Planner 返回内容不可用，已回退到最近一次运行汇总工具。',
+        );
+      }
       if (shouldApplyWorkflowEdit(input)) {
         return buildApplyDraftFallbackPlan(
           input,
@@ -666,6 +743,22 @@ export class AgentPlannerService {
       });
       if (!runtimeConfig.apiKey) {
         throw new ProviderError('AGENT_PLANNER_MODEL_UNAVAILABLE', 'Planner 模型缺少可用 API Key');
+      }
+      if (shouldDiagnoseRun(input)) {
+        return buildRunToolFallbackPlan(
+          input,
+          'workflow.diagnose',
+          knowledgeContext,
+          normalizedError?.message || 'Planner 调用失败，已回退到最近一次运行诊断工具。',
+        );
+      }
+      if (shouldSummarizeRun(input)) {
+        return buildRunToolFallbackPlan(
+          input,
+          'workflow.summarizeRun',
+          knowledgeContext,
+          normalizedError?.message || 'Planner 调用失败，已回退到最近一次运行汇总工具。',
+        );
       }
       if (shouldApplyWorkflowEdit(input)) {
         return buildApplyDraftFallbackPlan(

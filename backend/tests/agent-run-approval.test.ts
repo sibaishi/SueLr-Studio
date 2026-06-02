@@ -89,25 +89,29 @@ function createWorkflow(id) {
   };
 }
 
-function buildExecutePlan(workflowId) {
+function buildExecutePlan({ workflowId, workflowName, workflowSnapshot } = {}) {
   return {
-    id: `plan_${workflowId}`,
+    id: `plan_${workflowId || workflowSnapshot?.id || 'snapshot'}`,
     source: 'llm',
     plannerModel,
     summary: '准备执行当前工作流',
     toolName: 'workflow.execute',
-    toolInput: { workflowId },
+    toolInput: {
+      ...(workflowId ? { workflowId } : {}),
+      ...(workflowName ? { workflowName } : {}),
+      ...(workflowSnapshot ? { workflowSnapshot } : {}),
+    },
     reasoningSummary: '用户要求执行当前工作流',
     warnings: [],
     knowledgeContext: { source: 'test', items: [] },
   };
 }
 
-function stubPlanner(workflowId) {
+function stubPlanner(planInput) {
   const originalPlanner = agentRunner.planner;
   agentRunner.planner = {
     async createPlan() {
-      return buildExecutePlan(workflowId);
+      return buildExecutePlan(planInput);
     },
   };
   return () => {
@@ -159,7 +163,7 @@ async function postApproval(baseUrl, pendingApproval, input = '确认执行', to
 
 test('agent-runs confirms workflow.execute approval over HTTP', async () => {
   const workflowId = 'wf_agent_approval';
-  const restorePlanner = stubPlanner(workflowId);
+  const restorePlanner = stubPlanner({ workflowId });
   const { server, baseUrl } = await createTestServer('agent-run-approval');
   try {
     const pendingApproval = await createPendingApproval(baseUrl, workflowId);
@@ -206,7 +210,7 @@ test('agent-runs rejects forged workflow.execute approval over HTTP', async () =
 
 test('agent-runs rejects expired workflow.execute approval over HTTP', async () => {
   const workflowId = 'wf_agent_expired';
-  const restorePlanner = stubPlanner(workflowId);
+  const restorePlanner = stubPlanner({ workflowId });
   const { server, baseUrl } = await createTestServer('agent-run-expired');
   try {
     const pendingApproval = await createPendingApproval(baseUrl, workflowId);
@@ -228,7 +232,7 @@ test('agent-runs rejects expired workflow.execute approval over HTTP', async () 
 test('agent-runs rejects approval created for another scope over HTTP', async () => {
   const { server, baseUrl } = await createTestServer('agent-run-cross-scope');
   try {
-    const pendingApproval = agentRunner.createPendingApproval(buildExecutePlan('wf_cross_scope'), {
+    const pendingApproval = agentRunner.createPendingApproval(buildExecutePlan({ workflowId: 'wf_cross_scope' }), {
       userId: 'other-user',
       workspaceId: 'default',
       runtimeMode: 'local-web',
@@ -247,7 +251,7 @@ test('agent-runs rejects approval created for another scope over HTTP', async ()
 
 test('agent-runs rejects duplicate workflow.execute approval consumption over HTTP', async () => {
   const workflowId = 'wf_agent_duplicate';
-  const restorePlanner = stubPlanner(workflowId);
+  const restorePlanner = stubPlanner({ workflowId });
   const { server, baseUrl } = await createTestServer('agent-run-duplicate');
   try {
     const pendingApproval = await createPendingApproval(baseUrl, workflowId);
@@ -260,6 +264,51 @@ test('agent-runs rejects duplicate workflow.execute approval consumption over HT
     assertEnvelopeShape(secondConfirm.body);
     assert.equal(secondConfirm.body.error.code, 'AGENT_TOOL_APPROVAL_INVALID');
     assert.match(secondConfirm.body.error.message, /已失效/);
+  } finally {
+    restorePlanner();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('agent-runs confirms workflow.execute approval for an unsaved workflow snapshot over HTTP', async () => {
+  const workflowSnapshot = createWorkflow('wf_agent_unsaved_snapshot');
+  workflowSnapshot.name = '未保存画布执行确认测试';
+  const restorePlanner = stubPlanner({ workflowSnapshot, workflowName: workflowSnapshot.name });
+  const { server, baseUrl } = await createTestServer('agent-run-unsaved-snapshot');
+  try {
+    const pending = await requestJson(baseUrl, '/api/intelligence/agent-runs', {
+      method: 'POST',
+      body: JSON.stringify({
+        input: '执行当前画布',
+        plannerModel,
+        context: {
+          workflowName: workflowSnapshot.name,
+          workflowSnapshot,
+        },
+      }),
+    });
+    assert.equal(pending.status, 200);
+    assertEnvelopeShape(pending.body);
+    assert.equal(pending.body.data.approvalRequired, true);
+    const pendingApproval = pending.body.data.pendingApproval;
+    assert.equal(pendingApproval.toolName, 'workflow.execute');
+    assert.equal(pendingApproval.toolInput.workflowSnapshot.name, workflowSnapshot.name);
+
+    const confirmed = await postApproval(baseUrl, pendingApproval, '确认执行当前画布', {
+      ...pendingApproval.toolInput,
+      workflowSnapshot,
+      inputs: {
+        prompt: '来自未保存画布的输入覆盖',
+      },
+    });
+
+    assert.equal(confirmed.status, 200);
+    assertEnvelopeShape(confirmed.body);
+    assert.equal(confirmed.body.data.approvalRequired, false);
+    assert.equal(confirmed.body.data.toolResults[0].skillId, 'workflow.execute');
+    assert.equal(confirmed.body.data.toolResults[0].output.run.status, 'completed');
+    assert.equal(confirmed.body.data.toolResults[0].output.run.workflowId, workflowSnapshot.id);
+    assert.equal(confirmed.body.data.toolResults[0].output.run.appliedInputs[0].matchedBy, 'prompt');
   } finally {
     restorePlanner();
     await new Promise((resolve) => server.close(resolve));

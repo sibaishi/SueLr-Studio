@@ -34,6 +34,10 @@ type RegisteredSkill = IntelligenceSkillDefinition & {
   execute: SkillExecutor;
 };
 
+function isPlainObject(value: DynamicValue): value is PlainObject {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 const readOnlySkillSchema = {
   type: 'object',
   additionalProperties: false,
@@ -81,6 +85,7 @@ const workflowExecutionInputSchema = {
   properties: {
     workflowId: { type: 'string', maxLength: 120 },
     workflowName: { type: 'string', maxLength: 200 },
+    workflowSnapshot: { type: 'object' },
     inputs: {
       type: 'object',
       additionalProperties: true,
@@ -161,6 +166,9 @@ function summarizeWorkflow(workflow: PlainObject) {
 }
 
 function getWorkflowForInputHints(input: PlainObject, scope?: DynamicValue) {
+  if (isPlainObject(input.workflowSnapshot)) {
+    return input.workflowSnapshot;
+  }
   if (typeof input.workflowId === 'string' && input.workflowId.trim()) {
     return workflowsService.getById(input.workflowId.trim(), { scope });
   }
@@ -710,6 +718,7 @@ export class SkillRegistry {
           const run = await executionService.executeForAgent({
             workflowId: typeof input.workflowId === 'string' ? input.workflowId : '',
             workflowName: typeof input.workflowName === 'string' ? input.workflowName : '',
+            workflowSnapshot: isPlainObject(input.workflowSnapshot) ? input.workflowSnapshot : undefined,
             inputs: input.inputs,
             apiConfig: {},
             requestId: 'intelligence-workflow',
