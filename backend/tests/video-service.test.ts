@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { executeVideoGeneration, pollVideoTask, submitVideoGeneration } from '../src/platform/ai/video-service.ts';
+import { executeVideoGeneration, pollVideoTask, submitVideoGeneration, waitForVideoTask } from '../src/platform/ai/video-service.ts';
 import { ensureStorageDirectories, STORAGE_PATHS } from '../src/platform/storage/index.ts';
 
 function withTempStorage() {
@@ -94,6 +94,75 @@ test('submitVideoGeneration uses Ark contents generation tasks endpoint and payl
     assert.deepEqual(requestBody.content, [
       { type: 'text', text: 'a cinematic sunrise' },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,YWJj' }, role: 'reference_image' },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('video generation progress messages remain readable Chinese UTF-8', async () => {
+  const originalFetch = globalThis.fetch;
+  const progress = [];
+  let pollCount = 0;
+
+  globalThis.fetch = async (url, options = {}) => {
+    if ((options.method || 'GET') === 'POST') {
+      return new Response(JSON.stringify({
+        id: 'cgt-test-progress',
+        object: 'content_generation.task',
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    pollCount += 1;
+    return new Response(JSON.stringify(
+      pollCount === 1
+        ? {
+            status: 'processing',
+            progress: 0.25,
+          }
+        : {
+            status: 'succeeded',
+            content: {
+              video_url: 'https://example.com/result.mp4',
+            },
+          },
+    ), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const runtime = createRuntime();
+    const task = await submitVideoGeneration({
+      ...runtime,
+      model: 'doubao-seedance-2-0-260128',
+      prompt: 'a cinematic sunrise',
+      duration: 10,
+      aspect_ratio: '16:9',
+      resolution: '720p',
+      sendProgress: (message) => progress.push(message),
+    });
+
+    assert.equal(task.mode, 'poll');
+    const videoUrl = await waitForVideoTask({
+      baseUrl: runtime.baseUrl,
+      apiKey: runtime.apiKey,
+      providerConfig: runtime.providerConfig,
+      taskId: task.taskId,
+      endpoint: task.endpoint,
+      sendProgress: (message) => progress.push(message),
+    });
+
+    assert.equal(videoUrl, 'https://example.com/result.mp4');
+    assert.deepEqual(progress.slice(0, 4), [
+      '调用视频生成接口: /contents/generations/tasks; model=doubao-seedance-2-0-260128',
+      '视频生成任务已提交: taskId=cgt-test-progress; endpoint=/contents/generations/tasks',
+      '正在等待视频生成... (5s)',
+      '视频生成进度: 25%',
     ]);
   } finally {
     globalThis.fetch = originalFetch;

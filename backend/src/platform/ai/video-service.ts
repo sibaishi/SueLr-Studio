@@ -148,11 +148,11 @@ function normalizeDuration(value: unknown): number | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   const duration = Number(value);
   if (!Number.isFinite(duration) || !Number.isInteger(duration)) {
-    throw new Error('瑙嗛鏃堕暱 duration 蹇呴』涓?-1 鎴?4 鍒?15 鐨勬暣鏁扮');
+    throw new Error('视频时长 duration 必须为 -1 或 4 到 15 的整数秒');
   }
   if (duration === -1) return duration;
   if (duration < 4 || duration > 15) {
-    throw new Error('瑙嗛鏃堕暱 duration 蹇呴』涓?-1 鎴?4 鍒?15 鐨勬暣鏁扮');
+    throw new Error('视频时长 duration 必须为 -1 或 4 到 15 的整数秒');
   }
   return duration;
 }
@@ -361,31 +361,31 @@ async function buildVideoGenerationPayload(
     parts.push(audioPart);
   }
 
-  sendProgress?.(`宸叉暣鐞嗚緭鍏ョ礌鏉? 鍥剧墖 ${images.length}锛岃棰?${videos.length}锛岄煶棰?${audios.length}`);
+  sendProgress?.(`已整理输入素材: 图片 ${images.length}，视频 ${videos.length}，音频 ${audios.length}`);
 
   return { parts, images, videos, audios };
 }
 
 async function downloadRemoteVideo(url: string): Promise<string> {
-  await assertSafeRemoteDownloadUrl(url, '瑙嗛涓嬭浇鍦板潃');
+  await assertSafeRemoteDownloadUrl(url, '视频下载地址');
 
   const response = await fetch(url, {
     redirect: 'error',
     signal: AbortSignal.timeout(REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS),
   });
   if (!response.ok) {
-    throw new Error(`涓嬭浇瑙嗛澶辫触: HTTP ${response.status}`);
+    throw new Error(`下载视频失败: HTTP ${response.status}`);
   }
 
   const contentLength = Number(response.headers.get('content-length') || '0');
   if (contentLength > REMOTE_VIDEO_MAX_BYTES) {
-    throw new Error('涓嬭浇瑙嗛澶辫触: 鏂囦欢瓒呰繃澶у皬闄愬埗');
+    throw new Error('下载视频失败: 文件超过大小限制');
   }
 
   const contentType = response.headers.get('content-type') || 'video/mp4';
   const buffer = Buffer.from(await response.arrayBuffer());
   if (buffer.byteLength > REMOTE_VIDEO_MAX_BYTES) {
-    throw new Error('涓嬭浇瑙嗛澶辫触: 鏂囦欢瓒呰繃澶у皬闄愬埗');
+    throw new Error('下载视频失败: 文件超过大小限制');
   }
   return `data:${contentType};base64,${buffer.toString('base64')}`;
 }
@@ -426,7 +426,7 @@ export async function submitVideoGeneration({
     throw new Error('Missing API Key');
   }
   if (!model) {
-    throw new Error('缂哄皯瑙嗛妯″瀷 model');
+    throw new Error('缺少视频模型 model');
   }
   if (
     !normalizeTextInput(prompt) &&
@@ -440,7 +440,7 @@ export async function submitVideoGeneration({
       messages?.length
     )
   ) {
-    throw new Error('缂哄皯瑙嗛鐢熸垚杈撳叆');
+    throw new Error('缺少视频生成输入');
   }
 
   const runtimeConfig = { apiKey, baseUrl, providerConfig, projectModels };
@@ -482,7 +482,7 @@ export async function submitVideoGeneration({
         ...(input_audios?.length ? { input_audios } : {}),
         ...(messages?.length ? { messages } : {}),
       };
-  sendProgress?.(`璋冪敤瑙嗛鐢熸垚鎺ュ彛: ${endpoint}; model=${resolvedModelId}`);
+  sendProgress?.(`调用视频生成接口: ${endpoint}; model=${resolvedModelId}`);
   logger.info('video generation request prepared', {
     endpoint,
     model: resolvedModelId,
@@ -522,7 +522,7 @@ export async function submitVideoGeneration({
 
   const taskId = extractVideoTaskId(data);
   if (taskId) {
-    sendProgress?.(`瑙嗛鐢熸垚浠诲姟宸叉彁浜? taskId=${taskId}; endpoint=${endpoint}`);
+    sendProgress?.(`视频生成任务已提交: taskId=${taskId}; endpoint=${endpoint}`);
     return { mode: 'poll', taskId, endpoint, raw: data };
   }
 
@@ -531,7 +531,7 @@ export async function submitVideoGeneration({
     return { mode: 'sync', videoUrl, raw: data };
   }
 
-  throw new Error(`鏈幏寰椾换鍔?ID锛屼篃鏈繑鍥炶棰戠粨鏋? ${JSON.stringify(data).slice(0, 200)}`);
+  throw new Error(`未获得任务 ID，也未返回视频结果: ${JSON.stringify(data).slice(0, 200)}`);
 }
 
 export async function pollVideoTask({
@@ -581,9 +581,9 @@ export async function waitForVideoTask({
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     if (signal?.aborted) {
-      throw new Error('宸ヤ綔娴佸凡鎵嬪姩鍋滄');
+      throw new Error('工作流已手动停止');
     }
-    sendProgress?.(`姝ｅ湪绛夊緟瑙嗛鐢熸垚... (${attempt * 5}s)`);
+    sendProgress?.(`正在等待视频生成... (${attempt * 5}s)`);
 
     try {
       const data = await pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint, signal });
@@ -601,17 +601,17 @@ export async function waitForVideoTask({
       }
 
       if (status === 'failed' || status === 'cancelled') {
-        const normalizedError = extractVideoTaskError(data) || '瑙嗛鐢熸垚澶辫触';
-        throw new Error(`瑙嗛鐢熸垚澶辫触: ${normalizedError}`);
+        const normalizedError = extractVideoTaskError(data) || '视频生成失败';
+        throw new Error(`视频生成失败: ${normalizedError}`);
       }
 
       const progress = dataRecord.progress || getNestedRecord(data, 'data').progress;
       if (typeof progress === 'number' && progress > lastProgress) {
         lastProgress = progress;
-        sendProgress?.(`瑙嗛鐢熸垚杩涘害: ${Math.round(progress * 100)}%`);
+        sendProgress?.(`视频生成进度: ${Math.round(progress * 100)}%`);
       }
     } catch (error) {
-      if (String(error instanceof Error ? error.message : '').includes('瑙嗛鐢熸垚澶辫触')) {
+      if (String(error instanceof Error ? error.message : '').includes('视频生成失败')) {
         throw error;
       }
     }
@@ -623,7 +623,7 @@ export async function waitForVideoTask({
           'abort',
           () => {
             clearTimeout(timer);
-            reject(new Error('宸ヤ綔娴佸凡鎵嬪姩鍋滄'));
+            reject(new Error('工作流已手动停止'));
           },
           { once: true },
         );
@@ -631,7 +631,7 @@ export async function waitForVideoTask({
     });
   }
 
-  throw new Error('瑙嗛鐢熸垚瓒呮椂(瓒呰繃 10 鍒嗛挓)');
+  throw new Error('视频生成超时(超过 10 分钟)');
 }
 
 export async function executeVideoGeneration(
@@ -646,7 +646,7 @@ export async function executeVideoGeneration(
     throw new Error('Missing video prompt');
   }
 
-  sendProgress?.('姝ｅ湪澶勭悊杈撳叆绱犳潗...');
+  sendProgress?.('正在处理输入素材...');
   const payload = await buildVideoGenerationPayload(prompt, request, sendProgress);
 
   const task = await submitVideoGeneration({
@@ -693,10 +693,10 @@ export async function executeVideoGeneration(
         });
 
   if (!videoUrl) {
-    throw new Error('瑙嗛鐢熸垚瀹屾垚浣嗘湭杩斿洖鍙敤鍦板潃');
+    throw new Error('视频生成完成但未返回可用地址');
   }
 
-  sendProgress?.(shouldPersistGeneratedOutputs ? '姝ｅ湪涓嬭浇骞朵繚瀛樿棰?..' : '姝ｅ湪涓嬭浇瑙嗛...');
+  sendProgress?.(shouldPersistGeneratedOutputs ? '正在下载并保存视频...' : '正在下载视频...');
 
   if (String(videoUrl).startsWith('data:')) {
     if (!shouldPersistGeneratedOutputs) return { video: videoUrl };
