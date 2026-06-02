@@ -11,6 +11,3 @@ Rules:
 
 Current acceptance-oriented samples:
 
-- `sample-agent-local-text-output.json`: no-key success path for Agent run confirmation and summary
-- `sample-agent-local-ai-failure.json`: no-key failure path for diagnosis and summary
-- `sample-basic-chat.json`: general AI chat sample, requires configured model/key for a true success run
