@@ -39,5 +39,6 @@ export const API_KEY_INPUT_NODE = {
     },
     { id: 'customEndpoint', label: '自定义路径', type: 'text', default: '' },
   ],
+  architect: { enabled: true, order: 6 },
   supportsDisabledPassthrough: false,
 };

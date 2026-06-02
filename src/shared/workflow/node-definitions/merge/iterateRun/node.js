@@ -12,5 +12,8 @@ export const ITERATE_RUN_NODE = {
   outputs: [{ id: 'text', label: '当前文本', type: 'string' }],
   params: [],
   maxInputs: 9,
+  dynamicInputs: { prefix: 'item', type: 'string', countDataKey: 'inputCount', min: 1, max: 9 },
+  architect: { enabled: true, order: 11, defaults: { inputCount: 2 } },
+  runtime: { mode: 'iterate-text' },
   supportsDisabledPassthrough: true,
 };

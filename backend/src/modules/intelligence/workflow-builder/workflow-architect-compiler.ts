@@ -1,43 +1,17 @@
+import {
+  getWorkflowArchitectDefaultData,
+  getWorkflowArchitectVariableInputNodeTypes,
+  getWorkflowArchitectVariableOutputNodeTypes,
+  getWorkflowValidationNodePortDef,
+} from '../../../../../src/shared/workflow/node-catalog.js';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
 import { type WorkflowArchitectDsl, workflowArchitectDslSchema } from './workflow-architect.schema.ts';
 import type { WorkflowDraft } from './workflow-draft.schema.ts';
 import type { WorkflowIntent } from './workflow-intent.schema.ts';
 
-const NODE_DEFAULT_DATA: Record<string, PlainObject> = {
-  textInput: { text: '' },
-  imageInput: { fileUrl: '' },
-  maskInput: { fileUrl: '' },
-  videoInput: { fileUrl: '' },
-  audioInput: { fileUrl: '' },
-  apiKeyInput: {},
-  textMerge: { inputCount: 2 },
-  imageMerge: { inputCount: 2 },
-  videoMerge: { inputCount: 2 },
-  audioMerge: { inputCount: 2 },
-  iterateRun: { inputCount: 2 },
-  iterateImageRun: { inputCount: 2 },
-  imageResize: {},
-  imageCompare: {},
-  promptHelper: {},
-  textClean: { startKeyword: '<think>', endKeyword: '</think>' },
-  textSplit: { separator: '\n', outputCount: 2 },
-  aiChat: { model: '', temperature: 0.7, maxTokens: 4096, systemPrompt: '' },
-  imageGen: { model: '', ratio: 'auto', resolution: 'auto', n: 1, output_format: 'png' },
-  videoGen: { model: '', duration: 5, resolution: '720p', ratio: 'auto' },
-  saveFile: { outputPath: '' },
-  output: {},
-};
-
-const VARIABLE_INPUT_NODE_TYPES = new Set([
-  'textMerge',
-  'imageMerge',
-  'videoMerge',
-  'audioMerge',
-  'iterateRun',
-  'iterateImageRun',
-]);
-const VARIABLE_OUTPUT_NODE_TYPES = new Set(['textSplit']);
+const VARIABLE_INPUT_NODE_TYPES = new Set(getWorkflowArchitectVariableInputNodeTypes());
+const VARIABLE_OUTPUT_NODE_TYPES = new Set(getWorkflowArchitectVariableOutputNodeTypes());
 
 function clampInteger(value: DynamicValue, fallback: number, min: number, max: number) {
   const numeric = Number(value);
@@ -57,7 +31,7 @@ function inferInputCount(nodeType: string, data: PlainObject, edges: WorkflowArc
 }
 
 function normalizeNodeData(node: WorkflowArchitectDsl['nodes'][number], edges: WorkflowArchitectDsl['edges']) {
-  const base = { ...(NODE_DEFAULT_DATA[node.type] || {}) };
+  const base = getWorkflowArchitectDefaultData(node.type);
   const data = { ...base, ...(node.data || {}) };
   if (node.type === 'textInput' && typeof data.text !== 'string') data.text = '';
   if (node.type === 'aiChat') {
@@ -75,11 +49,22 @@ function normalizeNodeData(node: WorkflowArchitectDsl['nodes'][number], edges: W
     data.model = typeof data.model === 'string' ? data.model : '';
     data.duration = clampInteger(data.duration, 5, 1, 30);
   }
+  if (node.type === 'imageSplit') {
+    data.rows = clampInteger(data.rows, 3, 1, 3);
+    data.columns = clampInteger(data.columns, 3, 1, 3);
+  }
   if (VARIABLE_INPUT_NODE_TYPES.has(node.type)) {
     data.inputCount = inferInputCount(node.type, { ...data, id: node.id }, edges);
   }
-  if (VARIABLE_OUTPUT_NODE_TYPES.has(node.type)) {
-    data.outputCount = clampInteger(data.outputCount, 2, 1, 9);
+  const dynamicOutputs = getWorkflowValidationNodePortDef(node.type)?.dynamicOutputs;
+  if (VARIABLE_OUTPUT_NODE_TYPES.has(node.type) && dynamicOutputs?.countDataKey) {
+    const defaultCount = Number(base[dynamicOutputs.countDataKey]);
+    data[dynamicOutputs.countDataKey] = clampInteger(
+      data[dynamicOutputs.countDataKey],
+      Number.isFinite(defaultCount) ? defaultCount : dynamicOutputs.min,
+      dynamicOutputs.min,
+      dynamicOutputs.max,
+    );
   }
   return data;
 }

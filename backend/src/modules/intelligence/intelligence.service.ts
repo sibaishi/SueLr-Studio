@@ -98,7 +98,9 @@ export class IntelligenceService {
         workflowId: String(context.workflowId || ''),
         workflowName: typeof context.workflowName === 'string' ? context.workflowName : '',
         workflowSnapshot:
-          context.workflowSnapshot && typeof context.workflowSnapshot === 'object' && !Array.isArray(context.workflowSnapshot)
+          context.workflowSnapshot &&
+          typeof context.workflowSnapshot === 'object' &&
+          !Array.isArray(context.workflowSnapshot)
             ? context.workflowSnapshot
             : undefined,
       };
@@ -109,7 +111,9 @@ export class IntelligenceService {
         workflowId: typeof context.workflowId === 'string' ? context.workflowId : '',
         workflowName: typeof context.workflowName === 'string' ? context.workflowName : '',
         workflowSnapshot:
-          context.workflowSnapshot && typeof context.workflowSnapshot === 'object' && !Array.isArray(context.workflowSnapshot)
+          context.workflowSnapshot &&
+          typeof context.workflowSnapshot === 'object' &&
+          !Array.isArray(context.workflowSnapshot)
             ? context.workflowSnapshot
             : undefined,
       };
@@ -119,7 +123,9 @@ export class IntelligenceService {
         workflowId: typeof context.workflowId === 'string' ? context.workflowId : '',
         workflowName: typeof context.workflowName === 'string' ? context.workflowName : '',
         workflowSnapshot:
-          context.workflowSnapshot && typeof context.workflowSnapshot === 'object' && !Array.isArray(context.workflowSnapshot)
+          context.workflowSnapshot &&
+          typeof context.workflowSnapshot === 'object' &&
+          !Array.isArray(context.workflowSnapshot)
             ? context.workflowSnapshot
             : undefined,
         workflowEditPatch:

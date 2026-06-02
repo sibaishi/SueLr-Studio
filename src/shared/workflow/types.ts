@@ -36,6 +36,16 @@ export interface ParamDef {
   step?: number;
 }
 
+export interface DynamicPortDef {
+  prefix: string;
+  type: PortDataType;
+  countDataKey?: string;
+  countDataKeys?: string[];
+  countOperation?: 'multiply';
+  min: number;
+  max: number;
+}
+
 export interface NodeTypeDef {
   type: string;
   version: number;
@@ -48,6 +58,28 @@ export interface NodeTypeDef {
   params: ParamDef[];
   maxInputs?: number;
   maxOutputs?: number;
+  dynamicInputs?: DynamicPortDef;
+  dynamicOutputs?: DynamicPortDef;
+  dynamicOutputInputs?: DynamicPortDef;
+  agent?: {
+    enabled: boolean;
+    maturity: 'stable' | 'limited' | 'experimental';
+    useWhen: string[];
+    avoidWhen?: string[];
+    notes?: string[];
+  };
+  architect?: {
+    enabled: boolean;
+    order?: number;
+    defaults?: Record<string, unknown>;
+  };
+  runtime?: {
+    mode?: 'standard' | 'iterate-text' | 'iterate-image';
+  };
+  agentInput?: {
+    aliases: string[];
+    adapter: 'text' | 'image' | 'video' | 'audio' | 'mask';
+  };
   supportsDisabledPassthrough?: boolean;
   executable?: boolean;
 }

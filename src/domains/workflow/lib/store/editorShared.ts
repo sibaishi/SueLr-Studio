@@ -158,7 +158,7 @@ export function compactDynamicInputEdges(nodes: Node[], edges: Edge[]) {
 
 export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
   return nodes.map((node) => {
-    if (node.type === 'textSplit') {
+    if (node.type === 'textSplit' || node.type === 'imageSplit') {
       const minSize = getNodeAutoExpandedSize(
         node.type || '',
         1,

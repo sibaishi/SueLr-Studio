@@ -7,6 +7,7 @@ import { execute as executeImageGen } from './imageGen.ts';
 import { execute as executeImageInput } from './imageInput.ts';
 import { execute as executeImageMerge } from './imageMerge.ts';
 import { execute as executeImageResize } from './imageResize.ts';
+import { execute as executeImageSplit } from './imageSplit.ts';
 import { execute as executeIterateImageRun } from './iterateImageRun.ts';
 import { execute as executeIterateRun } from './iterateRun.ts';
 import { execute as executeMaskInput } from './maskInput.ts';
@@ -27,6 +28,7 @@ export const NODE_EXECUTORS = {
   imageInput: executeImageInput,
   maskInput: executeMaskInput,
   imageResize: executeImageResize,
+  imageSplit: executeImageSplit,
   videoInput: executeVideoInput,
   audioInput: executeAudioInput,
   apiKeyInput: executeApiKeyInput,

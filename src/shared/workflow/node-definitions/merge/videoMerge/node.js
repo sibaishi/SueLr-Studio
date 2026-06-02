@@ -12,5 +12,7 @@ export const VIDEO_MERGE_NODE = {
   outputs: [{ id: 'merged', label: '合并视频', type: 'video[]' }],
   params: [],
   maxInputs: 9,
+  dynamicInputs: { prefix: 'item', type: 'video', countDataKey: 'inputCount', min: 1, max: 9 },
+  architect: { enabled: true, order: 9, defaults: { inputCount: 2 } },
   supportsDisabledPassthrough: true,
 };

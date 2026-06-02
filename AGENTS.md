@@ -69,6 +69,23 @@ Critical ownership rules:
   - `Ctrl+Shift+Enter` run workflow
   - `Ctrl+C` / `Ctrl+V` copy and paste nodes on canvas
 
+## Unified Workflow Node Catalog
+
+- `src/shared/workflow/node-registry.js` is the base source of truth for workflow node definitions used by the editor, persistence normalization, and runtime contracts
+- `src/shared/workflow/node-catalog.js` is the shared intelligence-facing catalog derived from the base registry
+- Do not recreate hardcoded intelligence node allowlists, validation port tables, or Architect default-data tables under `backend/`
+- Declare Architect enablement, defaults, dynamic ports, runtime mode, and optional Agent input adapters on the isolated node definition. Keep only intelligence-only compatibility overrides in `src/shared/workflow/node-catalog.js`
+- Agent knowledge category and ports are derived from the shared registry. Descriptions, usage guidance, maturity, and parameter notes remain in `backend/src/modules/intelligence/workflow-builder/node-capabilities.ts` because they are semantic, not mechanical. Every Architect-enabled catalog node must keep a matching capability seed
+- When adding a workflow node, update every applicable chain:
+  - isolated node definition and category export under `src/shared/workflow/node-definitions/`
+  - backend executor and `backend/src/engine/nodes/index.ts`
+  - isolated node metadata for Architect enablement, defaults, dynamic ports, runtime mode, and optional Agent input adapters
+  - Agent capability seed in `node-capabilities.ts`
+  - dedicated renderer only when generic rendering is insufficient
+  - `backend/src/engine/executor.ts` only for special scheduling semantics
+  - `backend/src/modules/execution/execution.service.ts` only for a new Agent-overridable input-node type
+- Preserve existing node types, ports, defaults, shortcuts, saved workflow JSON, and runtime semantics during catalog refactors
+
 ## Zustand
 
 - Prefer small domain-focused stores

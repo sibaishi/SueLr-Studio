@@ -13,6 +13,7 @@ import {
   getRegisteredNodeTypesFromIndex,
   getRequiredInputsFromIndex,
   isExecutableNodeTypeFromIndex,
+  resolveDynamicPortCount,
   supportsDisabledPassthroughFromIndex,
 } from './node-registry-helpers.js';
 
@@ -62,3 +63,5 @@ export function isExecutableNodeType(type) {
 export function supportsDisabledPassthrough(type) {
   return supportsDisabledPassthroughFromIndex(NODE_REGISTRY_BY_TYPE, type);
 }
+
+export { resolveDynamicPortCount };

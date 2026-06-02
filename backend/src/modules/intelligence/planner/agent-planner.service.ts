@@ -469,12 +469,22 @@ function includesAny(text: string, needles: string[]) {
 function shouldInspectWorkflow(input: AgentPlanRequest) {
   return (
     hasWorkflowContext(input.context) &&
-    includesAny(input.input, ['查看当前工作流', '查看当前画布', '检查当前工作流', 'inspect', 'summary', '总结这个工作流', '看看画布'])
+    includesAny(input.input, [
+      '查看当前工作流',
+      '查看当前画布',
+      '检查当前工作流',
+      'inspect',
+      'summary',
+      '总结这个工作流',
+      '看看画布',
+    ])
   );
 }
 
 function shouldApplyWorkflowEdit(input: AgentPlanRequest) {
-  return hasWorkflowEditPatch(input.context) && includesAny(input.input, ['应用', '确认应用', '套用', 'apply', '确认修改']);
+  return (
+    hasWorkflowEditPatch(input.context) && includesAny(input.input, ['应用', '确认应用', '套用', 'apply', '确认修改'])
+  );
 }
 
 function shouldEditWorkflow(input: AgentPlanRequest) {
@@ -624,13 +634,25 @@ export class AgentPlannerService {
       if (normalized) return normalized;
       logger.warn('planner returned unusable plan', { model: input.plannerModel.modelId });
       if (shouldApplyWorkflowEdit(input)) {
-        return buildApplyDraftFallbackPlan(input, knowledgeContext, 'Planner 返回内容不可用，已按当前修改草案走应用确认流程。');
+        return buildApplyDraftFallbackPlan(
+          input,
+          knowledgeContext,
+          'Planner 返回内容不可用，已按当前修改草案走应用确认流程。',
+        );
       }
       if (shouldEditWorkflow(input)) {
-        return buildEditFallbackPlan(input, knowledgeContext, 'Planner 返回内容不可用，已按当前工作流修改需求生成 patch 草案。');
+        return buildEditFallbackPlan(
+          input,
+          knowledgeContext,
+          'Planner 返回内容不可用，已按当前工作流修改需求生成 patch 草案。',
+        );
       }
       if (shouldInspectWorkflow(input)) {
-        return buildInspectFallbackPlan(input, knowledgeContext, 'Planner 返回内容不可用，已回退到当前工作流检查工具。');
+        return buildInspectFallbackPlan(
+          input,
+          knowledgeContext,
+          'Planner 返回内容不可用，已回退到当前工作流检查工具。',
+        );
       }
       if (!shouldUseWorkflowFallback(input.input)) {
         return fallbackChatPlan(input, 'Planner 返回内容不是可执行的结构化计划，已按普通对话处理。', knowledgeContext);
@@ -646,13 +668,25 @@ export class AgentPlannerService {
         throw new ProviderError('AGENT_PLANNER_MODEL_UNAVAILABLE', 'Planner 模型缺少可用 API Key');
       }
       if (shouldApplyWorkflowEdit(input)) {
-        return buildApplyDraftFallbackPlan(input, knowledgeContext, normalizedError?.message || 'Planner 调用失败，已回退到工作流修改应用流程。');
+        return buildApplyDraftFallbackPlan(
+          input,
+          knowledgeContext,
+          normalizedError?.message || 'Planner 调用失败，已回退到工作流修改应用流程。',
+        );
       }
       if (shouldEditWorkflow(input)) {
-        return buildEditFallbackPlan(input, knowledgeContext, normalizedError?.message || 'Planner 调用失败，已回退到工作流修改草案工具。');
+        return buildEditFallbackPlan(
+          input,
+          knowledgeContext,
+          normalizedError?.message || 'Planner 调用失败，已回退到工作流修改草案工具。',
+        );
       }
       if (shouldInspectWorkflow(input)) {
-        return buildInspectFallbackPlan(input, knowledgeContext, normalizedError?.message || 'Planner 调用失败，已回退到工作流检查工具。');
+        return buildInspectFallbackPlan(
+          input,
+          knowledgeContext,
+          normalizedError?.message || 'Planner 调用失败，已回退到工作流检查工具。',
+        );
       }
       return fallbackPlan(input, normalizedError?.message || 'Planner 调用失败，已回退到本地计划。', knowledgeContext);
     }

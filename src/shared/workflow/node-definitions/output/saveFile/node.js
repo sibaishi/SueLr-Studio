@@ -14,5 +14,6 @@ export const SAVE_FILE_NODE = {
     { id: 'outputPath', label: '保存路径（未设置则不保存）', type: 'text', default: '', picker: 'directory' },
     { id: 'filenamePrefix', label: '文件名前缀', type: 'text', default: 'saved' },
   ],
+  architect: { enabled: true, order: 21, defaults: { outputPath: '' } },
   supportsDisabledPassthrough: true,
 };

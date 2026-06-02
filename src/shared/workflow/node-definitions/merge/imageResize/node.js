@@ -25,5 +25,6 @@ export const IMAGE_RESIZE_NODE = {
     { id: 'targetWidth', label: '目标宽度', type: 'number', min: 1, default: 1024, group: 'resizeDimensions' },
     { id: 'targetHeight', label: '目标高度', type: 'number', min: 1, default: 1024, group: 'resizeDimensions' },
   ],
+  architect: { enabled: true, order: 13 },
   supportsDisabledPassthrough: true,
 };

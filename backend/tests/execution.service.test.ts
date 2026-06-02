@@ -1,14 +1,18 @@
 // @ts-nocheck
-import test from 'node:test';
+
 import assert from 'node:assert/strict';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
 
 import { ExecutionService } from '../src/modules/execution/execution.service.ts';
 import { STORAGE_PATHS } from '../src/platform/storage/index.ts';
 
 function createStorageDir(name) {
-  const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `execution-service-${name}-${Date.now()}`);
+  const root = path.resolve(
+    'C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode',
+    `execution-service-${name}-${Date.now()}`,
+  );
   fs.mkdirSync(root, { recursive: true });
   return root;
 }
@@ -29,7 +33,8 @@ function createMockSseResponse() {
 }
 
 function parseSseEvents(chunks) {
-  return chunks.flatMap((chunk) => String(chunk).trim().split('\n\n'))
+  return chunks
+    .flatMap((chunk) => String(chunk).trim().split('\n\n'))
     .filter(Boolean)
     .map((block) => {
       const lines = block.split('\n');
@@ -47,17 +52,20 @@ test('ExecutionService exposes a recently completed run status after the active 
   });
   const now = Date.now();
 
-  service.rememberRecentExecution({
-    status: 'completed',
-    runId: 'run_recent_completed',
-    workflowId: 'wf_1',
-    source: 'draft',
-    snapshotVersion: 7,
-    finishedAt: 123,
-    totalDuration: 456,
-    successCount: 3,
-    failCount: 1,
-  }, now);
+  service.rememberRecentExecution(
+    {
+      status: 'completed',
+      runId: 'run_recent_completed',
+      workflowId: 'wf_1',
+      source: 'draft',
+      snapshotVersion: 7,
+      finishedAt: 123,
+      totalDuration: 456,
+      successCount: 3,
+      failCount: 1,
+    },
+    now,
+  );
 
   assert.deepEqual(service.getStatus('run_recent_completed'), {
     status: 'completed',
@@ -80,14 +88,17 @@ test('ExecutionService recent run status expires after retention window', () => 
   });
   const now = Date.now();
 
-  service.rememberRecentExecution({
-    status: 'failed',
-    runId: 'run_recent_failed',
-    workflowId: 'wf_1',
-    error: 'timeout',
-  }, now);
+  service.rememberRecentExecution(
+    {
+      status: 'failed',
+      runId: 'run_recent_failed',
+      workflowId: 'wf_1',
+      error: 'timeout',
+    },
+    now,
+  );
 
-  service.pruneRecentExecutions(now + (5 * 60 * 1000) + 1);
+  service.pruneRecentExecutions(now + 5 * 60 * 1000 + 1);
 
   assert.deepEqual(service.getStatus('run_recent_failed'), {
     status: 'idle',
@@ -152,11 +163,13 @@ test('ExecutionService stores sanitized node outputs in workflow run logs', asyn
   const rawLog = fs.readFileSync(logPath, 'utf8');
   assert.equal(rawLog.includes(inlineImage), false);
 
-  const entries = rawLog.trim().split('\n').map((line) => JSON.parse(line));
-  const completedEntry = entries.find((entry) => (
-    entry.event === 'workflow_node_completed'
-    && entry.data.nodeId === 'text-1'
-  ));
+  const entries = rawLog
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+  const completedEntry = entries.find(
+    (entry) => entry.event === 'workflow_node_completed' && entry.data.nodeId === 'text-1',
+  );
   assert.ok(completedEntry);
   assert.equal(completedEntry.data.outputs.text.kind, 'inline-data-url');
   assert.equal(completedEntry.data.outputs.text.mimeType, 'image/png');
@@ -169,10 +182,9 @@ test('ExecutionService stores sanitized node outputs in workflow run logs', asyn
   assert.equal(fs.existsSync(artifactPath), true);
   assert.equal(fs.readFileSync(artifactPath, 'utf8'), inlineImage);
 
-  const sseCompletedEvent = sseEvents.find(({ event, data }) => (
-    event === 'workflow_node_completed'
-    && data.nodeId === 'text-1'
-  ));
+  const sseCompletedEvent = sseEvents.find(
+    ({ event, data }) => event === 'workflow_node_completed' && data.nodeId === 'text-1',
+  );
   assert.equal(sseCompletedEvent.data.outputs.text, inlineImage);
 });
 
@@ -386,13 +398,76 @@ test('ExecutionService.executeForAgent throws when no requested input keys match
   });
 
   await assert.rejects(
-    () => service.executeForAgent({
-      workflowId: 'wf_agent_unmatched',
-      inputs: {
-        不存在的节点: 'new value',
-      },
-      apiConfig: {},
-    }),
+    () =>
+      service.executeForAgent({
+        workflowId: 'wf_agent_unmatched',
+        inputs: {
+          不存在的节点: 'new value',
+        },
+        apiConfig: {},
+      }),
     /did not match any input nodes/,
   );
+});
+
+test('ExecutionService.executeForAgent applies mask input overrides before execution', async () => {
+  const whitePixelPng =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=';
+  const workflow = {
+    id: 'wf_agent_mask_input',
+    name: 'Agent Mask Input Workflow',
+    version: 1,
+    nodes: [
+      {
+        id: 'node_mask',
+        type: 'maskInput',
+        position: { x: 0, y: 0 },
+        data: { fileUrl: '' },
+      },
+      {
+        id: 'output-1',
+        type: 'output',
+        position: { x: 100, y: 0 },
+        data: {},
+      },
+    ],
+    edges: [
+      {
+        id: 'edge-1',
+        source: 'node_mask',
+        sourceHandle: 'mask',
+        target: 'output-1',
+        targetHandle: 'content',
+      },
+    ],
+    settings: {},
+  };
+  const service = new ExecutionService({
+    read() {
+      return { workflow };
+    },
+    list() {
+      return [workflow];
+    },
+  });
+
+  const result = await service.executeForAgent({
+    workflowId: 'wf_agent_mask_input',
+    inputs: {
+      mask: { maskUrl: whitePixelPng },
+    },
+    apiConfig: {},
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.source, 'draft');
+  assert.deepEqual(result.appliedInputs, [
+    {
+      nodeId: 'node_mask',
+      nodeType: 'maskInput',
+      field: 'fileUrl',
+      matchedBy: 'mask',
+    },
+  ]);
+  assert.match(result.summary, /appliedInputs: node_mask/);
 });

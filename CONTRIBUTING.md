@@ -121,6 +121,20 @@ Please keep changes aligned with the existing architecture:
 - when touching workflow nodes, keep each node isolated in its own folder under `src/shared/workflow/node-definitions/<group>/<node>/`
 - preserve compatibility entry files and registry surfaces unless the change explicitly includes a coordinated registry migration
 
+### Workflow Node Catalog
+
+Workflow nodes have a shared catalog so the canvas, backend runtime, Agent knowledge base, workflow builder, validator, editor, and execution paths do not drift apart.
+
+- treat `src/shared/workflow/node-registry.js` as the base node-definition source of truth
+- treat `src/shared/workflow/node-catalog.js` as the shared intelligence-facing derivation layer
+- declare Architect enablement, defaults, dynamic ports, runtime mode, and optional Agent input adapters on the isolated node definition
+- do not add backend-local copies of Architect node allowlists, validator port maps, or Architect default-data maps
+- derive Agent knowledge category and ports from the shared registry; keep semantic usage guidance in `backend/src/modules/intelligence/workflow-builder/node-capabilities.ts`, with one capability seed for every Architect-enabled catalog node
+- keep special scheduling logic explicit in `backend/src/engine/executor.ts`; ordinary nodes must not add scheduler branches
+- keep new Agent-overridable input-node adapters explicit in `backend/src/modules/execution/execution.service.ts`
+
+When adding a workflow node, update the applicable definition export and metadata, backend executor registration, Agent capability seed, renderer, scheduling adapter, and Agent input adapter. Add catalog coverage and runtime tests in the same change. A catalog-only refactor must preserve existing node types, ports, defaults, saved workflow JSON, shortcuts, and runtime behavior.
+
 ## Documentation Policy
 
 The `docs/` directory is intentionally reserved for stable public-facing project documentation.

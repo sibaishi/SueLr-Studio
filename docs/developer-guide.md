@@ -251,11 +251,40 @@ Current cleanup and ownership notes:
 - `src/shared/ui/workbench/MediaWorkbench.tsx`
   - reusable asset preview and reuse surface
 - `src/shared/workflow/node-registry.js`
-  - frontend node registry used by workflow editor
+  - base workflow node-definition source of truth used by the editor, persistence normalization, and backend runtime contracts
 - `src/shared/workflow/node-registry-helpers.js`
   - helper composition for registry assembly and compatibility surfaces
+- `src/shared/workflow/node-catalog.js`
+  - intelligence-facing workflow node catalog derived from the base registry
+  - derives the shared Architect allowlist, Architect default data, validator port view, and Agent input adapter list
+  - keeps only intelligence-only compatibility overrides that cannot live in the base contract
 - `src/shared/workflow/node-definitions/`
   - compatibility-first node-definition tree grouped by category, with one folder per node and `node.js` owning the actual definition
+
+### Workflow node extension rules
+
+Adding a workflow node is a cross-chain capability change, not only a canvas component change.
+
+The shared ownership model is:
+
+- `src/shared/workflow/node-registry.js` is the base source of truth for node definitions
+- `src/shared/workflow/node-catalog.js` derives the intelligence-facing catalog consumed by the workflow validator and Workflow Architect
+- each isolated node definition declares applicable Architect enablement, defaults, dynamic ports, runtime mode, and Agent input adapter metadata
+- `backend/src/modules/intelligence/workflow-builder/node-capabilities.ts` derives category and ports from the shared registry, while keeping semantic Agent knowledge such as use cases, avoid cases, maturity, parameter notes, and operational notes explicit because that guidance cannot be generated safely from ports alone
+- `backend/src/engine/nodes/index.ts` registers executable backend implementations
+
+For a normal Agent-buildable node:
+
+1. Add the isolated definition through `src/shared/workflow/node-definitions/<group>/index.js -> <node>/index.js -> <node>/node.js`.
+2. Register the backend executor in `backend/src/engine/nodes/index.ts`.
+3. Declare Architect defaults, dynamic ports, runtime mode, and any Agent input adapter on the isolated node definition. Add a `node-catalog.js` override only for an intelligence-only compatibility requirement.
+4. Add the matching semantic capability seed in `backend/src/modules/intelligence/workflow-builder/node-capabilities.ts`.
+5. Add a dedicated frontend renderer only when generic node rendering is insufficient.
+6. Add scheduler handling in `backend/src/engine/executor.ts` only when the node changes execution semantics, such as iterative downstream replay.
+7. Add Agent input override handling in `backend/src/modules/execution/execution.service.ts` only when the node introduces a new user-overridable input type.
+8. Update catalog and runtime tests, then run `npm run check:encoding` and `npm run check`.
+
+Do not add backend-local copies of the Architect allowlist, validator port map, or Architect default-data map. Catalog refactors must preserve node types, ports, defaults, persisted workflow JSON, required shortcuts, and runtime behavior.
 
 ## Frontend Build Shape
 
@@ -520,6 +549,7 @@ High-value regression areas:
 - centered node-picker panel, blank-canvas double-click open, and blank-canvas right-click paste menu
 - workflow keyboard shortcuts for copy, paste, grouping, execution, undo, and redo
 - workflow node registry compatibility after node-definition moves
+- workflow intelligence catalog compatibility for Architect node types, defaults, dynamic ports, and Agent knowledge coverage
 - per-node folder compatibility exports under `src/shared/workflow/node-definitions/`
 - editable grouped graph to executable flat graph projection
 - workflow execution state transitions

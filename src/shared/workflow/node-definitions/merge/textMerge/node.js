@@ -12,5 +12,7 @@ export const TEXT_MERGE_NODE = {
   outputs: [{ id: 'merged', label: '合并文本', type: 'string[]' }],
   params: [],
   maxInputs: 9,
+  dynamicInputs: { prefix: 'item', type: 'string', countDataKey: 'inputCount', min: 1, max: 9 },
+  architect: { enabled: true, order: 7, defaults: { inputCount: 2 } },
   supportsDisabledPassthrough: true,
 };

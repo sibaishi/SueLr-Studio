@@ -1,3 +1,8 @@
+import {
+  getWorkflowValidationInputNodeTypes,
+  getWorkflowValidationNodePortDefs,
+} from '../../../../../src/shared/workflow/node-catalog.js';
+import { resolveDynamicPortCount } from '../../../../../src/shared/workflow/node-registry.js';
 import { ValidationError } from '../../../app/errors/index.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
@@ -15,117 +20,8 @@ type PortDef = {
   required?: boolean;
 };
 
-type NodePortDef = {
-  inputs: Record<string, PortDef>;
-  outputs: Record<string, PortDef>;
-  dynamicInputs?: {
-    prefix: string;
-    type: string;
-    countDataKey: string;
-    min: number;
-    max: number;
-  };
-  dynamicOutputs?: {
-    prefix: string;
-    type: string;
-    countDataKey: string;
-    min: number;
-    max: number;
-  };
-  dynamicOutputInputs?: {
-    prefix: string;
-    type: string;
-    min: number;
-    max: number;
-  };
-};
-
-const NODE_PORTS: Record<string, NodePortDef> = {
-  textInput: { inputs: {}, outputs: { text: { type: 'string' } } },
-  imageInput: { inputs: {}, outputs: { image: { type: 'image' }, mask: { type: 'mask' } } },
-  maskInput: { inputs: {}, outputs: { mask: { type: 'mask' } } },
-  videoInput: { inputs: {}, outputs: { video: { type: 'video' } } },
-  audioInput: { inputs: {}, outputs: { audio: { type: 'audio' } } },
-  apiKeyInput: { inputs: {}, outputs: { apiKey: { type: 'apiKey' } } },
-  aiChat: {
-    inputs: {
-      prompt: { type: 'string', required: true },
-      image: { type: 'image' },
-      apiKey: { type: 'apiKey' },
-    },
-    outputs: { response: { type: 'string' } },
-  },
-  imageGen: {
-    inputs: {
-      prompt: { type: 'string', required: true },
-      reference: { type: 'image' },
-      mask: { type: 'mask' },
-      apiKey: { type: 'apiKey' },
-    },
-    outputs: { images: { type: 'image[]' } },
-  },
-  videoGen: {
-    inputs: {
-      prompt: { type: 'string', required: true },
-      reference: { type: 'image' },
-      video: { type: 'video' },
-      audio: { type: 'audio' },
-      apiKey: { type: 'apiKey' },
-    },
-    outputs: { video: { type: 'video' } },
-  },
-  promptHelper: { inputs: { text: { type: 'string' } }, outputs: { prompt: { type: 'string' } } },
-  textClean: { inputs: { text: { type: 'string', required: true } }, outputs: { text: { type: 'string' } } },
-  textSplit: {
-    inputs: { text: { type: 'string', required: true } },
-    outputs: {},
-    dynamicOutputs: { prefix: 'part', type: 'string', countDataKey: 'outputCount', min: 1, max: 9 },
-  },
-  textMerge: {
-    inputs: {},
-    outputs: { merged: { type: 'string[]' } },
-    dynamicInputs: { prefix: 'item', type: 'string', countDataKey: 'inputCount', min: 1, max: 9 },
-  },
-  imageMerge: {
-    inputs: {},
-    outputs: { merged: { type: 'image[]' } },
-    dynamicInputs: { prefix: 'item', type: 'image', countDataKey: 'inputCount', min: 1, max: 9 },
-  },
-  videoMerge: {
-    inputs: {},
-    outputs: { merged: { type: 'video[]' } },
-    dynamicInputs: { prefix: 'item', type: 'video', countDataKey: 'inputCount', min: 1, max: 9 },
-  },
-  audioMerge: {
-    inputs: {},
-    outputs: { merged: { type: 'audio[]' } },
-    dynamicInputs: { prefix: 'item', type: 'audio', countDataKey: 'inputCount', min: 1, max: 9 },
-  },
-  iterateRun: {
-    inputs: {},
-    outputs: { text: { type: 'string' } },
-    dynamicInputs: { prefix: 'item', type: 'string', countDataKey: 'inputCount', min: 1, max: 9 },
-  },
-  iterateImageRun: {
-    inputs: {},
-    outputs: { image: { type: 'image' } },
-    dynamicInputs: { prefix: 'item', type: 'image', countDataKey: 'inputCount', min: 1, max: 9 },
-  },
-  imageResize: { inputs: { image: { type: 'image', required: true } }, outputs: { image: { type: 'image' } } },
-  imageCompare: {
-    inputs: {
-      image1: { type: 'image', required: true },
-      image2: { type: 'image', required: true },
-    },
-    outputs: {},
-  },
-  saveFile: { inputs: { content: { type: 'any', required: true } }, outputs: { content: { type: 'any' } } },
-  output: {
-    inputs: { content: { type: 'any', required: true } },
-    outputs: {},
-    dynamicOutputInputs: { prefix: 'content', type: 'any', min: 1, max: 9 },
-  },
-};
+const NODE_PORTS = getWorkflowValidationNodePortDefs();
+const INPUT_NODE_TYPES = new Set(getWorkflowValidationInputNodeTypes());
 
 function clampInteger(value: DynamicValue, fallback: number, min: number, max: number) {
   const numeric = Number(value);
@@ -165,12 +61,7 @@ function getOutputPort(node: PlainObject, handleId: string): PortDef | null {
   if (def.outputs[handleId]) return def.outputs[handleId];
   if (def.dynamicOutputs) {
     const index = readDynamicHandleIndex(handleId, def.dynamicOutputs.prefix);
-    const count = clampInteger(
-      node.data?.[def.dynamicOutputs.countDataKey],
-      def.dynamicOutputs.min,
-      def.dynamicOutputs.min,
-      def.dynamicOutputs.max,
-    );
+    const count = resolveDynamicPortCount(def.dynamicOutputs, node.data, def.dynamicOutputs.min);
     if (index !== null && index >= 1 && index <= count) return { type: def.dynamicOutputs.type };
   }
   return null;
@@ -329,11 +220,7 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
   }
 
   const inputNodeIds = new Set(
-    nodes
-      .filter((node) =>
-        ['imageInput', 'textInput', 'maskInput', 'videoInput', 'audioInput'].includes(String(node.type)),
-      )
-      .map((node) => String(node.id || '')),
+    nodes.filter((node) => INPUT_NODE_TYPES.has(String(node.type))).map((node) => String(node.id || '')),
   );
   for (const nodeId of inputNodeIds) {
     const hasOutgoing = edges.some((edge) => edge.source === nodeId);

@@ -1,4 +1,5 @@
 import { findGroupPort, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
+import { getNodeDef, supportsDisabledPassthrough } from '@/domains/workflow/nodes/registry';
 import type { Edge, Node } from '@xyflow/react';
 
 function getNodeParentId(node: Node) {
@@ -112,7 +113,7 @@ export function projectWorkflowToExecutionGraph(nodes: Node[], edges: Edge[]) {
   const positionMemo = new Map<string, { x: number; y: number }>();
 
   const projectedNodes = nodes
-    .filter((node) => node.type !== 'group')
+    .filter((node) => node.type !== 'group' && !node.data?.disabled)
     .map((node) => {
       const absolutePosition = getAbsoluteNodePosition(node.id, nodeMap, positionMemo);
       return {
@@ -148,9 +149,34 @@ export function projectWorkflowToExecutionGraph(nodes: Node[], edges: Edge[]) {
     }
   }
 
+  let executableEdges = projectedEdges;
+  for (const node of nodes.filter((item) => item.type !== 'group' && item.data?.disabled)) {
+    const def = getNodeDef(node.type || '');
+    const primaryInput = def?.inputs[0]?.id;
+    const primaryOutput = def?.outputs[0]?.id;
+    const incoming = executableEdges.filter((edge) => edge.target === node.id && edge.targetHandle === primaryInput);
+    const outgoing = executableEdges.filter((edge) => edge.source === node.id && edge.sourceHandle === primaryOutput);
+    const retained = executableEdges.filter((edge) => edge.source !== node.id && edge.target !== node.id);
+
+    if (supportsDisabledPassthrough(node.type || '') && primaryInput && primaryOutput) {
+      for (const source of incoming) {
+        for (const target of outgoing) {
+          retained.push({
+            ...target,
+            id: `${source.id}:disabled:${node.id}:${target.id}`,
+            source: source.source,
+            sourceHandle: source.sourceHandle,
+          });
+        }
+      }
+    }
+
+    executableEdges = retained;
+  }
+
   return {
     nodes: projectedNodes,
-    edges: projectedEdges,
+    edges: executableEdges,
   };
 }
 

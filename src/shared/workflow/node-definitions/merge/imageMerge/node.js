@@ -12,5 +12,7 @@ export const IMAGE_MERGE_NODE = {
   outputs: [{ id: 'merged', label: '合并图片', type: 'image[]' }],
   params: [],
   maxInputs: 9,
+  dynamicInputs: { prefix: 'item', type: 'image', countDataKey: 'inputCount', min: 1, max: 9 },
+  architect: { enabled: true, order: 8, defaults: { inputCount: 2 } },
   supportsDisabledPassthrough: true,
 };

@@ -12,5 +12,8 @@ export const ITERATE_IMAGE_RUN_NODE = {
   outputs: [{ id: 'image', label: '当前图片', type: 'image' }],
   params: [],
   maxInputs: 9,
+  dynamicInputs: { prefix: 'item', type: 'image', countDataKey: 'inputCount', min: 1, max: 9 },
+  architect: { enabled: true, order: 12, defaults: { inputCount: 2 } },
+  runtime: { mode: 'iterate-image' },
   supportsDisabledPassthrough: true,
 };

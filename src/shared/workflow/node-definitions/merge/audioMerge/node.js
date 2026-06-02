@@ -12,5 +12,7 @@ export const AUDIO_MERGE_NODE = {
   outputs: [{ id: 'merged', label: '合并音频', type: 'audio[]' }],
   params: [],
   maxInputs: 9,
+  dynamicInputs: { prefix: 'item', type: 'audio', countDataKey: 'inputCount', min: 1, max: 9 },
+  architect: { enabled: true, order: 10, defaults: { inputCount: 2 } },
   supportsDisabledPassthrough: true,
 };

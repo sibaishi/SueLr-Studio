@@ -15,5 +15,7 @@ export const TEXT_SPLIT_NODE = {
     { id: 'outputCount', label: '输出数量', type: 'number', min: 2, max: 9, default: 2 },
   ],
   maxOutputs: 9,
+  dynamicOutputs: { prefix: 'part', type: 'string', countDataKey: 'outputCount', min: 1, max: 9 },
+  architect: { enabled: true, order: 17, defaults: { separator: '\n', outputCount: 2 } },
   supportsDisabledPassthrough: true,
 };

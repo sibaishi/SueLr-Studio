@@ -1,4 +1,8 @@
-import { NODE_REGISTRY as WORKFLOW_NODE_DEFS, getNodeDef as getSharedNodeDef } from '@/domains/workflow/nodes/registry';
+import {
+  NODE_REGISTRY as WORKFLOW_NODE_DEFS,
+  getNodeDef as getSharedNodeDef,
+  resolveDynamicPortCount,
+} from '@/domains/workflow/nodes/registry';
 import type { NodeTypeDef } from './types';
 
 export const GRID_SIZE = 28;
@@ -18,6 +22,7 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   imageInput: { w: 13, h: 13 },
   maskInput: { w: 13, h: 14 },
   imageResize: { w: 14, h: 12 },
+  imageSplit: { w: 12, h: 23 },
   imageCompare: { w: 16, h: 14 },
   videoInput: { w: 13, h: 11 },
   audioInput: { w: 13, h: 9 },
@@ -63,10 +68,17 @@ export function getNodeOutputCount(type: string, data?: Record<string, unknown>)
   const def = getNodeDef(type);
   if (!def?.maxOutputs) return def?.outputs.length || 0;
   const outputCountParam = def.params.find((param) => param.id === 'outputCount');
-  const fallback = typeof outputCountParam?.default === 'number' ? outputCountParam.default : 2;
-  const rawCount = Number(data?.outputCount);
-  const normalized = Number.isFinite(rawCount) ? Math.trunc(rawCount) : fallback;
-  return Math.max(1, Math.min(def.maxOutputs, normalized));
+  const derivedFallback = def.dynamicOutputs?.countDataKeys?.reduce((product, key) => {
+    const param = def.params.find((item) => item.id === key);
+    return product * Number(param?.default ?? 1);
+  }, 1);
+  const fallback =
+    typeof outputCountParam?.default === 'number'
+      ? outputCountParam.default
+      : Number.isFinite(derivedFallback)
+        ? derivedFallback
+        : 2;
+  return resolveDynamicPortCount(def.dynamicOutputs, data, fallback);
 }
 
 export function getExpandedNodeOutputs(type: string, data?: Record<string, unknown>) {
@@ -80,7 +92,7 @@ export function getExpandedNodeOutputs(type: string, data?: Record<string, unkno
   return Array.from({ length: getNodeOutputCount(type, data) }, (_, index) => ({
     ...template,
     id: `part${index + 1}`,
-    label: `片段${index + 1}`,
+    label: `${template.label.replace(/\d+$/, '')}${index + 1}`,
   }));
 }
 

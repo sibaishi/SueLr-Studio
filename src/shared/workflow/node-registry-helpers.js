@@ -73,3 +73,22 @@ export function isExecutableNodeTypeFromIndex(registryByType, type) {
 export function supportsDisabledPassthroughFromIndex(registryByType, type) {
   return Boolean(getNodeDefFromIndex(registryByType, type)?.supportsDisabledPassthrough);
 }
+
+/**
+ * @param {import('@/shared/workflow/types').DynamicPortDef | undefined} dynamicPort
+ * @param {Record<string, unknown> | undefined} data
+ * @param {number} fallback
+ */
+export function resolveDynamicPortCount(dynamicPort, data, fallback = 1) {
+  if (!dynamicPort) return fallback;
+
+  let rawCount;
+  if (dynamicPort.countOperation === 'multiply' && dynamicPort.countDataKeys?.length) {
+    rawCount = dynamicPort.countDataKeys.reduce((product, key) => product * Number(data?.[key]), 1);
+  } else if (dynamicPort.countDataKey) {
+    rawCount = Number(data?.[dynamicPort.countDataKey]);
+  }
+
+  const normalized = Number.isFinite(rawCount) ? Math.trunc(rawCount) : fallback;
+  return Math.max(dynamicPort.min, Math.min(dynamicPort.max, normalized));
+}

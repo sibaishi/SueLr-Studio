@@ -11,5 +11,7 @@ export const AUDIO_INPUT_NODE = {
   inputs: [],
   outputs: [{ id: 'audio', label: '音频', type: 'audio' }],
   params: [{ id: 'fileUrl', label: '音频文件', type: 'text', default: '' }],
+  architect: { enabled: true, order: 5, defaults: { fileUrl: '' } },
+  agentInput: { aliases: ['audioinput', 'audio', '\u97f3\u9891\u8f93\u5165', '\u97f3\u9891'], adapter: 'audio' },
   supportsDisabledPassthrough: false,
 };

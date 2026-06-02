@@ -223,7 +223,8 @@ function buildEditPatchFromInstruction(workflow: PlainObject, instruction: strin
   if (requestedCount !== null) {
     let changed = false;
     for (const node of nodes.filter((item) => cleanText(item.type, 80) === 'imageGen')) {
-      changed = updateNodeField(node, 'n', requestedCount, operations, `调整图片生成数量为 ${requestedCount}`) || changed;
+      changed =
+        updateNodeField(node, 'n', requestedCount, operations, `调整图片生成数量为 ${requestedCount}`) || changed;
     }
     for (const node of nodes.filter((item) => cleanText(item.type, 80) === 'textSplit')) {
       changed =
@@ -231,14 +232,17 @@ function buildEditPatchFromInstruction(workflow: PlainObject, instruction: strin
         changed;
     }
     if (!changed) {
-      warnings.push(`识别到“${requestedCount} 张”的数量要求，但当前工作流里没有可安全调整的 imageGen 或 textSplit 节点。`);
+      warnings.push(
+        `识别到“${requestedCount} 张”的数量要求，但当前工作流里没有可安全调整的 imageGen 或 textSplit 节点。`,
+      );
     }
   }
 
   if (requestedRatio) {
     let changed = false;
     for (const node of nodes.filter((item) => ['imageGen', 'videoGen'].includes(cleanText(item.type, 80)))) {
-      changed = updateNodeField(node, 'ratio', requestedRatio, operations, `调整输出比例为 ${requestedRatio}`) || changed;
+      changed =
+        updateNodeField(node, 'ratio', requestedRatio, operations, `调整输出比例为 ${requestedRatio}`) || changed;
     }
     if (!changed) warnings.push(`识别到“${requestedRatio}”比例要求，但当前工作流里没有可安全调整比例的生成节点。`);
   }

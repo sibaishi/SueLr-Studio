@@ -11,5 +11,7 @@ export const OUTPUT_NODE = {
   inputs: [{ id: 'content', label: '内容', type: 'any', required: true }],
   outputs: [],
   params: [],
+  dynamicOutputInputs: { prefix: 'content', type: 'any', min: 1, max: 9 },
+  architect: { enabled: true, order: 22 },
   supportsDisabledPassthrough: false,
 };

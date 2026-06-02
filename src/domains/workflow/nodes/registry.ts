@@ -6,6 +6,7 @@ import {
   getRegisteredNodeTypes,
   getRequiredInputs,
   isExecutableNodeType,
+  resolveDynamicPortCount,
   supportsDisabledPassthrough,
 } from '@/shared/workflow/node-registry';
 
@@ -18,5 +19,6 @@ export {
   getRegisteredNodeTypes,
   getRequiredInputs,
   isExecutableNodeType,
+  resolveDynamicPortCount,
   supportsDisabledPassthrough,
 };

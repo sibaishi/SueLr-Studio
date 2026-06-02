@@ -15,5 +15,7 @@ export const MASK_INPUT_NODE = {
     { id: 'threshold', label: '阈值', type: 'slider', min: 0, max: 255, step: 1, default: 128 },
     { id: 'invertMask', label: '反相遮罩', type: 'toggle', default: false },
   ],
+  architect: { enabled: true, order: 3, defaults: { fileUrl: '' } },
+  agentInput: { aliases: ['maskinput', 'mask', '\u8499\u7248\u8f93\u5165', '\u8499\u7248'], adapter: 'mask' },
   supportsDisabledPassthrough: false,
 };

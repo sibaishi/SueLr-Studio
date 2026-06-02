@@ -49,5 +49,10 @@ export const IMAGE_GEN_NODE = {
       group: 'qualityFormat',
     },
   ],
+  architect: {
+    enabled: true,
+    order: 19,
+    defaults: { model: '', ratio: 'auto', resolution: 'auto', n: 1, output_format: 'png' },
+  },
   supportsDisabledPassthrough: true,
 };

@@ -28,5 +28,6 @@ export const VIDEO_GEN_NODE = {
     { id: 'resolution', label: '分辨率', type: 'select', default: '720p', options: VIDEO_RESOLUTION_OPTIONS },
     { id: 'ratio', label: '比例', type: 'select', default: 'auto', options: VIDEO_RATIO_OPTIONS },
   ],
+  architect: { enabled: true, order: 20, defaults: { model: '', duration: 5, resolution: '720p', ratio: 'auto' } },
   supportsDisabledPassthrough: true,
 };

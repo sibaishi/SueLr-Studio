@@ -14,5 +14,6 @@ export const IMAGE_COMPARE_NODE = {
   ],
   outputs: [],
   params: [],
+  architect: { enabled: true, order: 14 },
   supportsDisabledPassthrough: false,
 };

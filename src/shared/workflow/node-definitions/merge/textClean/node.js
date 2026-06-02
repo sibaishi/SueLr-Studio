@@ -17,5 +17,6 @@ export const TEXT_CLEAN_NODE = {
     { id: 'removeEndToken', label: '删除结束关键词', type: 'toggle', default: true, group: 'rangeOptions' },
     { id: 'removeAllRanges', label: '删除所有匹配区间', type: 'toggle', default: true, group: 'rangeOptions' },
   ],
+  architect: { enabled: true, order: 16, defaults: { startKeyword: '<think>', endKeyword: '</think>' } },
   supportsDisabledPassthrough: true,
 };

@@ -1,29 +1,7 @@
 import { z } from 'zod';
+import { getWorkflowArchitectNodeTypes } from '../../../../../src/shared/workflow/node-catalog.js';
 
-export const WORKFLOW_ARCHITECT_NODE_TYPES = [
-  'textInput',
-  'imageInput',
-  'maskInput',
-  'videoInput',
-  'audioInput',
-  'apiKeyInput',
-  'textMerge',
-  'imageMerge',
-  'videoMerge',
-  'audioMerge',
-  'iterateRun',
-  'iterateImageRun',
-  'imageResize',
-  'imageCompare',
-  'promptHelper',
-  'textClean',
-  'textSplit',
-  'aiChat',
-  'imageGen',
-  'videoGen',
-  'saveFile',
-  'output',
-] as const;
+export const WORKFLOW_ARCHITECT_NODE_TYPES = getWorkflowArchitectNodeTypes() as [string, ...string[]];
 
 const nodeIdSchema = z
   .string()

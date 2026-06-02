@@ -1,3 +1,5 @@
+import { getNodeDef } from '../../../../../src/shared/workflow/node-registry.js';
+
 export type WorkflowNodeCapability = {
   id: string;
   title: string;
@@ -16,7 +18,7 @@ export type WorkflowNodeCapability = {
   };
 };
 
-export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
+const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_textInput',
     title: '文本输入节点 textInput',
@@ -314,6 +316,23 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     },
   },
   {
+    id: 'seed_workflow_node_imageSplit',
+    title: '图片拆分节点 imageSplit',
+    content:
+      'imageSplit 用于把宫格图、拼图或素材合集按行列网格拆成独立图片。不用于语义分割、背景移除、自由裁剪或保存文件。',
+    tags: ['system-seed', 'node', 'tool', 'imageSplit', 'image', 'grid'],
+    structured: {
+      nodeType: 'imageSplit',
+      category: 'tool',
+      maturity: 'stable',
+      inputs: [{ id: 'image', type: 'image', required: true }],
+      outputs: [{ id: 'part1', type: 'image' }],
+      params: ['rows', 'columns'],
+      useWhen: ['split-grid-image', 'split-collage', 'split-material-sheet'],
+      avoidWhen: ['semantic-segmentation', 'background-removal', 'freeform-crop', 'save-file'],
+    },
+  },
+  {
     id: 'seed_workflow_node_imageCompare',
     title: '图片对比节点 imageCompare',
     content:
@@ -399,3 +418,28 @@ export const WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     },
   },
 ];
+
+function deriveCapabilityContract(seed: WorkflowNodeCapability): WorkflowNodeCapability {
+  const node = getNodeDef(seed.structured.nodeType);
+  if (!node) return seed;
+  return {
+    ...seed,
+    structured: {
+      ...seed.structured,
+      category: node.category,
+      ...(node.inputs.length > 0
+        ? {
+            inputs: node.inputs.map((port: { id: string; type: string; required?: boolean; multiple?: boolean }) => ({
+              id: port.id,
+              type: port.type,
+              ...(port.required !== undefined ? { required: port.required } : {}),
+              ...(port.multiple !== undefined ? { multiple: port.multiple } : {}),
+            })),
+          }
+        : { inputs: undefined }),
+      outputs: node.outputs.map((port: { id: string; type: string }) => ({ id: port.id, type: port.type })),
+    },
+  };
+}
+
+export const WORKFLOW_NODE_CAPABILITY_SEEDS = MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS.map(deriveCapabilityContract);

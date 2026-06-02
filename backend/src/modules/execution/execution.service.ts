@@ -1,3 +1,4 @@
+import { getWorkflowAgentInputNodeDefs } from '../../../../src/shared/workflow/node-catalog.js';
 import { executeWorkflow } from '../../engine/executor.ts';
 import { createLogger } from '../../platform/logging/logger.ts';
 import { runWithRequestContext } from '../../platform/logging/request-context.ts';
@@ -13,13 +14,8 @@ import { createExecutionSnapshot } from './execution-snapshot.ts';
 
 const logger = createLogger({ module: 'execution-service' });
 const RECENT_RUN_TTL_MS = 5 * 60 * 1000;
-const AGENT_INPUT_NODE_ALIASES: Record<string, string[]> = {
-  textInput: ['textinput', 'text', 'prompt', 'question', '文本输入', '文本'],
-  imageInput: ['imageinput', 'image', 'reference', '图片输入', '图片', '图像输入', '图像'],
-  videoInput: ['videoinput', 'video', '视频输入', '视频'],
-  audioInput: ['audioinput', 'audio', '音频输入', '音频'],
-  maskInput: ['maskinput', 'mask', '蒙版输入', '蒙版'],
-};
+const AGENT_INPUT_NODE_DEFS = getWorkflowAgentInputNodeDefs();
+const AGENT_INPUT_NODE_DEFS_BY_TYPE = new Map(AGENT_INPUT_NODE_DEFS.map((node) => [node.type, node]));
 
 type WorkflowNode = PlainObject & {
   id: string;
@@ -244,7 +240,7 @@ function getInputNodeAliases(node: WorkflowNode, ordinal = 1): Set<string> {
   push(node.data?.name);
   push(node.data?.text);
 
-  const baseAliases = AGENT_INPUT_NODE_ALIASES[node.type] || [node.type];
+  const baseAliases = AGENT_INPUT_NODE_DEFS_BY_TYPE.get(node.type)?.aliases || [node.type];
   for (const base of baseAliases) {
     push(base);
     push(`${base}${normalizedOrdinal}`);
@@ -262,7 +258,7 @@ function collectAvailableInputTargets(nodes: DynamicValue[] = []): InputTarget[]
         isPlainObject(node) &&
         typeof node.id === 'string' &&
         typeof node.type === 'string' &&
-        ['textInput', 'imageInput', 'videoInput', 'audioInput', 'maskInput'].includes(node.type),
+        AGENT_INPUT_NODE_DEFS_BY_TYPE.has(node.type),
     )
     .map((node) => {
       const nextOrdinal = (countsByType.get(node.type) || 0) + 1;
@@ -373,6 +369,15 @@ function applyAgentInputOverrides(persistedWorkflow: PlainObject, rawInputs: Dyn
         node.data.maskPreviewUrl = override.maskPreviewUrl;
       }
       appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'fileUrl', matchedBy: String(rawKey) });
+      continue;
+    }
+
+    if (node.type === 'maskInput') {
+      const override = resolveMediaOverride(value, ['fileUrl', 'url', 'mask', 'maskUrl']);
+      if (override.fileUrl) {
+        node.data.fileUrl = override.fileUrl;
+        appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'fileUrl', matchedBy: String(rawKey) });
+      }
       continue;
     }
 
