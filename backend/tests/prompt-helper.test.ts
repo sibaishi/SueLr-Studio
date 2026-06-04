@@ -39,6 +39,44 @@ test('promptHelper defaults to generic model style for legacy data', async () =>
   assert.match(result.prompt, /转换视角/);
   assert.match(result.prompt, /85mm portrait lens feel/);
   assert.doesNotMatch(result.prompt, /final_prompt/);
+  assert.doesNotMatch(result.prompt, /新生成模式/);
+});
+
+test('promptHelper camera generate mode outputs fresh-image instructions', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    baseText: '红色机甲武士站在雨夜街头',
+    cameraConfig: {
+      mode: 'generate',
+      focalLength: 35,
+      distance: 7,
+      angle: 30,
+      shotSize: '全景',
+      preserveSubject: true,
+    },
+  });
+
+  assert.match(result.prompt, /基础提示词 \/ base prompt/);
+  assert.match(result.prompt, /根据基础提示词新生成一张全景/);
+  assert.match(result.prompt, /这是新生成模式，不要求参考原图重绘/);
+  assert.match(result.prompt, /保持基础提示词中的主体设定/);
+  assert.doesNotMatch(result.prompt, /只改变观看视角/);
+});
+
+test('promptHelper camera back view adds explicit rear-view constraints', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    cameraConfig: {
+      angle: 180,
+      focalLength: 50,
+      shotSize: '中景',
+    },
+  });
+
+  assert.match(result.prompt, /背面视角/);
+  assert.match(result.prompt, /back view/);
+  assert.match(result.prompt, /face should not be visible/);
+  assert.match(result.prompt, /不要生成正面或侧脸/);
 });
 
 test('promptHelper camera uses concise GPT-image-2 style when requested', async () => {
@@ -66,6 +104,31 @@ test('promptHelper camera uses structured Nano Banana style when requested', asy
   assert.match(result.prompt, /"task": "image_edit"/);
   assert.match(result.prompt, /"final_prompt"/);
   assert.match(result.prompt, /85mm portrait lens feel/);
+});
+
+test('promptHelper camera generate mode uses text_to_image Nano Banana style', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    modelStyle: 'nano-banana',
+    cameraConfig: { mode: 'generate', focalLength: 50, shotSize: '中景' },
+  });
+
+  assert.match(result.prompt, /请严格根据以下结构化提示词/);
+  assert.match(result.prompt, /"task": "text_to_image"/);
+  assert.match(result.prompt, /"intent": "生成新视角图片"/);
+  assert.doesNotMatch(result.prompt, /"task": "image_edit"/);
+});
+
+test('promptHelper camera Nano Banana payload includes explicit viewpoint fields', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    modelStyle: 'nano-banana',
+    cameraConfig: { angle: 180, focalLength: 50, shotSize: '中景' },
+  });
+
+  assert.match(result.prompt, /"viewpoint_label": "背面视角"/);
+  assert.match(result.prompt, /"viewpoint": "back view"/);
+  assert.match(result.prompt, /"viewpoint_instruction": "show the back of the subject; face should not be visible"/);
 });
 
 test('promptHelper lighting tool distinguishes add and reshape modes', async () => {

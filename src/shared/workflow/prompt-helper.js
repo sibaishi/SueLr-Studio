@@ -11,6 +11,11 @@ export const PROMPT_HELPER_MODEL_STYLES = {
   nanoBanana: 'nano-banana',
 };
 
+export const PROMPT_HELPER_CAMERA_MODES = {
+  edit: 'edit',
+  generate: 'generate',
+};
+
 export const STORYBOARD_LAYOUT_PRESETS = [
   { id: 'grid-4', label: '4格横版', description: '2 x 2 白底统一网格', shotCount: 4, aspectRatio: '16:9', columns: 2 },
   { id: 'grid-6', label: '6格横版', description: '3 x 2 白底统一网格', shotCount: 6, aspectRatio: '16:9', columns: 3 },
@@ -282,7 +287,13 @@ const MODEL_STYLE_LABELS = {
   'nano-banana': 'Nano Banana',
 };
 
+const CAMERA_MODE_LABELS = {
+  edit: '调整现有图',
+  generate: '新生成图片',
+};
+
 const DEFAULT_CAMERA_CONFIG = {
+  mode: 'edit',
   focalLength: 35,
   distance: 6,
   angle: 20,
@@ -381,6 +392,10 @@ function getModelStyleLabel(modelStyle) {
   return MODEL_STYLE_LABELS[modelStyle] || MODEL_STYLE_LABELS.generic;
 }
 
+function getCameraModeLabel(mode) {
+  return CAMERA_MODE_LABELS[mode] || CAMERA_MODE_LABELS.edit;
+}
+
 function getLayoutTemplate(template) {
   return LAYOUT_TEMPLATE_PRESETS.find((item) => item.id === template) || LAYOUT_TEMPLATE_PRESETS[0];
 }
@@ -436,6 +451,9 @@ export function normalizePromptHelperData(data = {}) {
   const layoutSource = asObject(source.layoutConfig);
 
   const cameraConfig = {
+    mode: Object.values(PROMPT_HELPER_CAMERA_MODES).includes(cameraSource.mode)
+      ? cameraSource.mode
+      : DEFAULT_CAMERA_CONFIG.mode,
     focalLength: asNumber(cameraSource.focalLength, DEFAULT_CAMERA_CONFIG.focalLength),
     distance: asNumber(cameraSource.distance, DEFAULT_CAMERA_CONFIG.distance),
     angle: asNumber(cameraSource.angle, DEFAULT_CAMERA_CONFIG.angle),
@@ -553,6 +571,74 @@ function formatPoint(point) {
   return `x ${point.x.toFixed(1)}, y ${point.y.toFixed(1)}, z ${point.z.toFixed(1)}`;
 }
 
+function normalizeDegrees(value) {
+  const normalized = Number(value) % 360;
+  if (!Number.isFinite(normalized)) return 0;
+  if (normalized > 180) return normalized - 360;
+  if (normalized <= -180) return normalized + 360;
+  return normalized;
+}
+
+function getCameraViewTerms(config) {
+  const normalizedAngle = normalizeDegrees(config.angle);
+  const absAngle = Math.abs(normalizedAngle);
+  const side = normalizedAngle >= 0 ? 'right' : 'left';
+
+  if (absAngle >= 157.5) {
+    return {
+      chinese: '背面视角',
+      english: 'back view',
+      detail: 'camera behind the subject',
+      visibility: 'show the back of the subject; face should not be visible',
+      structuralFocus: 'emphasize the back silhouette, back clothing details, rear structure, and back-facing composition',
+    };
+  }
+  if (absAngle >= 112.5) {
+    return {
+      chinese: side === 'right' ? '后侧三分之四视角（偏右后）' : '后侧三分之四视角（偏左后）',
+      english: side === 'right' ? 'rear three-quarter right view' : 'rear three-quarter left view',
+      detail: side === 'right' ? 'camera behind the subject on the right side' : 'camera behind the subject on the left side',
+      visibility:
+        side === 'right'
+          ? 'mostly show the back and the right side of the subject; face should be hidden or only minimally visible'
+          : 'mostly show the back and the left side of the subject; face should be hidden or only minimally visible',
+      structuralFocus:
+        'emphasize rear silhouette, shoulder/back structure, and the visible side contour while keeping the composition clearly back-oriented',
+    };
+  }
+  if (absAngle >= 67.5) {
+    return {
+      chinese: side === 'right' ? '右侧面视角' : '左侧面视角',
+      english: side === 'right' ? 'right side view' : 'left side view',
+      detail: side === 'right' ? 'camera on the right side of the subject' : 'camera on the left side of the subject',
+      visibility:
+        side === 'right'
+          ? 'show the right profile of the subject; avoid a front-facing result'
+          : 'show the left profile of the subject; avoid a front-facing result',
+      structuralFocus: 'emphasize side profile, thickness, silhouette, and side contour',
+    };
+  }
+  if (absAngle >= 22.5) {
+    return {
+      chinese: side === 'right' ? '前侧三分之四视角（偏右前）' : '前侧三分之四视角（偏左前）',
+      english: side === 'right' ? 'front three-quarter right view' : 'front three-quarter left view',
+      detail: side === 'right' ? 'camera in front of the subject on the right side' : 'camera in front of the subject on the left side',
+      visibility:
+        side === 'right'
+          ? 'show the front of the subject with more of the right side visible'
+          : 'show the front of the subject with more of the left side visible',
+      structuralFocus: 'emphasize frontal identity with clear depth, side contour, and three-quarter composition',
+    };
+  }
+  return {
+    chinese: '正面视角',
+    english: 'front view',
+    detail: 'camera directly in front of the subject',
+    visibility: 'show the front of the subject clearly',
+    structuralFocus: 'emphasize frontal identity, facial visibility, front silhouette, and symmetrical front-facing composition',
+  };
+}
+
 function getCameraShotTerms(config) {
   const shotText = String(config.shotSize || '');
   const shotType =
@@ -602,25 +688,52 @@ function buildNanoPrompt(payload) {
 }
 
 function buildCameraPrompt(config, modelStyle) {
+  const mode = config.mode === PROMPT_HELPER_CAMERA_MODES.generate ? PROMPT_HELPER_CAMERA_MODES.generate : PROMPT_HELPER_CAMERA_MODES.edit;
   const terms = getCameraShotTerms(config);
-  const keep = ['主体身份', '服装', '材质', '比例', '关键特征'];
-  const change = [`观看视角改为 ${terms.shotType}`, `镜头语言改为 ${terms.lens}`, terms.focus];
-  const avoid = ['不要改变主体结构', '不要改变身份', '不要改变产品颜色、Logo 或标签文字', '不要添加无关元素'];
-  const finalPrompt = `Keep the subject identity, clothing, material, proportions, and key details unchanged. Change only the camera view to a ${terms.shotType} using ${terms.lens}, ${terms.angle}, and ${terms.focus}. Do not alter the subject structure, identity, color, logo, label text, or add unrelated elements.`;
+  const viewTerms = getCameraViewTerms(config);
+  const isGenerateMode = mode === PROMPT_HELPER_CAMERA_MODES.generate;
+  const keep = isGenerateMode
+    ? ['基础提示词中的主体设定', '服装', '材质', '比例', '关键特征']
+    : ['主体身份', '服装', '材质', '比例', '关键特征'];
+  const change = isGenerateMode
+    ? [`新生成 ${viewTerms.english} / ${terms.shotType} 视角构图`, `镜头语言改为 ${terms.lens}`, terms.focus]
+    : [`观看视角改为 ${viewTerms.english} / ${terms.shotType}`, `镜头语言改为 ${terms.lens}`, terms.focus];
+  const avoid = isGenerateMode
+    ? ['不要偏离基础提示词主体设定', '不要随意改色或改材质', '不要添加无关元素', '不要添加文字、水印或标签']
+    : ['不要改变主体结构', '不要改变身份', '不要改变产品颜色、Logo 或标签文字', '不要添加无关元素'];
+  if (viewTerms.english === 'back view') {
+    avoid.push('不要生成正面或侧脸', '不要让脸正对镜头');
+  } else if (viewTerms.english.includes('rear three-quarter')) {
+    avoid.push('不要变成正面照', '不要让脸完整正对镜头');
+  } else if (viewTerms.english.includes('side view')) {
+    avoid.push('不要变成正面照');
+  }
+  const finalPrompt = isGenerateMode
+    ? `Generate a fresh image of the described subject as a ${viewTerms.english} ${terms.shotType} using ${terms.lens}, ${terms.angle}, and ${terms.focus}. ${viewTerms.detail}. ${viewTerms.visibility}. ${viewTerms.structuralFocus}. Keep the subject design, material, proportions, and key details consistent with the prompt. Do not add unrelated elements, text, watermark, or unwanted distortions.`
+    : `Keep the subject identity, clothing, material, proportions, and key details unchanged. Change only the camera view to a ${viewTerms.english} ${terms.shotType} using ${terms.lens}, ${terms.angle}, and ${terms.focus}. ${viewTerms.detail}. ${viewTerms.visibility}. ${viewTerms.structuralFocus}. Do not alter the subject structure, identity, color, logo, label text, or add unrelated elements.`;
 
   if (modelStyle === PROMPT_HELPER_MODEL_STYLES.gptImage2) {
     return [
-      '辅助类型：转换视角 / camera view transformation for GPT-image-2.',
+      isGenerateMode
+        ? '辅助类型：转换视角 / camera-directed image generation for GPT-image-2.'
+        : '辅助类型：转换视角 / camera view transformation for GPT-image-2.',
       finalPrompt,
+      `Target viewpoint: ${viewTerms.chinese} (${viewTerms.english}).`,
       `Camera position: ${formatPoint(config.position)}. Target point: ${formatPoint(config.target)}. Focal length: ${config.focalLength}mm.`,
+      `Avoid: ${avoid.join('; ')}.`,
+      isGenerateMode ? 'Generate a fresh image rather than editing an existing image.' : 'Edit the existing image rather than generating a different subject.',
     ];
   }
 
   if (modelStyle === PROMPT_HELPER_MODEL_STYLES.nanoBanana) {
     return buildNanoPrompt({
-      task: 'image_edit',
-      intent: '转换视角并保持主体一致',
+      task: isGenerateMode ? 'text_to_image' : 'image_edit',
+      intent: isGenerateMode ? '生成新视角图片' : '转换视角并保持主体一致',
       camera: {
+        viewpoint_label: viewTerms.chinese,
+        viewpoint: viewTerms.english,
+        viewpoint_instruction: viewTerms.visibility,
+        composition_focus: viewTerms.structuralFocus,
         shot_type: terms.shotType,
         lens: terms.lens,
         camera_angle: terms.angle,
@@ -633,18 +746,38 @@ function buildCameraPrompt(config, modelStyle) {
       change,
       avoid,
       priority: {
-        highest: ['保持主体身份、比例、材质和关键特征一致'],
-        medium: ['只改变观看视角、构图和镜头语言'],
+        highest: [
+          isGenerateMode ? '保持基础提示词中的主体设定、比例、材质和关键特征一致' : '保持主体身份、比例、材质和关键特征一致',
+        ],
+        medium: [isGenerateMode ? '准确执行新视角、构图和镜头语言' : '只改变观看视角、构图和镜头语言'],
       },
       final_prompt: finalPrompt,
     });
   }
 
+  if (isGenerateMode) {
+    return [
+      '辅助类型：转换视角 / camera-directed image generation.',
+      `根据基础提示词新生成一张${config.shotSize}（${terms.shotType}）图片，目标视角为${viewTerms.chinese}（${viewTerms.english}），摄像机位置为 ${formatPoint(config.position)}，朝向主体目标点 ${formatPoint(config.target)}。`,
+      `镜头焦距感约 ${config.focalLength}mm，机位距离约 ${config.distance}m，高度约 ${config.height}m，水平角度约 ${config.angle}°。`,
+      `镜头语言：${terms.lens}, ${terms.angle}, ${terms.focus}, stable composition.`,
+      `视角要求：${viewTerms.detail}；${viewTerms.visibility}；${viewTerms.structuralFocus}。`,
+      `负向约束：${avoid.join('；')}。`,
+      config.preserveSubject
+        ? '保持基础提示词中的主体设定、服装、材质、比例和关键特征一致，重点执行新的视角、构图和镜头语言。'
+        : '允许为了新视角和构图重组可见轮廓，但仍需遵循基础提示词主体设定。',
+      '这是新生成模式，不要求参考原图重绘；重点是按提示词直接生成目标视角的新画面。',
+      'English keywords: fresh image generation, camera angle, focal length, perspective, composition, subject consistency.',
+    ];
+  }
+
   return [
     '辅助类型：转换视角 / camera view transformation.',
-    `将画面转换为${config.shotSize}（${terms.shotType}），摄像机位置为 ${formatPoint(config.position)}，朝向主体目标点 ${formatPoint(config.target)}。`,
+    `将画面转换为${config.shotSize}（${terms.shotType}），目标视角为${viewTerms.chinese}（${viewTerms.english}），摄像机位置为 ${formatPoint(config.position)}，朝向主体目标点 ${formatPoint(config.target)}。`,
     `镜头焦距感约 ${config.focalLength}mm，机位距离约 ${config.distance}m，高度约 ${config.height}m，水平角度约 ${config.angle}°。`,
     `镜头语言：${terms.lens}, ${terms.angle}, ${terms.focus}, stable composition.`,
+    `视角要求：${viewTerms.detail}；${viewTerms.visibility}；${viewTerms.structuralFocus}。`,
+    `负向约束：${avoid.join('；')}。`,
     config.preserveSubject
       ? '保持主体身份、服装、材质、比例和关键特征一致，只改变观看视角与镜头语言。'
       : '允许根据新视角重构主体可见轮廓。',
@@ -908,5 +1041,5 @@ export function summarizePromptHelper(data = {}) {
     const template = getLayoutTemplate(normalized.layoutConfig.template);
     return `${modelLabel} · ${getPromptHelperToolLabel(normalized.activeTool)} · ${template.label} · ${normalized.layoutConfig.blocks.length} 块`;
   }
-  return `${modelLabel} · ${getPromptHelperToolLabel(normalized.activeTool)} · ${normalized.cameraConfig.focalLength}mm · ${normalized.cameraConfig.shotSize}`;
+  return `${modelLabel} · ${getPromptHelperToolLabel(normalized.activeTool)} · ${getCameraModeLabel(normalized.cameraConfig.mode)} · ${normalized.cameraConfig.focalLength}mm · ${normalized.cameraConfig.shotSize}`;
 }

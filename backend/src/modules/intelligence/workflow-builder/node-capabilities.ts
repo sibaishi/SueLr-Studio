@@ -182,7 +182,7 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     id: 'seed_workflow_node_promptHelper',
     title: '视觉控制提示词节点 promptHelper',
     content:
-      'promptHelper 是本地参数化视觉控制提示词构造器，不调用 AI，也不是通用提示词优化器。它只把固定参数拼接成 prompt 字符串：camera 用于视角/机位/焦距，lighting 用于灯光，storyboard 用于生成分镜图/storyboard sheet 的图片提示词，layout 用于三视图/reference sheet 版式。普通文本到图片/视频生成可以直接连接 AI 生成节点；分镜脚本、镜头脚本这类文本任务应使用 aiChat。',
+      'promptHelper 是本地参数化视觉控制提示词构造器，不调用 AI，也不是通用提示词优化器。它只把固定参数拼接成 prompt 字符串：camera 可用于调整现有图片视角，或为新图片生成指定视角/机位/焦距；lighting 用于灯光；storyboard 用于生成分镜图/storyboard sheet 的图片提示词；layout 用于三视图/reference sheet 版式。普通文本到图片/视频生成可以直接连接 AI 生成节点；分镜脚本、镜头脚本这类文本任务应使用 aiChat。',
     tags: ['system-seed', 'node', 'tool', 'promptHelper', 'prompt', 'camera', 'lighting', 'storyboard', 'layout'],
     structured: {
       nodeType: 'promptHelper',

@@ -1,4 +1,5 @@
 import {
+  PROMPT_HELPER_CAMERA_MODES,
   LAYOUT_TEMPLATE_PRESETS,
   PROMPT_HELPER_MODEL_STYLES,
   PROMPT_HELPER_TOOLS,
@@ -37,6 +38,11 @@ const MODEL_STYLE_ITEMS = [
   { id: PROMPT_HELPER_MODEL_STYLES.generic, label: '通用', description: '中英混合，适合多数图片模型' },
   { id: PROMPT_HELPER_MODEL_STYLES.gptImage2, label: 'GPT-image-2', description: '短句、明确、直接' },
   { id: PROMPT_HELPER_MODEL_STYLES.nanoBanana, label: 'Nano Banana', description: '结构化字段 + final_prompt' },
+];
+
+const CAMERA_MODE_ITEMS = [
+  { id: PROMPT_HELPER_CAMERA_MODES.edit, label: '调整现有图片视角' },
+  { id: PROMPT_HELPER_CAMERA_MODES.generate, label: '新生成该视角图片' },
 ];
 
 const LAYOUT_SUBJECT_KIND_OPTIONS = [
@@ -213,6 +219,7 @@ export function PromptHelperWorkbenchModal({
 function CameraTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch: PromptHelperPatch) => void }) {
   const config = data.cameraConfig;
   const patchCamera = (patch: Partial<typeof config>) => onPatch({ cameraConfig: { ...config, ...patch } });
+  const isGenerateMode = config.mode === PROMPT_HELPER_CAMERA_MODES.generate;
   const pointFromOrbit = (distance: number, angle: number, height: number): PromptHelperPoint => {
     const radians = (angle * Math.PI) / 180;
     return {
@@ -244,6 +251,18 @@ function CameraTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
     <div className="prompt-helper-tool">
       <ThreeScene cameraConfig={config} interactionMode="camera" onCameraPositionChange={patchPositionFromScene} />
       <div className="prompt-helper-controls">
+        <div className="prompt-helper-segmented">
+          {CAMERA_MODE_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={config.mode === item.id ? 'is-active' : ''}
+              onClick={() => patchCamera({ mode: item.id })}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
         <label className="prompt-helper-field">
           <span>景别</span>
           <select value={config.shotSize} onChange={(event) => patchCamera({ shotSize: event.target.value })}>
@@ -314,7 +333,7 @@ function CameraTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
             checked={config.preserveSubject}
             onChange={(event) => patchCamera({ preserveSubject: event.target.checked })}
           />
-          <span>保持主体一致</span>
+          <span>{isGenerateMode ? '保持主体设定一致' : '保持主体一致'}</span>
         </label>
       </div>
     </div>

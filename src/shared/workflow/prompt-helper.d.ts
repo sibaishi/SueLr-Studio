@@ -11,6 +11,11 @@ export const PROMPT_HELPER_MODEL_STYLES: {
   readonly nanoBanana: 'nano-banana';
 };
 
+export const PROMPT_HELPER_CAMERA_MODES: {
+  readonly edit: 'edit';
+  readonly generate: 'generate';
+};
+
 export const STORYBOARD_LAYOUT_PRESETS: readonly {
   readonly id: string;
   readonly label: string;
@@ -34,6 +39,7 @@ export const LAYOUT_TEMPLATE_PRESETS: readonly {
 
 export type PromptHelperTool = 'camera' | 'lighting' | 'storyboard' | 'layout';
 export type PromptHelperModelStyle = 'generic' | 'gpt-image-2' | 'nano-banana';
+export type PromptHelperCameraMode = 'edit' | 'generate';
 
 export type PromptHelperPoint = {
   x: number;
@@ -42,6 +48,7 @@ export type PromptHelperPoint = {
 };
 
 export type PromptHelperCameraConfig = {
+  mode: PromptHelperCameraMode;
   focalLength: number;
   distance: number;
   angle: number;
