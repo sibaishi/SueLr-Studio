@@ -1082,6 +1082,10 @@
   resize: vertical;
 }
 
+.prompt-helper-layout-card .prompt-helper-field textarea {
+  min-height: 58px;
+}
+
 .prompt-helper-check {
   display: inline-flex;
   align-items: center;
@@ -1328,11 +1332,20 @@
   background-size: 10% 10%;
 }
 
+.prompt-helper-layout__top {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.8fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
 .prompt-helper-layout__block {
   position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  gap: 4px;
   border: 2px solid #111827;
   border-radius: 6px;
   background: rgba(17, 24, 39, 0.05);
@@ -1340,7 +1353,14 @@
   font-size: 12px;
   font-weight: 800;
   text-align: center;
-  cursor: pointer;
+  padding: 6px;
+  pointer-events: none;
+}
+
+.prompt-helper-layout__block small {
+  color: rgba(17, 24, 39, 0.58);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {

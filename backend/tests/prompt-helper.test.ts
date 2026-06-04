@@ -30,10 +30,51 @@ test('promptHelper includes upstream text before tool prompt', async () => {
   assert.doesNotMatch(result.prompt, /local text/);
 });
 
+test('promptHelper defaults to generic model style for legacy data', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    cameraConfig: { focalLength: 85, shotSize: '特写' },
+  });
+
+  assert.match(result.prompt, /转换视角/);
+  assert.match(result.prompt, /85mm portrait lens feel/);
+  assert.doesNotMatch(result.prompt, /final_prompt/);
+});
+
+test('promptHelper camera uses concise GPT-image-2 style when requested', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    modelStyle: 'gpt-image-2',
+    cameraConfig: { focalLength: 85, shotSize: '特写' },
+  });
+
+  assert.match(result.prompt, /GPT-image-2/);
+  assert.match(result.prompt, /Keep the subject identity/);
+  assert.match(result.prompt, /Change only the camera view/);
+  assert.match(result.prompt, /Do not alter/);
+  assert.doesNotMatch(result.prompt, /请严格根据以下结构化提示词/);
+});
+
+test('promptHelper camera uses structured Nano Banana style when requested', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    modelStyle: 'nano-banana',
+    cameraConfig: { focalLength: 85, shotSize: '特写' },
+  });
+
+  assert.match(result.prompt, /请严格根据以下结构化提示词/);
+  assert.match(result.prompt, /"task": "image_edit"/);
+  assert.match(result.prompt, /"final_prompt"/);
+  assert.match(result.prompt, /85mm portrait lens feel/);
+});
+
 test('promptHelper lighting tool distinguishes add and reshape modes', async () => {
   const { result: addResult } = await helper({
     activeTool: 'lighting',
-    lightingConfig: { mode: 'add', lights: [{ id: 'a', name: '轮廓光', type: 'spot', intensity: 2, color: '#ffeeaa' }] },
+    lightingConfig: {
+      mode: 'add',
+      lights: [{ id: 'a', name: '轮廓光', type: 'spot', intensity: 2, color: '#ffeeaa' }],
+    },
   });
   const { result: reshapeResult } = await helper({
     activeTool: 'lighting',
@@ -132,11 +173,7 @@ test('promptHelper storyboard custom layout keeps editable shot count and aspect
       shotCount: 2,
       layoutPreset: 'custom',
       aspectRatio: '2.35:1',
-      shots: [
-        { content: '镜头一' },
-        { content: '镜头二' },
-        { content: '不应出现' },
-      ],
+      shots: [{ content: '镜头一' }, { content: '镜头二' }, { content: '不应出现' }],
     },
   });
 
@@ -166,10 +203,7 @@ test('promptHelper storyboard omits empty shot fields', async () => {
     activeTool: 'storyboard',
     storyboardConfig: {
       shotCount: 2,
-      shots: [
-        { duration: '', content: '', note: '' },
-        { content: '产品出场' },
-      ],
+      shots: [{ duration: '', content: '', note: '' }, { content: '产品出场' }],
     },
   });
 
@@ -190,6 +224,33 @@ test('promptHelper layout outputs white background and block positions', async (
   assert.match(result.prompt, /无文字内容/);
   assert.match(result.prompt, /正面/);
   assert.match(result.prompt, /10%\/20%/);
+});
+
+test('promptHelper layout defaults to standard three-view template', async () => {
+  const { result } = await helper({
+    activeTool: 'layout',
+    layoutConfig: {},
+  });
+
+  assert.match(result.prompt, /版式模板：标准三视图/);
+  assert.match(result.prompt, /正面视图/);
+  assert.match(result.prompt, /侧面视图/);
+  assert.match(result.prompt, /背面视图/);
+  assert.match(result.prompt, /orthographic reference sheet style/);
+});
+
+test('promptHelper layout product reference keeps product identity constraints', async () => {
+  const { result } = await helper({
+    activeTool: 'layout',
+    modelStyle: 'nano-banana',
+    layoutConfig: { template: 'product-reference' },
+  });
+
+  assert.match(result.prompt, /产品参考图/);
+  assert.match(result.prompt, /Logo\/标签细节/);
+  assert.match(result.prompt, /"产品外形"/);
+  assert.match(result.prompt, /"不要改变 Logo"/);
+  assert.match(result.prompt, /"final_prompt"/);
 });
 
 test('promptHelper is registered as a workflow executor', async () => {

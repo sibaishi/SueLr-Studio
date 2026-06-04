@@ -1,6 +1,9 @@
 import {
+  LAYOUT_TEMPLATE_PRESETS,
+  PROMPT_HELPER_MODEL_STYLES,
   PROMPT_HELPER_TOOLS,
   type PromptHelperData,
+  type PromptHelperModelStyle,
   type PromptHelperTool,
   STORYBOARD_LAYOUT_PRESETS,
   STORYBOARD_STYLE_PRESETS,
@@ -10,7 +13,7 @@ import {
   summarizePromptHelper,
 } from '@/shared/workflow/prompt-helper';
 import { Camera, Lightbulb, Plus, Rows3, SquareMousePointer, Trash2, X } from 'lucide-react';
-import { type CSSProperties, useEffect, useRef } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 
@@ -29,6 +32,36 @@ const LIGHT_TYPE_LABELS: Record<string, string> = {
   directional: '平行光',
   spot: '聚光灯',
 };
+
+const MODEL_STYLE_ITEMS = [
+  { id: PROMPT_HELPER_MODEL_STYLES.generic, label: '通用', description: '中英混合，适合多数图片模型' },
+  { id: PROMPT_HELPER_MODEL_STYLES.gptImage2, label: 'GPT-image-2', description: '短句、明确、直接' },
+  { id: PROMPT_HELPER_MODEL_STYLES.nanoBanana, label: 'Nano Banana', description: '结构化字段 + final_prompt' },
+];
+
+const LAYOUT_SUBJECT_KIND_OPTIONS = [
+  { id: 'character', label: '角色' },
+  { id: 'product', label: '产品' },
+  { id: 'object', label: '物体' },
+];
+
+const LAYOUT_BLOCK_KIND_OPTIONS = [
+  { id: 'front', label: '正面' },
+  { id: 'side', label: '侧面' },
+  { id: 'back', label: '背面' },
+  { id: 'detail', label: '细节' },
+  { id: 'material', label: '材质' },
+  { id: 'color', label: '颜色变体' },
+  { id: 'pose', label: '姿态' },
+  { id: 'label', label: 'Logo/标签' },
+  { id: 'custom', label: '自定义' },
+];
+
+const LAYOUT_BLOCK_PRIORITY_OPTIONS = [
+  { id: 'primary', label: '主要' },
+  { id: 'secondary', label: '次要' },
+  { id: 'reference', label: '参考' },
+];
 
 const STORYBOARD_ASPECT_RATIOS = ['16:9', '9:16', '1:1', '4:3', '2.35:1'];
 
@@ -147,11 +180,24 @@ export function PromptHelperWorkbenchModal({
           </section>
           <aside className="prompt-helper-workbench__preview">
             <label className="prompt-helper-field prompt-helper-field--wide">
-              <span>本地补充说明</span>
+              <span>模型倾向</span>
+              <select
+                value={normalized.modelStyle}
+                onChange={(event) => patch({ modelStyle: event.target.value as PromptHelperModelStyle })}
+              >
+                {MODEL_STYLE_ITEMS.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label} - {item.description}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="prompt-helper-field prompt-helper-field--wide">
+              <span>基础画面描述</span>
               <textarea
                 value={normalized.baseText}
                 onChange={(event) => patch({ baseText: event.target.value })}
-                placeholder="可选：补充普通提示词，或留空只生成辅助提示词"
+                placeholder="可选：描述主体、场景或原始需求；连接上游文本时以上游输入为准"
               />
             </label>
             <div className="prompt-helper-workbench__prompt-title">实时输出</div>
@@ -614,7 +660,25 @@ function StoryboardTool({ data, onPatch }: { data: PromptHelperData; onPatch: (p
 
 function LayoutTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch: PromptHelperPatch) => void }) {
   const config = data.layoutConfig;
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const patchLayout = (patch: Partial<typeof config>) => onPatch({ layoutConfig: { ...config, ...patch } });
+  const currentTemplate =
+    LAYOUT_TEMPLATE_PRESETS.find((item) => item.id === config.template) || LAYOUT_TEMPLATE_PRESETS[0];
+  const applyTemplate = (templateId: string) => {
+    const preset = LAYOUT_TEMPLATE_PRESETS.find((item) => item.id === templateId) || LAYOUT_TEMPLATE_PRESETS[0];
+    patchLayout({
+      template: preset.id,
+      subjectKind: preset.subjectKind,
+      blocks:
+        preset.id === 'custom'
+          ? config.blocks
+          : preset.blocks.map((block) => ({
+              ...block,
+              description: block.description || '',
+              priority: block.priority || 'secondary',
+            })),
+    });
+  };
   const updateBlock = (index: number, patch: Record<string, unknown>) => {
     patchLayout({
       blocks: config.blocks.map((block, blockIndex) => (blockIndex === index ? { ...block, ...patch } : block)),
@@ -625,18 +689,56 @@ function LayoutTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
     patchLayout({
       blocks: [
         ...config.blocks,
-        { id: `block-${Date.now()}`, kind: 'portrait', label: `内容 ${index}`, x: 8, y: 8, w: 22, h: 28 },
+        {
+          id: `block-${Date.now()}`,
+          kind: 'custom',
+          label: `内容 ${index}`,
+          description: '',
+          priority: 'secondary',
+          x: 8,
+          y: 8,
+          w: 22,
+          h: 28,
+        },
       ],
+      template: 'custom',
     });
   };
 
   return (
     <div className="prompt-helper-layout">
+      <div className="prompt-helper-layout__top">
+        <label className="prompt-helper-field">
+          <span>版式模板</span>
+          <select value={config.template} onChange={(event) => applyTemplate(event.target.value)}>
+            {LAYOUT_TEMPLATE_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="prompt-helper-field">
+          <span>主体类型</span>
+          <select
+            value={config.subjectKind}
+            onChange={(event) => patchLayout({ subjectKind: event.target.value as typeof config.subjectKind })}
+          >
+            {LAYOUT_SUBJECT_KIND_OPTIONS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="prompt-helper-secondary" onClick={() => applyTemplate(currentTemplate.id)}>
+          重置模板
+        </button>
+      </div>
       <div className="prompt-helper-layout__canvas">
-        {config.blocks.map((block, index) => (
-          <button
+        {config.blocks.map((block) => (
+          <div
             key={block.id}
-            type="button"
             className="prompt-helper-layout__block"
             style={{
               left: `${block.x}%`,
@@ -644,15 +746,18 @@ function LayoutTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
               width: `${block.w}%`,
               height: `${block.h}%`,
             }}
-            onClick={() => updateBlock(index, { x: Math.min(90, block.x + 4), y: Math.min(90, block.y + 4) })}
           >
-            {block.label}
-          </button>
+            <span>{block.label}</span>
+            <small>{LAYOUT_BLOCK_KIND_OPTIONS.find((item) => item.id === block.kind)?.label || '自定义'}</small>
+          </div>
         ))}
       </div>
       <div className="prompt-helper-controls prompt-helper-controls--layout">
         <button type="button" className="prompt-helper-secondary" onClick={addBlock}>
           <Plus size={14} /> 新增内容块
+        </button>
+        <button type="button" className="prompt-helper-secondary" onClick={() => setAdvancedOpen((value) => !value)}>
+          {advancedOpen ? '收起高级布局' : '高级布局'}
         </button>
         <label className="prompt-helper-check">
           <input
@@ -674,34 +779,69 @@ function LayoutTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
               </button>
             </div>
             <div className="prompt-helper-light-card__grid">
-              <NumberField
-                label="X %"
-                value={block.x}
-                min={0}
-                max={92}
-                onChange={(value) => updateBlock(index, { x: value })}
-              />
-              <NumberField
-                label="Y %"
-                value={block.y}
-                min={0}
-                max={92}
-                onChange={(value) => updateBlock(index, { y: value })}
-              />
-              <NumberField
-                label="宽 %"
-                value={block.w}
-                min={8}
-                max={100}
-                onChange={(value) => updateBlock(index, { w: value })}
-              />
-              <NumberField
-                label="高 %"
-                value={block.h}
-                min={8}
-                max={100}
-                onChange={(value) => updateBlock(index, { h: value })}
-              />
+              <label className="prompt-helper-field">
+                <span>块类型</span>
+                <select value={block.kind} onChange={(event) => updateBlock(index, { kind: event.target.value })}>
+                  {LAYOUT_BLOCK_KIND_OPTIONS.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="prompt-helper-field">
+                <span>权重</span>
+                <select
+                  value={block.priority}
+                  onChange={(event) => updateBlock(index, { priority: event.target.value })}
+                >
+                  {LAYOUT_BLOCK_PRIORITY_OPTIONS.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="prompt-helper-field prompt-helper-field--wide">
+                <span>说明</span>
+                <textarea
+                  value={block.description}
+                  onChange={(event) => updateBlock(index, { description: event.target.value })}
+                  placeholder="例如：保留 Logo 和标签文字，展示瓶身材质细节"
+                />
+              </label>
+              {advancedOpen && (
+                <>
+                  <NumberField
+                    label="X %"
+                    value={block.x}
+                    min={0}
+                    max={92}
+                    onChange={(value) => updateBlock(index, { x: value })}
+                  />
+                  <NumberField
+                    label="Y %"
+                    value={block.y}
+                    min={0}
+                    max={92}
+                    onChange={(value) => updateBlock(index, { y: value })}
+                  />
+                  <NumberField
+                    label="宽 %"
+                    value={block.w}
+                    min={8}
+                    max={100}
+                    onChange={(value) => updateBlock(index, { w: value })}
+                  />
+                  <NumberField
+                    label="高 %"
+                    value={block.h}
+                    min={8}
+                    max={100}
+                    onChange={(value) => updateBlock(index, { h: value })}
+                  />
+                </>
+              )}
             </div>
           </div>
         ))}
