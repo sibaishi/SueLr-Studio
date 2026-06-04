@@ -796,8 +796,8 @@
 
 .prompt-helper-card {
   width: 100%;
-  gap: 9px;
-  padding: 12px;
+  gap: 8px;
+  padding: 11px;
   background: var(--workflow-node-content-surface);
 }
 
@@ -808,6 +808,11 @@
   gap: 8px;
   color: var(--node-card-muted);
   font-size: 11px;
+}
+
+.prompt-helper-card__status {
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .prompt-helper-card__badge {
@@ -821,28 +826,40 @@
   font-weight: 700;
 }
 
-.prompt-helper-card__preview {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+.prompt-helper-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prompt-helper-card__chip {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--node-card-muted) 10%, transparent);
+  color: var(--node-card-ink);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.prompt-helper-card__hint {
   color: var(--node-card-muted);
   font-size: 11px;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  white-space: pre-wrap;
+  line-height: 1.45;
 }
 
 .prompt-helper-card__button {
   width: 100%;
   border: 1px solid color-mix(in srgb, var(--node-color) 34%, var(--node-card-line));
   border-radius: 8px;
-  padding: 8px 10px;
-  background: color-mix(in srgb, var(--node-color) 13%, transparent);
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--node-color) 9%, transparent);
   color: var(--node-card-ink);
   font-size: 12px;
-  font-weight: 720;
+  font-weight: 680;
   cursor: pointer;
 }
 

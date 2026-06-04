@@ -90,6 +90,10 @@ function getStoryboardLayoutPreset(layoutPreset: string) {
   return STORYBOARD_LAYOUT_PRESETS.find((item) => item.id === layoutPreset) || STORYBOARD_LAYOUT_PRESETS[0];
 }
 
+function getLayoutTemplatePreset(template: string) {
+  return LAYOUT_TEMPLATE_PRESETS.find((item) => item.id === template) || LAYOUT_TEMPLATE_PRESETS[0];
+}
+
 function getStoryboardPreviewRatio(aspectRatio: string) {
   const [width, height] = aspectRatio.split(':').map((part) => Number(part));
   return width > 0 && height > 0 ? `${width} / ${height}` : '16 / 9';
@@ -100,26 +104,93 @@ function circledNumber(index: number) {
   return circled[index] || String(index + 1);
 }
 
+function getModelStyleLabel(modelStyle: PromptHelperModelStyle) {
+  return MODEL_STYLE_ITEMS.find((item) => item.id === modelStyle)?.label || '通用';
+}
+
+function getCameraModeLabel(mode: PromptHelperData['cameraConfig']['mode']) {
+  return CAMERA_MODE_ITEMS.find((item) => item.id === mode)?.label || '调整现有图片视角';
+}
+
+function getCameraEditStrategyLabel(editStrategy: PromptHelperData['cameraConfig']['editStrategy']) {
+  return CAMERA_EDIT_STRATEGY_ITEMS.find((item) => item.id === editStrategy)?.label || '摄像机旋转';
+}
+
+function getPromptHelperCardTags(data: PromptHelperData) {
+  const tags = [getModelStyleLabel(data.modelStyle)];
+
+  if (data.activeTool === PROMPT_HELPER_TOOLS.camera) {
+    tags.push(getCameraModeLabel(data.cameraConfig.mode));
+    if (data.cameraConfig.mode !== PROMPT_HELPER_CAMERA_MODES.generate) {
+      tags.push(getCameraEditStrategyLabel(data.cameraConfig.editStrategy));
+    }
+    tags.push(data.cameraConfig.shotSize);
+    return tags;
+  }
+
+  if (data.activeTool === PROMPT_HELPER_TOOLS.lighting) {
+    tags.push(data.lightingConfig.mode === 'reshape' ? '重塑光线' : '增加光线');
+    tags.push(`${data.lightingConfig.lights.length} 盏灯`);
+    return tags;
+  }
+
+  if (data.activeTool === PROMPT_HELPER_TOOLS.storyboard) {
+    const layout = getStoryboardLayoutPreset(data.storyboardConfig.layoutPreset);
+    tags.push(layout.label);
+    tags.push(`${data.storyboardConfig.shotCount} 镜头`);
+    tags.push(data.storyboardConfig.aspectRatio);
+    return tags;
+  }
+
+  const template = getLayoutTemplatePreset(data.layoutConfig.template);
+  tags.push(template.label);
+  tags.push(`${data.layoutConfig.blocks.length} 块内容`);
+  tags.push(data.layoutConfig.subjectKind === 'product' ? '产品' : data.layoutConfig.subjectKind === 'object' ? '物体' : '角色');
+  return tags;
+}
+
+function getPromptHelperCardHint(data: PromptHelperData) {
+  if (data.activeTool === PROMPT_HELPER_TOOLS.camera) {
+    return data.cameraConfig.mode === PROMPT_HELPER_CAMERA_MODES.generate
+      ? '按目标视角直接生成新图'
+      : '围绕主体整理视角控制参数';
+  }
+  if (data.activeTool === PROMPT_HELPER_TOOLS.lighting) {
+    return '整理补光或重塑光照意图';
+  }
+  if (data.activeTool === PROMPT_HELPER_TOOLS.storyboard) {
+    return '配置整张分镜图的版式和镜头数量';
+  }
+  return '配置三视图或参考图布局';
+}
+
 export function PromptHelperNodeCard({
   data,
-  outputs,
   onOpen,
 }: {
   data: Record<string, unknown>;
-  outputs?: Record<string, unknown>;
   onOpen: () => void;
 }) {
   const normalized = normalizePromptHelperData(data);
-  const prompt = String(outputs?.prompt || buildPromptHelperPrompt(normalized));
+  const tags = getPromptHelperCardTags(normalized);
+  const hint = getPromptHelperCardHint(normalized);
+
   return (
     <div className="node-content-shell prompt-helper-card">
       <div className="prompt-helper-card__top">
         <span className="prompt-helper-card__badge">{getPromptHelperToolLabel(normalized.activeTool)}</span>
-        <span>{summarizePromptHelper(normalized)}</span>
+        <span className="prompt-helper-card__status">已配置</span>
       </div>
-      <div className="prompt-helper-card__preview">{prompt}</div>
+      <div className="prompt-helper-card__meta">
+        {tags.map((tag) => (
+          <span key={tag} className="prompt-helper-card__chip">
+            {tag}
+          </span>
+        ))}
+      </div>
+      <div className="prompt-helper-card__hint">{hint}</div>
       <button type="button" className="prompt-helper-card__button nodrag" onClick={onOpen}>
-        打开工作台
+        配置节点
       </button>
     </div>
   );
