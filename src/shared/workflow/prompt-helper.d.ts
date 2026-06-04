@@ -16,6 +16,11 @@ export const PROMPT_HELPER_CAMERA_MODES: {
   readonly generate: 'generate';
 };
 
+export const PROMPT_HELPER_CAMERA_EDIT_STRATEGIES: {
+  readonly subjectRotate: 'subject-rotate';
+  readonly cameraRotate: 'camera-rotate';
+};
+
 export const STORYBOARD_LAYOUT_PRESETS: readonly {
   readonly id: string;
   readonly label: string;
@@ -40,6 +45,7 @@ export const LAYOUT_TEMPLATE_PRESETS: readonly {
 export type PromptHelperTool = 'camera' | 'lighting' | 'storyboard' | 'layout';
 export type PromptHelperModelStyle = 'generic' | 'gpt-image-2' | 'nano-banana';
 export type PromptHelperCameraMode = 'edit' | 'generate';
+export type PromptHelperCameraEditStrategy = 'subject-rotate' | 'camera-rotate';
 
 export type PromptHelperPoint = {
   x: number;
@@ -49,6 +55,7 @@ export type PromptHelperPoint = {
 
 export type PromptHelperCameraConfig = {
   mode: PromptHelperCameraMode;
+  editStrategy: PromptHelperCameraEditStrategy;
   focalLength: number;
   distance: number;
   angle: number;
@@ -56,7 +63,6 @@ export type PromptHelperCameraConfig = {
   position: PromptHelperPoint;
   target: PromptHelperPoint;
   shotSize: string;
-  preserveSubject: boolean;
 };
 
 export type PromptHelperLight = {

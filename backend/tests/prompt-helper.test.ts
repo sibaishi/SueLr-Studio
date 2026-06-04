@@ -38,6 +38,8 @@ test('promptHelper defaults to generic model style for legacy data', async () =>
 
   assert.match(result.prompt, /转换视角/);
   assert.match(result.prompt, /85mm portrait lens feel/);
+  assert.match(result.prompt, /变化方式：摄像机旋转/);
+  assert.match(result.prompt, /场景、背景、透视、遮挡/);
   assert.doesNotMatch(result.prompt, /final_prompt/);
   assert.doesNotMatch(result.prompt, /新生成模式/);
 });
@@ -52,15 +54,15 @@ test('promptHelper camera generate mode outputs fresh-image instructions', async
       distance: 7,
       angle: 30,
       shotSize: '全景',
-      preserveSubject: true,
     },
   });
 
   assert.match(result.prompt, /基础提示词 \/ base prompt/);
   assert.match(result.prompt, /根据基础提示词新生成一张全景/);
   assert.match(result.prompt, /这是新生成模式，不要求参考原图重绘/);
-  assert.match(result.prompt, /保持基础提示词中的主体设定/);
+  assert.match(result.prompt, /不要求沿用现有图片中的主体细节或构图/);
   assert.doesNotMatch(result.prompt, /只改变观看视角/);
+  assert.doesNotMatch(result.prompt, /保持主体身份/);
 });
 
 test('promptHelper camera back view adds explicit rear-view constraints', async () => {
@@ -79,6 +81,76 @@ test('promptHelper camera back view adds explicit rear-view constraints', async 
   assert.match(result.prompt, /不要生成正面或侧脸/);
 });
 
+test('promptHelper camera subject-rotate strategy keeps scene locked', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    cameraConfig: {
+      editStrategy: 'subject-rotate',
+      angle: 90,
+      focalLength: 50,
+      shotSize: '中景',
+    },
+  });
+
+  assert.match(result.prompt, /变化方式：主体旋转/);
+  assert.match(result.prompt, /背景、场景布局、透视关系、镜头位置和整体画面框架尽量保持稳定/);
+  assert.match(result.prompt, /不要把场景重建成另一侧视角/);
+});
+
+test('promptHelper camera camera-rotate strategy rebuilds scene perspective', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    cameraConfig: {
+      editStrategy: 'camera-rotate',
+      angle: 90,
+      focalLength: 50,
+      shotSize: '中景',
+    },
+  });
+
+  assert.match(result.prompt, /变化方式：摄像机旋转/);
+  assert.match(result.prompt, /场景、背景、透视、遮挡、景深、阴影方向和环境可见面都必须随新机位一致变化/);
+  assert.match(result.prompt, /不要只让主体转过去而背景基本不变/);
+});
+
+test('promptHelper camera high-angle view adds explicit downward constraints', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    cameraConfig: {
+      angle: 30,
+      focalLength: 35,
+      shotSize: '中景',
+      position: { x: 2.5, y: 4.8, z: 5.2 },
+      target: { x: 0, y: 1, z: 0 },
+      height: 4.8,
+    },
+  });
+
+  assert.match(result.prompt, /垂直视角：顶视俯拍|垂直视角：高位俯拍/);
+  assert.match(result.prompt, /俯角约/);
+  assert.match(result.prompt, /show more top-facing surfaces|show the top planes of the subject and environment clearly/);
+  assert.match(result.prompt, /不要保持平视/);
+});
+
+test('promptHelper camera low-angle view adds explicit upward constraints', async () => {
+  const { result } = await helper({
+    activeTool: 'camera',
+    cameraConfig: {
+      angle: -25,
+      focalLength: 35,
+      shotSize: '中景',
+      position: { x: -2.2, y: -1.5, z: 4.8 },
+      target: { x: 0, y: 1.2, z: 0 },
+      height: 0.2,
+    },
+  });
+
+  assert.match(result.prompt, /垂直视角：极低位仰拍|垂直视角：低位仰拍/);
+  assert.match(result.prompt, /仰角约/);
+  assert.match(result.prompt, /show more underside surfaces|show the underside of forms clearly/);
+  assert.match(result.prompt, /不要保持平视/);
+});
+
 test('promptHelper camera uses concise GPT-image-2 style when requested', async () => {
   const { result } = await helper({
     activeTool: 'camera',
@@ -90,6 +162,8 @@ test('promptHelper camera uses concise GPT-image-2 style when requested', async 
   assert.match(result.prompt, /Keep the subject identity/);
   assert.match(result.prompt, /Change only the camera view/);
   assert.match(result.prompt, /Do not alter/);
+  assert.match(result.prompt, /Vertical viewpoint:/);
+  assert.match(result.prompt, /Transformation strategy: 摄像机旋转/);
   assert.doesNotMatch(result.prompt, /请严格根据以下结构化提示词/);
 });
 
@@ -117,6 +191,7 @@ test('promptHelper camera generate mode uses text_to_image Nano Banana style', a
   assert.match(result.prompt, /"task": "text_to_image"/);
   assert.match(result.prompt, /"intent": "生成新视角图片"/);
   assert.doesNotMatch(result.prompt, /"task": "image_edit"/);
+  assert.doesNotMatch(result.prompt, /保持主体身份/);
 });
 
 test('promptHelper camera Nano Banana payload includes explicit viewpoint fields', async () => {
@@ -129,6 +204,8 @@ test('promptHelper camera Nano Banana payload includes explicit viewpoint fields
   assert.match(result.prompt, /"viewpoint_label": "背面视角"/);
   assert.match(result.prompt, /"viewpoint": "back view"/);
   assert.match(result.prompt, /"viewpoint_instruction": "show the back of the subject; face should not be visible"/);
+  assert.match(result.prompt, /"vertical_viewpoint_label": "平视"/);
+  assert.match(result.prompt, /"transformation_strategy": "camera rotates around the subject"/);
 });
 
 test('promptHelper lighting tool distinguishes add and reshape modes', async () => {

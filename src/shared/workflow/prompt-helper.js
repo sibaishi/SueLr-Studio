@@ -16,6 +16,11 @@ export const PROMPT_HELPER_CAMERA_MODES = {
   generate: 'generate',
 };
 
+export const PROMPT_HELPER_CAMERA_EDIT_STRATEGIES = {
+  subjectRotate: 'subject-rotate',
+  cameraRotate: 'camera-rotate',
+};
+
 export const STORYBOARD_LAYOUT_PRESETS = [
   { id: 'grid-4', label: '4格横版', description: '2 x 2 白底统一网格', shotCount: 4, aspectRatio: '16:9', columns: 2 },
   { id: 'grid-6', label: '6格横版', description: '3 x 2 白底统一网格', shotCount: 6, aspectRatio: '16:9', columns: 3 },
@@ -292,8 +297,14 @@ const CAMERA_MODE_LABELS = {
   generate: '新生成图片',
 };
 
+const CAMERA_EDIT_STRATEGY_LABELS = {
+  'subject-rotate': '主体旋转',
+  'camera-rotate': '摄像机旋转',
+};
+
 const DEFAULT_CAMERA_CONFIG = {
   mode: 'edit',
+  editStrategy: 'camera-rotate',
   focalLength: 35,
   distance: 6,
   angle: 20,
@@ -301,7 +312,6 @@ const DEFAULT_CAMERA_CONFIG = {
   position: { x: 3, y: 2, z: 6 },
   target: { x: 0, y: 1, z: 0 },
   shotSize: '中景',
-  preserveSubject: true,
 };
 
 const DEFAULT_LIGHTING_CONFIG = {
@@ -396,6 +406,10 @@ function getCameraModeLabel(mode) {
   return CAMERA_MODE_LABELS[mode] || CAMERA_MODE_LABELS.edit;
 }
 
+function getCameraEditStrategyLabel(editStrategy) {
+  return CAMERA_EDIT_STRATEGY_LABELS[editStrategy] || CAMERA_EDIT_STRATEGY_LABELS['camera-rotate'];
+}
+
 function getLayoutTemplate(template) {
   return LAYOUT_TEMPLATE_PRESETS.find((item) => item.id === template) || LAYOUT_TEMPLATE_PRESETS[0];
 }
@@ -454,6 +468,9 @@ export function normalizePromptHelperData(data = {}) {
     mode: Object.values(PROMPT_HELPER_CAMERA_MODES).includes(cameraSource.mode)
       ? cameraSource.mode
       : DEFAULT_CAMERA_CONFIG.mode,
+    editStrategy: Object.values(PROMPT_HELPER_CAMERA_EDIT_STRATEGIES).includes(cameraSource.editStrategy)
+      ? cameraSource.editStrategy
+      : DEFAULT_CAMERA_CONFIG.editStrategy,
     focalLength: asNumber(cameraSource.focalLength, DEFAULT_CAMERA_CONFIG.focalLength),
     distance: asNumber(cameraSource.distance, DEFAULT_CAMERA_CONFIG.distance),
     angle: asNumber(cameraSource.angle, DEFAULT_CAMERA_CONFIG.angle),
@@ -461,7 +478,6 @@ export function normalizePromptHelperData(data = {}) {
     position: normalizePoint(cameraSource.position, DEFAULT_CAMERA_CONFIG.position),
     target: normalizePoint(cameraSource.target, DEFAULT_CAMERA_CONFIG.target),
     shotSize: asText(cameraSource.shotSize, DEFAULT_CAMERA_CONFIG.shotSize),
-    preserveSubject: cameraSource.preserveSubject !== false,
   };
 
   const rawLights = Array.isArray(lightingSource.lights) ? lightingSource.lights : DEFAULT_LIGHTING_CONFIG.lights;
@@ -669,14 +685,131 @@ function getCameraShotTerms(config) {
   const focus =
     focalLength >= 75 ? 'shallow depth of field' : focalLength <= 28 ? 'deep spatial perspective' : 'sharp focus';
   const angle =
-    Math.abs(config.angle) <= 10
-      ? 'eye-level shot'
-      : config.height > 2.2
-        ? 'slightly elevated camera angle'
-        : config.height < 1
-          ? 'low-angle shot'
-          : 'three-quarter camera angle';
+    Math.abs(config.angle) <= 10 ? 'front-facing camera alignment' : 'three-quarter camera alignment';
   return { shotType, lens, focus, angle };
+}
+
+function getCameraVerticalTerms(config) {
+  const dx = Number(config.target.x) - Number(config.position.x);
+  const dy = Number(config.target.y) - Number(config.position.y);
+  const verticalOffset = Number(config.position.y) - Number(config.target.y);
+  const dz = Number(config.target.z) - Number(config.position.z);
+  const horizontalDistance = Math.max(0.1, Math.hypot(dx, dz));
+  const tiltRadians = Math.atan2(Math.abs(dy), horizontalDistance);
+  const tiltDegrees = Number(((tiltRadians * 180) / Math.PI).toFixed(0));
+
+  if (verticalOffset >= 3.5 || (verticalOffset >= 1.8 && tiltDegrees >= 45)) {
+    return {
+      chinese: '顶视俯拍',
+      english: 'top-down bird-eye view',
+      relation: 'downward',
+      pitchLabel: '俯角',
+      pitchDegrees: tiltDegrees,
+      cameraPose: 'camera high above the subject looking steeply downward',
+      visibility: 'show the top planes of the subject and environment clearly; emphasize ground spread and suppress underside visibility',
+      structuralFocus: 'top silhouette, crown/shoulder top surfaces, floor layout, radial spatial spread, and a strong downward perspective',
+      instruction:
+        'the image must read as a true top-down shot rather than a normal eye-level image with the subject merely tilted',
+      avoid: ['不要保持平视镜头', '不要仍然像普通正面照', '不要缺失地面铺展和顶部可见面'],
+      keywords: 'bird-eye view, top-down camera, steep downward tilt, visible top planes, expanded ground plane',
+    };
+  }
+
+  if (verticalOffset >= 1.2 || (verticalOffset > 0.4 && tiltDegrees >= 22)) {
+    return {
+      chinese: '高位俯拍',
+      english: 'high-angle downward view',
+      relation: 'downward',
+      pitchLabel: '俯角',
+      pitchDegrees: tiltDegrees,
+      cameraPose: 'camera above the subject looking downward',
+      visibility: 'show more top-facing surfaces and more ground behind or around the subject; reduce underside visibility',
+      structuralFocus: 'upper silhouette, shoulder/head top planes, floor perspective expansion, and a clearly lowered horizon',
+      instruction:
+        'the composition must feel like the camera moved upward and tilted down, not like the subject simply leaned backward',
+      avoid: ['不要保持平视构图', '不要仍然像轻微角度变化的正面照', '不要忽略地面透视和顶部面'],
+      keywords: 'high-angle shot, downward tilt, visible top surfaces, lowered horizon, expanded ground perspective',
+    };
+  }
+
+  if (verticalOffset <= -3.5 || (verticalOffset <= -1.8 && tiltDegrees >= 45)) {
+    return {
+      chinese: '极低位仰拍',
+      english: 'extreme low-angle upward view',
+      relation: 'upward',
+      pitchLabel: '仰角',
+      pitchDegrees: tiltDegrees,
+      cameraPose: 'camera far below the subject looking steeply upward',
+      visibility: 'show the underside of forms clearly; emphasize sky or ceiling dominance and suppress top-down floor visibility',
+      structuralFocus: 'upward monumentality, underside planes, stretched vertical lines, towering scale, and strong upward perspective',
+      instruction:
+        'the image must read as an obvious worm-eye shot rather than an eye-level image with the subject enlarged',
+      avoid: ['不要保持平视镜头', '不要仍然像普通视角只把主体放大', '不要缺失天空或上方背景占比'],
+      keywords: 'worm-eye view, extreme low-angle shot, steep upward tilt, visible underside, towering perspective',
+    };
+  }
+
+  if (verticalOffset <= -1.2 || (verticalOffset < -0.4 && tiltDegrees >= 22)) {
+    return {
+      chinese: '低位仰拍',
+      english: 'low-angle upward view',
+      relation: 'upward',
+      pitchLabel: '仰角',
+      pitchDegrees: tiltDegrees,
+      cameraPose: 'camera below the subject looking upward',
+      visibility: 'show more underside surfaces and more sky, ceiling, or upper background; reduce top-down floor visibility',
+      structuralFocus: 'lower silhouette dominance, underside planes, upward vertical convergence, and a clearly raised horizon',
+      instruction:
+        'the composition must feel like the camera dropped lower and tilted up, not like the subject simply leaned forward',
+      avoid: ['不要保持平视构图', '不要仍然像普通正面照', '不要忽略上方背景和底部可见面'],
+      keywords: 'low-angle shot, upward tilt, visible underside, raised horizon, upper background dominance',
+    };
+  }
+
+  return {
+    chinese: '平视',
+    english: 'eye-level view',
+    relation: 'level',
+    pitchLabel: '俯仰角',
+    pitchDegrees: 0,
+    cameraPose: 'camera roughly level with the subject',
+    visibility: 'maintain balanced visibility of the subject without strong top-down or bottom-up distortion',
+    structuralFocus: 'neutral perspective, balanced horizon, and natural spatial proportion',
+    instruction: 'the image should stay close to an eye-level viewing relationship',
+    avoid: ['不要误生成明显俯拍', '不要误生成明显仰拍'],
+    keywords: 'eye-level shot, neutral vertical perspective, balanced horizon',
+  };
+}
+
+function getCameraSceneTerms(config) {
+  const strategy =
+    config.editStrategy === PROMPT_HELPER_CAMERA_EDIT_STRATEGIES.subjectRotate
+      ? PROMPT_HELPER_CAMERA_EDIT_STRATEGIES.subjectRotate
+      : PROMPT_HELPER_CAMERA_EDIT_STRATEGIES.cameraRotate;
+
+  if (strategy === PROMPT_HELPER_CAMERA_EDIT_STRATEGIES.subjectRotate) {
+    return {
+      strategy,
+      chinese: '主体旋转',
+      english: 'subject rotates in place',
+      intent: '保持场景和机位基本不变，主要让主体自身转向目标视角',
+      sceneRule: '背景、场景布局、透视关系、镜头位置和整体画面框架尽量保持稳定，不要明显改成另一侧机位。',
+      structuralRule: '把这次变化理解为主体在同一镜头里原地转身或转向，而不是摄像机绕场景移动。',
+      avoid: ['不要明显改变背景布局', '不要把场景重建成另一侧视角', '不要让机位和透视整体换边'],
+      keywords: 'subject turns in place, locked background, stable framing, same camera position, same scene layout',
+    };
+  }
+
+  return {
+    strategy,
+    chinese: '摄像机旋转',
+    english: 'camera rotates around the subject',
+    intent: '保持主体身份一致，并让摄像机绕主体改变观察角度。',
+    sceneRule: '场景、背景、透视、遮挡、景深、阴影方向和环境可见面都必须随新机位一致变化，不要只让主体转过去而背景基本不变。',
+    structuralRule: '把这次变化理解为摄像机围绕主体移动后的重新拍摄结果，需要同步重建背景透视和空间关系。',
+    avoid: ['不要让背景保持原样不动', '不要像剪贴拼接一样只旋转主体', '不要保留旧机位的透视和遮挡关系'],
+    keywords: 'camera orbit around subject, regenerated background perspective, scene parallax, updated occlusion, rebuilt environment viewpoint',
+  };
 }
 
 function buildNanoPrompt(payload) {
@@ -691,16 +824,34 @@ function buildCameraPrompt(config, modelStyle) {
   const mode = config.mode === PROMPT_HELPER_CAMERA_MODES.generate ? PROMPT_HELPER_CAMERA_MODES.generate : PROMPT_HELPER_CAMERA_MODES.edit;
   const terms = getCameraShotTerms(config);
   const viewTerms = getCameraViewTerms(config);
+  const verticalTerms = getCameraVerticalTerms(config);
+  const sceneTerms = getCameraSceneTerms(config);
   const isGenerateMode = mode === PROMPT_HELPER_CAMERA_MODES.generate;
-  const keep = isGenerateMode
-    ? ['基础提示词中的主体设定', '服装', '材质', '比例', '关键特征']
-    : ['主体身份', '服装', '材质', '比例', '关键特征'];
+  const keep = isGenerateMode ? [] : ['主体身份', '服装', '材质', '比例', '关键特征'];
   const change = isGenerateMode
-    ? [`新生成 ${viewTerms.english} / ${terms.shotType} 视角构图`, `镜头语言改为 ${terms.lens}`, terms.focus]
-    : [`观看视角改为 ${viewTerms.english} / ${terms.shotType}`, `镜头语言改为 ${terms.lens}`, terms.focus];
+    ? [
+        `新生成 ${viewTerms.english} / ${terms.shotType} 视角构图`,
+        `垂直视角为 ${verticalTerms.english}`,
+        `镜头语言改为 ${terms.lens}`,
+        terms.focus,
+      ]
+    : [
+        `观看视角改为 ${viewTerms.english} / ${terms.shotType}`,
+        `垂直视角改为 ${verticalTerms.english}`,
+        `镜头语言改为 ${terms.lens}`,
+        terms.focus,
+        `视角变化方式为 ${sceneTerms.english}`,
+      ];
   const avoid = isGenerateMode
     ? ['不要偏离基础提示词主体设定', '不要随意改色或改材质', '不要添加无关元素', '不要添加文字、水印或标签']
-    : ['不要改变主体结构', '不要改变身份', '不要改变产品颜色、Logo 或标签文字', '不要添加无关元素'];
+    : [
+        '不要改变主体结构',
+        '不要改变身份',
+        '不要改变产品颜色、Logo 或标签文字',
+        '不要添加无关元素',
+        ...sceneTerms.avoid,
+      ];
+  avoid.push(...verticalTerms.avoid);
   if (viewTerms.english === 'back view') {
     avoid.push('不要生成正面或侧脸', '不要让脸正对镜头');
   } else if (viewTerms.english.includes('rear three-quarter')) {
@@ -709,8 +860,8 @@ function buildCameraPrompt(config, modelStyle) {
     avoid.push('不要变成正面照');
   }
   const finalPrompt = isGenerateMode
-    ? `Generate a fresh image of the described subject as a ${viewTerms.english} ${terms.shotType} using ${terms.lens}, ${terms.angle}, and ${terms.focus}. ${viewTerms.detail}. ${viewTerms.visibility}. ${viewTerms.structuralFocus}. Keep the subject design, material, proportions, and key details consistent with the prompt. Do not add unrelated elements, text, watermark, or unwanted distortions.`
-    : `Keep the subject identity, clothing, material, proportions, and key details unchanged. Change only the camera view to a ${viewTerms.english} ${terms.shotType} using ${terms.lens}, ${terms.angle}, and ${terms.focus}. ${viewTerms.detail}. ${viewTerms.visibility}. ${viewTerms.structuralFocus}. Do not alter the subject structure, identity, color, logo, label text, or add unrelated elements.`;
+    ? `Generate a fresh image of the described subject as a ${viewTerms.english} ${terms.shotType} using ${terms.lens}, ${terms.angle}, and ${terms.focus}. Horizontal viewpoint: ${viewTerms.detail}. Vertical viewpoint: ${verticalTerms.cameraPose}. ${viewTerms.visibility}. ${viewTerms.structuralFocus}. ${verticalTerms.visibility}. ${verticalTerms.structuralFocus}. ${verticalTerms.instruction} Follow the base prompt as the creative source, but do not assume an existing image must be preserved exactly. Do not add unrelated elements, text, watermark, or unwanted distortions.`
+    : `Keep the subject identity, clothing, material, proportions, and key details unchanged. Change only the camera view to a ${viewTerms.english} ${terms.shotType} using ${terms.lens}, ${terms.angle}, and ${terms.focus}. Horizontal viewpoint: ${viewTerms.detail}. Vertical viewpoint: ${verticalTerms.cameraPose}. ${viewTerms.visibility}. ${viewTerms.structuralFocus}. ${verticalTerms.visibility}. ${verticalTerms.structuralFocus}. ${verticalTerms.instruction} ${sceneTerms.intent} ${sceneTerms.sceneRule} ${sceneTerms.structuralRule} Do not alter the subject structure, identity, color, logo, label text, or add unrelated elements.`;
 
   if (modelStyle === PROMPT_HELPER_MODEL_STYLES.gptImage2) {
     return [
@@ -719,10 +870,12 @@ function buildCameraPrompt(config, modelStyle) {
         : '辅助类型：转换视角 / camera view transformation for GPT-image-2.',
       finalPrompt,
       `Target viewpoint: ${viewTerms.chinese} (${viewTerms.english}).`,
+      `Vertical viewpoint: ${verticalTerms.chinese} (${verticalTerms.english}), ${verticalTerms.pitchLabel} about ${verticalTerms.pitchDegrees} degrees.`,
+      !isGenerateMode ? `Transformation strategy: ${sceneTerms.chinese} (${sceneTerms.english}).` : null,
       `Camera position: ${formatPoint(config.position)}. Target point: ${formatPoint(config.target)}. Focal length: ${config.focalLength}mm.`,
       `Avoid: ${avoid.join('; ')}.`,
       isGenerateMode ? 'Generate a fresh image rather than editing an existing image.' : 'Edit the existing image rather than generating a different subject.',
-    ];
+    ].filter(Boolean);
   }
 
   if (modelStyle === PROMPT_HELPER_MODEL_STYLES.nanoBanana) {
@@ -730,10 +883,19 @@ function buildCameraPrompt(config, modelStyle) {
       task: isGenerateMode ? 'text_to_image' : 'image_edit',
       intent: isGenerateMode ? '生成新视角图片' : '转换视角并保持主体一致',
       camera: {
+        transformation_strategy: isGenerateMode ? null : sceneTerms.english,
+        transformation_strategy_label: isGenerateMode ? null : sceneTerms.chinese,
+        scene_rule: isGenerateMode ? null : sceneTerms.sceneRule,
         viewpoint_label: viewTerms.chinese,
         viewpoint: viewTerms.english,
         viewpoint_instruction: viewTerms.visibility,
+        vertical_viewpoint_label: verticalTerms.chinese,
+        vertical_viewpoint: verticalTerms.english,
+        vertical_viewpoint_instruction: verticalTerms.visibility,
+        vertical_pitch_label: verticalTerms.pitchLabel,
+        vertical_pitch_degrees: verticalTerms.pitchDegrees,
         composition_focus: viewTerms.structuralFocus,
+        vertical_composition_focus: verticalTerms.structuralFocus,
         shot_type: terms.shotType,
         lens: terms.lens,
         camera_angle: terms.angle,
@@ -747,9 +909,15 @@ function buildCameraPrompt(config, modelStyle) {
       avoid,
       priority: {
         highest: [
-          isGenerateMode ? '保持基础提示词中的主体设定、比例、材质和关键特征一致' : '保持主体身份、比例、材质和关键特征一致',
+          isGenerateMode ? '准确生成目标视角和镜头语言' : '保持主体身份、比例、材质和关键特征一致',
         ],
-        medium: [isGenerateMode ? '准确执行新视角、构图和镜头语言' : '只改变观看视角、构图和镜头语言'],
+        medium: [
+          isGenerateMode
+            ? '遵循基础提示词完成新画面'
+            : sceneTerms.strategy === PROMPT_HELPER_CAMERA_EDIT_STRATEGIES.cameraRotate
+              ? '同步重建场景透视、背景可见面和空间关系'
+              : '尽量锁定背景和机位，只让主体自身转向',
+        ],
       },
       final_prompt: finalPrompt,
     });
@@ -760,28 +928,30 @@ function buildCameraPrompt(config, modelStyle) {
       '辅助类型：转换视角 / camera-directed image generation.',
       `根据基础提示词新生成一张${config.shotSize}（${terms.shotType}）图片，目标视角为${viewTerms.chinese}（${viewTerms.english}），摄像机位置为 ${formatPoint(config.position)}，朝向主体目标点 ${formatPoint(config.target)}。`,
       `镜头焦距感约 ${config.focalLength}mm，机位距离约 ${config.distance}m，高度约 ${config.height}m，水平角度约 ${config.angle}°。`,
+      `垂直视角：${verticalTerms.chinese}（${verticalTerms.english}），${verticalTerms.pitchLabel}约 ${verticalTerms.pitchDegrees}°。`,
       `镜头语言：${terms.lens}, ${terms.angle}, ${terms.focus}, stable composition.`,
-      `视角要求：${viewTerms.detail}；${viewTerms.visibility}；${viewTerms.structuralFocus}。`,
+      `视角要求：${viewTerms.detail}；${viewTerms.visibility}；${viewTerms.structuralFocus}；${verticalTerms.cameraPose}；${verticalTerms.visibility}；${verticalTerms.structuralFocus}。`,
       `负向约束：${avoid.join('；')}。`,
-      config.preserveSubject
-        ? '保持基础提示词中的主体设定、服装、材质、比例和关键特征一致，重点执行新的视角、构图和镜头语言。'
-        : '允许为了新视角和构图重组可见轮廓，但仍需遵循基础提示词主体设定。',
+      '这是新生成模式，不要求沿用现有图片中的主体细节或构图，只需遵循基础提示词并生成目标视角的新画面。',
       '这是新生成模式，不要求参考原图重绘；重点是按提示词直接生成目标视角的新画面。',
-      'English keywords: fresh image generation, camera angle, focal length, perspective, composition, subject consistency.',
+      `English keywords: fresh image generation, camera angle, focal length, perspective, composition, subject consistency, ${verticalTerms.keywords}.`,
     ];
   }
 
   return [
     '辅助类型：转换视角 / camera view transformation.',
     `将画面转换为${config.shotSize}（${terms.shotType}），目标视角为${viewTerms.chinese}（${viewTerms.english}），摄像机位置为 ${formatPoint(config.position)}，朝向主体目标点 ${formatPoint(config.target)}。`,
+    `变化方式：${sceneTerms.chinese}（${sceneTerms.english}）。`,
     `镜头焦距感约 ${config.focalLength}mm，机位距离约 ${config.distance}m，高度约 ${config.height}m，水平角度约 ${config.angle}°。`,
+    `垂直视角：${verticalTerms.chinese}（${verticalTerms.english}），${verticalTerms.pitchLabel}约 ${verticalTerms.pitchDegrees}°。`,
     `镜头语言：${terms.lens}, ${terms.angle}, ${terms.focus}, stable composition.`,
-    `视角要求：${viewTerms.detail}；${viewTerms.visibility}；${viewTerms.structuralFocus}。`,
+    `视角要求：${viewTerms.detail}；${viewTerms.visibility}；${viewTerms.structuralFocus}；${verticalTerms.cameraPose}；${verticalTerms.visibility}；${verticalTerms.structuralFocus}。`,
+    `场景约束：${sceneTerms.sceneRule}`,
+    `纵向构图约束：${verticalTerms.instruction}`,
+    `空间解释：${sceneTerms.structuralRule}`,
     `负向约束：${avoid.join('；')}。`,
-    config.preserveSubject
-      ? '保持主体身份、服装、材质、比例和关键特征一致，只改变观看视角与镜头语言。'
-      : '允许根据新视角重构主体可见轮廓。',
-    'English keywords: consistent subject, camera angle, focal length, perspective, composition, stable identity.',
+    '保持主体身份、服装、材质、比例和关键特征一致，只改变观看视角与镜头语言。',
+    `English keywords: consistent subject, camera angle, focal length, perspective, composition, stable identity, ${sceneTerms.keywords}, ${verticalTerms.keywords}.`,
   ];
 }
 
@@ -1041,5 +1211,9 @@ export function summarizePromptHelper(data = {}) {
     const template = getLayoutTemplate(normalized.layoutConfig.template);
     return `${modelLabel} · ${getPromptHelperToolLabel(normalized.activeTool)} · ${template.label} · ${normalized.layoutConfig.blocks.length} 块`;
   }
-  return `${modelLabel} · ${getPromptHelperToolLabel(normalized.activeTool)} · ${getCameraModeLabel(normalized.cameraConfig.mode)} · ${normalized.cameraConfig.focalLength}mm · ${normalized.cameraConfig.shotSize}`;
+  const cameraDetail =
+    normalized.cameraConfig.mode === PROMPT_HELPER_CAMERA_MODES.generate
+      ? getCameraModeLabel(normalized.cameraConfig.mode)
+      : `${getCameraModeLabel(normalized.cameraConfig.mode)} · ${getCameraEditStrategyLabel(normalized.cameraConfig.editStrategy)}`;
+  return `${modelLabel} · ${getPromptHelperToolLabel(normalized.activeTool)} · ${cameraDetail} · ${normalized.cameraConfig.focalLength}mm · ${normalized.cameraConfig.shotSize}`;
 }

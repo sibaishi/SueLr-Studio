@@ -1,4 +1,5 @@
 import {
+  PROMPT_HELPER_CAMERA_EDIT_STRATEGIES,
   PROMPT_HELPER_CAMERA_MODES,
   LAYOUT_TEMPLATE_PRESETS,
   PROMPT_HELPER_MODEL_STYLES,
@@ -43,6 +44,11 @@ const MODEL_STYLE_ITEMS = [
 const CAMERA_MODE_ITEMS = [
   { id: PROMPT_HELPER_CAMERA_MODES.edit, label: '调整现有图片视角' },
   { id: PROMPT_HELPER_CAMERA_MODES.generate, label: '新生成该视角图片' },
+];
+
+const CAMERA_EDIT_STRATEGY_ITEMS = [
+  { id: PROMPT_HELPER_CAMERA_EDIT_STRATEGIES.cameraRotate, label: '摄像机旋转' },
+  { id: PROMPT_HELPER_CAMERA_EDIT_STRATEGIES.subjectRotate, label: '主体旋转' },
 ];
 
 const LAYOUT_SUBJECT_KIND_OPTIONS = [
@@ -263,6 +269,20 @@ function CameraTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
             </button>
           ))}
         </div>
+        {!isGenerateMode ? (
+          <div className="prompt-helper-segmented">
+            {CAMERA_EDIT_STRATEGY_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={config.editStrategy === item.id ? 'is-active' : ''}
+                onClick={() => patchCamera({ editStrategy: item.id })}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <label className="prompt-helper-field">
           <span>景别</span>
           <select value={config.shotSize} onChange={(event) => patchCamera({ shotSize: event.target.value })}>
@@ -327,14 +347,6 @@ function CameraTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
           step={0.1}
           onChange={(value) => patchPosition('z', value)}
         />
-        <label className="prompt-helper-check">
-          <input
-            type="checkbox"
-            checked={config.preserveSubject}
-            onChange={(event) => patchCamera({ preserveSubject: event.target.checked })}
-          />
-          <span>{isGenerateMode ? '保持主体设定一致' : '保持主体一致'}</span>
-        </label>
       </div>
     </div>
   );
