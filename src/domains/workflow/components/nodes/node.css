@@ -791,14 +791,15 @@
 }
 
 .prompt-helper-node {
-  padding: 0;
+  padding: 11px;
 }
 
 .prompt-helper-card {
+  display: flex;
+  min-height: 100%;
   width: 100%;
+  flex-direction: column;
   gap: 8px;
-  padding: 11px;
-  background: var(--workflow-node-content-surface);
 }
 
 .prompt-helper-card__top {
@@ -853,6 +854,7 @@
 
 .prompt-helper-card__button {
   width: 100%;
+  margin-top: auto;
   border: 1px solid color-mix(in srgb, var(--node-color) 34%, var(--node-card-line));
   border-radius: 8px;
   padding: 7px 10px;

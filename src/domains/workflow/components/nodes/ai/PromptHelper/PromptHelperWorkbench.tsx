@@ -176,7 +176,7 @@ export function PromptHelperNodeCard({
   const hint = getPromptHelperCardHint(normalized);
 
   return (
-    <div className="node-content-shell prompt-helper-card">
+    <div className="prompt-helper-card">
       <div className="prompt-helper-card__top">
         <span className="prompt-helper-card__badge">{getPromptHelperToolLabel(normalized.activeTool)}</span>
         <span className="prompt-helper-card__status">已配置</span>
