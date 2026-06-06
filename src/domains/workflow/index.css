@@ -1461,12 +1461,28 @@ body {
     color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
 }
 
-.agent-workspace__message-text {
+ .agent-workspace__message-text {
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 100%;
   font-size: 13px;
   line-height: 1.72;
   color: var(--color-text-primary);
+}
+
+.agent-workspace__message-text--structured,
+.agent-workspace__message-text--structured * {
+  min-width: 0;
+  max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.agent-workspace__message-text--structured pre {
+  white-space: pre-wrap;
+  overflow-x: auto;
 }
 
 .agent-workspace__result {

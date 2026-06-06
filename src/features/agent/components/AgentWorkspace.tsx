@@ -36,6 +36,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useShallow } from 'zustand/react/shallow';
@@ -90,6 +91,7 @@ type AgentMessage = {
     model?: string;
     text?: string;
     optimizedPrompt?: string;
+    changes?: string[];
     persistedFiles?: Array<{ fileName: string; url: string; absolutePath: string }>;
     debug?: {
       persistGeneratedOutputs?: boolean;
@@ -217,6 +219,292 @@ function getChatToolRecord(plan: AgentPlan): AgentToolRecord {
   };
 }
 
+function looksLikeJsonText(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return false;
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readEmbeddedJsonObject(value: string): Record<string, unknown> | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = (fenced?.[1] || trimmed).trim();
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+  const jsonText = start >= 0 && end > start ? candidate.slice(start, end + 1) : candidate;
+  try {
+    const parsed = JSON.parse(jsonText);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeEscapedText(value: string) {
+  return value.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+}
+
+function splitLines(value: string) {
+  return normalizeEscapedText(value)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function isChangesHeading(line: string) {
+  const normalized = line.trim().replace(/^[-*+>\s]+/, '').replace(/^\*\*|\*\*$|^__|__$/g, '').trim();
+  return /^(#{1,6}\s*)?(changes?|优化项|优化说明|修改说明|调整说明)[:：]?$/i.test(normalized);
+}
+
+function isOptimizedHeading(line: string) {
+  const normalized = line.trim().replace(/^[-*+>\s]+/, '').replace(/^\*\*|\*\*$|^__|__$/g, '').trim();
+  return /^(#{1,6}\s*)?(optimized|优化后(?:的)?提示词|优化结果|最终提示词)[:：]?$/i.test(normalized);
+}
+
+function stripListMarker(line: string) {
+  return line
+    .replace(/^[-*+>]\s+/, '')
+    .replace(/^\d+[.)]\s+/, '')
+    .replace(/^\*\*|\*\*$|^__|__$/g, '')
+    .trim();
+}
+
+function readLooseObjectSections(value: string) {
+  const normalized = normalizeEscapedText(value).trim();
+  if (!normalized) return null;
+
+  const optimizedMatch = normalized.match(/(?:^|[\n\r\s{,])(?:\*\*|__)?(?:"?optimized"?|"?优化后(?:的)?提示词"?|"?优化结果"?)(?:\*\*|__)?\s*[:：]\s*([\s\S]*?)(?=(?:[\n\r\s,}]+(?:\*\*|__)?(?:"?changes?"?|"?优化项"?|"?优化说明"?|"?修改说明"?)(?:\*\*|__)?\s*[:：])|$)/i);
+  const changesBlockMatch = normalized.match(/(?:^|[\n\r\s{,])(?:\*\*|__)?(?:"?changes?"?|"?优化项"?|"?优化说明"?|"?修改说明"?)(?:\*\*|__)?\s*[:：]\s*([\s\S]*)$/i);
+
+  const optimizedPrompt = optimizedMatch?.[1]
+    ? optimizedMatch[1].trim().replace(/^['"`]|['"`,]$/g, '').trim()
+    : undefined;
+
+  const changesBlock = changesBlockMatch?.[1]?.trim();
+  const changes = changesBlock
+    ? changesBlock
+        .split(/\n|(?:^|\s)[-*+>]\s+|(?:^|\s)\d+[.)]\s+/)
+        .map((item) => item.trim().replace(/^['"`]|['"`,]$/g, '').replace(/^\*\*|\*\*$|^__|__$/g, '').trim())
+        .filter(Boolean)
+    : undefined;
+
+  if (!optimizedPrompt && !changes?.length) return null;
+  return {
+    optimizedPrompt,
+    changes: changes?.length ? changes : undefined,
+  };
+}
+
+function extractPromptOptimizeSections(value: string) {
+  const normalized = normalizeEscapedText(value).trim();
+  if (!normalized) return { optimizedPrompt: undefined, changes: undefined };
+
+  const embedded = readEmbeddedJsonObject(normalized);
+  if (embedded) {
+    return {
+      optimizedPrompt: typeof embedded.optimized === 'string' ? normalizeEscapedText(String(embedded.optimized)).trim() : undefined,
+      changes: Array.isArray(embedded.changes)
+        ? embedded.changes.map((item) => normalizeEscapedText(String(item)).trim()).filter(Boolean)
+        : undefined,
+    };
+  }
+
+  const looseObjectSections = readLooseObjectSections(normalized);
+  if (looseObjectSections) return looseObjectSections;
+
+  const lines = splitLines(normalized);
+  if (!lines.length) return { optimizedPrompt: undefined, changes: undefined };
+
+  let mode: 'optimized' | 'changes' = 'optimized';
+  const optimizedLines: string[] = [];
+  const changes: string[] = [];
+
+  for (const line of lines) {
+    if (isOptimizedHeading(line)) {
+      mode = 'optimized';
+      continue;
+    }
+    if (isChangesHeading(line)) {
+      mode = 'changes';
+      continue;
+    }
+
+    if (mode === 'changes') {
+      const item = stripListMarker(line);
+      if (item) changes.push(item);
+      continue;
+    }
+
+    optimizedLines.push(line);
+  }
+
+  const optimizedPrompt = optimizedLines.join('\n').trim() || normalized;
+  return {
+    optimizedPrompt,
+    changes: changes.length ? changes : undefined,
+  };
+}
+
+function looksLikeMarkdown(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /(^#{1,6}\s)|(^\s*[-*+]\s)|(^\s*\d+\.\s)|```|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`/m.test(trimmed);
+}
+
+function formatJsonText(value: string) {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
+}
+
+function renderStructuredTextBlock(value: string, label?: string) {
+  const trimmed = normalizeEscapedText(value).trim();
+  if (!trimmed) return null;
+
+  const markdownContent = looksLikeMarkdown(trimmed) ? <ReactMarkdown>{trimmed}</ReactMarkdown> : null;
+  const content = looksLikeJsonText(trimmed) ? (
+    <pre
+      style={{
+        margin: 0,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        overflowWrap: 'anywhere',
+        maxWidth: '100%',
+        minWidth: 0,
+        overflowX: 'auto',
+        fontSize: 12,
+        lineHeight: 1.6,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      }}
+    >
+      <code>{formatJsonText(trimmed)}</code>
+    </pre>
+  ) : markdownContent ? (
+    <div
+      className="agent-workspace__message-text agent-workspace__message-text--structured"
+      style={{ margin: 0, whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%', minWidth: 0 }}
+    >
+      {markdownContent}
+    </div>
+  ) : (
+    <div
+      className="agent-workspace__message-text"
+      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%', minWidth: 0 }}
+    >
+      {trimmed}
+    </div>
+  );
+
+  return renderResultSection(content, label);
+}
+
+function renderMissingDetailsNote() {
+  return renderResultSection(
+    <div className="agent-workspace__message-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+      当前返回里出现了需要补充信息的占位内容。这类内容不应该直接作为最终结果展示，后面我会继续把它拦截成“需要补充信息”的交互，而不是落到结果卡片里。
+    </div>,
+    '结果异常提示',
+    'muted',
+  );
+}
+
+function renderResultSection(content: React.ReactNode, label?: string, tone: 'default' | 'muted' = 'default') {
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        border: '1px solid var(--color-border)',
+        borderRadius: 14,
+        background: tone === 'muted' ? 'color-mix(in srgb, var(--color-bg-secondary) 92%, black 8%)' : 'var(--color-bg-secondary)',
+        padding: 12,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        minWidth: 0,
+        maxWidth: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      {label ? <strong style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{label}</strong> : null}
+      {content}
+    </div>
+  );
+}
+
+function getProductionOutputSummary(output: NonNullable<AgentMessage['productionOutput']>) {
+  const summaryParts: string[] = [];
+  if (output.images?.length) summaryParts.push(`图片 ${output.images.length} 张`);
+  if (output.videoUrl) summaryParts.push('包含视频结果');
+  if (output.text) summaryParts.push('包含文本结果');
+  if (output.optimizedPrompt) summaryParts.push('包含优化后的提示词');
+  if (output.changes?.length) summaryParts.push(`优化说明 ${output.changes.length} 条`);
+  return summaryParts.length > 0 ? summaryParts.join(' · ') : '未识别到可展示产物';
+}
+
+function hasPromptOptimizePlaceholder(output: NonNullable<AgentMessage['productionOutput']>) {
+  const sources = [output.optimizedPrompt, output.text, ...(output.changes || [])].filter((item) => typeof item === 'string');
+  return sources.some((item) => /需要(你|用户)?补充|请补充|待补充|缺少.+信息|请提供.+信息/i.test(String(item)));
+}
+
+function renderProductionDebugSection(output: NonNullable<AgentMessage['productionOutput']>) {
+  if (!output.persistedFiles?.length && !output.debug?.storage) return null;
+
+  return renderResultSection(
+    <details>
+      <summary style={{ cursor: 'pointer', color: 'var(--color-text-secondary)' }}>调试与落盘信息</summary>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+        {output.persistedFiles?.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {output.persistedFiles.map((file, index) => (
+              <div
+                key={`debug_file_${index}`}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                  padding: 10,
+                  borderRadius: 10,
+                  background: 'rgba(255,255,255,0.03)',
+                  minWidth: 0,
+                }}
+              >
+                <strong style={{ fontSize: 12 }}>{file.fileName || `文件 ${index + 1}`}</strong>
+                <small style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>URL：{file.url || '无'}</small>
+                <small style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>绝对路径：{file.absolutePath || '无'}</small>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {output.debug?.storage ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <small>persistGeneratedOutputs：{String(output.debug.persistGeneratedOutputs)}</small>
+            <small style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+              storage root：{output.debug.storage.root || '无'}
+            </small>
+            <small style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+              generated dir：{output.debug.storage.generatedDir || '无'}
+            </small>
+            <small style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+              scope namespace：{stringifyApprovalValue(output.debug.storage.scopeNamespace) || '无'}
+            </small>
+          </div>
+        ) : null}
+      </div>
+    </details>,
+    '调试信息',
+    'muted',
+  );
+}
+
 function getAgentToolRecord(plan: AgentPlan, response?: string): AgentToolRecord {
   const detailParts = [plan.reasoningSummary];
   if (plan.toolName === 'image.generate' || plan.toolName === 'image.edit' || plan.toolName === 'image.compare') {
@@ -303,19 +591,28 @@ function stringifyApprovalValue(value: unknown) {
 function getProductionOutput(runResult: AgentRunResponse) {
   const output = getPrimaryToolOutput(runResult);
   if (!output) return null;
+
+  const promptOptimizeSource = [output.optimizedPrompt, output.optimized, output.text, output.prompt]
+    .filter((item) => typeof item === 'string')
+    .map((item) => String(item))
+    .find((item) => item.trim().length > 0);
+  const promptOptimizeSections = promptOptimizeSource ? extractPromptOptimizeSections(promptOptimizeSource) : null;
+
   return {
     images: Array.isArray(output.images) ? output.images.filter((item) => typeof item === 'string') : undefined,
     rawImages: Array.isArray(output.rawImages) ? output.rawImages.filter((item) => typeof item === 'string') : undefined,
     video: output.video,
     videoUrl: getVideoOutputUrl(output.video),
     model: typeof output.model === 'string' ? output.model : undefined,
-    text: typeof output.text === 'string' ? output.text : undefined,
-    optimizedPrompt:
-      typeof output.optimizedPrompt === 'string'
-        ? output.optimizedPrompt
-        : typeof output.prompt === 'string'
-          ? output.prompt
-          : undefined,
+    text:
+      typeof output.text === 'string' && !promptOptimizeSections?.optimizedPrompt
+        ? output.text
+        : undefined,
+    optimizedPrompt: promptOptimizeSections?.optimizedPrompt,
+    changes:
+      Array.isArray(output.changes) && output.changes.length > 0
+        ? output.changes.map((item) => normalizeEscapedText(String(item)).trim()).filter(Boolean)
+        : promptOptimizeSections?.changes,
     persistedFiles: Array.isArray(output.persistedFiles)
       ? output.persistedFiles
           .map((item) => asRecord(item))
@@ -1517,17 +1814,7 @@ export default function AgentWorkspace({
                       <div className="agent-workspace__result">
                         <div>
                           <strong>生产工具返回</strong>
-                          <span>
-                            {message.productionOutput.images?.length
-                              ? `图片 ${message.productionOutput.images.length} 张`
-                              : message.productionOutput.videoUrl
-                                ? '包含视频结果'
-                                : message.productionOutput.text
-                                  ? '包含文本结果'
-                                  : message.productionOutput.optimizedPrompt
-                                    ? '包含优化后的提示词'
-                                    : '未识别到可展示产物'}
-                          </span>
+                          <span>{getProductionOutputSummary(message.productionOutput)}</span>
                         </div>
                         {message.productionOutput.images && message.productionOutput.images.length > 0 && (
                           <div
@@ -1698,41 +1985,22 @@ export default function AgentWorkspace({
                             </div>
                           </div>
                         )}
-                        {message.productionOutput.persistedFiles && message.productionOutput.persistedFiles.length > 0 && (
-                          <div className="agent-workspace__approval-inputs">
-                            {message.productionOutput.persistedFiles.map((file, index) => (
-                              <label key={`${message.id}_file_${index}`} className="agent-workspace__approval-input">
-                                <div className="agent-workspace__approval-input-copy">
-                                  <strong>{file.fileName || `文件 ${index + 1}`}</strong>
-                                  <small>URL：{file.url || '无'}</small>
-                                  <small>绝对路径：{file.absolutePath || '无'}</small>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                        {message.productionOutput.debug?.storage && (
-                          <div className="agent-workspace__approval-inputs">
-                            <label className="agent-workspace__approval-input">
-                              <div className="agent-workspace__approval-input-copy">
-                                <strong>持久化调试信息</strong>
-                                <small>persistGeneratedOutputs：{String(message.productionOutput.debug.persistGeneratedOutputs)}</small>
-                                <small>storage root：{message.productionOutput.debug.storage.root || '无'}</small>
-                                <small>generated dir：{message.productionOutput.debug.storage.generatedDir || '无'}</small>
-                                <small>
-                                  scope namespace：
-                                  {stringifyApprovalValue(message.productionOutput.debug.storage.scopeNamespace) || '无'}
-                                </small>
-                              </div>
-                            </label>
-                          </div>
-                        )}
-                        {message.productionOutput.text && (
-                          <div className="agent-workspace__message-text">{message.productionOutput.text}</div>
-                        )}
-                        {message.productionOutput.optimizedPrompt && (
-                          <div className="agent-workspace__message-text">{message.productionOutput.optimizedPrompt}</div>
-                        )}
+                        {message.productionOutput.text && renderStructuredTextBlock(message.productionOutput.text, '文本结果')}
+                        {message.productionOutput.optimizedPrompt &&
+                          renderStructuredTextBlock(message.productionOutput.optimizedPrompt, '优化后的提示词')}
+                        {message.productionOutput.changes && message.productionOutput.changes.length > 0 &&
+                          renderResultSection(
+                            <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--color-text-primary)' }}>
+                              {message.productionOutput.changes.map((item, index) => (
+                                <li key={`${message.id}_change_${index}`} style={{ lineHeight: 1.6, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>,
+                            '优化说明',
+                          )}
+                        {hasPromptOptimizePlaceholder(message.productionOutput) && renderMissingDetailsNote()}
+                        {renderProductionDebugSection(message.productionOutput)}
                       </div>
                     )}
                     {message.pendingApproval && (

@@ -1086,7 +1086,6 @@ export class SkillRegistry {
           type: 'object',
           properties: {
             optimized: { type: 'string' },
-            original: { type: 'string' },
             changes: { type: 'array' },
           },
         },
@@ -1112,6 +1111,7 @@ export class SkillRegistry {
                 role: 'system',
                 content: [
                   '你是提示词优化专家。把用户输入的粗糙提示词改写成高质量、结构化提示词。',
+                  '不要向用户提问，不要输出“需要补充”“请补充”之类的占位提示；在信息不完整时，也要基于现有信息给出最可用的优化版本。',
                   '列出你做的具体优化项。按以下 JSON 格式输出，不要 Markdown：',
                   '{"optimized":"改写后的完整提示词","changes":["优化项1","优化项2"]}',
                   targetType === 'image'
@@ -1139,7 +1139,7 @@ export class SkillRegistry {
           } catch {
             // not JSON, use raw text as optimized
           }
-          return { optimized, original: String(input.prompt || ''), changes };
+          return { optimized, changes };
         },
       },
       {
