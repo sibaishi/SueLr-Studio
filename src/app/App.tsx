@@ -5,6 +5,7 @@ import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { saveActiveRunSnapshot } from '@/domains/workflow/lib/store/persistence';
 import { AgentWorkspace } from '@/features/agent';
+import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
 import { useStudioSettingsState } from '@/features/settings';
 import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
@@ -118,6 +119,13 @@ export default function App() {
     addToChatPending: () => {},
   });
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
+  const workflowStore = useWorkflowStore();
+  const { handleBackfillImageToCanvas, handleBackfillVideoToCanvas } = useWorkflowPageCommands({
+    store: workflowStore,
+    confirmDiscardChanges: () => true,
+    resetHistory: () => {},
+    setWorkflowErrorMessage: () => {},
+  });
   const [chatBusy, setChatBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [videoBusy, setVideoBusy] = useState(false);
@@ -451,6 +459,8 @@ export default function App() {
               open={agentOpen}
               onClose={() => setAgentOpen(false)}
               onOpenWorkflow={() => setTab('workflow')}
+              onBackfillImageToCanvas={handleBackfillImageToCanvas}
+              onBackfillVideoToCanvas={handleBackfillVideoToCanvas}
               plannerModels={settings.configuredProjectModels.filter((model) => model.cat === 'chat')}
               imageModels={settings.configuredProjectModels.filter((model) => model.cat === 'image')}
               videoModels={settings.configuredProjectModels.filter((model) => model.cat === 'video')}

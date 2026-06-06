@@ -91,6 +91,32 @@ export function useWorkflowPageCommands({
     [store],
   );
 
+  const handleBackfillVideoToCanvas = useCallback(
+    (video: { src: string; name?: string }) => {
+      const center = viewportCenterRef.current || { x: 300, y: 200 };
+      const size = getNodeDefaultSize('videoInput');
+      const stagger = (store.nodes.length % 5) * 24;
+      const name = video.name || 'video';
+      store.addNode(
+        'videoInput',
+        {
+          x: center.x - size.w / 2 + stagger,
+          y: center.y - size.h / 2 + stagger,
+        },
+        {
+          fileUrl: video.src,
+          previewUrl: video.src,
+          localPath: name,
+          fileName: name,
+          fileKind: 'video',
+          _uploading: false,
+          _uploadError: '',
+        },
+      );
+    },
+    [store],
+  );
+
   const handleBackfillTextToCanvas = useCallback(
     (text: string) => {
       const center = viewportCenterRef.current || { x: 300, y: 200 };
@@ -197,6 +223,7 @@ export function useWorkflowPageCommands({
     handleAddNode,
     handleViewportCenterChange,
     handleBackfillImageToCanvas,
+    handleBackfillVideoToCanvas,
     handleBackfillTextToCanvas,
     handleSave,
     handleExecute,

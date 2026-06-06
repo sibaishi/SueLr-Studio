@@ -11,7 +11,11 @@ import {
   type WorkflowInspectResult,
   type WorkflowSuggestedInput,
   createAgentRun,
+  uploadFile,
 } from '@/domains/workflow/lib/api';
+import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
+import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
+import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ModelInfo } from '@/shared/types';
 import type { Edge, Node } from '@xyflow/react';
@@ -19,8 +23,12 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
+  Circle,
+  Download,
+  ImagePlus,
   Loader2,
   Maximize2,
+  Paperclip,
   Play,
   Send,
   Settings2,
@@ -28,7 +36,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 type AgentToolName =
@@ -63,6 +71,7 @@ type AgentMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  attachedImages?: AgentPendingImage[];
   plan?: AgentPlan;
   draft?: WorkflowDraftResponse;
   inspectResult?: WorkflowCanvasSummary | null;
@@ -72,12 +81,50 @@ type AgentMessage = {
   pendingApproval?: AgentPendingApproval;
   approvalInput?: string;
   approvalValues?: Record<string, string>;
+  productionOutput?: {
+    images?: string[];
+    rawImages?: string[];
+    video?: unknown;
+    videoUrl?: string;
+    model?: string;
+    text?: string;
+    optimizedPrompt?: string;
+    persistedFiles?: Array<{ fileName: string; url: string; absolutePath: string }>;
+    debug?: {
+      persistGeneratedOutputs?: boolean;
+      storage?: {
+        root?: string;
+        generatedDir?: string;
+        scopeNamespace?: unknown;
+      };
+    };
+  } | null;
+};
+
+type AgentPendingImage = {
+  id: string;
+  name: string;
+  url: string;
+  thumbnailUrl?: string;
+  width?: number;
+  height?: number;
+  processing?: boolean;
+  processingStatus?: 'processing' | 'completed' | 'failed';
+  processingError?: string;
+  role: 'reference' | 'mask';
+};
+
+type PendingImagePreviewState = {
+  imageId: string;
+  scope: 'composer' | string;
 };
 
 interface AgentWorkspaceProps {
   open: boolean;
   onClose: () => void;
   onOpenWorkflow: () => void;
+  onBackfillImageToCanvas?: (image: PreviewImageItem) => void;
+  onBackfillVideoToCanvas?: (video: { src: string; name?: string }) => void;
   plannerModels: ModelInfo[];
   imageModels: ModelInfo[];
   videoModels: ModelInfo[];
@@ -169,13 +216,22 @@ function getChatToolRecord(plan: AgentPlan): AgentToolRecord {
 }
 
 function getAgentToolRecord(plan: AgentPlan, response?: string): AgentToolRecord {
+  const detailParts = [plan.reasoningSummary];
+  if (plan.toolName === 'image.generate' || plan.toolName === 'image.edit' || plan.toolName === 'image.compare') {
+    const imageModelLabel = plan.imageModel?.label || plan.imageModel?.modelId;
+    if (imageModelLabel) detailParts.push(`图像模型：${imageModelLabel}`);
+  }
+  if (plan.toolName === 'video.generate') {
+    const videoModelLabel = plan.videoModel?.label || plan.videoModel?.modelId;
+    if (videoModelLabel) detailParts.push(`视频模型：${videoModelLabel}`);
+  }
   return {
     id: gid('tool'),
     name: plan.toolName,
     label: getToolLabel(plan.toolName),
     status: 'success',
     summary: response || plan.summary,
-    detail: plan.reasoningSummary,
+    detail: detailParts.filter(Boolean).join('；'),
   };
 }
 
@@ -242,6 +298,47 @@ function stringifyApprovalValue(value: unknown) {
   }
 }
 
+function getProductionOutput(runResult: AgentRunResponse) {
+  const output = getPrimaryToolOutput(runResult);
+  if (!output) return null;
+  return {
+    images: Array.isArray(output.images) ? output.images.filter((item) => typeof item === 'string') : undefined,
+    rawImages: Array.isArray(output.rawImages) ? output.rawImages.filter((item) => typeof item === 'string') : undefined,
+    video: output.video,
+    videoUrl: getVideoOutputUrl(output.video),
+    model: typeof output.model === 'string' ? output.model : undefined,
+    text: typeof output.text === 'string' ? output.text : undefined,
+    optimizedPrompt:
+      typeof output.optimizedPrompt === 'string'
+        ? output.optimizedPrompt
+        : typeof output.prompt === 'string'
+          ? output.prompt
+          : undefined,
+    persistedFiles: Array.isArray(output.persistedFiles)
+      ? output.persistedFiles
+          .map((item) => asRecord(item))
+          .filter(Boolean)
+          .map((item) => ({
+            fileName: String(item?.fileName || ''),
+            url: String(item?.url || ''),
+            absolutePath: String(item?.absolutePath || ''),
+          }))
+      : undefined,
+    debug: asRecord(output.debug)
+      ? {
+          persistGeneratedOutputs: Boolean(asRecord(output.debug)?.persistGeneratedOutputs),
+          storage: asRecord(asRecord(output.debug)?.storage)
+            ? {
+                root: String(asRecord(asRecord(output.debug)?.storage)?.root || ''),
+                generatedDir: String(asRecord(asRecord(output.debug)?.storage)?.generatedDir || ''),
+                scopeNamespace: asRecord(asRecord(output.debug)?.storage)?.scopeNamespace,
+              }
+            : undefined,
+        }
+      : undefined,
+  };
+}
+
 function getWorkflowSuggestedInputs(value: unknown): WorkflowSuggestedInput[] {
   return Array.isArray(value) ? value.filter(isWorkflowSuggestedInput) : [];
 }
@@ -277,7 +374,74 @@ function getApprovalInputPlaceholder(input: WorkflowSuggestedInput) {
   return '填写蒙版 URL 或本地路径，留空则继续使用当前素材';
 }
 
-export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerModels, imageModels, videoModels }: AgentWorkspaceProps) {
+function shouldUsePendingImageForEdit(input: string) {
+  const normalized = input.toLowerCase();
+  return (
+    normalized.includes('编辑') ||
+    normalized.includes('改图') ||
+    normalized.includes('局部') ||
+    normalized.includes('修图') ||
+    normalized.includes('抠') ||
+    normalized.includes('换背景') ||
+    normalized.includes('mask') ||
+    normalized.includes('蒙版') ||
+    normalized.includes('reference')
+  );
+}
+
+function getPendingImageStatusLabel(image: AgentPendingImage) {
+  if (image.processingStatus === 'failed') {
+    return image.processingError?.trim() ? `处理失败：${image.processingError}` : '处理失败，请重新上传';
+  }
+  if (image.processing || image.processingStatus === 'processing') {
+    return '处理中，正在同步素材元数据';
+  }
+  const size = image.width && image.height ? `${image.width} × ${image.height}` : '尺寸待同步';
+  return `${image.role === 'mask' ? '蒙版素材' : '参考素材'} · ${size}`;
+}
+
+function getPendingImageTone(image: AgentPendingImage) {
+  if (image.processingStatus === 'failed') return 'danger';
+  if (image.processing || image.processingStatus === 'processing') return 'warning';
+  return 'neutral';
+}
+
+function getVideoOutputUrl(video: unknown) {
+  if (typeof video === 'string') return video;
+  const record = asRecord(video);
+  const direct = typeof record?.url === 'string' ? record.url : '';
+  if (direct) return direct;
+  return typeof record?.video === 'string' ? record.video : '';
+}
+
+function updatePendingImageById(
+  items: AgentPendingImage[],
+  id: string,
+  patch: Partial<AgentPendingImage>,
+): AgentPendingImage[] {
+  return items.map((item) => (item.id === id ? { ...item, ...patch } : item));
+}
+
+function downloadByUrl(url: string, filename?: string) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || 'image';
+  link.rel = 'noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+export default function AgentWorkspace({
+  open,
+  onClose,
+  onOpenWorkflow,
+  onBackfillImageToCanvas,
+  onBackfillVideoToCanvas,
+  plannerModels,
+  imageModels,
+  videoModels,
+}: AgentWorkspaceProps) {
   const [input, setInput] = useState('');
   const [isWorking, setIsWorking] = useState(false);
   const [expandedTools, setExpandedTools] = useState<ReadonlySet<string>>(() => new Set());
@@ -290,6 +454,11 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
   const [selectedVideoModelId, setSelectedVideoModelId] = useState(
     () => localStorage.getItem(VIDEO_MODEL_STORAGE_KEY) || '',
   );
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<PendingImagePreviewState | null>(null);
+  const [pendingImages, setPendingImages] = useState<AgentPendingImage[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [messages, setMessages] = useState<AgentMessage[]>(() => [
     {
       id: gid(),
@@ -320,7 +489,13 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
     [videoModels, selectedVideoModelId],
   );
   const hasPlannerModel = Boolean(selectedPlannerModel);
-  const canSubmit = input.trim().length > 0 && !isWorking && hasPlannerModel;
+  const primaryReferenceImage = useMemo(
+    () => pendingImages.find((image) => image.role === 'reference') || pendingImages[0] || null,
+    [pendingImages],
+  );
+  const maskReferenceImage = useMemo(() => pendingImages.find((image) => image.role === 'mask') || null, [pendingImages]);
+  const canSubmit = (input.trim().length > 0 || pendingImages.length > 0) && !isWorking && hasPlannerModel;
+  const latestUploadedImage = primaryReferenceImage;
   const latestDraft = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       if (messages[index].draft) return messages[index].draft;
@@ -342,6 +517,31 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
   }, [messages]);
   const activeCanvasLabel = workflowContext.workflowName.trim() || '当前未关联画布';
   const latestDeliverableLabel = latestWorkflowEditPatch ? '修改草案' : latestDraft ? '工作流草案' : '暂无';
+  const previewImageGallery = useMemo<PreviewImageItem[]>(() => {
+    const images = messages.flatMap((message) => message.productionOutput?.images || []);
+    return images.map((src, index) => ({ src, name: `agent-image-${index + 1}` }));
+  }, [messages]);
+  const previewImageIndex = previewImage ? previewImageGallery.findIndex((item) => item.src === previewImage) : -1;
+  const pendingImagePreviewItems = useMemo<AgentPendingImage[]>(() => {
+    if (!pendingImagePreview) return [];
+    if (pendingImagePreview.scope === 'composer') return pendingImages;
+    const targetMessage = messages.find((message) => message.id === pendingImagePreview.scope);
+    return targetMessage?.attachedImages || [];
+  }, [messages, pendingImagePreview, pendingImages]);
+  const activePendingImage = useMemo(
+    () => pendingImagePreviewItems.find((item) => item.id === pendingImagePreview?.imageId) || pendingImagePreviewItems[0] || null,
+    [pendingImagePreview?.imageId, pendingImagePreviewItems],
+  );
+  const pendingImagePreviewGallery = useMemo<PreviewImageItem[]>(() => {
+    return pendingImagePreviewItems.map((item) => ({
+      src: item.url,
+      thumbnailSrc: item.thumbnailUrl,
+      name: item.name,
+    }));
+  }, [pendingImagePreviewItems]);
+  const pendingImagePreviewIndex = activePendingImage
+    ? pendingImagePreviewGallery.findIndex((item) => item.src === activePendingImage.url)
+    : -1;
   const workspaceStatus = !hasPlannerModel
     ? '等待可用模型'
     : isWorking
@@ -462,6 +662,19 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
 
   const buildAgentContext = (workflowEditPatch?: WorkflowEditPatch | null) => {
     const workflowSnapshot = getWorkflowSnapshot();
+    const referenceImages = pendingImages
+      .filter((item) => item.role === 'reference')
+      .map((item, index) => ({
+        id: item.id,
+        name: item.name,
+        url: item.url,
+        thumbnailUrl: item.thumbnailUrl,
+        width: item.width,
+        height: item.height,
+        processing: item.processing,
+        processingStatus: item.processingStatus,
+        order: index,
+      }));
     return {
       ...(workflowContext.workflowId ? { workflowId: workflowContext.workflowId } : {}),
       ...(workflowContext.workflowName ? { workflowName: workflowContext.workflowName } : {}),
@@ -470,12 +683,129 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
       ...(workflowEditPatch || latestWorkflowEditPatch
         ? { workflowEditPatch: workflowEditPatch || latestWorkflowEditPatch }
         : {}),
+      ...(latestUploadedImage ? { latestUploadedImage } : {}),
+      ...(referenceImages.length > 0 ? { referenceImages } : {}),
+      ...(maskReferenceImage ? { latestUploadedMask: maskReferenceImage } : {}),
     };
+  };
+
+  const handleAgentImageUpload = async (files: File[]) => {
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+    setIsUploadingImage(true);
+    try {
+      const uploadedItems = await Promise.all(
+        imageFiles.map(async (file) => {
+          const uploaded = await uploadFile(file);
+          if (!uploaded.success || !uploaded.url) {
+            throw new Error(uploaded.error || `${file.name} 上传失败`);
+          }
+          const role: 'reference' | 'mask' = /mask|蒙版/i.test(file.name) ? 'mask' : 'reference';
+          const pendingItem: AgentPendingImage = {
+            id: gid('pending_image'),
+            name: uploaded.fileName || file.name,
+            url: uploaded.url,
+            thumbnailUrl: uploaded.thumbnailUrl,
+            width: uploaded.width,
+            height: uploaded.height,
+            processing: uploaded.processing,
+            processingStatus: uploaded.processingStatus,
+            processingError: uploaded.processingError,
+            role,
+          };
+
+          if (uploaded.processing || uploaded.processingStatus === 'processing') {
+            void waitForUploadedImageMetadata(uploaded.url, (result) => {
+              setPendingImages((prev) =>
+                updatePendingImageById(prev, pendingItem.id, {
+                  thumbnailUrl: result.thumbnailUrl || pendingItem.thumbnailUrl,
+                  width: result.width,
+                  height: result.height,
+                  processing: result.processing,
+                  processingStatus: result.processingStatus,
+                  processingError: result.processingError,
+                }),
+              );
+            })
+              .then((result) => {
+                if (!result) {
+                  setPendingImages((prev) =>
+                    updatePendingImageById(prev, pendingItem.id, {
+                      processing: false,
+                      processingStatus: 'failed',
+                      processingError: '等待元数据超时，请稍后重试',
+                    }),
+                  );
+                  return;
+                }
+                setPendingImages((prev) =>
+                  updatePendingImageById(prev, pendingItem.id, {
+                    thumbnailUrl: result.thumbnailUrl || pendingItem.thumbnailUrl,
+                    width: result.width,
+                    height: result.height,
+                    processing: result.processing,
+                    processingStatus: result.processingStatus,
+                    processingError: result.processingError,
+                  }),
+                );
+              })
+              .catch((error) => {
+                setPendingImages((prev) =>
+                  updatePendingImageById(prev, pendingItem.id, {
+                    processing: false,
+                    processingStatus: 'failed',
+                    processingError: error instanceof Error ? error.message : '素材处理失败',
+                  }),
+                );
+              });
+          }
+
+          return pendingItem;
+        }),
+      );
+      setPendingImages((prev) => [...uploadedItems.reverse(), ...prev].slice(0, 8));
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: gid(),
+          role: 'assistant',
+          content: error instanceof Error ? error.message : '素材上传失败，请稍后重试。',
+        },
+      ]);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const removePendingImage = (id: string) => {
+    setPendingImages((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const markPendingImageAsPrimary = (id: string) => {
+    setPendingImages((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (!target) return prev;
+      return [target, ...prev.filter((item) => item.id !== id)];
+    });
+  };
+
+  const togglePendingImageRole = (id: string) => {
+    setPendingImages((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, role: item.role === 'mask' ? 'reference' : 'mask' }
+          : item.role === 'mask' && item.id !== id
+            ? { ...item, role: 'reference' }
+            : item,
+      ),
+    );
   };
 
   const appendAgentResult = (runResult: AgentRunResponse, task: string) => {
     const { plan, response, workflowDraft: draft, pendingApproval } = runResult;
     const output = getPrimaryToolOutput(runResult);
+    const productionOutput = getProductionOutput(runResult);
     const inspectResult = asRecord(output) as WorkflowInspectResult | null;
     const editResult = asRecord(output) as WorkflowEditResult | null;
     const applyResult = asRecord(output) as WorkflowApplyDraftResult | null;
@@ -562,6 +892,7 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           inspectResult: isWorkflowCanvasSummary(inspectResult?.workflow) ? inspectResult.workflow : null,
           workflowEditPatch: isWorkflowEditPatch(editResult?.patch) ? editResult.patch : null,
           toolRecords: [getAgentToolRecord(plan, response)],
+          productionOutput,
         },
       ]);
       return;
@@ -697,7 +1028,7 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
 
   const handleSubmit = () => {
     const task = input.trim();
-    if (!task || isWorking) return;
+    if ((!task && pendingImages.length === 0) || isWorking) return;
     if (!selectedPlannerModel) {
       setMessages((prev) => [
         ...prev,
@@ -710,21 +1041,27 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
       return;
     }
 
-    setMessages((prev) => [...prev, { id: gid(), role: 'user', content: task }]);
+    const attachedImages = pendingImages.map((image) => ({ ...image }));
+    const composedTask = task || '请基于我刚上传的素材继续处理';
+    setMessages((prev) => [...prev, { id: gid(), role: 'user', content: composedTask, attachedImages }]);
     setInput('');
+    setPendingImagePreview(null);
 
     void (async () => {
       setIsWorking(true);
       const runningTool: AgentToolRecord = {
         id: gid('tool'),
-        name: 'workflow.createDraft',
-        label: '工作流工具',
+        name: shouldUsePendingImageForEdit(composedTask) && latestUploadedImage ? 'image.edit' : 'workflow.createDraft',
+        label: shouldUsePendingImageForEdit(composedTask) && latestUploadedImage ? '编辑图片' : '工作流工具',
         status: 'running',
-        summary: `Planner：${getPlannerModelLabel(selectedPlannerModel)}，正在根据你的需求生成可编辑草案`,
+        summary:
+          shouldUsePendingImageForEdit(composedTask) && latestUploadedImage
+            ? `Planner：${getPlannerModelLabel(selectedPlannerModel)}，正在结合已上传图片准备编辑任务`
+            : `Planner：${getPlannerModelLabel(selectedPlannerModel)}，正在根据你的需求生成可编辑草案`,
       };
       try {
         const runResult = await createAgentRun({
-          input: task,
+          input: composedTask,
           plannerModel: buildPlannerModelPayload(selectedPlannerModel)!,
           imageModel: buildPlannerModelPayload(selectedImageModel),
           videoModel: buildPlannerModelPayload(selectedVideoModel),
@@ -751,7 +1088,8 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           return;
         }
 
-        appendAgentResult(runResult.data, task);
+        appendAgentResult(runResult.data, composedTask);
+        setPendingImages([]);
       } catch (error) {
         setMessages((prev) => [
           ...prev,
@@ -791,112 +1129,112 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
               <X size={17} />
             </button>
           </div>
-          <section
-            className={`agent-workspace__planner agent-workspace__planner--header ${hasPlannerModel ? '' : 'agent-workspace__planner--empty'}`}
-          >
-            <div className="agent-workspace__planner-head">
-              <div className="agent-workspace__planner-copy">
-                <Settings2 size={15} />
-                <div>
-                  <strong>Planner 模型</strong>
-                  <span>{hasPlannerModel ? '负责理解需求并决定调用哪些工具' : '需要先启用对话模型'}</span>
-                </div>
-              </div>
-              <span
-                className={`agent-workspace__planner-badge ${hasPlannerModel ? '' : 'agent-workspace__planner-badge--empty'}`}
-              >
-                {hasPlannerModel ? '已连接' : '未就绪'}
-              </span>
-            </div>
-            {hasPlannerModel ? (
-              <label className="agent-workspace__planner-field">
-                <span>当前模型</span>
-                <select
-                  value={selectedPlannerModel?.id || ''}
-                  onChange={(event) => {
-                    setSelectedPlannerModelId(event.target.value);
-                    localStorage.setItem(PLANNER_MODEL_STORAGE_KEY, event.target.value);
-                  }}
-                  aria-label="选择 Planner 模型"
-                >
-                  {plannerModels.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {getPlannerModelLabel(model)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <span className="agent-workspace__planner-empty">未找到可用对话模型</span>
-            )}
-            <div className="agent-workspace__planner-context">
-              <span>关联上下文</span>
-              <strong>{activeCanvasLabel}</strong>
-              <small>{workflowContext.runId ? `最近运行：${workflowContext.runId}` : '还没有可复用的运行上下文'}</small>
-            </div>
-          </section>
-
-          {imageModels.length > 0 && (
-            <section className="agent-workspace__planner agent-workspace__planner--header">
-              <div className="agent-workspace__planner-head">
-                <div className="agent-workspace__planner-copy">
+          <section className="agent-workspace__model-tabs" aria-label="模型选择">
+            <article
+              className={`agent-workspace__model-tab ${hasPlannerModel ? '' : 'agent-workspace__model-tab--empty'}`}
+            >
+              <div className="agent-workspace__model-tab-head">
+                <div className="agent-workspace__model-tab-copy">
                   <Settings2 size={15} />
                   <div>
-                    <strong>图像模型</strong>
+                    <strong>对话</strong>
+                    <span>{hasPlannerModel ? '负责理解需求与调度工具' : '需要先启用对话模型'}</span>
+                  </div>
+                </div>
+              </div>
+              {hasPlannerModel ? (
+                <label className="agent-workspace__model-tab-field">
+                  <span>当前模型</span>
+                  <select
+                    value={selectedPlannerModel?.id || ''}
+                    onChange={(event) => {
+                      setSelectedPlannerModelId(event.target.value);
+                      localStorage.setItem(PLANNER_MODEL_STORAGE_KEY, event.target.value);
+                    }}
+                    aria-label="选择对话模型"
+                  >
+                    {plannerModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {getPlannerModelLabel(model)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <span className="agent-workspace__model-tab-empty">未找到可用对话模型</span>
+              )}
+            </article>
+
+            <article
+              className={`agent-workspace__model-tab ${imageModels.length > 0 ? '' : 'agent-workspace__model-tab--muted'}`}
+            >
+              <div className="agent-workspace__model-tab-head">
+                <div className="agent-workspace__model-tab-copy">
+                  <Settings2 size={15} />
+                  <div>
+                    <strong>图像</strong>
                     <span>用于图片生成和编辑</span>
                   </div>
                 </div>
               </div>
-              <label className="agent-workspace__planner-field">
-                <span>当前模型</span>
-                <select
-                  value={selectedImageModel?.id || ''}
-                  onChange={(event) => {
-                    setSelectedImageModelId(event.target.value);
-                    localStorage.setItem(IMAGE_MODEL_STORAGE_KEY, event.target.value);
-                  }}
-                  aria-label="选择图像模型"
-                >
-                  {imageModels.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {getPlannerModelLabel(model)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </section>
-          )}
+              {imageModels.length > 0 ? (
+                <label className="agent-workspace__model-tab-field">
+                  <span>当前模型</span>
+                  <select
+                    value={selectedImageModel?.id || ''}
+                    onChange={(event) => {
+                      setSelectedImageModelId(event.target.value);
+                      localStorage.setItem(IMAGE_MODEL_STORAGE_KEY, event.target.value);
+                    }}
+                    aria-label="选择图像模型"
+                  >
+                    {imageModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {getPlannerModelLabel(model)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <span className="agent-workspace__model-tab-empty">暂未配置图像模型</span>
+              )}
+            </article>
 
-          {videoModels.length > 0 && (
-            <section className="agent-workspace__planner agent-workspace__planner--header">
-              <div className="agent-workspace__planner-head">
-                <div className="agent-workspace__planner-copy">
+            <article
+              className={`agent-workspace__model-tab ${videoModels.length > 0 ? '' : 'agent-workspace__model-tab--muted'}`}
+            >
+              <div className="agent-workspace__model-tab-head">
+                <div className="agent-workspace__model-tab-copy">
                   <Settings2 size={15} />
                   <div>
-                    <strong>视频模型</strong>
+                    <strong>视频</strong>
                     <span>用于视频生成</span>
                   </div>
                 </div>
               </div>
-              <label className="agent-workspace__planner-field">
-                <span>当前模型</span>
-                <select
-                  value={selectedVideoModel?.id || ''}
-                  onChange={(event) => {
-                    setSelectedVideoModelId(event.target.value);
-                    localStorage.setItem(VIDEO_MODEL_STORAGE_KEY, event.target.value);
-                  }}
-                  aria-label="选择视频模型"
-                >
-                  {videoModels.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {getPlannerModelLabel(model)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </section>
-          )}
+              {videoModels.length > 0 ? (
+                <label className="agent-workspace__model-tab-field">
+                  <span>当前模型</span>
+                  <select
+                    value={selectedVideoModel?.id || ''}
+                    onChange={(event) => {
+                      setSelectedVideoModelId(event.target.value);
+                      localStorage.setItem(VIDEO_MODEL_STORAGE_KEY, event.target.value);
+                    }}
+                    aria-label="选择视频模型"
+                  >
+                    {videoModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {getPlannerModelLabel(model)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <span className="agent-workspace__model-tab-empty">暂未配置视频模型</span>
+              )}
+            </article>
+          </section>
         </header>
 
         <div className={`agent-workspace__body ${hasUserStartedConversation ? 'agent-workspace__body--engaged' : ''}`}>
@@ -978,6 +1316,43 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
 
                   <div className="agent-workspace__message-body">
                     <div className="agent-workspace__message-text">{message.content}</div>
+                    {message.role === 'user' && message.attachedImages && message.attachedImages.length > 0 && (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                        {message.attachedImages.map((image) => {
+                          const tone = getPendingImageTone(image);
+                          return (
+                            <button
+                              key={image.id}
+                              type="button"
+                              onClick={() => setPendingImagePreview({ imageId: image.id, scope: message.id })}
+                              style={{
+                                position: 'relative',
+                                width: 44,
+                                height: 44,
+                                borderRadius: 12,
+                                overflow: 'hidden',
+                                padding: 0,
+                                cursor: 'pointer',
+                                border:
+                                  tone === 'danger'
+                                    ? '1px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border))'
+                                    : tone === 'warning'
+                                      ? '1px solid color-mix(in srgb, var(--color-warning) 30%, var(--color-border))'
+                                      : '1px solid var(--color-border)',
+                                background: 'var(--color-bg-secondary)',
+                              }}
+                              title={`${image.name}\n${getPendingImageStatusLabel(image)}`}
+                            >
+                              <img
+                                src={image.thumbnailUrl || image.url}
+                                alt={image.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     {message.toolRecords && message.toolRecords.length > 0 && (
                       <div className="agent-workspace__tools">
                         {message.toolRecords.map((record) => {
@@ -1056,6 +1431,228 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
                           <Play size={14} />
                           申请应用
                         </button>
+                      </div>
+                    )}
+                    {message.productionOutput && (
+                      <div className="agent-workspace__result">
+                        <div>
+                          <strong>生产工具返回</strong>
+                          <span>
+                            {message.productionOutput.images?.length
+                              ? `图片 ${message.productionOutput.images.length} 张`
+                              : message.productionOutput.videoUrl
+                                ? '包含视频结果'
+                                : message.productionOutput.text
+                                  ? '包含文本结果'
+                                  : message.productionOutput.optimizedPrompt
+                                    ? '包含优化后的提示词'
+                                    : '未识别到可展示产物'}
+                          </span>
+                        </div>
+                        {message.productionOutput.images && message.productionOutput.images.length > 0 && (
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                              gap: 12,
+                              marginTop: 12,
+                            }}
+                          >
+                            {message.productionOutput.images.map((image, index) => {
+                              const persisted = message.productionOutput?.persistedFiles?.find((file) => file.url === image);
+                              return (
+                                <div
+                                  key={`${message.id}_image_${index}`}
+                                  style={{
+                                    border: '1px solid var(--color-border)',
+                                    borderRadius: 16,
+                                    overflow: 'hidden',
+                                    background: 'var(--color-bg-secondary)',
+                                    boxShadow: '0 6px 18px rgba(0, 0, 0, 0.06)',
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewImage(image)}
+                                    style={{
+                                      width: '100%',
+                                      border: 'none',
+                                      background: 'transparent',
+                                      padding: 0,
+                                      cursor: 'zoom-in',
+                                      position: 'relative',
+                                    }}
+                                  >
+                                    <img
+                                      src={image}
+                                      alt={`Agent 生成结果 ${index + 1}`}
+                                      style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }}
+                                    />
+                                    <ImageSizeLabel
+                                      src={image}
+                                      className="absolute left-3 top-3 z-10 rounded-full px-3 py-1 text-xs text-white"
+                                    />
+                                  </button>
+                                  <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                      <strong style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>
+                                        {persisted?.fileName || `图片 ${index + 1}`}
+                                      </strong>
+                                      <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+                                        {message.plan?.imageModel?.label || message.plan?.imageModel?.modelId || '图像模型未记录'}
+                                      </span>
+                                      <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', wordBreak: 'break-all' }}>
+                                        {persisted?.absolutePath || image}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewImage(image)}
+                                        className="workflow-results__mini-action"
+                                      >
+                                        <Maximize2 size={12} />
+                                        查看大图
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => downloadByUrl(image, persisted?.fileName)}
+                                        className="workflow-results__mini-action"
+                                      >
+                                        <Download size={12} />
+                                        下载
+                                      </button>
+                                      {onBackfillImageToCanvas && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            onBackfillImageToCanvas({
+                                              src: image,
+                                              thumbnailSrc: image,
+                                              name: persisted?.fileName || `agent-image-${index + 1}`,
+                                            })
+                                          }
+                                          className="workflow-results__mini-action"
+                                        >
+                                          <ImagePlus size={12} />
+                                          回填到画布
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {message.productionOutput.videoUrl && (
+                          <div
+                            style={{
+                              marginTop: 12,
+                              border: '1px solid var(--color-border)',
+                              borderRadius: 16,
+                              background: 'var(--color-bg-secondary)',
+                              overflow: 'hidden',
+                              boxShadow: '0 6px 18px rgba(0, 0, 0, 0.06)',
+                            }}
+                          >
+                            <video
+                              src={message.productionOutput.videoUrl}
+                              controls
+                              playsInline
+                              preload="metadata"
+                              style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', background: '#000' }}
+                            />
+                            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <strong style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>
+                                  {message.productionOutput.persistedFiles?.find((file) => file.url === message.productionOutput?.videoUrl)?.fileName ||
+                                    '生成视频'}
+                                </strong>
+                                <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+                                  {message.plan?.videoModel?.label ||
+                                    message.plan?.videoModel?.modelId ||
+                                    message.productionOutput.model ||
+                                    '视频模型未记录'}
+                                </span>
+                                <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', wordBreak: 'break-all' }}>
+                                  {message.productionOutput.persistedFiles?.find((file) => file.url === message.productionOutput?.videoUrl)
+                                    ?.absolutePath || message.productionOutput.videoUrl}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    downloadByUrl(
+                                      message.productionOutput?.videoUrl || '',
+                                      message.productionOutput?.persistedFiles?.find(
+                                        (file) => file.url === message.productionOutput?.videoUrl,
+                                      )?.fileName || 'video',
+                                    )
+                                  }
+                                  className="workflow-results__mini-action"
+                                >
+                                  <Download size={12} />
+                                  下载
+                                </button>
+                                {onBackfillVideoToCanvas && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      onBackfillVideoToCanvas({
+                                        src: message.productionOutput?.videoUrl || '',
+                                        name:
+                                          message.productionOutput?.persistedFiles?.find(
+                                            (file) => file.url === message.productionOutput?.videoUrl,
+                                          )?.fileName || 'agent-video',
+                                      })
+                                    }
+                                    className="workflow-results__mini-action"
+                                  >
+                                    <ImagePlus size={12} />
+                                    回填到画布
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {message.productionOutput.persistedFiles && message.productionOutput.persistedFiles.length > 0 && (
+                          <div className="agent-workspace__approval-inputs">
+                            {message.productionOutput.persistedFiles.map((file, index) => (
+                              <label key={`${message.id}_file_${index}`} className="agent-workspace__approval-input">
+                                <div className="agent-workspace__approval-input-copy">
+                                  <strong>{file.fileName || `文件 ${index + 1}`}</strong>
+                                  <small>URL：{file.url || '无'}</small>
+                                  <small>绝对路径：{file.absolutePath || '无'}</small>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        {message.productionOutput.debug?.storage && (
+                          <div className="agent-workspace__approval-inputs">
+                            <label className="agent-workspace__approval-input">
+                              <div className="agent-workspace__approval-input-copy">
+                                <strong>持久化调试信息</strong>
+                                <small>persistGeneratedOutputs：{String(message.productionOutput.debug.persistGeneratedOutputs)}</small>
+                                <small>storage root：{message.productionOutput.debug.storage.root || '无'}</small>
+                                <small>generated dir：{message.productionOutput.debug.storage.generatedDir || '无'}</small>
+                                <small>
+                                  scope namespace：
+                                  {stringifyApprovalValue(message.productionOutput.debug.storage.scopeNamespace) || '无'}
+                                </small>
+                              </div>
+                            </label>
+                          </div>
+                        )}
+                        {message.productionOutput.text && (
+                          <div className="agent-workspace__message-text">{message.productionOutput.text}</div>
+                        )}
+                        {message.productionOutput.optimizedPrompt && (
+                          <div className="agent-workspace__message-text">{message.productionOutput.optimizedPrompt}</div>
+                        )}
                       </div>
                     )}
                     {message.pendingApproval && (
@@ -1160,6 +1757,104 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
               <span>继续描述你的目标</span>
               <small>{hasPlannerModel ? 'Ctrl / Cmd + Enter 发送' : '启用模型后可开始协作'}</small>
             </div>
+            {pendingImages.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                {pendingImages.map((image) => {
+                  const tone = getPendingImageTone(image);
+                  return (
+                    <button
+                      key={image.id}
+                      type="button"
+                      onClick={() => setPendingImagePreview({ imageId: image.id, scope: 'composer' })}
+                      style={{
+                        position: 'relative',
+                        width: 52,
+                        height: 52,
+                        borderRadius: 14,
+                        overflow: 'hidden',
+                        border:
+                          tone === 'danger'
+                            ? '1px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border))'
+                            : tone === 'warning'
+                              ? '1px solid color-mix(in srgb, var(--color-warning) 30%, var(--color-border))'
+                              : image.role === 'mask'
+                                ? '1px solid rgba(255, 255, 255, 0.16)'
+                                : primaryReferenceImage?.id === image.id
+                                  ? '1px solid rgba(255, 255, 255, 0.22)'
+                                  : '1px solid var(--color-border)',
+                        background: 'var(--color-bg-secondary)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                      title={`${image.name}\n${getPendingImageStatusLabel(image)}`}
+                    >
+                      <img
+                        src={image.thumbnailUrl || image.url}
+                        alt={image.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 6,
+                          bottom: 6,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '2px 6px',
+                          borderRadius: 999,
+                          background: 'rgba(0, 0, 0, 0.52)',
+                          color: '#fff',
+                          fontSize: 10,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {image.role === 'mask' ? '蒙版' : primaryReferenceImage?.id === image.id ? '主参考' : '参考'}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removePendingImage(image.id);
+                        }}
+                        aria-label={`移除 ${image.name}`}
+                        title="移除"
+                        style={{
+                          position: 'absolute',
+                          top: 5,
+                          right: 5,
+                          width: 18,
+                          height: 18,
+                          borderRadius: 999,
+                          border: '1px solid rgba(255,255,255,0.16)',
+                          background: 'rgba(0,0,0,0.58)',
+                          color: '#fff',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      >
+                        <X size={10} />
+                      </button>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(event) => {
+                if (event.target.files) void handleAgentImageUpload(Array.from(event.target.files));
+                event.target.value = '';
+              }}
+              style={{ display: 'none' }}
+            />
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
@@ -1174,9 +1869,86 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
               placeholder={hasPlannerModel ? STARTER_PROMPT : '请先启用对话模型，Agent 才能开始规划任务'}
             />
           </div>
-          <button type="button" onClick={handleSubmit} disabled={!canSubmit} aria-label="发送给 Agent">
-            {isWorking ? <Loader2 size={17} className="agent-workspace__spin" /> : <Send size={17} />}
-          </button>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              alignItems: 'stretch',
+              justifyContent: 'center',
+              paddingBottom: 2,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingImage || isWorking}
+              aria-label="上传图片给 Agent"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-secondary)',
+                cursor: isUploadingImage || isWorking ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: isUploadingImage || isWorking ? 'none' : '0 5px 14px rgba(0, 0, 0, 0.08)',
+                transition: 'background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
+              }}
+              onMouseEnter={(event) => {
+                if (isUploadingImage || isWorking) return;
+                event.currentTarget.style.background = 'var(--color-bg-tertiary)';
+                event.currentTarget.style.transform = 'translateY(-1px)';
+                event.currentTarget.style.boxShadow = '0 8px 18px rgba(0, 0, 0, 0.10)';
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background = 'var(--color-bg-secondary)';
+                event.currentTarget.style.transform = 'translateY(0)';
+                event.currentTarget.style.boxShadow = isUploadingImage || isWorking ? 'none' : '0 5px 14px rgba(0, 0, 0, 0.08)';
+              }}
+              title={isUploadingImage ? '图片上传中' : '上传图片'}
+            >
+              {isUploadingImage ? <Loader2 size={16} className="agent-workspace__spin" /> : <Paperclip size={16} />}
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              aria-label="发送给 Agent"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: canSubmit ? 'rgba(255, 255, 255, 0.06)' : 'var(--color-bg-secondary)',
+                color: canSubmit ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+                cursor: canSubmit ? 'pointer' : 'not-allowed',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: canSubmit ? '0 5px 14px rgba(0, 0, 0, 0.08)' : 'none',
+                transition: 'background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
+              }}
+              onMouseEnter={(event) => {
+                if (!canSubmit) return;
+                event.currentTarget.style.background = 'var(--color-bg-tertiary)';
+                event.currentTarget.style.transform = 'translateY(-1px)';
+                event.currentTarget.style.boxShadow = '0 8px 18px rgba(0, 0, 0, 0.10)';
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background = canSubmit ? 'rgba(255, 255, 255, 0.06)' : 'var(--color-bg-secondary)';
+                event.currentTarget.style.transform = 'translateY(0)';
+                event.currentTarget.style.boxShadow = canSubmit ? '0 5px 14px rgba(0, 0, 0, 0.08)' : 'none';
+              }}
+            >
+              {isWorking ? <Loader2 size={17} className="agent-workspace__spin" /> : <Send size={17} />}
+            </button>
+          </div>
         </footer>
 
         {(latestDraft || latestWorkflowEditPatch) && (
@@ -1185,6 +1957,74 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
               ? '最近一次修改草案已生成。你可以继续描述调整要求，或申请把它应用到当前画布。'
               : '最近一次结果已生成。你可以打开画布检查，也可以继续描述修改要求。'}
           </div>
+        )}
+        {previewImage && (
+          <ImagePreviewModal
+            src={previewImage}
+            images={previewImageIndex >= 0 ? previewImageGallery : [{ src: previewImage }]}
+            initialIndex={previewImageIndex >= 0 ? previewImageIndex : 0}
+            onClose={() => setPreviewImage(null)}
+            onBackfillImage={
+              onBackfillImageToCanvas
+                ? (image) => {
+                    onBackfillImageToCanvas(image);
+                    onOpenWorkflow();
+                    setPreviewImage(null);
+                  }
+                : undefined
+            }
+          />
+        )}
+        {pendingImagePreview && activePendingImage && (
+          <ImagePreviewModal
+            src={activePendingImage.url}
+            images={pendingImagePreviewGallery}
+            initialIndex={pendingImagePreviewIndex >= 0 ? pendingImagePreviewIndex : 0}
+            onClose={() => setPendingImagePreview(null)}
+          >
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  markPendingImageAsPrimary(activePendingImage.id);
+                  setPendingImagePreview((prev) => (prev ? { ...prev, imageId: activePendingImage.id } : prev));
+                }}
+                disabled={activePendingImage.role === 'mask'}
+                className="workflow-results__mini-action"
+                style={{ opacity: activePendingImage.role === 'mask' ? 0.45 : 1 }}
+              >
+                {primaryReferenceImage?.id === activePendingImage.id && activePendingImage.role === 'reference'
+                  ? '当前主参考图'
+                  : '设为主参考图'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  togglePendingImageRole(activePendingImage.id);
+                  setPendingImagePreview((prev) => (prev ? { ...prev, imageId: activePendingImage.id } : prev));
+                }}
+                className="workflow-results__mini-action"
+              >
+                {activePendingImage.role === 'mask' ? '改为参考图' : '设为蒙版'}
+              </button>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '0 10px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  color: 'var(--color-text-secondary)',
+                  fontSize: 12,
+                  minHeight: 30,
+                }}
+              >
+                <Circle size={8} fill="currentColor" />
+                {getPendingImageStatusLabel(activePendingImage)}
+              </span>
+            </div>
+          </ImagePreviewModal>
         )}
       </div>
     </div>

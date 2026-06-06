@@ -391,7 +391,7 @@ test('agent planner falls back to local tool plan when LLM output is unusable', 
   assert.equal(plan.toolInput.input, '帮我做客服问答工作流');
 });
 
-test('agent planner falls back to run diagnosis and summary tools when latest-run intents return unusable plans', async () => {
+test('agent planner keeps selected image and video models on normalized production plans', async () => {
   const { AgentPlannerService } = await import(
     `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
   );
@@ -410,21 +410,107 @@ test('agent planner falls back to run diagnosis and summary tools when latest-ru
       list() {
         return [
           {
-            id: 'workflow.diagnose',
-            title: '诊断最近一次运行',
-            description: '读取最近一次运行状态并返回诊断建议。',
-            sideEffect: 'read',
-            requiresApproval: false,
-            inputSchema: { type: 'object', required: ['runId'], properties: { runId: { type: 'string' } } },
+            id: 'image.generate',
+            title: '图片生成',
+            description: '生成单张或少量图片。',
+            sideEffect: 'execute',
+            requiresApproval: true,
+            inputSchema: { type: 'object', required: ['prompt'], properties: { prompt: { type: 'string' } } },
             outputSchema: {},
           },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {
+        return { status: 'rebuilt' };
+      },
+      search() {
+        return {
+          source: 'local-json',
+          items: [],
+        };
+      },
+    },
+    async chatCompletion() {
+      return {
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    summary: '准备生成图片',
+                    toolName: 'image.generate',
+                    toolInput: { prompt: '一只猫的 1:1 实拍照片', ratio: '1:1' },
+                    reasoningSummary: '用户明确要求单张图片。',
+                    warnings: [],
+                  }),
+                },
+              },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  const plan = await service.createPlan({
+    input: '帮我生成一只猫的 1:1 实拍照片',
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'planner-config',
+      label: 'planner-model · Default',
+    },
+    imageModel: {
+      id: 'image-model',
+      modelId: 'gpt-image-1',
+      configId: 'image-config',
+      label: 'gpt-image-1 · Image',
+    },
+    videoModel: {
+      id: 'video-model',
+      modelId: 'seedance2.0',
+      configId: 'video-config',
+      label: 'seedance2.0 · Video',
+    },
+    context: {},
+  });
+
+  assert.equal(plan.toolName, 'image.generate');
+  assert.equal(plan.imageModel?.modelId, 'gpt-image-1');
+  assert.equal(plan.imageModel?.configId, 'image-config');
+  assert.equal(plan.videoModel?.modelId, 'seedance2.0');
+  assert.equal(plan.videoModel?.configId, 'video-config');
+});
+
+test('agent planner keeps selected image and video models on fallback production plans', async () => {
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    skills: {
+      list() {
+        return [
           {
-            id: 'workflow.summarizeRun',
-            title: '汇总最近一次运行',
-            description: '读取最近一次运行结果并返回摘要。',
-            sideEffect: 'read',
-            requiresApproval: false,
-            inputSchema: { type: 'object', required: ['runId'], properties: { runId: { type: 'string' } } },
+            id: 'video.generate',
+            title: '视频生成',
+            description: '生成短视频。',
+            sideEffect: 'execute',
+            requiresApproval: true,
+            inputSchema: { type: 'object', required: ['prompt'], properties: { prompt: { type: 'string' } } },
             outputSchema: {},
           },
         ];
@@ -451,37 +537,188 @@ test('agent planner falls back to run diagnosis and summary tools when latest-ru
     },
   });
 
-  const diagnosePlan = await service.createPlan({
-    input: '请诊断最近一次工作流运行。',
+  const plan = await service.createPlan({
+    input: '帮我生成一个 16:9 的猫咪奔跑短视频',
     plannerModel: {
       id: 'planner-model',
       modelId: 'planner-model',
-      configId: 'default',
+      configId: 'planner-config',
       label: 'planner-model · Default',
     },
-    context: {
-      runId: 'run_recent_test',
+    imageModel: {
+      id: 'image-model',
+      modelId: 'gpt-image-1',
+      configId: 'image-config',
+      label: 'gpt-image-1 · Image',
     },
+    videoModel: {
+      id: 'video-model',
+      modelId: 'seedance2.0',
+      configId: 'video-config',
+      label: 'seedance2.0 · Video',
+    },
+    context: {},
   });
-  assert.equal(diagnosePlan.source, 'local-fallback');
-  assert.equal(diagnosePlan.toolName, 'workflow.diagnose');
-  assert.deepEqual(diagnosePlan.toolInput, { runId: 'run_recent_test' });
 
-  const summarizePlan = await service.createPlan({
-    input: '请汇总最近一次工作流运行结果。',
+  assert.equal(plan.source, 'local-fallback');
+  assert.equal(plan.toolName, 'video.generate');
+  assert.equal(plan.videoModel?.modelId, 'seedance2.0');
+  assert.equal(plan.videoModel?.configId, 'video-config');
+  assert.equal(plan.imageModel?.modelId, 'gpt-image-1');
+  assert.equal(plan.imageModel?.configId, 'image-config');
+});
+
+test('agent planner falls back to copy.write for single-copy requests when LLM output is unusable', async () => {
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    skills: {
+      list() {
+        return [
+          {
+            id: 'copy.write',
+            title: '文案生成',
+            description: '生成文案。',
+            sideEffect: 'execute',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['prompt'], properties: { prompt: { type: 'string' } } },
+            outputSchema: {},
+          },
+          {
+            id: 'workflow.createDraft',
+            title: '创建工作流草案',
+            description: '生成可预览的工作流草案 JSON。',
+            sideEffect: 'writeDraft',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['input'], properties: { input: { type: 'string' } } },
+            outputSchema: {},
+          },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {
+        return { status: 'rebuilt' };
+      },
+      search() {
+        return {
+          source: 'local-json',
+          items: [],
+        };
+      },
+    },
+    async chatCompletion() {
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: '无法处理' } }] };
+        },
+      };
+    },
+  });
+
+  const plan = await service.createPlan({
+    input: '帮我生成一句保温杯广告语',
     plannerModel: {
       id: 'planner-model',
       modelId: 'planner-model',
       configId: 'default',
       label: 'planner-model · Default',
     },
-    context: {
-      runId: 'run_recent_test',
+    context: {},
+  });
+
+  assert.equal(plan.source, 'local-fallback');
+  assert.equal(plan.toolName, 'copy.write');
+  assert.equal(plan.toolInput.prompt, '帮我生成一句保温杯广告语');
+});
+
+test('agent planner falls back to prompt.optimize for prompt-optimization requests when LLM output is unusable', async () => {
+  const { AgentPlannerService } = await import(
+    `../src/modules/intelligence/planner/agent-planner.service.ts?test=${Date.now()}`
+  );
+  const service = new AgentPlannerService({
+    settings: {
+      buildRuntimeConfig() {
+        return {
+          apiKey: 'test-key',
+          baseUrl: 'https://example.test/v1',
+          providerConfig: {},
+          projectModels: [{ id: 'planner-model', modelId: 'planner-model', enabled: true }],
+        };
+      },
+    },
+    skills: {
+      list() {
+        return [
+          {
+            id: 'prompt.optimize',
+            title: '提示词优化',
+            description: '优化提示词。',
+            sideEffect: 'suggest',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['prompt'], properties: { prompt: { type: 'string' } } },
+            outputSchema: {},
+          },
+          {
+            id: 'workflow.createDraft',
+            title: '创建工作流草案',
+            description: '生成可预览的工作流草案 JSON。',
+            sideEffect: 'writeDraft',
+            requiresApproval: false,
+            inputSchema: { type: 'object', required: ['input'], properties: { input: { type: 'string' } } },
+            outputSchema: {},
+          },
+        ];
+      },
+    },
+    knowledge: {
+      rebuildSeedKnowledge() {
+        return { status: 'rebuilt' };
+      },
+      search() {
+        return {
+          source: 'local-json',
+          items: [],
+        };
+      },
+    },
+    async chatCompletion() {
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: '无法处理' } }] };
+        },
+      };
     },
   });
-  assert.equal(summarizePlan.source, 'local-fallback');
-  assert.equal(summarizePlan.toolName, 'workflow.summarizeRun');
-  assert.deepEqual(summarizePlan.toolInput, { runId: 'run_recent_test' });
+
+  const plan = await service.createPlan({
+    input: '帮我优化这个图片提示词，让它更适合写实摄影',
+    plannerModel: {
+      id: 'planner-model',
+      modelId: 'planner-model',
+      configId: 'default',
+      label: 'planner-model · Default',
+    },
+    context: {},
+  });
+
+  assert.equal(plan.source, 'local-fallback');
+  assert.equal(plan.toolName, 'prompt.optimize');
+  assert.equal(plan.toolInput.prompt, '帮我优化这个图片提示词，让它更适合写实摄影');
+  assert.equal(plan.toolInput.target, 'image');
 });
 
 test('agent planner can return a normal chat response without workflow tool use', async () => {

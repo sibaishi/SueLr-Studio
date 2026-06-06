@@ -1,4 +1,5 @@
 import { runChatCompletion } from '../../../platform/ai/chat-service.ts';
+import { executeVideoGeneration } from '../../../platform/ai/video-service.ts';
 import { executionService } from '../../execution/execution.service.ts';
 import { imagesService } from '../../images/images.service.ts';
 import { settingsService } from '../../settings/settings.service.ts';
@@ -814,10 +815,6 @@ export class SkillRegistry {
           const targetConfig = String(input.configId || '')
             ? configs.find((config) => String(config.id || '') === input.configId)
             : undefined;
-          const runtimeConfig = settingsService.buildRuntimeConfig(
-            targetConfig || configs[0] || {},
-            options.scope,
-          );
           return imagesService.generate(
             {
               prompt: String(input.prompt || ''),
@@ -828,6 +825,7 @@ export class SkillRegistry {
               output_format: input.output_format || 'png',
               ...(input.reference ? { reference: input.reference } : {}),
               ...(input.mask ? { mask: input.mask } : {}),
+              ...(targetConfig ? { apiConfig: targetConfig } : {}),
             },
             { scope: options.scope },
           );
@@ -906,16 +904,18 @@ export class SkillRegistry {
         },
         execute: async (input, options) => {
           const settings = settingsService.getSettingsResponse(options.scope) as PlainObject;
-          const activeId = String(settings?.activeConfigId || '');
           const configs = Array.isArray(settings?.configs) ? (settings.configs as PlainObject[]) : [];
-          const activeConfig = configs.find((config) => String(config.id || '') === activeId) || configs[0] || {};
-          const runtimeConfig = settingsService.buildRuntimeConfig(activeConfig, options.scope);
+          const targetConfig = String(input.configId || '')
+            ? configs.find((config) => String(config.id || '') === input.configId)
+            : undefined;
           return imagesService.generate(
             {
               prompt: String(input.prompt || ''),
-              model: input.model || '',
+              model: String(input.modelId || input.model || ''),
               reference: String(input.reference || ''),
+              ...(Array.isArray(input.references) ? { references: input.references } : {}),
               ...(input.mask ? { mask: input.mask } : {}),
+              ...(targetConfig ? { apiConfig: targetConfig } : {}),
             },
             { scope: options.scope },
           );
@@ -985,20 +985,18 @@ export class SkillRegistry {
           const targetConfig = String(input.configId || '')
             ? configs.find((config) => String(config.id || '') === input.configId)
             : undefined;
-          const runtimeConfig = settingsService.buildRuntimeConfig(
-            targetConfig || configs[0] || {},
-            options.scope,
-          );
-          return imagesService.generate(
+          const runtimeConfig = settingsService.buildRuntimeConfig(targetConfig || configs[0] || {}, options.scope);
+          const result = await executeVideoGeneration(
             {
               prompt: String(input.prompt || ''),
               model: String(input.modelId || input.model || ''),
-              ratio: input.ratio || '16:9',
+              aspect_ratio: String(input.ratio || '16:9'),
               ...(input.duration ? { duration: Number(input.duration) } : {}),
-              ...(input.reference ? { reference: input.reference } : {}),
+              ...(input.reference ? { image_url: input.reference } : {}),
             },
-            { scope: options.scope },
+            { ...runtimeConfig, scope: options.scope },
           );
+          return result;
         },
       },
       {

@@ -1,6 +1,7 @@
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { ChevronLeft, ChevronRight, Copy, Download, ImagePlus } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
+
 import { createPortal } from 'react-dom';
 
 export interface PreviewImageItem {
@@ -17,6 +18,7 @@ export function ImagePreviewModal({
   initialIndex,
   onClose,
   onBackfillImage,
+  children,
 }: {
   src: string;
   alt?: string;
@@ -25,6 +27,7 @@ export function ImagePreviewModal({
   initialIndex?: number;
   onClose: () => void;
   onBackfillImage?: (image: PreviewImageItem) => void;
+  children?: ReactNode;
 }) {
   const gallery = useMemo(() => {
     const normalized = (images && images.length > 0 ? images : [{ src }])
@@ -145,6 +148,7 @@ export function ImagePreviewModal({
           </>
         )}
         <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2">
+          {children}
           {copyStatus && (
             <span className="rounded-full px-3 py-2 text-xs text-white" style={{ background: 'rgba(0,0,0,0.54)' }}>
               {copyStatus}

@@ -74,6 +74,8 @@ export type AgentPlan = {
 
 type AgentPlanKnowledgeContext = AgentPlan['knowledgeContext'];
 
+type AgentModelSelection = Pick<AgentPlan, 'plannerModel' | 'imageModel' | 'videoModel'>;
+
 function gid(prefix = 'plan') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -118,6 +120,15 @@ function getEmptyKnowledgeContext(): AgentPlanKnowledgeContext {
   };
 }
 
+function attachModelSelection(plan: AgentPlan, input: AgentPlanRequest): AgentPlan {
+  return {
+    ...plan,
+    plannerModel: input.plannerModel,
+    imageModel: input.imageModel ?? null,
+    videoModel: input.videoModel ?? null,
+  };
+}
+
 function fallbackPlan(input: AgentPlanRequest, reason = '', knowledgeContext = getEmptyKnowledgeContext()): AgentPlan {
   return {
     id: gid(),
@@ -149,21 +160,156 @@ function shouldUseWorkflowFallback(input: string) {
     '工作流',
     '画布',
     '节点',
-    '搭建',
-    '创建',
-    '生成',
-    '执行',
-    '运行',
+    '搭建工作流',
+    '工作流草案',
     '批量',
     '分镜图',
-    '主图',
-    '详情页',
+    '主图流程',
+    '详情页流程',
     'workflow',
     'canvas',
     'node',
-    'run',
-    'execute',
   ]);
+}
+
+function containsWorkflowIntent(input: string) {
+  return includesAny(input, [
+    '工作流',
+    '画布',
+    '节点',
+    '搭建',
+    '流程',
+    '批量',
+    'workflow',
+    'canvas',
+    'node',
+    'pipeline',
+  ]);
+}
+
+function extractRequestedRatio(input: string) {
+  const matched = cleanText(input, 1000).match(/\b(1:1|16:9|9:16|4:3|3:4|21:9)\b/);
+  return matched?.[1] || undefined;
+}
+
+function buildDirectProductionFallbackPlan(
+  input: AgentPlanRequest,
+  knowledgeContext = getEmptyKnowledgeContext(),
+  reason = '',
+): AgentPlan | null {
+  const originalInput = cleanText(input.input, 12000);
+  if (!originalInput || containsWorkflowIntent(originalInput)) return null;
+  const latestUploadedImage = isPlainObject(input.context.latestUploadedImage)
+    ? input.context.latestUploadedImage
+    : null;
+  const latestUploadedMask = isPlainObject(input.context.latestUploadedMask)
+    ? input.context.latestUploadedMask
+    : null;
+  const referenceImages = Array.isArray(input.context.referenceImages)
+    ? input.context.referenceImages.filter(isPlainObject)
+    : [];
+
+  if (includesAny(originalInput, ['提示词', 'prompt']) && includesAny(originalInput, ['优化', '改写', '润色', '增强'])) {
+    return {
+      id: gid(),
+      source: 'local-fallback',
+      plannerModel: input.plannerModel,
+      summary: '已准备优化提示词。',
+      toolName: 'prompt.optimize',
+      toolInput: {
+        prompt: originalInput,
+        input: originalInput,
+        ...(includesAny(originalInput, ['视频', 'video', '镜头', '运镜']) ? { target: 'video' } : {}),
+        ...(includesAny(originalInput, ['图片', '图像', '照片', '海报', '插画', 'image'])
+          ? { target: 'image' }
+          : {}),
+      },
+      reasoningSummary: reason || '输入是单次提示词优化请求，优先使用 prompt.optimize。',
+      warnings: [],
+      knowledgeContext,
+    };
+  }
+
+  if (includesAny(originalInput, ['文案', '广告语', '标题', 'slogan', '宣传语', '卖点'])) {
+    return {
+      id: gid(),
+      source: 'local-fallback',
+      plannerModel: input.plannerModel,
+      summary: '已准备生成文案。',
+      toolName: 'copy.write',
+      toolInput: {
+        prompt: originalInput,
+        input: originalInput,
+      },
+      reasoningSummary: reason || '输入是单次文案生成请求，优先使用 copy.write。',
+      warnings: [],
+      knowledgeContext,
+    };
+  }
+
+  if (includesAny(originalInput, ['视频', '短片', '动画', 'video'])) {
+    return {
+      id: gid(),
+      source: 'local-fallback',
+      plannerModel: input.plannerModel,
+      summary: '已准备生成视频。',
+      toolName: 'video.generate',
+      toolInput: {
+        prompt: originalInput,
+        input: originalInput,
+        ...(extractRequestedRatio(originalInput) ? { ratio: extractRequestedRatio(originalInput) } : {}),
+        ...(latestUploadedImage && typeof latestUploadedImage.url === 'string' ? { reference: latestUploadedImage.url } : {}),
+      },
+      reasoningSummary: reason || '输入是单次视频生成请求，优先使用 video.generate。',
+      warnings: [],
+      knowledgeContext,
+    };
+  }
+
+  if (
+    latestUploadedImage &&
+    typeof latestUploadedImage.url === 'string' &&
+    includesAny(originalInput, ['编辑', '改图', '修图', '局部', '换背景', '抠图', '去掉', '加上'])
+  ) {
+    return {
+      id: gid(),
+      source: 'local-fallback',
+      plannerModel: input.plannerModel,
+      summary: '已准备编辑图片。',
+      toolName: 'image.edit',
+      toolInput: {
+        prompt: originalInput,
+        input: originalInput,
+        reference: latestUploadedImage.url,
+        ...(latestUploadedMask && typeof latestUploadedMask.url === 'string' ? { mask: latestUploadedMask.url } : {}),
+        ...(referenceImages.length > 1 ? { references: referenceImages.map((item) => item.url).filter(Boolean) } : {}),
+        ...(extractRequestedRatio(originalInput) ? { ratio: extractRequestedRatio(originalInput) } : {}),
+      },
+      reasoningSummary: reason || '检测到已上传图片与编辑意图，优先使用 image.edit。',
+      warnings: [],
+      knowledgeContext,
+    };
+  }
+
+  if (includesAny(originalInput, ['图片', '图像', '照片', '海报', '插画', '头像', '封面', '实拍', 'photo', 'image'])) {
+    return {
+      id: gid(),
+      source: 'local-fallback',
+      plannerModel: input.plannerModel,
+      summary: '已准备生成图片。',
+      toolName: 'image.generate',
+      toolInput: {
+        prompt: originalInput,
+        input: originalInput,
+        ...(extractRequestedRatio(originalInput) ? { ratio: extractRequestedRatio(originalInput) } : {}),
+      },
+      reasoningSummary: reason || '输入是单次图片生成请求，优先使用 image.generate。',
+      warnings: [],
+      knowledgeContext,
+    };
+  }
+
+  return null;
 }
 
 function fallbackChatPlan(
@@ -466,6 +612,11 @@ function normalizePlan(
     toolName === 'prompt.optimize' ||
     toolName === 'result.inspect'
   ) {
+    const latestUploadedImage = isPlainObject(input.context.latestUploadedImage)
+      ? input.context.latestUploadedImage
+      : null;
+    const uploadedImageUrl =
+      latestUploadedImage && typeof latestUploadedImage.url === 'string' ? latestUploadedImage.url : '';
     return {
       id: gid(),
       source: 'llm',
@@ -477,7 +628,17 @@ function normalizePlan(
         ...(cleanText(toolInput.prompt || input.input, 12000)
           ? { input: cleanText(toolInput.prompt || input.input, 12000) }
           : {}),
-        ...(toolInput.reference ? { reference: String(toolInput.reference) } : {}),
+        ...(toolInput.reference
+          ? { reference: String(toolInput.reference) }
+          : toolName === 'image.edit' || toolName === 'video.generate'
+            ? uploadedImageUrl
+              ? { reference: uploadedImageUrl }
+              : {}
+            : {}),
+        ...(toolInput.mask ? { mask: String(toolInput.mask) } : {}),
+        ...(Array.isArray(toolInput.references)
+          ? { references: toolInput.references.map((item) => String(item)).filter(Boolean) }
+          : {}),
         ...(toolInput.model ? { model: String(toolInput.model) } : {}),
         ...(toolInput.ratio ? { ratio: String(toolInput.ratio) } : {}),
         ...(toolInput.n ? { n: Number(toolInput.n) } : {}),
@@ -676,7 +837,8 @@ function buildPlannerMessages(
         '你必须基于可用工具、本地知识库上下文和节点能力知识判断工具调用。',
         '当前可执行工具包括 workflow.inspect、workflow.edit、workflow.applyDraft、workflow.createDraft、workflow.execute、workflow.diagnose、workflow.summarizeRun、image.generate、image.edit、image.compare、video.generate、copy.write、prompt.optimize、result.inspect。',
         '历史文档中的 workflow.build 和 workflow.run 分别对应 workflow.createDraft 和 workflow.execute；不要输出旧名称。',
-        '如果用户是在问概念、问原因、讨论方案、确认下一步、闲聊或要求解释，请使用 chat.respond，直接给出简洁自然语言回答，不要调用工作流工具。',
+        '如果用户明确要单张图片、单次视频、单段文案或单次提示词优化，优先使用 image.generate、video.generate、copy.write、prompt.optimize，不要升级成工作流。',
+        '只有当用户明确要求工作流、流程、批量处理、可编辑画布、节点编排时，才使用 workflow.createDraft。仅出现“生成”二字不构成工作流意图。',
         '用户明确要求查看当前画布、当前工作流结构、节点摘要时，使用 workflow.inspect。',
         '用户明确要求修改当前工作流时，使用 workflow.edit。这个工具只生成 patch 预览，不直接改动画布。',
         '用户明确要求应用刚才生成的工作流修改草案时，使用 workflow.applyDraft。这个工具需要用户确认。',
@@ -694,6 +856,9 @@ function buildPlannerMessages(
         '如果用户说分镜图、故事板图片、storyboard sheet，这是图片序列/图片生成任务，不是视频生成任务。',
         '如果用户说分镜脚本、镜头脚本、旁白脚本，这是文本/对话任务，不是视频生成任务。',
         'promptHelper 不是通用提示词优化器；只有明确需要分镜图版式、三视图、视角或光照控制时才建议使用。',
+        '如果当前页面上下文里有 latestUploadedImage，且用户表达的是编辑、修图、换背景、局部修改等意图，应优先使用 image.edit，并把 latestUploadedImage.url 放入 toolInput.reference。',
+        '如果当前页面上下文里有 latestUploadedImage，且用户要求基于这张图生成视频，可在 video.generate 中把 latestUploadedImage.url 放入 toolInput.reference。',
+        '如果只是普通生图请求，即使有 latestUploadedImage，也不要强行使用 image.edit。',
         '必须只输出 JSON，不要输出 Markdown。',
         '普通对话 JSON：{"summary":"一句总结","toolName":"chat.respond","toolInput":{"response":"直接给用户看的回复"},"reasoningSummary":"为什么不调用工具","warnings":[]}',
         '检查工具 JSON：{"summary":"一句给用户看的检查说明","toolName":"workflow.inspect","toolInput":{},"reasoningSummary":"为什么查看当前工作流","warnings":[]}',
@@ -761,49 +926,73 @@ export class AgentPlannerService {
       const payload = await response.json();
       const content = payload?.choices?.[0]?.message?.content;
       const normalized = normalizePlan(readJsonObject(content), input, knowledgeContext);
-      if (normalized) return normalized;
+      if (normalized) return attachModelSelection(normalized, input);
       logger.warn('planner returned unusable plan', { model: input.plannerModel.modelId });
       if (shouldDiagnoseRun(input)) {
-        return buildRunToolFallbackPlan(
+        return attachModelSelection(
+          buildRunToolFallbackPlan(
+            input,
+            'workflow.diagnose',
+            knowledgeContext,
+            'Planner 返回内容不可用，已回退到最近一次运行诊断工具。',
+          ),
           input,
-          'workflow.diagnose',
-          knowledgeContext,
-          'Planner 返回内容不可用，已回退到最近一次运行诊断工具。',
         );
       }
       if (shouldSummarizeRun(input)) {
-        return buildRunToolFallbackPlan(
+        return attachModelSelection(
+          buildRunToolFallbackPlan(
+            input,
+            'workflow.summarizeRun',
+            knowledgeContext,
+            'Planner 返回内容不可用，已回退到最近一次运行汇总工具。',
+          ),
           input,
-          'workflow.summarizeRun',
-          knowledgeContext,
-          'Planner 返回内容不可用，已回退到最近一次运行汇总工具。',
         );
       }
       if (shouldApplyWorkflowEdit(input)) {
-        return buildApplyDraftFallbackPlan(
+        return attachModelSelection(
+          buildApplyDraftFallbackPlan(
+            input,
+            knowledgeContext,
+            'Planner 返回内容不可用，已按当前修改草案走应用确认流程。',
+          ),
           input,
-          knowledgeContext,
-          'Planner 返回内容不可用，已按当前修改草案走应用确认流程。',
         );
       }
       if (shouldEditWorkflow(input)) {
-        return buildEditFallbackPlan(
+        return attachModelSelection(
+          buildEditFallbackPlan(
+            input,
+            knowledgeContext,
+            'Planner 返回内容不可用，已按当前工作流修改需求生成 patch 草案。',
+          ),
           input,
-          knowledgeContext,
-          'Planner 返回内容不可用，已按当前工作流修改需求生成 patch 草案。',
         );
       }
       if (shouldInspectWorkflow(input)) {
-        return buildInspectFallbackPlan(
+        return attachModelSelection(
+          buildInspectFallbackPlan(
+            input,
+            knowledgeContext,
+            'Planner 返回内容不可用，已回退到当前工作流检查工具。',
+          ),
           input,
-          knowledgeContext,
-          'Planner 返回内容不可用，已回退到当前工作流检查工具。',
         );
       }
+      const directToolPlan = buildDirectProductionFallbackPlan(
+        input,
+        knowledgeContext,
+        'Planner 返回内容不可用，已回退到单步生产工具。',
+      );
+      if (directToolPlan) return attachModelSelection(directToolPlan, input);
       if (!shouldUseWorkflowFallback(input.input)) {
-        return fallbackChatPlan(input, 'Planner 返回内容不是可执行的结构化计划，已按普通对话处理。', knowledgeContext);
+        return attachModelSelection(
+          fallbackChatPlan(input, 'Planner 返回内容不是可执行的结构化计划，已按普通对话处理。', knowledgeContext),
+          input,
+        );
       }
-      return fallbackPlan(input, 'Planner 返回内容不是可执行的结构化计划。', knowledgeContext);
+      return attachModelSelection(fallbackPlan(input, 'Planner 返回内容不是可执行的结构化计划。', knowledgeContext), input);
     } catch (error) {
       const normalizedError = error as DynamicValue;
       logger.warn('planner request failed, using fallback plan', {
@@ -814,43 +1003,67 @@ export class AgentPlannerService {
         throw new ProviderError('AGENT_PLANNER_MODEL_UNAVAILABLE', 'Planner 模型缺少可用 API Key');
       }
       if (shouldDiagnoseRun(input)) {
-        return buildRunToolFallbackPlan(
+        return attachModelSelection(
+          buildRunToolFallbackPlan(
+            input,
+            'workflow.diagnose',
+            knowledgeContext,
+            normalizedError?.message || 'Planner 调用失败，已回退到最近一次运行诊断工具。',
+          ),
           input,
-          'workflow.diagnose',
-          knowledgeContext,
-          normalizedError?.message || 'Planner 调用失败，已回退到最近一次运行诊断工具。',
         );
       }
       if (shouldSummarizeRun(input)) {
-        return buildRunToolFallbackPlan(
+        return attachModelSelection(
+          buildRunToolFallbackPlan(
+            input,
+            'workflow.summarizeRun',
+            knowledgeContext,
+            normalizedError?.message || 'Planner 调用失败，已回退到最近一次运行汇总工具。',
+          ),
           input,
-          'workflow.summarizeRun',
-          knowledgeContext,
-          normalizedError?.message || 'Planner 调用失败，已回退到最近一次运行汇总工具。',
         );
       }
       if (shouldApplyWorkflowEdit(input)) {
-        return buildApplyDraftFallbackPlan(
+        return attachModelSelection(
+          buildApplyDraftFallbackPlan(
+            input,
+            knowledgeContext,
+            normalizedError?.message || 'Planner 调用失败，已回退到工作流修改应用流程。',
+          ),
           input,
-          knowledgeContext,
-          normalizedError?.message || 'Planner 调用失败，已回退到工作流修改应用流程。',
         );
       }
       if (shouldEditWorkflow(input)) {
-        return buildEditFallbackPlan(
+        return attachModelSelection(
+          buildEditFallbackPlan(
+            input,
+            knowledgeContext,
+            normalizedError?.message || 'Planner 调用失败，已回退到工作流修改草案工具。',
+          ),
           input,
-          knowledgeContext,
-          normalizedError?.message || 'Planner 调用失败，已回退到工作流修改草案工具。',
         );
       }
       if (shouldInspectWorkflow(input)) {
-        return buildInspectFallbackPlan(
+        return attachModelSelection(
+          buildInspectFallbackPlan(
+            input,
+            knowledgeContext,
+            normalizedError?.message || 'Planner 调用失败，已回退到工作流检查工具。',
+          ),
           input,
-          knowledgeContext,
-          normalizedError?.message || 'Planner 调用失败，已回退到工作流检查工具。',
         );
       }
-      return fallbackPlan(input, normalizedError?.message || 'Planner 调用失败，已回退到本地计划。', knowledgeContext);
+      const directToolPlan = buildDirectProductionFallbackPlan(
+        input,
+        knowledgeContext,
+        normalizedError?.message || 'Planner 调用失败，已回退到单步生产工具。',
+      );
+      if (directToolPlan) return attachModelSelection(directToolPlan, input);
+      return attachModelSelection(
+        fallbackPlan(input, normalizedError?.message || 'Planner 调用失败，已回退到本地计划。', knowledgeContext),
+        input,
+      );
     }
   }
 }

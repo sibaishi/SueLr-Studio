@@ -632,6 +632,10 @@ function writeGeneratedImageFile(fileName: string, buffer: Buffer, runtimeConfig
   return `/api/outputs/${fileName}`;
 }
 
+function getPersistedAbsolutePath(fileName: string, runtimeConfig: RuntimeConfig): string {
+  return path.join(getScopedStoragePaths(runtimeConfig.scope).generatedDir, fileName);
+}
+
 function isChatCompletionsEndpoint(endpoint: DynamicValue): boolean {
   return String(endpoint || '')
     .toLowerCase()
@@ -679,6 +683,15 @@ function shouldRetryWithoutOutputFormat(error: DynamicValue): boolean {
 function shouldRetryOptionalImageParamsOnGatewayError(error: DynamicValue): boolean {
   const message = String(error?.message || error || '');
   return /(Bad Gateway|\(502\)|\b502\b)/i.test(message);
+}
+
+function shouldRetryWithBaseImageModel(error: DynamicValue): boolean {
+  const message = String(error?.message || error || '');
+  return /(无可用渠道|distributor|model unavailable|service unavailable|\b503\b|\(503\))/i.test(message);
+}
+
+function resolveBaseImageModelFallback(modelId: DynamicValue, resolution?: DynamicValue): string {
+  return getImageResolutionFallbackModel(modelId, resolution);
 }
 
 async function downloadRemoteImage(
@@ -773,99 +786,155 @@ export async function generateImages(
       });
       return endpoint;
     };
-    const imageEndpoint = resolveImageEndpoint(payload.model);
-    const usesGeminiGenerateContent = isGeminiGenerateContentEndpoint(imageEndpoint);
-    const usesChatPayload = isChatCompletionsEndpoint(imageEndpoint);
-    const usesArkImageGenerationPayload =
-      isVolcengineArkRuntime(baseUrl) && !usesChatPayload && !usesGeminiGenerateContent;
-    const shouldUseEditEndpoint =
-      (payload.image.length > 0 || payload.mask) &&
-      !usesArkImageGenerationPayload &&
-      !usesChatPayload &&
-      !usesGeminiGenerateContent;
 
-    const attemptData = shouldUseEditEndpoint
-      ? await (async () => {
-          const buildRequestBody = (options: LooseRecord = {}) => ({
-            ...payload,
-            model: options.model || payload.model,
-            n: 1,
-            resolution: options.includeResolution ? payload.resolution : undefined,
-          });
-          const callWithRequestBody = async (requestBody: ImagePayload) => {
-            const endpoint = resolveImageEndpoint(requestBody.model, 'image-edit');
-            const form = new FormData();
-            form.append('model', requestBody.model);
-            form.append('prompt', requestBody.prompt);
-            if (requestBody.size) form.append('size', requestBody.size);
-            if (requestBody.quality) form.append('quality', requestBody.quality);
-            if (requestBody.resolution) form.append('resolution', requestBody.resolution);
-            if (requestBody.output_format) form.append('output_format', requestBody.output_format);
-            if (requestBody.n) form.append('n', String(requestBody.n));
-            for (let imageIndex = 0; imageIndex < requestBody.image.length; imageIndex += 1) {
-              const blob = await dalleImageSourceToBlob(requestBody.image[imageIndex]);
-              if (blob) form.append('image', blob, `image_${imageIndex}.png`);
-            }
-            if (requestBody.mask) {
-              const maskBlob = await dalleImageSourceToBlob(requestBody.mask);
-              if (maskBlob) form.append('mask', maskBlob, 'mask.png');
-            }
-            const requestConfig = adapter.buildRawRequest({
-              apiKey,
-              providerConfig,
-              baseUrl,
-              endpoint,
-              method: 'POST',
-              headers: {},
-              body: form,
+    const executeForModel = async (activeModel: string) => {
+      const imageEndpoint = resolveImageEndpoint(activeModel);
+      const usesGeminiGenerateContent = isGeminiGenerateContentEndpoint(imageEndpoint);
+      const usesChatPayload = isChatCompletionsEndpoint(imageEndpoint);
+      const usesArkImageGenerationPayload =
+        isVolcengineArkRuntime(baseUrl) && !usesChatPayload && !usesGeminiGenerateContent;
+      const shouldUseEditEndpoint =
+        (payload.image.length > 0 || payload.mask) &&
+        !usesArkImageGenerationPayload &&
+        !usesChatPayload &&
+        !usesGeminiGenerateContent;
+
+      const attemptData = shouldUseEditEndpoint
+        ? await (async () => {
+            const buildRequestBody = (options: LooseRecord = {}) => ({
+              ...payload,
+              model: options.model || activeModel,
+              n: 1,
+              resolution: options.includeResolution ? payload.resolution : undefined,
             });
-            // biome-ignore lint/performance/noDelete: Multipart requests must omit Content-Type so fetch adds the boundary.
-            delete (requestConfig.options.headers as Record<string, string | undefined>)['Content-Type'];
-            return callDalleImageEditApiWithAdapter(requestConfig, requestBody, timeoutMs, sendProgress, abortSignal);
-          };
-
-          return callWithRequestBody(buildRequestBody({ includeResolution: includeResolutionInBody }) as ImagePayload);
-        })()
-      : await (async () => {
-          const endpoint = imageEndpoint;
-
-          if (usesGeminiGenerateContent) {
-            const buildRequestBody = (options: LooseRecord = {}) => {
-              const generationConfig = buildGeminiConfig(payload, SUPPORTED_RATIOS);
-              return {
-                contents: [
-                  {
-                    parts: buildGeminiParts(payload.prompt, payload.image, payload),
-                  },
-                ],
-                ...(generationConfig ? { generationConfig } : {}),
-                ...(options.includeResponseFormat ? { response_format: GEMINI_URL_RESPONSE_FORMAT } : {}),
-              };
-            };
-            const callWithRequestBody = (model: string, requestBody: LooseRecord) =>
-              callGeminiApi(
-                adapter,
-                baseUrl,
-                resolveImageEndpoint(model),
-                apiKey,
-                requestBody,
-                timeoutMs,
-                sendProgress,
-                abortSignal,
-              );
-            const includeResponseFormat = shouldRequestGeminiUrlResponse(providerConfig);
-            try {
-              return await callWithRequestBody(payload.model, buildRequestBody({ includeResponseFormat }));
-            } catch (error) {
-              if (includeResponseFormat && shouldRetryWithoutResponseFormat(error)) {
-                sendProgress?.('Gemini endpoint retry: drop response_format after first failure');
-                return callWithRequestBody(payload.model, buildRequestBody({ includeResponseFormat: false }));
+            const callWithRequestBody = async (requestBody: ImagePayload) => {
+              const endpoint = resolveImageEndpoint(requestBody.model, 'image-edit');
+              const form = new FormData();
+              form.append('model', requestBody.model);
+              form.append('prompt', requestBody.prompt);
+              if (requestBody.size) form.append('size', requestBody.size);
+              if (requestBody.quality) form.append('quality', requestBody.quality);
+              if (requestBody.resolution) form.append('resolution', requestBody.resolution);
+              if (requestBody.output_format) form.append('output_format', requestBody.output_format);
+              if (requestBody.n) form.append('n', String(requestBody.n));
+              for (let imageIndex = 0; imageIndex < requestBody.image.length; imageIndex += 1) {
+                const blob = await dalleImageSourceToBlob(requestBody.image[imageIndex]);
+                if (blob) form.append('image', blob, `image_${imageIndex}.png`);
               }
-              throw error;
-            }
-          }
+              if (requestBody.mask) {
+                const maskBlob = await dalleImageSourceToBlob(requestBody.mask);
+                if (maskBlob) form.append('mask', maskBlob, 'mask.png');
+              }
+              const requestConfig = adapter.buildRawRequest({
+                apiKey,
+                providerConfig,
+                baseUrl,
+                endpoint,
+                method: 'POST',
+                headers: {},
+                body: form,
+              });
+              // biome-ignore lint/performance/noDelete: Multipart requests must omit Content-Type so fetch adds the boundary.
+              delete (requestConfig.options.headers as Record<string, string | undefined>)['Content-Type'];
+              return callDalleImageEditApiWithAdapter(requestConfig, requestBody, timeoutMs, sendProgress, abortSignal);
+            };
 
-          if (usesChatPayload) {
+            return callWithRequestBody(buildRequestBody({ includeResolution: includeResolutionInBody }) as ImagePayload);
+          })()
+        : await (async () => {
+            const endpoint = imageEndpoint;
+
+            if (usesGeminiGenerateContent) {
+              const buildRequestBody = (options: LooseRecord = {}) => {
+                const generationConfig = buildGeminiConfig({ ...payload, model: activeModel }, SUPPORTED_RATIOS);
+                return {
+                  contents: [
+                    {
+                      parts: buildGeminiParts(payload.prompt, payload.image, payload),
+                    },
+                  ],
+                  ...(generationConfig ? { generationConfig } : {}),
+                  ...(options.includeResponseFormat ? { response_format: GEMINI_URL_RESPONSE_FORMAT } : {}),
+                };
+              };
+              const callWithRequestBody = (model: string, requestBody: LooseRecord) =>
+                callGeminiApi(
+                  adapter,
+                  baseUrl,
+                  resolveImageEndpoint(model),
+                  apiKey,
+                  requestBody,
+                  timeoutMs,
+                  sendProgress,
+                  abortSignal,
+                );
+              const includeResponseFormat = shouldRequestGeminiUrlResponse(providerConfig);
+              try {
+                return await callWithRequestBody(activeModel, buildRequestBody({ includeResponseFormat }));
+              } catch (error) {
+                if (includeResponseFormat && shouldRetryWithoutResponseFormat(error)) {
+                  sendProgress?.('Gemini endpoint retry: drop response_format after first failure');
+                  return callWithRequestBody(activeModel, buildRequestBody({ includeResponseFormat: false }));
+                }
+                throw error;
+              }
+            }
+
+            if (usesChatPayload) {
+              const callWithRequestBody = (requestBody: LooseRecord) => {
+                const requestConfig = adapter.buildJsonRequest({
+                  apiKey,
+                  providerConfig,
+                  baseUrl,
+                  endpoint: resolveImageEndpoint(requestBody.model),
+                  method: 'POST',
+                  body: requestBody,
+                });
+                return callGenericImageGenerationViaChatApiWithAdapter(
+                  requestConfig,
+                  {
+                    model: activeModel,
+                    prompt: payload.prompt,
+                    image: payload.image,
+                    size: payload.size,
+                    aspect_ratio: payload.aspect_ratio,
+                    quality: payload.quality,
+                    output_format: payload.output_format,
+                    response_format: requestBody.response_format,
+                  },
+                  timeoutMs,
+                  sendProgress,
+                  abortSignal,
+                );
+              };
+
+              try {
+                return await callWithRequestBody(
+                  buildChatImageRequestBody({ ...payload, model: activeModel }, true, true, {
+                    includeResolution: includeResolutionInBody,
+                  }),
+                );
+              } catch (error) {
+                if (shouldRetryWithoutOutputFormat(error)) {
+                  sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
+                  return callWithRequestBody(
+                    buildChatImageRequestBody({ ...payload, model: activeModel }, true, false, {
+                      includeResolution: includeResolutionInBody,
+                    }),
+                  );
+                }
+                if (shouldRetryWithoutResponseFormat(error)) {
+                  sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
+                  return callWithRequestBody(
+                    buildChatImageRequestBody({ ...payload, model: activeModel }, false, true, {
+                      includeResolution: includeResolutionInBody,
+                    }),
+                  );
+                }
+                throw error;
+              }
+            }
+
             const callWithRequestBody = (requestBody: LooseRecord) => {
               const requestConfig = adapter.buildJsonRequest({
                 apiKey,
@@ -875,18 +944,9 @@ export async function generateImages(
                 method: 'POST',
                 body: requestBody,
               });
-              return callGenericImageGenerationViaChatApiWithAdapter(
+              return callGenericImageGenerationApiWithAdapter(
                 requestConfig,
-                {
-                  model: payload.model,
-                  prompt: payload.prompt,
-                  image: payload.image,
-                  size: payload.size,
-                  aspect_ratio: payload.aspect_ratio,
-                  quality: payload.quality,
-                  output_format: payload.output_format,
-                  response_format: requestBody.response_format,
-                },
+                requestBody,
                 timeoutMs,
                 sendProgress,
                 abortSignal,
@@ -895,95 +955,62 @@ export async function generateImages(
 
             try {
               return await callWithRequestBody(
-                buildChatImageRequestBody(payload, true, true, {
+                buildGenericImageRequestBody({ ...payload, model: activeModel }, usesArkImageGenerationPayload, true, true, {
                   includeResolution: includeResolutionInBody,
                 }),
               );
             } catch (error) {
-              if (shouldRetryWithoutOutputFormat(error)) {
-                sendProgress?.('上游不支持 output_format，已忽略输出格式重试一次');
-                return callWithRequestBody(
-                  buildChatImageRequestBody(payload, true, false, {
-                    includeResolution: includeResolutionInBody,
-                  }),
-                );
+              const canRetryOutputFormat =
+                Boolean(payload.output_format) &&
+                (shouldRetryWithoutOutputFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error));
+              if (canRetryOutputFormat) {
+                sendProgress?.('Image endpoint retry: drop output_format after first failure');
+                try {
+                  return await callWithRequestBody(
+                    buildGenericImageRequestBody({ ...payload, model: activeModel }, usesArkImageGenerationPayload, true, false, {
+                      includeResolution: includeResolutionInBody,
+                    }),
+                  );
+                } catch (retryError) {
+                  if (
+                    shouldRetryWithoutResponseFormat(retryError) ||
+                    shouldRetryOptionalImageParamsOnGatewayError(retryError)
+                  ) {
+                    sendProgress?.('Image endpoint retry: drop response_format after second failure');
+                    return callWithRequestBody(
+                      buildGenericImageRequestBody({ ...payload, model: activeModel }, usesArkImageGenerationPayload, false, false, {
+                        includeResolution: includeResolutionInBody,
+                      }),
+                    );
+                  }
+                  throw retryError;
+                }
               }
-              if (shouldRetryWithoutResponseFormat(error)) {
-                sendProgress?.('上游不支持 response_format=url，已降级为默认返回格式重试一次');
+              if (shouldRetryWithoutResponseFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error)) {
+                sendProgress?.('Image endpoint retry: drop response_format after first failure');
                 return callWithRequestBody(
-                  buildChatImageRequestBody(payload, false, true, {
+                  buildGenericImageRequestBody({ ...payload, model: activeModel }, usesArkImageGenerationPayload, false, true, {
                     includeResolution: includeResolutionInBody,
                   }),
                 );
               }
               throw error;
             }
-          }
+          })();
 
-          const callWithRequestBody = (requestBody: LooseRecord) => {
-            const requestConfig = adapter.buildJsonRequest({
-              apiKey,
-              providerConfig,
-              baseUrl,
-              endpoint: resolveImageEndpoint(requestBody.model),
-              method: 'POST',
-              body: requestBody,
-            });
-            return callGenericImageGenerationApiWithAdapter(
-              requestConfig,
-              requestBody,
-              timeoutMs,
-              sendProgress,
-              abortSignal,
-            );
-          };
+      return attemptData;
+    };
 
-          try {
-            return await callWithRequestBody(
-              buildGenericImageRequestBody(payload, usesArkImageGenerationPayload, true, true, {
-                includeResolution: includeResolutionInBody,
-              }),
-            );
-          } catch (error) {
-            const canRetryOutputFormat =
-              Boolean(payload.output_format) &&
-              (shouldRetryWithoutOutputFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error));
-            if (canRetryOutputFormat) {
-              sendProgress?.('Image endpoint retry: drop output_format after first failure');
-              try {
-                return await callWithRequestBody(
-                  buildGenericImageRequestBody(payload, usesArkImageGenerationPayload, true, false, {
-                    includeResolution: includeResolutionInBody,
-                  }),
-                );
-              } catch (retryError) {
-                if (
-                  shouldRetryWithoutResponseFormat(retryError) ||
-                  shouldRetryOptionalImageParamsOnGatewayError(retryError)
-                ) {
-                  sendProgress?.('Image endpoint retry: drop response_format after second failure');
-                  return callWithRequestBody(
-                    buildGenericImageRequestBody(payload, usesArkImageGenerationPayload, false, false, {
-                      includeResolution: includeResolutionInBody,
-                    }),
-                  );
-                }
-                throw retryError;
-              }
-            }
-            if (shouldRetryWithoutResponseFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error)) {
-              sendProgress?.('Image endpoint retry: drop response_format after first failure');
-              return callWithRequestBody(
-                buildGenericImageRequestBody(payload, usesArkImageGenerationPayload, false, true, {
-                  includeResolution: includeResolutionInBody,
-                }),
-              );
-            }
-            throw error;
-          }
-        })();
-
-    return attemptData;
+    const fallbackModel = resolveBaseImageModelFallback(payload.model, payload.resolution);
+    try {
+      return await executeForModel(payload.model);
+    } catch (error) {
+      if (fallbackModel && fallbackModel !== payload.model && shouldRetryWithBaseImageModel(error)) {
+        sendProgress?.(`当前模型 ${payload.model} 不可用，已回退到基础模型 ${fallbackModel} 重试一次`);
+        return executeForModel(fallbackModel);
+      }
+      throw error;
+    }
   };
 
   const attemptResults = await runSettledWithConcurrency(
@@ -1011,6 +1038,8 @@ export async function generateImages(
   }
 
   const shouldPersistGeneratedOutputs = runtimeConfig.persistGeneratedOutputs !== false;
+  const persistedFiles: Array<{ fileName: string; url: string; absolutePath: string }> = [];
+  const scopedStoragePaths = getScopedStoragePaths(runtimeConfig.scope);
   const processOutputImage = async (image: string) => {
     const imageStr = String(image);
     if (imageStr.startsWith('data:')) {
@@ -1022,7 +1051,9 @@ export async function generateImages(
           }
           const ext = (match[1] || 'image/png').split('/').pop() || 'png';
           const fileName = `images/${randomUUID()}.${ext}`;
-          return writeGeneratedImageFile(fileName, Buffer.from(match[2], 'base64'), runtimeConfig);
+          const url = writeGeneratedImageFile(fileName, Buffer.from(match[2], 'base64'), runtimeConfig);
+          persistedFiles.push({ fileName, url, absolutePath: getPersistedAbsolutePath(fileName, runtimeConfig) });
+          return url;
         }
       } catch {
         return imageStr;
@@ -1040,7 +1071,9 @@ export async function generateImages(
             }
             const ext = (match[1] || 'image/png').split('/').pop() || 'png';
             const fileName = `images/${randomUUID()}.${ext}`;
-            return writeGeneratedImageFile(fileName, Buffer.from(match[2], 'base64'), runtimeConfig);
+            const url = writeGeneratedImageFile(fileName, Buffer.from(match[2], 'base64'), runtimeConfig);
+            persistedFiles.push({ fileName, url, absolutePath: getPersistedAbsolutePath(fileName, runtimeConfig) });
+            return url;
           }
         } catch {
           return downloaded;
@@ -1086,6 +1119,15 @@ export async function generateImages(
     rawImages,
     request: payload,
     rawData,
+    persistedFiles,
+    debug: {
+      persistGeneratedOutputs: shouldPersistGeneratedOutputs,
+      storage: {
+        root: scopedStoragePaths.root,
+        generatedDir: scopedStoragePaths.generatedDir,
+        scopeNamespace: scopedStoragePaths.scopeNamespace,
+      },
+    },
   };
 }
 
