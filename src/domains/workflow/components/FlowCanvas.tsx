@@ -33,7 +33,7 @@ import {
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
-import { AnimatedFlowEdge } from './AnimatedFlowEdge';
+import { AnimatedSvgEdge } from '@/shared/ui/AnimatedSvgEdge';
 import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
 import { getAbsoluteNodePosition, snapNodeBox } from './flowCanvasClipboard';
 import {
@@ -195,13 +195,14 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
           return {
             ...edge,
             animated: false,
-            ...(isConnected ? { type: 'animated' as const, data: { ...(edge.data || {}), flow: true } } : {}),
+            ...(isConnected ? { type: 'animatedSvg' as const, data: { ...(edge.data || {}), flow: true, color: getEdgeDataTypeColor(edge, renderNodeMap) } } : {}),
             className: [edge.className, 'workflow-edge-insertion-target'].filter(Boolean).join(' '),
             style: { ...(edge.style || {}), stroke: getEdgeDataTypeColor(edge, renderNodeMap), strokeWidth: 2 },
           };
         }
         if (!isConnected) return edge;
-        return { ...edge, type: 'animated' as const, data: { ...(edge.data || {}), flow: true } };
+        const typeColor = getEdgeDataTypeColor(edge, renderNodeMap);
+        return { ...edge, type: 'animatedSvg' as const, data: { ...(edge.data || {}), flow: true, color: typeColor }, style: { ...(edge.style || {}), stroke: typeColor } };
       }),
       ...previewEdges,
     ];
@@ -823,7 +824,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         onDragOver={fileDrop.onDragOver}
         onDrop={fileDrop.onDrop}
         nodeTypes={FLOW_NODE_TYPES}
-        edgeTypes={{ animated: AnimatedFlowEdge }}
+        edgeTypes={{ animatedSvg: AnimatedSvgEdge }}
         isValidConnection={connection.isValidConnection}
         defaultEdgeOptions={{
           type: 'default',

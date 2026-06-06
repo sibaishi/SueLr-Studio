@@ -1,4 +1,5 @@
 import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.ts';
+import sharp from 'sharp';
 
 // biome-ignore lint/suspicious/noExplicitAny: Provider payloads and upstream JSON are intentionally dynamic at this boundary.
 export type DynamicValue = any;
@@ -227,6 +228,76 @@ function hasPotentialIncompleteBase64(text: string): boolean {
   return /"(?:data|b64_json|base64|image_base64|imageBase64)"\s*:\s*"[A-Za-z0-9+/=\s]*$/i.test(text);
 }
 
+// ---------- dangling base64 recovery --------------------------------------------------
+
+const DANGLING_BASE64_FIELD = /"(?:b64_json|base64|image_base64|imageBase64|data)"\s*:\s*"([A-Za-z0-9+/=\s]+)$/i;
+const DANGLING_INLINE_DATA_FIELD =
+  /"(?:inlineData|inline_data)"\s*:\s*\{[^{}]{0,2000}?"data"\s*:\s*"([A-Za-z0-9+/=\s]+)$/i;
+
+function padBase64(raw: string): string {
+  const remainder = raw.length % 4;
+  return remainder === 0 ? raw : raw + '='.repeat(4 - remainder);
+}
+
+async function validateImageBuffer(buffer: Buffer): Promise<boolean> {
+  try {
+    await sharp(buffer).metadata();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function recoverDanglingBase64(text: string): Promise<string[]> {
+  const images: string[] = [];
+  const fieldMatch = text.match(DANGLING_BASE64_FIELD);
+  const rawCandidate = (fieldMatch?.[1] ?? '').replace(/[\s\r\n\t]/g, '');
+
+  if (rawCandidate && rawCandidate.length >= 100) {
+    for (const attempt of [rawCandidate, padBase64(rawCandidate)]) {
+      try {
+        const buffer = Buffer.from(attempt, 'base64');
+        if (buffer.byteLength < 64) continue;
+        const valid = await validateImageBuffer(buffer);
+        if (valid) {
+          const mime = detectImageMimeFromBase64(attempt);
+          if (mime) {
+            images.push(`data:${mime};base64,${attempt}`);
+            break;
+          }
+        }
+      } catch {
+        // invalid base64 or truncated beyond repair
+      }
+    }
+    if (images.length > 0) return images;
+  }
+
+  // Also try inlineData pattern
+  const inlineMatch = text.match(DANGLING_INLINE_DATA_FIELD);
+  const inlineRaw = (inlineMatch?.[1] ?? '').replace(/[\s\r\n\t]/g, '');
+  if (!inlineRaw || inlineRaw.length < 100) return images;
+
+  for (const attempt of [inlineRaw, padBase64(inlineRaw)]) {
+    try {
+      const buffer = Buffer.from(attempt, 'base64');
+      if (buffer.byteLength < 64) continue;
+      const valid = await validateImageBuffer(buffer);
+      if (valid) {
+        const mime = detectImageMimeFromBase64(attempt);
+        if (mime) {
+          images.push(`data:${mime};base64,${attempt}`);
+          break;
+        }
+      }
+    } catch {
+      // invalid base64 or truncated beyond repair
+    }
+  }
+
+  return images;
+}
+
 function buildRecoveredImageResponse(images: string[]): LooseRecord {
   return {
     recoveredFromPartialResponse: true,
@@ -429,6 +500,11 @@ export async function parseImageApiResponse(
     if (recoveredImages.length > 0) {
       sendProgress?.(`${context}已从中断响应中恢复 ${recoveredImages.length} 个完整图片结果`);
       return buildRecoveredImageResponse(recoveredImages);
+    }
+    const danglingImages = await recoverDanglingBase64(responseText);
+    if (danglingImages.length > 0) {
+      sendProgress?.(`${context}已从截断的base64尾巴中恢复 ${danglingImages.length} 个图片结果`);
+      return buildRecoveredImageResponse(danglingImages);
     }
     const incompleteHint = hasPotentialIncompleteBase64(responseText) ? '; incomplete base64 image data' : '';
     throw new Error(

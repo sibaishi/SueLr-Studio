@@ -20,7 +20,8 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import type { PortDef } from '@/domains/workflow/lib/types';
 import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
-import { ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
+import { NodeAppendix } from '@/shared/ui/NodeAppendix';
+import { Ban, ChevronDown, ChevronRight, Copy, Lock, Play, Unlock } from 'lucide-react';
 import { type CSSProperties, memo, useEffect, useMemo, useState } from 'react';
 import { NodeContent } from './NodeContent';
 import { GroupPortRow, InputPort, OutputPort } from './NodePorts';
@@ -52,6 +53,8 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const setNodeSize = useWorkflowStore((s) => s.setNodeSize);
   const snapToGridEnabled = useWorkflowStore((s) => s.snapToGridEnabled);
   const toggleNodesLocked = useWorkflowStore((s) => s.toggleNodesLocked);
+  const duplicateNode = useWorkflowStore((s) => s.duplicateNode);
+  const executeWorkflowToNode = useWorkflowStore((s) => s.executeWorkflowToNode);
   const updateNodeInternals = useUpdateNodeInternals();
 
   if (!def) return <div className="p-3 text-xs">Unknown node type: {type}</div>;
@@ -153,6 +156,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
 
   const className = [
     'flow-node',
+    'group',
     selected ? 'flow-node--selected' : '',
     isGroupNode ? 'flow-node--group' : '',
     isCollapsed ? 'flow-node--collapsed' : '',
@@ -187,6 +191,31 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
         position: 'relative',
       }}
     >
+      {!isGroupNode && (
+        <>
+          <NodeAppendix position="top">
+            <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();updateNodeData(id,{disabled:!isDisabled})}} title={isDisabled?'启用':'禁用'}>
+              <Ban size={15} style={{color:isDisabled?'var(--t-red)':undefined}}/>
+            </button>
+            <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();toggleNodesLocked([id],!isDirectlyLocked)}} title={isLocked?'解锁':'锁定'}>
+              {isLocked?<Lock size={15}/>:<Unlock size={15}/>}
+            </button>
+            <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();duplicateNode(id)}} title="复制">
+              <Copy size={15}/>
+            </button>
+            <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();executeWorkflowToNode(id)}} title="执行到此节点">
+              <Play size={15}/>
+            </button>
+          </NodeAppendix>
+          {(isDisabled||hasWarning||execStatus!=='idle')&&(
+            <NodeAppendix position="bottom" showOnHover={false}>
+              {isDisabled&&(<span style={{padding:'6px 14px',fontSize:13,fontWeight:500,borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text3)',boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>已禁用</span>)}
+              {hasWarning&&(<span style={{padding:'6px 14px',fontSize:13,fontWeight:500,borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-orange)',boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}} title={warningMessage}>⚠ {warningMessage}</span>)}
+              {execStatus!=='idle'&&statusText&&(<span style={{padding:'6px 14px',fontSize:13,fontWeight:500,borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:badge.color||'var(--t-text)',boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}} title={badge.label+(execError?`: ${execError}`:'')}>{badge.label==='running'?'执行中':badge.label==='error'?'出错':badge.label==='success'?'完成':badge.label} {statusText}</span>)}
+            </NodeAppendix>
+          )}
+        </>
+      )}
       <NodeResizer
         isVisible={selected && !isLocked && !isCollapsed}
         minWidth={minSize.w}
@@ -264,34 +293,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                   <ChevronDown size={14} strokeWidth={2.2} />
                 )}
               </button>
-            )}
-            <button
-              type="button"
-              className={`flow-node__lock-button ${isLocked ? 'flow-node__lock-button--active' : ''}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                toggleNodesLocked([id], !isDirectlyLocked);
-              }}
-              onMouseDown={(event) => event.stopPropagation()}
-              title={isLocked ? 'Unlock node' : 'Lock node'}
-              aria-label={isLocked ? 'Unlock node' : 'Lock node'}
-            >
-              {isLocked ? <Lock size={13} strokeWidth={2.2} /> : <Unlock size={13} strokeWidth={2.2} />}
-            </button>
-            {isDisabled && <span className="flow-node__state-chip">Disabled</span>}
-            {hasWarning && (
-              <span className="flow-node__status-icon flow-node__status-icon--warning" title={warningMessage}>
-                !
-              </span>
-            )}
-            {execStatus !== 'idle' && statusText && (
-              <span
-                className={`flow-node__status-text ${execStatus === 'running' ? 'flow-node__status-text--running' : ''} ${execStatus === 'error' ? 'flow-node__status-text--error' : ''}`}
-                style={{ color: badge.color || undefined }}
-                title={badge.label + (execError ? `: ${execError}` : '')}
-              >
-                {statusText}
-              </span>
             )}
           </div>
 
