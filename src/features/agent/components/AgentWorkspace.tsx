@@ -37,6 +37,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+
 import { useShallow } from 'zustand/react/shallow';
 
 type AgentToolName =
@@ -134,6 +135,7 @@ const STARTER_PROMPT = '例如：帮我为一个新上市的保温杯设计一�
 const PLANNER_MODEL_STORAGE_KEY = 'suelr_agent_planner_model';
 const IMAGE_MODEL_STORAGE_KEY = 'suelr_agent_image_model';
 const VIDEO_MODEL_STORAGE_KEY = 'suelr_agent_video_model';
+const ESC_STOP_ARM_WINDOW_MS = 1200;
 
 function gid(prefix = 'agent') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -459,6 +461,8 @@ export default function AgentWorkspace({
   const [pendingImages, setPendingImages] = useState<AgentPendingImage[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const runSessionRef = useRef(0);
+  const escStopArmedUntilRef = useRef(0);
   const [messages, setMessages] = useState<AgentMessage[]>(() => [
     {
       id: gid(),
@@ -606,8 +610,6 @@ export default function AgentWorkspace({
     setSelectedVideoModelId(nextId);
     localStorage.setItem(VIDEO_MODEL_STORAGE_KEY, nextId);
   }, [videoModels, selectedVideoModelId]);
-
-  if (!open) return null;
 
   const toggleToolRecord = (id: string) => {
     setExpandedTools((prev) => {
@@ -951,6 +953,7 @@ export default function AgentWorkspace({
     const pendingApproval = message.pendingApproval;
     void (async () => {
       setIsWorking(true);
+      const sessionId = ++runSessionRef.current;
       try {
         const runResult = await createAgentRun({
           input: message.approvalInput || message.content,
@@ -975,12 +978,14 @@ export default function AgentWorkspace({
                   : pendingApproval.toolInput,
           },
         });
+        if (sessionId !== runSessionRef.current) return;
         if (!runResult.success || !runResult.data) {
           throw new Error(runResult.error || '确认后的工具调用失败。');
         }
         setMessages((prev) => prev.filter((item) => item.id !== message.id));
         appendAgentResult(runResult.data, message.approvalInput || message.content);
       } catch (error) {
+        if (sessionId !== runSessionRef.current) return;
         setMessages((prev) => [
           ...prev,
           {
@@ -990,7 +995,10 @@ export default function AgentWorkspace({
           },
         ]);
       } finally {
-        setIsWorking(false);
+        if (sessionId === runSessionRef.current) {
+          setIsWorking(false);
+          escStopArmedUntilRef.current = 0;
+        }
       }
     })();
   };
@@ -999,6 +1007,7 @@ export default function AgentWorkspace({
     if (!message.workflowEditPatch || !selectedPlannerModel || isWorking) return;
     void (async () => {
       setIsWorking(true);
+      const sessionId = ++runSessionRef.current;
       try {
         const runResult = await createAgentRun({
           input: '请应用当前工作流修改草案',
@@ -1007,11 +1016,13 @@ export default function AgentWorkspace({
           videoModel: buildPlannerModelPayload(selectedVideoModel),
           context: buildAgentContext(message.workflowEditPatch),
         });
+        if (sessionId !== runSessionRef.current) return;
         if (!runResult.success || !runResult.data) {
           throw new Error(runResult.error || '无法进入修改应用确认流程。');
         }
         appendAgentResult(runResult.data, '请应用当前工作流修改草案');
       } catch (error) {
+        if (sessionId !== runSessionRef.current) return;
         setMessages((prev) => [
           ...prev,
           {
@@ -1021,10 +1032,69 @@ export default function AgentWorkspace({
           },
         ]);
       } finally {
-        setIsWorking(false);
+        if (sessionId === runSessionRef.current) {
+          setIsWorking(false);
+          escStopArmedUntilRef.current = 0;
+        }
       }
     })();
   };
+
+  const stopCurrentRun = () => {
+    if (!isWorking) return;
+    runSessionRef.current += 1;
+    escStopArmedUntilRef.current = 0;
+    setIsWorking(false);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: gid(),
+        role: 'assistant',
+        content: '已停止当前运行。你可以继续补充要求，或重新发起一次新任务。',
+      },
+    ]);
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (previewImage || pendingImagePreview) return;
+      if (!isWorking) {
+        escStopArmedUntilRef.current = 0;
+        return;
+      }
+      const now = Date.now();
+      if (escStopArmedUntilRef.current > now) {
+        event.preventDefault();
+        runSessionRef.current += 1;
+        escStopArmedUntilRef.current = 0;
+        setIsWorking(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: gid(),
+            role: 'assistant',
+            content: '已停止当前运行。你可以继续补充要求，或重新发起一次新任务。',
+          },
+        ]);
+        return;
+      }
+      escStopArmedUntilRef.current = now + ESC_STOP_ARM_WINDOW_MS;
+      event.preventDefault();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: gid(),
+          role: 'assistant',
+          content: '再次按下 Esc 将停止当前运行。',
+        },
+      ]);
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isWorking, open, pendingImagePreview, previewImage]);
 
   const handleSubmit = () => {
     const task = input.trim();
@@ -1049,6 +1119,7 @@ export default function AgentWorkspace({
 
     void (async () => {
       setIsWorking(true);
+      const sessionId = ++runSessionRef.current;
       const runningTool: AgentToolRecord = {
         id: gid('tool'),
         name: shouldUsePendingImageForEdit(composedTask) && latestUploadedImage ? 'image.edit' : 'workflow.createDraft',
@@ -1067,6 +1138,7 @@ export default function AgentWorkspace({
           videoModel: buildPlannerModelPayload(selectedVideoModel),
           context: buildAgentContext(),
         });
+        if (sessionId !== runSessionRef.current) return;
         if (!runResult.success || !runResult.data) {
           setMessages((prev) => [
             ...prev,
@@ -1091,6 +1163,7 @@ export default function AgentWorkspace({
         appendAgentResult(runResult.data, composedTask);
         setPendingImages([]);
       } catch (error) {
+        if (sessionId !== runSessionRef.current) return;
         setMessages((prev) => [
           ...prev,
           {
@@ -1101,13 +1174,20 @@ export default function AgentWorkspace({
           },
         ]);
       } finally {
-        setIsWorking(false);
+        if (sessionId === runSessionRef.current) {
+          setIsWorking(false);
+          escStopArmedUntilRef.current = 0;
+        }
       }
     })();
   };
 
+  if (!open) return null;
+
   return (
-    <div className="agent-workspace" role="dialog" aria-label="项目 Agent">
+    <div className="agent-workspace" role="dialog" aria-label="项目 Agent" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
       <div className={`agent-workspace__panel ${hasUserStartedConversation ? 'agent-workspace__panel--engaged' : ''}`}>
         <div className="agent-workspace__panel-glow" aria-hidden="true" />
         <header className="agent-workspace__header">
@@ -1755,7 +1835,7 @@ export default function AgentWorkspace({
           <div className="agent-workspace__composer-main">
             <div className="agent-workspace__composer-topline">
               <span>继续描述你的目标</span>
-              <small>{hasPlannerModel ? 'Ctrl / Cmd + Enter 发送' : '启用模型后可开始协作'}</small>
+              <small>{hasPlannerModel ? 'Enter 发送 · Ctrl / Cmd + Enter 换行' : '启用模型后可开始协作'}</small>
             </div>
             {pendingImages.length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -1859,9 +1939,21 @@ export default function AgentWorkspace({
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                if (event.key === 'Enter' && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey) {
                   event.preventDefault();
                   handleSubmit();
+                  return;
+                }
+                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  const textarea = event.currentTarget;
+                  const selectionStart = textarea.selectionStart ?? textarea.value.length;
+                  const selectionEnd = textarea.selectionEnd ?? textarea.value.length;
+                  const nextValue = `${textarea.value.slice(0, selectionStart)}\n${textarea.value.slice(selectionEnd)}`;
+                  setInput(nextValue);
+                  requestAnimationFrame(() => {
+                    textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+                  });
                 }
               }}
               rows={3}
