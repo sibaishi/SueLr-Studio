@@ -33,6 +33,7 @@ import {
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
+import { AnimatedFlowEdge } from './AnimatedFlowEdge';
 import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
 import { getAbsoluteNodePosition, snapNodeBox } from './flowCanvasClipboard';
 import {
@@ -58,6 +59,7 @@ import {
   getEdgeDataTypeColor,
 } from './flowCanvasUiHelpers';
 import './contextMenu.css';
+import './nodes/nodeAnimations.css';
 
 const AI_CAPABILITY_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
 
@@ -185,21 +187,22 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   const renderEdges = useMemo(() => {
     const previewEdges = buildEdgeInsertionPreviewEdges(edgeInsertionCandidate, renderNodes, renderModel.edges);
     const renderNodeMap = new Map(renderNodes.map((node) => [node.id, node]));
+    const selectedIds = new Set(renderNodes.filter((n) => n.selected).map((n) => n.id));
     return [
-      ...renderModel.edges.map((edge) =>
-        edge.id !== edgeInsertionCandidate?.edgeId
-          ? edge
-          : {
-              ...edge,
-              animated: false,
-              className: [edge.className, 'workflow-edge-insertion-target'].filter(Boolean).join(' '),
-              style: {
-                ...(edge.style || {}),
-                stroke: getEdgeDataTypeColor(edge, renderNodeMap),
-                strokeWidth: 2,
-              },
-            },
-      ),
+      ...renderModel.edges.map((edge) => {
+        const isConnected = selectedIds.has(edge.source) || selectedIds.has(edge.target);
+        if (edge.id === edgeInsertionCandidate?.edgeId) {
+          return {
+            ...edge,
+            animated: false,
+            ...(isConnected ? { type: 'animated' as const, data: { ...(edge.data || {}), flow: true } } : {}),
+            className: [edge.className, 'workflow-edge-insertion-target'].filter(Boolean).join(' '),
+            style: { ...(edge.style || {}), stroke: getEdgeDataTypeColor(edge, renderNodeMap), strokeWidth: 2 },
+          };
+        }
+        if (!isConnected) return edge;
+        return { ...edge, type: 'animated' as const, data: { ...(edge.data || {}), flow: true } };
+      }),
       ...previewEdges,
     ];
   }, [edgeInsertionCandidate, renderModel.edges, renderNodes]);
@@ -820,6 +823,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
         onDragOver={fileDrop.onDragOver}
         onDrop={fileDrop.onDrop}
         nodeTypes={FLOW_NODE_TYPES}
+        edgeTypes={{ animated: AnimatedFlowEdge }}
         isValidConnection={connection.isValidConnection}
         defaultEdgeOptions={{
           type: 'default',

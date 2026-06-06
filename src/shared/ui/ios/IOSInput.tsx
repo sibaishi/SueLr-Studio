@@ -17,6 +17,7 @@ export function IOSInput({ value, onChange, placeholder, type = 'text', style = 
   return (
     <div style={{ position: 'relative' }}>
       <input
+        className="ios-input"
         {...inputProps}
         type={isPassword && showPw ? 'text' : type}
         value={value}
@@ -26,9 +27,9 @@ export function IOSInput({ value, onChange, placeholder, type = 'text', style = 
           width: '100%',
           ...glass(0.06),
           color: T.text,
-          fontSize: 14,
-          borderRadius: 10,
-          padding: '10px 14px',
+          fontSize: 'var(--input-font-size)',
+          borderRadius: 'var(--input-radius)',
+          padding: 'var(--input-padding)',
           border: `1px solid ${T.border}`,
           outline: 'none',
           paddingRight: isPassword ? 40 : 14,

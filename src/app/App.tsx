@@ -34,12 +34,25 @@ const FirstRunOnboarding = lazy(() =>
 );
 
 function panelDisplayStyle(active: boolean) {
-  return { flex: 1, overflow: 'hidden', display: active ? 'flex' : 'none' } as const;
+  return {
+    overflow: 'hidden',
+    position: active ? 'relative' : 'absolute',
+    inset: active ? 'auto' : 0,
+    opacity: active ? 1 : 0,
+    pointerEvents: active ? 'auto' : 'none',
+    transition: active ? 'opacity 0.25s ease' : 'opacity 0.2s ease, visibility 0s 0.25s',
+    display: 'flex',
+  } as const;
 }
 
 function WorkspaceLoading() {
   return (
-    <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'rgba(255, 255, 255, 0.68)' }}>加载中...</div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, padding: 24 }}>
+      <div className="loading-shimmer" style={{ height: 40, width: '35%', borderRadius: 12 }} />
+      <div className="loading-shimmer" style={{ height: 16, width: '80%', borderRadius: 6 }} />
+      <div className="loading-shimmer" style={{ height: 16, width: '60%', borderRadius: 6 }} />
+      <div className="loading-shimmer" style={{ height: 140, width: '100%', borderRadius: 14 }} />
+    </div>
   );
 }
 
@@ -303,7 +316,7 @@ export default function App() {
               collapsed={sidebarCollapsed}
               onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
             />
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', position: 'relative' }}>
               <div style={chatPanelStyle}>
                 {visitedTabs.has('chat') && (
                   <ErrorBoundary>

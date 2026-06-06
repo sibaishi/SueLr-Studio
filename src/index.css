@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+/* ==================== Cascade Layer Order ==================== */
+
+@layer reset, tokens, base, layout, components, utilities;
+
+/* ==================== Tailwind 4 Design Tokens ==================== */
+
+@theme {
+  --color-accent: var(--t-blue);
+  --color-bg-primary: var(--t-bg);
+  --color-bg-secondary: var(--t-card2);
+  --color-bg-tertiary: var(--t-card);
+  --color-text-primary: var(--t-text);
+  --color-text-secondary: var(--t-text2);
+  --color-text-tertiary: var(--t-text3);
+  --color-border: var(--t-border);
+  --color-success: var(--t-green);
+  --color-danger: var(--t-red);
+  --color-warning: var(--t-orange);
+  --font-size-eyebrow: 11px;
+  --font-size-body: 14px;
+  --font-size-heading: 20px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
 /* ==================== Theme CSS Variables ==================== */
 [data-theme="dark"] {
   --t-bg: #000000;
@@ -32,6 +59,40 @@
   --t-chat: #30d158;
 }
 
+/* ==================== Component-Scoped Tokens (Tier 3) ==================== */
+
+:root {
+  --btn-radius: 10px;
+  --btn-padding: 10px 20px;
+  --btn-padding-sm: 6px 14px;
+  --btn-primary-bg: var(--t-blue);
+  --btn-primary-color: #fff;
+  --btn-font-size: 14px;
+  --btn-font-size-sm: 12px;
+  --btn-font-weight: 600;
+  --btn-transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  --input-radius: 10px;
+  --input-padding: 10px 14px;
+  --input-font-size: 14px;
+  --card-radius: 18px;
+  --card-padding: 16px;
+  --card-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
+  --card-transition: transform 0.3s ease, box-shadow 0.3s ease;
+  --toast-radius: 12px;
+  --toast-padding: 10px 18px;
+  --toast-font-size: 13px;
+  --toast-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --chip-radius: 14px;
+  --modal-radius: 20px;
+}
+
+[data-theme="light"] {
+  --card-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+}
+
+/* ==================== Reset (Layer: reset) ==================== */
+
+@layer reset {
 * {
   margin: 0;
   padding: 0;
@@ -44,7 +105,18 @@ body,
   height: 100%;
   width: 100%;
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
+
+body {
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.2; }
+p { line-height: 1.65; }
+
+} /* end @layer reset */
 
 /* ==================== Gradient Backgrounds ==================== */
 
@@ -261,7 +333,7 @@ aside {
 
 button {
   -webkit-tap-highlight-color: transparent;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 button:active {
@@ -270,7 +342,7 @@ button:active {
 
 /* Card hover glow effect */
 .glass-card {
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 .glass-card:hover {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.06);
@@ -279,7 +351,7 @@ button:active {
 
 /* Gallery item hover */
 .gallery-item {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .gallery-item:hover {
   transform: scale(1.02);
@@ -335,6 +407,28 @@ select:focus {
 [data-theme="light"] input:focus,
 [data-theme="light"] textarea:focus,
 [data-theme="light"] select:focus {
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25), 0 0 16px rgba(0, 122, 255, 0.06);
+}
+
+/* --- Component-scoped focus-visible --- */
+
+.ios-btn:focus-visible {
+  outline: 2px solid rgba(10, 132, 255, 0.6);
+  outline-offset: 2px;
+}
+
+[data-theme="light"] .ios-btn:focus-visible {
+  outline-color: rgba(0, 122, 255, 0.5);
+}
+
+.ios-input:focus-visible,
+.ios-textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.3), 0 0 20px rgba(10, 132, 255, 0.08);
+}
+
+[data-theme="light"] .ios-input:focus-visible,
+[data-theme="light"] .ios-textarea:focus-visible {
   box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25), 0 0 16px rgba(0, 122, 255, 0.06);
 }
 
@@ -424,6 +518,7 @@ button:focus-visible {
   animation: shimmer 2s infinite;
 }
 
+@layer layout {
 /* ==================== Layout Utilities ==================== */
 
 .panel {
@@ -462,6 +557,7 @@ button:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+} /* end @layer layout */
 
 /* ==================== Component Patterns ==================== */
 
@@ -548,7 +644,7 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.2s;
+  transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 /* ==================== Badges & Tags ==================== */
@@ -625,7 +721,7 @@ button:focus-visible {
 .msg-row {
   display: flex;
   gap: 10px;
-  animation: fadeInUp 0.3s ease;
+  animation: fadeInUp 0.2s ease-out;
 }
 .msg-actions-bar {
   position: absolute;
@@ -720,5 +816,18 @@ button:focus-visible {
 @media (max-width: 1280px) {
   .workbench-empty-state {
     min-height: 190px !important;
+  }
+}
+
+/* ==================== Accessibility: Reduced Motion ==================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

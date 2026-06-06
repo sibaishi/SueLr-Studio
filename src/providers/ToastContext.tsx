@@ -50,12 +50,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             aria-live="assertive"
             style={{
               padding: '10px 18px',
-              borderRadius: 12,
+              borderRadius: 'var(--toast-radius)',
               background: colors[t.type],
               color: '#fff',
-              fontSize: 13,
+              fontSize: 'var(--toast-font-size)',
               fontWeight: 500,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              boxShadow: 'var(--toast-shadow)',
               animation: t.exiting ? 'toastOut 0.3s ease forwards' : 'toastIn 0.3s ease',
               pointerEvents: 'auto',
               maxWidth: 340,

@@ -21,20 +21,21 @@ export function IOSButton({
   const c = color || T.blue;
   return (
     <button
+      className="ios-btn"
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: small ? '6px 14px' : '10px 20px',
-        borderRadius: 10,
+        padding: small ? 'var(--btn-padding-sm)' : 'var(--btn-padding)',
+        borderRadius: 'var(--btn-radius)',
         border: 'none',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        fontSize: small ? 12 : 14,
-        fontWeight: 600,
-        color: disabled ? T.text3 : '#fff',
+        fontSize: small ? 'var(--btn-font-size-sm)' : 'var(--btn-font-size)',
+        fontWeight: 'var(--btn-font-weight)',
+        color: disabled ? T.text3 : 'var(--btn-primary-color)',
         background: disabled ? T.card2 : c,
         width: small ? 'auto' : '100%',
         opacity: disabled ? 0.5 : 1,
-        transition: 'all 0.2s',
+        transition: 'var(--btn-transition)',
         ...style,
       }}
       {...buttonProps}

@@ -1,0 +1,15 @@
+@keyframes dot-flow { to { stroke-dashoffset: -14; } }
+
+.edge--flow .react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-dasharray: 1 28;
+  animation: dot-flow 1.2s linear infinite;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path { filter: none; }
+.react-flow__edge.selected .react-flow__edge-path { stroke-width: 2.5; }
+
+.react-flow__node.dragging,
+.react-flow__node.dragging * { transition: none !important; }
+.react-flow__node.dragging { will-change: transform; }

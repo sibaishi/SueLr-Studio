@@ -132,7 +132,7 @@
   border: 1px solid var(--node-card-line);
   box-shadow: var(--node-card-shadow);
   overflow: visible;
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, opacity 160ms ease;
+  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
 }
 
 .flow-node:hover {

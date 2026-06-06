@@ -1,4 +1,5 @@
 import FlowNode from './nodes/FlowNode';
+import { AnimatedFlowEdge } from './AnimatedFlowEdge';
 
 export const FLOW_NODE_TYPES = {
   group: FlowNode,

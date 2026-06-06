@@ -36,6 +36,7 @@ export function AutoTextarea({
   useEffect(adjust, [value, maxH]);
   return (
     <textarea
+        className="ios-textarea"
       ref={ref}
       value={value}
       disabled={disabled}
@@ -51,9 +52,9 @@ export function AutoTextarea({
         width: '100%',
         ...glass(0.04),
         color: T.text,
-        fontSize: 14,
-        borderRadius: 10,
-        padding: '10px 14px',
+        fontSize: 'var(--input-font-size)',
+        borderRadius: 'var(--input-radius)',
+        padding: 'var(--input-padding)',
         border: `1px solid ${T.border}`,
         outline: 'none',
         lineHeight: '22px',

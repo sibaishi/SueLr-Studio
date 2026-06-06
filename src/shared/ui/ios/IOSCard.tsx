@@ -13,11 +13,11 @@ export function IOSCard({ children, style = {}, ...divProps }: IOSCardProps) {
       className="glass-card"
       style={{
         ...glass(0.05),
-        borderRadius: 18,
-        padding: 16,
+        borderRadius: 'var(--card-radius)',
+        padding: 'var(--card-padding)',
         border: '1px solid var(--color-border)',
-        boxShadow: '0 8px 24px rgba(15,23,42,0.08)',
-        transition: 'all 0.3s ease',
+        boxShadow: 'var(--card-shadow)',
+        transition: 'var(--card-transition)',
         ...style,
       }}
     >

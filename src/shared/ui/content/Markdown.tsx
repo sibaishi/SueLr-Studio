@@ -65,9 +65,9 @@ export function MarkdownRenderer({ content, isUser }: { content: string; isUser:
             {children}
           </blockquote>
         ),
-        h1: ({ children }) => <h1 style={{ fontSize: 18, fontWeight: 700, margin: '8px 0 4px' }}>{children}</h1>,
-        h2: ({ children }) => <h2 style={{ fontSize: 16, fontWeight: 700, margin: '8px 0 4px' }}>{children}</h2>,
-        h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 600, margin: '6px 0 4px' }}>{children}</h3>,
+        h1: ({ children }) => <h1 style={{ fontSize: 18, fontWeight: 700, margin: '8px 0 4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{children}</h1>,
+        h2: ({ children }) => <h2 style={{ fontSize: 16, fontWeight: 700, margin: '8px 0 4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{children}</h2>,
+        h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 600, margin: '6px 0 4px', letterSpacing: '-0.015em', lineHeight: 1.25 }}>{children}</h3>,
         strong: ({ children }) => <strong>{children}</strong>,
         em: ({ children }) => <em>{children}</em>,
         hr: () => (

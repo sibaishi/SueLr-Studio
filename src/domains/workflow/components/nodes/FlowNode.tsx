@@ -27,6 +27,7 @@ import { GroupPortRow, InputPort, OutputPort } from './NodePorts';
 import { NODE_ICONS, STATUS_BADGE } from './nodeConstants';
 import { useBufferedStringField } from './useBufferedStringField';
 import './node.css';
+import './nodeAnimations.css';
 
 interface FlowNodeProps {
   id: string;
