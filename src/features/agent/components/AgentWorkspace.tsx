@@ -40,7 +40,15 @@ type AgentToolName =
   | 'workflow.createDraft'
   | 'workflow.execute'
   | 'workflow.diagnose'
-  | 'workflow.summarizeRun';
+  | 'workflow.summarizeRun'
+  | 'image.generate'
+  | 'image.edit'
+  | 'image.compare'
+  | 'video.generate'
+  | 'copy.write'
+  | 'prompt.optimize'
+  | 'result.inspect'
+  | 'asset.package';
 
 type AgentToolRecord = {
   id: string;
@@ -71,10 +79,14 @@ interface AgentWorkspaceProps {
   onClose: () => void;
   onOpenWorkflow: () => void;
   plannerModels: ModelInfo[];
+  imageModels: ModelInfo[];
+  videoModels: ModelInfo[];
 }
 
 const STARTER_PROMPT = '例如：帮我为一个新上市的保温杯设计一套电商主图工作流，并生成可编辑画布';
 const PLANNER_MODEL_STORAGE_KEY = 'suelr_agent_planner_model';
+const IMAGE_MODEL_STORAGE_KEY = 'suelr_agent_image_model';
+const VIDEO_MODEL_STORAGE_KEY = 'suelr_agent_video_model';
 
 function gid(prefix = 'agent') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -121,6 +133,31 @@ function getPlannerToolRecord(plan: AgentPlan): AgentToolRecord {
   };
 }
 
+const PRODUCTION_TOOL_LABELS: Record<string, string> = {
+  'image.generate': '生成图片',
+  'image.edit': '编辑图片',
+  'image.compare': '图片对比',
+  'video.generate': '生成视频',
+  'copy.write': '生成文案',
+  'prompt.optimize': '优化提示词',
+  'result.inspect': '检查结果',
+  'asset.package': '打包资源',
+};
+
+const WORKFLOW_TOOL_LABELS: Record<string, string> = {
+  'workflow.inspect': '检查工作流',
+  'workflow.edit': '修改草案',
+  'workflow.applyDraft': '应用修改',
+  'workflow.execute': '运行工作流',
+  'workflow.diagnose': '诊断运行',
+};
+
+function getToolLabel(toolName: string): string {
+  if (PRODUCTION_TOOL_LABELS[toolName]) return PRODUCTION_TOOL_LABELS[toolName];
+  if (toolName.startsWith('workflow.')) return WORKFLOW_TOOL_LABELS[toolName] || '工作流工具';
+  return '运行工具';
+}
+
 function getChatToolRecord(plan: AgentPlan): AgentToolRecord {
   return {
     id: gid('tool'),
@@ -135,18 +172,7 @@ function getAgentToolRecord(plan: AgentPlan, response?: string): AgentToolRecord
   return {
     id: gid('tool'),
     name: plan.toolName,
-    label:
-      plan.toolName === 'workflow.inspect'
-        ? '检查工作流'
-        : plan.toolName === 'workflow.edit'
-          ? '修改草案'
-          : plan.toolName === 'workflow.applyDraft'
-            ? '应用修改'
-            : plan.toolName === 'workflow.execute'
-              ? '运行工作流'
-              : plan.toolName === 'workflow.diagnose'
-                ? '诊断运行'
-                : '运行汇总',
+    label: getToolLabel(plan.toolName),
     status: 'success',
     summary: response || plan.summary,
     detail: plan.reasoningSummary,
@@ -155,6 +181,17 @@ function getAgentToolRecord(plan: AgentPlan, response?: string): AgentToolRecord
 
 function getPlannerModelLabel(model: ModelInfo) {
   return `${model.modelId || model.id}${model.configName ? ` · ${model.configName}` : ''}`;
+}
+
+function buildPlannerModelPayload(model: ModelInfo | null) {
+  if (!model) return undefined;
+  return {
+    id: model.id,
+    modelId: model.modelId || model.id,
+    configId: model.configId,
+    configName: model.configName,
+    label: getPlannerModelLabel(model),
+  };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -240,12 +277,18 @@ function getApprovalInputPlaceholder(input: WorkflowSuggestedInput) {
   return '填写蒙版 URL 或本地路径，留空则继续使用当前素材';
 }
 
-export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerModels }: AgentWorkspaceProps) {
+export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerModels, imageModels, videoModels }: AgentWorkspaceProps) {
   const [input, setInput] = useState('');
   const [isWorking, setIsWorking] = useState(false);
   const [expandedTools, setExpandedTools] = useState<ReadonlySet<string>>(() => new Set());
   const [selectedPlannerModelId, setSelectedPlannerModelId] = useState(
     () => localStorage.getItem(PLANNER_MODEL_STORAGE_KEY) || '',
+  );
+  const [selectedImageModelId, setSelectedImageModelId] = useState(
+    () => localStorage.getItem(IMAGE_MODEL_STORAGE_KEY) || '',
+  );
+  const [selectedVideoModelId, setSelectedVideoModelId] = useState(
+    () => localStorage.getItem(VIDEO_MODEL_STORAGE_KEY) || '',
   );
   const [messages, setMessages] = useState<AgentMessage[]>(() => [
     {
@@ -267,6 +310,14 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
   const selectedPlannerModel = useMemo(
     () => plannerModels.find((model) => model.id === selectedPlannerModelId) || plannerModels[0] || null,
     [plannerModels, selectedPlannerModelId],
+  );
+  const selectedImageModel = useMemo(
+    () => imageModels.find((model) => model.id === selectedImageModelId) || imageModels[0] || null,
+    [imageModels, selectedImageModelId],
+  );
+  const selectedVideoModel = useMemo(
+    () => videoModels.find((model) => model.id === selectedVideoModelId) || videoModels[0] || null,
+    [videoModels, selectedVideoModelId],
   );
   const hasPlannerModel = Boolean(selectedPlannerModel);
   const canSubmit = input.trim().length > 0 && !isWorking && hasPlannerModel;
@@ -329,6 +380,32 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
     setSelectedPlannerModelId(nextId);
     localStorage.setItem(PLANNER_MODEL_STORAGE_KEY, nextId);
   }, [plannerModels, selectedPlannerModelId]);
+
+  useEffect(() => {
+    if (imageModels.length === 0) {
+      if (selectedImageModelId) setSelectedImageModelId('');
+      localStorage.removeItem(IMAGE_MODEL_STORAGE_KEY);
+      return;
+    }
+    const hasSelected = imageModels.some((model) => model.id === selectedImageModelId);
+    if (hasSelected) return;
+    const nextId = imageModels[0].id;
+    setSelectedImageModelId(nextId);
+    localStorage.setItem(IMAGE_MODEL_STORAGE_KEY, nextId);
+  }, [imageModels, selectedImageModelId]);
+
+  useEffect(() => {
+    if (videoModels.length === 0) {
+      if (selectedVideoModelId) setSelectedVideoModelId('');
+      localStorage.removeItem(VIDEO_MODEL_STORAGE_KEY);
+      return;
+    }
+    const hasSelected = videoModels.some((model) => model.id === selectedVideoModelId);
+    if (hasSelected) return;
+    const nextId = videoModels[0].id;
+    setSelectedVideoModelId(nextId);
+    localStorage.setItem(VIDEO_MODEL_STORAGE_KEY, nextId);
+  }, [videoModels, selectedVideoModelId]);
 
   if (!open) return null;
 
@@ -441,8 +518,8 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
           toolRecords: [
             {
               id: gid('tool'),
-              name: pendingApproval.toolName,
-              label: pendingApproval.toolName === 'workflow.applyDraft' ? '应用修改' : '运行工作流',
+              name: pendingApproval.toolName as AgentToolName,
+              label: getToolLabel(pendingApproval.toolName),
               status: 'running',
               summary: '等待用户确认',
               detail: plan.reasoningSummary,
@@ -546,13 +623,9 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
       try {
         const runResult = await createAgentRun({
           input: message.approvalInput || message.content,
-          plannerModel: {
-            id: selectedPlannerModel.id,
-            modelId: selectedPlannerModel.modelId || selectedPlannerModel.id,
-            configId: selectedPlannerModel.configId,
-            configName: selectedPlannerModel.configName,
-            label: getPlannerModelLabel(selectedPlannerModel),
-          },
+          plannerModel: buildPlannerModelPayload(selectedPlannerModel)!,
+          imageModel: buildPlannerModelPayload(selectedImageModel),
+          videoModel: buildPlannerModelPayload(selectedVideoModel),
           context: buildAgentContext(message.workflowEditPatch),
           approval: {
             ...pendingApproval,
@@ -598,13 +671,9 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
       try {
         const runResult = await createAgentRun({
           input: '请应用当前工作流修改草案',
-          plannerModel: {
-            id: selectedPlannerModel.id,
-            modelId: selectedPlannerModel.modelId || selectedPlannerModel.id,
-            configId: selectedPlannerModel.configId,
-            configName: selectedPlannerModel.configName,
-            label: getPlannerModelLabel(selectedPlannerModel),
-          },
+          plannerModel: buildPlannerModelPayload(selectedPlannerModel)!,
+          imageModel: buildPlannerModelPayload(selectedImageModel),
+          videoModel: buildPlannerModelPayload(selectedVideoModel),
           context: buildAgentContext(message.workflowEditPatch),
         });
         if (!runResult.success || !runResult.data) {
@@ -656,13 +725,9 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
       try {
         const runResult = await createAgentRun({
           input: task,
-          plannerModel: {
-            id: selectedPlannerModel.id,
-            modelId: selectedPlannerModel.modelId || selectedPlannerModel.id,
-            configId: selectedPlannerModel.configId,
-            configName: selectedPlannerModel.configName,
-            label: getPlannerModelLabel(selectedPlannerModel),
-          },
+          plannerModel: buildPlannerModelPayload(selectedPlannerModel)!,
+          imageModel: buildPlannerModelPayload(selectedImageModel),
+          videoModel: buildPlannerModelPayload(selectedVideoModel),
           context: buildAgentContext(),
         });
         if (!runResult.success || !runResult.data) {
@@ -770,6 +835,68 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
               <small>{workflowContext.runId ? `最近运行：${workflowContext.runId}` : '还没有可复用的运行上下文'}</small>
             </div>
           </section>
+
+          {imageModels.length > 0 && (
+            <section className="agent-workspace__planner agent-workspace__planner--header">
+              <div className="agent-workspace__planner-head">
+                <div className="agent-workspace__planner-copy">
+                  <Settings2 size={15} />
+                  <div>
+                    <strong>图像模型</strong>
+                    <span>用于图片生成和编辑</span>
+                  </div>
+                </div>
+              </div>
+              <label className="agent-workspace__planner-field">
+                <span>当前模型</span>
+                <select
+                  value={selectedImageModel?.id || ''}
+                  onChange={(event) => {
+                    setSelectedImageModelId(event.target.value);
+                    localStorage.setItem(IMAGE_MODEL_STORAGE_KEY, event.target.value);
+                  }}
+                  aria-label="选择图像模型"
+                >
+                  {imageModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {getPlannerModelLabel(model)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+          )}
+
+          {videoModels.length > 0 && (
+            <section className="agent-workspace__planner agent-workspace__planner--header">
+              <div className="agent-workspace__planner-head">
+                <div className="agent-workspace__planner-copy">
+                  <Settings2 size={15} />
+                  <div>
+                    <strong>视频模型</strong>
+                    <span>用于视频生成</span>
+                  </div>
+                </div>
+              </div>
+              <label className="agent-workspace__planner-field">
+                <span>当前模型</span>
+                <select
+                  value={selectedVideoModel?.id || ''}
+                  onChange={(event) => {
+                    setSelectedVideoModelId(event.target.value);
+                    localStorage.setItem(VIDEO_MODEL_STORAGE_KEY, event.target.value);
+                  }}
+                  aria-label="选择视频模型"
+                >
+                  {videoModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {getPlannerModelLabel(model)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+          )}
         </header>
 
         <div className={`agent-workspace__body ${hasUserStartedConversation ? 'agent-workspace__body--engaged' : ''}`}>

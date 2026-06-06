@@ -452,6 +452,8 @@ export default function App() {
               onClose={() => setAgentOpen(false)}
               onOpenWorkflow={() => setTab('workflow')}
               plannerModels={settings.configuredProjectModels.filter((model) => model.cat === 'chat')}
+              imageModels={settings.configuredProjectModels.filter((model) => model.cat === 'image')}
+              videoModels={settings.configuredProjectModels.filter((model) => model.cat === 'video')}
             />
           </div>
         )}

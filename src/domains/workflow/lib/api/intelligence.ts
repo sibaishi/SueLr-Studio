@@ -149,13 +149,15 @@ export interface CreateAgentPlanInput {
   plannerModel: WorkflowDraftPlannerModel & {
     modelId: string;
   };
+  imageModel?: WorkflowDraftPlannerModel | null;
+  videoModel?: WorkflowDraftPlannerModel | null;
   context?: Record<string, unknown>;
   approval?: AgentPendingApproval;
 }
 
 export interface AgentPendingApproval {
   id: string;
-  toolName: 'workflow.execute' | 'workflow.applyDraft';
+  toolName: string;
   toolInput: Record<string, unknown>;
   summary?: string;
 }

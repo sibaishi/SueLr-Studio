@@ -5,7 +5,7 @@ export const workflowIntentSchema = z.object({
   sourceText: z.string().trim().min(1),
   name: z.string().trim().min(1).max(200),
   goal: z.string().trim().min(1).max(2000),
-  domain: z.enum(['ecommerce-image', 'brand-visual', 'social-image', 'generic-image', 'chat-text', 'video-generation']),
+  domain: z.enum(['ecommerce-image', 'brand-visual', 'social-image', 'generic-image', 'storyboard-image', 'chat-text', 'plain-text', 'video-generation']),
   promptHelperTool: z.enum(['camera', 'lighting', 'storyboard', 'layout']).optional(),
   inputs: z.array(z.object({ id: z.string(), label: z.string(), kind: z.enum(['image', 'text', 'video', 'audio']) })),
   outputCount: z.number().int().min(1).max(8),

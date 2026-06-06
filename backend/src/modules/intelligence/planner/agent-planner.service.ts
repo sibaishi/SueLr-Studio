@@ -22,6 +22,20 @@ export type AgentPlan = {
     configName?: string;
     label?: string;
   };
+  imageModel?: {
+    id: string;
+    modelId: string;
+    configId?: string;
+    configName?: string;
+    label?: string;
+  } | null;
+  videoModel?: {
+    id: string;
+    modelId: string;
+    configId?: string;
+    configName?: string;
+    label?: string;
+  } | null;
   summary: string;
   toolName:
     | 'chat.respond'
@@ -31,7 +45,14 @@ export type AgentPlan = {
     | 'workflow.createDraft'
     | 'workflow.execute'
     | 'workflow.diagnose'
-    | 'workflow.summarizeRun';
+    | 'workflow.summarizeRun'
+    | 'image.generate'
+    | 'image.edit'
+    | 'image.compare'
+    | 'video.generate'
+    | 'copy.write'
+    | 'prompt.optimize'
+    | 'result.inspect';
   toolInput: PlainObject & {
     input?: string;
     plannerNotes?: string;
@@ -300,6 +321,13 @@ function normalizePlan(
       'workflow.execute',
       'workflow.diagnose',
       'workflow.summarizeRun',
+      'image.generate',
+      'image.edit',
+      'image.compare',
+      'video.generate',
+      'copy.write',
+      'prompt.optimize',
+      'result.inspect',
     ].includes(toolName)
   ) {
     return null;
@@ -429,6 +457,37 @@ function normalizePlan(
       knowledgeContext,
     };
   }
+  if (
+    toolName === 'image.generate' ||
+    toolName === 'image.edit' ||
+    toolName === 'image.compare' ||
+    toolName === 'video.generate' ||
+    toolName === 'copy.write' ||
+    toolName === 'prompt.optimize' ||
+    toolName === 'result.inspect'
+  ) {
+    return {
+      id: gid(),
+      source: 'llm',
+      plannerModel: input.plannerModel,
+      summary: cleanText(raw.summary, 500) || `准备调用 ${toolName} 工具。`,
+      toolName,
+      toolInput: {
+        ...(cleanText(toolInput.prompt, 12000) ? { prompt: cleanText(toolInput.prompt, 12000) } : {}),
+        ...(cleanText(toolInput.prompt || input.input, 12000)
+          ? { input: cleanText(toolInput.prompt || input.input, 12000) }
+          : {}),
+        ...(toolInput.reference ? { reference: String(toolInput.reference) } : {}),
+        ...(toolInput.model ? { model: String(toolInput.model) } : {}),
+        ...(toolInput.ratio ? { ratio: String(toolInput.ratio) } : {}),
+        ...(toolInput.n ? { n: Number(toolInput.n) } : {}),
+        ...(toolInput.tone ? { tone: String(toolInput.tone) } : {}),
+      },
+      reasoningSummary: cleanText(raw.reasoningSummary, 1000) || `Planner 判断用户希望使用 ${toolName}。`,
+      warnings: normalizeWarnings(raw.warnings),
+      knowledgeContext,
+    };
+  }
   const rawPlannedInput = cleanText(toolInput.input || input.input);
   const originalInput = cleanText(input.input);
   const plannedInput = looksLikePromptInstruction(rawPlannedInput, originalInput) ? originalInput : rawPlannedInput;
@@ -474,6 +533,13 @@ function buildToolContext(skills: SkillRegistryLike) {
         'workflow.execute',
         'workflow.diagnose',
         'workflow.summarizeRun',
+        'image.generate',
+        'image.edit',
+        'image.compare',
+        'video.generate',
+        'copy.write',
+        'prompt.optimize',
+        'result.inspect',
       ].includes(skill.id),
     )
     .map((skill) => ({
@@ -607,8 +673,8 @@ function buildPlannerMessages(
       content: [
         '你是 SueLr-Studio 的 Agent Planner。',
         '你负责判断用户输入应当普通对话回复，还是转成受控工具计划；不要直接修改画布。',
-        '你必须基于“可用工具”和“本地知识库上下文”判断工具调用。',
-        '当前可执行工具包括 workflow.inspect、workflow.edit、workflow.applyDraft、workflow.createDraft、workflow.execute、workflow.diagnose 和 workflow.summarizeRun。',
+        '你必须基于可用工具、本地知识库上下文和节点能力知识判断工具调用。',
+        '当前可执行工具包括 workflow.inspect、workflow.edit、workflow.applyDraft、workflow.createDraft、workflow.execute、workflow.diagnose、workflow.summarizeRun、image.generate、image.edit、image.compare、video.generate、copy.write、prompt.optimize、result.inspect。',
         '历史文档中的 workflow.build 和 workflow.run 分别对应 workflow.createDraft 和 workflow.execute；不要输出旧名称。',
         '如果用户是在问概念、问原因、讨论方案、确认下一步、闲聊或要求解释，请使用 chat.respond，直接给出简洁自然语言回答，不要调用工作流工具。',
         '用户明确要求查看当前画布、当前工作流结构、节点摘要时，使用 workflow.inspect。',
@@ -622,6 +688,9 @@ function buildPlannerMessages(
         'workflow.createDraft.toolInput.input 必须保持用户原始任务语义，不能改写成给另一个模型看的提示词模板。',
         'workflow.edit.toolInput.input 必须保持用户原始修改意图，不要把需求改写成提示词模板。',
         '可以把额外判断写入 toolInput.plannerNotes，但不要覆盖用户需求。',
+        'plannerNotes 中应引用本地知识库上下文中的节点能力信息，帮助后续编译流程选择正确的节点。',
+        '例如：如果用户说“分镜图”，plannerNotes 应注明是 storyboard-image 领域，需要 aiChat → textSplit → iterateRun → imageGen 逐帧生成链路。',
+        '例如：如果用户说“合并三段文本输出”，plannerNotes 应注明使用 textMerge 节点汇总多路文本，不需要 aiChat 参与语义合成。',
         '如果用户说分镜图、故事板图片、storyboard sheet，这是图片序列/图片生成任务，不是视频生成任务。',
         '如果用户说分镜脚本、镜头脚本、旁白脚本，这是文本/对话任务，不是视频生成任务。',
         'promptHelper 不是通用提示词优化器；只有明确需要分镜图版式、三视图、视角或光照控制时才建议使用。',

@@ -35,15 +35,19 @@ export const workflowDraftRequestSchema = z.object({
 
 const agentToolInputSchema = z.record(z.string(), z.unknown()).default({});
 
+const plannerModelSchema = z.object({
+  id: z.string().trim().min(1).max(240),
+  modelId: z.string().trim().min(1).max(240),
+  configId: z.string().trim().max(240).optional(),
+  configName: z.string().trim().max(240).optional(),
+  label: z.string().trim().max(300).optional(),
+});
+
 export const agentPlanRequestSchema = z.object({
   input: z.string().trim().min(1, 'input 不能为空').max(12000, 'input 不能超过 12000 字符'),
-  plannerModel: z.object({
-    id: z.string().trim().min(1).max(240),
-    modelId: z.string().trim().min(1).max(240),
-    configId: z.string().trim().max(240).optional(),
-    configName: z.string().trim().max(240).optional(),
-    label: z.string().trim().max(300).optional(),
-  }),
+  plannerModel: plannerModelSchema,
+  imageModel: plannerModelSchema.nullable().optional(),
+  videoModel: plannerModelSchema.nullable().optional(),
   context: z.record(z.string(), z.unknown()).default({}),
 });
 
@@ -51,7 +55,7 @@ export const agentRunRequestSchema = agentPlanRequestSchema.extend({
   approval: z
     .object({
       id: z.string().trim().min(1).max(120),
-      toolName: z.enum(['workflow.execute', 'workflow.applyDraft']),
+      toolName: z.string().trim().min(1).max(120),
       toolInput: agentToolInputSchema,
       summary: z.string().trim().max(500).optional(),
     })

@@ -1,4 +1,6 @@
+import { runChatCompletion } from '../../../platform/ai/chat-service.ts';
 import { executionService } from '../../execution/execution.service.ts';
+import { imagesService } from '../../images/images.service.ts';
 import { settingsService } from '../../settings/settings.service.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import { workflowsService } from '../../workflows/workflows.service.ts';
@@ -775,6 +777,440 @@ export class SkillRegistry {
           const runId = String(input.runId || '');
           const status = executionService.getStatus(runId, { scope: options.scope });
           return buildRunSummary(status, executionService.getRecentRunSummary(runId, { scope: options.scope }));
+        },
+      },
+      {
+        id: 'image.generate',
+        title: '图片生成',
+        description:
+          '直接调用图片生成模型生成图片，不经过工作流。适合快速单张或多张出图。大规模或批次生成应使用工作流。',
+        sideEffect: 'execute',
+        requiresApproval: true,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: true,
+          required: ['prompt'],
+          properties: {
+            prompt: { type: 'string', minLength: 1, maxLength: 4000 },
+            model: { type: 'string', maxLength: 240 },
+            ratio: { type: 'string', enum: ['1:1', '16:9', '9:16', '4:3', '3:4', 'auto'] },
+            resolution: { type: 'string', maxLength: 80 },
+            n: { type: 'number', minimum: 1, maximum: 8 },
+            output_format: { type: 'string', enum: ['png', 'jpeg', 'webp'] },
+            reference: { type: 'string', maxLength: 2000, description: '图生图参考图片 URL 或 base64' },
+            mask: { type: 'string', maxLength: 2000, description: '局部编辑遮罩 URL 或 base64' },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            images: { type: 'array' },
+            model: { type: 'string' },
+          },
+        },
+        execute: async (input, options) => {
+          const settings = settingsService.getSettingsResponse(options.scope) as PlainObject;
+          const configs = Array.isArray(settings?.configs) ? (settings.configs as PlainObject[]) : [];
+          const targetConfig = String(input.configId || '')
+            ? configs.find((config) => String(config.id || '') === input.configId)
+            : undefined;
+          const runtimeConfig = settingsService.buildRuntimeConfig(
+            targetConfig || configs[0] || {},
+            options.scope,
+          );
+          return imagesService.generate(
+            {
+              prompt: String(input.prompt || ''),
+              model: String(input.modelId || input.model || ''),
+              ratio: input.ratio || 'auto',
+              resolution: input.resolution || '1k',
+              n: Math.min(4, Math.max(1, Number(input.n) || 1)),
+              output_format: input.output_format || 'png',
+              ...(input.reference ? { reference: input.reference } : {}),
+              ...(input.mask ? { mask: input.mask } : {}),
+            },
+            { scope: options.scope },
+          );
+        },
+      },
+      {
+        id: 'image.edit',
+        title: '图片编辑',
+        description: '基于参考图片和提示词进行图生图编辑或局部修改。需要提供 reference 图片 URL 或 base64。',
+        sideEffect: 'execute',
+        requiresApproval: true,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: true,
+          required: ['prompt', 'reference'],
+          properties: {
+            prompt: { type: 'string', minLength: 1, maxLength: 4000 },
+            reference: { type: 'string', minLength: 1, maxLength: 2000 },
+            mask: { type: 'string', maxLength: 2000 },
+            model: { type: 'string', maxLength: 240 },
+            ratio: { type: 'string', maxLength: 80 },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            images: { type: 'array' },
+            model: { type: 'string' },
+          },
+        },
+        execute: async (input, options) => {
+          const settings = settingsService.getSettingsResponse(options.scope) as PlainObject;
+          const configs = Array.isArray(settings?.configs) ? (settings.configs as PlainObject[]) : [];
+          const targetConfig = String(input.configId || '')
+            ? configs.find((config) => String(config.id || '') === input.configId)
+            : undefined;
+          const runtimeConfig = settingsService.buildRuntimeConfig(
+            targetConfig || configs[0] || {},
+            options.scope,
+          );
+          return imagesService.generate(
+            {
+              prompt: String(input.prompt || ''),
+              model: String(input.modelId || input.model || ''),
+              reference: String(input.reference || ''),
+              ...(input.mask ? { mask: input.mask } : {}),
+            },
+            { scope: options.scope },
+          );
+        },
+      },
+      {
+        id: 'image.edit',
+        title: '图片编辑',
+        description: '基于参考图片和提示词进行图生图编辑或局部修改。需要提供 reference 图片 URL 或 base64。',
+        sideEffect: 'execute',
+        requiresApproval: true,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: true,
+          required: ['prompt', 'reference'],
+          properties: {
+            prompt: { type: 'string', minLength: 1, maxLength: 4000 },
+            reference: { type: 'string', minLength: 1, maxLength: 2000 },
+            mask: { type: 'string', maxLength: 2000 },
+            model: { type: 'string', maxLength: 240 },
+            ratio: { type: 'string', maxLength: 80 },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            images: { type: 'array' },
+            model: { type: 'string' },
+          },
+        },
+        execute: async (input, options) => {
+          const settings = settingsService.getSettingsResponse(options.scope) as PlainObject;
+          const activeId = String(settings?.activeConfigId || '');
+          const configs = Array.isArray(settings?.configs) ? (settings.configs as PlainObject[]) : [];
+          const activeConfig = configs.find((config) => String(config.id || '') === activeId) || configs[0] || {};
+          const runtimeConfig = settingsService.buildRuntimeConfig(activeConfig, options.scope);
+          return imagesService.generate(
+            {
+              prompt: String(input.prompt || ''),
+              model: input.model || '',
+              reference: String(input.reference || ''),
+              ...(input.mask ? { mask: input.mask } : {}),
+            },
+            { scope: options.scope },
+          );
+        },
+      },
+      {
+        id: 'image.compare',
+        title: '图片对比',
+        description: '接收两张图片 URL 生成并排对比视图，供人工评审环节使用。',
+        sideEffect: 'read',
+        requiresApproval: false,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['image1', 'image2'],
+          properties: {
+            image1: { type: 'string', minLength: 1, maxLength: 2000 },
+            image2: { type: 'string', minLength: 1, maxLength: 2000 },
+            layout: { type: 'string', enum: ['side-by-side', 'overlay', 'split'], default: 'side-by-side' },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            comparisonUrl: { type: 'string' },
+            layout: { type: 'string' },
+          },
+        },
+        execute: async (input, _options) => ({
+          comparisonUrl: null,
+          layout: input.layout || 'side-by-side',
+          note: '当前为占位实现；后续会生成真正的并排对比图。请使用工作流中的 imageCompare 节点进行实际对比。',
+          image1: String(input.image1 || '').slice(0, 120),
+          image2: String(input.image2 || '').slice(0, 120),
+        }),
+      },
+      {
+        id: 'video.generate',
+        title: '视频生成',
+        description:
+          '直接调用视频生成模型生成短视频/短片。大规模或批次生成应使用工作流。高消耗工具，需要用户确认。',
+        sideEffect: 'execute',
+        requiresApproval: true,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: true,
+          required: ['prompt'],
+          properties: {
+            prompt: { type: 'string', minLength: 1, maxLength: 4000 },
+            model: { type: 'string', maxLength: 240 },
+            duration: { type: 'number', minimum: 1, maximum: 30 },
+            resolution: { type: 'string', maxLength: 80 },
+            ratio: { type: 'string', maxLength: 80 },
+            reference: { type: 'string', maxLength: 2000, description: '图生视频参考图片 URL' },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            video: { type: 'object' },
+            model: { type: 'string' },
+          },
+        },
+        execute: async (input, options) => {
+          const settings = settingsService.getSettingsResponse(options.scope) as PlainObject;
+          const configs = Array.isArray(settings?.configs) ? (settings.configs as PlainObject[]) : [];
+          const targetConfig = String(input.configId || '')
+            ? configs.find((config) => String(config.id || '') === input.configId)
+            : undefined;
+          const runtimeConfig = settingsService.buildRuntimeConfig(
+            targetConfig || configs[0] || {},
+            options.scope,
+          );
+          return imagesService.generate(
+            {
+              prompt: String(input.prompt || ''),
+              model: String(input.modelId || input.model || ''),
+              ratio: input.ratio || '16:9',
+              ...(input.duration ? { duration: Number(input.duration) } : {}),
+              ...(input.reference ? { reference: input.reference } : {}),
+            },
+            { scope: options.scope },
+          );
+        },
+      },
+      {
+        id: 'copy.write',
+        title: '文案生成',
+        description:
+          '调用对话模型直接生成文案、广告语、标题、卖点等营销文本。不创建或修改工作流。',
+        sideEffect: 'execute',
+        requiresApproval: false,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['prompt'],
+          properties: {
+            prompt: { type: 'string', minLength: 1, maxLength: 12000 },
+            model: { type: 'string', maxLength: 240 },
+            tone: { type: 'string', maxLength: 200, description: '语气风格描述' },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            text: { type: 'string' },
+            model: { type: 'string' },
+          },
+        },
+        execute: async (input, options) => {
+          const settings = settingsService.getSettingsResponse(options.scope) as PlainObject;
+          const configs = Array.isArray(settings?.configs) ? (settings.configs as PlainObject[]) : [];
+          const targetConfig = String(input.configId || '')
+            ? configs.find((config) => String(config.id || '') === input.configId)
+            : undefined;
+          const runtimeConfig = settingsService.buildRuntimeConfig(
+            targetConfig || configs[0] || {},
+            options.scope,
+          );
+          const response = await runChatCompletion({
+            apiKey: runtimeConfig.apiKey,
+            baseUrl: runtimeConfig.baseUrl,
+            providerConfig: runtimeConfig.providerConfig,
+            projectModels: runtimeConfig.projectModels,
+            model: String(input.model || runtimeConfig.projectModels?.[0]?.modelId || ''),
+            messages: [
+              {
+                role: 'system',
+                content: [
+                  '你是专业的广告文案写手。根据用户需求生成高质量文案。',
+                  input.tone ? `语气风格：${String(input.tone)}` : '',
+                ]
+                  .filter(Boolean)
+                  .join('\n'),
+              },
+              { role: 'user', content: String(input.prompt || '') },
+            ],
+            temperature: 0.7,
+            maxTokens: 2048,
+            stream: false,
+            scope: options.scope,
+          });
+          const payload = await response.json();
+          const text = String(payload?.choices?.[0]?.message?.content || '');
+          return { text, model: String(input.model || '') };
+        },
+      },
+      {
+        id: 'prompt.optimize',
+        title: '提示词优化',
+        description:
+          '用对话模型优化用户输入的图片/视频生成提示词，使其更具体、结构化、适合生成模型。不创建工作流。',
+        sideEffect: 'suggest',
+        requiresApproval: false,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['prompt'],
+          properties: {
+            prompt: { type: 'string', minLength: 1, maxLength: 12000 },
+            model: { type: 'string', maxLength: 240 },
+            target: {
+              type: 'string',
+              enum: ['image', 'video', 'general'],
+              description: '优化目标模型类型',
+            },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            optimized: { type: 'string' },
+            original: { type: 'string' },
+            changes: { type: 'array' },
+          },
+        },
+        execute: async (input, options) => {
+          const settings = settingsService.getSettingsResponse(options.scope) as PlainObject;
+          const configs = Array.isArray(settings?.configs) ? (settings.configs as PlainObject[]) : [];
+          const targetConfig = String(input.configId || '')
+            ? configs.find((config) => String(config.id || '') === input.configId)
+            : undefined;
+          const runtimeConfig = settingsService.buildRuntimeConfig(
+            targetConfig || configs[0] || {},
+            options.scope,
+          );
+          const targetType = String(input.target || 'general');
+          const response = await runChatCompletion({
+            apiKey: runtimeConfig.apiKey,
+            baseUrl: runtimeConfig.baseUrl,
+            providerConfig: runtimeConfig.providerConfig,
+            projectModels: runtimeConfig.projectModels,
+            model: String(input.model || runtimeConfig.projectModels?.[0]?.modelId || ''),
+            messages: [
+              {
+                role: 'system',
+                content: [
+                  '你是提示词优化专家。把用户输入的粗糙提示词改写成高质量、结构化提示词。',
+                  '列出你做的具体优化项。按以下 JSON 格式输出，不要 Markdown：',
+                  '{"optimized":"改写后的完整提示词","changes":["优化项1","优化项2"]}',
+                  targetType === 'image'
+                    ? '针对图片生成模型优化：强调主体、构图、光线、色彩、风格。'
+                    : targetType === 'video'
+                      ? '针对视频生成模型优化：强调主体运动、镜头变化、节奏、连续性和时长。'
+                      : '通用优化：让提示词更清晰、结构化、易于理解。',
+                ].join('\n'),
+              },
+              { role: 'user', content: String(input.prompt || '') },
+            ],
+            temperature: 0.4,
+            maxTokens: 2048,
+            stream: false,
+            scope: options.scope,
+          });
+          const payload = await response.json();
+          const raw = String(payload?.choices?.[0]?.message?.content || '');
+          let optimized = raw;
+          let changes: string[] = [];
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.optimized) optimized = String(parsed.optimized);
+            if (Array.isArray(parsed.changes)) changes = parsed.changes.map(String);
+          } catch {
+            // not JSON, use raw text as optimized
+          }
+          return { optimized, original: String(input.prompt || ''), changes };
+        },
+      },
+      {
+        id: 'result.inspect',
+        title: '结果检查',
+        description: '查看最近一次工作流运行的结果摘要和关键产出物。不重新运行。',
+        sideEffect: 'read',
+        requiresApproval: false,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            runId: { type: 'string', maxLength: 200 },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            runId: { type: 'string' },
+            status: { type: 'object' },
+            summary: { type: 'string' },
+            report: { type: 'object' },
+          },
+        },
+        execute: async (input, options) => {
+          const runId = String(input.runId || '');
+          const status = executionService.getStatus(runId, { scope: options.scope });
+          return buildRunSummary(status, executionService.getRecentRunSummary(runId, { scope: options.scope }));
+        },
+      },
+      {
+        id: 'asset.package',
+        title: '素材打包',
+        description:
+          '把多个运行时结果或输出文件打包为 ZIP 下载包。适合收集批量生成的全部图片、文案等产物供一次下载。',
+        sideEffect: 'write',
+        requiresApproval: false,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['runId'],
+          properties: {
+            runId: { type: 'string', minLength: 1, maxLength: 200 },
+            packageName: { type: 'string', maxLength: 120 },
+            includeArtifacts: { type: 'boolean', default: true },
+            includeText: { type: 'boolean', default: false },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            packageUrl: { type: 'string' },
+            packageName: { type: 'string' },
+            fileCount: { type: 'number' },
+          },
+        },
+        execute: async (input, _options) => {
+          const runId = String(input.runId || '');
+          const status = executionService.getStatus(runId) as PlainObject;
+          const summary = executionService.getRecentRunSummary(runId) as PlainObject | null;
+          const artifacts = Array.isArray(summary?.artifacts) ? summary.artifacts : [];
+          return {
+            packageUrl: null,
+            packageName: String(input.packageName || `outputs_${runId}`),
+            fileCount: artifacts.length,
+            note: '当前为占位实现；后续会生成真正的 ZIP 下载包。',
+            status: status?.status || 'unknown',
+            artifacts: artifacts.slice(0, 20),
+          };
         },
       },
     ];

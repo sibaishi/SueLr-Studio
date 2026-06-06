@@ -47,12 +47,13 @@ function needsPromptHelper(intent: WorkflowIntent) {
 }
 
 function extractOutputCount(text: string) {
-  if (includesAny(text, ['分镜图', '故事板', 'storyboard', 'storyboard sheet'])) return 1;
+  const storyboardCount = includesAny(text, ['分镜图', '故事板', 'storyboard', 'storyboard sheet']);
   const arabic = text.match(/(\d+)\s*[张个份套]/);
   if (arabic) return Math.min(8, Math.max(1, Number(arabic[1]) || 1));
   const chineseMap: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8 };
   const chinese = text.match(/([一二两三四五六七八])\s*[张个份套]/);
   if (chinese) return chineseMap[chinese[1]] || 1;
+  if (storyboardCount) return 6;
   return 4;
 }
 
@@ -60,6 +61,12 @@ function inferDomain(text: string): WorkflowIntent['domain'] {
   const asksForStoryboardImage = includesAny(text, ['分镜图', '故事板', 'storyboard', 'storyboard sheet']);
   const asksForStoryboardText = includesAny(text, ['分镜脚本', '镜头脚本', '分镜文案', '镜头文案', '脚本', '剧本']);
   if (asksForStoryboardText && !asksForStoryboardImage) return 'chat-text';
+  if (asksForStoryboardImage) return 'storyboard-image';
+  if (includesAny(text, ['分镜文案', '逐条执行', '逐条运行', '分别输出']) && !includesAny(text, ['图片', '图', 'image', '视频', 'video'])) return 'chat-text';
+  if (includesAny(text, ['文本输入后直接输出', '直出', '直接输出展示', '最小流程', '输入后直接输出'])) return 'plain-text';
+  if (includesAny(text, ['合并', '三个文本', '多个文本', '汇总'])) {
+    if (includesAny(text, ['输出展示', '展示', '输出', '显示'])) return 'generic-image';
+  }
   if (includesAny(text, ['对话', '聊天', '问答', '客服', '摘要', '改写', '翻译', '文本生成', '文案']))
     return 'chat-text';
   if (includesAny(text, ['图生视频', '文生视频', '视频生成', '短视频', '短片', '成片', '生成视频', '输出视频']))
@@ -76,6 +83,8 @@ function buildName(request: WorkflowDraftRequest, domain: WorkflowIntent['domain
   if (domain === 'brand-visual') return '品牌视觉探索工作流草稿';
   if (domain === 'social-image') return '社媒图片批量生成工作流草稿';
   if (domain === 'chat-text') return 'AI 对话文本工作流草稿';
+  if (domain === 'storyboard-image') return '分镜图生成工作流草稿';
+  if (domain === 'plain-text') return '文本直出工作流草稿';
   if (domain === 'video-generation') return '视频生成工作流草稿';
   return '图片生成工作流草稿';
 }
@@ -148,7 +157,7 @@ function appendKnowledgeDescription(description: string, knowledge: ReturnType<t
 export function parseWorkflowIntent(request: WorkflowDraftRequest): WorkflowIntent {
   const text = request.input.trim();
   const domain = inferDomain(text);
-  const requiresImageInput = includesAny(text, ['产品图', '商品图', '参考图', '图片', '图生图', '图生视频', '首帧']);
+  const requiresImageInput = domain === 'storyboard-image' ? false : includesAny(text, ['产品图', '商品图', '参考图', '图片', '图生图', '图生视频', '首帧']);
   const requiresVideoInput = includesAny(text, ['视频输入', '参考视频', '视频素材']);
   const requiresAudioInput = includesAny(text, ['音频', '配音', '旁白', '音乐']);
   const requiresTextInput = true;
@@ -175,9 +184,9 @@ export function parseWorkflowIntent(request: WorkflowDraftRequest): WorkflowInte
           ]
         : []),
     ],
-    outputCount: extractOutputCount(text),
+    outputCount: domain === 'storyboard-image' ? Math.min(8, extractOutputCount(text)) : extractOutputCount(text),
     requiresImageInput,
-    requiresTextInput,
+    requiresTextInput: true,
     requiresVideoInput,
     requiresAudioInput,
   };
@@ -233,6 +242,114 @@ export function planWorkflowDraft(intent: WorkflowIntent, context: WorkflowPlann
         ),
       ],
       approvalsRequired: ['applyDraft', 'saveWorkflow', 'executeWorkflow'],
+      knowledgeInfluences: knowledge.influences,
+    };
+  }
+
+  if (intent.domain === 'plain-text') {
+    return {
+      id: makeId('draft'),
+      name: intent.name,
+      description: appendKnowledgeDescription(`根据需求生成的文本直出工作流草稿：${intent.goal}`, knowledge),
+      intentId: intent.id,
+      stages: [
+        stage(
+          {
+            id: 'text_input',
+            label: 'Text Input',
+            nodeType: 'textInput',
+            purpose: '接收用户直接输入的文本内容。',
+          },
+          knowledge,
+        ),
+        stage(
+          {
+            id: 'output',
+            label: 'Output',
+            nodeType: 'output',
+            purpose: '直接展示输入的文本内容。',
+          },
+          knowledge,
+        ),
+      ],
+      approvalsRequired: ['applyDraft', 'saveWorkflow'],
+      knowledgeInfluences: knowledge.influences,
+    };
+  }
+
+  if (intent.domain === 'storyboard-image') {
+    const outputCount = Math.min(8, intent.outputCount || 6);
+    return {
+      id: makeId('draft'),
+      name: intent.name,
+      description: appendKnowledgeDescription(`根据需求自动生成的分镜图工作流草稿：${intent.goal}`, knowledge),
+      intentId: intent.id,
+      stages: [
+        stage(
+          {
+            id: 'script_input',
+            label: 'Script Input',
+            nodeType: 'textInput',
+            purpose: '接收分镜脚本、文本剧本或镜头描述。',
+          },
+          knowledge,
+        ),
+        stage(
+          {
+            id: 'shot_planner',
+            label: 'Shot Planner',
+            nodeType: 'aiChat',
+            purpose: `把文本脚本拆成 ${outputCount} 个连续镜头，每行一个镜头。`,
+          },
+          knowledge,
+        ),
+        stage(
+          {
+            id: 'shot_split',
+            label: 'Shot Split',
+            nodeType: 'textSplit',
+            purpose: '按换行符拆分剧本为逐个镜头描述。',
+          },
+          knowledge,
+        ),
+        stage(
+          {
+            id: 'shot_iterate',
+            label: 'Shot Iterate',
+            nodeType: 'iterateRun',
+            purpose: '逐项把每个镜头文本传给下游图片生成节点。',
+          },
+          knowledge,
+        ),
+        stage(
+          {
+            id: 'image_gen',
+            label: 'Image Gen',
+            nodeType: 'imageGen',
+            purpose: '根据每个镜头的描述逐张生成分镜图。',
+          },
+          knowledge,
+        ),
+        stage(
+          {
+            id: 'save_file',
+            label: 'Save File',
+            nodeType: 'saveFile',
+            purpose: '保存每张分镜图，供结果面板查看和下载。',
+          },
+          knowledge,
+        ),
+        stage(
+          {
+            id: 'output',
+            label: 'Output',
+            nodeType: 'output',
+            purpose: '汇总全部分镜图输出。',
+          },
+          knowledge,
+        ),
+      ],
+      approvalsRequired: ['applyDraft', 'saveWorkflow', 'executeWorkflow', 'highCostGeneration'],
       knowledgeInfluences: knowledge.influences,
     };
   }

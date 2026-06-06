@@ -164,6 +164,18 @@ function getCategoryFile(category: KnowledgeCategory, scope?: DynamicValue) {
   return filePath;
 }
 
+function extractCharacterBigrams(text: string): string[] {
+  const chars = cleanString(text, 200)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+  if (chars.length < 2) return [];
+  const bigrams: string[] = [];
+  for (let index = 0; index < chars.length - 1; index += 1) {
+    bigrams.push(chars.slice(index, index + 2));
+  }
+  return bigrams;
+}
+
 function scoreRecord(record: KnowledgeRecord, query: string) {
   const terms = tokenize(query);
   const haystack = [
@@ -173,20 +185,53 @@ function scoreRecord(record: KnowledgeRecord, query: string) {
     record.type,
     record.source.kind,
     record.source.label,
+    ...(record.structured?.nodeType ? [String(record.structured.nodeType)] : []),
+    ...(Array.isArray(record.structured?.useWhen) ? (record.structured.useWhen as string[]) : []),
+    ...(Array.isArray(record.structured?.avoidWhen) ? (record.structured.avoidWhen as string[]) : []),
   ]
     .join(' ')
     .toLowerCase();
   if (!query) return record.confidence + Math.max(0, 1 - (Date.now() - record.updatedAt) / (1000 * 60 * 60 * 24 * 30));
 
-  const phrase = haystack.includes(query.toLowerCase()) ? 4 : 0;
+  const loweredQuery = query.toLowerCase();
+  const phrase = haystack.includes(loweredQuery) ? 4 : 0;
   const termScore = terms.reduce((score, term) => score + (haystack.includes(term) ? 1 : 0), 0);
   const characterOverlap =
     terms.length === 0
       ? cleanString(query, 200)
           .split('')
-          .filter((char) => haystack.includes(char.toLowerCase())).length / 4
+          .filter((char) => haystack.includes(char.toLowerCase())).length / 6
       : 0;
-  return phrase + termScore + Math.min(characterOverlap, 2) + record.confidence;
+
+  const queryBigrams = extractCharacterBigrams(query);
+  const haystackBigrams = new Set(extractCharacterBigrams(haystack));
+  const bigramOverlap =
+    queryBigrams.length > 0
+      ? queryBigrams.filter((bigram) => haystackBigrams.has(bigram)).length / queryBigrams.length
+      : 0;
+
+  const tagSynonymScore = [
+    ['分镜图', '分镜', 'storyboard'],
+    ['故事板', '分镜', 'storyboard'],
+    ['图片', 'image', '照片', '图'],
+    ['文本', 'text', '字符串', 'string', '文案'],
+    ['视频', 'video'],
+    ['音频', 'audio'],
+    ['合并', 'merge', '汇总', '收集'],
+    ['拆分', 'split', '拆分', '分割', '分成'],
+    ['逐项', 'iterate', '分批', '逐个'],
+    ['批量', 'iterate', '分批', '逐项'],
+    ['对话', 'chat', 'aiChat', '问答', '聊天'],
+    ['保存', 'save', '落盘', '存档'],
+  ];
+  const synonymScore = tagSynonymScore.reduce((score, group) => {
+    if (group.some((keyword) => loweredQuery.includes(keyword)) && group.some((keyword) => haystack.includes(keyword))) {
+      return score + 2;
+    }
+    return score;
+  }, 0);
+
+  return phrase + termScore + Math.min(bigramOverlap * 2, 3) + Math.min(characterOverlap, 2) + synonymScore + record.confidence;
 }
 
 function normalizeRecord(

@@ -108,8 +108,8 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     id: 'seed_workflow_node_aiChat',
     title: 'AI 对话节点 aiChat',
     content:
-      'aiChat 调用对话/文本模型，输入 prompt 字符串，也可以接收图片上下文，输出 response 字符串。它适合客服问答、摘要、改写、翻译、文案、分镜脚本、镜头脚本、结构化文本规划等文本结果；不用于直接生成图片或视频文件。',
-    tags: ['system-seed', 'node', 'ai', 'aiChat', 'chat', 'text', '客服', '问答'],
+      'aiChat 调用对话/文本模型，输入 prompt 字符串，也可以接收图片上下文，输出 response 字符串。它适合客服问答、摘要、改写、翻译、文案、分镜脚本/镜头脚本/剧本生成、结构化文本规划等文本结果；不用于直接生成图片或视频文件。',
+    tags: ['system-seed', 'node', 'ai', 'aiChat', 'chat', 'text', '客服', '问答', '对话', '文案', '分镜脚本', '镜头脚本', '剧本', '文本生成'],
     structured: {
       nodeType: 'aiChat',
       category: 'ai',
@@ -160,7 +160,7 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     title: '视频生成节点 videoGen',
     content:
       'videoGen 调用视频生成模型，输入 prompt 字符串，可选 reference 图片、video 视频和 audio 音频，输出 video 文件。只有最终结果需要实际视频/短片/图生视频/文生视频时才使用；生成分镜图、故事板图片、分镜脚本或镜头文案不应该使用 videoGen。',
-    tags: ['system-seed', 'node', 'ai', 'videoGen', 'video'],
+    tags: ['system-seed', 'node', 'ai', 'videoGen', 'video', '视频', '视频生成', '短片', '成片', '短视频'],
     structured: {
       nodeType: 'videoGen',
       category: 'ai',
@@ -190,14 +190,15 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       maturity: 'limited',
       inputs: [{ id: 'text', type: 'string', required: false }],
       outputs: [{ id: 'prompt', type: 'string' }],
-      useWhen: ['camera-control', 'lighting-control', 'storyboard-sheet', 'reference-sheet-layout'],
+      useWhen: ['camera-control', 'lighting-control', 'storyboard-sheet', 'reference-sheet-layout', 'storyboard-layout-control'],
       avoidWhen: [
         'generic-prompt-passthrough',
         'simple-image-generation',
         'simple-video-generation',
         'storyboard-script',
+        'generic-text-to-image',
       ],
-      notes: ['当前节点不调用 AI，后续能力变化时应更新此能力记录。'],
+      notes: ['当前节点不调用 AI，后续能力变化时应更新此能力记录。promptHelper 只拼接固定参数，不是通用提示词优化器。'],
     },
   },
   {
@@ -219,8 +220,8 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
     id: 'seed_workflow_node_textSplit',
     title: '文本拆分节点 textSplit',
-    content: 'textSplit 按分隔符把文本拆成多个片段输出，适合把脚本、清单或多段提示词拆给后续逐项处理节点。',
-    tags: ['system-seed', 'node', 'tool', 'textSplit', 'text'],
+    content: 'textSplit 按分隔符把文本拆成多个片段输出，适合把脚本、清单或多段提示词拆给后续逐项处理节点。配合 iterateRun 可实现批量逐项处理。',
+    tags: ['system-seed', 'node', 'tool', 'textSplit', 'text', '拆分', '分割', '分段', '逐项', '批量'],
     structured: {
       nodeType: 'textSplit',
       category: 'tool',
@@ -228,7 +229,7 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       inputs: [{ id: 'text', type: 'string', required: true }],
       outputs: [{ id: 'part1', type: 'string' }],
       params: ['separator', 'outputCount'],
-      useWhen: ['split-script', 'split-list', 'multi-step-text-routing'],
+      useWhen: ['split-script', 'split-list', 'multi-step-text-routing', 'split-storyboard-shots', 'batch-processing-split'],
     },
   },
   {
@@ -243,9 +244,9 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       maturity: 'stable',
       inputs: [{ id: 'item', type: 'string', required: false, multiple: true }],
       outputs: [{ id: 'merged', type: 'string[]' }],
-      useWhen: ['merge-text-results', 'collect-text-items', 'pass-multiple-texts-downstream'],
-      avoidWhen: ['semantic-text-rewrite', 'compose-polished-article'],
-      notes: ['它只汇总文本值，不负责润色、改写或把多段内容写成一篇文章；语义合成应使用 aiChat。'],
+      useWhen: ['merge-text-results', 'collect-text-items', 'pass-multiple-texts-downstream', 'aggregate-multi-branch-text'],
+      avoidWhen: ['semantic-text-rewrite', 'compose-polished-article', 'concatenate-text-into-one-string'],
+      notes: ['它只汇总文本值到数组，不负责润色、改写或把多段内容拼接成一篇文章；语义合成应使用 aiChat。'],
     },
   },
   {
@@ -355,15 +356,15 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     id: 'seed_workflow_node_iterateRun',
     title: '文本逐项节点 iterateRun',
     content:
-      'iterateRun 是文本逐项运行控制节点。执行调度器会按 item1、item2... 端口顺序收集文本输入，为每个非空文本创建一次下游段执行，并在该次执行中把当前项作为 text 输出；启用工作流并发配置时可并行运行多个 item。',
-    tags: ['system-seed', 'node', 'iterate', 'iterateRun', 'text'],
+      'iterateRun 是文本逐项运行控制节点。执行调度器会按 item1、item2... 端口顺序收集文本输入，为每个非空文本创建一次下游段执行，并在该次执行中把当前项作为 text 输出；启用工作流并发配置时可并行运行多个 item。常用于把 textSplit 的多个片段逐项传给下游 AI 节点。',
+    tags: ['system-seed', 'node', 'iterate', 'iterateRun', 'text', '逐项', '批量', '每个', '分批', '逐个'],
     structured: {
       nodeType: 'iterateRun',
       category: 'iterate',
       maturity: 'stable',
       inputs: [{ id: 'item', type: 'string', required: false, multiple: true }],
       outputs: [{ id: 'text', type: 'string' }],
-      useWhen: ['iterate-text-items', 'batch-text-processing', 'run-downstream-once-per-text'],
+      useWhen: ['iterate-text-items', 'batch-text-processing', 'run-downstream-once-per-text', 'storyboard-shot-iteration', 'batch-script-execution'],
       notes: [
         '这是执行器特殊识别的控制节点，不是普通单次透传节点。',
         '普通节点 executor 中的单项输出只代表每次迭代内的当前项；完整逐项调度发生在 workflow executor 层。',
@@ -374,15 +375,15 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     id: 'seed_workflow_node_iterateImageRun',
     title: '图像逐项节点 iterateImageRun',
     content:
-      'iterateImageRun 是图像逐项运行控制节点。执行调度器会按 item1、item2... 端口顺序收集图片输入，并会展开图片数组，为每张有效图片创建一次下游段执行，在该次执行中把当前项作为 image 输出；启用工作流并发配置时可并行运行多个 item。',
-    tags: ['system-seed', 'node', 'iterate', 'iterateImageRun', 'image'],
+      'iterateImageRun 是图像逐项运行控制节点。执行调度器会按 item1、item2... 端口顺序收集图片输入，并会展开图片数组，为每张有效图片创建一次下游段执行，在该次执行中把当前项作为 image 输出；启用工作流并发配置时可并行运行多个 item。常用于逐帧生成分镜图。',
+    tags: ['system-seed', 'node', 'iterate', 'iterateImageRun', 'image', '逐项', '批量', '分镜', '逐帧', '每个图片'],
     structured: {
       nodeType: 'iterateImageRun',
       category: 'iterate',
       maturity: 'stable',
       inputs: [{ id: 'item', type: 'image', required: false, multiple: true }],
       outputs: [{ id: 'image', type: 'image' }],
-      useWhen: ['iterate-image-items', 'batch-image-processing', 'run-downstream-once-per-image'],
+      useWhen: ['iterate-image-items', 'batch-image-processing', 'run-downstream-once-per-image', 'storyboard-frame-iteration', 'batch-image-per-shot'],
       notes: ['这是执行器特殊识别的控制节点，不是普通单次透传节点。', '输入如果是 image[] 会被展开为多次逐项执行。'],
     },
   },

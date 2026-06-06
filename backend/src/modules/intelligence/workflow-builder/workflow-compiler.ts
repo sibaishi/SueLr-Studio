@@ -68,6 +68,8 @@ function buildPrompt(intent: WorkflowIntent, knowledgeItems: CompilerKnowledgeIt
   let basePrompt = '';
   if (intent.domain === 'chat-text') {
     basePrompt = '根据用户输入完成文本任务：回答问题、总结、改写、翻译或生成文案。要求结构清晰、直接可用。';
+  } else if (intent.domain === 'storyboard-image') {
+    basePrompt = '你是分镜导演。把用户脚本拆成连续镜头，每行一个镜头。每行包含画面主体、景别、动作、构图、光线、情绪，不要输出解释。';
   } else if (intent.domain === 'video-generation') {
     basePrompt = '根据用户的视频需求生成适合视频模型的提示词：主体清晰、镜头运动明确、节奏稳定、画面连续。';
   } else if (intent.domain === 'ecommerce-image') {
@@ -177,6 +179,7 @@ function wantsComplexAssetPack(intent: WorkflowIntent) {
 
 function wantsBatchStoryboard(intent: WorkflowIntent) {
   if (intent.domain === 'chat-text') return false;
+  if (intent.domain === 'storyboard-image') return true;
   return includesText(intent.sourceText, [
     '逐项',
     '批量',
@@ -368,6 +371,28 @@ export function compileWorkflowDraft(
 
   if (wantsBatchStoryboard(intent)) {
     return compileBatchStoryboard(intent, draft, options);
+  }
+
+  if (intent.domain === 'plain-text') {
+    const nodes = [
+      node('plain_text', 'textInput', 80, 160, {
+        text: intent.goal,
+      }),
+      node('plain_output', 'output', 460, 200),
+    ];
+    const edges = [edge('text-to-output', 'plain_text', 'text', 'plain_output', 'content')];
+    return normalizePersistedWorkflow(
+      {
+        id: `draft_${draft.id}`,
+        name: draft.name,
+        description: draft.description,
+        nodes,
+        edges,
+        settings: {},
+        metadata: buildMetadata(intent, draft),
+      },
+      { preserveCreatedAt: false, scope: options.scope },
+    );
   }
 
   if (intent.domain === 'chat-text') {
