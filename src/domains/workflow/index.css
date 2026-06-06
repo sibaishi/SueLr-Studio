@@ -660,16 +660,29 @@ body {
 .agent-workspace__header {
   position: relative;
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 18px;
+}
+
+.agent-workspace__header-main {
+  display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 14px;
-  padding: 18px 18px 16px;
+  min-width: 0;
 }
 
 .agent-workspace__identity {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 11px;
+}
+
+.agent-workspace__identity > div {
+  min-width: 0;
 }
 
 .agent-workspace__mark,
@@ -716,6 +729,9 @@ body {
   font-size: 18px;
   font-weight: 850;
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agent-workspace__status-pill {
@@ -758,18 +774,19 @@ body {
 .agent-workspace__body {
   min-height: 0;
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
   padding: 16px;
   overflow: hidden;
 }
 
 .agent-workspace__body--engaged {
-  gap: 10px;
+  gap: 0;
 }
 
 .agent-workspace__hero {
+  display: none;
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
@@ -789,8 +806,8 @@ body {
 }
 
 .agent-workspace__hero--engaged {
-  padding: 14px 16px;
-  border-radius: 20px;
+  padding: 10px 12px;
+  border-radius: 16px;
 }
 
 .agent-workspace__hero::after {
@@ -878,14 +895,17 @@ body {
   padding: 6px 10px;
 }
 
+.agent-workspace__panel--engaged .agent-workspace__hero {
+  min-height: 0;
+}
+
 .agent-workspace__panel--engaged .agent-workspace__hero-title,
 .agent-workspace__panel--engaged .agent-workspace__hero-text {
   display: none;
 }
 
 .agent-workspace__panel--engaged .agent-workspace__hero-metrics {
-  margin-top: 0;
-  gap: 8px;
+  display: none;
 }
 
 .agent-workspace__panel--engaged .agent-workspace__metric {
@@ -904,21 +924,23 @@ body {
 }
 
 .agent-workspace__planner {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--color-accent) 20%, var(--color-border));
-  border-radius: 20px;
+  border-radius: 16px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 7%, transparent), transparent 48%),
     color-mix(in srgb, var(--color-bg-secondary) 94%, transparent);
 }
 
+.agent-workspace__planner--header {
+  width: 100%;
+}
+
 .agent-workspace__planner--engaged {
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 230px);
 }
 
 .agent-workspace__planner--empty {
@@ -960,12 +982,8 @@ body {
   font-weight: 850;
 }
 
-.agent-workspace__planner-copy span,
-.agent-workspace__planner-empty {
-  margin-top: 2px;
-  color: var(--color-text-tertiary);
-  font-size: 11px;
-  line-height: 1.4;
+.agent-workspace__planner-copy span {
+  display: none;
 }
 
 .agent-workspace__planner-badge {
@@ -990,7 +1008,7 @@ body {
 .agent-workspace__planner-field {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .agent-workspace__planner-field > span {
@@ -1002,9 +1020,9 @@ body {
 .agent-workspace__planner select {
   width: 100%;
   min-width: 0;
-  height: 40px;
+  height: 34px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--color-bg-primary) 84%, transparent);
   color: var(--color-text-primary);
   padding: 0 12px;
@@ -1019,12 +1037,16 @@ body {
 }
 
 .agent-workspace__planner-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
   margin-top: 0;
   color: var(--color-warning);
   font-weight: 750;
 }
 
 .agent-workspace__planner-context {
+  display: none;
   padding: 12px 13px;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
@@ -1081,11 +1103,12 @@ body {
 }
 
 .agent-workspace__panel--engaged .agent-workspace__planner select {
-  height: 38px;
+  height: 34px;
+  border-radius: 12px;
 }
 
 .agent-workspace__panel--engaged .agent-workspace__planner-context {
-  padding: 10px 12px;
+  display: none;
 }
 
 .agent-workspace__panel--engaged .agent-workspace__planner-context strong {
@@ -1094,8 +1117,8 @@ body {
 }
 
 .agent-workspace__scope {
+  display: none;
   flex-shrink: 0;
-  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
@@ -1138,7 +1161,7 @@ body {
 }
 
 .agent-workspace__scope--engaged {
-  gap: 8px;
+  display: none;
 }
 
 .agent-workspace__panel--engaged .agent-workspace__scope > div {
@@ -1157,7 +1180,6 @@ body {
 
 .agent-workspace__conversation {
   min-height: 0;
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1169,16 +1191,17 @@ body {
 }
 
 .agent-workspace__conversation--engaged {
-  padding-top: 12px;
+  padding: 12px;
+  border-radius: 18px;
 }
 
 .agent-workspace__panel--engaged .agent-workspace__conversation {
-  flex: 1 1 auto;
-  min-height: 280px;
+  min-height: 0;
 }
 
 .agent-workspace__panel--engaged .agent-workspace__messages {
   gap: 12px;
+  min-height: 0;
 }
 
 .agent-workspace__section-heading {
@@ -1242,6 +1265,14 @@ body {
   justify-content: flex-end;
 }
 
+.agent-workspace__message--user .agent-workspace__message-avatar {
+  order: 2;
+}
+
+.agent-workspace__message--user .agent-workspace__message-meta-copy {
+  order: 1;
+}
+
 .agent-workspace__message-avatar {
   flex: 0 0 auto;
   width: 30px;
@@ -1266,17 +1297,17 @@ body {
   color: #fff;
 }
 
-.agent-workspace__message--user .agent-workspace__message-avatar {
-  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg-primary));
-  color: var(--color-accent);
-}
-
 .agent-workspace__message-meta-copy {
   min-width: 0;
 }
 
 .agent-workspace__message--user .agent-workspace__message-meta-copy {
   text-align: right;
+}
+
+.agent-workspace__message--user .agent-workspace__message-avatar {
+  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg-primary));
+  color: var(--color-accent);
 }
 
 .agent-workspace__message-meta-copy strong,
@@ -1652,14 +1683,21 @@ body {
   }
 
   .agent-workspace__header {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .agent-workspace__header-main {
+    flex-wrap: nowrap;
+    gap: 10px;
   }
 
   .agent-workspace__status-pill {
-    order: 3;
-    width: 100%;
+    order: initial;
+    width: auto;
     justify-content: center;
-    margin-left: 0;
+    margin-left: auto;
   }
 
   .agent-workspace__icon-button {
@@ -1673,11 +1711,30 @@ body {
   }
 
   .agent-workspace__composer {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 46px;
+    gap: 10px;
   }
 
   .agent-workspace__composer button {
-    width: 100%;
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+  }
+
+  .agent-workspace__body--engaged {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .agent-workspace__panel--engaged .agent-workspace__hero {
+    display: none;
+  }
+
+  .agent-workspace__planner--engaged {
+    grid-template-columns: minmax(0, 1fr) minmax(138px, 170px);
+  }
+
+  .agent-workspace__planner {
+    grid-template-columns: minmax(0, 1fr) minmax(138px, 170px);
   }
 
   .agent-workspace__panel--engaged .agent-workspace__scope > div span {

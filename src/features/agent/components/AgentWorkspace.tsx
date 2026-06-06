@@ -708,56 +708,26 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
       <div className={`agent-workspace__panel ${hasUserStartedConversation ? 'agent-workspace__panel--engaged' : ''}`}>
         <div className="agent-workspace__panel-glow" aria-hidden="true" />
         <header className="agent-workspace__header">
-          <div className="agent-workspace__identity">
-            <span className="agent-workspace__mark">
-              <Bot size={18} />
-            </span>
-            <div>
-              <div className="agent-workspace__eyebrow">Project Agent</div>
-              <div className="agent-workspace__title">工作流协作台</div>
-            </div>
-          </div>
-          <div className={`agent-workspace__status-pill agent-workspace__status-pill--${workspaceStatusTone}`}>
-            <Sparkles size={13} />
-            <span>{workspaceStatus}</span>
-          </div>
-          <button type="button" className="agent-workspace__icon-button" onClick={onClose} aria-label="关闭 Agent">
-            <X size={17} />
-          </button>
-        </header>
-
-        <div className={`agent-workspace__body ${hasUserStartedConversation ? 'agent-workspace__body--engaged' : ''}`}>
-          <section
-            className={`agent-workspace__hero ${hasUserStartedConversation ? 'agent-workspace__hero--engaged' : ''}`}
-          >
-            <div className="agent-workspace__hero-copy">
-              <div className="agent-workspace__hero-badge">
-                <Sparkles size={14} />
-                <span>需求理解 · 草案生成 · 应用确认</span>
-              </div>
-              <h2 className="agent-workspace__hero-title">把一句需求，整理成可编辑工作流</h2>
-              <p className="agent-workspace__hero-text">
-                你只需要说明目标、素材和期望产物，Agent 会先规划，再生成草案，并在关键动作前向你确认。
-              </p>
-              <div className="agent-workspace__hero-metrics">
-                <div className="agent-workspace__metric">
-                  <span>当前状态</span>
-                  <strong>{workspaceStatus}</strong>
-                </div>
-                <div className="agent-workspace__metric">
-                  <span>当前画布</span>
-                  <strong>{activeCanvasLabel}</strong>
-                </div>
-                <div className="agent-workspace__metric">
-                  <span>最近产物</span>
-                  <strong>{latestDeliverableLabel}</strong>
-                </div>
+          <div className="agent-workspace__header-main">
+            <div className="agent-workspace__identity">
+              <span className="agent-workspace__mark">
+                <Bot size={18} />
+              </span>
+              <div>
+                <div className="agent-workspace__eyebrow">Project Agent</div>
+                <div className="agent-workspace__title">工作流协作台</div>
               </div>
             </div>
-          </section>
-
+            <div className={`agent-workspace__status-pill agent-workspace__status-pill--${workspaceStatusTone}`}>
+              <Sparkles size={13} />
+              <span>{workspaceStatus}</span>
+            </div>
+            <button type="button" className="agent-workspace__icon-button" onClick={onClose} aria-label="关闭 Agent">
+              <X size={17} />
+            </button>
+          </div>
           <section
-            className={`agent-workspace__planner ${hasPlannerModel ? '' : 'agent-workspace__planner--empty'} ${hasUserStartedConversation ? 'agent-workspace__planner--engaged' : ''}`}
+            className={`agent-workspace__planner agent-workspace__planner--header ${hasPlannerModel ? '' : 'agent-workspace__planner--empty'}`}
           >
             <div className="agent-workspace__planner-head">
               <div className="agent-workspace__planner-copy">
@@ -798,6 +768,37 @@ export default function AgentWorkspace({ open, onClose, onOpenWorkflow, plannerM
               <span>关联上下文</span>
               <strong>{activeCanvasLabel}</strong>
               <small>{workflowContext.runId ? `最近运行：${workflowContext.runId}` : '还没有可复用的运行上下文'}</small>
+            </div>
+          </section>
+        </header>
+
+        <div className={`agent-workspace__body ${hasUserStartedConversation ? 'agent-workspace__body--engaged' : ''}`}>
+          <section
+            className={`agent-workspace__hero ${hasUserStartedConversation ? 'agent-workspace__hero--engaged' : ''}`}
+          >
+            <div className="agent-workspace__hero-copy">
+              <div className="agent-workspace__hero-badge">
+                <Sparkles size={14} />
+                <span>需求理解 · 草案生成 · 应用确认</span>
+              </div>
+              <h2 className="agent-workspace__hero-title">把一句需求，整理成可编辑工作流</h2>
+              <p className="agent-workspace__hero-text">
+                你只需要说明目标、素材和期望产物，Agent 会先规划，再生成草案，并在关键动作前向你确认。
+              </p>
+              <div className="agent-workspace__hero-metrics">
+                <div className="agent-workspace__metric">
+                  <span>当前状态</span>
+                  <strong>{workspaceStatus}</strong>
+                </div>
+                <div className="agent-workspace__metric">
+                  <span>当前画布</span>
+                  <strong>{activeCanvasLabel}</strong>
+                </div>
+                <div className="agent-workspace__metric">
+                  <span>最近产物</span>
+                  <strong>{latestDeliverableLabel}</strong>
+                </div>
+              </div>
             </div>
           </section>
 
