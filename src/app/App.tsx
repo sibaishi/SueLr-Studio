@@ -1,11 +1,11 @@
 import { LoginGate } from '@/app/auth/LoginGate';
 import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
 import { DesktopSidebar } from '@/app/navigation/Navigation';
+import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
 import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { saveActiveRunSnapshot } from '@/domains/workflow/lib/store/persistence';
 import { AgentWorkspace } from '@/features/agent';
-import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
 import { useStudioSettingsState } from '@/features/settings';
 import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
@@ -36,9 +36,12 @@ const FirstRunOnboarding = lazy(() =>
 
 function panelDisplayStyle(active: boolean) {
   return {
+    flex: '1 1 auto',
     overflow: 'hidden',
     position: active ? 'relative' : 'absolute',
     inset: active ? 'auto' : 0,
+    minWidth: 0,
+    minHeight: 0,
     opacity: active ? 1 : 0,
     pointerEvents: active ? 'auto' : 'none',
     transition: active ? 'opacity 0.25s ease' : 'opacity 0.2s ease, visibility 0s 0.25s',
@@ -324,7 +327,16 @@ export default function App() {
               collapsed={sidebarCollapsed}
               onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
             />
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', position: 'relative' }}>
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                minWidth: 0,
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
               <div style={chatPanelStyle}>
                 {visitedTabs.has('chat') && (
                   <ErrorBoundary>

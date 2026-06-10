@@ -6,6 +6,7 @@ import { resolveModelRuntime } from '../../engine/helpers/apiConfig.ts';
 import { fileToBase64 } from '../../engine/helpers/fileHelper.ts';
 import { createLogger } from '../logging/logger.ts';
 import { getProviderAdapter } from '../providers/index.ts';
+import type { RequestScope } from '../runtime/request-scope.ts';
 import { assertSafeRemoteDownloadUrl } from '../security/network-guards.ts';
 import { STORAGE_PATHS } from '../storage/index.ts';
 
@@ -36,6 +37,7 @@ interface RuntimeConfig {
   projectModels?: unknown[];
   abortSignal?: AbortSignal;
   persistGeneratedOutputs?: boolean;
+  scope?: RequestScope;
 }
 
 interface VideoMessage {
@@ -328,6 +330,7 @@ function buildArkVideoContent({
 async function buildVideoGenerationPayload(
   prompt: string,
   inputs: VideoGenerationRequest,
+  scope?: RequestScope,
   sendProgress?: ProgressHandler,
 ): Promise<VideoGenerationPayload> {
   const parts: Array<Record<string, unknown>> = [];
@@ -338,7 +341,7 @@ async function buildVideoGenerationPayload(
 
   const images: string[] = [];
   for (const imageUrl of normalizeMediaArray(inputs.reference || inputs.image_url || inputs.image_urls)) {
-    const base64 = await fileToBase64(imageUrl);
+    const base64 = await fileToBase64(imageUrl, { scope });
     if (!base64) continue;
     images.push(base64);
     parts.push({ type: 'image_url', image_url: { url: base64 } });
@@ -346,7 +349,7 @@ async function buildVideoGenerationPayload(
 
   const videos: string[] = [];
   for (const videoUrl of normalizeMediaArray(inputs.video || inputs.video_url || inputs.video_urls)) {
-    const base64 = await fileToBase64(videoUrl);
+    const base64 = await fileToBase64(videoUrl, { scope });
     if (!base64) continue;
     videos.push(base64);
     parts.push({ type: 'image_url', image_url: { url: base64 } });
@@ -354,7 +357,7 @@ async function buildVideoGenerationPayload(
 
   const audios: Array<{ data: string; format: string }> = [];
   for (const audioUrl of normalizeMediaArray(inputs.audio || inputs.input_audio || inputs.input_audios)) {
-    const base64 = await fileToBase64(audioUrl);
+    const base64 = await fileToBase64(audioUrl, { scope });
     if (!base64) continue;
     const audioPart = toInputAudioPart(base64);
     audios.push(audioPart.input_audio);
@@ -647,7 +650,7 @@ export async function executeVideoGeneration(
   }
 
   sendProgress?.('正在处理输入素材...');
-  const payload = await buildVideoGenerationPayload(prompt, request, sendProgress);
+  const payload = await buildVideoGenerationPayload(prompt, request, runtimeConfig.scope, sendProgress);
 
   const task = await submitVideoGeneration({
     apiKey,

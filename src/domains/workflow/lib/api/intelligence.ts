@@ -102,22 +102,33 @@ export interface WorkflowDraftAgentContext {
   plannerModel?: WorkflowDraftPlannerModel;
 }
 
+export type AgentPlanToolName =
+  | 'chat.respond'
+  | 'workflow.inspect'
+  | 'workflow.edit'
+  | 'workflow.applyDraft'
+  | 'workflow.createDraft'
+  | 'workflow.execute'
+  | 'workflow.diagnose'
+  | 'workflow.summarizeRun'
+  | 'image.generate'
+  | 'image.edit'
+  | 'image.compare'
+  | 'video.generate'
+  | 'copy.write'
+  | 'prompt.optimize'
+  | 'result.inspect';
+
 export interface AgentPlan {
   id: string;
   source: 'llm' | 'local-fallback' | 'user-approved';
   plannerModel: WorkflowDraftPlannerModel & {
     modelId: string;
   };
+  imageModel?: WorkflowDraftPlannerModel | null;
+  videoModel?: WorkflowDraftPlannerModel | null;
   summary: string;
-  toolName:
-    | 'chat.respond'
-    | 'workflow.inspect'
-    | 'workflow.edit'
-    | 'workflow.applyDraft'
-    | 'workflow.createDraft'
-    | 'workflow.execute'
-    | 'workflow.diagnose'
-    | 'workflow.summarizeRun';
+  toolName: AgentPlanToolName;
   toolInput: {
     input?: string;
     plannerNotes?: string;

@@ -16,6 +16,7 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/domains/workflow/lib/store/selectors';
 import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
+import { AnimatedSvgEdge } from '@/shared/ui/AnimatedSvgEdge';
 import {
   Background,
   BackgroundVariant,
@@ -33,7 +34,6 @@ import {
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
-import { AnimatedSvgEdge } from '@/shared/ui/AnimatedSvgEdge';
 import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
 import { getAbsoluteNodePosition, snapNodeBox } from './flowCanvasClipboard';
 import {
@@ -94,6 +94,33 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     reportViewportCenter();
     window.addEventListener('resize', reportViewportCenter);
     return () => window.removeEventListener('resize', reportViewportCenter);
+  }, [reportViewportCenter]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return undefined;
+
+    let frameId: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        window.dispatchEvent(new Event('resize'));
+        reportViewportCenter();
+      });
+    });
+
+    observer.observe(container);
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      observer.disconnect();
+    };
   }, [reportViewportCenter]);
 
   useEffect(() => {
@@ -195,14 +222,24 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
           return {
             ...edge,
             animated: false,
-            ...(isConnected ? { type: 'animatedSvg' as const, data: { ...(edge.data || {}), flow: true, color: getEdgeDataTypeColor(edge, renderNodeMap) } } : {}),
+            ...(isConnected
+              ? {
+                  type: 'animatedSvg' as const,
+                  data: { ...(edge.data || {}), flow: true, color: getEdgeDataTypeColor(edge, renderNodeMap) },
+                }
+              : {}),
             className: [edge.className, 'workflow-edge-insertion-target'].filter(Boolean).join(' '),
             style: { ...(edge.style || {}), stroke: getEdgeDataTypeColor(edge, renderNodeMap), strokeWidth: 2 },
           };
         }
         if (!isConnected) return edge;
         const typeColor = getEdgeDataTypeColor(edge, renderNodeMap);
-        return { ...edge, type: 'animatedSvg' as const, data: { ...(edge.data || {}), flow: true, color: typeColor }, style: { ...(edge.style || {}), stroke: typeColor } };
+        return {
+          ...edge,
+          type: 'animatedSvg' as const,
+          data: { ...(edge.data || {}), flow: true, color: typeColor },
+          style: { ...(edge.style || {}), stroke: typeColor },
+        };
       }),
       ...previewEdges,
     ];
