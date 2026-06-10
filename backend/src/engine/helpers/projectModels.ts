@@ -233,7 +233,8 @@ export function resolveProjectModelRuntime({
 
   const endpoint = DEFAULT_ENDPOINTS[resolvedCategory as EndpointCategory];
   if (resolvedCategory === 'gemini-generate-content') {
-    return { model, endpoint: `/v1beta/models/${encodeURIComponent(model.modelId)}:generateContent` };
+    const cleanId = String(model.modelId).replace(/^models\//, '');
+    return { model, endpoint: `/v1beta/models/${encodeURIComponent(cleanId)}:generateContent` };
   }
   if (!endpoint) {
     throw new Error(`模型缺少可用接口配置：${modelId}`);
