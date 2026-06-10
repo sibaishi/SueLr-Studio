@@ -81,6 +81,14 @@ test('intelligence routes expose read-only skills and local knowledge baseline',
         'workflow.execute',
         'workflow.diagnose',
         'workflow.summarizeRun',
+        'image.generate',
+        'image.edit',
+        'image.compare',
+        'video.generate',
+        'copy.write',
+        'prompt.optimize',
+        'result.inspect',
+        'asset.package',
       ],
     );
     assert.equal(skills.body.data.find((skill) => skill.id === 'workflow.createDraft')?.sideEffect, 'writeDraft');
@@ -92,9 +100,15 @@ test('intelligence routes expose read-only skills and local knowledge baseline',
       skills.body.data
         .filter(
           (skill) =>
-            !['workflow.applyDraft', 'workflow.execute', 'knowledge.write', 'knowledge.promoteToTemplate'].includes(
-              skill.id,
-            ),
+            ![
+              'workflow.applyDraft',
+              'workflow.execute',
+              'knowledge.write',
+              'knowledge.promoteToTemplate',
+              'image.generate',
+              'image.edit',
+              'video.generate',
+            ].includes(skill.id),
         )
         .every((skill) => skill.requiresApproval === false),
       true,
@@ -2303,7 +2317,7 @@ test('intelligence workflow draft treats storyboard images as image generation, 
 
     assert.equal(response.status, 200);
     assertEnvelopeShape(response.body);
-    assert.equal(response.body.data.intent.domain, 'generic-image');
+    assert.equal(response.body.data.intent.domain, 'storyboard-image');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
       ['textInput', 'aiChat', 'textSplit', 'iterateRun', 'imageGen', 'saveFile', 'output'],
@@ -2999,8 +3013,14 @@ test('intelligence workflow inspect and edit skills summarize the current canvas
     assertEnvelopeShape(edited.body);
     const patch = edited.body.data.skillResults[0].output.patch;
     assert.equal(Array.isArray(patch.operations), true);
-    assert.equal(patch.operations.some((operation) => operation.field === 'n' && operation.to === 6), true);
-    assert.equal(patch.operations.some((operation) => operation.field === 'ratio' && operation.to === '16:9'), true);
+    assert.equal(
+      patch.operations.some((operation) => operation.field === 'n' && operation.to === 6),
+      true,
+    );
+    assert.equal(
+      patch.operations.some((operation) => operation.field === 'ratio' && operation.to === '16:9'),
+      true,
+    );
     assert.equal(
       patch.operations.some((operation) => operation.field === 'output_format' && operation.to === 'png'),
       true,

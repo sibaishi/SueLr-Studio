@@ -862,52 +862,6 @@ export class SkillRegistry {
           const targetConfig = String(input.configId || '')
             ? configs.find((config) => String(config.id || '') === input.configId)
             : undefined;
-          const runtimeConfig = settingsService.buildRuntimeConfig(
-            targetConfig || configs[0] || {},
-            options.scope,
-          );
-          return imagesService.generate(
-            {
-              prompt: String(input.prompt || ''),
-              model: String(input.modelId || input.model || ''),
-              reference: String(input.reference || ''),
-              ...(input.mask ? { mask: input.mask } : {}),
-            },
-            { scope: options.scope },
-          );
-        },
-      },
-      {
-        id: 'image.edit',
-        title: '图片编辑',
-        description: '基于参考图片和提示词进行图生图编辑或局部修改。需要提供 reference 图片 URL 或 base64。',
-        sideEffect: 'execute',
-        requiresApproval: true,
-        inputSchema: {
-          type: 'object',
-          additionalProperties: true,
-          required: ['prompt', 'reference'],
-          properties: {
-            prompt: { type: 'string', minLength: 1, maxLength: 4000 },
-            reference: { type: 'string', minLength: 1, maxLength: 2000 },
-            mask: { type: 'string', maxLength: 2000 },
-            model: { type: 'string', maxLength: 240 },
-            ratio: { type: 'string', maxLength: 80 },
-          },
-        },
-        outputSchema: {
-          type: 'object',
-          properties: {
-            images: { type: 'array' },
-            model: { type: 'string' },
-          },
-        },
-        execute: async (input, options) => {
-          const settings = settingsService.getSettingsResponse(options.scope) as PlainObject;
-          const configs = Array.isArray(settings?.configs) ? (settings.configs as PlainObject[]) : [];
-          const targetConfig = String(input.configId || '')
-            ? configs.find((config) => String(config.id || '') === input.configId)
-            : undefined;
           return imagesService.generate(
             {
               prompt: String(input.prompt || ''),
@@ -955,8 +909,7 @@ export class SkillRegistry {
       {
         id: 'video.generate',
         title: '视频生成',
-        description:
-          '直接调用视频生成模型生成短视频/短片。大规模或批次生成应使用工作流。高消耗工具，需要用户确认。',
+        description: '直接调用视频生成模型生成短视频/短片。大规模或批次生成应使用工作流。高消耗工具，需要用户确认。',
         sideEffect: 'execute',
         requiresApproval: true,
         inputSchema: {
@@ -1002,8 +955,7 @@ export class SkillRegistry {
       {
         id: 'copy.write',
         title: '文案生成',
-        description:
-          '调用对话模型直接生成文案、广告语、标题、卖点等营销文本。不创建或修改工作流。',
+        description: '调用对话模型直接生成文案、广告语、标题、卖点等营销文本。不创建或修改工作流。',
         sideEffect: 'execute',
         requiresApproval: false,
         inputSchema: {
@@ -1029,10 +981,7 @@ export class SkillRegistry {
           const targetConfig = String(input.configId || '')
             ? configs.find((config) => String(config.id || '') === input.configId)
             : undefined;
-          const runtimeConfig = settingsService.buildRuntimeConfig(
-            targetConfig || configs[0] || {},
-            options.scope,
-          );
+          const runtimeConfig = settingsService.buildRuntimeConfig(targetConfig || configs[0] || {}, options.scope);
           const response = await runChatCompletion({
             apiKey: runtimeConfig.apiKey,
             baseUrl: runtimeConfig.baseUrl,
@@ -1064,8 +1013,7 @@ export class SkillRegistry {
       {
         id: 'prompt.optimize',
         title: '提示词优化',
-        description:
-          '用对话模型优化用户输入的图片/视频生成提示词，使其更具体、结构化、适合生成模型。不创建工作流。',
+        description: '用对话模型优化用户输入的图片/视频生成提示词，使其更具体、结构化、适合生成模型。不创建工作流。',
         sideEffect: 'suggest',
         requiresApproval: false,
         inputSchema: {
@@ -1095,10 +1043,7 @@ export class SkillRegistry {
           const targetConfig = String(input.configId || '')
             ? configs.find((config) => String(config.id || '') === input.configId)
             : undefined;
-          const runtimeConfig = settingsService.buildRuntimeConfig(
-            targetConfig || configs[0] || {},
-            options.scope,
-          );
+          const runtimeConfig = settingsService.buildRuntimeConfig(targetConfig || configs[0] || {}, options.scope);
           const targetType = String(input.target || 'general');
           const response = await runChatCompletion({
             apiKey: runtimeConfig.apiKey,
@@ -1173,8 +1118,7 @@ export class SkillRegistry {
       {
         id: 'asset.package',
         title: '素材打包',
-        description:
-          '把多个运行时结果或输出文件打包为 ZIP 下载包。适合收集批量生成的全部图片、文案等产物供一次下载。',
+        description: '把多个运行时结果或输出文件打包为 ZIP 下载包。适合收集批量生成的全部图片、文案等产物供一次下载。',
         sideEffect: 'write',
         requiresApproval: false,
         inputSchema: {
