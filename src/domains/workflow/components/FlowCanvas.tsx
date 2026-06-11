@@ -303,6 +303,11 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
 
   const onNodeDragStop = useCallback<NodeMouseHandler>(
     (_, node) => {
+      if (isNodeLockedWithAncestors(node.id, store.nodes)) {
+        setEdgeInsertionCandidate(null);
+        return;
+      }
+
       const corrected = pushRootNodeOutsideGroupAreas(node as FlowNodeType, renderNodes);
       let snapped = store.snapToGridEnabled ? snapNodeBox(corrected as FlowNodeType) : corrected;
       const parentId = (snapped as FlowNodeType & { parentId?: string }).parentId;

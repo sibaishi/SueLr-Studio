@@ -19,8 +19,8 @@ import { getGroupPorts, isGroupPortEmpty } from '@/domains/workflow/lib/groupPor
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import type { PortDef } from '@/domains/workflow/lib/types';
-import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
+import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
 import { Ban, ChevronDown, ChevronRight, Copy, Lock, Play, Unlock } from 'lucide-react';
 import { type CSSProperties, memo, useEffect, useMemo, useState } from 'react';
 import { NodeContent } from './NodeContent';
@@ -275,10 +275,25 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
             ) : (
               <span className="flow-node__title">{def.label}</span>
             )}
+            <button
+              type="button"
+              className={['flow-node__lock-button', 'nodrag', isDirectlyLocked ? 'flow-node__lock-button--active' : '']
+                .filter(Boolean)
+                .join(' ')}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleNodesLocked([id], !isDirectlyLocked);
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+              title={isDirectlyLocked ? '解锁节点' : '锁定节点'}
+              aria-label={isDirectlyLocked ? '解锁节点' : '锁定节点'}
+            >
+              {isLocked ? <Lock size={14} strokeWidth={2.2} /> : <Unlock size={14} strokeWidth={2.2} />}
+            </button>
             {isGroupNode && (
               <button
                 type="button"
-                className="flow-node__collapse-button"
+                className="flow-node__collapse-button nodrag"
                 onClick={(event) => {
                   event.stopPropagation();
                   toggleGroupCollapsed(id);

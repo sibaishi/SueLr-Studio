@@ -7,6 +7,7 @@ import {
   getGroupPorts,
   parseGroupHandleId,
 } from '@/domains/workflow/lib/groupPorts';
+import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import { getVisibleCollapsedAncestorId } from './flowCanvasConnections';
 import { DEFAULT_WORKFLOW_EDGE_STYLE, getDecoratedGroupEdge, getNearestGroupAncestorId } from './flowCanvasUiHelpers';
@@ -57,6 +58,7 @@ export function buildFlowCanvasRenderModel({ nodes, edges }: BuildFlowCanvasRend
 
       return {
         ...node,
+        draggable: !isNodeLockedWithAncestors(node.id, nodes),
         zIndex: node.type === 'group' ? 0 : 1,
         style: {
           ...(node.style || {}),
