@@ -2,10 +2,9 @@
 
 ## Overview
 
-SueLr Studio is a local-first multimodal studio with four main work areas:
+SueLr Studio is a local-first multimodal studio with three main work areas:
 
 - `Chat`: talk to configured chat models, attach files, and reuse generated assets
-- `Image`: submit image generation or edit requests and manage results
 - `Workflow`: build node-based automation flows on a canvas and run them locally
 - `Settings`: configure providers, models, roles, memory, diagnostics, and storage
 
@@ -17,9 +16,8 @@ The app is split into:
 Current product status:
 
 - Chat is available
-- Image generation is available
+- Image and video generation are available through Chat, Agent, and Workflow tools
 - Workflow is available
-- Video UI is retained, but video capability is still a reserved or incomplete area
 
 ## Install
 
@@ -133,7 +131,7 @@ Default local addresses:
 
 ### 1. First-time setup
 
-On first launch, the onboarding page only saves connection info and discovers remote models. It does not auto-enable those models for Chat, Image, Video, or Workflow use.
+On first launch, the onboarding page only saves connection info and discovers remote models. It does not auto-enable those models for Chat, Agent, or Workflow use.
 
 After onboarding, open `Settings` and complete this order:
 
@@ -175,27 +173,7 @@ Typical flow:
 4. Enter your message
 5. Submit and continue the thread
 
-### 3. Use Image
-
-In `Image`, you can:
-
-- choose an image model
-- enter prompt text
-- switch between text-to-image and reference or edit-style flows
-- control size, ratio, quality, count, and output format
-- preview and download results
-- send results back into chat
-
-Typical flow:
-
-1. Open `Image`
-2. Choose a model
-3. Enter prompt text
-4. Add reference image if needed
-5. Submit generation
-6. Review results in the gallery and task area
-
-### 4. Use Workflow
+### 3. Use Workflow
 
 `Workflow` is the canvas-based automation studio.
 
@@ -327,7 +305,7 @@ What gets stored there:
 
 Generated media is organized under the app data root:
 
-- `files/generated/images/`: raw image-generation outputs from Image, Chat tool calls, and workflow image generation
+- `files/generated/images/`: raw image-generation outputs from Chat, Agent, and workflow image generation
 - `files/generated/videos/`: raw synchronous or downloaded video-generation outputs from tool/workflow execution
 - `files/generated/assistant-images/`: images explicitly saved into the Chat/assistant gallery
 - `files/generated/assistant-videos/`: videos explicitly saved into the Chat/assistant video gallery

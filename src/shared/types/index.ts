@@ -1,11 +1,8 @@
 import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 import type { ProviderConfig } from '@/shared/providers/provider-config';
 
-export type ImageMode = 'standalone' | 'chat';
-export type Tab = 'chat' | 'image' | 'video' | 'workflow' | 'settings';
+export type Tab = 'chat' | 'workflow' | 'settings';
 export type ThemeMode = 'dark' | 'light' | 'system';
-export type TaskStatus = 'queued' | 'processing' | 'done' | 'failed' | 'cancelled';
-export type VideoStatus = '提交中' | '处理中' | '已完成' | '失败' | '已取消';
 
 export interface ModelInfo {
   id: string;
@@ -69,33 +66,6 @@ export interface Conv {
   ts: number;
 }
 
-export interface ImageGenerateParams {
-  prompt: string;
-  model: string;
-  imageMode?: ImageMode;
-  ratio: string;
-  width?: number;
-  height?: number;
-  quality?: 'low' | 'medium' | 'high' | 'auto';
-  resolution?: 'auto' | '512px' | '1k' | '2k' | '4k';
-  n?: number;
-  output_format?: 'png' | 'jpeg' | 'webp';
-  image?: string[];
-  mask?: string;
-  effectiveSize?: string;
-  sizeSource?: 'auto' | 'ratio' | 'dimensions';
-}
-
-export interface ImgTask extends ImageGenerateParams {
-  id: string;
-  refImages: string[];
-  status: TaskStatus;
-  images: string[];
-  error?: string;
-  ts: number;
-  configId?: string;
-}
-
 export interface GalleryItem {
   id: string;
   url: string;
@@ -103,20 +73,6 @@ export interface GalleryItem {
   prompt: string;
   model: string;
   ts: number;
-}
-
-export interface VTask {
-  id: string;
-  taskId: string;
-  status: VideoStatus;
-  prompt: string;
-  model: string;
-  params: string;
-  videoUrl?: string;
-  error?: string;
-  ts: number;
-  updatedAt?: number;
-  configId?: string;
 }
 
 export interface LogEntry {

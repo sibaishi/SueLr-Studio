@@ -25,10 +25,10 @@ Frontend:
 src/features/agent/       global Agent
 src/domains/workflow/     workflow domain
 src/domains/chat/         chat domain
-src/domains/image/        image domain
-src/domains/video/        video domain
 src/features/settings/    settings
 ```
+
+Image and video generation are capabilities exposed through Chat, Agent, and Workflow tools, not standalone frontend page domains.
 
 Do not put domain-specific UI under `src/components/`.
 

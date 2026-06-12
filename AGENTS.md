@@ -15,8 +15,6 @@ SueLr-Studio: Electron 41 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4.
 | Directory | Purpose |
 | --- | --- |
 | `src/domains/chat/` | Chat features |
-| `src/domains/image/` | Image features |
-| `src/domains/video/` | Video features |
 | `src/domains/workflow/` | Workflow features |
 | `src/features/` | Cross-domain features only. Current durable home: `src/features/settings/` |
 | `src/components/` | Shared UI only. No domain-specific components |

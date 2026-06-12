@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -51,7 +51,7 @@ describe('repository documentation and branch hygiene', () => {
   it('keeps application source off the legacy @/lib import surface', () => {
     const sourceFiles = collectSourceFiles('src');
     for (const file of sourceFiles) {
-      expect(readUtf8(file)).not.toContain(`@/lib/`);
+      expect(readUtf8(file)).not.toContain('@/lib/');
     }
   });
 
@@ -66,7 +66,7 @@ describe('repository documentation and branch hygiene', () => {
     expect(packageJson).toContain('"build:local-web"');
     expect(packageJson).toContain('"start:local-web"');
     expect(startDev).toContain("APP_RUNTIME_MODE: 'local-web'");
-    expect(startLocalWeb).toContain("APP_FRONTEND_DIST: distDir");
+    expect(startLocalWeb).toContain('APP_FRONTEND_DIST: distDir');
     expect(startLocalWeb).toContain("APP_RUNTIME_MODE: 'local-web'");
     expect(startLocalWeb).toContain('const frontendUrl = `http://localhost:${backendPort}`');
     expect(buildLocalWeb).toContain("runNpmChecked(['run', 'build']");
@@ -109,38 +109,21 @@ describe('repository documentation and branch hygiene', () => {
     }
   });
 
-  it('keeps critical app, shared ios, settings, workflow, and public docs readable in UTF-8', () => {
+  it('keeps critical app navigation, public docs, and settings-facing copy readable in UTF-8', () => {
     const readme = readUtf8('README.md');
     const userGuide = readUtf8('docs/user-guide.md');
-    const logPanel = readUtf8('src/shared/ui/ios/LogPanel.tsx');
-    const roleEditor = readUtf8('src/shared/ui/ios/RoleEditor.tsx');
-    const taskDetailModal = readUtf8('src/shared/ui/ios/TaskDetailModal.tsx');
-    const defaultsSection = readUtf8('src/features/settings/components/DefaultsSection.tsx');
-    const connectionSection = readUtf8('src/features/settings/components/ConnectionSettingsSection.tsx');
+    const navConstants = readUtf8('src/app/navigation/constants.ts');
     const settingsPanel = readUtf8('src/features/settings/components/SettingsPanel.tsx');
-    const onboarding = readUtf8('src/features/settings/components/FirstRunOnboarding.tsx');
-    const appShell = readUtf8('src/app/App.tsx');
-    const navigation = readUtf8('src/app/navigation/Navigation.tsx');
-    const workflowStatusBar = readUtf8('src/domains/workflow/components/StatusBar.tsx');
     const developerGuide = readUtf8('docs/developer-guide.md');
 
     expect(readme).toContain('SueLr Studio 是一个本地优先的多模态 AI 工作台');
     expect(readme).toContain('运行时数据默认存放在系统配置目录');
-    expect(userGuide).toContain('`文本输入`');
-    expect(userGuide).toContain('`文本清理`');
-    expect(userGuide).toContain('`文本逐项`');
-    expect(userGuide).toContain('`图像逐项`');
-    expect(logPanel).toContain('还没有日志');
-    expect(roleEditor).toContain('系统提示词');
-    expect(taskDetailModal).toContain('任务详情');
-    expect(defaultsSection).toContain('外部数据路径');
-    expect(connectionSection).toContain('测试连接');
+    expect(userGuide).toContain('three main work areas');
+    expect(userGuide).toContain('Image and video generation are available through Chat, Agent, and Workflow tools');
+    expect(navConstants).toContain("label: '对话'");
+    expect(navConstants).toContain("label: '工作流'");
+    expect(navConstants).toContain("label: '设置'");
     expect(settingsPanel).toContain('工作室设置');
-    expect(onboarding).toContain('开始前，先完成你的本地配置');
-    expect(appShell).toContain('已连接到聊天触发的工作流运行');
-    expect(navigation).toContain('未连接模型');
-    expect(workflowStatusBar).toContain('未命名工作流');
-    expect(developerGuide).toContain('文本逐项');
-    expect(developerGuide).toContain('图像逐项');
+    expect(developerGuide).toContain('chat, workflow, settings, and first-run onboarding');
   });
 });

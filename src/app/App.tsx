@@ -19,8 +19,6 @@ import { useThemeState } from './theme/useThemeState';
 import '@/domains/workflow/index.css';
 
 const ChatPanel = lazy(() => import('@/domains/chat').then((module) => ({ default: module.ChatPanel })));
-const ImagePanel = lazy(() => import('@/domains/image').then((module) => ({ default: module.ImagePanel })));
-const VideoPanel = lazy(() => import('@/domains/video').then((module) => ({ default: module.VideoPanel })));
 const WorkflowPage = lazy(() => import('@/domains/workflow/App'));
 const SettingsPanel = lazy(() =>
   import('@/features/settings/components/SettingsPanel').then((module) => ({ default: module.SettingsPanel })),
@@ -127,22 +125,14 @@ export default function App() {
     setWorkflowErrorMessage: () => {},
   });
   const [chatBusy, setChatBusy] = useState(false);
-  const [imageBusy, setImageBusy] = useState(false);
-  const [videoBusy, setVideoBusy] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => localStorage.getItem('suelr_onboarding_dismissed') === 'true',
   );
   const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<Tab>>(() => new Set([tab]));
-  const projectBusy = workflowBusy || chatBusy || imageBusy || videoBusy;
+  const projectBusy = workflowBusy || chatBusy;
 
-  const {
-    bootstrapError,
-    bootstrapMode,
-    runtimeCapabilities,
-    splashFading,
-    splashHidden,
-  } = useAppBootstrap({
+  const { bootstrapError, bootstrapMode, runtimeCapabilities, splashFading, splashHidden } = useAppBootstrap({
     hydratedRef,
     setSidebarCollapsed,
     setTab,
@@ -161,8 +151,6 @@ export default function App() {
   const showBootstrapBlocker = Boolean(splashHidden && !canEnterWorkspace);
   const showOnboarding = canEnterWorkspace && splashHidden && !hasUsableConfig && !onboardingDismissed;
   const chatPanelStyle = panelDisplayStyle(tab === 'chat');
-  const imagePanelStyle = panelDisplayStyle(tab === 'image');
-  const videoPanelStyle = panelDisplayStyle(tab === 'video');
   const workflowPanelStyle = panelDisplayStyle(tab === 'workflow');
   const settingsPanelStyle = panelDisplayStyle(tab === 'settings');
 
@@ -320,52 +308,6 @@ export default function App() {
                         searchMemories={memory.searchMemories}
                         onBusyChange={setChatBusy}
                         onOpenWorkflowRun={handleOpenWorkflowRun}
-                      />
-                    </Suspense>
-                  </ErrorBoundary>
-                )}
-              </div>
-              <div style={imagePanelStyle}>
-                {visitedTabs.has('image') && (
-                  <ErrorBoundary>
-                    <Suspense fallback={<WorkspaceLoading />}>
-                      <ImagePanel
-                        base={settings.base}
-                        apiKey={settings.apiKey}
-                        apiConfigs={settings.apiConfigs}
-                        models={settings.configuredProjectModels}
-                        addLog={settings.addLog}
-                        bridgeRef={bridgeRef}
-                        onAddToChat={(urls: string[]) => {
-                          bridgeRef.current.addToChatPending(urls);
-                          setTab('chat');
-                        }}
-                        providerConfig={settings.providerConfig}
-                        imageStreamingMode={settings.imageStreamingMode}
-                        onBusyChange={setImageBusy}
-                      />
-                    </Suspense>
-                  </ErrorBoundary>
-                )}
-              </div>
-              <div style={videoPanelStyle}>
-                {visitedTabs.has('video') && (
-                  <ErrorBoundary>
-                    <Suspense fallback={<WorkspaceLoading />}>
-                      <VideoPanel
-                        base={settings.base}
-                        apiKey={settings.apiKey}
-                        apiConfigs={settings.apiConfigs}
-                        models={settings.configuredProjectModels}
-                        addLog={settings.addLog}
-                        bridgeRef={bridgeRef}
-                        onAddToChat={(_prompt: string, videoUrl?: string) => {
-                          if (videoUrl) bridgeRef.current.addToChatPending([videoUrl]);
-                          setTab('chat');
-                        }}
-                        providerConfig={settings.providerConfig}
-                        videoStreamingMode={settings.videoStreamingMode}
-                        onBusyChange={setVideoBusy}
                       />
                     </Suspense>
                   </ErrorBoundary>

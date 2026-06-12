@@ -11,7 +11,7 @@ SueLr Studio is a local-first multimodal workspace made of:
 The current architecture goal is clear ownership:
 
 - `src/app/` owns shell bootstrapping and top-level navigation
-- `src/domains/` owns domain product surfaces such as chat, image, video, and workflow
+- `src/domains/` owns domain product surfaces such as chat and workflow
 - `src/features/` owns cross-domain product surfaces, currently centered on settings
 - `src/providers/` owns React context providers
 - `src/shared/` owns reusable UI, hooks, API clients, provider adapters, runtime helpers, and workflow infrastructure
@@ -115,20 +115,6 @@ Current cleanup and ownership notes:
   - chat page surface
 - `src/domains/chat/hooks/useChat.ts`
   - chat request lifecycle, attachments, and transcript state
-
-### Image
-
-- `src/domains/image/components/ImagePanel.tsx`
-  - image generation page surface
-- `src/domains/image/hooks/useImageGen.ts`
-  - image request lifecycle, prompt state, uploads, and result handling
-
-### Video
-
-- `src/domains/video/components/VideoPanel.tsx`
-  - retained video UI surface
-- `src/domains/video/hooks/useVideoGen.ts`
-  - current video request orchestration helpers
 
 ### Settings
 
@@ -245,7 +231,7 @@ Current cleanup and ownership notes:
 - `src/shared/runtime/`
   - shared browser/runtime helpers such as file/image conversion, task polling, and runtime mode contracts
 - `src/shared/types/`
-  - shared frontend contracts such as API config, models, chat messages, tasks, tabs, and theme types
+  - shared frontend contracts such as API config, models, chat messages, tabs, and theme types
 - `src/shared/ui/ios/index.ts`
   - shared iOS-style UI exports
 - `src/shared/ui/workbench/MediaWorkbench.tsx`
@@ -290,7 +276,7 @@ Do not add backend-local copies of the Architect allowlist, validator port map, 
 
 The main app shell in `src/app/App.tsx` lazy-loads top-level product surfaces:
 
-- chat, image, video, workflow, settings, and first-run onboarding are loaded through `React.lazy`
+- chat, workflow, settings, and first-run onboarding are loaded through `React.lazy`
 - a tab is mounted only after it has been visited, then remains mounted while hidden so local page state survives tab switches
 - workflow CSS stays imported by the app shell because it is a shared canvas styling dependency
 
@@ -445,7 +431,7 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
 
 The active app data root owns runtime files. Under that root, generated media uses these canonical directories:
 
-- `files/generated/images/`: raw outputs from image generation, including Image page, Chat `generate_image`, and workflow `imageGen`
+- `files/generated/images/`: raw outputs from image generation, including Chat `generate_image`, Agent, and workflow `imageGen`
 - `files/generated/videos/`: raw video outputs produced synchronously or downloaded by `executeVideoGeneration`
 - `files/generated/assistant-images/`: assets explicitly saved into the Chat/assistant image gallery
 - `files/generated/assistant-videos/`: assets explicitly saved into the Chat/assistant video gallery

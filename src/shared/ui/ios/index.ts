@@ -16,7 +16,6 @@ export { RoleIcon } from './RoleIcon';
 export { LogPanel } from './LogPanel';
 export { ModelCategoryList } from './ModelCategoryList';
 export { RefImageList } from './RefImageList';
-export { TaskDetailModal } from './TaskDetailModal';
 export { RoleSelector } from './RoleSelector';
 export { RoleEditor } from './RoleEditor';
 export { CustomDropdown } from './CustomDropdown';

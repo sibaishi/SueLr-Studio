@@ -28,6 +28,11 @@ function mapLegacyStreamingMode(value: unknown): StreamMode {
   return value === 'real' || value === 'stream' ? 'stream' : 'non-stream';
 }
 
+function normalizeTab(value: unknown): Tab {
+  if (value === 'chat' || value === 'workflow' || value === 'settings') return value;
+  return 'chat';
+}
+
 function buildStudioSettingsPayload(params: {
   activeConfigId: string;
   apiConfigs: ApiConfig[];
@@ -141,7 +146,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
         if (loadedSettings.workflow?.concurrency) {
           params.settings.setWorkflowConcurrency(loadedSettings.workflow.concurrency);
         }
-        if (loadedSettings.ui?.lastTab) params.setTab(loadedSettings.ui.lastTab as Tab);
+        if (loadedSettings.ui?.lastTab) params.setTab(normalizeTab(loadedSettings.ui.lastTab));
         if (typeof loadedSettings.ui?.sidebarCollapsed === 'boolean') {
           params.setSidebarCollapsed(loadedSettings.ui.sidebarCollapsed);
         }
