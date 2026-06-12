@@ -427,9 +427,12 @@ test.describe('studio smoke', () => {
   });
 
 
-  test('settings keeps account details module in local runtime mode', async ({ page }) => {
+  test('settings exposes the reorganized primary modules', async ({ page }) => {
     await clearLocalState(page);
-    await expect(page.getByTestId('settings-module-account_details')).toBeVisible();
+    await expect(page.getByTestId('settings-module-overview')).toBeVisible();
+    await expect(page.getByTestId('settings-module-agent')).toBeVisible();
+    await expect(page.getByTestId('settings-module-workspace')).toBeVisible();
+    await expect(page.getByTestId('settings-module-account_details')).toHaveCount(0);
   });
 
 });

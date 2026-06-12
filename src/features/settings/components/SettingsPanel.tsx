@@ -2,36 +2,34 @@ import { THEME_LABELS } from '@/app/theme/constants';
 import { createImportedProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import {
   checkSettingsServer,
-  clearAccountDetails,
   getBackendStatus,
   getRuntimeCapabilitiesSnapshot,
-  loadAccountDetails,
-  loadAccountDetailsLogs,
   loadClientDownloadDirectoryState,
   loadStorageSettings,
   pickClientDownloadDirectory,
   pickStorageDirectory,
-  refreshAccountDetails,
   resetClientDownloadDirectory,
   resetStorageSettings,
   restartBackendRequest,
-  saveAccountDetails,
   saveStorageSettings,
   useSettingsPanelController,
   waitForBackendReady,
 } from '@/features/settings';
-import type { ClientDownloadDirectoryState, NetworkSearchSettingsPayload, SettingsPanelProps, StorageSettingsPayload } from '@/features/settings';
+import type {
+  ClientDownloadDirectoryState,
+  NetworkSearchSettingsPayload,
+  SettingsPanelProps,
+  StorageSettingsPayload,
+} from '@/features/settings';
 import { loadStudioSettings } from '@/features/settings/api';
-import { apiRequest } from '@/shared/api/client';
-import { getRuntimeCapabilities } from '@/shared/api/capabilities';
-import { setCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import { useT } from '@/providers/ThemeContext';
 import { useToast } from '@/providers/ToastContext';
+import { getRuntimeCapabilities } from '@/shared/api/capabilities';
+import { apiRequest } from '@/shared/api/client';
+import { setCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
-import { LogPanel } from '@/shared/ui/ios';
-import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, Wallet } from 'lucide-react';
+import { Bot, CircleDot, Database, Gauge, KeyRound, Layers3 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccountDetailsSection } from './AccountDetailsSection';
 import { AgentPersonaSection } from './AgentPersonaSection';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
 import { DefaultsSection } from './DefaultsSection';
@@ -79,7 +77,7 @@ export function SettingsPanel({
   const [discoveredModels, setDiscoveredModels] = useState<ModelInfo[]>([]);
   const [selectedImports, setSelectedImports] = useState<string[]>([]);
   const [memoryQuery, setMemoryQuery] = useState('');
-  const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>('connection');
+  const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>('overview');
   const [storageSettings, setStorageSettings] = useState<StorageSettingsPayload | null>(null);
   const [storagePathDraft, setStoragePathDraft] = useState('');
   const [storagePathPicking, setStoragePathPicking] = useState(false);
@@ -87,15 +85,6 @@ export function SettingsPanel({
   const [storageSettingsSaving, setStorageSettingsSaving] = useState(false);
   const [clientDownloadDirectory, setClientDownloadDirectory] = useState<ClientDownloadDirectoryState | null>(null);
   const [backendRestarting, setBackendRestarting] = useState(false);
-  const [accountDetails, setAccountDetails] = useState<SettingsViewModel['accountDetails']>(null);
-  const [accountDetailsUsername, setAccountDetailsUsername] = useState('');
-  const [accountDetailsPassword, setAccountDetailsPassword] = useState('');
-  const [accountDetailsLoading, setAccountDetailsLoading] = useState(true);
-  const [accountDetailsSaving, setAccountDetailsSaving] = useState(false);
-  const [accountDetailsRefreshing, setAccountDetailsRefreshing] = useState(false);
-  const [accountDetailsLogs, setAccountDetailsLogs] = useState<SettingsViewModel['accountDetailsLogs']>(null);
-  const [accountDetailsLogsLoading, setAccountDetailsLogsLoading] = useState(false);
-  const [accountDetailsLogsPage, setAccountDetailsLogsPage] = useState(1);
 
   const [networkSearch, setNetworkSearch] = useState<NetworkSearchSettingsPayload>({
     searchEnabled: false,
@@ -191,58 +180,6 @@ export function SettingsPanel({
     };
   }, [addLog]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      setAccountDetailsLoading(true);
-      try {
-        const next = await loadAccountDetails();
-        if (cancelled) return;
-        setAccountDetails(next);
-        setAccountDetailsUsername(next?.username || '');
-      } catch (error) {
-        if (!cancelled) {
-          addLog('error', error instanceof Error ? error.message : String(error));
-        }
-      } finally {
-        if (!cancelled) {
-          setAccountDetailsLoading(false);
-        }
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [addLog]);
-
-  useEffect(() => {
-    if (!accountDetails?.configured) {
-      setAccountDetailsLogs(null);
-      return;
-    }
-
-    let cancelled = false;
-    const load = async () => {
-      setAccountDetailsLogsLoading(true);
-      try {
-        const next = await loadAccountDetailsLogs(accountDetailsLogsPage, 20);
-        if (!cancelled) setAccountDetailsLogs(next);
-      } catch (error) {
-        if (!cancelled) addLog('error', error instanceof Error ? error.message : String(error));
-      } finally {
-        if (!cancelled) setAccountDetailsLogsLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [accountDetails?.configured, accountDetailsLogsPage, addLog]);
-
   // Load network search settings from backend on mount
   useEffect(() => {
     let cancelled = false;
@@ -268,14 +205,19 @@ export function SettingsPanel({
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => () => {
-    if (networkSearchSaveTimer.current) {
-      clearTimeout(networkSearchSaveTimer.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (networkSearchSaveTimer.current) {
+        clearTimeout(networkSearchSaveTimer.current);
+      }
+    },
+    [],
+  );
 
   // Debounced save for network search settings
   const scheduleNetworkSearchSave = (payload: NetworkSearchSettingsPayload) => {
@@ -555,64 +497,15 @@ export function SettingsPanel({
     }
   };
 
-  const saveAccountDetailsAction = async () => {
-    setAccountDetailsSaving(true);
-    try {
-      const next = await saveAccountDetails(accountDetailsUsername.trim(), accountDetailsPassword);
-      setAccountDetails(next);
-      setAccountDetailsUsername(next.username || accountDetailsUsername.trim());
-      setAccountDetailsPassword('');
-      addLog('success', '账号已登录');
-    } catch (error) {
-      addLog('error', error instanceof Error ? error.message : String(error));
-    } finally {
-      setAccountDetailsSaving(false);
-    }
-  };
-
-  const refreshAccountDetailsAction = async () => {
-    setAccountDetailsRefreshing(true);
-    try {
-      const next = await refreshAccountDetails();
-      setAccountDetails(next);
-      setAccountDetailsUsername(next.username || accountDetailsUsername);
-      addLog('success', `账号明细已刷新：${next.balance?.balance ?? '-'}`);
-    } catch (error) {
-      addLog('error', error instanceof Error ? error.message : String(error));
-    } finally {
-      setAccountDetailsRefreshing(false);
-    }
-  };
-
-  const refreshAccountDetailsLogsAction = async () => {
-    setAccountDetailsLogsLoading(true);
-    try {
-      const next = await loadAccountDetailsLogs(accountDetailsLogsPage, 20);
-      setAccountDetailsLogs(next);
-      addLog('success', `调用日志已刷新：${next.items.length} 条`);
-    } catch (error) {
-      addLog('error', error instanceof Error ? error.message : String(error));
-    } finally {
-      setAccountDetailsLogsLoading(false);
-    }
-  };
-
-  const clearAccountDetailsAction = async () => {
-    setAccountDetailsSaving(true);
-    try {
-      const next = await clearAccountDetails();
-      setAccountDetails(next);
-      setAccountDetailsUsername('');
-      setAccountDetailsPassword('');
-      addLog('success', '账号已清除');
-    } catch (error) {
-      addLog('error', error instanceof Error ? error.message : String(error));
-    } finally {
-      setAccountDetailsSaving(false);
-    }
-  };
-
   const modules: SettingsModuleMeta[] = [
+    {
+      id: 'overview',
+      label: '总览',
+      desc: '设置健康度与常用入口',
+      icon: Layers3,
+      accent: T.blue,
+      stat: activeConfig?.name || '默认',
+    },
     {
       id: 'connection',
       label: '连接',
@@ -630,28 +523,20 @@ export function SettingsPanel({
       stat: `${projectModels.length} 项`,
     },
     {
-      id: 'defaults',
-      label: '默认项',
+      id: 'agent',
+      label: 'Agent',
+      desc: 'Persona、记忆与工具身份',
+      icon: Bot,
+      accent: T.purple,
+      stat: `${agentProfiles.length} / ${memories.length}`,
+    },
+    {
+      id: 'workspace',
+      label: '工作室',
       desc: '主题与工作室基础偏好',
       icon: CircleDot,
       accent: T.orange,
       stat: themeMode,
-    },
-    {
-      id: 'agent_persona',
-      label: 'Agent Persona',
-      desc: '统一管理 Profile 身份与指令模板',
-      icon: Bot,
-      accent: T.purple,
-      stat: `${agentProfiles.length} 个`,
-    },
-    {
-      id: 'agent_memory',
-      label: 'Agent Memory',
-      desc: '检索、导出与清理长期记忆',
-      icon: Brain,
-      accent: T.blue,
-      stat: `${memories.length} 条`,
     },
     {
       id: 'diagnostics',
@@ -663,33 +548,10 @@ export function SettingsPanel({
     },
   ];
 
-  if (!isServerRuntime) {
-    modules.splice(2, 0, {
-      id: 'account_details',
-      label: '账号明细',
-      desc: '账号登录、余额与调用日志',
-      icon: Wallet,
-      accent: T.purple,
-      stat: accountDetails?.balance
-        ? accountDetails.balance.balance.toFixed(2)
-        : accountDetails?.configured
-          ? '已配置'
-          : '未配置',
-    });
-  }
-
   const activeModuleMeta = modules.find((module) => module.id === activeModule) || modules[0];
+  const ActiveModuleIcon = activeModuleMeta.icon;
 
   const view: SettingsViewModel = {
-    accountDetails,
-    accountDetailsLoading,
-    accountDetailsPassword,
-    accountDetailsRefreshing,
-    accountDetailsSaving,
-    accountDetailsUsername,
-    accountDetailsLogs,
-    accountDetailsLogsLoading,
-    accountDetailsLogsPage,
     activeConfig,
     activeConfigId,
     activeModule,
@@ -733,7 +595,6 @@ export function SettingsPanel({
     addConfig,
     addLog,
     applyConfig,
-    clearAccountDetails: clearAccountDetailsAction,
     deleteAgentProfile,
     deleteConfig,
     exportMemoriesToFile,
@@ -746,15 +607,9 @@ export function SettingsPanel({
     removeProjectModel,
     resetStoragePath: resetStoragePathAction,
     restartBackend: restartBackendAction,
-    refreshAccountDetails: refreshAccountDetailsAction,
-    refreshAccountDetailsLogs: refreshAccountDetailsLogsAction,
     saveAgentProfile,
-    saveAccountDetails: saveAccountDetailsAction,
     saveStoragePath: saveStoragePathAction,
     setActiveConfigName,
-    setAccountDetailsPassword,
-    setAccountDetailsUsername,
-    setAccountDetailsLogsPage,
     setActiveModule,
     setApiConfigs,
     setApiKey,
@@ -787,12 +642,132 @@ export function SettingsPanel({
   };
 
   const workspaceContent = {
+    overview: (
+      <div className="flex-col" style={{ gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          <div style={{ ...mutedPanelStyle(), padding: 16 }}>
+            <div style={eyebrowStyle()}>连接</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+              {base ? '已接入' : '待配置'}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
+              {activeConfig?.name || '未命名配置'}
+            </div>
+          </div>
+          <div style={{ ...mutedPanelStyle(), padding: 16 }}>
+            <div style={eyebrowStyle()}>模型</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+              {projectModels.length}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>项目模型库条目</div>
+          </div>
+          <div style={{ ...mutedPanelStyle(), padding: 16 }}>
+            <div style={eyebrowStyle()}>Agent</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+              {agentProfiles.length}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
+              Persona，{memories.length} 条记忆
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 0.9fr)', gap: 12 }}>
+          <div style={{ ...mutedPanelStyle(), padding: 18 }}>
+            <div style={eyebrowStyle()}>能力分布</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Chat</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {projectModels.filter((model) => model.type === 'chat' && model.enabled).length}
+                </div>
+              </div>
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Image</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {projectModels.filter((model) => model.type === 'image' && model.enabled).length}
+                </div>
+              </div>
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Video</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {projectModels.filter((model) => model.type === 'video' && model.enabled).length}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ ...mutedPanelStyle(), padding: 18 }}>
+            <div style={eyebrowStyle()}>运行状态</div>
+            <div className="flex-col" style={{ gap: 10, marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>运行模式</span>
+                <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
+                  {runtimeCapabilities?.mode || 'local-web'}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>联网搜索</span>
+                <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
+                  {runtimeCapabilities?.search?.enabled ? '可用' : '未启用'}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>目录选择</span>
+                <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
+                  {canSelectDirectory ? '可用' : '禁用'}
+                </strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ ...mutedPanelStyle(), padding: 18 }}>
+          <div style={eyebrowStyle()}>建议</div>
+          <div className="flex-col" style={{ gap: 10, marginTop: 12 }}>
+            <button
+              type="button"
+              onClick={() => setActiveModule('connection')}
+              style={{ ...mutedPanelStyle(), padding: 14, textAlign: 'left', cursor: 'pointer' }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>检查连接配置</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
+                管理 Provider、鉴权方式、模型端点和联网搜索代理。
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveModule('models')}
+              style={{ ...mutedPanelStyle(), padding: 14, textAlign: 'left', cursor: 'pointer' }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>整理项目模型库</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
+                导入、启用、禁用并标记对话、图像、视频模型能力。
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveModule('agent')}
+              style={{ ...mutedPanelStyle(), padding: 14, textAlign: 'left', cursor: 'pointer' }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>维护 Agent 行为</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
+                在同一模块中管理 Persona 与长期记忆，减少设置入口跳转。
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    ),
     connection: <ConnectionSettingsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
     models: <ModelsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
-    account_details: <AccountDetailsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
-    defaults: <DefaultsSection actions={actions} view={view} />,
-    agent_persona: <AgentPersonaSection actions={actions} view={view} />,
-    agent_memory: <AgentMemorySection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
+    agent: (
+      <div className="flex-col" style={{ gap: 16 }}>
+        <AgentPersonaSection actions={actions} view={view} />
+        <AgentMemorySection T={T as unknown as Record<string, string>} actions={actions} view={view} />
+      </div>
+    ),
+    workspace: <DefaultsSection actions={actions} view={view} />,
     diagnostics: <DiagnosticsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
   }[activeModule];
 
@@ -810,8 +785,11 @@ export function SettingsPanel({
       }}
     >
       <div className="workflow-toolbar glass" style={{ marginBottom: 0 }}>
-        <div className="workflow-toolbar__frame" style={{ alignItems: 'stretch', flexWrap: 'wrap', rowGap: 12 }}>
-          <div className="workflow-toolbar__identity" style={{ minWidth: 220, alignItems: 'flex-start' }}>
+        <div
+          className="workflow-toolbar__frame"
+          style={{ alignItems: 'stretch', flexWrap: 'wrap', gap: 18, padding: '14px 18px', rowGap: 12 }}
+        >
+          <div className="workflow-toolbar__identity" style={{ minWidth: 260, alignItems: 'flex-start' }}>
             <div className="workflow-toolbar__badge">
               <Layers3 size={20} />
             </div>
@@ -821,19 +799,22 @@ export function SettingsPanel({
                 工作室设置
               </div>
               <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                将连接、Persona、Memory 和诊断收拢到统一的 Agent 设置区域中。
+                集中管理连接、模型、Agent、工作室偏好与运行诊断。
               </div>
             </div>
           </div>
 
-          <div className="workflow-toolbar__status" style={{ minWidth: 260, flex: 1, justifyContent: 'space-between' }}>
-            <div>
+          <div
+            className="workflow-toolbar__status"
+            style={{ minWidth: 260, flex: 1, justifyContent: 'space-between', padding: '10px 14px 10px 16px' }}
+          >
+            <div style={{ paddingLeft: 2 }}>
               <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>当前配置</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 4 }}>
                 {activeConfig?.name || '未命名配置'}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', paddingRight: 4 }}>
               <span style={chipStyle(base ? T.green : T.orange)}>{base ? '服务已接入' : '服务待配置'}</span>
               <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
               <span style={chipStyle(runtimeCapabilities?.search?.enabled ? T.purple : undefined)}>
@@ -848,24 +829,34 @@ export function SettingsPanel({
         className="workflow-shell"
         style={{
           display: 'grid',
-          gridTemplateColumns: '260px minmax(0, 1fr) 320px',
+          gridTemplateColumns: 'minmax(240px, 280px) minmax(0, 1fr) minmax(260px, 300px)',
+          gap: 18,
           minHeight: 0,
           flex: 1,
           overflow: 'hidden',
+          padding: '18px 20px 20px',
         }}
       >
         <aside
-          style={{ ...panelStyle(), padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}
+          style={{
+            ...panelStyle(),
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
         >
           <div>
             <div style={eyebrowStyle()}>模块</div>
             <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>导航</h2>
             <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', margin: '8px 0 0' }}>
-              按能力分区浏览统一后的 Agent 设置界面。
+              按能力分区浏览设置，减少在相近模块之间来回跳转。
             </p>
           </div>
 
-          <div className="flex-col" style={{ gap: 10 }}>
+          <div className="flex-col" style={{ gap: 8, flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
             {modules.map((module) => {
               const Icon = module.icon;
               const active = activeModule === module.id;
@@ -877,7 +868,7 @@ export function SettingsPanel({
                   style={{
                     ...mutedPanelStyle(),
                     textAlign: 'left',
-                    padding: 14,
+                    padding: 12,
                     cursor: 'pointer',
                     background: active ? `${module.accent}16` : 'var(--color-bg-secondary)',
                     borderColor: active ? `${module.accent}44` : 'var(--color-border)',
@@ -888,9 +879,9 @@ export function SettingsPanel({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                       <div
                         style={{
-                          width: 34,
-                          height: 34,
-                          flex: '0 0 34px',
+                          width: 32,
+                          height: 32,
+                          flex: '0 0 32px',
                           borderRadius: 12,
                           display: 'flex',
                           alignItems: 'center',
@@ -908,7 +899,7 @@ export function SettingsPanel({
                         <div
                           style={{
                             fontSize: 11,
-                            lineHeight: 1.45,
+                            lineHeight: 1.35,
                             color: 'var(--color-text-secondary)',
                             marginTop: 3,
                             whiteSpace: 'normal',
@@ -928,13 +919,31 @@ export function SettingsPanel({
             })}
           </div>
 
-          <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-            <div style={eyebrowStyle()}>概览</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-              {activeConfig?.name || '未命名配置'}
-            </div>
-            <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              {base || '接口地址尚未配置'}
+          <div style={{ ...mutedPanelStyle(), flex: '0 0 auto', padding: 12 }}>
+            <div style={eyebrowStyle()}>当前模块</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: `${activeModuleMeta.accent}20`,
+                  color: activeModuleMeta.accent,
+                }}
+              >
+                <ActiveModuleIcon size={16} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                  {activeModuleMeta.label}
+                </div>
+                <div style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--color-text-secondary)', marginTop: 3 }}>
+                  {activeModuleMeta.desc}
+                </div>
+              </div>
             </div>
           </div>
         </aside>
@@ -960,17 +969,35 @@ export function SettingsPanel({
           </div>
         </main>
 
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0, overflow: 'auto' }}>
-          <div style={{ ...panelStyle(), padding: 16 }}>
+        <aside style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ ...panelStyle(), padding: 16, flex: 1, minHeight: 0, overflow: 'auto' }}>
             <div style={eyebrowStyle()}>实时概览</div>
             <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>Agent 总览</h2>
-            <div className="flex-col" style={{ gap: 12, marginTop: 14 }}>
+            <div className="flex-col" style={{ gap: 12, marginTop: 14, minHeight: 'calc(100% - 48px)' }}>
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>已配置模型</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
                   {projectModels.length}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>已纳入项目模型库</div>
+              </div>
+
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>当前配置</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {activeConfig?.name || '未命名配置'}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    lineHeight: 1.6,
+                    color: 'var(--color-text-tertiary)',
+                    marginTop: 6,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {base || '接口地址尚未配置'}
+                </div>
               </div>
 
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
@@ -995,14 +1022,72 @@ export function SettingsPanel({
                   </span>
                 </div>
               </div>
+
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>运行能力</div>
+                <div className="flex-col" style={{ gap: 8, marginTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>目录选择器</span>
+                    <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
+                      {canSelectDirectory ? '可用' : '禁用'}
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>后端重启</span>
+                    <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
+                      {canRestartBackend ? '可用' : '禁用'}
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>内置 Shell</span>
+                    <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
+                      {runtimeCapabilities?.hasEmbeddedShell ? '可用' : '禁用'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ ...mutedPanelStyle(), padding: 14, flex: 1, minHeight: 128 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>最近反馈</div>
+                  <span style={chipStyle(logs.length > 0 ? T.green : undefined)}>{logs.length} 条</span>
+                </div>
+                <div className="flex-col" style={{ gap: 8, marginTop: 12 }}>
+                  {logs.slice(-3).map((log, index) => (
+                    <div
+                      key={`${log.time}-${index}`}
+                      style={{
+                        borderTop: index === 0 ? '0' : '1px solid var(--color-border)',
+                        paddingTop: index === 0 ? 0 : 8,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+                        {String(log.level || 'info').toUpperCase()}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                          color: 'var(--color-text-tertiary)',
+                          marginTop: 3,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {log.msg}
+                      </div>
+                    </div>
+                  ))}
+                  {logs.length === 0 && (
+                    <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)' }}>
+                      暂无运行反馈。连接测试、模型导入和后端状态会显示在这里。
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-
-          <LogPanel
-            logs={logs}
-            onClear={onClearLogs}
-            style={{ ...panelStyle(), height: '100%', minHeight: 340, overflow: 'hidden' }}
-          />
         </aside>
       </div>
     </div>

@@ -63,8 +63,6 @@ export function getScopedStoragePaths(
     root,
     configDir: path.join(root, 'config'),
     settingsFile: path.join(root, 'config', 'settings.json'),
-    accountDetailsFile: path.join(root, 'config', 'account-details.json'),
-    legacyAccountDetailsFile: path.join(root, 'config', 'account-6789.json'),
     workflowsDir: path.join(root, 'workflows'),
     assistantDir: path.join(root, 'assistant'),
     conversationsFile: path.join(root, 'assistant', 'conversations.json'),
@@ -115,10 +113,7 @@ export function ensureScopedStorageDirectories(
   return storagePaths;
 }
 
-export function isResourceVisibleForScope(
-  resource: unknown,
-  scope: RequestScope = {},
-): boolean {
+export function isResourceVisibleForScope(resource: unknown, scope: RequestScope = {}): boolean {
   void resource;
   void scope;
   return true;

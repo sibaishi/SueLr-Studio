@@ -1,6 +1,4 @@
 import type {
-  AccountDetailsLogsPayload,
-  AccountDetailsPayload,
   ClientDownloadDirectoryState,
   NetworkSearchSettingsPayload,
   OutboundProxyMode,
@@ -42,7 +40,7 @@ export const MEMORY_MODE_OPTIONS = [
 ] as const;
 
 export type SettingsModuleMeta = {
-  id: 'connection' | 'models' | 'account_details' | 'defaults' | 'agent_persona' | 'agent_memory' | 'diagnostics';
+  id: 'overview' | 'connection' | 'models' | 'agent' | 'workspace' | 'diagnostics';
   label: string;
   desc: string;
   icon: LucideIcon;
@@ -55,7 +53,6 @@ export type SettingsActions = {
   addLog: (level: string, message: string) => void;
   applyConfig: (id: string) => void;
   deleteConfig: (id: string) => void;
-  clearAccountDetails: () => Promise<void>;
   exportMemoriesToFile: () => void;
   importSelectedModels: () => void;
   onClearLogs: () => void;
@@ -65,8 +62,6 @@ export type SettingsActions = {
   deleteAgentProfile: (profileId: string) => Promise<void>;
   saveAgentProfile: (profile: AgentProfile) => Promise<void>;
   setActiveConfigName: (value: string) => void;
-  setAccountDetailsPassword: (value: string) => void;
-  setAccountDetailsUsername: (value: string) => void;
   setActiveModule: (id: SettingsModuleMeta['id']) => void;
   setConnectionApiKey: (value: string) => void;
   setConnectionBase: (value: string) => void;
@@ -86,10 +81,6 @@ export type SettingsActions = {
   saveStoragePath: () => Promise<void>;
   resetStoragePath: () => Promise<void>;
   restartBackend: () => Promise<void>;
-  refreshAccountDetails: () => Promise<void>;
-  refreshAccountDetailsLogs: () => Promise<void>;
-  saveAccountDetails: () => Promise<void>;
-  setAccountDetailsLogsPage: (value: number) => void;
   setBase: (value: string) => void;
   setApiKey: (value: string) => void;
   setModels: (models: ModelInfo[]) => void;
@@ -109,21 +100,12 @@ export type SettingsActions = {
 
 export type SettingsViewModel = {
   activeConfig?: ApiConfig;
-  accountDetails: AccountDetailsPayload | null;
-  accountDetailsLoading: boolean;
-  accountDetailsSaving: boolean;
-  accountDetailsRefreshing: boolean;
-  accountDetailsLogs: AccountDetailsLogsPayload | null;
-  accountDetailsLogsLoading: boolean;
-  accountDetailsLogsPage: number;
   activeConfigId: string;
   activeModule: SettingsModuleMeta['id'];
   agentProfiles: AgentProfile[];
   apiConfigs: ApiConfig[];
   apiKey: string;
   base: string;
-  accountDetailsPassword: string;
-  accountDetailsUsername: string;
   customAgentProfiles: AgentProfile[];
   discoveredModels: ModelInfo[];
   editingProfile: AgentProfile | null;

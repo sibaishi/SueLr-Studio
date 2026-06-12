@@ -83,50 +83,6 @@ export type BackendRestartPayload = {
   restartRequired?: boolean;
 };
 
-export type AccountDetailsPayload = {
-  configured: boolean;
-  username: string;
-  loggedIn: boolean;
-  sessionExpiresAt: number;
-  user: {
-    id: number;
-    username: string;
-    displayName: string;
-    role: number;
-    status: number;
-  } | null;
-  balance: {
-    quota: number;
-    usedQuota: number;
-    requestCount: number;
-    balance: number;
-    usedBalance: number;
-    refreshedAt: number;
-  } | null;
-  updatedAt: number;
-};
-
-export type AccountDetailsLogItem = {
-  id: number;
-  userId: number;
-  createdAt: number;
-  type: number;
-  content: string;
-  tokenName: string;
-  modelName: string;
-  quota: number;
-  cost: number;
-  promptTokens: number;
-  completionTokens: number;
-};
-
-export type AccountDetailsLogsPayload = {
-  items: AccountDetailsLogItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
-
 export type SettingsPanelProps = {
   apiConfigs: ApiConfig[];
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
