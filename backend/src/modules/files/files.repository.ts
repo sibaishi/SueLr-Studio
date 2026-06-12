@@ -18,7 +18,7 @@ import {
   safeResolveWithin,
 } from '../../platform/storage/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
-import type { ScopeOptions } from './types.ts';
+import type { ListGeneratedOutputsOptions, ScopeOptions } from './types.ts';
 
 const OUTPUT_FILE_TYPES = new Map([
   ['.png', { type: 'image', mimeType: 'image/png' }],
@@ -104,10 +104,11 @@ export class FilesRepository {
     return Boolean(filePath && fs.existsSync(filePath));
   }
 
-  async listGeneratedOutputs(options: ScopeOptions = {}) {
+  async listGeneratedOutputs(options: ListGeneratedOutputsOptions = {}) {
     ensureStorageDirectories();
     const root = getScopedStoragePaths(options.scope).generatedDir;
     const items: PlainObject[] = [];
+    const modifiedAfterMs = Number(options.modifiedAfterMs || 0);
 
     const visit = async (dir: string): Promise<void> => {
       if (!fs.existsSync(dir)) return;
@@ -121,6 +122,7 @@ export class FilesRepository {
         if (!entry.isFile()) continue;
 
         const stat = fs.statSync(filePath);
+        if (modifiedAfterMs > 0 && stat.mtimeMs < modifiedAfterMs) continue;
 
         const relativePath = path.relative(root, filePath);
         if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) continue;

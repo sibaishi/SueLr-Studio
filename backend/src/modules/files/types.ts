@@ -4,6 +4,10 @@ export type ScopeOptions = {
   scope?: DynamicValue;
 };
 
+export type ListGeneratedOutputsOptions = ScopeOptions & {
+  modifiedAfterMs?: number;
+};
+
 export type UploadedFileLike = {
   filename: string;
   mimetype: string;

@@ -6,7 +6,7 @@ import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
 import { isResourceVisibleForScope } from '../../platform/storage/index.ts';
 import type { DynamicValue } from '../types.ts';
 import { filesRepository } from './files.repository.ts';
-import type { ScopeOptions, UploadedFileLike } from './types.ts';
+import type { ListGeneratedOutputsOptions, ScopeOptions, UploadedFileLike } from './types.ts';
 import { enqueueUploadImageProcessing, resumePendingUploadImageProcessing } from './upload-image-processor.ts';
 import { uploadMetadataRepository } from './upload-metadata.repository.ts';
 
@@ -15,10 +15,12 @@ const logger = createLogger({ module: 'files-service' });
 export class FilesService {
   repository;
   hasResumedPendingUploads: boolean;
+  readonly generatedOutputsSessionStartedAt: number;
 
   constructor(repository = filesRepository) {
     this.repository = repository;
     this.hasResumedPendingUploads = false;
+    this.generatedOutputsSessionStartedAt = Date.now();
   }
 
   createUploader() {
@@ -123,8 +125,11 @@ export class FilesService {
     logger.info('file deleted', { filename });
   }
 
-  async listGeneratedOutputs(_options: ScopeOptions = {}) {
-    return await this.repository.listGeneratedOutputs(_options);
+  async listGeneratedOutputs(_options: ListGeneratedOutputsOptions = {}) {
+    return await this.repository.listGeneratedOutputs({
+      ..._options,
+      modifiedAfterMs: _options.modifiedAfterMs ?? this.generatedOutputsSessionStartedAt,
+    });
   }
 
   clearGeneratedOutputs(_options: ScopeOptions = {}) {

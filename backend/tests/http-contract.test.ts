@@ -11,8 +11,11 @@ function createStorageDir(name) {
   return root;
 }
 
-async function createTestServer(name) {
+async function createTestServer(name, options = {}) {
   const root = createStorageDir(name);
+  if (typeof options.prepareStorage === 'function') {
+    options.prepareStorage(root);
+  }
   process.env.APP_CONFIG_DIR = root;
   process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
   process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
@@ -206,6 +209,41 @@ test('HTTP contract: generated outputs can be cleared from the server', async ()
     const listedAfter = await requestJson(baseUrl, '/api/files/generated');
     assert.equal(listedAfter.status, 200);
     assert.equal(listedAfter.body.data.some((item) => item.name === 'clear-me.txt'), false);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('HTTP contract: generated outputs list only files added after backend startup', async () => {
+  const fs = await import('fs');
+  const path = await import('path');
+  const oldTimestamp = new Date('2000-01-01T00:00:00.000Z');
+  const { server, baseUrl } = await createTestServer('generated-list-current-session', {
+    prepareStorage(root) {
+      const outputDir = path.join(root, 'files', 'generated', 'images');
+      fs.mkdirSync(outputDir, { recursive: true });
+      const oldFile = path.join(outputDir, 'previous-session.png');
+      fs.writeFileSync(oldFile, 'old output');
+      fs.utimesSync(oldFile, oldTimestamp, oldTimestamp);
+    },
+  });
+  try {
+    const { STORAGE_PATHS } = await import(`../src/platform/storage/index.ts?test=${Date.now()}`);
+    const outputDir = path.join(STORAGE_PATHS.generatedDir, 'images');
+    fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(path.join(outputDir, 'current-session.png'), 'new output');
+
+    const response = await requestJson(baseUrl, '/api/files/generated');
+    assert.equal(response.status, 200);
+    assertEnvelopeShape(response.body);
+    assert.equal(
+      response.body.data.some((item) => item.name === 'previous-session.png'),
+      false,
+    );
+    assert.equal(
+      response.body.data.some((item) => item.name === 'current-session.png'),
+      true,
+    );
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
