@@ -18,11 +18,19 @@ export type StudioSettingsPayload = {
   runtime: {
     configs: ApiConfig[];
     activeConfigId: string;
+    searchEnabled?: boolean;
+    tavilyApiKey?: string;
     outboundProxy?: OutboundProxySettingsPayload;
   };
   workflow?: {
     concurrency?: WorkflowConcurrencySettingsPayload;
   };
+};
+
+export type NetworkSearchSettingsPayload = {
+  searchEnabled: boolean;
+  tavilyApiKey: string;
+  outboundProxy: OutboundProxySettingsPayload;
 };
 
 export type WorkflowConcurrencySettingsPayload = {

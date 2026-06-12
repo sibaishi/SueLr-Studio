@@ -112,6 +112,51 @@ export function DefaultsSection({ actions, view }: Props) {
         </div>
       </SectionCard>
 
+      <SectionCard title="网络代理" description="出站请求代理配置。选择「跟随系统」将自动读取系统代理。">
+        <div className="flex-col" style={{ gap: 12 }}>
+          <div style={{ maxWidth: 360 }}>
+            <IOSLabel>代理模式</IOSLabel>
+            <IOSSegmentedControl
+              options={[
+                { l: '系统', v: 'system' },
+                { l: '直连', v: 'direct' },
+                { l: '自定义', v: 'custom' },
+              ]}
+              value={view.networkSearch.outboundProxy?.mode || 'system'}
+              onChange={(value) => actions.setNetworkSearchProxyMode(value as 'system' | 'direct' | 'custom')}
+            />
+          </div>
+          {view.networkSearch.outboundProxy?.mode === 'custom' && (
+            <>
+              <div style={{ maxWidth: 400 }}>
+                <IOSLabel>HTTP Proxy</IOSLabel>
+                <IOSInput
+                  value={view.networkSearch.outboundProxy?.httpProxy || ''}
+                  onChange={actions.setNetworkSearchHttpProxy}
+                  placeholder="http://127.0.0.1:7890"
+                />
+              </div>
+              <div style={{ maxWidth: 400 }}>
+                <IOSLabel>HTTPS Proxy</IOSLabel>
+                <IOSInput
+                  value={view.networkSearch.outboundProxy?.httpsProxy || ''}
+                  onChange={actions.setNetworkSearchHttpsProxy}
+                  placeholder="http://127.0.0.1:7890"
+                />
+              </div>
+            </>
+          )}
+          <div style={{ maxWidth: 400 }}>
+            <IOSLabel>No Proxy</IOSLabel>
+            <IOSInput
+              value={view.networkSearch.outboundProxy?.noProxy || ''}
+              onChange={actions.setNetworkSearchNoProxy}
+              placeholder="127.0.0.1,localhost,.internal"
+            />
+          </div>
+        </div>
+      </SectionCard>
+
       <SectionCard
         title="外部数据路径"
         description={

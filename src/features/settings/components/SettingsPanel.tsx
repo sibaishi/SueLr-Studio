@@ -20,13 +20,17 @@ import {
   useSettingsPanelController,
   waitForBackendReady,
 } from '@/features/settings';
-import type { ClientDownloadDirectoryState, SettingsPanelProps, StorageSettingsPayload } from '@/features/settings';
+import type { ClientDownloadDirectoryState, NetworkSearchSettingsPayload, SettingsPanelProps, StorageSettingsPayload } from '@/features/settings';
+import { loadStudioSettings } from '@/features/settings/api';
+import { apiRequest } from '@/shared/api/client';
+import { getRuntimeCapabilities } from '@/shared/api/capabilities';
+import { setCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import { useT } from '@/providers/ThemeContext';
 import { useToast } from '@/providers/ToastContext';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
 import { LogPanel } from '@/shared/ui/ios';
 import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, Wallet } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccountDetailsSection } from './AccountDetailsSection';
 import { AgentPersonaSection } from './AgentPersonaSection';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
@@ -93,6 +97,13 @@ export function SettingsPanel({
   const [accountDetailsLogsLoading, setAccountDetailsLogsLoading] = useState(false);
   const [accountDetailsLogsPage, setAccountDetailsLogsPage] = useState(1);
 
+  const [networkSearch, setNetworkSearch] = useState<NetworkSearchSettingsPayload>({
+    searchEnabled: false,
+    tavilyApiKey: '',
+    outboundProxy: { mode: 'system', httpProxy: '', httpsProxy: '', noProxy: '' },
+  });
+  const networkSearchSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const {
     activeConfig,
     providerConfig,
@@ -137,7 +148,8 @@ export function SettingsPanel({
     [memories, memoryQuery],
   );
   const themeOptions = Object.entries(THEME_LABELS).map(([value, label]) => ({ l: label, v: value }));
-  const runtimeCapabilities = getRuntimeCapabilitiesSnapshot();
+  const runtimeCapabilitiesSnapshot = getRuntimeCapabilitiesSnapshot();
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState(runtimeCapabilitiesSnapshot);
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? false;
   const canRestartBackend = runtimeCapabilities?.canRestartBackend ?? false;
   const isServerRuntime = false;
@@ -231,6 +243,62 @@ export function SettingsPanel({
     };
   }, [accountDetails?.configured, accountDetailsLogsPage, addLog]);
 
+  // Load network search settings from backend on mount
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const studio = await loadStudioSettings();
+        if (cancelled || !studio) return;
+        const tavilyApiKey = studio.runtime?.tavilyApiKey || '';
+        const searchEnabled =
+          typeof studio.runtime?.searchEnabled === 'boolean' ? studio.runtime.searchEnabled : Boolean(tavilyApiKey);
+        setNetworkSearch({
+          searchEnabled,
+          tavilyApiKey,
+          outboundProxy: {
+            mode: studio.runtime?.outboundProxy?.mode || 'system',
+            httpProxy: studio.runtime?.outboundProxy?.httpProxy || '',
+            httpsProxy: studio.runtime?.outboundProxy?.httpsProxy || '',
+            noProxy: studio.runtime?.outboundProxy?.noProxy || '',
+          },
+        });
+      } catch {
+        // Keep defaults if backend unavailable
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => () => {
+    if (networkSearchSaveTimer.current) {
+      clearTimeout(networkSearchSaveTimer.current);
+    }
+  }, []);
+
+  // Debounced save for network search settings
+  const scheduleNetworkSearchSave = (payload: NetworkSearchSettingsPayload) => {
+    if (networkSearchSaveTimer.current) {
+      clearTimeout(networkSearchSaveTimer.current);
+    }
+    networkSearchSaveTimer.current = setTimeout(() => {
+      networkSearchSaveTimer.current = null;
+      apiRequest('/api/settings/studio', {
+        method: 'PUT',
+        body: JSON.stringify({ runtime: payload }),
+      })
+        .then(async () => {
+          const fresh = await getRuntimeCapabilities().catch(() => null);
+          if (fresh) {
+            setCachedRuntimeCapabilities(fresh);
+            setRuntimeCapabilities(fresh);
+          }
+        })
+        .catch(() => {});
+    }, 800);
+  };
+
   const updateConfig = (patch: Partial<ApiConfig>) => {
     if (!activeConfigId) return;
     setApiConfigs((prev) => prev.map((config) => (config.id === activeConfigId ? { ...config, ...patch } : config)));
@@ -287,6 +355,66 @@ export function SettingsPanel({
     anchor.download = 'agent-memories.json';
     anchor.click();
     URL.revokeObjectURL(url);
+  };
+
+  const updateNetworkSearch = (patch: Partial<NetworkSearchSettingsPayload>) => {
+    setNetworkSearch((prev) => {
+      const next = { ...prev, ...patch };
+      scheduleNetworkSearchSave(next);
+      return next;
+    });
+  };
+
+  const setNetworkSearchEnabled = (value: boolean) => {
+    updateNetworkSearch({ searchEnabled: value });
+  };
+
+  const setNetworkSearchTavilyApiKey = (value: string) => {
+    updateNetworkSearch({ tavilyApiKey: value });
+  };
+
+  const setNetworkSearchProxyMode = (mode: NetworkSearchSettingsPayload['outboundProxy']['mode']) => {
+    setNetworkSearch((prev) => {
+      const next = {
+        ...prev,
+        outboundProxy: { ...prev.outboundProxy, mode },
+      };
+      scheduleNetworkSearchSave(next);
+      return next;
+    });
+  };
+
+  const setNetworkSearchHttpProxy = (value: string) => {
+    setNetworkSearch((prev) => {
+      const next = {
+        ...prev,
+        outboundProxy: { ...prev.outboundProxy, httpProxy: value },
+      };
+      scheduleNetworkSearchSave(next);
+      return next;
+    });
+  };
+
+  const setNetworkSearchHttpsProxy = (value: string) => {
+    setNetworkSearch((prev) => {
+      const next = {
+        ...prev,
+        outboundProxy: { ...prev.outboundProxy, httpsProxy: value },
+      };
+      scheduleNetworkSearchSave(next);
+      return next;
+    });
+  };
+
+  const setNetworkSearchNoProxy = (value: string) => {
+    setNetworkSearch((prev) => {
+      const next = {
+        ...prev,
+        outboundProxy: { ...prev.outboundProxy, noProxy: value },
+      };
+      scheduleNetworkSearchSave(next);
+      return next;
+    });
   };
 
   const saveStoragePathAction = async () => {
@@ -592,6 +720,7 @@ export function SettingsPanel({
     storageSettingsSaving,
     backendRestarting,
     projectBusy,
+    networkSearch,
     runtimeCapabilities,
     canRestartBackend,
     canSelectDirectory,
@@ -649,6 +778,12 @@ export function SettingsPanel({
     updateConfig,
     updateProjectModel: updateProjectModelAction,
     updateProviderConfig,
+    setNetworkSearchEnabled,
+    setNetworkSearchTavilyApiKey,
+    setNetworkSearchProxyMode,
+    setNetworkSearchHttpProxy,
+    setNetworkSearchHttpsProxy,
+    setNetworkSearchNoProxy,
   };
 
   const workspaceContent = {

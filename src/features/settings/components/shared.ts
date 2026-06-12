@@ -2,6 +2,8 @@ import type {
   AccountDetailsLogsPayload,
   AccountDetailsPayload,
   ClientDownloadDirectoryState,
+  NetworkSearchSettingsPayload,
+  OutboundProxyMode,
   StorageSettingsPayload,
   WorkflowConcurrencySettingsPayload,
 } from '@/features/settings';
@@ -92,6 +94,12 @@ export type SettingsActions = {
   setApiKey: (value: string) => void;
   setModels: (models: ModelInfo[]) => void;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
+  setNetworkSearchEnabled: (value: boolean) => void;
+  setNetworkSearchTavilyApiKey: (value: string) => void;
+  setNetworkSearchProxyMode: (value: OutboundProxyMode) => void;
+  setNetworkSearchHttpProxy: (value: string) => void;
+  setNetworkSearchHttpsProxy: (value: string) => void;
+  setNetworkSearchNoProxy: (value: string) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   testConnection: () => Promise<void>;
   updateConfig: (patch: Partial<ApiConfig>) => void;
@@ -139,6 +147,7 @@ export type SettingsViewModel = {
   storageSettingsSaving: boolean;
   backendRestarting: boolean;
   projectBusy: boolean;
+  networkSearch: NetworkSearchSettingsPayload;
   runtimeCapabilities: RuntimeCapabilities | null;
   canRestartBackend: boolean;
   canSelectDirectory: boolean;

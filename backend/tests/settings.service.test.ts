@@ -182,7 +182,7 @@ test('studio settings no longer exposes legacy outbound proxy settings', async (
   assert.equal(response.runtime.outboundProxy, undefined);
 });
 
-test('runtime config uses app outbound proxy instead of legacy studio proxy', async () => {
+test('runtime config inherits app outbound proxy until studio settings explicitly override it', async () => {
   const root = createStorageDir('settings-app-proxy-source');
   process.env.APP_CONFIG_DIR = root;
   process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
@@ -194,7 +194,7 @@ test('runtime config uses app outbound proxy instead of legacy studio proxy', as
   settingsService.updateStudioSettings({
     runtime: {
       outboundProxy: {
-        mode: 'direct',
+        mode: 'system',
         httpProxy: '',
         httpsProxy: '',
         noProxy: '',
@@ -217,6 +217,24 @@ test('runtime config uses app outbound proxy instead of legacy studio proxy', as
     httpProxy: '127.0.0.1:7890',
     httpsProxy: 'http://127.0.0.1:7897',
     noProxy: 'localhost',
+  });
+
+  settingsService.updateStudioSettings({
+    runtime: {
+      outboundProxy: {
+        mode: 'direct',
+        httpProxy: '',
+        httpsProxy: '',
+        noProxy: '',
+      },
+    },
+  });
+
+  assert.deepEqual(settingsService.buildRuntimeConfig().outboundProxy, {
+    mode: 'direct',
+    httpProxy: '',
+    httpsProxy: '',
+    noProxy: '',
   });
 });
 

@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: DynamicValue = {
   runtime: {
     activeConfigId: '',
     tavilyApiKey: '',
+    searchEnabled: false,
     outboundProxy: {
       mode: 'system',
       httpProxy: '',
@@ -311,6 +312,7 @@ function mergeRuntimeSections(...sections: DynamicValue[]) {
   const merged = {
     activeConfigId: '',
     tavilyApiKey: '',
+    searchEnabled: false,
     outboundProxy: { ...DEFAULT_SETTINGS.runtime.outboundProxy },
     configs: [] as DynamicValue[],
   };
@@ -320,6 +322,7 @@ function mergeRuntimeSections(...sections: DynamicValue[]) {
     if (!section) continue;
     if (section.activeConfigId) merged.activeConfigId = section.activeConfigId;
     if (section.tavilyApiKey) merged.tavilyApiKey = section.tavilyApiKey;
+    if (section.searchEnabled !== undefined) merged.searchEnabled = Boolean(section.searchEnabled);
     if (isPlainObject(section.outboundProxy)) merged.outboundProxy = sanitizeOutboundProxy(section.outboundProxy);
     for (const config of section.configs || []) {
       byId.set(config.id, config);
@@ -396,6 +399,7 @@ function sanitizeSettingsShape(input: DynamicValue) {
   settings.runtime = mergeRuntimeSections({
     activeConfigId: cleanOptionalString(value.runtime?.activeConfigId, 120),
     tavilyApiKey: cleanOptionalString(value.runtime?.tavilyApiKey, 4000),
+    searchEnabled: value.runtime?.searchEnabled,
     outboundProxy: sanitizeOutboundProxy(value.runtime?.outboundProxy),
     configs: sanitizeApiConfigList(value.runtime?.configs),
   });
@@ -448,12 +452,38 @@ function getActiveRuntimeConfig(settings: DynamicValue = readSettingsInternal())
   return configs.find((config: DynamicValue) => config.id === activeId) || configs[0] || null;
 }
 
+function mergeProxySettings(appProxy: DynamicValue, settingsProxy: DynamicValue) {
+  const settings = sanitizeOutboundProxy(settingsProxy);
+  if (settings.mode === 'direct') {
+    return { mode: 'direct', httpProxy: '', httpsProxy: '', noProxy: '' };
+  }
+  if (settings.mode === 'custom') {
+    return {
+      mode: 'custom',
+      httpProxy: settings.httpProxy,
+      httpsProxy: settings.httpsProxy,
+      noProxy: settings.noProxy,
+    };
+  }
+  return {
+    mode: appProxy.mode,
+    httpProxy: appProxy.httpProxy || '',
+    httpsProxy: appProxy.httpsProxy || '',
+    noProxy: appProxy.noProxy || '',
+  };
+}
+
 function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: DynamicValue) {
   const settings = readSettingsForScope(scope);
   const appConfig = appConfigRepository.readAppConfig();
   const appSearch = appConfigRepository.buildSearchConfig(appConfig);
   const appNetwork = appConfigRepository.buildNetworkConfig(appConfig);
-  configureOutboundProxy(appNetwork.outboundProxy);
+  const settingsTavilyApiKey = cleanOptionalString(settings.runtime?.tavilyApiKey, 4000);
+  const effectiveTavilyApiKey = settingsTavilyApiKey || appSearch.tavilyApiKey || '';
+  const settingsSearchEnabled = 'searchEnabled' in (settings.runtime || {}) ? Boolean(settings.runtime?.searchEnabled) : undefined;
+  const effectiveSearchEnabled = settingsSearchEnabled !== undefined ? settingsSearchEnabled : appSearch.enabled;
+  const effectiveOutboundProxy = mergeProxySettings(appNetwork.outboundProxy, settings.runtime?.outboundProxy);
+  configureOutboundProxy(effectiveOutboundProxy);
   const overrideConfigs = sanitizeApiConfigList(overrides.configs);
   const storedConfigs = settings.runtime.configs || [];
   const configs =
@@ -479,9 +509,9 @@ function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: Dyn
 
   return {
     apiKey: cleanSecretOverride(overrides.apiKey, 4000) || active?.apiKey || '',
-    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || appSearch.tavilyApiKey || '',
-    webSearchEnabled: Boolean(appSearch.enabled && appSearch.tavilyApiKey),
-    outboundProxy: appNetwork.outboundProxy,
+    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || effectiveTavilyApiKey,
+    webSearchEnabled: Boolean(effectiveSearchEnabled && effectiveTavilyApiKey),
+    outboundProxy: effectiveOutboundProxy,
     workflowExecution: settings.workflow.concurrency,
     baseUrl: cleanOptionalString(overrides.baseUrl, 2000) || active?.base || 'https://api.openai.com/v1',
     projectModels,
