@@ -6,7 +6,6 @@ SueLr Studio 是一个本地优先的多模态 AI 工作台，用于对话、图
 
 - `local-web`：本地前后端 + 浏览器访问
 - `desktop`：Electron 桌面壳
-- `server-web`：服务器部署版本，默认多用户登录、注册审批和独立管理端
 
 当前主干分支是 `main`。
 
@@ -76,38 +75,6 @@ npm.cmd run electron:dist
 
 Desktop packaging targets are configured for Windows portable x64, macOS dmg/zip x64+arm64, and Linux AppImage/deb x64. Build on macOS when you need macOS artifacts; Windows can produce Windows and Linux artifacts.
 
-### server-web 本地模拟
-
-后端：
-
-```powershell
-$env:APP_RUNTIME_MODE='server-multi-user'
-$env:APP_ADMIN_ACCESS_KEY='change-this-admin-key'
-$env:APP_HOST='127.0.0.1'
-$env:APP_PORT='3001'
-$env:APP_ALLOWED_ORIGINS='http://127.0.0.1:5173,http://localhost:5173'
-Set-Location .\backend
-npm.cmd run start
-```
-
-前端：
-
-```powershell
-$env:VITE_DEV_PROXY_TARGET='http://127.0.0.1:3001'
-Set-Location .
-npm.cmd run dev:frontend
-```
-
-## 当前 server-web 语义
-- 默认部署是 `APP_RUNTIME_MODE=server-multi-user`，普通用户必须先注册并由管理员审批后才能登录
-- `APP_RUNTIME_MODE=server-single-user` 只作为显式兼容模式保留，无登录门并使用默认 `single-user/default` scope
-- 独立管理端由 `APP_ADMIN_ACCESS_KEY` 保护；这个密钥只用于 `/api/admin/...` 和管理端，不是普通用户登录密码
-- SMTP 是可选能力；未配置 SMTP 时，注册审批、登录和密码重置仍可通过管理端手动流程完成
-
-- `外部数据路径` 在 `server-web` 下表示浏览器客户端自动下载目录语义，不表示服务器宿主机路径
-- 生成结果会临时保留在服务器侧，通过 `/api/outputs/...` 提供访问
-- 结果面板中的 `清空服务器结果` 会实际删除服务器当前保留的临时输出历史
-
 ## 常用校验命令
 
 ```bash
@@ -134,7 +101,6 @@ npm.cmd run check:encoding
 以下目录是构建、测试或运行时产物，不属于受控项目结构，可随时删除并由命令重新生成：
 
 - `.run-logs/`
-- `.server-web-release/`
 - `dist/`
 - `release/`
 - `playwright-report/`

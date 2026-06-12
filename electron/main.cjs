@@ -9,8 +9,6 @@ const { openDataDirectory, openLogsDirectory } = require('./runtime-paths.cjs');
 
 let mainWindow = null;
 let backendServer = null;
-let adminServer = null;
-let adminUrl = null;
 let relaunching = false;
 const { hasLock: hasSingleInstanceLock } = setupSingleInstance(app, () => focusMainWindow());
 
@@ -55,11 +53,6 @@ function installApplicationMenu() {
   const template = buildApplicationMenuTemplate({
     appName: app.name,
     platform: process.platform,
-    onOpenAdmin: () => {
-      if (adminUrl) {
-        void shell.openExternal(adminUrl);
-      }
-    },
     onOpenDataDirectory: () => {
       void openDataDirectory({ resolveAppPath, shell });
     },
@@ -79,8 +72,6 @@ app.whenReady().then(async () => {
     relaunchApp,
   });
   backendServer = backend.server;
-  adminServer = backend.adminServer;
-  adminUrl = backend.adminUrl;
   installApplicationMenu();
   createWindow(backend.url);
 
@@ -103,11 +94,6 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  if (adminServer) {
-    adminServer.close();
-    adminServer = null;
-  }
-  adminUrl = null;
   if (backendServer) {
     backendServer.close();
     backendServer = null;

@@ -340,7 +340,7 @@ export function FirstRunOnboarding({
               <IOSInput
                 value={storageDraft}
                 onChange={setStorageDraft}
-                placeholder={isServerRuntime ? '授权后用于接收 server-web 输出的本地下载目录' : '留空则使用默认位置'}
+                placeholder={isServerRuntime ? '授权后用于接收 ?????? 输出的本地下载目录' : '留空则使用默认位置'}
                 disabled={isServerRuntime}
               />
               <IOSButton
@@ -355,7 +355,7 @@ export function FirstRunOnboarding({
             </div>
             {isServerRuntime ? (
               <div style={{ fontSize: 12, color: T.text2, lineHeight: 1.6, marginBottom: 12 }}>
-                这里只管理当前浏览器接收 `server-web` 输出时的本地自动下载目录，不会修改服务器宿主机路径。
+                这里只管理当前浏览器接收 `??????` 输出时的本地自动下载目录，不会修改服务器宿主机路径。
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>

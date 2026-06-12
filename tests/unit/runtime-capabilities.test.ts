@@ -29,9 +29,9 @@ async function withEnv<T>(env: Record<string, string | undefined>, callback: () 
 describe('runtime capability cache', () => {
   it('stores and clears capability snapshots for capability-aware UI code', () => {
     const snapshot = {
-      mode: 'server-single-user',
-      canSelectDirectory: false,
-      canRestartBackend: false,
+      mode: 'local-web',
+      canSelectDirectory: true,
+      canRestartBackend: true,
       hasEmbeddedShell: false,
       auth: {
         required: false,
@@ -45,8 +45,8 @@ describe('runtime capability cache', () => {
       },
       adminConsole: {
         enabled: true,
-        requiresAccessKey: true,
-        configured: false,
+        requiresAccessKey: false,
+        configured: true,
       },
     } as const;
 
@@ -57,9 +57,9 @@ describe('runtime capability cache', () => {
     expect(getCachedRuntimeCapabilities()).toBeNull();
   });
 
-  it('formats runtime labels and server-only action hints for settings UI', () => {
+  it('formats runtime labels and disabled action hints for settings UI', () => {
     const snapshot = {
-      mode: 'server-single-user',
+      mode: 'local-web',
       canSelectDirectory: false,
       canRestartBackend: false,
       hasEmbeddedShell: false,
@@ -75,8 +75,8 @@ describe('runtime capability cache', () => {
       },
       adminConsole: {
         enabled: true,
-        requiresAccessKey: true,
-        configured: false,
+        requiresAccessKey: false,
+        configured: true,
       },
     } as const;
 
@@ -85,21 +85,23 @@ describe('runtime capability cache', () => {
     expect(getRuntimeActionHint(snapshot, 'canRestartBackend')).toBeTruthy();
   });
 
-  it('defaults server-web runtime context to authenticated multi-user capabilities', async () => {
+  it('defaults to local-web runtime capabilities', async () => {
     await withEnv(
       {
         APP_RUNTIME_MODE: undefined,
-        APP_SERVER_WEB: '1',
-        APP_ADMIN_ACCESS_KEY: 'test-admin-key',
+        APP_ADMIN_ACCESS_KEY: undefined,
+        APP_EMBEDDED_BACKEND: undefined,
       },
       async () => {
         const { getRuntimeCapabilities } = await import('../../backend/src/platform/runtime/capabilities.ts');
         const capabilities = getRuntimeCapabilities();
 
-        expect(capabilities.mode).toBe('server-multi-user');
-        expect(capabilities.auth.required).toBe(true);
-        expect(capabilities.auth.mode).toBe('session');
-        expect(capabilities.adminConsole.requiresAccessKey).toBe(true);
+        expect(capabilities.mode).toBe('local-web');
+        expect(capabilities.auth.required).toBe(false);
+        expect(capabilities.auth.mode).toBe('none');
+        expect(capabilities.canSelectDirectory).toBe(true);
+        expect(capabilities.canRestartBackend).toBe(true);
+        expect(capabilities.adminConsole.requiresAccessKey).toBe(false);
         expect(capabilities.adminConsole.configured).toBe(true);
       },
     );

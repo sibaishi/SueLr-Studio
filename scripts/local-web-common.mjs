@@ -262,8 +262,6 @@ export function buildAllowedOrigins(frontendPort) {
   return [
     `http://localhost:${frontendPort}`,
     `http://${defaultHost}:${frontendPort}`,
-    `http://localhost:${frontendPort + 1}`,
-    `http://${defaultHost}:${frontendPort + 1}`,
     process.env.APP_ALLOWED_ORIGINS,
   ].filter(Boolean).join(',');
 }
@@ -288,7 +286,7 @@ export async function startStaticSite(name, rootDirPath, port, host = defaultHos
       const requestPath = req.url && req.url !== '/' ? req.url.split('?')[0] : '/index.html';
       const normalizedPath = requestPath === '/' ? '/index.html' : requestPath;
       const targetPath = resolve(rootDirPath, `.${normalizedPath}`);
-      const fallbackPath = resolve(rootDirPath, 'admin.html');
+      const fallbackPath = resolve(rootDirPath, 'index.html');
       const filePath = existsSync(targetPath) ? targetPath : fallbackPath;
       const body = await readFile(filePath);
       const contentType = filePath.endsWith('.html')

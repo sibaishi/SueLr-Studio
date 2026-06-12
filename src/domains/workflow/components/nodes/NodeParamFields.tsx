@@ -336,7 +336,7 @@ function ParamEditor({
               ) : null}
               {isServerRuntime ? (
                 <div className="node-param__hint">
-                  server-web 下这里用于授权当前浏览器的自动下载目录，不代表服务器宿主机保存路径。
+                  ?????? 下这里用于授权当前浏览器的自动下载目录，不代表服务器宿主机保存路径。
                 </div>
               ) : null}
             </>

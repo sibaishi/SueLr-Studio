@@ -44,12 +44,12 @@ export function DefaultsSection({ actions, view }: Props) {
 
   const pathTitle = isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径';
   const pathPlaceholder = isServerRuntime
-    ? '选择后，server-web 输出会优先自动保存到该目录'
+    ? '选择后，?????? 输出会优先自动保存到该目录'
     : view.storageSettings?.pathsRedacted
       ? '服务器模式下不开放路径编辑'
       : '例如：D:\\SueLr-Studio-Data';
   const pathDescription = isServerRuntime
-    ? '该设置只影响当前浏览器用户接收 server-web 输出时的本地自动下载位置，不会修改服务器宿主机存储路径。'
+    ? '该设置只影响当前浏览器用户接收 ?????? 输出时的本地自动下载位置，不会修改服务器宿主机存储路径。'
     : `留空时可点击“恢复默认”。默认路径：${defaultRootLabel}`;
 
   return (
@@ -116,7 +116,7 @@ export function DefaultsSection({ actions, view }: Props) {
         title="外部数据路径"
         description={
           isServerRuntime
-            ? '在 server-web 中，这里表示当前浏览器用户接收输出时的本地自动下载目录，不代表服务器宿主机路径。'
+            ? '在 ?????? 中，这里表示当前浏览器用户接收输出时的本地自动下载目录，不代表服务器宿主机路径。'
             : '配置工作流、日志、上传文件等数据的存放位置。保存后可能需要重启后端生效。'
         }
       >

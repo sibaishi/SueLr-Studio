@@ -60,7 +60,7 @@ Root ownership rules:
 
 - keep stable source roots, launcher entrypoints, and repo-wide config files at the repository root
 - keep maintenance helpers in `scripts/` instead of creating new ad hoc root files
-- treat `dist/`, `release/`, `.server-web-release/`, `.run-logs/`, `playwright-report/`, `test-results/`, and repository-local `storage/` as generated or runtime-only surfaces, not source structure
+- treat `dist/`, `release/`, `.run-logs/`, `playwright-report/`, `test-results/`, and repository-local `storage/` as generated or runtime-only surfaces, not source structure
 - keep `.private-docs/` as the home for private plans, local acceptance notes, and temporary implementation records; do not track those files unless a private artifact is explicitly promoted into public docs
 - keep `development/` drained; if durable content appears there during a refactor, move it into `scripts/`, `docs/`, or `.private-docs/` in the same change
 
@@ -452,58 +452,24 @@ The active app data root owns runtime files. Under that root, generated media us
 
 The public URL contract remains rooted at `/api/outputs/...` for generated outputs and `/api/assistant/files/...` for assistant gallery files. New code should preserve relative subpaths when converting between URLs and `STORAGE_PATHS.generatedDir`.
 
-## Server Runtime Guardrails
+## Runtime Guardrails
 
-When the runtime is running as `server-web` in either `server-single-user` or explicitly enabled `server-multi-user`, shared code should assume a stricter boundary than local or desktop mode:
+SueLr Studio is delivered as `desktop` and `local-web`. Shared code should keep the runtime boundary explicit so local behavior remains portable:
 
-- storage settings APIs must not expose absolute host filesystem paths
-- settings UI must not imply direct control over server host filesystem roots
-- backend restart controls must remain unavailable from the browser UI
-- workflow output results must not return absolute `savedPaths`
+- storage settings APIs must not expose absolute host filesystem paths unless the runtime capability allows it
+- settings UI must not imply control over paths the active runtime cannot edit
+- workflow output results must prefer relative URLs and semantic state over absolute `savedPaths`
 - request-scoped metadata should be attached through `request-context`, not inferred from globals
 - single-user request scope defaults to `userId: single-user` and `workspaceId: default`
-- in `server-multi-user`, request scope must come from the authenticated server-side session, not browser-supplied identity headers
-- browser-supplied `X-SueLr-User-Id`, `X-SueLr-Workspace-Id`, and `X-SueLr-Runtime-Mode` must not be trusted as authentication or authorization identity for public requests
+- browser-supplied `X-SueLr-User-Id`, `X-SueLr-Workspace-Id`, and `X-SueLr-Runtime-Mode` must not be trusted as authentication or authorization identity
 - persisted resources should use `ownerUserId`, `workspaceId`, and `ownershipScope` for ownership metadata; do not reuse domain fields such as memory `scope` for request ownership
-- missing ownership metadata on legacy single-user records may use default fallback in non-multi-user runtimes, but must not become globally visible in `server-multi-user`
-- Milestone 5 and the Phase 6 isolation matrix are implemented and covered by `npm.cmd run check`; representative local-web, desktop, and server-web deployments still require manual smoke acceptance before release sign-off
 - scoped storage preparation keeps `single-user/default` on the existing storage layout while reserving `scopes/v1/workspaces/<workspaceId>/users/<userId>/...` for future physical namespace moves
 
 If a new API needs to surface storage or generated outputs, prefer relative URLs or semantic state, never raw host paths.
 
-For the product-facing `外部数据路径` entry:
-
-- `desktop` and `local-web` may use it as a local machine storage-root setting when the runtime exposes that capability
-- `server-web` must keep the same entry point, but reinterpret it as the browser client's local auto-download target
-- do not add a second settings entry just for server download behavior
-- do not expose or edit server-host storage directories through that control
+For the product-facing external data path entry, `desktop` and `local-web` may use it as a local machine storage-root setting when the runtime exposes that capability.
 
 ### Request flow examples
-
-#### Settings external path change in local runtimes
-
-1. frontend `DefaultsSection` saves the new external data path
-2. frontend calls backend settings route
-3. backend settings service persists the value
-4. user clicks `Restart Backend`
-5. backend restart helpers relaunch the process
-6. storage-root bootstrap reads the new path on startup
-
-#### Settings external path change in `server-web`
-
-1. frontend `DefaultsSection` saves the browser-side download preference behind the same `外部数据路径` entry
-2. frontend persists only client-safe state and never sends a host absolute path as a server storage-root mutation
-3. generated outputs remain temporarily materialized on the server
-4. user receives outputs through `/api/outputs/...` or `/api/assistant/files/...`
-5. browser auto-download uses the configured client preference when available; otherwise the user falls back to manual download
-
-#### Server retained output cleanup in `server-web`
-
-1. backend keeps generated outputs under the runtime storage root for temporary browser access
-2. frontend results surfaces list those files through `/api/files/generated`
-3. when the user clicks the cleanup action, the UI must show an irreversible confirmation
-4. backend deletes the currently retained generated outputs from server storage
-5. frontend refreshes the list and must not treat the action as a local hide-only operation
 
 #### Workflow image generation
 
@@ -584,7 +550,6 @@ SueLr Studio now follows the current `main` trunk plus three release variants:
 - `main`: shared product trunk in this repository
 - `release/local-web`: local browser deployment branch
 - `release/desktop`: Electron desktop branch
-- `release/server-web`: deployable server branch
 
 Working rules:
 
@@ -637,82 +602,6 @@ Current desktop shell module split:
   - BrowserWindow creation, show/focus helpers, and close lifecycle wiring
 - `electron/embedded-backend.cjs`
   - embedded backend child-process spawn, readiness, and teardown orchestration
-
-Server-web deployment assets:
-
-- `scripts/deploy/server-web/compose.yaml`
-  - compose definition for host-side Docker builds
-- `scripts/deploy/server-web/compose.image.yaml`
-  - compose definition for prebuilt image deployments; requires `SUE_LR_IMAGE`
-- `scripts/deploy/server-web/Dockerfile`
-  - backend plus static frontend image build with an explicit runtime-layer whitelist
-- `scripts/deploy/server-web/app.dockerignore`
-  - server-web-specific Docker build-context filter; keeps tests, docs, logs, and other development-only surfaces out of the minimized runtime app tree
-- `scripts/deploy/server-web/release-files.txt`
-  - single source of truth for files copied into the minimized `runtime/app` release tree
-- `scripts/deploy/server-web/studio.suelr.com.nginx.conf`
-  - example nginx reverse-proxy site file
-- `scripts/deploy/server-web/install.sh`
-  - first-time host setup; builds a minimized release tree and syncs it into `runtime/app` before compose startup
-- `scripts/deploy/server-web/update.sh`
-  - host-side update flow for pull, release-tree sync, rebuild, and nginx reload
-- `scripts/deploy/server-web/build-image.sh`
-  - workstation or CI flow for building a prebuilt server-web image from the minimized release tree; set `SUE_LR_PUSH=1` to push to a registry such as a self-hosted Gitea container registry
-- `scripts/deploy/server-web/update-image.sh`
-  - host-side update flow that pulls `SUE_LR_IMAGE` and restarts without `docker build`; skips source checkout pulls by default, with `SUE_LR_PULL_SOURCE=1` available when script refresh is wanted
-- `scripts/deploy/server-web/uninstall.sh`
-  - host-side removal flow for stopping containers, removing nginx wiring, and deleting the synced `runtime/app` release tree
-  - keeps runtime data by default unless `SUE_LR_REMOVE_DATA=1` is set
-
-Image-based host update flow:
-
-- Use the project Gitea container registry image reference: `git.suelr.com/sueadmin/suelr-studio:server-web`.
-- Run `docker login git.suelr.com` on the workstation or CI runner that will push the image.
-- Build the minimized release tree, build the image, and push it with:
-
-  ```bash
-  SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
-  ```
-
-  `build-image.sh` always rebuilds `.server-web-release/app` before `docker build`, and it only pushes when `SUE_LR_PUSH=1` is set.
-- On Windows PowerShell hosts where `bash` is not available, run the equivalent sequence:
-
-  ```powershell
-  node .\scripts\build-server-web-release.mjs
-  docker build `
-    -t git.suelr.com/sueadmin/suelr-studio:server-web `
-    -f .\.server-web-release\app\scripts\deploy\server-web\Dockerfile `
-    .\.server-web-release\app
-  docker push git.suelr.com/sueadmin/suelr-studio:server-web
-  ```
-
-- Run `docker login git.suelr.com` once on every server that must pull the private image.
-- On an existing host where `/srv/suelr-studio/runtime/compose.yaml` already uses `image: git.suelr.com/sueadmin/suelr-studio:server-web`, update with:
-
-  ```bash
-  cd /srv/suelr-studio/runtime
-  sudo docker compose -f compose.yaml pull
-  sudo docker compose -f compose.yaml up -d --no-build
-  ```
-
-- If the host has a current source checkout and should refresh repository-managed deployment files before restarting, use `SUE_LR_IMAGE=<image> bash ./scripts/deploy/server-web/update-image.sh` instead of the two compose commands.
-- If the host does not have a current source checkout, `update-image.sh` is not available under `/srv/suelr-studio/runtime`; update the runtime `compose.yaml` and nginx site file manually, then run `docker compose pull`, `docker compose up -d --no-build`, `nginx -t`, and `systemctl reload nginx`.
-- The app container exposes the public app on `127.0.0.1:3001` and the independent admin console on `127.0.0.1:3002`.
-- If the admin console is exposed as `https://admin.studio.suelr.com`, nginx must proxy that origin to `127.0.0.1:3002`, `APP_ALLOWED_ORIGINS` must include both `https://studio.suelr.com` and `https://admin.studio.suelr.com`, and `APP_ADMIN_ACCESS_KEY` must be set in compose.
-- Validate the admin route with `curl -I https://admin.studio.suelr.com`, `curl -I http://127.0.0.1:3002/admin.html`, and `POST /api/admin/access/validate` through port `3002`.
-- Preserve `/srv/suelr-studio/runtime/data` across image updates; it contains runtime settings and generated data.
-
-Variant release-surface rule:
-
-- `main` keeps the full development surface, including tests, e2e assets, docs, and maintenance tooling
-- release variants must ship only what their runtime actually needs
-- current `server-web` enforcement points are:
-  - minimized `runtime/app` sync from the source checkout using `scripts/deploy/server-web/release-files.txt`
-  - server-web-specific `.dockerignore` copied from `scripts/deploy/server-web/app.dockerignore`
-  - Docker runtime stage copying only `dist`, backend runtime files, backend production dependencies, and shared workflow contracts
-  - prebuilt image updates using `compose.image.yaml` and `update-image.sh` for low-resource hosts
-
-Keep private planning, audit notes, and non-release working documents in `.private-docs/`. Do not move them into `docs/`, which is reserved for public user and developer documentation.
 
 ## Local Launching
 

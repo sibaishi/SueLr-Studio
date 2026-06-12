@@ -6,12 +6,11 @@ This project is maintained as a local-first multimodal studio. The main contribu
 
 ## Branch Model
 
-SueLr Studio now uses the current `main` trunk plus three long-lived release branches:
+SueLr Studio now uses the current `main` trunk plus two long-lived release branches:
 
 - `main`
 - `release/local-web`
 - `release/desktop`
-- `release/server-web`
 
 Contribution rules:
 
