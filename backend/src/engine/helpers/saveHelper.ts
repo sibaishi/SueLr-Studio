@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ensureGeneratedThumbnailFromFile } from '../../platform/media/image-thumbnails.ts';
 import { getMimeType } from '../../platform/media/media-resolver.ts';
-import { isServerRuntimeMode } from '../../platform/runtime/mode.ts';
 import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 import { PROJECT_ROOT, STORAGE_PATHS, getScopedStoragePaths, safeResolveWithin } from '../../platform/storage/index.ts';
 
@@ -131,7 +130,7 @@ function buildSaveResult(
   content: unknown,
   savedFiles: PublicSavedFile[],
   savedPaths: string[],
-  { exposeHostPaths = !isServerRuntimeMode() }: Pick<SaveOptions, 'exposeHostPaths'> = {},
+  { exposeHostPaths = true }: Pick<SaveOptions, 'exposeHostPaths'> = {},
 ): SaveResult {
   const result: SaveResult = {
     content,
@@ -217,7 +216,7 @@ export async function materializeContentForOutput(content: unknown, options: Sav
   const savedPaths = savedFiles.map((file) => file.path);
   const publicSavedFiles = await Promise.all(savedFiles.map((file) => toPublicSavedFile(file, options)));
   const urls = savedPaths.map((filePath) => toApiOutputUrl(filePath, options)).filter(Boolean);
-  const exposeHostPaths = options.exposeHostPaths ?? !isServerRuntimeMode();
+  const exposeHostPaths = options.exposeHostPaths ?? true;
 
   if (typeof content === 'string') {
     if (savedFiles.length === 1 && savedFiles[0]?.type !== 'text' && urls[0]) {

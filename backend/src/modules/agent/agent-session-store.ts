@@ -12,14 +12,11 @@ export class AgentSessionStore {
   }
 
   create(session: PlainObject) {
-    const next = ensureResourceOwnership(
-      {
-        ...session,
-        createdAt: session.createdAt || Date.now(),
-        updatedAt: session.updatedAt || Date.now(),
-      },
-      session.ownershipScope || session.scope,
-    );
+    const next = ensureResourceOwnership({
+      ...session,
+      createdAt: session.createdAt || Date.now(),
+      updatedAt: session.updatedAt || Date.now(),
+    });
     const sessionId = String((next as DynamicValue).sessionId || '');
     this.activeSessions.set(sessionId, next);
     this.repository.writeSessionFile(sessionId, next);
@@ -29,14 +26,11 @@ export class AgentSessionStore {
   update(sessionId: string, patch: PlainObject) {
     const current = this.get(sessionId);
     if (!current) return null;
-    const next = ensureResourceOwnership(
-      {
-        ...current,
-        ...patch,
-        updatedAt: Date.now(),
-      },
-      current.ownershipScope || current.scope || patch.ownershipScope || patch.scope,
-    );
+    const next = ensureResourceOwnership({
+      ...current,
+      ...patch,
+      updatedAt: Date.now(),
+    });
     this.activeSessions.set(sessionId, next);
     this.repository.writeSessionFile(sessionId, next);
     return next;
@@ -45,13 +39,13 @@ export class AgentSessionStore {
   get(sessionId: string, options: PlainObject = {}): PlainObject | null {
     const session = this.activeSessions.get(sessionId) || this.repository.readSessionFile(sessionId);
     if (!session) return null;
-    const owned = ensureResourceOwnership(session, session.ownershipScope || session.scope) as PlainObject;
+    const owned = ensureResourceOwnership(session) as PlainObject;
     return isResourceVisibleForRequestScope(owned, options.scope) ? owned : null;
   }
 
   list(options: PlainObject = {}) {
     return Array.from(this.activeSessions.values())
-      .map((session) => ensureResourceOwnership(session, session.ownershipScope || session.scope) as PlainObject)
+      .map((session) => ensureResourceOwnership(session) as PlainObject)
       .filter((session) => isResourceVisibleForRequestScope(session, options.scope));
   }
 

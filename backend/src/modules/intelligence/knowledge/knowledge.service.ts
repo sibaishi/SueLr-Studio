@@ -85,9 +85,6 @@ const knowledgeRecordSchema = z.object({
     .default([]),
   createdAt: z.number().int().positive(),
   updatedAt: z.number().int().positive(),
-  ownerUserId: z.string().trim().max(160).optional(),
-  workspaceId: z.string().trim().max(160).optional(),
-  ownershipScope: z.enum(['local-private', 'local-project']).default('local-private'),
   sourceRuntime: z.literal('local').default('local'),
   version: z.number().int().positive().default(1),
   syncStatus: z.literal('localOnly').default('localOnly'),
@@ -147,11 +144,8 @@ function tokenize(value: DynamicValue): string[] {
     .filter((term) => term.length >= 2);
 }
 
-function buildOwnership(scope?: DynamicValue, recordScope: 'local-private' | 'local-project' = 'local-private') {
+function buildLocalMetadata() {
   return {
-    ownerUserId: typeof scope?.userId === 'string' ? scope.userId : undefined,
-    workspaceId: typeof scope?.workspaceId === 'string' ? scope.workspaceId : undefined,
-    ownershipScope: recordScope,
     sourceRuntime: 'local' as const,
     syncStatus: 'localOnly' as const,
   };
@@ -262,14 +256,7 @@ function normalizeRecord(
     evidence: Array.isArray(input.evidence) ? input.evidence : [],
     createdAt: Number(input.createdAt) || now,
     updatedAt: Number(input.updatedAt) || now,
-    ...buildOwnership(
-      {
-        ...scope,
-        userId: input.ownerUserId || scope?.userId,
-        workspaceId: input.workspaceId || scope?.workspaceId,
-      },
-      rawScope,
-    ),
+    ...buildLocalMetadata(),
     version: Number(input.version) || 1,
     requiresConfirmation: input.requiresConfirmation === true,
     confirmedAt: Number(input.confirmedAt) || undefined,
@@ -398,7 +385,7 @@ export class KnowledgeService {
       items: files,
       schema: {
         required: ['id', 'type', 'category', 'scope', 'title', 'content', 'source', 'confidence', 'evidence'],
-        reserved: ['ownerUserId', 'workspaceId', 'ownershipScope', 'sourceRuntime', 'version', 'syncStatus'],
+        reserved: ['sourceRuntime', 'version', 'syncStatus'],
       },
       governance: {
         defaultScope: 'local-private',

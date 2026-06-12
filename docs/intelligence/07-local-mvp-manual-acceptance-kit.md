@@ -6,7 +6,7 @@ Scope:
 
 - cover `local-web` and `desktop`
 - focus on Phase 5 planner quality and Phase 6 workflow edit/run/diagnose closure
-- do not treat `server-web` as a pass condition
+- verify only the supported local runtime shapes
 
 ## Ready-to-use Samples
 

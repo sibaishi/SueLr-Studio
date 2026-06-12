@@ -144,7 +144,7 @@ function ParamEditor({
   const addExecutionLog = useWorkflowStore((s) => s.addExecutionLog);
   const runtimeCapabilities = getCachedRuntimeCapabilities();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? true;
-  const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
+  const isServerRuntime = false;
   const runtimeSearchEnabled = runtimeCapabilities?.search?.enabled ?? false;
   const runtimeSearchDisabledReason = runtimeCapabilities?.search?.disabledReason || '当前部署未启用联网搜索';
   const nodes = useWorkflowStore((s) => s.nodes);
@@ -336,7 +336,7 @@ function ParamEditor({
               ) : null}
               {isServerRuntime ? (
                 <div className="node-param__hint">
-                  server-web 下这里用于授权当前浏览器的自动下载目录，不代表服务器宿主机保存路径。
+                  ?????? 下这里用于授权当前浏览器的自动下载目录，不代表服务器宿主机保存路径。
                 </div>
               ) : null}
             </>

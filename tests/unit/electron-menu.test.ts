@@ -6,27 +6,39 @@ const { buildApplicationMenuTemplate } = require('../../electron/menu.cjs') as {
   buildApplicationMenuTemplate: (options: {
     appName: string;
     platform: string;
-    onOpenAdmin: () => void;
+    onOpenDataDirectory: () => void;
+    onOpenLogsDirectory: () => void;
+    onRelaunch: () => void;
   }) => Array<Record<string, unknown>>;
 };
 
 describe('Electron menu template', () => {
-  it('includes a tools menu item that delegates opening the admin console', () => {
-    const onOpenAdmin = vi.fn();
+  it('keeps local system tools available in the desktop menu', () => {
+    const onOpenDataDirectory = vi.fn();
+    const onOpenLogsDirectory = vi.fn();
+    const onRelaunch = vi.fn();
     const template = buildApplicationMenuTemplate({
       appName: 'SueLr Studio',
       platform: 'win32',
-      onOpenAdmin,
+      onOpenDataDirectory,
+      onOpenLogsDirectory,
+      onRelaunch,
     });
 
-    const toolsMenu = template.find((item) => item.label === '工具');
+    const toolsMenu = template.find((item) =>
+      ((item.submenu ?? []) as Array<Record<string, unknown>>).some((subItem) => subItem.click === onOpenDataDirectory),
+    );
     expect(toolsMenu).toBeTruthy();
 
     const submenu = (toolsMenu?.submenu ?? []) as Array<Record<string, unknown>>;
-    const openAdminItem = submenu.find((item) => item.label === '打开管理端');
-    expect(openAdminItem).toBeTruthy();
+    expect(submenu.some((item) => String(item.label || '').includes('绠＄悊绔'))).toBe(false);
 
-    (openAdminItem?.click as (() => void) | undefined)?.();
-    expect(onOpenAdmin).toHaveBeenCalledOnce();
+    (submenu.find((item) => item.click === onOpenDataDirectory)?.click as (() => void) | undefined)?.();
+    (submenu.find((item) => item.click === onOpenLogsDirectory)?.click as (() => void) | undefined)?.();
+    (submenu.find((item) => item.click === onRelaunch)?.click as (() => void) | undefined)?.();
+
+    expect(onOpenDataDirectory).toHaveBeenCalledOnce();
+    expect(onOpenLogsDirectory).toHaveBeenCalledOnce();
+    expect(onRelaunch).toHaveBeenCalledOnce();
   });
 });

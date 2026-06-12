@@ -1,7 +1,6 @@
 function buildApplicationMenuTemplate({
   appName,
   platform,
-  onOpenAdmin,
   onOpenDataDirectory,
   onOpenLogsDirectory,
   onRelaunch,
@@ -58,10 +57,6 @@ function buildApplicationMenuTemplate({
     {
       label: '工具',
       submenu: [
-        {
-          label: '打开管理端',
-          click: onOpenAdmin,
-        },
         {
           label: '打开数据目录',
           click: onOpenDataDirectory,

@@ -1,5 +1,4 @@
 import type { AgentProfile } from '@/shared/api/agent';
-import type { AuthUser } from '@/shared/api/auth';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/shared/types';
 import type { Dispatch, SetStateAction } from 'react';
@@ -19,11 +18,19 @@ export type StudioSettingsPayload = {
   runtime: {
     configs: ApiConfig[];
     activeConfigId: string;
+    searchEnabled?: boolean;
+    tavilyApiKey?: string;
     outboundProxy?: OutboundProxySettingsPayload;
   };
   workflow?: {
     concurrency?: WorkflowConcurrencySettingsPayload;
   };
+};
+
+export type NetworkSearchSettingsPayload = {
+  searchEnabled: boolean;
+  tavilyApiKey: string;
+  outboundProxy: OutboundProxySettingsPayload;
 };
 
 export type WorkflowConcurrencySettingsPayload = {
@@ -76,50 +83,6 @@ export type BackendRestartPayload = {
   restartRequired?: boolean;
 };
 
-export type AccountDetailsPayload = {
-  configured: boolean;
-  username: string;
-  loggedIn: boolean;
-  sessionExpiresAt: number;
-  user: {
-    id: number;
-    username: string;
-    displayName: string;
-    role: number;
-    status: number;
-  } | null;
-  balance: {
-    quota: number;
-    usedQuota: number;
-    requestCount: number;
-    balance: number;
-    usedBalance: number;
-    refreshedAt: number;
-  } | null;
-  updatedAt: number;
-};
-
-export type AccountDetailsLogItem = {
-  id: number;
-  userId: number;
-  createdAt: number;
-  type: number;
-  content: string;
-  tokenName: string;
-  modelName: string;
-  quota: number;
-  cost: number;
-  promptTokens: number;
-  completionTokens: number;
-};
-
-export type AccountDetailsLogsPayload = {
-  items: AccountDetailsLogItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
-
 export type SettingsPanelProps = {
   apiConfigs: ApiConfig[];
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
@@ -150,6 +113,4 @@ export type SettingsPanelProps = {
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   projectBusy: boolean;
-  authUser?: AuthUser | null;
-  onLogout?: () => Promise<void> | void;
 };

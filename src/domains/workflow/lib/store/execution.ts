@@ -18,8 +18,6 @@ import {
   saveActiveRunSnapshot,
 } from '@/domains/workflow/lib/store/persistence';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
-import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
-import { autoDownloadGeneratedFiles } from '@/shared/runtime/browserDownload';
 import type { Node } from '@xyflow/react';
 
 type WorkflowStoreExecutionActions = Pick<
@@ -71,23 +69,6 @@ function sanitizeNodeOutputs(outputs: Record<string, unknown>) {
   return sanitized && typeof sanitized === 'object' && !Array.isArray(sanitized)
     ? (sanitized as Record<string, unknown>)
     : outputs;
-}
-
-function extractDownloadableFiles(outputs: Record<string, unknown>) {
-  const savedFiles = Array.isArray(outputs.savedFiles) ? outputs.savedFiles : [];
-  return savedFiles
-    .filter(
-      (file): file is { url: string; name?: string; type?: string } =>
-        Boolean(file) &&
-        typeof file === 'object' &&
-        typeof (file as { url?: unknown }).url === 'string' &&
-        (file as { url: string }).url.startsWith('/api/outputs/'),
-    )
-    .map((file) => ({
-      url: file.url,
-      name: typeof file.name === 'string' ? file.name : undefined,
-      type: typeof file.type === 'string' ? file.type : undefined,
-    }));
 }
 
 function mergeRepeatedOutputValue(existing: unknown, next: unknown) {
@@ -372,30 +353,6 @@ export function createWorkflowExecutionActions(
           nodeId: data.nodeId,
           details: formatLogDetails(data.logOutputs ?? sanitizedOutputs),
         });
-        const runtime = getCachedRuntimeCapabilities();
-        if (runtime?.mode?.startsWith('server')) {
-          const files = extractDownloadableFiles(sanitizedOutputs);
-          if (files.length > 0) {
-            void autoDownloadGeneratedFiles(files)
-              .then((results) => {
-                const downloaded = results.map((item) => item.filename).join('、');
-                if (downloaded) {
-                  get().addExecutionLog({
-                    level: 'success',
-                    message: `已为当前浏览器下载输出：${downloaded}`,
-                    nodeId: data.nodeId,
-                  });
-                }
-              })
-              .catch((error) => {
-                get().addExecutionLog({
-                  level: 'error',
-                  message: error instanceof Error ? error.message : '自动下载失败，请改用手动下载',
-                  nodeId: data.nodeId,
-                });
-              });
-          }
-        }
         set((currentState) => {
           const persistTextOutput = shouldPersistTextInputOutput(currentState, data.nodeId, sanitizedOutputs);
           const persistTextSplitOutput = shouldPersistTextSplitOutput(currentState, data.nodeId, sanitizedOutputs);

@@ -3,9 +3,7 @@ import path from 'node:path';
 import {
   STORAGE_PATHS,
   ensureJsonFile,
-  ensureScopedStorageDirectories,
   ensureStorageDirectories,
-  getScopedStoragePaths,
   readJsonFile,
   safeResolveWithin,
   writeJsonFile,
@@ -29,10 +27,7 @@ export class AgentRepository {
   }
 
   getProfilesFile(scope?: DynamicValue) {
-    if (scope?.runtimeMode === 'server-multi-user') {
-      ensureScopedStorageDirectories(scope);
-      return getScopedStoragePaths(scope).agentProfilesFile;
-    }
+    void scope;
     return STORAGE_PATHS.agentProfilesFile;
   }
 

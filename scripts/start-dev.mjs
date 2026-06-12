@@ -17,7 +17,6 @@ import {
 } from './local-web-common.mjs';
 
 const preferredFrontendPort = Number(process.env.FRONTEND_PORT || process.env.VITE_PORT || 5173);
-const preferredAdminPort = Number(process.env.ADMIN_PORT || 5174);
 const preferredBackendPort = Number(process.env.APP_PORT || process.env.PORT || 3001);
 const selfTest = process.argv.includes('--self-test') || process.env.SUE_LR_START_SELF_TEST === '1';
 const noBrowser = selfTest || process.env.SUE_LR_NO_BROWSER === '1';
@@ -34,21 +33,17 @@ async function main() {
   await ensureDependencies();
 
   const frontendPort = await findPort(preferredFrontendPort);
-  const adminPort = await findPort(preferredAdminPort);
   const backendPort = await findPort(preferredBackendPort);
   const frontendUrl = `http://localhost:${frontendPort}/index.html`;
-  const adminUrl = `http://localhost:${adminPort}/admin.html`;
   const backendUrl = `http://${defaultHost}:${backendPort}`;
   const allowedOrigins = buildAllowedOrigins(frontendPort);
   const backendLog = resolve(logDir, `backend-local-web-dev-${runId}.log`);
   const frontendLog = resolve(logDir, `frontend-local-web-dev-${runId}.log`);
-  const adminLog = resolve(logDir, `admin-local-web-dev-${runId}.log`);
   const viteEntry = resolve(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
 
   print('');
   print(`[mode] local-web dev`);
   print(`[start] Frontend: ${frontendUrl}`);
-  print(`[start] Admin:    ${adminUrl}`);
   print(`[start] Backend:  ${backendUrl}`);
   print(`[logs]  ${logDir}`);
   print('');
@@ -83,33 +78,16 @@ async function main() {
     frontendLog,
   );
 
-  startProcess(
-    'admin',
-    process.execPath,
-    [viteEntry, '--host', defaultHost, '--port', String(adminPort), '--open', 'admin.html'],
-    rootDir,
-    {
-      VITE_DEV_PROXY_TARGET: backendUrl,
-      VITE_API_BASE: '/api',
-    },
-    adminLog,
-  );
-
   await waitForHttp(frontendUrl).catch((error) => {
     fail(`Frontend did not become available: ${error.message}`);
-  });
-  await waitForHttp(adminUrl).catch((error) => {
-    fail(`Admin frontend did not become available: ${error.message}`);
   });
 
   if (noBrowser) {
     print(`[ready] ${frontendUrl}`);
-    print(`[ready] ${adminUrl}`);
   } else {
     print(`[ready] Vite opened ${frontendUrl}`);
-    print(`[ready] Vite opened ${adminUrl}`);
   }
-  print('[ready] Press Ctrl+C to stop frontend, admin frontend, and backend.');
+  print('[ready] Press Ctrl+C to stop frontend and backend.');
 
   if (selfTest) {
     setTimeout(() => process.exit(0), 500);

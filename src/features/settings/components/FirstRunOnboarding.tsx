@@ -12,9 +12,7 @@ import {
 } from '@/features/settings';
 import type { StorageSettingsPayload } from '@/features/settings';
 import { useT } from '@/providers/ThemeContext';
-import { getRuntimeCapabilities } from '@/shared/api/capabilities';
 import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
-import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { ApiConfig, ModelInfo } from '@/shared/types';
 import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
 import { ArrowRight, CheckCircle2, Database, FolderOpen, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
@@ -78,7 +76,6 @@ export function FirstRunOnboarding({
 }: Props) {
   const T = useT();
   const [storage, setStorage] = useState<StorageSettingsPayload | null>(null);
-  const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilities | null>(null);
   const [storageDraft, setStorageDraft] = useState('');
   const [storageBusy, setStorageBusy] = useState(false);
   const [configName, setConfigName] = useState('默认配置');
@@ -96,13 +93,6 @@ export function FirstRunOnboarding({
 
   useEffect(() => {
     let cancelled = false;
-    void getRuntimeCapabilities()
-      .then((next: RuntimeCapabilities) => {
-        if (!cancelled) setRuntimeCapabilities(next);
-      })
-      .catch(() => {
-        if (!cancelled) setRuntimeCapabilities(null);
-      });
     void loadStorageSettings()
       .then((next) => {
         if (cancelled) return;
@@ -137,7 +127,7 @@ export function FirstRunOnboarding({
     setApiConfigs((prev) => prev.map((config) => (config.id === id ? { ...config, ...patch } : config)));
   };
 
-  const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
+  const isServerRuntime = false;
 
   const chooseStorage = async () => {
     setStorageBusy(true);
@@ -340,7 +330,7 @@ export function FirstRunOnboarding({
               <IOSInput
                 value={storageDraft}
                 onChange={setStorageDraft}
-                placeholder={isServerRuntime ? '授权后用于接收 server-web 输出的本地下载目录' : '留空则使用默认位置'}
+                placeholder={isServerRuntime ? '授权后用于接收 ?????? 输出的本地下载目录' : '留空则使用默认位置'}
                 disabled={isServerRuntime}
               />
               <IOSButton
@@ -355,7 +345,7 @@ export function FirstRunOnboarding({
             </div>
             {isServerRuntime ? (
               <div style={{ fontSize: 12, color: T.text2, lineHeight: 1.6, marginBottom: 12 }}>
-                这里只管理当前浏览器接收 `server-web` 输出时的本地自动下载目录，不会修改服务器宿主机路径。
+                这里只管理当前浏览器接收 `??????` 输出时的本地自动下载目录，不会修改服务器宿主机路径。
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>

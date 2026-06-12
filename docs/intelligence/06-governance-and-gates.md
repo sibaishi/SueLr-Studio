@@ -74,15 +74,14 @@ AgentPlan
 
 ## Local MVP Gate
 
-Local MVP is `desktop` and `local-web` first:
+Local MVP is `desktop` and `local-web`:
 
-- Agent runtime works without `server-web`.
 - Agent window can select planner model.
 - LLM planner creates structured plans.
 - Tool runtime validates and executes governed tools.
 - Workflow tools can build, validate, apply, and run drafts locally.
 - Studio Brain defaults to local personal/project knowledge.
-- Legacy Agent replacement is verified locally before server migration.
+- Legacy Agent replacement is verified locally.
 
 ## Skill / Tool Gates
 

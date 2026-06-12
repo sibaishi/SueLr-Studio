@@ -1,6 +1,5 @@
 import { successEnvelope } from '../../app/http/envelope.ts';
 import type { NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
-import { accountDetailsService } from './account-details.service.ts';
 import { settingsService } from './settings.service.ts';
 
 export class SettingsController {
@@ -110,46 +109,6 @@ export class SettingsController {
   async restartBackend(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
       res.json(successEnvelope(await settingsService.requestBackendRestart()));
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  getAccountDetails(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
-    try {
-      res.json(successEnvelope(accountDetailsService.getPublicState()));
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async updateAccountDetails(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
-    try {
-      res.json(successEnvelope(await accountDetailsService.saveCredentials(req.body)));
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async refreshAccountDetails(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
-    try {
-      res.json(successEnvelope(await accountDetailsService.refreshBalance()));
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async getAccountDetailsLogs(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
-    try {
-      res.json(successEnvelope(await accountDetailsService.getLogs(req.query)));
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  clearAccountDetails(_req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
-    try {
-      res.json(successEnvelope(accountDetailsService.clear()));
     } catch (error) {
       next(error);
     }

@@ -1,12 +1,12 @@
 # Release SOP
 
-This document defines the standard release workflow for SueLr Studio variants. Current `local-web`, `desktop`, and `server-web` release commands and deployment checks are tracked here plus `docs/user-guide.md` and `docs/developer-guide.md`.
+This document defines the standard release workflow for SueLr Studio. The active delivery variants are `desktop` and `local-web`; remote server deployment is no longer part of the supported release surface.
 
 ## Branching
 
 - `main` is the shared long-lived source branch in this repository.
-- `release/local-web`, `release/desktop`, and `release/server-web` are long-lived release branches for variant-specific work.
-- shared behavior must land on `main` before it is promoted into a release branch unless the change is a release-only hotfix.
+- `release/local-web` and `release/desktop` are long-lived release branches for variant-specific work.
+- Shared behavior must land on `main` before it is promoted into a release branch unless the change is a release-only hotfix.
 - GitHub Releases remains the official distribution channel for packaged desktop builds unless a variant-specific distribution process is defined later.
 - Packaged artifacts such as `.exe`, `dist/`, and `release/` outputs must not be committed to git.
 
@@ -46,63 +46,14 @@ This document defines the standard release workflow for SueLr Studio variants. C
 
    Desktop targets are Windows portable x64, macOS dmg/zip x64+arm64, and Linux AppImage/deb x64. Build macOS artifacts on macOS; Windows release hosts should produce Windows and Linux artifacts only.
 
-   For `server-web` repository-checkout deployments, use:
-
-   ```bash
-   bash ./scripts/deploy/server-web/install.sh
-   bash ./scripts/deploy/server-web/update.sh
-   bash ./scripts/deploy/server-web/uninstall.sh
-   ```
-
-   For `server-web` prebuilt image deployments through the self-hosted Gitea container registry, build and push from the local workstation or CI runner, then update from the server that can pull the registry image:
-
-   ```bash
-   docker login git.suelr.com
-   SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
-   ```
-
-   On Windows PowerShell without a working Bash environment, build and push the same image with:
+   For local-web:
 
    ```powershell
-   node .\scripts\build-server-web-release.mjs
-   docker build `
-     -t git.suelr.com/sueadmin/suelr-studio:server-web `
-     -f .\.server-web-release\app\scripts\deploy\server-web\Dockerfile `
-     .\.server-web-release\app
-   docker push git.suelr.com/sueadmin/suelr-studio:server-web
+   npm.cmd run build:local-web
+   npm.cmd run start:local-web
    ```
 
-   Then on the server:
-
-   ```bash
-   docker login git.suelr.com
-   cd /srv/suelr-studio/runtime
-   sudo docker compose -f compose.yaml pull
-   sudo docker compose -f compose.yaml up -d --no-build
-   ```
-
-   Use `update-image.sh` when the server has a current source checkout and should refresh `compose.image.yaml` or nginx from the repository. For an already migrated image deployment under `/srv/suelr-studio/runtime`, the normal rollout is only `docker compose pull` plus `up -d --no-build`.
-
-   If the server does not have a source checkout, do not run `update-image.sh` from `/srv/suelr-studio/runtime`; manually update `/srv/suelr-studio/runtime/compose.yaml` and `/etc/nginx/sites-available/studio.suelr.com`, then reload nginx.
-
-   `server-web` release rule:
-
-   - keep the source checkout on the host only as the update source
-   - treat `runtime/app` as the minimized live build context
-   - keep `scripts/deploy/server-web/release-files.txt` aligned with every frontend entry, backend runtime file, and server-web helper script needed by Docker
-   - prefer `update-image.sh` on low-resource hosts so production frontend builds happen on a workstation or CI runner; this path pulls the prebuilt image and skips source checkout updates unless `SUE_LR_PULL_SOURCE=1` is set
-   - for image-based host rollouts, preserve `/srv/suelr-studio/runtime/compose.yaml` settings such as `APP_ALLOWED_ORIGINS`, `APP_ADMIN_ACCESS_KEY`, ports, and data volumes
-   - when exposing the independent admin console, route a separate origin such as `https://admin.studio.suelr.com` to `127.0.0.1:3002` and add that exact origin to `APP_ALLOWED_ORIGINS`
-   - verify the independent admin console with `curl -I https://admin.studio.suelr.com`, `curl -I http://127.0.0.1:3002/admin.html`, and an `/api/admin/access/validate` request carrying the configured admin key
-   - keep `APP_RUNTIME_MODE` defaulting to `server-multi-user` in compose and Docker assets; use `APP_RUNTIME_MODE=server-single-user` only as an explicit compatibility override
-   - validate the public app registration -> pending user -> admin approval -> approved user login flow; do not use `APP_ADMIN_ACCESS_KEY` as regular app authentication
-   - confirm disabled or misconfigured SMTP does not block registration, approval, login, or password reset fallback flows
-   - do not deploy repository `tests/`, `e2e`, `docs/`, or other development-only surfaces into the server-web runtime app tree
-   - keep the server-web Docker runtime image limited to built frontend assets, backend runtime files, backend production dependencies, and shared workflow contracts
-
-   For other variants, follow the build steps defined in this SOP and `docs/user-guide.md`.
-
-6. Verify the packaged or deployed app manually.
+6. Verify the packaged or locally served app manually.
 
    Recommended checks:
 
@@ -113,8 +64,7 @@ This document defines the standard release workflow for SueLr Studio variants. C
    - A second desktop launch focuses the existing instance instead of opening a second main window.
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
-   - For the Milestone 5 release candidate, confirm request scope diagnostics, representative ownership metadata, scoped storage behavior, and stable file URLs by inspecting real workflows, run logs, generated files, assistant/agent records, memory records, uploads, and `/api/outputs/...` responses. Automated `npm.cmd run check` is required but does not replace this manual acceptance.
-   - For a `server-multi-user` release candidate, confirm the Phase 6 readiness gate: auth is enabled, request scope comes from the server session, spoofed browser scope headers cannot impersonate users, cross-user negative tests cover workflow/files/execution/assistant/agent/settings, legacy unowned records are not globally visible, the public registration and admin approval loop works, the independent admin routes work on both the public admin origin and `127.0.0.1:3002/admin.html`, and `npx.cmd playwright test tests/e2e/server-multi-user-auth.spec.ts` passes.
+   - Local-web serves the main app through the backend on port `3001`.
 
 7. Commit and push source changes:
 
@@ -138,9 +88,9 @@ This document defines the standard release workflow for SueLr Studio variants. C
 
 ## Versioning Guidance
 
-- keep version bumps aligned with the actual packaged scope
-- use changelog notes or release descriptions to call out variant-specific differences
-- prefer tagging only after validation has passed on the branch being released
+- Keep version bumps aligned with the actual packaged scope.
+- Use changelog notes or release descriptions to call out variant-specific differences.
+- Prefer tagging only after validation has passed on the branch being released.
 
 ## Failure Handling
 
@@ -152,4 +102,4 @@ This document defines the standard release workflow for SueLr Studio variants. C
 
 - `local-web` release validation should explicitly cover both `build:local-web` and `start:local-web`.
 - Variant-specific launchers and packaging steps must stay documented in this SOP and the user/developer guides.
-- `server-web` deployment precheck, environment contract, and rollout smoke steps are tracked in this SOP and `docs/user-guide.md`.
+- Server deployment, Docker image publishing, and independent admin-console release flows have been retired from this repository.

@@ -99,9 +99,6 @@ export function createAgentRunLogger({
       profileId,
       model,
       requestId,
-      ownerUserId: scope?.userId,
-      workspaceId: scope?.workspaceId,
-      ownershipScope: scope,
       processInstanceId: getProcessInstanceId(),
       data: sanitizeValue(data),
     };

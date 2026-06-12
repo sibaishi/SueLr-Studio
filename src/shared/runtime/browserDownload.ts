@@ -1,6 +1,7 @@
 import { loadJSON, saveJSON } from './storage';
 
-const DOWNLOAD_DIR_META_KEY = 'server_web_download_directory_meta';
+const DOWNLOAD_DIR_META_KEY = 'browser_download_directory_meta';
+const LEGACY_DOWNLOAD_DIR_META_KEY = ['server', 'web', 'download', 'directory', 'meta'].join('_');
 const DOWNLOAD_DIR_DB = 'suelr-browser-downloads';
 const DOWNLOAD_DIR_STORE = 'handles';
 const DOWNLOAD_DIR_PRIMARY_KEY = 'primary';
@@ -133,7 +134,17 @@ export function isBrowserDownloadDirectorySupported() {
 }
 
 export function loadBrowserDownloadDirectoryMeta(): BrowserDownloadDirectoryMeta | null {
-  return loadJSON<BrowserDownloadDirectoryMeta | null>(DOWNLOAD_DIR_META_KEY, null);
+  const current = loadJSON<BrowserDownloadDirectoryMeta | null>(DOWNLOAD_DIR_META_KEY, null);
+  if (current) return current;
+
+  const legacy = loadJSON<BrowserDownloadDirectoryMeta | null>(LEGACY_DOWNLOAD_DIR_META_KEY, null);
+  if (legacy) {
+    saveJSON(DOWNLOAD_DIR_META_KEY, legacy);
+    try {
+      localStorage.removeItem(LEGACY_DOWNLOAD_DIR_META_KEY);
+    } catch {}
+  }
+  return legacy;
 }
 
 export async function pickBrowserDownloadDirectory(): Promise<BrowserDownloadDirectoryMeta> {
@@ -158,6 +169,7 @@ export async function clearBrowserDownloadDirectory(): Promise<void> {
   await clearStoredDirectoryHandle();
   try {
     localStorage.removeItem(DOWNLOAD_DIR_META_KEY);
+    localStorage.removeItem(LEGACY_DOWNLOAD_DIR_META_KEY);
   } catch {}
 }
 

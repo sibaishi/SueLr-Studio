@@ -1,4 +1,4 @@
-import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
+import { IOSButton, IOSInput, IOSLabel, IOSSegmentedControl, IOSSelect } from '@/shared/ui/ios';
 import { Settings } from 'lucide-react';
 import type { SettingsActions, SettingsViewModel } from './shared';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
@@ -151,6 +151,40 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             <IOSLabel>图像请求超时（毫秒）</IOSLabel>
             <IOSInput value={String(view.providerConfig.imageTimeoutMs)} onChange={actions.setProviderImageTimeoutMs} />
           </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="联网搜索" description="全局搜索能力的开关与 API Key。配置后 Agent 自动获得联网检索能力。">
+        <div className="flex-col" style={{ gap: 12 }}>
+          <div style={{ maxWidth: 360 }}>
+            <IOSLabel>联网搜索</IOSLabel>
+            <IOSSegmentedControl
+              options={[
+                { l: '关闭', v: 'off' },
+                { l: '开启', v: 'on' },
+              ]}
+              value={view.networkSearch.searchEnabled ? 'on' : 'off'}
+              onChange={(value) => actions.setNetworkSearchEnabled(value === 'on')}
+            />
+          </div>
+          {view.networkSearch.searchEnabled && (
+            <div style={{ maxWidth: 400 }}>
+              <IOSLabel>Tavily API Key</IOSLabel>
+              <IOSInput
+                value={view.networkSearch.tavilyApiKey}
+                onChange={actions.setNetworkSearchTavilyApiKey}
+                type="password"
+                placeholder={view.networkSearch.tavilyApiKey ? '已配置，留空沿用' : 'tvly-...'}
+              />
+            </div>
+          )}
+          <span style={chipStyle(view.networkSearch.searchEnabled && view.networkSearch.tavilyApiKey ? 'var(--color-green)' : view.networkSearch.searchEnabled ? '#f59e0b' : undefined)}>
+            {view.networkSearch.searchEnabled && view.networkSearch.tavilyApiKey
+              ? '已配置并启用'
+              : view.networkSearch.searchEnabled
+                ? '已启用，等待 API Key'
+                : '联网搜索已关闭'}
+          </span>
         </div>
       </SectionCard>
     </div>

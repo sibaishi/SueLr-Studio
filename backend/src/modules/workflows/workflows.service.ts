@@ -40,9 +40,6 @@ export class WorkflowsService {
         id: workflow.id,
         name: workflow.name,
         description: workflow.description,
-        ownerUserId: workflow.ownerUserId,
-        workspaceId: workflow.workspaceId,
-        ownershipScope: workflow.ownershipScope,
         nodeCount: workflow.nodes?.length || 0,
         updatedAt: workflow.updatedAt,
       }))
@@ -63,8 +60,6 @@ export class WorkflowsService {
     this.repository.save(id, workflow);
     logger.info('workflow created', {
       workflowId: id,
-      ownerUserId: workflow.ownerUserId,
-      workspaceId: workflow.workspaceId,
     });
     return workflow;
   }
@@ -81,13 +76,11 @@ export class WorkflowsService {
     const updated = normalizePersistedWorkflow(migrated, {
       preserveCreatedAt: true,
       updatedAt: Date.now(),
-      scope: existing.ownershipScope || existing.scope || options.scope,
+      scope: existing.scope || options.scope,
     });
     this.repository.save(id, updated);
     logger.info('workflow updated', {
       workflowId: id,
-      ownerUserId: updated.ownerUserId,
-      workspaceId: updated.workspaceId,
     });
     return updated;
   }
@@ -111,7 +104,7 @@ export class WorkflowsService {
         createdAt: Date.now(),
         updatedAt: Date.now(),
       },
-      { preserveCreatedAt: true, updatedAt: Date.now(), scope: source.ownershipScope || source.scope || options.scope },
+      { preserveCreatedAt: true, updatedAt: Date.now(), scope: source.scope || options.scope },
     );
     this.repository.save(newId, duplicated);
     logger.info('workflow duplicated', { workflowId: id, duplicatedWorkflowId: newId });

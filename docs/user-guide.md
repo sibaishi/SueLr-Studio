@@ -124,122 +124,6 @@ npm.cmd run electron:dist
 - the desktop app is single-window by design
 - launching the packaged app a second time should focus the existing window instead of opening a second main window
 
-Server-web repository deployment:
-
-- first-time setup can use `bash ./scripts/deploy/server-web/install.sh`
-- later updates on the same host can use `bash ./scripts/deploy/server-web/update.sh`
-- low-resource hosts should prefer prebuilt image updates with `bash ./scripts/deploy/server-web/update-image.sh`
-- build and optionally push that image from a workstation with `bash ./scripts/deploy/server-web/build-image.sh`
-- for the self-hosted Gitea container registry flow, build locally with `SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh`, then run `sudo docker compose -f /srv/suelr-studio/runtime/compose.yaml pull && sudo docker compose -f /srv/suelr-studio/runtime/compose.yaml up -d --no-build` on an existing image-based server deployment
-- removal can use `bash ./scripts/deploy/server-web/uninstall.sh`
-- the scripts refresh docker compose and nginx config together, so browser routing and app container stay aligned
-- the scripts now sync a minimized runtime app directory under `runtime/app` before rebuilding, so the deployed host no longer needs to keep the full repository checkout as the live build context
-- that sync uses `scripts/deploy/server-web/release-files.txt` as the release file manifest
-- that minimized runtime app directory is intentionally release-only: it excludes repository docs, frontend tests, backend tests, and other development-only content
-- prebuilt image updates do not run the frontend production build on the deployed host and do not pull source code by default; set `SUE_LR_PULL_SOURCE=1` only if you also want to refresh the checked-out deployment scripts before updating
-- if the host was already deployed with the older repository-checkout flow, running `update.sh` once will migrate the live compose build context to the minimized `runtime/app` directory automatically
-- `uninstall.sh` keeps runtime data by default; set `SUE_LR_REMOVE_DATA=1` if you really want to delete stored files and settings
-
-Server-web authentication modes:
-
-- the provided compose files and Dockerfile default to `APP_RUNTIME_MODE=server-multi-user`
-- in `server-multi-user`, unauthenticated users see the login and registration screen before the main app
-- public registration creates pending users; an administrator must approve the user before login is allowed
-- `APP_ADMIN_ACCESS_KEY` protects only the independent admin console and `/api/admin/...`; it is not a normal app login password
-- SMTP is optional; disabled or misconfigured SMTP must not block registration, approval, login, or password reset fallback flows
-- `server-single-user` remains available only as an explicit compatibility override and uses the default `single-user/default` scope without a login gate
-
-Existing server-web image deployment:
-
-1. Choose the remote image name. Use the registry host, namespace, repository, and tag that your server will pull later:
-
-   ```bash
-   export SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web
-   ```
-
-2. Log in to the remote registry from the workstation or CI runner that builds and pushes the image:
-
-   ```bash
-   docker login git.suelr.com
-   ```
-
-3. Build the minimized server-web release tree, build the Docker image, and push it to the remote registry:
-
-   ```bash
-   SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web SUE_LR_PUSH=1 bash ./scripts/deploy/server-web/build-image.sh
-   ```
-
-   `build-image.sh` runs `scripts/build-server-web-release.mjs` first, so the Docker build context is `.server-web-release/app` rather than the full development checkout.
-
-   On Windows PowerShell without a working Bash environment, run the equivalent commands from the repository root:
-
-   ```powershell
-   node .\scripts\build-server-web-release.mjs
-
-   docker build `
-     -t git.suelr.com/sueadmin/suelr-studio:server-web `
-     -f .\.server-web-release\app\scripts\deploy\server-web\Dockerfile `
-     .\.server-web-release\app
-
-   docker push git.suelr.com/sueadmin/suelr-studio:server-web
-   ```
-
-4. Log in to the same registry once on the server:
-
-   ```bash
-   docker login git.suelr.com
-   ```
-
-5. Keep `/srv/suelr-studio/runtime/compose.yaml` image-based:
-
-   ```yaml
-   services:
-     suelr-studio:
-       image: git.suelr.com/sueadmin/suelr-studio:server-web
-       container_name: suelr-studio
-       restart: unless-stopped
-       ports:
-         - "127.0.0.1:3001:3001"
-         - "127.0.0.1:3002:3002"
-       environment:
-         APP_ALLOWED_ORIGINS: https://studio.suelr.com,https://admin.studio.suelr.com
-         APP_ADMIN_ACCESS_KEY: change-this-admin-key
-         APP_RUNTIME_MODE: server-multi-user
-         APP_CONFIG_DIR: /data
-       volumes:
-         - ./data:/data
-   ```
-
-6. Pull and restart without rebuilding on the server:
-
-   ```bash
-   cd /srv/suelr-studio/runtime
-   sudo docker compose -f compose.yaml pull
-   sudo docker compose -f compose.yaml up -d --no-build
-   ```
-
-If the server also has a current source checkout and should refresh the repository-provided image compose file and nginx config, run the scripted image update instead:
-
-```bash
-SUE_LR_IMAGE=git.suelr.com/sueadmin/suelr-studio:server-web bash ./scripts/deploy/server-web/update-image.sh
-```
-
-`update-image.sh` lives in the source checkout, not in `/srv/suelr-studio/runtime`. If the server does not keep a source checkout, update `/srv/suelr-studio/runtime/compose.yaml` and `/etc/nginx/sites-available/studio.suelr.com` manually, then run the two compose commands above plus `sudo nginx -t && sudo systemctl reload nginx`.
-
-The public app reverse-proxies to `127.0.0.1:3001`. The independent admin console runs on `127.0.0.1:3002`; expose it with a separate nginx server such as `admin.studio.suelr.com`, and include that origin in `APP_ALLOWED_ORIGINS`. The admin console access key is `APP_ADMIN_ACCESS_KEY`; it is checked by `/api/admin/...` and is separate from regular app user login.
-
-After updating nginx and compose, verify both admin routes from the server:
-
-```bash
-curl -I https://admin.studio.suelr.com
-curl -I http://127.0.0.1:3002/admin.html
-curl -sS -X POST http://127.0.0.1:3002/api/admin/access/validate \
-  -H 'Content-Type: application/json' \
-  -d '{"accessKey":"<admin-access-key>"}'
-```
-
-To test the multi-user login path on a prepared release candidate, keep `APP_RUNTIME_MODE=server-multi-user`, restart the deployment, open the public app, submit a registration request, approve it from the independent admin console, and then sign in as the approved user. Use `APP_RUNTIME_MODE=server-single-user` only when you intentionally need the legacy no-login compatibility mode.
-
 Default local addresses:
 
 - Frontend: `http://localhost:5173`
@@ -431,9 +315,6 @@ You can override that from `Settings -> Defaults`.
 Runtime-specific behavior:
 
 - in `desktop` and `local-web`, the settings page can offer local path selection and backend restart when the runtime exposes those capabilities
-- in `server-web`, the same `外部数据路径` entry stays visible, but it represents the current browser user's local auto-download target rather than the server host storage directory
-- in `server-web`, backend restart stays unavailable from the browser UI
-- when a server runtime blocks a host-only action, `Settings -> Diagnostics` shows the active runtime mode and capability snapshot so the reason is visible in the UI
 
 What gets stored there:
 
@@ -453,9 +334,7 @@ Generated media is organized under the app data root:
 
 All generated files are still served through `/api/outputs/...` or `/api/assistant/files/...`, so display and reuse flows keep using local URLs rather than absolute filesystem paths.
 
-In `server-web`, generated files may be stored temporarily on the server before you download them. The settings path shown in the browser does not change the server host storage directory.
 
-In `Workflow -> 结果`, `server-web` can expose a `清空服务器结果` action. This deletes the server's currently retained temporary output history directly. The action is irreversible, so the UI will ask for confirmation first.
 
 If `APP_CONFIG_DIR` is set in the environment, it overrides the in-app storage path setting.
 
@@ -467,7 +346,6 @@ This is mainly used after changing storage-root-related settings.
 
 In `local-web`, this button is still valid because the backend is running on the same local machine as the browser UI.
 
-In `server-web`, this button is intentionally disabled. Restart must be handled by the deployment-side process manager or service supervisor.
 
 Safety rule:
 

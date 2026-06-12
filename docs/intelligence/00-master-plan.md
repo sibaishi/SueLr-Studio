@@ -97,5 +97,3 @@ This is the fastest loop for testing whether node semantics, tool definitions, a
 - Important knowledge writeback requires confirmation.
 - Legacy Agent and legacy workflow assistant are no longer the primary flow.
 - `npm run check` passes.
-
-Server-side multi-user Agent, shared public knowledge, and sync remain later migration goals after local MVP acceptance.

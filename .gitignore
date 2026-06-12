@@ -3,7 +3,6 @@ backend/node_modules/
 
 dist/
 release/
-.server-web-release/
 coverage/
 .logs/
 .run-logs/

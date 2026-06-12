@@ -162,9 +162,6 @@ function summarizeWorkflow(workflow: PlainObject) {
     nodeCount: Array.isArray(workflow.nodes) ? workflow.nodes.length : 0,
     edgeCount: Array.isArray(workflow.edges) ? workflow.edges.length : 0,
     updatedAt: workflow.updatedAt,
-    ownerUserId: workflow.ownerUserId,
-    workspaceId: workflow.workspaceId,
-    ownershipScope: workflow.ownershipScope,
   };
 }
 

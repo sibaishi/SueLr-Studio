@@ -68,7 +68,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapMode, setBootstrapMode] = useState<'pending' | 'server' | 'browser-only' | 'blocked'>('pending');
   const bootstrappedRef = useRef(false);
-  const activeHydrationUserRef = useRef<string | null>(null);
   const activeRuntimeRef = useRef<RuntimeCapabilities | null>(null);
 
   const finishSplash = useCallback(() => {
@@ -116,18 +115,8 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     async (runtime: RuntimeCapabilities | null) => {
       if (!runtime) {
         params.hydratedRef.current = false;
-        activeHydrationUserRef.current = null;
         setBootstrapError('无法确认当前登录状态，请刷新页面后重试。');
         setBootstrapMode('blocked');
-        finishSplash();
-        return runtime;
-      }
-
-      if (runtime?.auth?.required && !runtime.auth.user) {
-        params.hydratedRef.current = false;
-        activeHydrationUserRef.current = null;
-        setBootstrapError(null);
-        setBootstrapMode('server');
         finishSplash();
         return runtime;
       }
@@ -170,7 +159,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
 
       await applyActiveConfig(cfgs, activeId);
       params.hydratedRef.current = true;
-      activeHydrationUserRef.current = runtime?.auth?.required ? runtime.auth.user?.id || null : 'single-user';
       setBootstrapError(null);
       setBootstrapMode('server');
       finishSplash();
@@ -181,8 +169,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
 
   useEffect(() => {
     if (!params.hydratedRef.current) return;
-    if (runtimeCapabilities?.auth.required && !runtimeCapabilities.auth.user) return;
-
     const snapshot = buildStudioSettingsPayload({
       activeConfigId: settings.activeConfigId,
       apiConfigs: settings.apiConfigs,
@@ -212,8 +198,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     params.sidebarCollapsed,
     params.tab,
     params.themeMode,
-    runtimeCapabilities?.auth.required,
-    runtimeCapabilities?.auth.user,
     settings.activeConfigId,
     settings.apiConfigs,
     settings.chatStreamingMode,
@@ -242,7 +226,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       settings.addLog('info', '本地存储服务未启动，数据仅保存在浏览器中');
       if (!import.meta.env.DEV) {
         params.hydratedRef.current = false;
-        activeHydrationUserRef.current = null;
         setBootstrapError('无法连接服务端，已阻止进入工作区。');
         setBootstrapMode('blocked');
         finishSplash();
@@ -250,7 +233,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
       }
 
       params.hydratedRef.current = true;
-      activeHydrationUserRef.current = 'browser-only';
       setBootstrapError(null);
       setBootstrapMode('browser-only');
       finishSplash();
@@ -265,7 +247,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     setRuntimeCapabilities(runtime);
     if (!runtime && bootstrapMode !== 'browser-only') {
       params.hydratedRef.current = false;
-      activeHydrationUserRef.current = null;
       setBootstrapError('无法确认当前登录状态，请刷新页面后重试。');
       setBootstrapMode('blocked');
     } else if (runtime) {
@@ -275,23 +256,9 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     return runtime;
   }, [bootstrapMode, params.hydratedRef]);
 
-  const authenticateAndHydrate = useCallback(async () => {
-    params.hydratedRef.current = false;
-    const runtime = await refreshRuntimeCapabilities();
-    await hydrateWorkspace(runtime);
-    return runtime;
-  }, [hydrateWorkspace, params.hydratedRef, refreshRuntimeCapabilities]);
-
-  const clearAuthenticatedHydration = useCallback(() => {
-    params.hydratedRef.current = false;
-    activeHydrationUserRef.current = null;
-  }, [params.hydratedRef]);
-
   return {
-    authenticateAndHydrate,
     bootstrapError,
     bootstrapMode,
-    clearAuthenticatedHydration,
     refreshRuntimeCapabilities,
     runtimeCapabilities,
     splashFading,

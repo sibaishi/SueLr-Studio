@@ -5,9 +5,6 @@ export interface StoragePaths {
   root: string;
   configDir: string;
   settingsFile: string;
-  adminConfigFile: string;
-  accountDetailsFile: string;
-  legacyAccountDetailsFile: string;
   workflowsDir: string;
   assistantDir: string;
   conversationsFile: string;
@@ -35,9 +32,6 @@ export function getStoragePaths(): StoragePaths {
     root,
     configDir: path.join(root, 'config'),
     settingsFile: path.join(root, 'config', 'settings.json'),
-    adminConfigFile: path.join(root, 'config', 'admin-config.json'),
-    accountDetailsFile: path.join(root, 'config', 'account-details.json'),
-    legacyAccountDetailsFile: path.join(root, 'config', 'account-6789.json'),
     workflowsDir: path.join(root, 'workflows'),
     assistantDir: path.join(root, 'assistant'),
     conversationsFile: path.join(root, 'assistant', 'conversations.json'),

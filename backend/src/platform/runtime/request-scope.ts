@@ -2,10 +2,6 @@ import { type RuntimeMode, getRuntimeMode } from './mode.ts';
 
 export const DEFAULT_SCOPE_USER_ID = 'single-user';
 export const DEFAULT_SCOPE_WORKSPACE_ID = 'default';
-export const SCOPE_HEADER_USER_ID = 'x-suelr-user-id';
-export const SCOPE_HEADER_WORKSPACE_ID = 'x-suelr-workspace-id';
-export const SCOPE_HEADER_RUNTIME_MODE = 'x-suelr-runtime-mode';
-
 export interface RequestScopeInput {
   userId?: unknown;
   workspaceId?: unknown;
@@ -20,7 +16,7 @@ export interface RequestScope {
 
 export interface ScopeFoundationSummary extends RequestScope {
   enabled: true;
-  source: 'single-user-default' | 'request';
+  source: 'local-single-user';
 }
 
 type HeaderMap = Record<string, string | string[] | undefined>;
@@ -42,27 +38,27 @@ export function normalizeRequestScope(
   scope: RequestScopeInput = {},
   defaults: RequestScope = createDefaultRequestScope(),
 ): RequestScope {
+  const requestedMode = cleanScopeValue(scope.runtimeMode, defaults.runtimeMode);
+  const runtimeMode: RuntimeMode =
+    requestedMode === 'desktop' || requestedMode === 'local-web' ? requestedMode : defaults.runtimeMode;
   return {
-    userId: cleanScopeValue(scope.userId, defaults.userId),
-    workspaceId: cleanScopeValue(scope.workspaceId, defaults.workspaceId),
-    runtimeMode: cleanScopeValue(scope.runtimeMode, defaults.runtimeMode) as RuntimeMode,
+    userId: DEFAULT_SCOPE_USER_ID,
+    workspaceId: DEFAULT_SCOPE_WORKSPACE_ID,
+    runtimeMode,
   };
 }
 
 export function createRequestScope(input: RequestScopeInput = {}): RequestScope {
-  const runtimeMode = cleanScopeValue(input.runtimeMode, getRuntimeMode()) as RuntimeMode;
+  const requestedMode = cleanScopeValue(input.runtimeMode, getRuntimeMode());
+  const runtimeMode: RuntimeMode =
+    requestedMode === 'desktop' || requestedMode === 'local-web' ? requestedMode : getRuntimeMode();
   return normalizeRequestScope(input, createDefaultRequestScope(runtimeMode));
 }
 
-function readHeaderValue(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? value[0] || '' : value || '';
-}
-
 export function createRequestScopeFromHeaders(headers: HeaderMap = {}): RequestScope {
+  void headers;
   return createRequestScope({
-    userId: readHeaderValue(headers[SCOPE_HEADER_USER_ID]),
-    workspaceId: readHeaderValue(headers[SCOPE_HEADER_WORKSPACE_ID]),
-    runtimeMode: readHeaderValue(headers[SCOPE_HEADER_RUNTIME_MODE]),
+    runtimeMode: getRuntimeMode(),
   });
 }
 
@@ -75,9 +71,6 @@ export function summarizeScopeFoundation(
     userId: normalized.userId,
     workspaceId: normalized.workspaceId,
     runtimeMode: normalized.runtimeMode,
-    source:
-      normalized.userId === DEFAULT_SCOPE_USER_ID && normalized.workspaceId === DEFAULT_SCOPE_WORKSPACE_ID
-        ? 'single-user-default'
-        : 'request',
+    source: 'local-single-user',
   };
 }

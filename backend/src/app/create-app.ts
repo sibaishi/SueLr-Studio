@@ -4,10 +4,8 @@ import path, { resolve } from 'node:path';
 import cors from 'cors';
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import express from 'express';
-import adminConfigRoutes from '../modules/admin-config/admin-config.routes.ts';
 import agentRoutes from '../modules/agent/agent.routes.ts';
 import assistantRoutes from '../modules/assistant/assistant.routes.ts';
-import authRoutes from '../modules/auth/auth.routes.ts';
 import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.ts';
 import executeRoutes from '../modules/execution/execution.routes.ts';
 import storageRoutes from '../modules/files/files.routes.ts';
@@ -36,7 +34,6 @@ import {
   safeResolveWithin,
 } from '../platform/storage/index.ts';
 import { errorEnvelope, successEnvelope } from './http/envelope.ts';
-import { authContextMiddleware, requireAuthenticatedUser } from './middleware/auth-context.ts';
 import { errorHandler } from './middleware/error-handler.ts';
 import { requestContextMiddleware } from './middleware/request-context.ts';
 import { requestLoggerMiddleware } from './middleware/request-logger.ts';
@@ -87,19 +84,14 @@ export function createApp() {
       allowedHeaders: [
         'Content-Type',
         'Authorization',
-        'X-Admin-Access-Key',
-        'X-SueLr-User-Id',
-        'X-SueLr-Workspace-Id',
-        'X-SueLr-Runtime-Mode',
+        'X-Request-Id',
       ],
     }),
   );
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.locals.runtimeCapabilities = runtimeCapabilities;
-  app.use(authContextMiddleware);
   app.use(requestContextMiddleware);
-  app.use(requireAuthenticatedUser);
   app.use(requestLoggerMiddleware);
 
   app.get('/api/files/.thumbnails/:filename', async (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
@@ -164,13 +156,11 @@ export function createApp() {
   app.use('/api/workflows', workflowRoutes);
   app.use('/api/execute', executeRoutes);
   app.use('/api/assistant', assistantRoutes);
-  app.use('/api/auth', authRoutes);
   app.use('/api/agent', agentRoutes);
   app.use('/api/intelligence', intelligenceRoutes);
   app.use('/api/images', imageRoutes);
   app.use('/api/capabilities', capabilitiesRoutes);
   app.use('/api/settings', settingsRoutes);
-  app.use('/api/admin', adminConfigRoutes);
   app.use('/api', storageRoutes);
 
   app.get('/api/health', (_req: RequestLike, res: ResponseLike) => {

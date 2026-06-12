@@ -1,12 +1,11 @@
 import type {
-  AccountDetailsLogsPayload,
-  AccountDetailsPayload,
   ClientDownloadDirectoryState,
+  NetworkSearchSettingsPayload,
+  OutboundProxyMode,
   StorageSettingsPayload,
   WorkflowConcurrencySettingsPayload,
 } from '@/features/settings';
 import type { AgentProfile } from '@/shared/api/agent';
-import type { AuthUser } from '@/shared/api/auth';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
 import type { LucideIcon } from 'lucide-react';
@@ -41,7 +40,7 @@ export const MEMORY_MODE_OPTIONS = [
 ] as const;
 
 export type SettingsModuleMeta = {
-  id: 'connection' | 'models' | 'account_details' | 'defaults' | 'agent_persona' | 'agent_memory' | 'diagnostics';
+  id: 'overview' | 'connection' | 'models' | 'agent' | 'workspace' | 'diagnostics';
   label: string;
   desc: string;
   icon: LucideIcon;
@@ -54,7 +53,6 @@ export type SettingsActions = {
   addLog: (level: string, message: string) => void;
   applyConfig: (id: string) => void;
   deleteConfig: (id: string) => void;
-  clearAccountDetails: () => Promise<void>;
   exportMemoriesToFile: () => void;
   importSelectedModels: () => void;
   onClearLogs: () => void;
@@ -64,8 +62,6 @@ export type SettingsActions = {
   deleteAgentProfile: (profileId: string) => Promise<void>;
   saveAgentProfile: (profile: AgentProfile) => Promise<void>;
   setActiveConfigName: (value: string) => void;
-  setAccountDetailsPassword: (value: string) => void;
-  setAccountDetailsUsername: (value: string) => void;
   setActiveModule: (id: SettingsModuleMeta['id']) => void;
   setConnectionApiKey: (value: string) => void;
   setConnectionBase: (value: string) => void;
@@ -85,15 +81,16 @@ export type SettingsActions = {
   saveStoragePath: () => Promise<void>;
   resetStoragePath: () => Promise<void>;
   restartBackend: () => Promise<void>;
-  logout: () => Promise<void>;
-  refreshAccountDetails: () => Promise<void>;
-  refreshAccountDetailsLogs: () => Promise<void>;
-  saveAccountDetails: () => Promise<void>;
-  setAccountDetailsLogsPage: (value: number) => void;
   setBase: (value: string) => void;
   setApiKey: (value: string) => void;
   setModels: (models: ModelInfo[]) => void;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
+  setNetworkSearchEnabled: (value: boolean) => void;
+  setNetworkSearchTavilyApiKey: (value: string) => void;
+  setNetworkSearchProxyMode: (value: OutboundProxyMode) => void;
+  setNetworkSearchHttpProxy: (value: string) => void;
+  setNetworkSearchHttpsProxy: (value: string) => void;
+  setNetworkSearchNoProxy: (value: string) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   testConnection: () => Promise<void>;
   updateConfig: (patch: Partial<ApiConfig>) => void;
@@ -103,21 +100,12 @@ export type SettingsActions = {
 
 export type SettingsViewModel = {
   activeConfig?: ApiConfig;
-  accountDetails: AccountDetailsPayload | null;
-  accountDetailsLoading: boolean;
-  accountDetailsSaving: boolean;
-  accountDetailsRefreshing: boolean;
-  accountDetailsLogs: AccountDetailsLogsPayload | null;
-  accountDetailsLogsLoading: boolean;
-  accountDetailsLogsPage: number;
   activeConfigId: string;
   activeModule: SettingsModuleMeta['id'];
   agentProfiles: AgentProfile[];
   apiConfigs: ApiConfig[];
   apiKey: string;
   base: string;
-  accountDetailsPassword: string;
-  accountDetailsUsername: string;
   customAgentProfiles: AgentProfile[];
   discoveredModels: ModelInfo[];
   editingProfile: AgentProfile | null;
@@ -141,12 +129,11 @@ export type SettingsViewModel = {
   storageSettingsSaving: boolean;
   backendRestarting: boolean;
   projectBusy: boolean;
+  networkSearch: NetworkSearchSettingsPayload;
   runtimeCapabilities: RuntimeCapabilities | null;
   canRestartBackend: boolean;
   canSelectDirectory: boolean;
   themeMode: ThemeMode;
   themeOptions: Array<{ l: string; v: string }>;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
-  authUser?: AuthUser | null;
-  canLogout: boolean;
 };

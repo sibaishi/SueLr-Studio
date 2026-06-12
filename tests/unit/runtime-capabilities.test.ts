@@ -26,29 +26,24 @@ async function withEnv<T>(env: Record<string, string | undefined>, callback: () 
   }
 }
 
+function createSnapshot(overrides = {}) {
+  return {
+    mode: 'local-web' as const,
+    canSelectDirectory: true,
+    canRestartBackend: true,
+    hasEmbeddedShell: false,
+    search: {
+      enabled: false,
+      provider: 'tavily',
+      disabledReason: 'search disabled',
+    },
+    ...overrides,
+  };
+}
+
 describe('runtime capability cache', () => {
   it('stores and clears capability snapshots for capability-aware UI code', () => {
-    const snapshot = {
-      mode: 'server-single-user',
-      canSelectDirectory: false,
-      canRestartBackend: false,
-      hasEmbeddedShell: false,
-      auth: {
-        required: false,
-        mode: 'none',
-        user: null,
-      },
-      search: {
-        enabled: false,
-        provider: 'tavily',
-        disabledReason: 'search disabled',
-      },
-      adminConsole: {
-        enabled: true,
-        requiresAccessKey: true,
-        configured: false,
-      },
-    } as const;
+    const snapshot = createSnapshot();
 
     setCachedRuntimeCapabilities(snapshot);
     expect(getCachedRuntimeCapabilities()).toEqual(snapshot);
@@ -57,50 +52,30 @@ describe('runtime capability cache', () => {
     expect(getCachedRuntimeCapabilities()).toBeNull();
   });
 
-  it('formats runtime labels and server-only action hints for settings UI', () => {
-    const snapshot = {
-      mode: 'server-single-user',
+  it('formats runtime labels and disabled action hints for settings UI', () => {
+    const snapshot = createSnapshot({
       canSelectDirectory: false,
       canRestartBackend: false,
-      hasEmbeddedShell: false,
-      auth: {
-        required: false,
-        mode: 'none',
-        user: null,
-      },
-      search: {
-        enabled: false,
-        provider: 'tavily',
-        disabledReason: 'search disabled',
-      },
-      adminConsole: {
-        enabled: true,
-        requiresAccessKey: true,
-        configured: false,
-      },
-    } as const;
+    });
 
-    expect(formatRuntimeModeLabel(snapshot.mode)).toBeTruthy();
+    expect(formatRuntimeModeLabel(snapshot.mode)).toBe('本地 Web');
     expect(getRuntimeActionHint(snapshot, 'canSelectDirectory')).toBeTruthy();
     expect(getRuntimeActionHint(snapshot, 'canRestartBackend')).toBeTruthy();
   });
 
-  it('defaults server-web runtime context to authenticated multi-user capabilities', async () => {
+  it('defaults to local-web runtime capabilities', async () => {
     await withEnv(
       {
         APP_RUNTIME_MODE: undefined,
-        APP_SERVER_WEB: '1',
-        APP_ADMIN_ACCESS_KEY: 'test-admin-key',
+        APP_EMBEDDED_BACKEND: undefined,
       },
       async () => {
         const { getRuntimeCapabilities } = await import('../../backend/src/platform/runtime/capabilities.ts');
         const capabilities = getRuntimeCapabilities();
 
-        expect(capabilities.mode).toBe('server-multi-user');
-        expect(capabilities.auth.required).toBe(true);
-        expect(capabilities.auth.mode).toBe('session');
-        expect(capabilities.adminConsole.requiresAccessKey).toBe(true);
-        expect(capabilities.adminConsole.configured).toBe(true);
+        expect(capabilities.mode).toBe('local-web');
+        expect(capabilities.canSelectDirectory).toBe(true);
+        expect(capabilities.canRestartBackend).toBe(true);
       },
     );
   });

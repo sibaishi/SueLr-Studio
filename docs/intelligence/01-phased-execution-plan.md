@@ -4,7 +4,6 @@
 
 - Keep the app usable at the end of every phase.
 - Treat `desktop` and `local-web` as the first implementation and acceptance targets.
-- Keep `server-web`, multi-user shared knowledge, and sync as later migration phases.
 - The global Agent is the primary surface; workflow is a tool target.
 - Planner model selection belongs inside the Agent window.
 - LLM planner creates structured plans; runtime validates and executes.
@@ -218,12 +217,11 @@ Exit criteria:
 npm run check
 ```
 
-## Phase 10+: Server Migration and Shared Knowledge
+## Phase 10+: Local Templates and Review
 
-Only after local MVP acceptance:
+After local MVP acceptance:
 
-- design server migration
-- add multi-user Agent access
-- isolate private runs, knowledge, and providers
-- add public knowledge contribution and review
-- decide sync vs server-centered operation
+- preserve successful workflows as reusable templates
+- preserve prompt packs and task patterns
+- keep knowledge writeback governed and local-first
+- keep `desktop` and `local-web` as the supported runtime shapes
