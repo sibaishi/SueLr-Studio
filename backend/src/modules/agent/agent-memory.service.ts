@@ -56,12 +56,7 @@ function normalizeMemory(memory: DynamicValue, scope?: DynamicValue): PlainObjec
       conversationId: cleanString(memory.conversationId, 120) || undefined,
       workflowId: cleanString(memory.workflowId, 120) || undefined,
     },
-    {
-      ...scope,
-      userId: memory.ownerUserId || memory.ownershipScope?.userId || scope?.userId,
-      workspaceId: memory.workspaceId || memory.ownershipScope?.workspaceId || scope?.workspaceId,
-      runtimeMode: memory.ownershipScope?.runtimeMode || scope?.runtimeMode,
-    },
+    scope,
   );
 }
 

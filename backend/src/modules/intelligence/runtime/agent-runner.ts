@@ -101,8 +101,6 @@ type PendingApproval = {
 function buildScopeKey(scope?: DynamicValue) {
   if (!isPlainObject(scope)) return '{}';
   return JSON.stringify({
-    userId: scope.userId || '',
-    workspaceId: scope.workspaceId || '',
     runtimeMode: scope.runtimeMode || '',
   });
 }

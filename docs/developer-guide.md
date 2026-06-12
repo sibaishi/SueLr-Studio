@@ -431,11 +431,11 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
 - `backend/src/platform/logging/runtime-observability.ts`
   - runtime probes used to diagnose stuck or invalid transitions
 - `backend/src/platform/logging/request-context.ts`
-  - request-scoped metadata carrier used by logs and future server-side ownership hooks
+  - request-scoped runtime metadata carrier for local HTTP handlers
 - `backend/src/platform/runtime/request-scope.ts`
-  - default single-user request scope model used by HTTP context, logging, diagnostics, and future ownership hooks
+  - local single-user request scope model used by HTTP context and diagnostics
 - `backend/src/platform/runtime/resource-ownership.ts`
-  - additive ownership metadata helpers for persisted resources; new records should carry `ownerUserId`, `workspaceId`, and `ownershipScope`
+  - local compatibility helpers for older records that may still contain ownership metadata
 - `backend/src/platform/logging/workflow-run-logger.ts`
   - workflow run log persistence
 - `backend/src/platform/logging/workflow-log-sanitizer.ts`
@@ -460,10 +460,9 @@ SueLr Studio is delivered as `desktop` and `local-web`. Shared code should keep 
 - settings UI must not imply control over paths the active runtime cannot edit
 - workflow output results must prefer relative URLs and semantic state over absolute `savedPaths`
 - request-scoped metadata should be attached through `request-context`, not inferred from globals
-- single-user request scope defaults to `userId: single-user` and `workspaceId: default`
-- browser-supplied request-scope headers must not be trusted as authentication or authorization identity
-- persisted resources should use `ownerUserId`, `workspaceId`, and `ownershipScope` for ownership metadata; do not reuse domain fields such as memory `scope` for request ownership
-- scoped storage preparation keeps `single-user/default` on the existing storage layout while reserving `scopes/v1/workspaces/<workspaceId>/users/<userId>/...` for future physical namespace moves
+- local request scope always resolves to the single-user identity; browser-supplied scope headers are ignored
+- persisted resources should not add user/workspace ownership fields; local governance fields such as knowledge `scope` remain domain-level metadata
+- scoped storage always resolves to the active app data root used by desktop and `local-web`
 
 If a new API needs to surface storage or generated outputs, prefer relative URLs or semantic state, never raw host paths.
 

@@ -16,7 +16,7 @@ export interface RequestScope {
 
 export interface ScopeFoundationSummary extends RequestScope {
   enabled: true;
-  source: 'single-user-default' | 'request';
+  source: 'local-single-user';
 }
 
 type HeaderMap = Record<string, string | string[] | undefined>;
@@ -38,10 +38,13 @@ export function normalizeRequestScope(
   scope: RequestScopeInput = {},
   defaults: RequestScope = createDefaultRequestScope(),
 ): RequestScope {
+  const requestedMode = cleanScopeValue(scope.runtimeMode, defaults.runtimeMode);
+  const runtimeMode: RuntimeMode =
+    requestedMode === 'desktop' || requestedMode === 'local-web' ? requestedMode : defaults.runtimeMode;
   return {
-    userId: cleanScopeValue(scope.userId, defaults.userId),
-    workspaceId: cleanScopeValue(scope.workspaceId, defaults.workspaceId),
-    runtimeMode: cleanScopeValue(scope.runtimeMode, defaults.runtimeMode) as RuntimeMode,
+    userId: DEFAULT_SCOPE_USER_ID,
+    workspaceId: DEFAULT_SCOPE_WORKSPACE_ID,
+    runtimeMode,
   };
 }
 
@@ -68,9 +71,6 @@ export function summarizeScopeFoundation(
     userId: normalized.userId,
     workspaceId: normalized.workspaceId,
     runtimeMode: normalized.runtimeMode,
-    source:
-      normalized.userId === DEFAULT_SCOPE_USER_ID && normalized.workspaceId === DEFAULT_SCOPE_WORKSPACE_ID
-        ? 'single-user-default'
-        : 'request',
+    source: 'local-single-user',
   };
 }

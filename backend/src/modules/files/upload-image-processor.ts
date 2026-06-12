@@ -86,7 +86,7 @@ export function resumePendingUploadImageProcessing() {
       filename: item.filename,
       filePath: item.filePath,
       mimeType: item.mimeType,
-      scope: item.ownershipScope || item.scope,
+      scope: item.scope,
     });
   }
 }

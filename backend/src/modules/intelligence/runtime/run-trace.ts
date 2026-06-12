@@ -19,9 +19,6 @@ export type IntelligenceRunTrace = {
   skillResults: DynamicValue[];
   createdAt: number;
   updatedAt: number;
-  ownerUserId?: string;
-  workspaceId?: string;
-  ownershipScope?: string;
   sourceRuntime: 'local';
 };
 
@@ -40,14 +37,6 @@ function getRunFilePath(id: string, scope?: DynamicValue) {
   const filePath = safeResolveWithin(getScopedStoragePaths(scope).intelligenceRunsDir, `${id}.json`);
   if (!filePath) throw new ValidationError('INTELLIGENCE_RUN_ID_INVALID', '运行 ID 非法');
   return filePath;
-}
-
-function buildOwnership(scope?: DynamicValue): PlainObject {
-  return {
-    ownerUserId: typeof scope?.userId === 'string' ? scope.userId : undefined,
-    workspaceId: typeof scope?.workspaceId === 'string' ? scope.workspaceId : undefined,
-    ownershipScope: typeof scope?.ownershipScope === 'string' ? scope.ownershipScope : 'local',
-  };
 }
 
 export class RunTraceRepository {
@@ -69,7 +58,6 @@ export class RunTraceRepository {
       skillResults: input.skillResults,
       createdAt: now,
       updatedAt: now,
-      ...buildOwnership(input.scope),
       sourceRuntime: 'local',
     };
     writeJsonFile(getRunFilePath(trace.id, input.scope), trace);

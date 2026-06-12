@@ -13,7 +13,7 @@ const { buildApplicationMenuTemplate } = require('../../electron/menu.cjs') as {
 };
 
 describe('Electron menu template', () => {
-  it('keeps local system tools available without an independent admin console item', () => {
+  it('keeps local system tools available in the desktop menu', () => {
     const onOpenDataDirectory = vi.fn();
     const onOpenLogsDirectory = vi.fn();
     const onRelaunch = vi.fn();

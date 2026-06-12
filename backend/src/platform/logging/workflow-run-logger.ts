@@ -13,9 +13,6 @@ interface WorkflowLogInput {
   workflowId?: unknown;
   name?: unknown;
   workflowName?: unknown;
-  ownerUserId?: unknown;
-  workspaceId?: unknown;
-  ownershipScope?: unknown;
   scope?: unknown;
   snapshotVersion?: unknown;
   source?: unknown;
@@ -94,9 +91,6 @@ export function createWorkflowRunLogger(
       workflowId,
       processInstanceId: getProcessInstanceId(),
       requestId: context.requestId,
-      ownerUserId: context.scope?.userId || workflow?.ownerUserId,
-      workspaceId: context.scope?.workspaceId || workflow?.workspaceId,
-      ownershipScope: context.scope || workflow?.ownershipScope || workflow?.scope,
       snapshotVersion: workflow?.snapshotVersion,
       source: workflow?.source,
       data,

@@ -187,13 +187,7 @@ export function normalizePersistedWorkflow(payload: DynamicValue, options: Workf
     normalized.metadata = body.metadata;
   }
 
-  return ensureResourceOwnership(normalized, {
-    ...options.scope,
-    userId: body.ownerUserId || body.ownershipScope?.userId || body.scope?.userId || options.scope?.userId,
-    workspaceId:
-      body.workspaceId || body.ownershipScope?.workspaceId || body.scope?.workspaceId || options.scope?.workspaceId,
-    runtimeMode: body.ownershipScope?.runtimeMode || body.scope?.runtimeMode || options.scope?.runtimeMode,
-  });
+  return ensureResourceOwnership(normalized, options.scope);
 }
 
 export const sanitizeWorkflowPayload = normalizePersistedWorkflow;

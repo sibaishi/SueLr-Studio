@@ -229,20 +229,21 @@ test('agent-runs rejects expired workflow.execute approval over HTTP', async () 
   }
 });
 
-test('agent-runs rejects approval created for another scope over HTTP', async () => {
-  const { server, baseUrl } = await createTestServer('agent-run-cross-scope');
+test('agent-runs normalizes approval scope to local single-user over HTTP', async () => {
+  const workflowId = 'wf_agent_local_scope';
+  const { server, baseUrl } = await createTestServer('agent-run-local-scope');
   try {
-    const pendingApproval = agentRunner.createPendingApproval(buildExecutePlan({ workflowId: 'wf_cross_scope' }), {
+    await saveWorkflow(baseUrl, workflowId);
+    const pendingApproval = agentRunner.createPendingApproval(buildExecutePlan({ workflowId }), {
       userId: 'other-user',
       workspaceId: 'default',
       runtimeMode: 'local-web',
     });
 
-    const crossScope = await postApproval(baseUrl, pendingApproval);
-    assert.equal(crossScope.status, 400);
-    assertEnvelopeShape(crossScope.body);
-    assert.equal(crossScope.body.error.code, 'AGENT_TOOL_APPROVAL_INVALID');
-    assert.match(crossScope.body.error.message, /已失效/);
+    const localScope = await postApproval(baseUrl, pendingApproval);
+    assert.equal(localScope.status, 200);
+    assertEnvelopeShape(localScope.body);
+    assert.equal(localScope.body.data.approvalRequired, false);
   } finally {
     agentRunner.pendingApprovals.clear();
     await new Promise((resolve) => server.close(resolve));

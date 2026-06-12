@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { DEFAULT_SCOPE_USER_ID, DEFAULT_SCOPE_WORKSPACE_ID, normalizeRequestScope } from '../runtime/request-scope.ts';
+import { normalizeRequestScope } from '../runtime/request-scope.ts';
 import { ensureDir } from './ensure-dir.ts';
 import { type StoragePaths, getStoragePaths } from './storage-paths.ts';
 
@@ -20,7 +20,7 @@ export interface NormalizedRequestScope {
 export interface StorageNamespace {
   scope: NormalizedRequestScope;
   isDefaultScope: boolean;
-  layout: 'legacy-single-user' | `workspace-scoped-${typeof SCOPED_STORAGE_LAYOUT_VERSION}`;
+  layout: 'local-single-user';
   namespaceParts: string[];
   namespacePath: string;
 }
@@ -29,46 +29,24 @@ export interface ScopedStoragePaths extends StoragePaths {
   scopeNamespace: StorageNamespace;
 }
 
-interface ScopedResource {
-  ownershipScope?: RequestScope | null;
-  scope?: RequestScope | unknown;
-  ownerUserId?: string | null;
-  workspaceId?: string | null;
-}
-
-function cleanNamespaceSegment(value: unknown, fallback: string): string {
-  const cleaned = String(value || '')
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 120);
-  return cleaned || fallback;
-}
-
 function normalizeScope(scope: RequestScope = {}): NormalizedRequestScope {
   return normalizeRequestScope(scope) as NormalizedRequestScope;
 }
 
 export function isDefaultStorageScope(scope: RequestScope = {}): boolean {
-  const normalized = normalizeScope(scope);
-  return normalized.userId === DEFAULT_SCOPE_USER_ID && normalized.workspaceId === DEFAULT_SCOPE_WORKSPACE_ID;
+  void scope;
+  return true;
 }
 
 export function createStorageNamespace(scope: RequestScope = {}): StorageNamespace {
   const normalized = normalizeScope(scope);
-  const defaultScope = isDefaultStorageScope(normalized);
-  const workspaceSegment = cleanNamespaceSegment(normalized.workspaceId, DEFAULT_SCOPE_WORKSPACE_ID);
-  const userSegment = cleanNamespaceSegment(normalized.userId, DEFAULT_SCOPE_USER_ID);
-  const namespaceParts = defaultScope
-    ? []
-    : ['scopes', SCOPED_STORAGE_LAYOUT_VERSION, 'workspaces', workspaceSegment, 'users', userSegment];
 
   return {
     scope: normalized,
-    isDefaultScope: defaultScope,
-    layout: defaultScope ? 'legacy-single-user' : `workspace-scoped-${SCOPED_STORAGE_LAYOUT_VERSION}`,
-    namespaceParts,
-    namespacePath: namespaceParts.length > 0 ? path.join(...namespaceParts) : '',
+    isDefaultScope: true,
+    layout: 'local-single-user',
+    namespaceParts: [],
+    namespacePath: '',
   };
 }
 
@@ -85,7 +63,6 @@ export function getScopedStoragePaths(
     root,
     configDir: path.join(root, 'config'),
     settingsFile: path.join(root, 'config', 'settings.json'),
-    appConfigFile: path.join(root, 'config', 'app-config.json'),
     accountDetailsFile: path.join(root, 'config', 'account-details.json'),
     legacyAccountDetailsFile: path.join(root, 'config', 'account-6789.json'),
     workflowsDir: path.join(root, 'workflows'),
@@ -139,20 +116,10 @@ export function ensureScopedStorageDirectories(
 }
 
 export function isResourceVisibleForScope(
-  resource: ScopedResource | null | undefined,
+  resource: unknown,
   scope: RequestScope = {},
 ): boolean {
-  const normalized = normalizeScope(scope);
-  const resourceScope = resource?.scope;
-  const existingScope =
-    resource?.ownershipScope ||
-    (resourceScope && typeof resourceScope === 'object' && !Array.isArray(resourceScope)
-      ? (resourceScope as RequestScope)
-      : undefined);
-  const ownerUserId = resource?.ownerUserId || existingScope?.userId;
-  const workspaceId = resource?.workspaceId || existingScope?.workspaceId;
-
-  if (!ownerUserId && !workspaceId) return true;
-
-  return ownerUserId === normalized.userId && workspaceId === normalized.workspaceId;
+  void resource;
+  void scope;
+  return true;
 }

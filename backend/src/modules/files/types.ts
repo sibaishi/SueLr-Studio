@@ -25,9 +25,6 @@ export type UploadRecord = PlainObject & {
   url?: string;
   width?: number;
   height?: number;
-  ownerUserId?: string;
-  workspaceId?: string;
-  ownershipScope?: DynamicValue;
   scope?: DynamicValue;
 };
 

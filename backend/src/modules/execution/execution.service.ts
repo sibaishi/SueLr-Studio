@@ -54,17 +54,11 @@ type RunningExecution = {
   source: string;
   snapshotVersion: number;
   abortController: AbortController;
-  ownerUserId?: string;
-  workspaceId?: string;
-  ownershipScope?: PlainObject;
 };
 
 type RecentExecution = {
   status: RunStatus;
   summary?: PlainObject;
-  ownerUserId?: string;
-  workspaceId?: string;
-  ownershipScope?: PlainObject;
   expiresAt: number;
 };
 
@@ -572,9 +566,6 @@ export class ExecutionService {
     this.recentExecutions.set(status.runId, {
       status,
       summary,
-      ownerUserId: scope?.userId,
-      workspaceId: scope?.workspaceId,
-      ownershipScope: scope,
       expiresAt: now + RECENT_RUN_TTL_MS,
     });
   }
@@ -656,9 +647,6 @@ export class ExecutionService {
       source: snapshot.source,
       snapshotVersion: snapshot.snapshotVersion,
       abortController,
-      ownerUserId: scope?.userId,
-      workspaceId: scope?.workspaceId,
-      ownershipScope: scope,
     });
     onRunStarted?.({
       runId: snapshot.runId,
@@ -813,9 +801,6 @@ export class ExecutionService {
       source: snapshot.source,
       snapshotVersion: snapshot.snapshotVersion,
       abortController,
-      ownerUserId: scope?.userId,
-      workspaceId: scope?.workspaceId,
-      ownershipScope: scope,
     });
     logger.info('execution run registered', {
       runId: snapshot.runId,

@@ -58,9 +58,6 @@ confidence
 evidence
 createdAt
 updatedAt
-ownerUserId
-workspaceId
-ownershipScope
 sourceRuntime
 version
 syncStatus

@@ -71,7 +71,7 @@ test('request scope defaults to local single-user behavior', async () => {
     userId: 'single-user',
     workspaceId: 'default',
     runtimeMode: 'local-web',
-    source: 'single-user-default',
+    source: 'local-single-user',
   });
 });
 
@@ -93,7 +93,7 @@ test('HTTP status ignores spoofed scope headers in local runtime', async () => {
       userId: 'single-user',
       workspaceId: 'default',
       runtimeMode: 'local-web',
-      source: 'single-user-default',
+      source: 'local-single-user',
     });
   } finally {
     restoreEnv();

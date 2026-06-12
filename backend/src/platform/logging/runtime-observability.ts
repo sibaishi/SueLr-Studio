@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createDefaultRequestScope } from '../runtime/index.ts';
 import { createLogger } from './logger.ts';
 import { ensureLogDirectories } from './workflow-run-logger.ts';
 
@@ -19,14 +18,10 @@ function getStartupLogPath(): string {
 
 function appendStartupEvent(event: string, fields: RuntimeEventFields = {}): void {
   const filePath = getStartupLogPath();
-  const scope = createDefaultRequestScope();
   const payload = {
     timestamp: new Date().toISOString(),
     event,
     processInstanceId,
-    ownerUserId: scope.userId,
-    workspaceId: scope.workspaceId,
-    ownershipScope: scope,
     pid: process.pid,
     ppid: process.ppid,
     ...fields,

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { ProviderError, ValidationError } from '../../app/errors/index.ts';
 import {
   categorizeLegacyModel,
@@ -21,8 +22,6 @@ import {
   writeJsonFile,
   writeStoredStorageRootOverride,
 } from '../../platform/storage/index.ts';
-import { ensureScopedStorageDirectories, getScopedStoragePaths } from '../../platform/storage/scoped-storage.ts';
-import { appConfigRepository } from '../app-config/app-config.repository.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.ts';
 
@@ -130,6 +129,20 @@ function readLegacyBackendSettings() {
 
 function readLegacyAssistantSettings() {
   return readJsonFile(LEGACY_PATHS.backendAssistantSettingsFile, null);
+}
+
+function readLegacyAppConfigSettings() {
+  const appConfig = readJsonFile<DynamicValue>(path.join(STORAGE_PATHS.configDir, 'app-config.json'), null);
+  if (!isPlainObject(appConfig)) return {};
+
+  const search = isPlainObject(appConfig.search) ? appConfig.search : {};
+  const providerConfig = isPlainObject(search.providerConfig) ? search.providerConfig : {};
+  const network = isPlainObject(appConfig.network) ? appConfig.network : {};
+  return {
+    tavilyApiKey: cleanOptionalString(providerConfig.tavilyApiKey, 4000),
+    searchEnabled: typeof search.enabled === 'boolean' ? search.enabled : undefined,
+    outboundProxy: isPlainObject(network.outboundProxy) ? sanitizeOutboundProxy(network.outboundProxy) : undefined,
+  };
 }
 
 function getActiveLegacyConfig(settings: DynamicValue) {
@@ -414,6 +427,7 @@ function sanitizeSettingsShape(input: DynamicValue) {
 function migrateLegacySettings() {
   const legacyBackend = readLegacyBackendSettings();
   const legacyAssistant = readLegacyAssistantSettings();
+  const legacyAppConfig = readLegacyAppConfigSettings();
   return sanitizeSettingsShape({
     ...cloneDefaultSettings(),
     ui: {
@@ -421,13 +435,38 @@ function migrateLegacySettings() {
       ...buildUiSectionFromLegacyAssistant(legacyAssistant),
     },
     runtime: mergeRuntimeSections(
+      legacyAppConfig,
       buildRuntimeSectionFromLegacyBackend(legacyBackend),
       buildRuntimeSectionFromLegacyAssistant(legacyAssistant),
     ),
     migrations: {
-      legacyImported: Boolean(legacyBackend || legacyAssistant),
+      legacyImported: Boolean(legacyBackend || legacyAssistant || Object.keys(legacyAppConfig).length > 0),
     },
   });
+}
+
+function mergeLegacyAppConfigIntoSettings(settings: DynamicValue) {
+  const legacyAppConfig = readLegacyAppConfigSettings();
+  if (!isPlainObject(legacyAppConfig) || Object.keys(legacyAppConfig).length === 0) return settings;
+
+  const runtime = isPlainObject(settings.runtime) ? settings.runtime : {};
+  const currentKey = cleanOptionalString(runtime.tavilyApiKey, 4000);
+  const legacyKey = cleanOptionalString(legacyAppConfig.tavilyApiKey, 4000);
+  const currentProxy = isPlainObject(runtime.outboundProxy) ? sanitizeOutboundProxy(runtime.outboundProxy) : null;
+
+  return {
+    ...settings,
+    runtime: {
+      ...runtime,
+      tavilyApiKey: currentKey || legacyKey,
+      searchEnabled: currentKey
+        ? Boolean(runtime.searchEnabled)
+        : typeof legacyAppConfig.searchEnabled === 'boolean'
+          ? legacyAppConfig.searchEnabled
+          : Boolean(runtime.searchEnabled),
+      outboundProxy: currentProxy || legacyAppConfig.outboundProxy || { ...DEFAULT_SETTINGS.runtime.outboundProxy },
+    },
+  };
 }
 
 function ensureSettings() {
@@ -440,7 +479,7 @@ function ensureSettings() {
   }
 
   ensureJsonFile(STORAGE_PATHS.settingsFile, cloneDefaultSettings());
-  const sanitized = sanitizeSettingsShape(existing);
+  const sanitized = sanitizeSettingsShape(mergeLegacyAppConfigIntoSettings(existing));
   if (JSON.stringify(existing) !== JSON.stringify(sanitized)) {
     writeJsonFile(STORAGE_PATHS.settingsFile, sanitized);
   }
@@ -452,37 +491,11 @@ function getActiveRuntimeConfig(settings: DynamicValue = readSettingsInternal())
   return configs.find((config: DynamicValue) => config.id === activeId) || configs[0] || null;
 }
 
-function mergeProxySettings(appProxy: DynamicValue, settingsProxy: DynamicValue) {
-  const settings = sanitizeOutboundProxy(settingsProxy);
-  if (settings.mode === 'direct') {
-    return { mode: 'direct', httpProxy: '', httpsProxy: '', noProxy: '' };
-  }
-  if (settings.mode === 'custom') {
-    return {
-      mode: 'custom',
-      httpProxy: settings.httpProxy,
-      httpsProxy: settings.httpsProxy,
-      noProxy: settings.noProxy,
-    };
-  }
-  return {
-    mode: appProxy.mode,
-    httpProxy: appProxy.httpProxy || '',
-    httpsProxy: appProxy.httpsProxy || '',
-    noProxy: appProxy.noProxy || '',
-  };
-}
-
 function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: DynamicValue) {
   const settings = readSettingsForScope(scope);
-  const appConfig = appConfigRepository.readAppConfig();
-  const appSearch = appConfigRepository.buildSearchConfig(appConfig);
-  const appNetwork = appConfigRepository.buildNetworkConfig(appConfig);
   const settingsTavilyApiKey = cleanOptionalString(settings.runtime?.tavilyApiKey, 4000);
-  const effectiveTavilyApiKey = settingsTavilyApiKey || appSearch.tavilyApiKey || '';
-  const settingsSearchEnabled = 'searchEnabled' in (settings.runtime || {}) ? Boolean(settings.runtime?.searchEnabled) : undefined;
-  const effectiveSearchEnabled = settingsSearchEnabled !== undefined ? settingsSearchEnabled : appSearch.enabled;
-  const effectiveOutboundProxy = mergeProxySettings(appNetwork.outboundProxy, settings.runtime?.outboundProxy);
+  const effectiveSearchEnabled = Boolean(settings.runtime?.searchEnabled);
+  const effectiveOutboundProxy = sanitizeOutboundProxy(settings.runtime?.outboundProxy);
   configureOutboundProxy(effectiveOutboundProxy);
   const overrideConfigs = sanitizeApiConfigList(overrides.configs);
   const storedConfigs = settings.runtime.configs || [];
@@ -509,8 +522,8 @@ function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: Dyn
 
   return {
     apiKey: cleanSecretOverride(overrides.apiKey, 4000) || active?.apiKey || '',
-    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || effectiveTavilyApiKey,
-    webSearchEnabled: Boolean(effectiveSearchEnabled && effectiveTavilyApiKey),
+    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || settingsTavilyApiKey,
+    webSearchEnabled: Boolean(effectiveSearchEnabled && settingsTavilyApiKey),
     outboundProxy: effectiveOutboundProxy,
     workflowExecution: settings.workflow.concurrency,
     baseUrl: cleanOptionalString(overrides.baseUrl, 2000) || active?.base || 'https://api.openai.com/v1',
@@ -581,34 +594,13 @@ function shouldUseScopedSettings(_scope?: DynamicValue): boolean {
 }
 
 function getSettingsFileForScope(scope?: DynamicValue): string {
-  if (!shouldUseScopedSettings(scope)) return STORAGE_PATHS.settingsFile;
-  ensureScopedStorageDirectories(scope);
-  return getScopedStoragePaths(scope).settingsFile;
+  void scope;
+  return STORAGE_PATHS.settingsFile;
 }
 
 function ensureSettingsForScope(scope?: DynamicValue) {
-  if (!shouldUseScopedSettings(scope)) {
-    ensureSettings();
-    return;
-  }
-
-  ensureStorageDirectories();
-  migrateLegacyStorageIfNeeded();
-  const settingsFile = getSettingsFileForScope(scope);
-  const existing = readJsonFile(settingsFile, null);
-  if (!existing) {
-    const defaults = cloneDefaultSettings();
-    defaults.runtime.configs = [createDefaultRuntimeConfig()];
-    defaults.runtime.activeConfigId = 'default';
-    writeJsonFile(settingsFile, defaults);
-    return;
-  }
-
-  ensureJsonFile(settingsFile, cloneDefaultSettings());
-  const sanitized = sanitizeSettingsShape(existing);
-  if (JSON.stringify(existing) !== JSON.stringify(sanitized)) {
-    writeJsonFile(settingsFile, sanitized);
-  }
+  void scope;
+  ensureSettings();
 }
 
 function readSettingsForScope(scope?: DynamicValue) {
