@@ -25,7 +25,7 @@ import { useT } from '@/providers/ThemeContext';
 import { useToast } from '@/providers/ToastContext';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
 import { LogPanel } from '@/shared/ui/ios';
-import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, LogOut, Wallet } from 'lucide-react';
+import { Bot, Brain, CircleDot, Database, Gauge, KeyRound, Layers3, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AccountDetailsSection } from './AccountDetailsSection';
 import { AgentPersonaSection } from './AgentPersonaSection';
@@ -67,8 +67,6 @@ export function SettingsPanel({
   workflowConcurrency,
   setWorkflowConcurrency,
   projectBusy,
-  authUser,
-  onLogout,
 }: SettingsPanelProps) {
   const T = useT();
   const toast = useToast();
@@ -142,7 +140,7 @@ export function SettingsPanel({
   const runtimeCapabilities = getRuntimeCapabilitiesSnapshot();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? false;
   const canRestartBackend = runtimeCapabilities?.canRestartBackend ?? false;
-  const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
+  const isServerRuntime = false;
 
   useEffect(() => {
     let cancelled = false;
@@ -600,8 +598,6 @@ export function SettingsPanel({
     themeMode,
     themeOptions,
     workflowConcurrency,
-    authUser,
-    canLogout: Boolean(onLogout),
   };
 
   const actions: SettingsActions = {
@@ -621,9 +617,6 @@ export function SettingsPanel({
     removeProjectModel,
     resetStoragePath: resetStoragePathAction,
     restartBackend: restartBackendAction,
-    logout: async () => {
-      await onLogout?.();
-    },
     refreshAccountDetails: refreshAccountDetailsAction,
     refreshAccountDetailsLogs: refreshAccountDetailsLogsAction,
     saveAgentProfile,
@@ -711,7 +704,6 @@ export function SettingsPanel({
               <span style={chipStyle(runtimeCapabilities?.search?.enabled ? T.purple : undefined)}>
                 {runtimeCapabilities?.search?.enabled ? '联网搜索可用' : '联网搜索未启用'}
               </span>
-              {authUser ? <span style={chipStyle(T.green)}>{authUser.username}</span> : null}
             </div>
           </div>
         </div>
@@ -855,42 +847,6 @@ export function SettingsPanel({
                   当前工作室显示风格
                 </div>
               </div>
-
-              {view.canLogout ? (
-                <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>账户操作</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-                    {view.authUser?.username || '已登录账户'}
-                  </div>
-                  <button
-                    type="button"
-                    data-testid="settings-logout"
-                    onClick={() => {
-                      void actions.logout();
-                    }}
-                    style={{
-                      marginTop: 12,
-                      width: '100%',
-                      minHeight: 36,
-                      borderRadius: 10,
-                      border: '1px solid rgba(217, 45, 32, 0.55)',
-                      background: '#D92D20',
-                      color: '#fff',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      boxShadow: '0 10px 22px rgba(217, 45, 32, 0.18)',
-                    }}
-                  >
-                    <LogOut size={15} aria-hidden="true" />
-                    退出登录
-                  </button>
-                </div>
-              ) : null}
 
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Agent 覆盖情况</div>

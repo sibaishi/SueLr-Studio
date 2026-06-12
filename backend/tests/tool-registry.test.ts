@@ -602,7 +602,7 @@ test('ToolRegistry exposes workflow_execute and forwards workflow execution to e
 });
 
 test('ToolRegistry forwards request scope to capability and workflow services', async () => {
-  const scope = { userId: 'user_123', workspaceId: 'workspace_abc', runtimeMode: 'server-multi-user' };
+  const scope = { userId: 'user_123', workspaceId: 'workspace_abc', runtimeMode: 'local-web' };
   const calls = [];
   const registry = createRegistry({
     capabilitiesService: {

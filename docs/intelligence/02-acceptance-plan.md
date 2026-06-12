@@ -18,7 +18,7 @@ knowledge writeback is governed
 legacy workflow assistant is no longer primary
 ```
 
-`server-web`, shared public knowledge, per-user provider consumption, and sync are not local MVP pass conditions.
+The acceptance target is the local runtime family: `desktop` and `local-web`.
 
 ## Phase Gates
 
@@ -181,4 +181,4 @@ The local MVP passes when this flow works in local runtime shapes and `npm run c
 
 ## Full Program Acceptance
 
-Full acceptance requires local MVP acceptance plus later server migration, multi-user isolation, shared knowledge review, and sync gates.
+Full acceptance requires local MVP acceptance, governed knowledge writeback, reusable local templates, and `npm run check`.

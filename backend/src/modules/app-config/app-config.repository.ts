@@ -9,10 +9,10 @@ import {
 } from '../../platform/storage/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 
-const ADMIN_CONFIG_VERSION = 1;
+const APP_CONFIG_VERSION = 1;
 
-const DEFAULT_ADMIN_CONFIG = {
-  version: ADMIN_CONFIG_VERSION,
+const DEFAULT_APP_CONFIG = {
+  version: APP_CONFIG_VERSION,
   search: {
     enabled: false,
     provider: 'tavily',
@@ -27,9 +27,6 @@ const DEFAULT_ADMIN_CONFIG = {
       httpsProxy: '',
       noProxy: '',
     },
-  },
-  features: {
-    adminConsoleEnabled: true,
   },
   email: {
     provider: 'none',
@@ -64,7 +61,7 @@ function validateNumber(value: DynamicValue, fallback: number): number {
 
 function sanitizeOutboundProxy(value: DynamicValue) {
   if (!isPlainObject(value)) {
-    return { ...DEFAULT_ADMIN_CONFIG.network.outboundProxy };
+    return { ...DEFAULT_APP_CONFIG.network.outboundProxy };
   }
 
   const mode = ['system', 'direct', 'custom'].includes(value.mode) ? value.mode : 'system';
@@ -76,17 +73,17 @@ function sanitizeOutboundProxy(value: DynamicValue) {
   };
 }
 
-function cloneDefaultAdminConfig() {
-  return structuredClone(DEFAULT_ADMIN_CONFIG);
+function cloneDefaultAppConfig() {
+  return structuredClone(DEFAULT_APP_CONFIG);
 }
 
-function sanitizeAdminConfigShape(input: DynamicValue) {
+function sanitizeAppConfigShape(input: DynamicValue) {
   const value = isPlainObject(input) ? input : {};
-  const config = cloneDefaultAdminConfig();
-  config.version = ADMIN_CONFIG_VERSION;
+  const config = cloneDefaultAppConfig();
+  config.version = APP_CONFIG_VERSION;
   config.search = {
-    enabled: validateBoolean(value.search?.enabled, DEFAULT_ADMIN_CONFIG.search.enabled),
-    provider: cleanOptionalString(value.search?.provider, 40) || DEFAULT_ADMIN_CONFIG.search.provider,
+    enabled: validateBoolean(value.search?.enabled, DEFAULT_APP_CONFIG.search.enabled),
+    provider: cleanOptionalString(value.search?.provider, 40) || DEFAULT_APP_CONFIG.search.provider,
     providerConfig: {
       tavilyApiKey: cleanOptionalString(value.search?.providerConfig?.tavilyApiKey, 4000),
     },
@@ -94,12 +91,9 @@ function sanitizeAdminConfigShape(input: DynamicValue) {
   config.network = {
     outboundProxy: sanitizeOutboundProxy(value.network?.outboundProxy),
   };
-  config.features = {
-    adminConsoleEnabled: validateBoolean(value.features?.adminConsoleEnabled, true),
-  };
   config.email = {
     provider: value.email?.provider === 'smtp' ? 'smtp' : 'none',
-    from: cleanOptionalString(value.email?.from, 320) || DEFAULT_ADMIN_CONFIG.email.from,
+    from: cleanOptionalString(value.email?.from, 320) || DEFAULT_APP_CONFIG.email.from,
     smtp: {
       host: cleanOptionalString(value.email?.smtp?.host, 320),
       port: Math.min(Math.max(Math.trunc(validateNumber(value.email?.smtp?.port, 587)), 1), 65535),
@@ -137,44 +131,44 @@ function readLegacySearchAndProxySettings() {
   };
 }
 
-function ensureAdminConfig() {
+function ensureAppConfig() {
   ensureStorageDirectories();
   migrateLegacyStorageIfNeeded();
-  const adminConfigPath = STORAGE_PATHS.adminConfigFile;
-  const existing = readJsonFile(adminConfigPath, null);
+  const appConfigPath = STORAGE_PATHS.appConfigFile;
+  const existing = readJsonFile(appConfigPath, null);
   if (!existing) {
-    const migrated = sanitizeAdminConfigShape({
-      ...cloneDefaultAdminConfig(),
+    const migrated = sanitizeAppConfigShape({
+      ...cloneDefaultAppConfig(),
       ...readLegacySearchAndProxySettings(),
     });
-    writeJsonFile(adminConfigPath, migrated);
+    writeJsonFile(appConfigPath, migrated);
     return;
   }
 
-  ensureJsonFile(adminConfigPath, cloneDefaultAdminConfig());
-  const sanitized = sanitizeAdminConfigShape(existing);
+  ensureJsonFile(appConfigPath, cloneDefaultAppConfig());
+  const sanitized = sanitizeAppConfigShape(existing);
   if (JSON.stringify(existing) !== JSON.stringify(sanitized)) {
-    writeJsonFile(adminConfigPath, sanitized);
+    writeJsonFile(appConfigPath, sanitized);
   }
 }
 
-function readAdminConfigInternal() {
-  ensureAdminConfig();
-  return sanitizeAdminConfigShape(readJsonFile(STORAGE_PATHS.adminConfigFile, cloneDefaultAdminConfig()));
+function readAppConfigInternal() {
+  ensureAppConfig();
+  return sanitizeAppConfigShape(readJsonFile(STORAGE_PATHS.appConfigFile, cloneDefaultAppConfig()));
 }
 
-export class AdminConfigRepository {
-  readAdminConfig() {
-    return readAdminConfigInternal();
+export class AppConfigRepository {
+  readAppConfig() {
+    return readAppConfigInternal();
   }
 
-  updateAdminConfig(patch: DynamicValue) {
+  updateAppConfig(patch: DynamicValue) {
     if (!isPlainObject(patch)) {
-      throw new ValidationError('VALIDATION_ERROR', '管理员配置更新体必须为对象');
+      throw new ValidationError('VALIDATION_ERROR', '配置更新体必须为对象');
     }
 
-    const current = this.readAdminConfig();
-    const next = sanitizeAdminConfigShape({
+    const current = this.readAppConfig();
+    const next = sanitizeAppConfigShape({
       ...current,
       ...patch,
       search: {
@@ -190,10 +184,6 @@ export class AdminConfigRepository {
         ...(isPlainObject(patch.network) ? patch.network : {}),
         outboundProxy: sanitizeOutboundProxy(patch.network?.outboundProxy ?? current.network.outboundProxy),
       },
-      features: {
-        ...current.features,
-        ...(isPlainObject(patch.features) ? patch.features : {}),
-      },
       email: {
         ...current.email,
         ...(isPlainObject(patch.email) ? patch.email : {}),
@@ -204,11 +194,11 @@ export class AdminConfigRepository {
       },
     });
 
-    writeJsonFile(STORAGE_PATHS.adminConfigFile, next);
+    writeJsonFile(STORAGE_PATHS.appConfigFile, next);
     return next;
   }
 
-  buildPublicAdminConfig(config = this.readAdminConfig()) {
+  buildPublicAppConfig(config = this.readAppConfig()) {
     return {
       version: config.version,
       search: {
@@ -222,7 +212,6 @@ export class AdminConfigRepository {
       network: {
         outboundProxy: summarizeOutboundProxy(config.network.outboundProxy),
       },
-      features: config.features,
       email: {
         provider: config.email.provider,
         from: config.email.from,
@@ -240,7 +229,7 @@ export class AdminConfigRepository {
     };
   }
 
-  buildSearchConfig(config = this.readAdminConfig()) {
+  buildSearchConfig(config = this.readAppConfig()) {
     return {
       enabled: Boolean(config.search.enabled),
       provider: config.search.provider,
@@ -248,13 +237,13 @@ export class AdminConfigRepository {
     };
   }
 
-  buildNetworkConfig(config = this.readAdminConfig()) {
+  buildNetworkConfig(config = this.readAppConfig()) {
     return {
       outboundProxy: sanitizeOutboundProxy(config.network.outboundProxy),
     };
   }
 
-  buildEmailConfig(config = this.readAdminConfig()) {
+  buildEmailConfig(config = this.readAppConfig()) {
     return {
       provider: config.email.provider,
       from: config.email.from,
@@ -269,4 +258,4 @@ export class AdminConfigRepository {
   }
 }
 
-export const adminConfigRepository = new AdminConfigRepository();
+export const appConfigRepository = new AppConfigRepository();

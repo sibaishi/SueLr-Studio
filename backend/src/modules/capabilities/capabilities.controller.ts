@@ -5,8 +5,9 @@ import { capabilitiesService } from './capabilities.service.ts';
 
 export class CapabilitiesController {
   runtime(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
+    void req;
     try {
-      res.json(successEnvelope(capabilitiesService.getRuntimeCapabilities({ user: req.auth?.user || null })));
+      res.json(successEnvelope(capabilitiesService.getRuntimeCapabilities()));
     } catch (error) {
       next(error);
     }

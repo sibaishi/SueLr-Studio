@@ -1,10 +1,8 @@
-const SERVER_MODES = new Set(['server-single-user', 'server-multi-user']);
-
-export type RuntimeMode = 'desktop' | 'local-web' | 'server-single-user' | 'server-multi-user' | (string & {});
+export type RuntimeMode = 'desktop' | 'local-web';
 
 export function getRuntimeMode(): RuntimeMode {
   const configuredMode = String(process.env.APP_RUNTIME_MODE || '').trim();
-  if (configuredMode) {
+  if (configuredMode === 'desktop' || configuredMode === 'local-web') {
     return configuredMode;
   }
 
@@ -12,17 +10,5 @@ export function getRuntimeMode(): RuntimeMode {
     return 'desktop';
   }
 
-  if (process.env.APP_SERVER_WEB === '1') {
-    return 'server-multi-user';
-  }
-
-  if (process.env.APP_SERVER_MODE === 'multi-user') {
-    return 'server-multi-user';
-  }
-
   return 'local-web';
-}
-
-export function isServerRuntimeMode(mode: RuntimeMode = getRuntimeMode()): boolean {
-  return SERVER_MODES.has(mode);
 }

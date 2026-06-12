@@ -15,7 +15,7 @@ const concurrencyModeOptions = [
 ];
 
 export function DefaultsSection({ actions, view }: Props) {
-  const isServerRuntime = view.runtimeCapabilities?.mode?.startsWith('server') ?? false;
+  const isServerRuntime = false;
   const storageSourceLabel = {
     env: '环境变量覆盖',
     custom: isServerRuntime ? '浏览器下载偏好' : '用户自定义',

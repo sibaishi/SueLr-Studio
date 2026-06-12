@@ -1,4 +1,3 @@
-import { LoginGate } from '@/app/auth/LoginGate';
 import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
 import { DesktopSidebar } from '@/app/navigation/Navigation';
 import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
@@ -9,8 +8,6 @@ import { AgentWorkspace } from '@/features/agent';
 import { useStudioSettingsState } from '@/features/settings';
 import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
-import { logout } from '@/shared/api/auth';
-import { subscribeAuthInvalidated } from '@/shared/api/client';
 import { useMemory } from '@/shared/hooks/useMemory';
 import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
 import type { BridgeRef, Tab } from '@/shared/types';
@@ -140,11 +137,8 @@ export default function App() {
   const projectBusy = workflowBusy || chatBusy || imageBusy || videoBusy;
 
   const {
-    authenticateAndHydrate,
     bootstrapError,
     bootstrapMode,
-    clearAuthenticatedHydration,
-    refreshRuntimeCapabilities,
     runtimeCapabilities,
     splashFading,
     splashHidden,
@@ -163,12 +157,8 @@ export default function App() {
       Boolean(config.base && (config.apiKey || config.apiKeySet)) &&
       (config.projectModels || []).some((model) => model.configured),
   );
-  const canEnterWorkspace = Boolean(
-    bootstrapMode === 'browser-only' ||
-      (runtimeCapabilities && (!runtimeCapabilities.auth.required || runtimeCapabilities.auth.user)),
-  );
-  const showLoginGate = Boolean(splashHidden && runtimeCapabilities?.auth.required && !runtimeCapabilities.auth.user);
-  const showBootstrapBlocker = Boolean(splashHidden && !showLoginGate && !canEnterWorkspace);
+  const canEnterWorkspace = Boolean(bootstrapMode === 'browser-only' || runtimeCapabilities);
+  const showBootstrapBlocker = Boolean(splashHidden && !canEnterWorkspace);
   const showOnboarding = canEnterWorkspace && splashHidden && !hasUsableConfig && !onboardingDismissed;
   const chatPanelStyle = panelDisplayStyle(tab === 'chat');
   const imagePanelStyle = panelDisplayStyle(tab === 'image');
@@ -184,33 +174,6 @@ export default function App() {
       return next;
     });
   }, [tab]);
-
-  useEffect(() => {
-    if (!runtimeCapabilities?.auth.required) return undefined;
-    return subscribeAuthInvalidated(() => {
-      clearAuthenticatedHydration();
-      settings.resetUserSettings();
-      useWorkflowStore.getState().resetUserWorkspace();
-      void refreshRuntimeCapabilities();
-    });
-  }, [clearAuthenticatedHydration, refreshRuntimeCapabilities, runtimeCapabilities?.auth.required, settings]);
-
-  useEffect(() => {
-    if (!runtimeCapabilities?.auth.required || !runtimeCapabilities.auth.user) return undefined;
-    const timer = window.setInterval(() => {
-      void refreshRuntimeCapabilities();
-    }, 15000);
-    return () => window.clearInterval(timer);
-  }, [refreshRuntimeCapabilities, runtimeCapabilities?.auth.required, runtimeCapabilities?.auth.user]);
-
-  const handleLogout = async () => {
-    clearAuthenticatedHydration();
-    await logout().catch(() => undefined);
-    settings.resetUserSettings();
-    useWorkflowStore.getState().resetUserWorkspace();
-    await refreshRuntimeCapabilities();
-    setTab('workflow');
-  };
 
   useEffect(() => {
     const grouped: Record<'all' | 'chat' | 'image' | 'video', ModelOption[]> = {
@@ -274,9 +237,6 @@ export default function App() {
     <TCtx.Provider value={colors}>
       <ToastProvider>
         {!splashHidden && <SplashScreen fading={splashFading} />}
-        {showLoginGate && runtimeCapabilities && (
-          <LoginGate runtime={runtimeCapabilities} onAuthenticated={authenticateAndHydrate} />
-        )}
         {showBootstrapBlocker && (
           <BootstrapBlocker
             message={bootstrapError}
@@ -285,7 +245,7 @@ export default function App() {
             }}
           />
         )}
-        {!showLoginGate && showOnboarding && (
+        {showOnboarding && (
           <Suspense fallback={<WorkspaceLoading />}>
             <FirstRunOnboarding
               activeConfigId={settings.activeConfigId}
@@ -305,7 +265,7 @@ export default function App() {
             />
           </Suspense>
         )}
-        {canEnterWorkspace && !showLoginGate && !showOnboarding && (
+        {canEnterWorkspace && !showOnboarding && (
           <div
             style={{
               display: 'flex',
@@ -457,10 +417,6 @@ export default function App() {
                         workflowConcurrency={settings.workflowConcurrency}
                         setWorkflowConcurrency={settings.setWorkflowConcurrency}
                         projectBusy={projectBusy}
-                        authUser={runtimeCapabilities?.auth.user || null}
-                        onLogout={
-                          runtimeCapabilities?.auth.required && runtimeCapabilities.auth.user ? handleLogout : undefined
-                        }
                       />
                     </Suspense>
                   </ErrorBoundary>

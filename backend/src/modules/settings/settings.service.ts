@@ -1,4 +1,4 @@
-import { AppError, ConflictError, ValidationError, fromLegacyError } from '../../app/errors/index.ts';
+import { AppError, ConflictError, fromLegacyError } from '../../app/errors/index.ts';
 import { createLogger } from '../../platform/logging/logger.ts';
 import { getRuntimeCapabilities } from '../../platform/runtime/index.ts';
 import { scheduleBackendRestart } from '../../platform/system/restart-backend.ts';
@@ -8,8 +8,6 @@ import type { DynamicValue, PlainObject } from '../types.ts';
 import { settingsRepository } from './settings.repository.ts';
 
 const logger = createLogger({ module: 'settings-service' });
-const REDACTED_STORAGE_LABEL = '[server-managed]';
-const DEPLOYMENT_RUNTIME_KEYS = new Set(['tavilyApiKey', 'outboundProxy']);
 
 type SettingsServiceOptions = {
   executionService?: DynamicValue;
@@ -18,40 +16,13 @@ type SettingsServiceOptions = {
 };
 
 function sanitizeStorageSettingsForRuntime(settings: DynamicValue, runtime: DynamicValue) {
+  void runtime;
   if (!settings) return settings;
-
-  if (!runtime?.mode?.startsWith?.('server')) {
-    return {
-      ...settings,
-      pathsRedacted: false,
-      canManagePath: true,
-    };
-  }
-
   return {
     ...settings,
-    effectiveRoot: REDACTED_STORAGE_LABEL,
-    defaultRoot: REDACTED_STORAGE_LABEL,
-    customRoot: '',
-    envOverride: settings.envOverride ? REDACTED_STORAGE_LABEL : '',
-    legacyRoot: settings.legacyRoot ? REDACTED_STORAGE_LABEL : '',
-    pathsRedacted: true,
-    canManagePath: false,
+    pathsRedacted: false,
+    canManagePath: true,
   };
-}
-
-function assertNoDeploymentSettingsPatch(patch: PlainObject, scope?: DynamicValue) {
-  if (scope?.runtimeMode !== 'server-multi-user') return;
-  const runtimePatch = patch.runtime;
-  const nestedBlocked =
-    runtimePatch && typeof runtimePatch === 'object' && !Array.isArray(runtimePatch)
-      ? Object.keys(runtimePatch).find((key) => DEPLOYMENT_RUNTIME_KEYS.has(key))
-      : '';
-  const flatBlocked = Object.keys(patch).find((key) => DEPLOYMENT_RUNTIME_KEYS.has(key));
-  const blocked = nestedBlocked || flatBlocked;
-  if (blocked) {
-    throw new ValidationError('SETTINGS_DEPLOYMENT_FIELD_FORBIDDEN', '部署级设置只能在管理端修改');
-  }
 }
 
 export class SettingsService {
@@ -173,7 +144,6 @@ export class SettingsService {
   }
 
   updateRuntimeConfig(patch: PlainObject, scope?: DynamicValue) {
-    assertNoDeploymentSettingsPatch(patch, scope);
     try {
       const updated = this.repository.updateActiveRuntimeConfig(patch, scope);
       logger.info('runtime settings updated');
@@ -184,7 +154,6 @@ export class SettingsService {
   }
 
   updateStudioSettings(patch: PlainObject, scope?: DynamicValue) {
-    assertNoDeploymentSettingsPatch(patch, scope);
     try {
       const updated = this.repository.updateSettings(patch, scope);
       logger.info('studio settings updated');

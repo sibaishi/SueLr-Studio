@@ -70,7 +70,7 @@ test('normalizeChatMessagesForUpstream leaves remote and existing data image URL
 test('normalizeChatMessagesForUpstream resolves local API image URLs inside request scope', () => {
   const cleanup = withTempStorage();
   try {
-    const scope = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+    const scope = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'local-web' };
     const scopedPaths = ensureScopedStorageDirectories(scope);
     fs.writeFileSync(path.join(scopedPaths.uploadsDir, 'scoped.png'), Buffer.from('SCOPED'));
 

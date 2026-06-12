@@ -26,29 +26,24 @@ async function withEnv<T>(env: Record<string, string | undefined>, callback: () 
   }
 }
 
+function createSnapshot(overrides = {}) {
+  return {
+    mode: 'local-web' as const,
+    canSelectDirectory: true,
+    canRestartBackend: true,
+    hasEmbeddedShell: false,
+    search: {
+      enabled: false,
+      provider: 'tavily',
+      disabledReason: 'search disabled',
+    },
+    ...overrides,
+  };
+}
+
 describe('runtime capability cache', () => {
   it('stores and clears capability snapshots for capability-aware UI code', () => {
-    const snapshot = {
-      mode: 'local-web',
-      canSelectDirectory: true,
-      canRestartBackend: true,
-      hasEmbeddedShell: false,
-      auth: {
-        required: false,
-        mode: 'none',
-        user: null,
-      },
-      search: {
-        enabled: false,
-        provider: 'tavily',
-        disabledReason: 'search disabled',
-      },
-      adminConsole: {
-        enabled: true,
-        requiresAccessKey: false,
-        configured: true,
-      },
-    } as const;
+    const snapshot = createSnapshot();
 
     setCachedRuntimeCapabilities(snapshot);
     expect(getCachedRuntimeCapabilities()).toEqual(snapshot);
@@ -58,29 +53,12 @@ describe('runtime capability cache', () => {
   });
 
   it('formats runtime labels and disabled action hints for settings UI', () => {
-    const snapshot = {
-      mode: 'local-web',
+    const snapshot = createSnapshot({
       canSelectDirectory: false,
       canRestartBackend: false,
-      hasEmbeddedShell: false,
-      auth: {
-        required: false,
-        mode: 'none',
-        user: null,
-      },
-      search: {
-        enabled: false,
-        provider: 'tavily',
-        disabledReason: 'search disabled',
-      },
-      adminConsole: {
-        enabled: true,
-        requiresAccessKey: false,
-        configured: true,
-      },
-    } as const;
+    });
 
-    expect(formatRuntimeModeLabel(snapshot.mode)).toBeTruthy();
+    expect(formatRuntimeModeLabel(snapshot.mode)).toBe('本地 Web');
     expect(getRuntimeActionHint(snapshot, 'canSelectDirectory')).toBeTruthy();
     expect(getRuntimeActionHint(snapshot, 'canRestartBackend')).toBeTruthy();
   });
@@ -89,7 +67,6 @@ describe('runtime capability cache', () => {
     await withEnv(
       {
         APP_RUNTIME_MODE: undefined,
-        APP_ADMIN_ACCESS_KEY: undefined,
         APP_EMBEDDED_BACKEND: undefined,
       },
       async () => {
@@ -97,12 +74,8 @@ describe('runtime capability cache', () => {
         const capabilities = getRuntimeCapabilities();
 
         expect(capabilities.mode).toBe('local-web');
-        expect(capabilities.auth.required).toBe(false);
-        expect(capabilities.auth.mode).toBe('none');
         expect(capabilities.canSelectDirectory).toBe(true);
         expect(capabilities.canRestartBackend).toBe(true);
-        expect(capabilities.adminConsole.requiresAccessKey).toBe(false);
-        expect(capabilities.adminConsole.configured).toBe(true);
       },
     );
   });

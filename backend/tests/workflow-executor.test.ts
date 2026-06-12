@@ -262,7 +262,7 @@ test('aiChat resolves merged image inputs from request-scoped upload storage', a
   const previousConfigDir = process.env.APP_CONFIG_DIR;
   const storageRoot = createStorageDir('aichat-scoped-image');
   process.env.APP_CONFIG_DIR = storageRoot;
-  const scope = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
+  const scope = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'local-web' };
   const scopedPaths = ensureScopedStorageDirectories(scope);
   fs.writeFileSync(path.join(scopedPaths.uploadsDir, 'source.png'), Buffer.from('ABC'));
 

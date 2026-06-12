@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { isServerRuntimeMode } from '../../platform/runtime/mode.ts';
 import { saveContentByType } from '../helpers/saveHelper.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
@@ -30,8 +29,6 @@ export async function execute(
     prefix: node.data?.filenamePrefix || 'saved',
     scope: apiConfig.scope,
   });
-  const exposeHostPaths = !isServerRuntimeMode();
-
   return {
     content,
     savedFiles: savedFiles.map((file) => ({
@@ -39,6 +36,6 @@ export async function execute(
       name: path.basename(file.path),
       url: '',
     })),
-    ...(exposeHostPaths ? { savedPaths: savedFiles.map((file) => file.path) } : {}),
+    savedPaths: savedFiles.map((file) => file.path),
   };
 }

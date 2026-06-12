@@ -10,7 +10,6 @@ import {
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { formatDurationSeconds, getExecutionStatusLabel } from '@/domains/workflow/lib/executionFormat';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { getCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -53,8 +52,7 @@ export default function ResultsPanel({
   const nodeWarnings = useWorkflowStore((s) => s.nodeWarnings);
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const clearExecutionLogs = useWorkflowStore((s) => s.clearExecutionLogs);
-  const runtimeCapabilities = getCachedRuntimeCapabilities();
-  const isServerRuntime = runtimeCapabilities?.mode?.startsWith('server') ?? false;
+  const isServerRuntime = false;
 
   const refreshGeneratedOutputs = useCallback(async () => {
     setIsLoadingOutputs(true);

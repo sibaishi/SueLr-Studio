@@ -461,7 +461,7 @@ SueLr Studio is delivered as `desktop` and `local-web`. Shared code should keep 
 - workflow output results must prefer relative URLs and semantic state over absolute `savedPaths`
 - request-scoped metadata should be attached through `request-context`, not inferred from globals
 - single-user request scope defaults to `userId: single-user` and `workspaceId: default`
-- browser-supplied `X-SueLr-User-Id`, `X-SueLr-Workspace-Id`, and `X-SueLr-Runtime-Mode` must not be trusted as authentication or authorization identity
+- browser-supplied request-scope headers must not be trusted as authentication or authorization identity
 - persisted resources should use `ownerUserId`, `workspaceId`, and `ownershipScope` for ownership metadata; do not reuse domain fields such as memory `scope` for request ownership
 - scoped storage preparation keeps `single-user/default` on the existing storage layout while reserving `scopes/v1/workspaces/<workspaceId>/users/<userId>/...` for future physical namespace moves
 
@@ -503,8 +503,7 @@ When changing behavior:
 - run the narrowest relevant tests first
 - broaden to adjacent tests if the change touches shared workflow, settings, or storage code
 - for public release work, re-run `npm run check:docs`
-- for multi-user isolation changes, run `node --test --experimental-strip-types backend/tests/phase6-isolation-regression.test.ts`
-- for server browser auth gate changes, run `npm run test:e2e -- --grep "server multi user"`
+- for request-scope changes, run `node --test --experimental-strip-types backend/tests/request-scope.test.ts`
 
 High-value regression areas:
 

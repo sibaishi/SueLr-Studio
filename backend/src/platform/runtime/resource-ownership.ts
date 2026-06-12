@@ -66,7 +66,7 @@ export function isResourceVisibleForRequestScope(resource: unknown, scope?: Requ
   const ownerUserId = ownable.ownerUserId || existingScope?.userId;
   const workspaceId = ownable.workspaceId || existingScope?.workspaceId;
 
-  if (!ownerUserId && !workspaceId) return normalized.runtimeMode !== 'server-multi-user';
+  if (!ownerUserId && !workspaceId) return true;
 
   return ownerUserId === normalized.userId && workspaceId === normalized.workspaceId;
 }

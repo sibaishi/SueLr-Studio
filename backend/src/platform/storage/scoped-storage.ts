@@ -85,7 +85,7 @@ export function getScopedStoragePaths(
     root,
     configDir: path.join(root, 'config'),
     settingsFile: path.join(root, 'config', 'settings.json'),
-    adminConfigFile: path.join(root, 'config', 'admin-config.json'),
+    appConfigFile: path.join(root, 'config', 'app-config.json'),
     accountDetailsFile: path.join(root, 'config', 'account-details.json'),
     legacyAccountDetailsFile: path.join(root, 'config', 'account-6789.json'),
     workflowsDir: path.join(root, 'workflows'),
@@ -152,7 +152,7 @@ export function isResourceVisibleForScope(
   const ownerUserId = resource?.ownerUserId || existingScope?.userId;
   const workspaceId = resource?.workspaceId || existingScope?.workspaceId;
 
-  if (!ownerUserId && !workspaceId) return normalized.runtimeMode !== 'server-multi-user';
+  if (!ownerUserId && !workspaceId) return true;
 
   return ownerUserId === normalized.userId && workspaceId === normalized.workspaceId;
 }

@@ -76,7 +76,7 @@ function getDefaultChatModel(models: ModelInfo[]) {
 }
 
 function isServerMultiUserRuntime() {
-  return getCachedRuntimeCapabilities()?.mode === 'server-multi-user';
+  return false;
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -352,7 +352,7 @@ export function useChat(
   const useAgentStreaming = backendAvailable;
   const runtimeCapabilities = getCachedRuntimeCapabilities();
   const runtimeSearchEnabled = runtimeCapabilities?.search.enabled ?? false;
-  const isServerMultiUser = runtimeCapabilities?.mode === 'server-multi-user';
+  const isServerMultiUser = false;
 
   const activeIdResolved = activeId && convs.some((conv) => conv.id === activeId) ? activeId : convs[0]?.id || '';
   const conv =

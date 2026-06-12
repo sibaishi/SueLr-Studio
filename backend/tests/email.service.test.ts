@@ -1,7 +1,5 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import test from 'node:test';
 
 test('email service reports disabled and no-ops when provider is none', async () => {
@@ -95,47 +93,3 @@ test('email service reports SMTP transport failures without throwing', async () 
   assert.match(result.error, /smtp offline/);
 });
 
-test('account flows continue when configured SMTP transport fails', async () => {
-  const root = path.resolve('.tmp-tests', `email-flow-${Date.now()}`);
-  fs.mkdirSync(root, { recursive: true });
-  const previousEnv = {};
-  for (const [key, value] of Object.entries({
-    APP_CONFIG_DIR: root,
-    APP_STORAGE_BOOTSTRAP_FILE: path.join(root, 'config', 'bootstrap.json'),
-    APP_DISABLE_LEGACY_STORAGE_MIGRATION: '1',
-    APP_RUNTIME_MODE: 'server-multi-user',
-    APP_ADMIN_ACCESS_KEY: 'admin-secret',
-    EMAIL_PROVIDER: 'smtp',
-    SMTP_HOST: 'smtp.example.com',
-  })) {
-    previousEnv[key] = process.env[key];
-    process.env[key] = value;
-  }
-
-  const { emailService } = await import('../src/platform/notifications/email.service.ts');
-  emailService.setConfigProvider(() => ({
-    provider: 'smtp',
-    from: 'SueLr Studio <no-reply@example.com>',
-    smtp: { host: 'smtp.example.com', port: 587, secure: false },
-  }));
-
-  const { authService } = await import(`../src/modules/auth/auth.service.ts?flowAuth=${Date.now()}`);
-  const originalSend = emailService.send.bind(emailService);
-  emailService.send = async () => ({ ok: false, status: 'failed', message: '邮件发送失败', error: 'smtp offline' });
-
-  try {
-    const registered = await authService.register({
-      username: 'email-flow-user',
-      password: 'password-123',
-      email: 'email-flow@example.com',
-    });
-    assert.equal(registered.user.status, 'pending');
-    assert.equal(registered.notification.status, 'failed');
-  } finally {
-    emailService.send = originalSend;
-    for (const [key, value] of Object.entries(previousEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-  }
-});

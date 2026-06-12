@@ -6,7 +6,6 @@ import type {
   WorkflowConcurrencySettingsPayload,
 } from '@/features/settings';
 import type { AgentProfile } from '@/shared/api/agent';
-import type { AuthUser } from '@/shared/api/auth';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
 import type { LucideIcon } from 'lucide-react';
@@ -85,7 +84,6 @@ export type SettingsActions = {
   saveStoragePath: () => Promise<void>;
   resetStoragePath: () => Promise<void>;
   restartBackend: () => Promise<void>;
-  logout: () => Promise<void>;
   refreshAccountDetails: () => Promise<void>;
   refreshAccountDetailsLogs: () => Promise<void>;
   saveAccountDetails: () => Promise<void>;
@@ -147,6 +145,4 @@ export type SettingsViewModel = {
   themeMode: ThemeMode;
   themeOptions: Array<{ l: string; v: string }>;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
-  authUser?: AuthUser | null;
-  canLogout: boolean;
 };

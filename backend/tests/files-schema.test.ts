@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 import { validateUploadFile } from '../src/modules/files/files.schema.ts';
 
-test('validateUploadFile accepts common server-web media types allowed by frontend pickers', () => {
+test('validateUploadFile accepts common media types allowed by frontend pickers', () => {
   const acceptedFiles = [
     { originalname: 'sample.png', mimetype: 'image/png' },
     { originalname: 'vector.svg', mimetype: 'image/svg+xml' },

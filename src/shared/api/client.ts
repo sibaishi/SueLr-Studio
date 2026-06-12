@@ -6,19 +6,6 @@ type RequestOptions = RequestInit & {
   skipJsonContentType?: boolean;
 };
 
-const AUTH_INVALIDATED_EVENT = 'suelr-auth-invalidated';
-
-export function notifyAuthInvalidated() {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(new CustomEvent(AUTH_INVALIDATED_EVENT));
-}
-
-export function subscribeAuthInvalidated(listener: () => void) {
-  if (typeof window === 'undefined') return () => {};
-  window.addEventListener(AUTH_INVALIDATED_EVENT, listener);
-  return () => window.removeEventListener(AUTH_INVALIDATED_EVENT, listener);
-}
-
 function buildUrl(path: string) {
   return path.startsWith('http://') || path.startsWith('https://') ? path : path;
 }
@@ -77,9 +64,6 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       const payload = parseJsonText<ApiEnvelope<T>>(responseText);
       if (payload) {
         const normalized = normalizeEnvelope(payload);
-        if (response.status === 401 && normalized.errorCode === 'AUTH_REQUIRED') {
-          notifyAuthInvalidated();
-        }
         return {
           ...normalized,
           success: false,

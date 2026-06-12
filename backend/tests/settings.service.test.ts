@@ -182,14 +182,14 @@ test('studio settings no longer exposes legacy outbound proxy settings', async (
   assert.equal(response.runtime.outboundProxy, undefined);
 });
 
-test('runtime config uses admin outbound proxy instead of legacy studio proxy', async () => {
-  const root = createStorageDir('settings-admin-proxy-source');
+test('runtime config uses app outbound proxy instead of legacy studio proxy', async () => {
+  const root = createStorageDir('settings-app-proxy-source');
   process.env.APP_CONFIG_DIR = root;
   process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
   process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
 
   const { settingsService } = await import(`../src/modules/settings/settings.service.ts?test=${Date.now()}`);
-  const { adminConfigService } = await import(`../src/modules/admin-config/admin-config.service.ts?test=${Date.now()}`);
+  const { appConfigRepository } = await import(`../src/modules/app-config/app-config.repository.ts?test=${Date.now()}`);
 
   settingsService.updateStudioSettings({
     runtime: {
@@ -201,7 +201,7 @@ test('runtime config uses admin outbound proxy instead of legacy studio proxy', 
       },
     },
   });
-  adminConfigService.updateAdminConfig({
+  appConfigRepository.updateAppConfig({
     network: {
       outboundProxy: {
         mode: 'custom',
@@ -332,119 +332,3 @@ test('settings service requests backend restart when project is idle', async () 
   assert.deepEqual(result, { mode: 'spawn' });
 });
 
-test('settings service blocks local-only actions in server runtime modes', async () => {
-  const root = createStorageDir('settings-server-capabilities');
-  process.env.APP_CONFIG_DIR = root;
-  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
-  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
-
-  const { SettingsService } = await import(`../src/modules/settings/settings.service.ts?test=${Date.now()}`);
-  const service = new SettingsService(undefined, {
-    executionService: { runningExecutions: new Set() },
-    restartBackend: async () => ({ mode: 'spawn' }),
-    getRuntimeCapabilities: () => ({
-      mode: 'server-single-user',
-      canSelectDirectory: false,
-      canRestartBackend: false,
-      hasEmbeddedShell: false,
-    }),
-  });
-
-  await assert.rejects(() => service.selectDirectory(), (error) => {
-    assert.equal(error.code, 'DIRECTORY_PICKER_UNAVAILABLE');
-    assert.equal(error.status, 403);
-    return true;
-  });
-
-  await assert.rejects(() => service.requestBackendRestart(), (error) => {
-    assert.equal(error.code, 'BACKEND_RESTART_UNAVAILABLE');
-    assert.equal(error.status, 403);
-    return true;
-  });
-});
-
-test('settings service redacts storage roots and blocks storage path changes in server runtime modes', async () => {
-  const root = createStorageDir('settings-server-storage');
-  process.env.APP_CONFIG_DIR = root;
-  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
-  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
-
-  const { SettingsService } = await import(`../src/modules/settings/settings.service.ts?test=${Date.now()}`);
-  const service = new SettingsService(undefined, {
-    getRuntimeCapabilities: () => ({
-      mode: 'server-single-user',
-      canSelectDirectory: false,
-      canRestartBackend: false,
-      hasEmbeddedShell: false,
-    }),
-  });
-
-  const storage = service.getStorageSettings();
-  assert.equal(storage.pathsRedacted, true);
-  assert.equal(storage.canManagePath, false);
-  assert.equal(storage.effectiveRoot, '[server-managed]');
-  assert.equal(storage.defaultRoot, '[server-managed]');
-  assert.equal(storage.customRoot, '');
-
-  assert.throws(() => service.updateStorageSettings({ customRoot: 'D:\\server-path' }), (error) => {
-    assert.equal(error.code, 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE');
-    assert.equal(error.status, 403);
-    return true;
-  });
-
-  assert.throws(() => service.resetStorageSettings(), (error) => {
-    assert.equal(error.code, 'STORAGE_PATH_MANAGEMENT_UNAVAILABLE');
-    assert.equal(error.status, 403);
-    return true;
-  });
-});
-
-test('settings service scopes user settings in server multi-user mode', async () => {
-  const root = createStorageDir('settings-user-scope');
-  process.env.APP_CONFIG_DIR = root;
-  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
-  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
-
-  const { settingsService } = await import(`../src/modules/settings/settings.service.ts?test=${Date.now()}`);
-  const scopeA = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
-  const scopeB = { userId: 'user_b', workspaceId: 'default', runtimeMode: 'server-multi-user' };
-
-  settingsService.updateStudioSettings(
-    {
-      ui: { theme: 'light' },
-      runtime: {
-        activeConfigId: 'default',
-        configs: [{ id: 'default', name: 'User A', base: 'https://a.example.com/v1', apiKey: 'sk-a', models: [] }],
-      },
-    },
-    scopeA,
-  );
-
-  assert.equal(settingsService.getStudioSettings(scopeA).ui.theme, 'light');
-  assert.equal(settingsService.getStudioSettings(scopeA).runtime.configs[0].name, 'User A');
-  assert.equal(settingsService.buildRuntimeConfig({}, scopeA).apiKey, 'sk-a');
-
-  const userB = settingsService.getStudioSettings(scopeB);
-  assert.equal(userB.ui.theme, 'dark');
-  assert.notEqual(userB.runtime.configs[0].name, 'User A');
-  assert.equal(settingsService.buildRuntimeConfig({}, scopeB).apiKey, '');
-});
-
-test('settings service rejects deployment-level fields through user settings routes', async () => {
-  const root = createStorageDir('settings-admin-boundary');
-  process.env.APP_CONFIG_DIR = root;
-  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
-  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
-
-  const { settingsService } = await import(`../src/modules/settings/settings.service.ts?test=${Date.now()}`);
-  const scope = { userId: 'user_a', workspaceId: 'default', runtimeMode: 'server-multi-user' };
-
-  assert.throws(
-    () => settingsService.updateStudioSettings({ runtime: { tavilyApiKey: 'tvly-user' } }, scope),
-    { code: 'SETTINGS_DEPLOYMENT_FIELD_FORBIDDEN' },
-  );
-  assert.throws(
-    () => settingsService.updateRuntimeConfig({ tavilyApiKey: 'tvly-user' }, scope),
-    { code: 'SETTINGS_DEPLOYMENT_FIELD_FORBIDDEN' },
-  );
-});

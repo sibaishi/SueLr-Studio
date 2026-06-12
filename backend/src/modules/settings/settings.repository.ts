@@ -22,7 +22,7 @@ import {
   writeStoredStorageRootOverride,
 } from '../../platform/storage/index.ts';
 import { ensureScopedStorageDirectories, getScopedStoragePaths } from '../../platform/storage/scoped-storage.ts';
-import { adminConfigRepository } from '../admin-config/admin-config.repository.ts';
+import { appConfigRepository } from '../app-config/app-config.repository.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { normalizeModelOverrides, sanitizeProviderConfig } from './settings.shared.ts';
 
@@ -450,10 +450,10 @@ function getActiveRuntimeConfig(settings: DynamicValue = readSettingsInternal())
 
 function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: DynamicValue) {
   const settings = readSettingsForScope(scope);
-  const adminConfig = adminConfigRepository.readAdminConfig();
-  const adminSearch = adminConfigRepository.buildSearchConfig(adminConfig);
-  const adminNetwork = adminConfigRepository.buildNetworkConfig(adminConfig);
-  configureOutboundProxy(adminNetwork.outboundProxy);
+  const appConfig = appConfigRepository.readAppConfig();
+  const appSearch = appConfigRepository.buildSearchConfig(appConfig);
+  const appNetwork = appConfigRepository.buildNetworkConfig(appConfig);
+  configureOutboundProxy(appNetwork.outboundProxy);
   const overrideConfigs = sanitizeApiConfigList(overrides.configs);
   const storedConfigs = settings.runtime.configs || [];
   const configs =
@@ -479,9 +479,9 @@ function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: Dyn
 
   return {
     apiKey: cleanSecretOverride(overrides.apiKey, 4000) || active?.apiKey || '',
-    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || adminSearch.tavilyApiKey || '',
-    webSearchEnabled: Boolean(adminSearch.enabled && adminSearch.tavilyApiKey),
-    outboundProxy: adminNetwork.outboundProxy,
+    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || appSearch.tavilyApiKey || '',
+    webSearchEnabled: Boolean(appSearch.enabled && appSearch.tavilyApiKey),
+    outboundProxy: appNetwork.outboundProxy,
     workflowExecution: settings.workflow.concurrency,
     baseUrl: cleanOptionalString(overrides.baseUrl, 2000) || active?.base || 'https://api.openai.com/v1',
     projectModels,
@@ -546,8 +546,8 @@ function readSettingsInternal() {
   return sanitizeSettingsShape(readJsonFile(STORAGE_PATHS.settingsFile, cloneDefaultSettings()));
 }
 
-function shouldUseScopedSettings(scope?: DynamicValue): boolean {
-  return scope?.runtimeMode === 'server-multi-user';
+function shouldUseScopedSettings(_scope?: DynamicValue): boolean {
+  return false;
 }
 
 function getSettingsFileForScope(scope?: DynamicValue): string {
