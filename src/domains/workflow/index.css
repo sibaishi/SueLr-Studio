@@ -2401,6 +2401,16 @@ body {
   padding: 12px;
 }
 
+.workflow-results__log-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 28px;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
 .workflow-results__log-head {
   display: flex;
   align-items: center;
@@ -2444,6 +2454,13 @@ body {
   color: var(--color-text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.workflow-results__log-meta {
+  margin-top: 6px;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .workflow-results__empty {

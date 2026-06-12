@@ -30,6 +30,23 @@ type PanelTab = 'results' | 'logs';
 const LOG_MESSAGE_PREVIEW_LIMIT = 600;
 const LOG_DETAILS_PREVIEW_LIMIT = 4000;
 
+type WorkflowResultLog = {
+  id: string;
+  level: 'info' | 'success' | 'error';
+  message: string;
+  timestamp: number;
+  nodeId?: string;
+  details?: unknown;
+};
+
+type ReadableLog = WorkflowResultLog & {
+  count: number;
+  compactedCount: number;
+  startedAt: number;
+  endedAt: number;
+  detailSource?: WorkflowResultLog;
+};
+
 export default function ResultsPanel({
   onBackfillImage,
   onBackfillText,
@@ -45,6 +62,7 @@ export default function ResultsPanel({
   const [outputsError, setOutputsError] = useState<string | null>(null);
   const nodes = useWorkflowStore((s) => s.nodes);
   const executionLogs = useWorkflowStore((s) => s.executionLogs);
+  const readableExecutionLogCount = useMemo(() => buildReadableLogs(executionLogs).length, [executionLogs]);
   const lastExecutionStatus = useWorkflowStore((s) => s.lastExecutionStatus);
   const lastExecutionTime = useWorkflowStore((s) => s.lastExecutionTime);
   const isExecuting = useWorkflowStore((s) => s.isExecuting);
@@ -165,7 +183,7 @@ export default function ResultsPanel({
         <TabButton
           active={tab === 'logs'}
           onClick={() => setTab('logs')}
-          label={`日志 ${executionLogs.length ? executionLogs.length : ''}`}
+          label={formatLogsTabLabel(readableExecutionLogCount, executionLogs.length)}
         />
       </div>
 
@@ -595,7 +613,7 @@ function LogsList({
   logs,
   onClear,
 }: {
-  logs: Array<{ id: string; level: string; message: string; timestamp: number; details?: unknown }>;
+  logs: WorkflowResultLog[];
   onClear: () => void;
 }) {
   if (logs.length === 0) {
@@ -609,11 +627,15 @@ function LogsList({
     );
   }
 
-  const orderedLogs = [...logs].reverse();
+  const readableLogs = buildReadableLogs(logs);
+  const orderedLogs = [...readableLogs].reverse();
+  const compactedCount = Math.max(0, logs.length - readableLogs.length);
 
   return (
     <div className="workflow-results__stack">
-      <div className="flex justify-end">
+      <div className="workflow-results__log-toolbar">
+        <span>显示 {readableLogs.length} 条摘要</span>
+        {compactedCount > 0 && <span>已精简 {compactedCount} 条过程日志</span>}
         <button type="button" onClick={onClear} className="workflow-results__mini-action">
           清空
         </button>
@@ -622,26 +644,95 @@ function LogsList({
         <div key={log.id} className="workflow-results__log-item">
           <div className="workflow-results__log-head">
             <span className={`workflow-results__log-level workflow-results__log-level--${log.level}`}>{log.level}</span>
-            <span>
-              {new Date(log.timestamp).toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-              })}
-            </span>
+            <span>{formatReadableLogTime(log)}</span>
           </div>
           <div className="workflow-results__log-message">
             {buildLogPreview(String(log.message), LOG_MESSAGE_PREVIEW_LIMIT)}
           </div>
-          {Boolean(log.details) && (
+          {log.count > 1 && (
+            <div className="workflow-results__log-meta">
+              合并 {log.count} 条节点事件{log.compactedCount > 0 ? `，隐藏 ${log.compactedCount} 条过程明细` : ''}
+            </div>
+          )}
+          {Boolean(log.detailSource?.details) && (
             <pre className="workflow-results__text workflow-results__text--mono mt-2 whitespace-pre-wrap">
-              {buildLogPreview(String(log.details), LOG_DETAILS_PREVIEW_LIMIT)}
+              {buildLogPreview(String(log.detailSource?.details), LOG_DETAILS_PREVIEW_LIMIT)}
             </pre>
           )}
         </div>
       ))}
     </div>
   );
+}
+
+function buildReadableLogs(logs: WorkflowResultLog[]): ReadableLog[] {
+  const nodeGroups = new Map<string, WorkflowResultLog[]>();
+  const directLogs: ReadableLog[] = [];
+
+  logs.forEach((log, index) => {
+    if (log.nodeId) {
+      const nodeLogs = nodeGroups.get(log.nodeId) || [];
+      nodeLogs.push(log);
+      nodeGroups.set(log.nodeId, nodeLogs);
+      return;
+    }
+
+    const isBoundaryLog = index === 0 || index === logs.length - 1;
+    if (log.level === 'info' && !isBoundaryLog) return;
+    directLogs.push(toReadableDirectLog(log));
+  });
+
+  const groupedLogs = Array.from(nodeGroups.values()).map(toReadableNodeLog);
+  return [...directLogs, ...groupedLogs].sort((left, right) => left.startedAt - right.startedAt);
+}
+
+function toReadableDirectLog(log: WorkflowResultLog): ReadableLog {
+  return {
+    ...log,
+    count: 1,
+    compactedCount: 0,
+    startedAt: log.timestamp,
+    endedAt: log.timestamp,
+    detailSource: log.level === 'error' ? log : undefined,
+  };
+}
+
+function toReadableNodeLog(nodeLogs: WorkflowResultLog[]): ReadableLog {
+  const ordered = [...nodeLogs].sort((left, right) => left.timestamp - right.timestamp);
+  const first = ordered[0];
+  const errors = ordered.filter((log) => log.level === 'error');
+  const successes = ordered.filter((log) => log.level === 'success');
+  const primary = errors.at(-1) || successes.at(-1) || ordered.at(-1) || first;
+
+  return {
+    ...primary,
+    id: `readable_${first.nodeId || first.id}_${first.timestamp}`,
+    count: ordered.length,
+    compactedCount: Math.max(0, ordered.length - 1),
+    startedAt: first.timestamp,
+    endedAt: ordered.at(-1)?.timestamp || first.timestamp,
+    detailSource: errors.at(-1),
+  };
+}
+
+function formatReadableLogTime(log: ReadableLog) {
+  const startedAt = formatLogTime(log.startedAt);
+  if (!log.endedAt || log.endedAt === log.startedAt) return startedAt;
+  return `${startedAt} - ${formatLogTime(log.endedAt)}`;
+}
+
+function formatLogTime(timestamp: number) {
+  return new Date(timestamp).toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function formatLogsTabLabel(readableCount: number, rawCount: number) {
+  if (rawCount === 0) return '日志';
+  if (readableCount === rawCount) return `日志 ${rawCount}`;
+  return `日志 ${readableCount}/${rawCount}`;
 }
 
 function TextFileResult({
