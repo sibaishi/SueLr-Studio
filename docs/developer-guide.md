@@ -138,9 +138,11 @@ Current cleanup and ownership notes:
 - `src/domains/workflow/App.tsx`
   - workflow workspace shell
 - `src/domains/workflow/components/Toolbar.tsx`
-  - workflow switching, save state, import/export, execute, stop
+  - canvas overlays for workflow identity, centered workflow actions, save/import/export controls, and bottom-right execute/stop
 - `src/domains/workflow/components/FloatingToolbar.tsx`
   - workflow-edge floating actions for adding nodes, opening settings, opening Agent, and cycling theme
+- `src/domains/workflow/components/DocumentTabs.tsx`
+  - canvas-floating document tabs for switching and closing open workflow drafts
 - `src/domains/workflow/components/FlowCanvas.tsx`
   - canvas graph rendering, context menus, centered node-picker panel, keyboard shortcuts, grouping, connection, drag/drop, and editor interactions
 - `src/domains/workflow/components/flowCanvas*.ts*`
@@ -151,8 +153,6 @@ Current cleanup and ownership notes:
   - regular node handles and group boundary port handles, including split internal and external group-port affordances
 - `src/domains/workflow/components/ResultsPanel.tsx`
   - outputs, logs, and run diagnostics
-- `src/domains/workflow/components/StatusBar.tsx`
-  - graph summary and execution state
 - `src/domains/workflow/components/nodes/NodeParamFields.tsx`
   - node parameter editors
 - `src/domains/workflow/lib/groupLayout.ts`

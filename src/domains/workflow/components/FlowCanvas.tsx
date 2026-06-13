@@ -28,6 +28,7 @@ import {
   MiniMap,
   type NodeChange,
   type NodeMouseHandler,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
@@ -924,24 +925,19 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
           color="var(--color-grid-dot)"
           style={{ opacity: 1 }}
         />
-        <Controls position="bottom-left" showInteractive={false} />
-        <MiniMap
-          position="bottom-right"
-          nodeColor={miniMapNodeColor}
-          maskColor="rgba(0, 0, 0, 0.15)"
-          style={{
-            width: 144,
-            height: 104,
-            background: 'var(--glass-bg)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '12px',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            opacity: 0.72,
-          }}
-          pannable
-          zoomable
-        />
+        <Panel position="bottom-left" className="workflow-minimap-group">
+          <Controls showInteractive={false} />
+          <MiniMap
+            nodeColor={miniMapNodeColor}
+            maskColor="rgba(0, 0, 0, 0.15)"
+            style={{
+              width: 148,
+              height: 106,
+            }}
+            pannable
+            zoomable
+          />
+        </Panel>
       </ReactFlow>
 
       {ctxMenu.contextMenu &&

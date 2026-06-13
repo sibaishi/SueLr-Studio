@@ -40,13 +40,12 @@ async function readPersistedStudioConfig(page: import('@playwright/test').Page) 
 }
 
 async function readStableNodeCount(page: import('@playwright/test').Page) {
-  const nodeCount = page.getByTestId('workflow-node-count').locator('strong');
   await expect
     .poll(
       async () => {
-        const first = Number((await nodeCount.textContent()) || '0');
+        const first = await page.locator('.react-flow__node').count();
         await page.waitForTimeout(250);
-        const second = Number((await nodeCount.textContent()) || '0');
+        const second = await page.locator('.react-flow__node').count();
         return first === second ? second : Number.NaN;
       },
       {
@@ -55,7 +54,7 @@ async function readStableNodeCount(page: import('@playwright/test').Page) {
       },
     )
     .not.toBeNaN();
-  return Number((await nodeCount.textContent()) || '0');
+  return page.locator('.react-flow__node').count();
 }
 
 async function readWorkflowByName(page: import('@playwright/test').Page, name: string) {
@@ -173,12 +172,11 @@ test.describe('studio smoke', () => {
 
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
-    const nodeCount = page.getByTestId('workflow-node-count').locator('strong');
     const beforeCount = await readStableNodeCount(page);
 
     await addTextInputNode(page);
 
-    await expect(nodeCount).toHaveText(String(beforeCount + 1));
+    await expect(page.locator('.react-flow__node')).toHaveCount(beforeCount + 1);
   });
 
   test('workflow can save and reload a created workflow', async ({ page }) => {
@@ -213,7 +211,7 @@ test.describe('studio smoke', () => {
     await page.reload();
     await expect(page.getByTestId('workflow-page')).toBeVisible();
     await expect(page.getByTestId('workflow-name-input')).toHaveValue(workflowName);
-    await expect(page.getByTestId('workflow-node-count').locator('strong')).toHaveText(String(expectedNodeCount));
+    await expect(page.locator('.react-flow__node')).toHaveCount(expectedNodeCount);
   });
 
   test('workflow can duplicate and delete a saved workflow', async ({ page }) => {
@@ -350,16 +348,15 @@ test.describe('studio smoke', () => {
 
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
-    const nodeCount = page.getByTestId('workflow-node-count').locator('strong');
     const beforeCount = await readStableNodeCount(page);
 
     await addTextInputNode(page);
-    await expect(nodeCount).toHaveText(String(beforeCount + 1));
+    await expect(page.locator('.react-flow__node')).toHaveCount(beforeCount + 1);
 
     await page.waitForTimeout(300);
     await page.locator('[data-testid="workflow-page"]').click({ position: { x: 40, y: 40 } });
     await page.keyboard.press(browserName === 'webkit' ? 'Meta+Z' : 'Control+Z');
-    await expect(nodeCount).toHaveText(String(beforeCount));
+    await expect(page.locator('.react-flow__node')).toHaveCount(beforeCount);
   });
 
   test('settings connection test syncs models into import list', async ({ page }) => {
