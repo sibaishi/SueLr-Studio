@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import type { AgentProfile } from '@/shared/api/agent';
+import type { AgentProfile } from '../agentProfiles';
 import { AutoTextarea, IOSButton, IOSInput, IOSLabel, IOSSelect, RoleIcon } from '@/shared/ui/ios';
 import { useMemo, useState } from 'react';
 import { AGENT_TOOL_OPTIONS, MEMORY_MODE_OPTIONS, ROLE_ICONS } from './shared';

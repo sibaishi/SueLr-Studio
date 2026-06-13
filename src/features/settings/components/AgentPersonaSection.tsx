@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import type { AgentProfile } from '@/shared/api/agent';
+import type { AgentProfile } from '../agentProfiles';
 import { gid } from '@/shared/runtime';
 import { IOSButton, IOSCard, RoleIcon } from '@/shared/ui/ios';
 import { AgentProfileEditor } from './AgentProfileEditor';

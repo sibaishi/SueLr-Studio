@@ -1,5 +1,4 @@
 export * from './client';
-export * from './assistant';
 export * from './agent';
 export * from './capabilities';
 export * from './errors';

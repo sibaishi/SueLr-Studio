@@ -1,4 +1,4 @@
-import type { AgentProfile } from '@/shared/api/agent';
+import type { AgentProfile } from './agentProfiles';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/shared/types';
 import type { Dispatch, SetStateAction } from 'react';
@@ -9,9 +9,6 @@ export type StudioSettingsPayload = {
   ui: {
     theme: ThemeMode;
     customRoles: AgentRole[];
-    lastTab: string;
-    sidebarCollapsed: boolean;
-    chatStreamingMode: StreamMode;
     imageStreamingMode: StreamMode;
     videoStreamingMode: StreamMode;
   };

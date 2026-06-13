@@ -6,7 +6,7 @@ const checks = [
     path: 'tests/e2e/studio-smoke.spec.ts',
     sections: [
       "test('settings fields persist after reload'",
-      "test('workflow can add a node from the sidebar'",
+      "test('workflow can add a node from the floating toolbar'",
       "test('workflow toolbar can navigate back to settings'",
       "test('workflow editing can undo a newly added node'",
       "test('settings connection test syncs models into import list'",

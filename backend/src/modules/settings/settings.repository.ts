@@ -34,10 +34,7 @@ const DEFAULT_SETTINGS: DynamicValue = {
   },
   ui: {
     theme: 'dark',
-    sidebarCollapsed: false,
-    lastTab: 'settings',
     customRoles: [],
-    chatStreamingMode: 'non-stream',
     imageStreamingMode: 'stream',
     videoStreamingMode: 'stream',
   },
@@ -280,17 +277,7 @@ function buildUiSectionFromLegacyAssistant(settings: DynamicValue) {
   if (!settings) return {};
   return {
     theme: validateEnum(settings.ai_theme, ['dark', 'light', 'system'], DEFAULT_SETTINGS.ui.theme),
-    sidebarCollapsed: validateBoolean(settings.ai_sidebar_collapsed, DEFAULT_SETTINGS.ui.sidebarCollapsed),
-    lastTab: validateEnum(
-      settings.ai_tab,
-      ['chat', 'image', 'video', 'workflow', 'settings'],
-      DEFAULT_SETTINGS.ui.lastTab,
-    ),
     customRoles: sanitizeRoleList(settings.ai_custom_roles),
-    chatStreamingMode: normalizeStreamingMode(
-      settings.ai_chat_streaming_mode ?? settings.ai_streaming_mode,
-      DEFAULT_SETTINGS.ui.chatStreamingMode,
-    ),
     imageStreamingMode: normalizeStreamingMode(
       settings.ai_image_streaming_mode,
       DEFAULT_SETTINGS.ui.imageStreamingMode,
@@ -398,14 +385,7 @@ function sanitizeSettingsShape(input: DynamicValue) {
   };
   settings.ui = {
     theme: validateEnum(value.ui?.theme, ['dark', 'light', 'system'], DEFAULT_SETTINGS.ui.theme),
-    sidebarCollapsed: validateBoolean(value.ui?.sidebarCollapsed, DEFAULT_SETTINGS.ui.sidebarCollapsed),
-    lastTab: validateEnum(
-      value.ui?.lastTab,
-      ['chat', 'image', 'video', 'workflow', 'settings'],
-      DEFAULT_SETTINGS.ui.lastTab,
-    ),
     customRoles: sanitizeRoleList(value.ui?.customRoles),
-    chatStreamingMode: normalizeStreamingMode(value.ui?.chatStreamingMode, DEFAULT_SETTINGS.ui.chatStreamingMode),
     imageStreamingMode: normalizeStreamingMode(value.ui?.imageStreamingMode, DEFAULT_SETTINGS.ui.imageStreamingMode),
     videoStreamingMode: normalizeStreamingMode(value.ui?.videoStreamingMode, DEFAULT_SETTINGS.ui.videoStreamingMode),
   };

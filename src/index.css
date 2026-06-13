@@ -349,52 +349,6 @@ button:active {
   transform: translateY(-1px);
 }
 
-/* Gallery item hover */
-.gallery-item {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.gallery-item:hover {
-  transform: scale(1.02);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-}
-
-/* Conversation list - delete on hover */
-.conv-item .del-btn {
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.conv-item:hover .del-btn,
-.conv-item:active .del-btn {
-  opacity: 0.7;
-}
-@media (hover: none) {
-  .conv-item .del-btn {
-    opacity: 0.4;
-  }
-}
-
-/* Chat image actions - show on hover */
-div:hover > .img-actions {
-  opacity: 1 !important;
-}
-
-/* Message actions - show on hover */
-.msg-bubble .msg-actions {
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-}
-.msg-bubble:hover .msg-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-@media (hover: none) {
-  .msg-bubble .msg-actions {
-    opacity: 0.5;
-    pointer-events: auto;
-  }
-}
-
 /* ==================== Input Focus States ==================== */
 
 input:focus,
@@ -695,68 +649,6 @@ button:focus-visible {
   width: 5px;
   height: 5px;
   border-radius: 3px;
-}
-
-/* ==================== Chat Patterns ==================== */
-
-.drag-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  pointer-events: none;
-}
-.welcome-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  gap: 20px;
-}
-.msg-row {
-  display: flex;
-  gap: 10px;
-  animation: fadeInUp 0.2s ease-out;
-}
-.msg-actions-bar {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: flex;
-  gap: 3px;
-  z-index: 2;
-}
-.msg-meta {
-  font-size: 10px;
-  margin-bottom: 6px;
-  font-weight: 500;
-}
-.msg-content {
-  font-size: 14px;
-  line-height: 1.7;
-}
-.pending-grid {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-.pending-thumb {
-  position: relative;
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  overflow: hidden;
-}
-.input-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
 }
 
 /* ==================== Misc ==================== */

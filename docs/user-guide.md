@@ -2,11 +2,10 @@
 
 ## Overview
 
-SueLr Studio is a local-first multimodal studio with three main work areas:
+SueLr Studio is a local-first multimodal studio centered on the workflow workspace:
 
-- `Chat`: talk to configured chat models, attach files, and reuse generated assets
 - `Workflow`: build node-based automation flows on a canvas and run them locally
-- `Settings`: configure providers, models, roles, memory, diagnostics, and storage
+- `Settings`: open from the workflow toolbar to configure providers, models, roles, memory, diagnostics, and storage
 
 The app is split into:
 
@@ -15,8 +14,8 @@ The app is split into:
 
 Current product status:
 
-- Chat is available
-- Image and video generation are available through Chat, Agent, and Workflow tools
+- Agent is available from the workflow workspace
+- Image and video generation are available through Agent and Workflow tools
 - Workflow is available
 
 ## Install
@@ -131,7 +130,7 @@ Default local addresses:
 
 ### 1. First-time setup
 
-On first launch, the onboarding page only saves connection info and discovers remote models. It does not auto-enable those models for Chat, Agent, or Workflow use.
+On first launch, the onboarding page only saves connection info and discovers remote models. It does not auto-enable those models for Agent or Workflow use.
 
 After onboarding, open `Settings` and complete this order:
 
@@ -154,24 +153,27 @@ Important rule:
 - discovered models are not the same as enabled project models
 - product model pickers only show models that you explicitly imported and enabled in `Settings -> Models`
 
-### 2. Use Chat
+### 2. Use Agent From Workflow
 
-In `Chat`, you can:
+Agent conversations live inside the workflow workspace. Open `Workflow`, then use the Agent entry in the workspace when you need conversational planning or execution help.
+
+In Agent, you can:
 
 - create and switch conversations
 - choose a role
 - choose a chat model
 - upload attachments
 - optionally enable web search when supported
-- reuse assets produced by image or workflow runs
+- reuse assets produced by workflow runs
 
 Typical flow:
 
-1. Open `Chat`
-2. Create or switch to a conversation
-3. Choose role and model
-4. Enter your message
-5. Submit and continue the thread
+1. Open `Workflow`
+2. Open Agent from the workflow workspace
+3. Create or switch to a conversation
+4. Choose role and model
+5. Enter your message
+6. Submit and continue the thread
 
 ### 3. Use Workflow
 
@@ -180,7 +182,7 @@ Typical flow:
 Main areas:
 
 - top toolbar: workflow switching, save, import/export, execute, stop
-- left sidebar: node library
+- floating toolbar: add nodes, open settings, open Agent, adjust theme
 - center canvas: nodes and edges
 - right results panel: outputs, logs, preflight issues
 - bottom status bar: graph and execution summary
@@ -188,7 +190,7 @@ Main areas:
 Typical flow:
 
 1. Open `Workflow`
-2. Add nodes from the left panel, or double-click blank canvas space to open the centered node picker
+2. Add nodes from the floating toolbar, or double-click blank canvas space to open the centered node picker
 3. Connect them on the canvas
 4. Edit node parameters
 5. Save the workflow
@@ -292,7 +294,7 @@ You can override that from `Settings -> Defaults`.
 
 Runtime-specific behavior:
 
-- in `desktop` and `local-web`, the settings page can offer local path selection and backend restart when the runtime exposes those capabilities
+- in `desktop` and `local-web`, the settings modal can offer local path selection and backend restart when the runtime exposes those capabilities
 
 What gets stored there:
 
@@ -305,10 +307,10 @@ What gets stored there:
 
 Generated media is organized under the app data root:
 
-- `files/generated/images/`: raw image-generation outputs from Chat, Agent, and workflow image generation
+- `files/generated/images/`: raw image-generation outputs from Agent and workflow image generation
 - `files/generated/videos/`: raw synchronous or downloaded video-generation outputs from tool/workflow execution
-- `files/generated/assistant-images/`: images explicitly saved into the Chat/assistant gallery
-- `files/generated/assistant-videos/`: videos explicitly saved into the Chat/assistant video gallery
+- `files/generated/assistant-images/`: legacy assistant gallery compatibility assets
+- `files/generated/assistant-videos/`: legacy assistant video gallery compatibility assets
 
 All generated files are still served through `/api/outputs/...` or `/api/assistant/files/...`, so display and reuse flows keep using local URLs rather than absolute filesystem paths.
 

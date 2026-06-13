@@ -1,4 +1,3 @@
-import { MEMORY_PROMPT } from '@/domains/chat/constants';
 import { isBackendAvailable } from '@/shared/api';
 import {
   type AgentMemory,
@@ -20,6 +19,8 @@ const MAX_EXTRACTION_MESSAGE_LENGTH = 200;
 const MAX_EXTRACTED_MEMORY_LENGTH = 100;
 const EXTRACTION_DELAY_MS = 3000;
 const MIGRATION_FLAG_KEY = 'ai_memories_migrated_to_agent';
+const MEMORY_PROMPT =
+  '分析以下对话内容，提取关于用户的关键事实、长期偏好和稳定约束。返回 JSON 字符串数组；没有值得记住的信息时返回 []。\n\n对话内容：\n';
 
 function isMalformedMemoryContent(content: string) {
   const text = String(content || '').trim();

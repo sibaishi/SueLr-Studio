@@ -7,7 +7,7 @@ The new intelligence system must be accepted as a real tool-calling loop, not as
 The local MVP acceptance chain is:
 
 ```text
-user starts in global Agent
+user starts in Workflow and opens Agent from the workspace
 planner model is selected inside Agent window
 LLM planner returns a structured plan
 runtime validates tool calls
@@ -28,7 +28,7 @@ The acceptance target is the local runtime family: `desktop` and `local-web`.
 npm run check:encoding
 ```
 
-- Docs describe global conversational Agent as the primary surface.
+- Docs describe Workflow as the primary surface and Agent as the workspace conversation layer.
 - Docs no longer present design teams or workflow assistant as the MVP entry.
 - Planner model selection is documented as an Agent-window control.
 
@@ -168,7 +168,7 @@ Manual smoke:
 
 1. Start the app.
 2. Configure and enable at least one chat model.
-3. Open the global Agent from `AI Assistant`.
+3. Open Agent from the workflow workspace.
 4. Select the Planner model inside the Agent window.
 5. Ask for a storyboard image workflow from a text script.
 6. Confirm the planner chooses workflow/image sequence tools, not direct video generation.

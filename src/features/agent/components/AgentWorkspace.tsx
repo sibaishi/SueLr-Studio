@@ -28,11 +28,14 @@ import {
   ImagePlus,
   Loader2,
   Maximize2,
+  Minimize2,
   Paperclip,
   Play,
+  Plus,
   Send,
   Settings2,
   Sparkles,
+  Trash2,
   Wrench,
   X,
 } from 'lucide-react';
@@ -122,6 +125,14 @@ type PendingImagePreviewState = {
   scope: 'composer' | string;
 };
 
+type AgentConversation = {
+  id: string;
+  title: string;
+  messages: AgentMessage[];
+  createdAt: number;
+  updatedAt: number;
+};
+
 interface AgentWorkspaceProps {
   open: boolean;
   onClose: () => void;
@@ -137,10 +148,76 @@ const STARTER_PROMPT = '例如：帮我为一个新上市的保温杯设计一�
 const PLANNER_MODEL_STORAGE_KEY = 'suelr_agent_planner_model';
 const IMAGE_MODEL_STORAGE_KEY = 'suelr_agent_image_model';
 const VIDEO_MODEL_STORAGE_KEY = 'suelr_agent_video_model';
+const AGENT_CONVERSATIONS_STORAGE_KEY = 'suelr_agent_conversations_v1';
+const AGENT_ACTIVE_CONVERSATION_STORAGE_KEY = 'suelr_agent_active_conversation_v1';
 const ESC_STOP_ARM_WINDOW_MS = 1200;
 
 function gid(prefix = 'agent') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function createWelcomeMessage(): AgentMessage {
+  return {
+    id: gid(),
+    role: 'assistant',
+    content:
+      '我是项目 Agent。你可以直接描述想完成的事，我会根据需求生成可编辑的工作流草稿，并把结果交给你继续检查和调整。',
+  };
+}
+
+function getConversationTitle(messages: AgentMessage[]) {
+  const firstUserText = messages.find((message) => message.role === 'user')?.content.trim();
+  if (!firstUserText) return '新的 Agent 会话';
+  return firstUserText.length > 28 ? `${firstUserText.slice(0, 28)}...` : firstUserText;
+}
+
+function createAgentConversation(): AgentConversation {
+  const now = Date.now();
+  return {
+    id: gid('conversation'),
+    title: '新的 Agent 会话',
+    messages: [createWelcomeMessage()],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function isAgentMessage(value: unknown): value is AgentMessage {
+  const record = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return Boolean(
+    record &&
+      typeof record.id === 'string' &&
+      (record.role === 'user' || record.role === 'assistant') &&
+      typeof record.content === 'string',
+  );
+}
+
+function loadAgentConversations(): AgentConversation[] {
+  try {
+    const raw = localStorage.getItem(AGENT_CONVERSATIONS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!Array.isArray(parsed)) return [createAgentConversation()];
+    const conversations = parsed
+      .map((item): AgentConversation | null => {
+        const record = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : null;
+        if (!record || typeof record.id !== 'string' || !Array.isArray(record.messages)) return null;
+        const messages = record.messages.filter(isAgentMessage);
+        if (messages.length === 0) return null;
+        const createdAt = typeof record.createdAt === 'number' ? record.createdAt : Date.now();
+        const updatedAt = typeof record.updatedAt === 'number' ? record.updatedAt : createdAt;
+        return {
+          id: record.id,
+          title: typeof record.title === 'string' && record.title.trim() ? record.title : getConversationTitle(messages),
+          messages,
+          createdAt,
+          updatedAt,
+        };
+      })
+      .filter((item): item is AgentConversation => Boolean(item));
+    return conversations.length > 0 ? conversations : [createAgentConversation()];
+  } catch {
+    return [createAgentConversation()];
+  }
 }
 
 function getDraftSummary(draft: WorkflowDraftResponse) {
@@ -790,6 +867,7 @@ export default function AgentWorkspace({
 }: AgentWorkspaceProps) {
   const [input, setInput] = useState('');
   const [isWorking, setIsWorking] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [expandedTools, setExpandedTools] = useState<ReadonlySet<string>>(() => new Set());
   const [selectedPlannerModelId, setSelectedPlannerModelId] = useState(
     () => localStorage.getItem(PLANNER_MODEL_STORAGE_KEY) || '',
@@ -807,14 +885,10 @@ export default function AgentWorkspace({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const runSessionRef = useRef(0);
   const escStopArmedUntilRef = useRef(0);
-  const [messages, setMessages] = useState<AgentMessage[]>(() => [
-    {
-      id: gid(),
-      role: 'assistant',
-      content:
-        '我是项目 Agent。你可以直接描述想完成的事，我会根据需求生成可编辑的工作流草案，并把结果交给你继续检查和调整。',
-    },
-  ]);
+  const [conversations, setConversations] = useState<AgentConversation[]>(() => loadAgentConversations());
+  const [activeConversationId, setActiveConversationId] = useState(
+    () => localStorage.getItem(AGENT_ACTIVE_CONVERSATION_STORAGE_KEY) || '',
+  );
   const workflowContext = useWorkflowStore(
     useShallow((state) => ({
       workflowId:
@@ -822,6 +896,33 @@ export default function AgentWorkspace({
       workflowName: state.workflowName,
       runId: state.lastExecutionRunId || '',
     })),
+  );
+  const activeConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === activeConversationId) || conversations[0] || null,
+    [activeConversationId, conversations],
+  );
+  const messages = activeConversation?.messages || [];
+  const setMessages = useCallback(
+    (updater: AgentMessage[] | ((previous: AgentMessage[]) => AgentMessage[])) => {
+      const targetId = activeConversation?.id;
+      if (!targetId) return;
+      setConversations((previous) =>
+        previous.map((conversation) => {
+          if (conversation.id !== targetId) return conversation;
+          const nextMessages =
+            typeof updater === 'function'
+              ? (updater as (value: AgentMessage[]) => AgentMessage[])(conversation.messages)
+              : updater;
+          return {
+            ...conversation,
+            title: getConversationTitle(nextMessages),
+            messages: nextMessages,
+            updatedAt: Date.now(),
+          };
+        }),
+      );
+    },
+    [activeConversation?.id],
   );
 
   const selectedPlannerModel = useMemo(
@@ -919,6 +1020,42 @@ export default function AgentWorkspace({
           ? 'success'
           : 'muted';
   const conversationCount = Math.max(messages.length - 1, 0);
+  const panelFullscreen = isFullscreen;
+
+  const switchConversation = useCallback((conversationId: string) => {
+    setActiveConversationId(conversationId);
+    setInput('');
+    setPendingImages([]);
+    setPendingImagePreview(null);
+    setPreviewImage(null);
+  }, []);
+
+  const createConversation = useCallback(() => {
+    const conversation = createAgentConversation();
+    setConversations((previous) => [conversation, ...previous]);
+    switchConversation(conversation.id);
+  }, [switchConversation]);
+
+  const deleteConversation = useCallback(() => {
+    if (!activeConversation || conversations.length <= 1) return;
+    const currentIndex = conversations.findIndex((conversation) => conversation.id === activeConversation.id);
+    const nextConversations = conversations.filter((conversation) => conversation.id !== activeConversation.id);
+    const nextActive = nextConversations[Math.max(0, currentIndex - 1)] || nextConversations[0];
+    setConversations(nextConversations);
+    switchConversation(nextActive.id);
+  }, [activeConversation, conversations, switchConversation]);
+
+  useEffect(() => {
+    localStorage.setItem(AGENT_CONVERSATIONS_STORAGE_KEY, JSON.stringify(conversations));
+  }, [conversations]);
+
+  useEffect(() => {
+    if (!activeConversation) return;
+    if (activeConversation.id !== activeConversationId) {
+      setActiveConversationId(activeConversation.id);
+    }
+    localStorage.setItem(AGENT_ACTIVE_CONVERSATION_STORAGE_KEY, activeConversation.id);
+  }, [activeConversation, activeConversationId]);
 
   useEffect(() => {
     if (plannerModels.length === 0) {
@@ -1532,11 +1669,11 @@ export default function AgentWorkspace({
 
   return (
     <div
-      className="agent-workspace"
+      className={`agent-workspace agent-workspace--overlay ${panelFullscreen ? 'agent-workspace--fullscreen' : ''}`}
       role="dialog"
       aria-label="项目 Agent"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (!panelFullscreen && event.target === event.currentTarget) onClose();
       }}
     >
       <div className={`agent-workspace__panel ${hasUserStartedConversation ? 'agent-workspace__panel--engaged' : ''}`}>
@@ -1556,6 +1693,39 @@ export default function AgentWorkspace({
               <Sparkles size={13} />
               <span>{workspaceStatus}</span>
             </div>
+            <div className="agent-workspace__conversation-switcher">
+              <select
+                value={activeConversation?.id || ''}
+                onChange={(event) => switchConversation(event.target.value)}
+                aria-label="选择 Agent 会话"
+              >
+                {conversations.map((conversation) => (
+                  <option key={conversation.id} value={conversation.id}>
+                    {conversation.title}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="agent-workspace__icon-button" onClick={createConversation} aria-label="新建会话">
+                <Plus size={16} />
+              </button>
+              <button
+                type="button"
+                className="agent-workspace__icon-button"
+                onClick={deleteConversation}
+                disabled={conversations.length <= 1}
+                aria-label="删除当前会话"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+            <button
+              type="button"
+              className="agent-workspace__icon-button"
+              onClick={() => setIsFullscreen((previous) => !previous)}
+              aria-label={panelFullscreen ? '退出全屏' : '全屏显示'}
+            >
+              {panelFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+            </button>
             <button type="button" className="agent-workspace__icon-button" onClick={onClose} aria-label="关闭 Agent">
               <X size={17} />
             </button>

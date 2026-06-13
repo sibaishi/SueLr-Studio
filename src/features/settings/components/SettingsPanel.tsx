@@ -1047,45 +1047,6 @@ export function SettingsPanel({
                 </div>
               </div>
 
-              <div style={{ ...mutedPanelStyle(), padding: 14, flex: 1, minHeight: 128 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>最近反馈</div>
-                  <span style={chipStyle(logs.length > 0 ? T.green : undefined)}>{logs.length} 条</span>
-                </div>
-                <div className="flex-col" style={{ gap: 8, marginTop: 12 }}>
-                  {logs.slice(-3).map((log, index) => (
-                    <div
-                      key={`${log.time}-${index}`}
-                      style={{
-                        borderTop: index === 0 ? '0' : '1px solid var(--color-border)',
-                        paddingTop: index === 0 ? 0 : 8,
-                      }}
-                    >
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                        {String(log.level || 'info').toUpperCase()}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          lineHeight: 1.5,
-                          color: 'var(--color-text-tertiary)',
-                          marginTop: 3,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {log.msg}
-                      </div>
-                    </div>
-                  ))}
-                  {logs.length === 0 && (
-                    <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-tertiary)' }}>
-                      暂无运行反馈。连接测试、模型导入和后端状态会显示在这里。
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </aside>

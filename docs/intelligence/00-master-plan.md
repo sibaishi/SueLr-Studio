@@ -4,9 +4,9 @@
 
 SueLr Studio should evolve into a local-first conversational AI work system.
 
-The user should not need to start by choosing workflow nodes, tools, or team templates. The user describes the desired outcome in a global Agent window. The Agent asks clarifying questions when needed, uses an LLM planner to create a structured plan, calls controlled tools, and returns final results with collapsed trace records.
+The user starts from Workflow and opens the Agent workspace when conversational planning is needed. The Agent asks clarifying questions when needed, uses an LLM planner to create a structured plan, calls controlled tools, and returns final results with collapsed trace records.
 
-Workflow building is one tool capability, not the product shape of the Agent.
+Workflow remains the primary product workspace; Agent is the conversational planning and execution layer inside it.
 
 ## Direction Change
 
@@ -24,7 +24,7 @@ Current direction:
 
 ```text
 User request
-  -> global conversational Agent
+  -> workflow Agent workspace
   -> planner model selected inside Agent window
   -> LLM planner creates a structured plan
   -> runtime validates the plan
@@ -63,9 +63,8 @@ backend/src/modules/intelligence/
 Frontend ownership:
 
 ```text
-src/features/agent/       global Agent window and planner model picker
+src/features/agent/       workflow Agent workspace and planner model picker
 src/domains/workflow/     workflow canvas and workflow tool targets
-src/domains/chat/         future conversational reuse
 src/features/settings/    provider and model enablement, not planner selection
 ```
 
@@ -86,7 +85,7 @@ This is the fastest loop for testing whether node semantics, tool definitions, a
 
 ## Local MVP Success Criteria
 
-- Users can start from the global Agent window.
+- Users can open Agent from the workflow workspace.
 - The Agent window can select the planner model.
 - The LLM planner returns structured plans.
 - Tool records are collapsed by default.

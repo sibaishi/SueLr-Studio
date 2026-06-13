@@ -56,7 +56,13 @@ export function NodeCatalogButton({
   const outputCount = String(nodeDef.outputs.length);
 
   return (
-    <button type="button" className="workflow-context-menu__node-card" onClick={onClick} title={nodeDef.label}>
+    <button
+      type="button"
+      className="workflow-context-menu__node-card"
+      data-testid={`workflow-node-catalog-item-${nodeDef.type}`}
+      onClick={onClick}
+      title={nodeDef.label}
+    >
       <span
         className="workflow-context-menu__node-icon"
         style={{

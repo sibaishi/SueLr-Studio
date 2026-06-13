@@ -9,18 +9,14 @@ import {
 } from '@/features/settings';
 import { debouncedSaveJSON } from '@/shared/runtime';
 import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { AgentRole, ApiConfig, Tab, ThemeMode } from '@/shared/types';
+import type { AgentRole, ApiConfig, ThemeMode } from '@/shared/types';
 import type { MutableRefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type UseAppBootstrapParams = {
   hydratedRef: MutableRefObject<boolean>;
-  setSidebarCollapsed: (value: boolean) => void;
-  setTab: (tab: Tab) => void;
   setThemeMode: (theme: ThemeMode) => void;
   settings: StudioSettingsState;
-  sidebarCollapsed: boolean;
-  tab: Tab;
   themeMode: ThemeMode;
 };
 
@@ -28,19 +24,11 @@ function mapLegacyStreamingMode(value: unknown): StreamMode {
   return value === 'real' || value === 'stream' ? 'stream' : 'non-stream';
 }
 
-function normalizeTab(value: unknown): Tab {
-  if (value === 'chat' || value === 'workflow' || value === 'settings') return value;
-  return 'chat';
-}
-
 function buildStudioSettingsPayload(params: {
   activeConfigId: string;
   apiConfigs: ApiConfig[];
-  chatStreamingMode: StreamMode;
   customRoles: AgentRole[];
   imageStreamingMode: StreamMode;
-  sidebarCollapsed: boolean;
-  tab: Tab;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   themeMode: ThemeMode;
   videoStreamingMode: StreamMode;
@@ -49,9 +37,6 @@ function buildStudioSettingsPayload(params: {
     ui: {
       theme: params.themeMode,
       customRoles: params.customRoles,
-      lastTab: params.tab,
-      sidebarCollapsed: params.sidebarCollapsed,
-      chatStreamingMode: params.chatStreamingMode,
       imageStreamingMode: params.imageStreamingMode,
       videoStreamingMode: params.videoStreamingMode,
     },
@@ -146,13 +131,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
         if (loadedSettings.workflow?.concurrency) {
           params.settings.setWorkflowConcurrency(loadedSettings.workflow.concurrency);
         }
-        if (loadedSettings.ui?.lastTab) params.setTab(normalizeTab(loadedSettings.ui.lastTab));
-        if (typeof loadedSettings.ui?.sidebarCollapsed === 'boolean') {
-          params.setSidebarCollapsed(loadedSettings.ui.sidebarCollapsed);
-        }
-        if (loadedSettings.ui?.chatStreamingMode) {
-          params.settings.setChatStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.chatStreamingMode));
-        }
         if (loadedSettings.ui?.imageStreamingMode) {
           params.settings.setImageStreamingMode(mapLegacyStreamingMode(loadedSettings.ui.imageStreamingMode));
         }
@@ -177,11 +155,8 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     const snapshot = buildStudioSettingsPayload({
       activeConfigId: settings.activeConfigId,
       apiConfigs: settings.apiConfigs,
-      chatStreamingMode: settings.chatStreamingMode,
       customRoles: settings.customRoles,
       imageStreamingMode: settings.imageStreamingMode,
-      sidebarCollapsed: params.sidebarCollapsed,
-      tab: params.tab,
       workflowConcurrency: settings.workflowConcurrency,
       themeMode: params.themeMode,
       videoStreamingMode: settings.videoStreamingMode,
@@ -191,21 +166,15 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     debouncedSaveJSON('ai_active_config', settings.activeConfigId);
     debouncedSaveJSON('ai_theme', params.themeMode);
     debouncedSaveJSON('ai_custom_roles', settings.customRoles);
-    debouncedSaveJSON('ai_tab', params.tab);
-    debouncedSaveJSON('ai_sidebar_collapsed', params.sidebarCollapsed);
-    debouncedSaveJSON('ai_chat_streaming_mode', settings.chatStreamingMode);
     debouncedSaveJSON('ai_image_streaming_mode', settings.imageStreamingMode);
     debouncedSaveJSON('ai_video_streaming_mode', settings.videoStreamingMode);
 
     void saveStudioSettings(snapshot);
   }, [
     params.hydratedRef,
-    params.sidebarCollapsed,
-    params.tab,
     params.themeMode,
     settings.activeConfigId,
     settings.apiConfigs,
-    settings.chatStreamingMode,
     settings.customRoles,
     settings.imageStreamingMode,
     settings.videoStreamingMode,

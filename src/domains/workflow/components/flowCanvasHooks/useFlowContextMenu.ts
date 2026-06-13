@@ -22,11 +22,13 @@ export function useFlowContextMenu({ containerRef, reactFlow, store }: UseFlowCo
     setActiveCategory(null);
   }, []);
 
-  const openContextMenuAtPoint = useCallback(
-    (kind: ContextMenuKind, event: MouseEvent | TouchEvent | ReactMouseEvent, extras?: Partial<ContextMenuState>) => {
-      const point = getLocalPoint(event, containerRef.current);
-      const flowPosition = reactFlow.screenToFlowPosition({ x: point.clientX, y: point.clientY });
-      const layout = getContextMenuLayout(kind, containerRef.current, point.localX, point.localY);
+  const openContextMenuAtScreenPoint = useCallback(
+    (kind: ContextMenuKind, point: { x: number; y: number }, extras?: Partial<ContextMenuState>) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      const localX = rect ? point.x - rect.left : point.x;
+      const localY = rect ? point.y - rect.top : point.y;
+      const flowPosition = reactFlow.screenToFlowPosition({ x: point.x, y: point.y });
+      const layout = getContextMenuLayout(kind, containerRef.current, localX, localY);
       setContextMenu({
         kind,
         x: layout.x,
@@ -39,6 +41,14 @@ export function useFlowContextMenu({ containerRef, reactFlow, store }: UseFlowCo
       setActiveCategory(null);
     },
     [containerRef, reactFlow],
+  );
+
+  const openContextMenuAtPoint = useCallback(
+    (kind: ContextMenuKind, event: MouseEvent | TouchEvent | ReactMouseEvent, extras?: Partial<ContextMenuState>) => {
+      const point = getLocalPoint(event, containerRef.current);
+      openContextMenuAtScreenPoint(kind, { x: point.clientX, y: point.clientY }, extras);
+    },
+    [containerRef, openContextMenuAtScreenPoint],
   );
 
   const onNodeContextMenu = useCallback<NodeMouseHandler>(
@@ -91,6 +101,7 @@ export function useFlowContextMenu({ containerRef, reactFlow, store }: UseFlowCo
     onPaneContextMenu,
     onPaneDoubleClickOpenMenu,
     openContextMenuAtPoint,
+    openContextMenuAtScreenPoint,
     setActiveCategory,
     wasContextMenuJustOpened,
   };

@@ -158,6 +158,21 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   }, [reactFlow, store]);
 
   useEffect(() => {
+    const handleOpenNodeCatalog = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      store.selectNode(null);
+      ctxMenu.openContextMenuAtScreenPoint('pane', {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+    };
+
+    window.addEventListener('workflow:open-node-catalog', handleOpenNodeCatalog);
+    return () => window.removeEventListener('workflow:open-node-catalog', handleOpenNodeCatalog);
+  }, [ctxMenu, store]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableElement(event.target)) return;
 

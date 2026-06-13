@@ -4,16 +4,12 @@ import {
   Copy,
   Download,
   Grid3x3,
-  PanelLeftClose,
-  PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Play,
   Plus,
   Redo2,
   Save,
-  Settings2,
-  Sparkles,
   Square,
   Trash2,
   Undo2,
@@ -28,7 +24,6 @@ interface ToolbarProps {
   onWorkflowNameChange: (name: string) => void;
   onNewWorkflow: () => void;
   onOpenWorkflowLibrary: () => void;
-  onOpenAssistant: () => void;
   onDuplicateWorkflow: () => void;
   onDeleteWorkflow: () => void;
   onImportWorkflow: () => void;
@@ -41,10 +36,7 @@ interface ToolbarProps {
   onSave: () => void;
   onExecute: () => void;
   onCancelExecution: () => void;
-  onSettings: () => void;
-  onToggleLeftPanel: () => void;
   onToggleRightPanel: () => void;
-  leftPanelCollapsed: boolean;
   rightPanelCollapsed: boolean;
   onToggleSnapToGrid: () => void;
   snapToGridEnabled: boolean;
@@ -78,7 +70,6 @@ export default function Toolbar(props: ToolbarProps) {
     onWorkflowNameChange,
     onNewWorkflow,
     onOpenWorkflowLibrary,
-    onOpenAssistant,
     onDuplicateWorkflow,
     onDeleteWorkflow,
     onImportWorkflow,
@@ -91,10 +82,7 @@ export default function Toolbar(props: ToolbarProps) {
     onSave,
     onExecute,
     onCancelExecution,
-    onSettings,
-    onToggleLeftPanel,
     onToggleRightPanel,
-    leftPanelCollapsed,
     rightPanelCollapsed,
     onToggleSnapToGrid,
     snapToGridEnabled,
@@ -125,11 +113,6 @@ export default function Toolbar(props: ToolbarProps) {
 
         <div className="workflow-toolbar__group workflow-toolbar__group--library">
           <ToolbarIconButton
-            icon={leftPanelCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-            label={leftPanelCollapsed ? '展开节点库' : '收起节点库'}
-            onClick={onToggleLeftPanel}
-          />
-          <ToolbarIconButton
             icon={rightPanelCollapsed ? <PanelRightOpen size={15} /> : <PanelRightClose size={15} />}
             label={rightPanelCollapsed ? '展开结果栏' : '收起结果栏'}
             onClick={onToggleRightPanel}
@@ -141,15 +124,6 @@ export default function Toolbar(props: ToolbarProps) {
             active={snapToGridEnabled}
           />
           <ToolbarIconButton icon={<AlignStartVertical size={15} />} label="自动整理" onClick={onAutoArrange} />
-        </div>
-
-        <div className="workflow-toolbar__group workflow-toolbar__group--assistant">
-          <ToolbarIconButton
-            icon={<Sparkles size={15} />}
-            label="AI 助手"
-            onClick={onOpenAssistant}
-            testId="workflow-ai-assistant"
-          />
         </div>
 
         <div className="workflow-toolbar__group workflow-toolbar__group--workflow">
@@ -246,13 +220,6 @@ export default function Toolbar(props: ToolbarProps) {
             <Square size={13} fill="currentColor" />
             停止
           </button>
-
-          <ToolbarIconButton
-            icon={<Settings2 size={15} />}
-            label="设置"
-            onClick={onSettings}
-            testId="workflow-open-settings"
-          />
         </div>
       </div>
     </div>
@@ -276,6 +243,7 @@ function ToolbarIconButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       data-testid={testId}

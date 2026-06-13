@@ -99,27 +99,21 @@ Current cleanup and ownership notes:
 
 - `src/app/App.tsx`
   - top-level application composition
-  - mounts navigation, feature surfaces, and shared providers
+  - mounts the workflow-first surface, modal settings, Agent overlay, and shared providers
 - `src/app/bootstrap/useAppBootstrap.ts`
   - startup loading, capability bootstrap, and shell-ready state
 - `src/app/bootstrap/ErrorBoundary.tsx`
   - top-level render error isolation
-- `src/app/navigation/Navigation.tsx`
-  - primary view switching and app-level page routing
-- `src/app/navigation/useNavigationState.ts`
-  - navigation state management
 
-### Chat
+### Agent
 
-- `src/domains/chat/components/ChatPanel.tsx`
-  - chat page surface
-- `src/domains/chat/hooks/useChat.ts`
-  - chat request lifecycle, attachments, and transcript state
+- `src/features/agent/components/AgentWorkspace.tsx`
+  - workflow-launched Agent workspace, conversation state, and workflow/tool orchestration surface
 
 ### Settings
 
 - `src/features/settings/components/SettingsPanel.tsx`
-  - settings page shell and section assembly
+  - modal settings shell and section assembly
 - `src/features/settings/components/ConnectionSettingsSection.tsx`
   - upstream base URL, API key, auth mode, connection test, and model discovery
 - `src/features/settings/components/ModelsSection.tsx`
@@ -145,8 +139,8 @@ Current cleanup and ownership notes:
   - workflow workspace shell
 - `src/domains/workflow/components/Toolbar.tsx`
   - workflow switching, save state, import/export, execute, stop
-- `src/domains/workflow/components/Sidebar.tsx`
-  - node catalog and canvas insertion entry
+- `src/domains/workflow/components/FloatingToolbar.tsx`
+  - workflow-edge floating actions for adding nodes, opening settings, opening Agent, and cycling theme
 - `src/domains/workflow/components/FlowCanvas.tsx`
   - canvas graph rendering, context menus, centered node-picker panel, keyboard shortcuts, grouping, connection, drag/drop, and editor interactions
 - `src/domains/workflow/components/flowCanvas*.ts*`
@@ -214,8 +208,6 @@ Current cleanup and ownership notes:
 
 ### Shared frontend infrastructure
 
-- `src/shared/api/assistant.ts`
-  - assistant and chat-facing API helpers
 - `src/shared/api/capabilities.ts`
   - capability discovery client
 - `src/shared/api/pathPicker.ts`
@@ -274,10 +266,10 @@ Do not add backend-local copies of the Architect allowlist, validator port map, 
 
 ## Frontend Build Shape
 
-The main app shell in `src/app/App.tsx` lazy-loads top-level product surfaces:
+The main app shell in `src/app/App.tsx` lazy-loads workflow-first product surfaces:
 
-- chat, workflow, settings, and first-run onboarding are loaded through `React.lazy`
-- a tab is mounted only after it has been visited, then remains mounted while hidden so local page state survives tab switches
+- workflow, modal settings, and first-run onboarding are loaded through `React.lazy`
+- Workflow stays mounted as the primary surface; Settings is opened as a modal child of the workflow workspace
 - workflow CSS stays imported by the app shell because it is a shared canvas styling dependency
 
 The normal Vite build uses explicit vendor chunks in `vite.config.ts`:
@@ -431,10 +423,10 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
 
 The active app data root owns runtime files. Under that root, generated media uses these canonical directories:
 
-- `files/generated/images/`: raw outputs from image generation, including Chat `generate_image`, Agent, and workflow `imageGen`
+- `files/generated/images/`: raw outputs from image generation, including Agent and workflow `imageGen`
 - `files/generated/videos/`: raw video outputs produced synchronously or downloaded by `executeVideoGeneration`
-- `files/generated/assistant-images/`: assets explicitly saved into the Chat/assistant image gallery
-- `files/generated/assistant-videos/`: assets explicitly saved into the Chat/assistant video gallery
+- `files/generated/assistant-images/`: legacy assistant image gallery compatibility assets
+- `files/generated/assistant-videos/`: legacy assistant video gallery compatibility assets
 
 The public URL contract remains rooted at `/api/outputs/...` for generated outputs and `/api/assistant/files/...` for assistant gallery files. New code should preserve relative subpaths when converting between URLs and `STORAGE_PATHS.generatedDir`.
 

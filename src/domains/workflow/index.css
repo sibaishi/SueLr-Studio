@@ -125,6 +125,92 @@ body {
   gap: 16px;
 }
 
+.workflow-floating-toolbar {
+  position: fixed;
+  left: 50px;
+  top: 50%;
+  z-index: 64;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transform: translateY(-50%);
+  padding: 10px 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
+  box-shadow: var(--glass-shadow-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.workflow-floating-toolbar__button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.workflow-floating-toolbar__button:hover {
+  color: var(--color-text-primary);
+  background: var(--glass-bg-hover);
+  border-color: var(--color-border);
+  transform: translateY(-1px);
+}
+
+.workflow-floating-toolbar__button:active {
+  transform: translateY(0);
+}
+
+.settings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 50px;
+}
+
+.settings-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  cursor: default;
+}
+
+.settings-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: calc(100vw - 100px);
+  height: calc(100vh - 100px);
+  max-width: 1500px;
+  max-height: 940px;
+  min-height: min(620px, calc(100vh - 100px));
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: 26px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow-lg);
+}
+
+.settings-modal__panel > .settings-shell {
+  height: 100%;
+}
+
 .workflow-panel {
   width: var(--sidebar-width);
   min-width: 0;
@@ -367,8 +453,7 @@ body {
 }
 
 .workflow-toolbar__library-button,
-.workflow-toolbar__input,
-.workflow-sidebar__search input {
+.workflow-toolbar__input {
   border: 1px solid var(--color-border);
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
@@ -615,6 +700,10 @@ body {
   pointer-events: auto;
 }
 
+.agent-workspace--fullscreen {
+  padding: 0;
+}
+
 .agent-workspace__panel {
   position: relative;
   isolation: isolate;
@@ -630,6 +719,13 @@ body {
   box-shadow: 0 18px 48px rgba(4, 10, 28, 0.22);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.agent-workspace--fullscreen .agent-workspace__panel {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  border-radius: 0;
 }
 
 .agent-workspace__panel-glow {
@@ -714,6 +810,38 @@ body {
   background: var(--glass-bg-hover);
   border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
   transform: translateY(-1px);
+}
+
+.agent-workspace__icon-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.agent-workspace__conversation-switcher {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-workspace__conversation-switcher select {
+  width: min(220px, 22vw);
+  min-width: 150px;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-bg-primary) 62%, transparent);
+  color: var(--color-text-primary);
+  padding: 0 12px;
+  outline: none;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.agent-workspace__conversation-switcher select:focus {
+  border-color: color-mix(in srgb, var(--color-accent) 56%, var(--color-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 .agent-workspace__eyebrow {
@@ -1817,7 +1945,7 @@ body {
   }
 
   .agent-workspace__header-main {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 10px;
   }
 
@@ -1826,6 +1954,17 @@ body {
     width: auto;
     justify-content: center;
     margin-left: auto;
+  }
+
+  .agent-workspace__conversation-switcher {
+    order: 3;
+    width: 100%;
+  }
+
+  .agent-workspace__conversation-switcher select {
+    flex: 1;
+    width: auto;
+    min-width: 0;
   }
 
   .agent-workspace__icon-button {
@@ -1877,77 +2016,6 @@ body {
   .agent-workspace__panel--engaged .agent-workspace__scope > div span {
     display: block;
   }
-}
-
-.workflow-sidebar__search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 14px 14px;
-  padding: 0 12px;
-  height: 40px;
-  border-radius: 14px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-tertiary);
-}
-
-.workflow-sidebar__search input {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font-size: 12px;
-}
-
-.workflow-sidebar__body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.workflow-sidebar__section {
-  border-radius: 18px;
-  padding: 8px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-}
-
-.workflow-sidebar__section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.workflow-sidebar__section-title,
-.workflow-sidebar__section-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
-}
-
-.workflow-sidebar__section-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-}
-
-.workflow-sidebar__list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px;
 }
 
 .workflow-results__summary {
@@ -3278,17 +3346,12 @@ input[type="range"]::-moz-range-thumb {
     gap: 10px;
   }
 
-  .workflow-sidebar,
   .workflow-results {
     position: absolute;
     top: 0;
     bottom: 0;
     z-index: 30;
     max-width: calc(100vw - 20px);
-  }
-
-  .workflow-sidebar {
-    left: 0;
   }
 
   .workflow-results {

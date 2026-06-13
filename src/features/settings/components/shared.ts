@@ -5,7 +5,7 @@ import type {
   StorageSettingsPayload,
   WorkflowConcurrencySettingsPayload,
 } from '@/features/settings';
-import type { AgentProfile } from '@/shared/api/agent';
+import type { AgentProfile } from '../agentProfiles';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
 import type { LucideIcon } from 'lucide-react';

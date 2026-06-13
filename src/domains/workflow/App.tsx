@@ -1,6 +1,6 @@
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
+import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
-import Sidebar from '@/domains/workflow/components/Sidebar';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
@@ -13,21 +13,30 @@ import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { useWorkflowPageStore } from '@/domains/workflow/lib/store/selectors';
+import type { ThemeMode } from '@/shared/types';
 import { Boxes } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface WorkflowPageProps {
   onOpenStudioSettings?: () => void;
   onOpenAgent?: () => void;
+  onToggleTheme?: () => void;
+  themeMode: ThemeMode;
 }
 
-export default function WorkflowPage({ onOpenStudioSettings, onOpenAgent }: WorkflowPageProps) {
-  return <WorkflowPageContent onOpenStudioSettings={onOpenStudioSettings} onOpenAgent={onOpenAgent} />;
+export default function WorkflowPage({ onOpenStudioSettings, onOpenAgent, onToggleTheme, themeMode }: WorkflowPageProps) {
+  return (
+    <WorkflowPageContent
+      onOpenStudioSettings={onOpenStudioSettings}
+      onOpenAgent={onOpenAgent}
+      onToggleTheme={onToggleTheme}
+      themeMode={themeMode}
+    />
+  );
 }
 
-function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent }: WorkflowPageProps) {
+function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme, themeMode }: WorkflowPageProps) {
   const store = useWorkflowPageStore();
-  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [workflowLibraryOpen, setWorkflowLibraryOpen] = useState(false);
   const [workflowLibraryBusy, setWorkflowLibraryBusy] = useState(false);
@@ -80,7 +89,6 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent }: WorkflowPage
     clearWorkflowError: () => setWorkflowErrorMessage(null),
   });
   const {
-    handleAddNode,
     handleViewportCenterChange,
     handleBackfillImageToCanvas,
     handleBackfillTextToCanvas,
@@ -145,6 +153,10 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent }: WorkflowPage
     const index = sameTypeNodes.findIndex((node) => node.id === activeNode.id);
     return index >= 0 ? `${baseLabel} ${index + 1}` : baseLabel;
   }, [store.executingNodeId, store.nodes]);
+
+  const handleOpenNodeCatalog = useCallback(() => {
+    window.dispatchEvent(new Event('workflow:open-node-catalog'));
+  }, []);
 
   const handleCloseDocument = useCallback((documentId: string) => {
     void (async () => {
@@ -226,13 +238,20 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent }: WorkflowPage
 
   return (
     <div className="workflow-page flex h-full w-full min-w-0 flex-col overflow-hidden" data-testid="workflow-page">
+      <FloatingToolbar
+        onAddNode={handleOpenNodeCatalog}
+        onOpenSettings={onOpenStudioSettings}
+        onOpenAgent={onOpenAgent}
+        onToggleTheme={onToggleTheme}
+        themeMode={themeMode}
+      />
+
       <Toolbar
         workflowName={store.workflowName}
         workflows={store.workflowList}
         onWorkflowNameChange={store.setWorkflowName}
         onNewWorkflow={handleNewWorkflow}
         onOpenWorkflowLibrary={() => setWorkflowLibraryOpen(true)}
-        onOpenAssistant={() => onOpenAgent?.()}
         onDuplicateWorkflow={handleDuplicateWorkflow}
         onDeleteWorkflow={handleDeleteWorkflow}
         onImportWorkflow={handleImportClick}
@@ -245,16 +264,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent }: WorkflowPage
         onSave={handleSave}
         onExecute={handleExecute}
         onCancelExecution={handleCancelExecution}
-        onSettings={() => {
-          if (onOpenStudioSettings) {
-            onOpenStudioSettings();
-            return;
-          }
-          return;
-        }}
-        onToggleLeftPanel={() => setLeftPanelCollapsed((value) => !value)}
         onToggleRightPanel={() => setRightPanelCollapsed((value) => !value)}
-        leftPanelCollapsed={leftPanelCollapsed}
         rightPanelCollapsed={rightPanelCollapsed}
         onToggleSnapToGrid={() => store.setSnapToGridEnabled(!store.snapToGridEnabled)}
         snapToGridEnabled={store.snapToGridEnabled}
@@ -268,8 +278,6 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent }: WorkflowPage
       />
 
       <div className="workflow-shell flex min-h-0 flex-1 overflow-hidden">
-        {!leftPanelCollapsed && <Sidebar onAddNode={handleAddNode} />}
-
         <div className="workflow-workbench glass min-w-0 flex-1 overflow-hidden">
           <div className="workflow-canvas-surface relative min-h-0 min-w-0 flex-1 overflow-hidden">
             <FlowCanvas
@@ -373,7 +381,7 @@ function EmptyCanvasHint() {
         </div>
         <div className="workflow-empty-state__title">从这里开始搭建你的工作流</div>
         <div className="workflow-empty-state__body">
-          从左侧挑选输入、AI 能力和输出节点，把它们拖进画布，再用连线把逻辑串起来。
+          点击左侧浮动工具条的添加按钮选择输入、AI 能力和输出节点，再用连线把逻辑串起来。
         </div>
       </div>
     </div>

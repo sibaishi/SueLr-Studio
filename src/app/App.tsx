@@ -1,24 +1,19 @@
 import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
-import { DesktopSidebar } from '@/app/navigation/Navigation';
 import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
 import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { saveActiveRunSnapshot } from '@/domains/workflow/lib/store/persistence';
 import { AgentWorkspace } from '@/features/agent';
 import { useStudioSettingsState } from '@/features/settings';
 import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
 import { useMemory } from '@/shared/hooks/useMemory';
 import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
-import type { BridgeRef, Tab } from '@/shared/types';
 import { SplashScreen } from '@/shared/ui/ios';
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { type ReactNode, Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useAppBootstrap } from './bootstrap/useAppBootstrap';
-import { useNavigationState } from './navigation/useNavigationState';
 import { useThemeState } from './theme/useThemeState';
 import '@/domains/workflow/index.css';
 
-const ChatPanel = lazy(() => import('@/domains/chat').then((module) => ({ default: module.ChatPanel })));
 const WorkflowPage = lazy(() => import('@/domains/workflow/App'));
 const SettingsPanel = lazy(() =>
   import('@/features/settings/components/SettingsPanel').then((module) => ({ default: module.SettingsPanel })),
@@ -28,21 +23,6 @@ const FirstRunOnboarding = lazy(() =>
     default: module.FirstRunOnboarding,
   })),
 );
-
-function panelDisplayStyle(active: boolean) {
-  return {
-    flex: '1 1 auto',
-    overflow: 'hidden',
-    position: active ? 'relative' : 'absolute',
-    inset: active ? 'auto' : 0,
-    minWidth: 0,
-    minHeight: 0,
-    opacity: active ? 1 : 0,
-    pointerEvents: active ? 'auto' : 'none',
-    transition: active ? 'opacity 0.25s ease' : 'opacity 0.2s ease, visibility 0s 0.25s',
-    display: 'flex',
-  } as const;
-}
 
 function WorkspaceLoading() {
   return (
@@ -105,17 +85,22 @@ function BootstrapBlocker({ message, onRetry }: { message: string | null; onRetr
   );
 }
 
+function SettingsModal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  return (
+    <div className="settings-modal" role="dialog" aria-modal="true" aria-label="工作室设置">
+      <button type="button" className="settings-modal__backdrop" aria-label="关闭设置" onClick={onClose} />
+      <div className="settings-modal__panel">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const hydratedRef = useRef(false);
-  const { tab, setTab, sidebarCollapsed, setSidebarCollapsed } = useNavigationState();
   const { colors, themeMode, setThemeMode } = useThemeState();
   const settings = useStudioSettingsState();
   const memory = useMemory();
-  const bridgeRef = useRef<BridgeRef>({
-    addToImageGallery: () => {},
-    addToVideoGallery: () => {},
-    addToChatPending: () => {},
-  });
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
   const workflowStore = useWorkflowStore();
   const { handleBackfillImageToCanvas, handleBackfillVideoToCanvas } = useWorkflowPageCommands({
@@ -124,22 +109,17 @@ export default function App() {
     resetHistory: () => {},
     setWorkflowErrorMessage: () => {},
   });
-  const [chatBusy, setChatBusy] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => localStorage.getItem('suelr_onboarding_dismissed') === 'true',
   );
-  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<Tab>>(() => new Set([tab]));
-  const projectBusy = workflowBusy || chatBusy;
+  const projectBusy = workflowBusy;
 
   const { bootstrapError, bootstrapMode, runtimeCapabilities, splashFading, splashHidden } = useAppBootstrap({
     hydratedRef,
-    setSidebarCollapsed,
-    setTab,
     setThemeMode,
     settings,
-    sidebarCollapsed,
-    tab,
     themeMode,
   });
   const hasUsableConfig = settings.apiConfigs.some(
@@ -150,18 +130,11 @@ export default function App() {
   const canEnterWorkspace = Boolean(bootstrapMode === 'browser-only' || runtimeCapabilities);
   const showBootstrapBlocker = Boolean(splashHidden && !canEnterWorkspace);
   const showOnboarding = canEnterWorkspace && splashHidden && !hasUsableConfig && !onboardingDismissed;
-  const chatPanelStyle = panelDisplayStyle(tab === 'chat');
-  const workflowPanelStyle = panelDisplayStyle(tab === 'workflow');
-  const settingsPanelStyle = panelDisplayStyle(tab === 'settings');
 
-  useEffect(() => {
-    setVisitedTabs((prev) => {
-      if (prev.has(tab)) return prev;
-      const next = new Set(prev);
-      next.add(tab);
-      return next;
-    });
-  }, [tab]);
+  const handleToggleTheme = () => {
+    const modes = ['dark', 'light', 'system'] as const;
+    setThemeMode(modes[(modes.indexOf(themeMode) + 1) % modes.length]);
+  };
 
   useEffect(() => {
     const grouped: Record<'all' | 'chat' | 'image' | 'video', ModelOption[]> = {
@@ -184,42 +157,6 @@ export default function App() {
     useWorkflowStore.getState().setAvailableModels(grouped);
     useWorkflowStore.setState({ workflowRuntimeConfigs: settings.apiConfigs });
   }, [settings.apiConfigs, settings.configuredProjectModels]);
-
-  const handleOpenWorkflowRun = async (payload: {
-    runId: string;
-    workflowId?: string;
-    source?: 'persisted' | 'draft';
-  }) => {
-    if (!payload.runId) return;
-
-    const workflowStore = useWorkflowStore.getState();
-    if (payload.workflowId && payload.workflowId !== workflowStore.workflowId) {
-      await workflowStore.loadWorkflow(payload.workflowId);
-    }
-
-    saveActiveRunSnapshot({
-      runId: payload.runId,
-      workflowId: payload.workflowId || useWorkflowStore.getState().workflowId,
-      source: payload.source,
-    });
-
-    useWorkflowStore.setState({
-      currentRunId: payload.runId,
-      isExecuting: true,
-      executionMessage: '已连接到聊天触发的工作流运行...',
-      lastExecutionStatus: null,
-      lastExecutionError: null,
-    });
-
-    useWorkflowStore.getState().addExecutionLog({
-      level: 'info',
-      message: '已从聊天页面跳转到工作流运行现场',
-      details: payload,
-    });
-
-    setTab('workflow');
-    void useWorkflowStore.getState().syncExecutionRunStatus();
-  };
 
   return (
     <TCtx.Provider value={colors}>
@@ -244,7 +181,6 @@ export default function App() {
               onComplete={() => {
                 localStorage.setItem('suelr_onboarding_dismissed', 'true');
                 setOnboardingDismissed(true);
-                setTab('workflow');
               }}
               setApiConfigs={settings.setApiConfigs}
               setApiKey={settings.setApiKey}
@@ -257,118 +193,71 @@ export default function App() {
           <div
             style={{
               display: 'flex',
-              flexDirection: 'row',
+              flexDirection: 'column',
               height: '100vh',
               fontFamily:
                 '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
               background: 'transparent',
               color: colors.text,
               minWidth: 1280,
+              position: 'relative',
             }}
           >
-            <DesktopSidebar
-              tab={tab}
-              setTab={setTab}
-              modelCount={settings.configuredProjectModels.length}
-              themeMode={themeMode}
-              setThemeMode={setThemeMode}
-              collapsed={sidebarCollapsed}
-              onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-            />
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                minWidth: 0,
-                overflow: 'hidden',
-                position: 'relative',
-              }}
-            >
-              <div style={chatPanelStyle}>
-                {visitedTabs.has('chat') && (
-                  <ErrorBoundary>
-                    <Suspense fallback={<WorkspaceLoading />}>
-                      <ChatPanel
-                        base={settings.base}
-                        apiKey={settings.apiKey}
-                        apiConfigs={settings.apiConfigs}
-                        models={settings.configuredProjectModels}
-                        addLog={settings.addLog}
-                        bridgeRef={bridgeRef}
-                        roles={settings.roles}
-                        getMemoryContext={memory.getMemoryContext}
-                        refreshMemories={memory.refreshMemories}
-                        scheduleExtraction={memory.scheduleExtraction}
-                        providerConfig={settings.providerConfig}
-                        chatStreamingMode={settings.chatStreamingMode}
-                        imageStreamingMode={settings.imageStreamingMode}
-                        videoStreamingMode={settings.videoStreamingMode}
-                        activeTab={tab}
-                        searchMemories={memory.searchMemories}
-                        onBusyChange={setChatBusy}
-                        onOpenWorkflowRun={handleOpenWorkflowRun}
-                      />
-                    </Suspense>
-                  </ErrorBoundary>
-                )}
-              </div>
-              <div style={workflowPanelStyle}>
-                {visitedTabs.has('workflow') && (
-                  <ErrorBoundary>
-                    <Suspense fallback={<WorkspaceLoading />}>
-                      <WorkflowPage
-                        onOpenStudioSettings={() => setTab('settings')}
-                        onOpenAgent={() => setAgentOpen(true)}
-                      />
-                    </Suspense>
-                  </ErrorBoundary>
-                )}
-              </div>
-              <div style={settingsPanelStyle}>
-                {visitedTabs.has('settings') && (
-                  <ErrorBoundary>
-                    <Suspense fallback={<WorkspaceLoading />}>
-                      <SettingsPanel
-                        apiConfigs={settings.apiConfigs}
-                        setApiConfigs={settings.setApiConfigs}
-                        activeConfigId={settings.activeConfigId}
-                        setActiveConfigId={settings.setActiveConfigId}
-                        applyConfig={settings.applyConfig}
-                        addNewConfig={settings.addNewConfig}
-                        deleteConfig={settings.deleteConfig}
-                        base={settings.base}
-                        apiKey={settings.apiKey}
-                        setBase={settings.setBase}
-                        setApiKey={settings.setApiKey}
-                        models={settings.models}
-                        setModels={settings.setModels}
-                        addLog={settings.addLog}
-                        logs={settings.logs}
-                        onClearLogs={settings.clearLogs}
-                        themeMode={themeMode}
-                        setThemeMode={setThemeMode}
-                        agentProfiles={settings.agentProfiles}
-                        customAgentProfiles={settings.customAgentProfiles}
-                        upsertAgentProfile={settings.upsertAgentProfile}
-                        deleteAgentProfile={settings.deleteAgentProfile}
-                        memories={memory.memories}
-                        onDeleteMemory={memory.deleteMemory}
-                        onClearMemories={memory.clearMemories}
-                        exportMemories={memory.exportMemories}
-                        workflowConcurrency={settings.workflowConcurrency}
-                        setWorkflowConcurrency={settings.setWorkflowConcurrency}
-                        projectBusy={projectBusy}
-                      />
-                    </Suspense>
-                  </ErrorBoundary>
-                )}
-              </div>
-            </div>
+            <ErrorBoundary>
+              <Suspense fallback={<WorkspaceLoading />}>
+                <WorkflowPage
+                  onOpenStudioSettings={() => setSettingsOpen(true)}
+                  onOpenAgent={() => setAgentOpen(true)}
+                  onToggleTheme={handleToggleTheme}
+                  themeMode={themeMode}
+                />
+              </Suspense>
+            </ErrorBoundary>
+
+            {settingsOpen && (
+              <SettingsModal onClose={() => setSettingsOpen(false)}>
+                <ErrorBoundary>
+                  <Suspense fallback={<WorkspaceLoading />}>
+                    <SettingsPanel
+                      apiConfigs={settings.apiConfigs}
+                      setApiConfigs={settings.setApiConfigs}
+                      activeConfigId={settings.activeConfigId}
+                      setActiveConfigId={settings.setActiveConfigId}
+                      applyConfig={settings.applyConfig}
+                      addNewConfig={settings.addNewConfig}
+                      deleteConfig={settings.deleteConfig}
+                      base={settings.base}
+                      apiKey={settings.apiKey}
+                      setBase={settings.setBase}
+                      setApiKey={settings.setApiKey}
+                      models={settings.models}
+                      setModels={settings.setModels}
+                      addLog={settings.addLog}
+                      logs={settings.logs}
+                      onClearLogs={settings.clearLogs}
+                      themeMode={themeMode}
+                      setThemeMode={setThemeMode}
+                      agentProfiles={settings.agentProfiles}
+                      customAgentProfiles={settings.customAgentProfiles}
+                      upsertAgentProfile={settings.upsertAgentProfile}
+                      deleteAgentProfile={settings.deleteAgentProfile}
+                      memories={memory.memories}
+                      onDeleteMemory={memory.deleteMemory}
+                      onClearMemories={memory.clearMemories}
+                      exportMemories={memory.exportMemories}
+                      workflowConcurrency={settings.workflowConcurrency}
+                      setWorkflowConcurrency={settings.setWorkflowConcurrency}
+                      projectBusy={projectBusy}
+                    />
+                  </Suspense>
+                </ErrorBoundary>
+              </SettingsModal>
+            )}
+
             <AgentWorkspace
               open={agentOpen}
               onClose={() => setAgentOpen(false)}
-              onOpenWorkflow={() => setTab('workflow')}
+              onOpenWorkflow={() => setAgentOpen(false)}
               onBackfillImageToCanvas={handleBackfillImageToCanvas}
               onBackfillVideoToCanvas={handleBackfillVideoToCanvas}
               plannerModels={settings.configuredProjectModels.filter((model) => model.cat === 'chat')}

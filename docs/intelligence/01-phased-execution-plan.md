@@ -4,7 +4,7 @@
 
 - Keep the app usable at the end of every phase.
 - Treat `desktop` and `local-web` as the first implementation and acceptance targets.
-- The global Agent is the primary surface; workflow is a tool target.
+- Workflow is the primary surface; Agent is opened from the workflow workspace.
 - Planner model selection belongs inside the Agent window.
 - LLM planner creates structured plans; runtime validates and executes.
 - High-cost or side-effectful tools require approval.
@@ -13,7 +13,7 @@
 
 ## Phase 0: Direction Reset and Docs
 
-Goal: update the program from "design team / workflow assistant" to "global conversational Agent / LLM planner / tool calls".
+Goal: update the program from "design team / workflow assistant" to "workflow Agent workspace / LLM planner / tool calls".
 
 Scope:
 
@@ -29,11 +29,11 @@ npm run check:encoding
 
 ## Phase 1: Global Agent UI Baseline
 
-Goal: route the existing `AI Assistant` button to a global Agent window.
+Goal: route the workflow Agent entry to the Agent workspace.
 
 Scope:
 
-- `src/features/agent/` owns the global Agent window.
+- `src/features/agent/` owns the workflow Agent workspace.
 - Workflow page only opens the Agent.
 - Agent shows conversation, final result, and collapsed tool records.
 - Legacy workflow assistant panels are no longer mounted.
@@ -203,7 +203,7 @@ Knowledge:
 
 ## Phase 9: Legacy Cutover
 
-Goal: make the new global Agent the primary product path.
+Goal: make the workflow Agent workspace the primary conversational path.
 
 Scope:
 

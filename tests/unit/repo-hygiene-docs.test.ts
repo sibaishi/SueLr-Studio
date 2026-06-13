@@ -109,21 +109,22 @@ describe('repository documentation and branch hygiene', () => {
     }
   });
 
-  it('keeps critical app navigation, public docs, and settings-facing copy readable in UTF-8', () => {
+  it('keeps critical workflow shell, public docs, and settings-facing copy readable in UTF-8', () => {
     const readme = readUtf8('README.md');
     const userGuide = readUtf8('docs/user-guide.md');
-    const navConstants = readUtf8('src/app/navigation/constants.ts');
+    const floatingToolbar = readUtf8('src/domains/workflow/components/FloatingToolbar.tsx');
     const settingsPanel = readUtf8('src/features/settings/components/SettingsPanel.tsx');
     const developerGuide = readUtf8('docs/developer-guide.md');
 
     expect(readme).toContain('SueLr Studio 是一个本地优先的多模态 AI 工作台');
     expect(readme).toContain('运行时数据默认存放在系统配置目录');
-    expect(userGuide).toContain('three main work areas');
-    expect(userGuide).toContain('Image and video generation are available through Chat, Agent, and Workflow tools');
-    expect(navConstants).toContain("label: '对话'");
-    expect(navConstants).toContain("label: '工作流'");
-    expect(navConstants).toContain("label: '设置'");
+    expect(userGuide).toContain('centered on the workflow workspace');
+    expect(userGuide).toContain('Image and video generation are available through Agent and Workflow tools');
+    expect(floatingToolbar).toContain('workflow-add-node');
+    expect(floatingToolbar).toContain('workflow-open-settings');
+    expect(floatingToolbar).toContain('workflow-open-agent');
+    expect(floatingToolbar).toContain('workflow-toggle-theme');
     expect(settingsPanel).toContain('工作室设置');
-    expect(developerGuide).toContain('chat, workflow, settings, and first-run onboarding');
+    expect(developerGuide).toContain('workflow-first surface, modal settings, Agent overlay');
   });
 });

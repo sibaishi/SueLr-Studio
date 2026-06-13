@@ -1,11 +1,9 @@
-import { PRESET_ROLES } from '@/domains/chat/constants';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
-import { isBackendAvailable } from '@/shared/api';
-import { type AgentProfile, loadAgentProfiles, saveAgentProfiles } from '@/shared/api/agent';
 import type { ProviderConfig } from '@/shared/providers';
-import { ftime, gid, loadJSON } from '@/shared/runtime';
+import { debouncedSaveJSON, ftime, gid, loadJSON } from '@/shared/runtime';
 import type { AgentRole, ApiConfig, LogEntry, ModelInfo } from '@/shared/types';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { PRESET_ROLES, type AgentProfile } from './agentProfiles';
 import type { StreamMode, WorkflowConcurrencySettingsPayload } from './types';
 
 const MAX_LOGS = 500;
@@ -104,9 +102,6 @@ export function useStudioSettingsState() {
   });
   const [workflowConcurrency, setWorkflowConcurrency] =
     useState<WorkflowConcurrencySettingsPayload>(DEFAULT_WORKFLOW_CONCURRENCY);
-  const [chatStreamingMode, setChatStreamingMode] = useState<StreamMode>(() =>
-    mapLegacyStreamingMode(loadJSON('ai_chat_streaming_mode', loadJSON('ai_streaming_mode', 'non-stream'))),
-  );
   const [imageStreamingMode, setImageStreamingMode] = useState<StreamMode>(() =>
     mapLegacyStreamingMode(loadJSON('ai_image_streaming_mode', 'stream')),
   );
@@ -170,26 +165,6 @@ export function useStudioSettingsState() {
 
   const clearLogs = useCallback(() => setLogs([]), []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const syncProfiles = async () => {
-      if (!isBackendAvailable()) return;
-      try {
-        const profiles = await loadAgentProfiles();
-        if (cancelled) return;
-        setAgentProfiles(profiles);
-      } catch {
-        // Keep local fallback roles when backend sync fails.
-      }
-    };
-
-    void syncProfiles();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const persistAgentProfiles = useCallback(
     async (updater: AgentProfile[] | ((prev: AgentProfile[]) => AgentProfile[])) => {
       let nextProfiles: AgentProfile[] = [];
@@ -197,14 +172,10 @@ export function useStudioSettingsState() {
         nextProfiles = typeof updater === 'function' ? updater(prev) : updater;
         return nextProfiles;
       });
-
-      if (!isBackendAvailable()) return;
-
-      try {
-        await saveAgentProfiles(nextProfiles);
-      } catch {
-        // Keep optimistic UI state even if backend persistence fails.
-      }
+      debouncedSaveJSON(
+        'ai_custom_roles',
+        nextProfiles.filter((profile) => profile.isCustom).map(toLegacyRole),
+      );
     },
     [],
   );
@@ -250,7 +221,6 @@ export function useStudioSettingsState() {
     setModels([]);
     setAgentProfiles(defaultAgentProfiles());
     setWorkflowConcurrency(DEFAULT_WORKFLOW_CONCURRENCY);
-    setChatStreamingMode('non-stream');
     setImageStreamingMode('stream');
     setVideoStreamingMode('stream');
   }, []);
@@ -265,7 +235,6 @@ export function useStudioSettingsState() {
     apiKey,
     applyConfig,
     base,
-    chatStreamingMode,
     clearLogs,
     configuredProjectModels,
     customAgentProfiles,
@@ -282,7 +251,6 @@ export function useStudioSettingsState() {
     setApiConfigs,
     setApiKey,
     setBase,
-    setChatStreamingMode,
     setCustomRoles,
     setImageStreamingMode,
     setModels,

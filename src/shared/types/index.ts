@@ -1,7 +1,6 @@
 import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 import type { ProviderConfig } from '@/shared/providers/provider-config';
 
-export type Tab = 'chat' | 'workflow' | 'settings';
 export type ThemeMode = 'dark' | 'light' | 'system';
 
 export interface ModelInfo {
@@ -10,35 +9,6 @@ export interface ModelInfo {
   modelId?: string;
   configId?: string;
   configName?: string;
-}
-
-export interface ToolCallState {
-  type: 'image' | 'video' | 'workflow' | 'tool';
-  status: 'processing' | 'done' | 'failed' | 'cancelled';
-  label: string;
-  name?: string;
-  error?: string;
-  runId?: string;
-  workflowId?: string;
-  workflowName?: string;
-  source?: 'persisted' | 'draft';
-  detail?: string;
-  artifacts?: Array<{
-    type: 'image' | 'video' | 'audio' | 'text' | 'file';
-    url: string;
-    name?: string;
-    mimeType?: string;
-  }>;
-}
-
-export interface ChatMsg {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  images: string[];
-  videoUrl?: string;
-  toolCall?: ToolCallState;
-  ts: number;
 }
 
 export interface AgentRole {
@@ -54,24 +24,6 @@ export interface Memory {
   id: string;
   content: string;
   convId: string;
-  ts: number;
-}
-
-export interface Conv {
-  id: string;
-  title: string;
-  model: string;
-  roleId?: string;
-  msgs: ChatMsg[];
-  ts: number;
-}
-
-export interface GalleryItem {
-  id: string;
-  url: string;
-  thumbnailUrl?: string;
-  prompt: string;
-  model: string;
   ts: number;
 }
 
@@ -107,12 +59,6 @@ export interface ApiConfig {
   models: ModelInfo[];
   providerConfig?: ProviderConfig;
   projectModels?: ProjectModel[];
-}
-
-export interface BridgeRef {
-  addToImageGallery: (items: GalleryItem[]) => void;
-  addToVideoGallery: (item: GalleryItem) => void;
-  addToChatPending: (urls: string[]) => void;
 }
 
 export type { ProjectModel } from '@/domains/workflow/lib/projectModels';

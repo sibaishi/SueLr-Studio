@@ -124,7 +124,7 @@ src/features/settings/components/MemorySection.tsx
 
 状态：
 
-- Chat、Workflow、Image、Video 主流程逐步复用新 Agent 工具系统。
+- Workflow 主流程逐步复用新 Agent 工具系统；旧 Chat 页不再作为独立入口保留。
 - `/api/agent` 标记 deprecated。
 - Settings 不再把旧 Agent Profile 当主入口。
 - 旧 Runtime 只作为兼容后备。

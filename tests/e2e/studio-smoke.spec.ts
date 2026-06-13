@@ -10,10 +10,16 @@ async function clearLocalState(page: import('@playwright/test').Page) {
   });
   await page.reload();
 
-  const settingsTab = page.getByTestId('nav-tab-settings');
-  await expect(settingsTab).toBeVisible({ timeout: 10_000 });
-  await settingsTab.click();
+  await expect(page.getByTestId('workflow-page')).toBeVisible({ timeout: 10_000 });
+}
 
+async function addTextInputNode(page: import('@playwright/test').Page) {
+  await page.getByTestId('workflow-add-node').click();
+  await page.getByTestId('workflow-node-catalog-item-textInput').click();
+}
+
+async function openSettings(page: import('@playwright/test').Page) {
+  await page.getByTestId('workflow-open-settings').click();
   await expect(page.getByTestId('settings-page')).toBeVisible();
 }
 
@@ -125,6 +131,7 @@ test.describe('studio smoke', () => {
     const apiKey = `sk-e2e-${seed}`;
 
     await clearLocalState(page);
+    await openSettings(page);
     await expect(page.locator('.splash-overlay')).toHaveCount(0);
 
     const configNameInput = page.getByTestId('settings-config-name-field').locator('input');
@@ -154,22 +161,22 @@ test.describe('studio smoke', () => {
     }));
 
     await page.reload();
+    await openSettings(page);
 
     await expect(configNameInput).toHaveValue(configName);
     await expect(baseUrlInput).toHaveValue(baseUrl);
     await expect(apiKeyInput).toHaveValue('');
   });
 
-  test('workflow can add a node from the sidebar', async ({ page }) => {
+  test('workflow can add a node from the floating toolbar', async ({ page }) => {
     await clearLocalState(page);
 
-    await page.getByTestId('nav-tab-workflow').click();
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     const nodeCount = page.getByTestId('workflow-node-count').locator('strong');
     const beforeCount = await readStableNodeCount(page);
 
-    await page.getByTestId('workflow-node-item-textInput').click();
+    await addTextInputNode(page);
 
     await expect(nodeCount).toHaveText(String(beforeCount + 1));
   });
@@ -179,13 +186,12 @@ test.describe('studio smoke', () => {
 
     await clearLocalState(page);
 
-    await page.getByTestId('nav-tab-workflow').click();
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     await page.getByTestId('workflow-new').click();
     await page.getByTestId('workflow-name-input').fill(workflowName);
     const beforeCount = await readStableNodeCount(page);
-    await page.getByTestId('workflow-node-item-textInput').click();
+    await addTextInputNode(page);
     const expectedNodeCount = beforeCount + 1;
     await page.getByTestId('workflow-save').click();
 
@@ -215,12 +221,11 @@ test.describe('studio smoke', () => {
 
     await clearLocalState(page);
 
-    await page.getByTestId('nav-tab-workflow').click();
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     await page.getByTestId('workflow-new').click();
     await page.getByTestId('workflow-name-input').fill(workflowName);
-    await page.getByTestId('workflow-node-item-textInput').click();
+    await addTextInputNode(page);
     await page.getByTestId('workflow-save').click();
 
     await expect
@@ -269,10 +274,9 @@ test.describe('studio smoke', () => {
   test('workflow import opens a new unsaved draft tab without persisting to the library', async ({ page }) => {
     await clearLocalState(page);
 
-    await page.getByTestId('nav-tab-workflow').click();
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
-    await page.getByTestId('workflow-node-item-textInput').click();
+    await addTextInputNode(page);
     await page.getByRole('button', { name: '保存' }).click();
 
     const beforeImport = await page.evaluate(async () => {
@@ -335,7 +339,6 @@ test.describe('studio smoke', () => {
   test('workflow toolbar can navigate back to settings', async ({ page }) => {
     await clearLocalState(page);
 
-    await page.getByTestId('nav-tab-workflow').click();
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     await page.getByTestId('workflow-open-settings').click();
@@ -345,13 +348,12 @@ test.describe('studio smoke', () => {
   test('workflow editing can undo a newly added node', async ({ page, browserName }) => {
     await clearLocalState(page);
 
-    await page.getByTestId('nav-tab-workflow').click();
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     const nodeCount = page.getByTestId('workflow-node-count').locator('strong');
     const beforeCount = await readStableNodeCount(page);
 
-    await page.getByTestId('workflow-node-item-textInput').click();
+    await addTextInputNode(page);
     await expect(nodeCount).toHaveText(String(beforeCount + 1));
 
     await page.waitForTimeout(300);
@@ -362,6 +364,7 @@ test.describe('studio smoke', () => {
 
   test('settings connection test syncs models into import list', async ({ page }) => {
     await clearLocalState(page);
+    await openSettings(page);
 
     await page.route('**/api/settings/test-api', async (route) => {
       await route.fulfill({
@@ -399,6 +402,7 @@ test.describe('studio smoke', () => {
 
   test('settings connection failure shows visible feedback and does not import phantom models', async ({ page }) => {
     await clearLocalState(page);
+    await openSettings(page);
 
     await page.route('**/api/settings/test-api', async (route) => {
       await route.fulfill({
@@ -429,6 +433,7 @@ test.describe('studio smoke', () => {
 
   test('settings exposes the reorganized primary modules', async ({ page }) => {
     await clearLocalState(page);
+    await openSettings(page);
     await expect(page.getByTestId('settings-module-overview')).toBeVisible();
     await expect(page.getByTestId('settings-module-agent')).toBeVisible();
     await expect(page.getByTestId('settings-module-workspace')).toBeVisible();
