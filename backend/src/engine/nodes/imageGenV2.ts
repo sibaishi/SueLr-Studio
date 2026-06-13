@@ -2,15 +2,27 @@ import { runImageGeneration } from '../../platform/ai/image-service.ts';
 import { resolveRuntimeApiConfig } from '../helpers/apiConfig.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
-function classifyValue(value: unknown): 'image' | 'mask' | 'apiKey' | 'text' {
-  if (!value) return 'text';
+const MAX_IMAGES = 9;
+
+function classifyBySourceType(
+  sourceType: string,
+): 'text' | 'image' | 'mask' | null {
+  if (!sourceType) return null;
+  const t = sourceType.toLowerCase();
+  if (t === 'maskinput' || t.includes('mask')) return 'mask';
+  if (t === 'videoinput' || t === 'videogen' || t === 'videomerge') return 'image'; // video frames → image reference
+  if (t.includes('image') || t.includes('video')) return 'image';
+  if (t.includes('text') || t.includes('chat') || t.includes('prompt') || t === 'savefile' || t === 'output' || t === 'iteraterun') return 'text';
+  return null;
+}
+
+function classifyByValue(value: unknown): 'text' | 'image' | null {
+  if (!value) return null;
   const str = String(value);
-  if (str.startsWith('data:image/') || /\bapi\/files\b/i.test(str) || /\bapi\/outputs\b/i.test(str)) {
-    // Check if it's a mask or regular image based on context
-    // For now, all image-like values are treated as images
-    return 'image';
-  }
-  if (/^sk-|^key-|^\$/.test(str)) return 'apiKey';
+  if (str.startsWith('data:image/') || str.startsWith('data:video/')) return 'image';
+  if (str.match(/^https?:\/\/.+\.(png|jpg|jpeg|gif|webp|avif|bmp)(\?|$)/i)) return 'image';
+  if (str.startsWith('http://') || str.startsWith('https://')) return 'image'; // likely a remote image URL
+  if (/\/api\/files\//.test(str)) return 'image'; // internal file reference
   return 'text';
 }
 
@@ -20,28 +32,37 @@ export async function execute(
   apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
-  // Collect all input values — may be single value or array from multi-input handle
-  const rawValues: unknown[] = Array.isArray(inputs.input) ? inputs.input : inputs.input !== undefined ? [inputs.input] : [];
-  
+  const rawValues: unknown[] = Array.isArray(inputs.input)
+    ? inputs.input
+    : inputs.input !== undefined
+      ? [inputs.input]
+      : [];
+  const sourceTypes: string[] =
+    Array.isArray((inputs as Record<string, unknown>)._inputTypes)
+      ? (inputs as Record<string, unknown>)._inputTypes as string[]
+      : [];
+
   let prompt = '';
   const references: DynamicValue[] = [];
   let mask: DynamicValue | undefined;
-  let apiKey: DynamicValue | undefined;
 
-  for (const value of rawValues) {
-    const type = classifyValue(value);
+  for (let i = 0; i < rawValues.length; i++) {
+    const value = rawValues[i];
+    let type = sourceTypes[i] ? classifyBySourceType(sourceTypes[i]) : null;
+    if (!type) type = classifyByValue(value);
+    if (!type) type = 'text';
+
     switch (type) {
       case 'text':
         prompt = prompt ? `${prompt}\n${String(value)}` : String(value);
         break;
       case 'image':
-        references.push(value as DynamicValue);
+        if (references.length < MAX_IMAGES) {
+          references.push(value as DynamicValue);
+        }
         break;
       case 'mask':
         if (!mask) mask = value as DynamicValue;
-        break;
-      case 'apiKey':
-        if (!apiKey) apiKey = value as DynamicValue;
         break;
     }
   }
@@ -52,7 +73,11 @@ export async function execute(
     prompt = prompt ? `${prompt}\n${extra}` : extra;
   }
 
-  const runtimeConfig = resolveRuntimeApiConfig({ apiKey }, apiConfig, node.data?.model);
+  if (rawValues.length > 0 && references.length >= MAX_IMAGES) {
+    sendProgress?.(`已忽略超出上限的参考图输入（上限 ${MAX_IMAGES} 张）`);
+  }
+
+  const runtimeConfig = resolveRuntimeApiConfig({}, apiConfig, node.data?.model);
 
   if (mask && references.length === 0) {
     throw new Error('Image generation requires a reference image when mask is provided');

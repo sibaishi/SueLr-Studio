@@ -277,7 +277,7 @@ export async function executeWorkflow(
     });
 
     try {
-      const inputs = collectInputs(node, executableEdges, scopedOutputs);
+      const inputs = collectInputs(node, executableEdges, scopedOutputs, executableNodes);
       const requiredInputs = getRequiredInputs(String(node.type || ''));
       const missingInputs = requiredInputs.filter((key) => {
         const value = inputs[key];

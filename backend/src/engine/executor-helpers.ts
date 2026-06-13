@@ -153,8 +153,13 @@ export function collectInputs(
   node: WorkflowNode,
   edges: WorkflowEdge[],
   outputs: WorkflowOutputs,
+  nodes?: WorkflowNode[],
 ): Record<string, DynamicValue> {
   const collected: Record<string, DynamicValue[]> = {};
+  const typeMap = nodes
+    ? new Map(nodes.filter((n) => n.id && n.type).map((n) => [String(n.id), String(n.type)]))
+    : null;
+  const collectedTypes: Record<string, string[]> = {};
   edges
     .filter((edge) => edge.target === node.id)
     .forEach((edge) => {
@@ -166,10 +171,21 @@ export function collectInputs(
         const value = directValue !== undefined ? directValue : resolveLegacyOutputAlias(sourceOutput, sourceHandle);
         if (value !== undefined) {
           (collected[targetHandle] = collected[targetHandle] || []).push(value);
+          if (typeMap) {
+            (collectedTypes[targetHandle] = collectedTypes[targetHandle] || []).push(typeMap.get(edge.source) || '');
+          }
         }
       }
     });
-  return Object.fromEntries(
+  const result = Object.fromEntries(
     Object.entries(collected).map(([key, values]) => [key, values.length === 1 ? values[0] : values]),
   ) as Record<string, DynamicValue>;
+  if (typeMap) {
+    for (const [handle, types] of Object.entries(collectedTypes)) {
+      if (collected[handle].length > 0) {
+        (result as Record<string, unknown>)[`_${handle}Types`] = types;
+      }
+    }
+  }
+  return result;
 }

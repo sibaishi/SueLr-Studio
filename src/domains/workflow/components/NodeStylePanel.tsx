@@ -56,7 +56,7 @@ const fieldStyle: React.CSSProperties = {
   outline: 'none',
 };
 
-type InputThumb = { id: string; type: 'text' | 'image' | 'mask' | 'apiKey'; label: string; value: string };
+type InputThumb = { id: string; type: 'text' | 'image' | 'mask'; label: string; value: string };
 
 export default function NodeStylePanel() {
   const nodes = useWorkflowStore((s) => s.nodes);
@@ -137,7 +137,7 @@ export default function NodeStylePanel() {
       // Try handle-keyed value, then common keys, then execution outputs
       let value = String(srcData[handle] || '');
       if (!value) {
-        for (const k of ['text', 'image', 'mask', 'apiKey', 'value', 'fileUrl']) {
+        for (const k of ['text', 'image', 'mask', 'value', 'fileUrl']) {
           const v = srcData[k];
           if (typeof v === 'string' && v) { value = v; break; }
         }
@@ -152,12 +152,11 @@ export default function NodeStylePanel() {
       let type: InputThumb['type'] = 'text';
       if (handle.includes('image') || src?.type?.includes('Image')) type = 'image';
       else if (handle === 'mask' || src?.type === 'maskInput') type = 'mask';
-      else if (handle === 'apiKey' || src?.type === 'apiKeyInput') type = 'apiKey';
       return { id: e.id, type, label: src?.type || '?', value };
     });
 
   // Sort by type group then by inputOrder
-  const TYPE_ORDER: Record<InputThumb['type'], number> = { text: 0, image: 1, mask: 2, apiKey: 3 };
+  const TYPE_ORDER: Record<InputThumb['type'], number> = { text: 0, image: 1, mask: 2 };
   const inputOrder: string[] = Array.isArray(nodeData.inputOrder) ? (nodeData.inputOrder as string[]) : [];
   const orderMap = new Map(inputOrder.map((id, i) => [id, i]));
   const inputs = [...rawInputs].sort((a, b) => {
@@ -300,11 +299,11 @@ export default function NodeStylePanel() {
                     height: '100%',
                   }}
                 >
-                  {input.type === 'text' ? 'T' : input.type === 'mask' ? 'M' : input.type === 'apiKey' ? 'K' : '?'}
+                  {input.type === 'text' ? 'T' : input.type === 'mask' ? 'M' : '?'}
                 </span>
               </div>
               <span style={{ maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {input.value ? input.value.slice(0, 1) + '…' : input.type === 'text' ? 'T' : input.type === 'image' ? 'IMG' : input.type === 'mask' ? 'M' : 'K'}
+                {input.value ? input.value.slice(0, 1) + '…' : input.type === 'text' ? 'T' : input.type === 'image' ? 'IMG' : 'M'}
               </span>
             </div>
           ))}
