@@ -1,5 +1,6 @@
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
+import NodeStylePanel from '@/domains/workflow/components/NodeStylePanel';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
@@ -280,6 +281,8 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           onSelectDocument={store.setActiveWorkflowDocument}
           onCloseDocument={handleCloseDocument}
         />
+
+        <NodeStylePanel />
       </div>
 
       {importErrorMessage && (

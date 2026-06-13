@@ -393,7 +393,12 @@ export function createWorkflowGraphEditorActions(
       );
       if (exists) return;
 
-      const filteredEdges = edges.filter((edge) => !(edge.target === target && edge.targetHandle === targetHandle));
+      // Skip single-connection filter for node types that support multi-input (e.g. imageGenV2)
+      const targetNode = get().nodes.find((n) => n.id === target);
+      const isMultiInput = targetNode?.type === 'imageGenV2';
+      const filteredEdges = isMultiInput
+        ? edges
+        : edges.filter((edge) => !(edge.target === target && edge.targetHandle === targetHandle));
 
       const newEdge: Edge = {
         id: `edge_${gid()}`,

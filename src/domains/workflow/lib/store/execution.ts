@@ -29,8 +29,8 @@ type WorkflowStoreExecutionActions = Pick<
   | 'syncExecutionRunStatus'
 >;
 
-const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
-const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
+const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'imageGenV2', 'videoGen']);
+const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'imageGen', 'imageGenV2', 'videoGen']);
 
 function sanitizeSavedFile(file: unknown) {
   if (!file || typeof file !== 'object') return file;

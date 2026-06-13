@@ -1,5 +1,6 @@
 import { aiChatContentRenderer } from './ai/AiChat/renderer';
 import { imageGenContentRenderer } from './ai/ImageGen/renderer';
+import { imageGenV2ContentRenderer } from './ai/ImageGenV2/renderer';
 import { videoGenContentRenderer } from './ai/VideoGen/renderer';
 import { imageResizeContentRenderer } from './merge/ImageResize/renderer';
 import { imageSplitContentRenderer } from './merge/ImageSplit/renderer';
@@ -11,6 +12,7 @@ const settingsContentRenderers: Record<string, NodeContentRenderer> = {
   imageSplit: imageSplitContentRenderer,
   aiChat: aiChatContentRenderer,
   imageGen: imageGenContentRenderer,
+  imageGenV2: imageGenV2ContentRenderer,
   videoGen: videoGenContentRenderer,
   saveFile: saveFileContentRenderer,
 };

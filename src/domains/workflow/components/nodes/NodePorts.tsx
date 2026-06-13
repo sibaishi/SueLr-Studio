@@ -18,11 +18,13 @@ export function InputPort({
   connected,
   isConnectable,
   color,
+  maxConnections,
 }: {
   input: PortDef;
   connected: boolean;
   isConnectable: boolean;
   color: string;
+  maxConnections?: number;
 }) {
   const portColor = getPortColor(input.type, color);
 
@@ -37,6 +39,7 @@ export function InputPort({
         position={Position.Left}
         id={input.id}
         isConnectable={isConnectable}
+        maxConnections={maxConnections}
         style={{
           background: portColor,
           left: NODE_PORT_GUTTER,
