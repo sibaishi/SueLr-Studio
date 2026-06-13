@@ -18,7 +18,7 @@ import {
   saveActiveRunSnapshot,
 } from '@/domains/workflow/lib/store/persistence';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
-import type { Node } from '@xyflow/react';
+import type { Edge, Node } from '@xyflow/react';
 
 type WorkflowStoreExecutionActions = Pick<
   WorkflowState,
@@ -28,6 +28,52 @@ type WorkflowStoreExecutionActions = Pick<
   | 'restoreExecutionRun'
   | 'syncExecutionRunStatus'
 >;
+
+const MULTI_INPUT_NODE_TYPES = new Set(['imageGenV2']);
+
+function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
+  const multiInputNodes = nodes.filter((n) => MULTI_INPUT_NODE_TYPES.has(n.type || ''));
+  if (multiInputNodes.length === 0) return edges;
+
+  const multiInputNodeIds = new Set(multiInputNodes.map((n) => n.id));
+
+  // Group edges by their target (only for multi-input nodes)
+  const targetEdgeMap = new Map<string, Edge[]>();
+  const otherEdges: Edge[] = [];
+  for (const edge of edges) {
+    if (multiInputNodeIds.has(edge.target)) {
+      const group = targetEdgeMap.get(edge.target) || [];
+      group.push(edge);
+      targetEdgeMap.set(edge.target, group);
+    } else {
+      otherEdges.push(edge);
+    }
+  }
+
+  // Sort each group by inputOrder
+  for (const node of multiInputNodes) {
+    const nodeEdges = targetEdgeMap.get(node.id);
+    if (!nodeEdges || nodeEdges.length <= 1) continue;
+    const inputOrder: string[] = Array.isArray(node.data?.inputOrder) ? (node.data.inputOrder as string[]) : [];
+    if (inputOrder.length === 0) continue;
+    const orderMap = new Map(inputOrder.map((id, i) => [id, i]));
+    nodeEdges.sort((a, b) => {
+      const ai = orderMap.get(a.id);
+      const bi = orderMap.get(b.id);
+      if (ai !== undefined && bi !== undefined) return ai - bi;
+      if (ai !== undefined) return -1;
+      if (bi !== undefined) return 1;
+      return 0;
+    });
+  }
+
+  // Reconstruct edges array: sorted groups after otherEdges
+  const sorted: Edge[] = [...otherEdges];
+  for (const [, group] of targetEdgeMap) {
+    sorted.push(...group);
+  }
+  return sorted;
+}
 
 const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'imageGenV2', 'videoGen']);
 const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'imageGen', 'imageGenV2', 'videoGen']);
@@ -272,11 +318,15 @@ export function createWorkflowExecutionActions(
       lastExecutionSummary: null,
     });
 
+    // Reorder edges for multi-input nodes (imageGenV2) based on inputOrder
+    const sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);
+    const executableGraphOrdered = { nodes: executableGraph.nodes, edges: sortedEdges };
+
     const payload = buildWorkflowPayload(
       state.workflowId,
       state.workflowName,
-      executableGraph.nodes,
-      executableGraph.edges,
+      executableGraphOrdered.nodes,
+      executableGraphOrdered.edges,
     );
 
     const runtimeApiConfig =

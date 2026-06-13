@@ -56,6 +56,8 @@ const fieldStyle: React.CSSProperties = {
   outline: 'none',
 };
 
+type InputThumb = { id: string; type: 'text' | 'image' | 'mask' | 'apiKey'; label: string; value: string };
+
 export default function NodeStylePanel() {
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
@@ -72,6 +74,9 @@ export default function NodeStylePanel() {
   const [promptValue, setPromptValue] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState<string | null>(null);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const inputsRef = useRef<InputThumb[]>([]);
 
   const nodeData = (v2Node?.data || {}) as Record<string, unknown>;
 
@@ -85,6 +90,15 @@ export default function NodeStylePanel() {
     },
     [v2Node, updateNodeData],
   );
+
+  const handleReorder = useCallback((fromIdx: number, toIdx: number) => {
+    const current = inputsRef.current;
+    if (current.length === 0) return;
+    const reordered = current.map((x) => x.id);
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    setData({ inputOrder: reordered });
+  }, [setData]);
 
   const handleDragStart = useCallback(
     (event: React.PointerEvent) => {
@@ -114,18 +128,25 @@ export default function NodeStylePanel() {
   if (!v2Node) return null;
 
   // Collect connected input thumbnails
-  type InputThumb = { id: string; type: 'text' | 'image' | 'mask' | 'apiKey'; label: string; value: string };
-  const inputs: InputThumb[] = edges
+  const rawInputs: InputThumb[] = edges
     .filter((e) => e.target === v2Node.id && e.targetHandle === 'input')
     .map((e) => {
       const src = nodes.find((n) => n.id === e.source);
       const srcData = (src?.data || {}) as Record<string, unknown>;
       const handle = e.sourceHandle || '';
+      // Try handle-keyed value, then common keys, then execution outputs
       let value = String(srcData[handle] || '');
       if (!value) {
-        for (const k of ['text', 'image', 'mask', 'apiKey', 'value']) {
+        for (const k of ['text', 'image', 'mask', 'apiKey', 'value', 'fileUrl']) {
           const v = srcData[k];
           if (typeof v === 'string' && v) { value = v; break; }
+        }
+      }
+      if (!value) {
+        const srcOutputs = nodeOutputs[e.source];
+        if (srcOutputs) {
+          const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+          if (typeof outVal === 'string') value = outVal;
         }
       }
       let type: InputThumb['type'] = 'text';
@@ -134,6 +155,22 @@ export default function NodeStylePanel() {
       else if (handle === 'apiKey' || src?.type === 'apiKeyInput') type = 'apiKey';
       return { id: e.id, type, label: src?.type || '?', value };
     });
+
+  // Sort by type group then by inputOrder
+  const TYPE_ORDER: Record<InputThumb['type'], number> = { text: 0, image: 1, mask: 2, apiKey: 3 };
+  const inputOrder: string[] = Array.isArray(nodeData.inputOrder) ? (nodeData.inputOrder as string[]) : [];
+  const orderMap = new Map(inputOrder.map((id, i) => [id, i]));
+  const inputs = [...rawInputs].sort((a, b) => {
+    const typeDiff = (TYPE_ORDER[a.type] ?? 99) - (TYPE_ORDER[b.type] ?? 99);
+    if (typeDiff !== 0) return typeDiff;
+    const ai = orderMap.get(a.id);
+    const bi = orderMap.get(b.id);
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+    return 0;
+  });
+  inputsRef.current = inputs;
 
   const modelOptions = availableModels.image || [];
 
@@ -176,15 +213,40 @@ export default function NodeStylePanel() {
             flexWrap: 'wrap',
           }}
         >
-          {inputs.map((input) => (
+          {inputs.map((input, idx) => (
             <div
               key={input.id}
+              draggable
               onClick={() => {
+                if (draggedIdx !== null) return;
                 if ((input.type === 'image' || input.type === 'mask') && input.value) {
                   setPreviewImage(input.value);
                 } else if (input.value) {
                   setPreviewText(input.value);
                 }
+              }}
+              onDragStart={(e) => {
+                setDraggedIdx(idx);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', input.id);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                setDragOverIdx(idx);
+              }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedIdx !== null && draggedIdx !== idx) {
+                  handleReorder(draggedIdx, idx);
+                }
+                setDraggedIdx(null);
+                setDragOverIdx(null);
+              }}
+              onDragEnd={() => {
+                setDraggedIdx(null);
+                setDragOverIdx(null);
               }}
               style={{
                 display: 'flex',
@@ -192,13 +254,15 @@ export default function NodeStylePanel() {
                 gap: 5,
                 padding: '3px 8px 3px 4px',
                 borderRadius: 10,
-                background: 'var(--t-bg2)',
+                background: dragOverIdx === idx ? 'var(--t-border)' : 'var(--t-bg2)',
                 border: '1px solid var(--t-border)',
-                cursor: input.value ? 'pointer' : 'default',
+                cursor: 'grab',
                 fontSize: 11,
                 color: 'var(--t-text2)',
+                opacity: draggedIdx === idx ? 0.4 : 1,
+                transition: 'background 120ms ease, opacity 120ms ease',
               }}
-              title={input.value || '暂无内容'}
+              title={input.value || '暂无内容（拖动可调整顺序）'}
             >
               <div
                 style={{
@@ -218,15 +282,29 @@ export default function NodeStylePanel() {
                     src={inferImageThumbnailUrl(input.value) || input.value}
                     alt=""
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      ((e.currentTarget as HTMLElement).nextSibling as HTMLElement).style.display = 'flex';
+                    }}
                   />
-                ) : (
-                  <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>
-                    {input.type === 'text' ? 'T' : input.type === 'mask' ? 'M' : input.type === 'apiKey' ? 'K' : '?'}
-                  </span>
-                )}
+                ) : null}
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    display: (input.type === 'image' || input.type === 'mask') && input.value ? 'none' : 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    height: '100%',
+                  }}
+                >
+                  {input.type === 'text' ? 'T' : input.type === 'mask' ? 'M' : input.type === 'apiKey' ? 'K' : '?'}
+                </span>
               </div>
-              <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {input.value ? input.value.slice(0, 20) : input.type === 'text' ? '文本' : input.type === 'image' ? '图片' : input.type === 'mask' ? '遮罩' : 'Key'}
+              <span style={{ maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {input.value ? input.value.slice(0, 1) + '…' : input.type === 'text' ? 'T' : input.type === 'image' ? 'IMG' : input.type === 'mask' ? 'M' : 'K'}
               </span>
             </div>
           ))}
