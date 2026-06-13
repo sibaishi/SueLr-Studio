@@ -179,7 +179,10 @@ export default function Toolbar(props: ToolbarProps) {
         </div>
       </div>
 
-      <div className="workflow-canvas-run-controls">
+      <div
+        className="workflow-canvas-run-controls"
+        style={rightPanelCollapsed ? undefined : { right: '384px' }}
+      >
         <button
           type="button"
           onClick={onExecute}

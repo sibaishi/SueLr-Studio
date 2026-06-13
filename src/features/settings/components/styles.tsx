@@ -11,7 +11,7 @@ export function panelStyle(): CSSProperties {
   return {
     background: 'var(--glass-bg)',
     border: '1px solid var(--glass-border)',
-    borderRadius: 24,
+    borderRadius: 15,
     backdropFilter: 'var(--glass-blur)',
     WebkitBackdropFilter: 'var(--glass-blur)',
     boxShadow: 'var(--glass-shadow)',
@@ -22,7 +22,7 @@ export function mutedPanelStyle(): CSSProperties {
   return {
     background: 'var(--color-bg-secondary)',
     border: '1px solid var(--color-border)',
-    borderRadius: 18,
+    borderRadius: 5,
   };
 }
 

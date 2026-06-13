@@ -71,7 +71,9 @@ export default function StatusBar({
           <StatusPill label="重做" value={canRedo ? '可用' : '不可用'} />
         </div>
 
-        <div className="workflow-statusbar__version">Flow Studio v{APP_VERSION}</div>
+        <div className="workflow-statusbar__version">
+          <span className="workflow-statusbar__version-pill">SueLr Studio v{APP_VERSION}</span>
+        </div>
       </div>
     </div>
   );

@@ -226,65 +226,61 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
 
   return (
     <div className="workflow-page flex h-full w-full min-w-0 flex-col overflow-hidden" data-testid="workflow-page">
-      <div className="workflow-shell flex min-h-0 flex-1 overflow-hidden">
-        <div className="workflow-workbench glass min-w-0 flex-1 overflow-hidden">
-          <div className="workflow-canvas-surface relative min-h-0 min-w-0 flex-1 overflow-hidden">
-            <Toolbar
-              workflowName={store.workflowName}
-              workflows={store.workflowList}
-              onWorkflowNameChange={store.setWorkflowName}
-              onNewWorkflow={handleNewWorkflow}
-              onOpenWorkflowLibrary={() => setWorkflowLibraryOpen(true)}
-              onDuplicateWorkflow={handleDuplicateWorkflow}
-              onDeleteWorkflow={handleDeleteWorkflow}
-              onImportWorkflow={handleImportClick}
-              onExportWorkflow={handleExportWorkflow}
-              onAutoArrange={store.autoArrangeWorkflow}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onSave={handleSave}
-              onExecute={handleExecute}
-              onCancelExecution={handleCancelExecution}
-              onToggleRightPanel={() => setRightPanelCollapsed((value) => !value)}
-              rightPanelCollapsed={rightPanelCollapsed}
-              onToggleSnapToGrid={() => store.setSnapToGridEnabled(!store.snapToGridEnabled)}
-              snapToGridEnabled={store.snapToGridEnabled}
-              isExecuting={store.isExecuting}
-              isSavingWorkflow={store.isSavingWorkflow}
-              hasUnsavedChanges={store.hasUnsavedChanges}
-            />
-            <FlowCanvas
-              onViewportCenterChange={handleViewportCenterChange}
-              onBeforeCanvasEditorSave={captureImmediateHistory}
-            />
-            {!store.isHydratingWorkflow && store.nodes.length === 0 && <EmptyCanvasHint />}
-            <FloatingToolbar
-              onAddNode={handleOpenNodeCatalog}
-              onOpenSettings={onOpenStudioSettings}
-              onOpenAgent={onOpenAgent}
-              onToggleTheme={onToggleTheme}
-              themeMode={themeMode}
-            />
-          </div>
-        </div>
+      <div className="workflow-canvas-surface relative min-h-0 min-w-0 flex-1 overflow-hidden">
+        <Toolbar
+          workflowName={store.workflowName}
+          workflows={store.workflowList}
+          onWorkflowNameChange={store.setWorkflowName}
+          onNewWorkflow={handleNewWorkflow}
+          onOpenWorkflowLibrary={() => setWorkflowLibraryOpen(true)}
+          onDuplicateWorkflow={handleDuplicateWorkflow}
+          onDeleteWorkflow={handleDeleteWorkflow}
+          onImportWorkflow={handleImportClick}
+          onExportWorkflow={handleExportWorkflow}
+          onAutoArrange={store.autoArrangeWorkflow}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onSave={handleSave}
+          onExecute={handleExecute}
+          onCancelExecution={handleCancelExecution}
+          onToggleRightPanel={() => setRightPanelCollapsed((value) => !value)}
+          rightPanelCollapsed={rightPanelCollapsed}
+          onToggleSnapToGrid={() => store.setSnapToGridEnabled(!store.snapToGridEnabled)}
+          snapToGridEnabled={store.snapToGridEnabled}
+          isExecuting={store.isExecuting}
+          isSavingWorkflow={store.isSavingWorkflow}
+          hasUnsavedChanges={store.hasUnsavedChanges}
+        />
+        <FlowCanvas
+          onViewportCenterChange={handleViewportCenterChange}
+          onBeforeCanvasEditorSave={captureImmediateHistory}
+        />
+        {!store.isHydratingWorkflow && store.nodes.length === 0 && <EmptyCanvasHint />}
+        <FloatingToolbar
+          onAddNode={handleOpenNodeCatalog}
+          onOpenSettings={onOpenStudioSettings}
+          onOpenAgent={onOpenAgent}
+          onToggleTheme={onToggleTheme}
+          themeMode={themeMode}
+        />
 
         {!rightPanelCollapsed && (
           <ResultsPanel onBackfillImage={handleBackfillImageToCanvas} onBackfillText={handleBackfillTextToCanvas} />
         )}
-      </div>
 
-      <StatusBar
-        documents={store.documents}
-        activeDocumentId={store.activeDocumentId}
-        nodeCount={store.nodes.length}
-        edgeCount={store.edges.length}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onSelectDocument={store.setActiveWorkflowDocument}
-        onCloseDocument={handleCloseDocument}
-      />
+        <StatusBar
+          documents={store.documents}
+          activeDocumentId={store.activeDocumentId}
+          nodeCount={store.nodes.length}
+          edgeCount={store.edges.length}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onSelectDocument={store.setActiveWorkflowDocument}
+          onCloseDocument={handleCloseDocument}
+        />
+      </div>
 
       {importErrorMessage && (
         <div className="px-4 pb-3">

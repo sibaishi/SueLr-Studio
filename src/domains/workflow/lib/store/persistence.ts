@@ -1,8 +1,8 @@
 import type { Edge, Node } from '@xyflow/react';
 import type { ActiveRunSnapshot, WorkflowDraftSnapshot } from './types';
 
-const LOCAL_DRAFT_KEY = 'flow-studio-local-draft';
-const ACTIVE_RUN_KEY = 'flow-studio-active-run';
+const LOCAL_DRAFT_KEY = 'suelr-studio-local-draft';
+const ACTIVE_RUN_KEY = 'suelr-studio-active-run';
 
 export function loadLocalDraft(): WorkflowDraftSnapshot | null {
   if (typeof window === 'undefined') return null;

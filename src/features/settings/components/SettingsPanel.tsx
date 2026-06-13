@@ -782,12 +782,14 @@ export function SettingsPanel({
         width: '100%',
         minWidth: 0,
         overflow: 'hidden',
+        gap: 10,
+        padding: 10,
       }}
     >
-      <div className="workflow-toolbar glass" style={{ marginBottom: 0 }}>
+      <div className="workflow-toolbar glass" style={{ margin: 0, borderRadius: 15 }}>
         <div
           className="workflow-toolbar__frame"
-          style={{ alignItems: 'stretch', flexWrap: 'wrap', gap: 18, padding: '14px 18px', rowGap: 12 }}
+          style={{ alignItems: 'stretch', flexWrap: 'wrap', gap: 10, padding: 10, rowGap: 10 }}
         >
           <div className="workflow-toolbar__identity" style={{ minWidth: 260, alignItems: 'flex-start' }}>
             <div className="workflow-toolbar__badge">
@@ -806,7 +808,7 @@ export function SettingsPanel({
 
           <div
             className="workflow-toolbar__status"
-            style={{ minWidth: 260, flex: 1, justifyContent: 'space-between', padding: '10px 14px 10px 16px' }}
+            style={{ minWidth: 260, flex: 1, justifyContent: 'space-between', padding: 10 }}
           >
             <div style={{ paddingLeft: 2 }}>
               <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>当前配置</div>
@@ -830,20 +832,20 @@ export function SettingsPanel({
         style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(240px, 280px) minmax(0, 1fr) minmax(260px, 300px)',
-          gap: 18,
+          gap: 10,
           minHeight: 0,
           flex: 1,
           overflow: 'hidden',
-          padding: '18px 20px 20px',
+          padding: 0,
         }}
       >
         <aside
           style={{
             ...panelStyle(),
-            padding: 16,
+            padding: 10,
             display: 'flex',
             flexDirection: 'column',
-            gap: 14,
+            gap: 10,
             minHeight: 0,
             overflow: 'hidden',
           }}
@@ -948,8 +950,8 @@ export function SettingsPanel({
           </div>
         </aside>
 
-        <main style={{ ...panelStyle(), padding: 18, overflow: 'auto', minWidth: 0 }}>
-          <div className="flex-col" style={{ gap: 16 }}>
+        <main style={{ ...panelStyle(), padding: 10, overflow: 'auto', minWidth: 0 }}>
+          <div className="flex-col" style={{ gap: 10 }}>
             <div
               style={{
                 display: 'flex',
@@ -970,10 +972,12 @@ export function SettingsPanel({
         </main>
 
         <aside style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <div style={{ ...panelStyle(), padding: 16, flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <div style={eyebrowStyle()}>实时概览</div>
-            <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>Agent 总览</h2>
-            <div className="flex-col" style={{ gap: 12, marginTop: 14, minHeight: 'calc(100% - 48px)' }}>
+          <div style={{ ...panelStyle(), padding: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div>
+              <div style={eyebrowStyle()}>实时概览</div>
+              <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>Agent 总览</h2>
+            </div>
+            <div className="flex-col" style={{ gap: 10, marginTop: 14, flex: 1 }}>
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>已配置模型</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
@@ -1001,16 +1005,6 @@ export function SettingsPanel({
               </div>
 
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>主题模式</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-                  {THEME_LABELS[themeMode]}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
-                  当前工作室显示风格
-                </div>
-              </div>
-
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Agent 覆盖情况</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
                   <span style={chipStyle(agentProfiles.length > 0 ? T.purple : undefined)}>
@@ -1022,31 +1016,16 @@ export function SettingsPanel({
                   </span>
                 </div>
               </div>
+            </div>
 
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>运行能力</div>
-                <div className="flex-col" style={{ gap: 8, marginTop: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                    <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>目录选择器</span>
-                    <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
-                      {canSelectDirectory ? '可用' : '禁用'}
-                    </strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                    <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>后端重启</span>
-                    <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
-                      {canRestartBackend ? '可用' : '禁用'}
-                    </strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                    <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>内置 Shell</span>
-                    <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
-                      {runtimeCapabilities?.hasEmbeddedShell ? '可用' : '禁用'}
-                    </strong>
-                  </div>
-                </div>
+            <div style={{ ...mutedPanelStyle(), padding: 14, flexShrink: 0 }}>
+              <div style={eyebrowStyle()}>主题模式</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                {THEME_LABELS[themeMode]}
               </div>
-
+              <div style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--color-text-secondary)', marginTop: 3 }}>
+                当前工作室显示风格
+              </div>
             </div>
           </div>
         </aside>

@@ -21,21 +21,21 @@ export default function FloatingToolbar({
 }: FloatingToolbarProps) {
   return (
     <div className="workflow-floating-toolbar" aria-label="工作流工具">
-      <FloatingToolbarButton icon={<Plus size={19} />} label="添加节点" onClick={onAddNode} testId="workflow-add-node" />
+      <FloatingToolbarButton icon={<Plus size={16} />} label="添加节点" onClick={onAddNode} testId="workflow-add-node" />
       <FloatingToolbarButton
-        icon={<Settings2 size={18} />}
+        icon={<Settings2 size={16} />}
         label="打开设置"
         onClick={onOpenSettings}
         testId="workflow-open-settings"
       />
       <FloatingToolbarButton
-        icon={<Sparkles size={18} />}
+        icon={<Sparkles size={16} />}
         label="打开Agent"
         onClick={onOpenAgent}
         testId="workflow-open-agent"
       />
       <FloatingToolbarButton
-        icon={<Icon name={THEME_ICONS[themeMode]} size={18} />}
+        icon={<Icon name={THEME_ICONS[themeMode]} size={16} />}
         label={`调整主题：${THEME_LABELS[themeMode]}`}
         onClick={onToggleTheme}
         testId="workflow-toggle-theme"

@@ -151,4 +151,4 @@ export const PORT_COMPATIBILITY: Record<string, string[]> = {
 
 export const DEFAULT_WORKFLOW_NAME = '未命名工作流';
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '1.0.0';
