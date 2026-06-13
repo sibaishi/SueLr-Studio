@@ -24,7 +24,7 @@ export async function execute(
   const rawValues: unknown[] = Array.isArray(inputs.input) ? inputs.input : inputs.input !== undefined ? [inputs.input] : [];
   
   let prompt = '';
-  let reference: DynamicValue | undefined;
+  const references: DynamicValue[] = [];
   let mask: DynamicValue | undefined;
   let apiKey: DynamicValue | undefined;
 
@@ -35,7 +35,7 @@ export async function execute(
         prompt = prompt ? `${prompt}\n${String(value)}` : String(value);
         break;
       case 'image':
-        if (!reference) reference = value as DynamicValue;
+        references.push(value as DynamicValue);
         break;
       case 'mask':
         if (!mask) mask = value as DynamicValue;
@@ -54,7 +54,7 @@ export async function execute(
 
   const runtimeConfig = resolveRuntimeApiConfig({ apiKey }, apiConfig, node.data?.model);
 
-  if (mask && !reference) {
+  if (mask && references.length === 0) {
     throw new Error('Image generation requires a reference image when mask is provided');
   }
 
@@ -68,7 +68,7 @@ export async function execute(
     resolution: node.data?.resolution,
     n: node.data?.n,
     output_format: node.data?.output_format,
-    image: reference,
+    image: references.length > 0 ? references : undefined,
     mask: mask || node.data?.mask,
   };
 
