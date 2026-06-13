@@ -1,4 +1,5 @@
 import FlowNode from './nodes/FlowNode';
+import ImageGenV2Node from './nodes/ai/ImageGenV2/ImageGenV2Node';
 
 export const FLOW_NODE_TYPES = {
   group: FlowNode,
@@ -22,7 +23,7 @@ export const FLOW_NODE_TYPES = {
   audioMerge: FlowNode,
   aiChat: FlowNode,
   imageGen: FlowNode,
-  imageGenV2: FlowNode,
+  imageGenV2: ImageGenV2Node,
   videoGen: FlowNode,
   saveFile: FlowNode,
   output: FlowNode,

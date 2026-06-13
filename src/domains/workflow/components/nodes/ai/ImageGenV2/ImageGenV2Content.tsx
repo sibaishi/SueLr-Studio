@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { ParamDef } from '@/domains/workflow/lib/types';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
+import { Image } from 'lucide-react';
 import { useState } from 'react';
 import '../../node-v2.css';
 
@@ -35,42 +36,26 @@ export function ImageGenV2Content({
     }
   }
 
+  const hasImage = outputImages.length > 0;
+
   return (
-    <div className="node-content-shell-v2 node-settings-content-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
-      {/* Result display area */}
-      {outputImages.length > 0 ? (
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 8,
-          }}
-        >
+    <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
+      {/* Gallery Frame */}
+      <div className="node-gallery-frame-v2">
+        {hasImage ? (
           <img
             src={outputImages[0]}
             alt=""
-            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8, cursor: 'pointer' }}
+            className="node-gallery-image-v2"
             onClick={() => setPreviewImage(outputImages[0])}
           />
-        </div>
-      ) : (
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--node-card-faint)',
-            fontSize: 11,
-          }}
-        >
-          待生成
-        </div>
-      )}
+        ) : (
+          <div className="node-gallery-empty-v2">
+            <Image size={32} strokeWidth={1.2} />
+            <span>待生成</span>
+          </div>
+        )}
+      </div>
 
       {previewImage && (
         <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />

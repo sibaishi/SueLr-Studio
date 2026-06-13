@@ -76,75 +76,64 @@
 }
 
 .flow-node-v2 {
-  --node-tint: color-mix(in srgb, var(--node-color) 14%, transparent);
-  --node-tint-strong: color-mix(in srgb, var(--node-color) 24%, transparent);
-  border-radius: 12px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--node-color) 5%, transparent), transparent 44px),
-    var(--node-card-bg);
-  border: 1px solid var(--node-card-line);
-  box-shadow: var(--node-card-shadow);
-  overflow: visible;
-  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+  display: flex;
+  flex-direction: column;
+  border-radius: 25px;
+  background: var(--node-card-bg);
+  border: 0.5px solid var(--node-card-line);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 4px 16px rgba(0,0,0,0.06),
+    0 12px 40px rgba(0,0,0,0.08);
+  overflow: clip;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .flow-node-v2:hover {
-  box-shadow: var(--node-card-shadow-lift);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.05),
+    0 6px 24px rgba(0,0,0,0.08),
+    0 16px 48px rgba(0,0,0,0.1);
 }
 
 .flow-node-v2--selected {
-  border-color: color-mix(in srgb, var(--node-color) 74%, var(--node-card-line));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-color) 20%, transparent), var(--node-card-shadow-lift);
-}
-
-.flow-node-v2--group {
-  background: repeating-linear-gradient(
-      135deg,
-      transparent 0 12px,
-      color-mix(in srgb, var(--node-color) 8%, transparent) 12px 13px
-    ), color-mix(in srgb, var(--node-card-bg-soft) 88%, transparent);
-  border-style: dashed;
-  border-color: var(--workflow-node-group-border);
-  box-shadow: inset 0 0 0 1px var(--node-card-line), var(--node-card-shadow);
-}
-
-.flow-node-v2--collapsed {
-  backdrop-filter: saturate(0.92);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--node-color) 11%, transparent), transparent 56px),
-    color-mix(in srgb, var(--node-card-bg-soft) 96%, transparent);
-  border-style: solid;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--node-color) 18%, transparent), var(--node-card-shadow);
-}
-
-.flow-node-v2--collapsed .flow-node-v2__frame {
-  padding: 8px;
-}
-
-.flow-node-v2--collapsed .flow-node-v2__stack {
-  gap: 6px;
-}
-
-.flow-node-v2--collapsed .flow-node-v2__header {
-  min-height: 30px;
-  padding: 5px 7px;
+  border-color: color-mix(in srgb, var(--node-color) 60%, var(--node-card-line));
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 4px 16px rgba(0,0,0,0.06),
+    0 12px 40px rgba(0,0,0,0.08),
+    0 0 0 3px color-mix(in srgb, var(--node-color) 16%, transparent);
 }
 
 .flow-node-v2--error {
   border-color: #ff3b30;
-  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18), var(--node-card-shadow-lift);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 4px 16px rgba(0,0,0,0.06),
+    0 12px 40px rgba(0,0,0,0.08),
+    0 0 0 3px rgba(255,59,48,0.14);
 }
 
 .flow-node-v2--warning {
   border-color: #ff9500;
-  box-shadow: 0 0 0 3px rgba(255, 149, 0, 0.18), var(--node-card-shadow-lift);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 4px 16px rgba(0,0,0,0.06),
+    0 12px 40px rgba(0,0,0,0.08),
+    0 0 0 3px rgba(255,149,0,0.14);
 }
 
 .flow-node-v2--disabled {
-  opacity: 0.56;
-  filter: saturate(0.35);
+  opacity: 0.5;
+  filter: saturate(0.3);
 }
 
 .flow-node-v2--locked {
-  border-color: color-mix(in srgb, var(--node-color) 42%, var(--node-card-line-strong));
+  border-color: color-mix(in srgb, var(--node-color) 36%, var(--node-card-line-strong));
+}
+
+.flow-node-v2--running {
+  animation: pulse-border 1.5s ease-in-out infinite;
 }
 
 .flow-node-v2__frame {
@@ -2679,4 +2668,63 @@
   50% {
     box-shadow: 0 0 0 7px rgba(255, 149, 0, 0.08), var(--node-card-shadow-lift);
   }
+}
+
+/* ── Gallery Frame (imageGenV2 node card) ── */
+
+.node-gallery-shell-v2 {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin-inline: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+.node-gallery-frame-v2 {
+  flex: 1;
+  min-height: 0;
+  margin: 6px;
+  border-radius: 15px;
+  background: var(--node-card-bg-soft);
+  border: 1px solid var(--node-card-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background 200ms ease, border-color 200ms ease;
+}
+
+.flow-node-v2--selected .node-gallery-frame-v2 {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 0 2px color-mix(in srgb, var(--node-color) 22%, transparent);
+  border-color: color-mix(in srgb, var(--node-color) 32%, var(--node-card-line));
+}
+
+.node-gallery-image-v2 {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+.node-gallery-empty-v2 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--node-card-faint);
+  opacity: 0.52;
+}
+
+.node-gallery-empty-v2 span {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
 }
