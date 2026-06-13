@@ -154,7 +154,7 @@ export function collectInputs(
   edges: WorkflowEdge[],
   outputs: WorkflowOutputs,
 ): Record<string, DynamicValue> {
-  const inputs: Record<string, DynamicValue> = {};
+  const collected: Record<string, DynamicValue[]> = {};
   edges
     .filter((edge) => edge.target === node.id)
     .forEach((edge) => {
@@ -163,9 +163,13 @@ export function collectInputs(
         const sourceHandle = edge.sourceHandle || '';
         const targetHandle = edge.targetHandle || '';
         const directValue = sourceOutput[sourceHandle];
-        inputs[targetHandle] =
-          directValue !== undefined ? directValue : resolveLegacyOutputAlias(sourceOutput, sourceHandle);
+        const value = directValue !== undefined ? directValue : resolveLegacyOutputAlias(sourceOutput, sourceHandle);
+        if (value !== undefined) {
+          (collected[targetHandle] = collected[targetHandle] || []).push(value);
+        }
       }
     });
-  return inputs;
+  return Object.fromEntries(
+    Object.entries(collected).map(([key, values]) => [key, values.length === 1 ? values[0] : values]),
+  ) as Record<string, DynamicValue>;
 }

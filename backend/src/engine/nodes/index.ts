@@ -4,6 +4,7 @@ import { execute as executeAudioInput } from './audioInput.ts';
 import { execute as executeAudioMerge } from './audioMerge.ts';
 import { execute as executeImageCompare } from './imageCompare.ts';
 import { execute as executeImageGen } from './imageGen.ts';
+import { execute as executeImageGenV2 } from './imageGenV2.ts';
 import { execute as executeImageInput } from './imageInput.ts';
 import { execute as executeImageMerge } from './imageMerge.ts';
 import { execute as executeImageResize } from './imageResize.ts';
@@ -44,6 +45,7 @@ export const NODE_EXECUTORS = {
   audioMerge: executeAudioMerge,
   aiChat: executeAiChat,
   imageGen: executeImageGen,
+  imageGenV2: executeImageGenV2,
   videoGen: executeVideoGen,
   saveFile: executeSaveFile,
   output: executeOutput,
