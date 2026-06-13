@@ -73,10 +73,6 @@ export async function execute(
     prompt = prompt ? `${prompt}\n${extra}` : extra;
   }
 
-  if (rawValues.length > 0 && references.length >= MAX_IMAGES) {
-    sendProgress?.(`已忽略超出上限的参考图输入（上限 ${MAX_IMAGES} 张）`);
-  }
-
   const runtimeConfig = resolveRuntimeApiConfig({}, apiConfig, node.data?.model);
 
   if (mask && references.length === 0) {

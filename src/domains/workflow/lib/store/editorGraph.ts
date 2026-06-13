@@ -396,6 +396,34 @@ export function createWorkflowGraphEditorActions(
       // Skip single-connection filter for node types that support multi-input (e.g. imageGenV2)
       const targetNode = get().nodes.find((n) => n.id === target);
       const isMultiInput = targetNode?.type === 'imageGenV2';
+
+      // Enforce per-type connection limits for imageGenV2
+      if (isMultiInput && targetHandle === 'input') {
+        const sourceNode = get().nodes.find((n) => n.id === source);
+        const sourceNodeType = sourceNode?.type || '';
+        const isMaskSource = sourceNodeType === 'maskInput' || sourceNodeType.includes('mask');
+        const isImageSource =
+          !isMaskSource &&
+          (sourceNodeType.includes('image') || sourceNodeType.includes('Image') || sourceNodeType.includes('video') || sourceNodeType.includes('Video'));
+
+        const existingEdgesToTarget = edges.filter((e) => e.target === target && e.targetHandle === 'input');
+
+        if (isMaskSource) {
+          const existingMaskCount = existingEdgesToTarget.filter((e) => {
+            const src = get().nodes.find((n) => n.id === e.source);
+            return src?.type === 'maskInput';
+          }).length;
+          if (existingMaskCount >= 1) return; // mask limit: 1
+        }
+
+        if (isImageSource) {
+          const existingImageCount = existingEdgesToTarget.filter((e) => {
+            const src = get().nodes.find((n) => n.id === e.source);
+            return src?.type && (src.type.includes('image') || src.type.includes('Image') || src.type.includes('video') || src.type.includes('Video'));
+          }).length;
+          if (existingImageCount >= 9) return; // image limit: 9
+        }
+      }
       const filteredEdges = isMultiInput
         ? edges
         : edges.filter((edge) => !(edge.target === target && edge.targetHandle === targetHandle));
