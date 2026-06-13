@@ -32,7 +32,7 @@ export async function execute(
     const type = classifyValue(value);
     switch (type) {
       case 'text':
-        if (!prompt) prompt = String(value);
+        prompt = prompt ? `${prompt}\n${String(value)}` : String(value);
         break;
       case 'image':
         if (!reference) reference = value as DynamicValue;
@@ -46,9 +46,10 @@ export async function execute(
     }
   }
 
-  // Use node data prompt if no text input connected
-  if (!prompt && node.data?.prompt) {
-    prompt = String(node.data.prompt);
+  // Append textarea prompt after connected text inputs
+  if (node.data?.prompt && String(node.data.prompt).trim()) {
+    const extra = String(node.data.prompt).trim();
+    prompt = prompt ? `${prompt}\n${extra}` : extra;
   }
 
   const runtimeConfig = resolveRuntimeApiConfig({ apiKey }, apiConfig, node.data?.model);
