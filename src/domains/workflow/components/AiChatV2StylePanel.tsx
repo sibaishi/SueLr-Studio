@@ -153,36 +153,30 @@ export default function AiChatV2StylePanel() {
         </div>
       )}
 
-      {/* System prompt */}
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 4, fontWeight: 600 }}>系统提示词</div>
-        <textarea
-          className="nodrag nowheel"
-          value={String(nodeData.systemPrompt || '')}
-          onChange={(e) => setData({ systemPrompt: e.target.value })}
-          style={{
-            width: '100%', height: 80, resize: 'none',
-            border: '1px solid var(--t-border)', borderRadius: 12,
-            outline: 'none', background: 'var(--t-bg2)', color: 'var(--t-text)',
-            fontSize: 12, lineHeight: 1.5, padding: '8px 12px', fontFamily: 'inherit',
-          }}
-          placeholder="你是一个有帮助的 AI 助手。"
-          onPointerDown={(e) => e.stopPropagation()}
-        />
-      </div>
+      {/* System prompt textarea — fills remaining space */}
+      <textarea
+        className="nodrag nowheel"
+        value={String(nodeData.systemPrompt || '')}
+        onChange={(e) => setData({ systemPrompt: e.target.value })}
+        style={{
+          flex: 1, minHeight: 0, width: '100%', resize: 'none',
+          border: '1px solid var(--t-border)', borderRadius: 12,
+          outline: 'none', background: 'var(--t-bg2)', color: 'var(--t-text)',
+          fontSize: 12, lineHeight: 1.5, padding: '8px 12px', fontFamily: 'inherit',
+        }}
+        placeholder="系统提示词（如：你是一个有帮助的 AI 助手）"
+        onPointerDown={(e) => e.stopPropagation()}
+      />
 
       {/* Controls row */}
-      <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
         <button
           type="button"
           onClick={() => setData({ enableWebSearch: !webSearchEnabled })}
+          className="node-v2-appendix-btn"
           style={{
-            display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
-            borderRadius: 10, border: webSearchEnabled ? '1px solid #30D158' : '1px solid var(--t-border)',
-            background: webSearchEnabled ? 'rgba(48,209,88,0.1)' : 'var(--t-bg2)',
-            color: webSearchEnabled ? '#30D158' : 'var(--t-text3)',
-            fontSize: 11, fontWeight: 600, cursor: 'pointer',
-            transition: 'all 140ms ease',
+            width: 'auto', padding: '0 10px', gap: 5,
+            color: webSearchEnabled ? 'var(--node-color)' : 'var(--node-card-muted)',
           }}
         >
           <Globe size={14} /> {webSearchEnabled ? '已开启' : '联网搜索'}
