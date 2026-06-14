@@ -1,6 +1,8 @@
 import AiChatV2StylePanel from '@/domains/workflow/components/AiChatV2StylePanel';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
+import IterateImageRunV2StylePanel from '@/domains/workflow/components/IterateImageRunV2StylePanel';
+import IterateRunV2StylePanel from '@/domains/workflow/components/IterateRunV2StylePanel';
 import NodeStylePanel from '@/domains/workflow/components/NodeStylePanel';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import StatusBar from '@/domains/workflow/components/StatusBar';
@@ -287,6 +289,8 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
         <NodeStylePanel />
         <VideoGenV2StylePanel />
         <AiChatV2StylePanel />
+        <IterateRunV2StylePanel />
+        <IterateImageRunV2StylePanel />
       </div>
 
       {importErrorMessage && (

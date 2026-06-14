@@ -11,7 +11,9 @@ import { execute as executeImageMerge } from './imageMerge.ts';
 import { execute as executeImageResize } from './imageResize.ts';
 import { execute as executeImageSplit } from './imageSplit.ts';
 import { execute as executeIterateImageRun } from './iterateImageRun.ts';
+import { execute as executeIterateImageRunV2 } from './iterateImageRunV2.ts';
 import { execute as executeIterateRun } from './iterateRun.ts';
+import { execute as executeIterateRunV2 } from './iterateRunV2.ts';
 import { execute as executeMaskInput } from './maskInput.ts';
 import { execute as executeOutput } from './output.ts';
 import { execute as executePromptHelper } from './promptHelper.ts';
@@ -36,7 +38,9 @@ export const NODE_EXECUTORS = {
   audioInput: executeAudioInput,
   apiKeyInput: executeApiKeyInput,
   iterateImageRun: executeIterateImageRun,
+  iterateImageRunV2: executeIterateImageRunV2,
   iterateRun: executeIterateRun,
+  iterateRunV2: executeIterateRunV2,
   promptHelper: executePromptHelper,
   textClean: executeTextClean,
   textSplit: executeTextSplit,

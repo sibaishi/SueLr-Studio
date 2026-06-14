@@ -395,7 +395,7 @@ export function createWorkflowGraphEditorActions(
 
       // Skip single-connection filter for node types that support multi-input
       const targetNode = get().nodes.find((n) => n.id === target);
-      const isMultiInput = targetNode?.type === 'imageGenV2' || targetNode?.type === 'videoGenV2' || targetNode?.type === 'aiChatV2';
+      const isMultiInput = targetNode?.type === 'imageGenV2' || targetNode?.type === 'videoGenV2' || targetNode?.type === 'aiChatV2' || targetNode?.type === 'iterateRunV2' || targetNode?.type === 'iterateImageRunV2';
 
       // Enforce per-type connection limits for V2 nodes
       if (isMultiInput && targetHandle === 'input') {
@@ -420,7 +420,7 @@ export function createWorkflowGraphEditorActions(
         if (isVideoSource && countByType((t) => t.includes('video') && !t.includes('videogen')) >= 1) return;
         if (isAudioSource && countByType((t) => t.includes('audio')) >= 1) return;
         if (isImageSource) {
-          if (targetNode?.type === 'imageGenV2' || targetNode?.type === 'aiChatV2') {
+          if (targetNode?.type === 'imageGenV2' || targetNode?.type === 'aiChatV2' || targetNode?.type === 'iterateImageRunV2') {
             if (countByType((t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video')) >= 9) return;
           } else {
             if (countByType((t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video')) >= 2) return;

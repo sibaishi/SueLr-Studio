@@ -1,6 +1,8 @@
 import FlowNode from './nodes/FlowNode';
 import AiChatV2Node from './nodes/ai/AiChatV2/AiChatV2Node';
 import ImageGenV2Node from './nodes/ai/ImageGenV2/ImageGenV2Node';
+import IterateImageRunV2Node from './nodes/ai/IterateImageRunV2/IterateImageRunV2Node';
+import IterateRunV2Node from './nodes/ai/IterateRunV2/IterateRunV2Node';
 import VideoGenV2Node from './nodes/ai/VideoGenV2/VideoGenV2Node';
 
 export const FLOW_NODE_TYPES = {
@@ -15,7 +17,9 @@ export const FLOW_NODE_TYPES = {
   audioInput: FlowNode,
   apiKeyInput: FlowNode,
   iterateRun: FlowNode,
+  iterateRunV2: IterateRunV2Node,
   iterateImageRun: FlowNode,
+  iterateImageRunV2: IterateImageRunV2Node,
   promptHelper: FlowNode,
   textClean: FlowNode,
   textSplit: FlowNode,
@@ -45,7 +49,9 @@ export const FLOW_NODE_COLORS: Record<string, string> = {
   audioInput: '#FF375F',
   apiKeyInput: '#5856D6',
   iterateRun: '#007AFF',
+  iterateRunV2: '#007AFF',
   iterateImageRun: '#FF9500',
+  iterateImageRunV2: '#FF9500',
   promptHelper: '#00C7BE',
   textClean: '#007AFF',
   textSplit: '#0A84FF',
