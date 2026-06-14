@@ -87,7 +87,7 @@
     0 12px 40px rgba(0,0,0,0.08);
   overflow: visible;
   transition: border-color 200ms ease, box-shadow 200ms ease;
-  --appendix-offset: -40px;
+  --appendix-gap: 8px;
 }
 
 .flow-node-v2:hover {

@@ -29,7 +29,10 @@ export const NodeAppendix = memo(function NodeAppendix({
         className,
       )}
       style={{
-        [position === 'top' ? 'top' : 'bottom']: 'var(--appendix-offset, -40px)',
+        [position === 'top' ? 'bottom' : 'top']: '100%',
+        ...(position === 'top'
+          ? { marginBottom: 'var(--appendix-gap, 8px)' }
+          : { marginTop: 'var(--appendix-gap, 8px)' }),
       }}
     >
       {children}
