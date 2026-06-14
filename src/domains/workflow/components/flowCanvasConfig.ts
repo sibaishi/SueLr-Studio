@@ -1,5 +1,6 @@
 import FlowNode from './nodes/FlowNode';
 import ImageGenV2Node from './nodes/ai/ImageGenV2/ImageGenV2Node';
+import VideoGenV2Node from './nodes/ai/VideoGenV2/VideoGenV2Node';
 
 export const FLOW_NODE_TYPES = {
   group: FlowNode,
@@ -24,6 +25,7 @@ export const FLOW_NODE_TYPES = {
   aiChat: FlowNode,
   imageGen: FlowNode,
   imageGenV2: ImageGenV2Node,
+  videoGenV2: VideoGenV2Node,
   videoGen: FlowNode,
   saveFile: FlowNode,
   output: FlowNode,

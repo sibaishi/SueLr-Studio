@@ -3,6 +3,7 @@ import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import NodeStylePanel from '@/domains/workflow/components/NodeStylePanel';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import StatusBar from '@/domains/workflow/components/StatusBar';
+import VideoGenV2StylePanel from '@/domains/workflow/components/VideoGenV2StylePanel';
 import Toolbar from '@/domains/workflow/components/Toolbar';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
 import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
@@ -283,6 +284,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
         />
 
         <NodeStylePanel />
+        <VideoGenV2StylePanel />
       </div>
 
       {importErrorMessage && (

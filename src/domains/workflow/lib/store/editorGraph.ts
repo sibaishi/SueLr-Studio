@@ -393,35 +393,35 @@ export function createWorkflowGraphEditorActions(
       );
       if (exists) return;
 
-      // Skip single-connection filter for node types that support multi-input (e.g. imageGenV2)
+      // Skip single-connection filter for node types that support multi-input
       const targetNode = get().nodes.find((n) => n.id === target);
-      const isMultiInput = targetNode?.type === 'imageGenV2';
+      const isMultiInput = targetNode?.type === 'imageGenV2' || targetNode?.type === 'videoGenV2';
 
-      // Enforce per-type connection limits for imageGenV2
+      // Enforce per-type connection limits for V2 nodes
       if (isMultiInput && targetHandle === 'input') {
         const sourceNode = get().nodes.find((n) => n.id === source);
         const sourceNodeType = sourceNode?.type || '';
-        const isMaskSource = sourceNodeType === 'maskInput' || sourceNodeType.includes('mask');
+        const isMaskSource = sourceNodeType === 'maskInput' || sourceNodeType.toLowerCase().includes('mask');
+        const isVideoSource = sourceNodeType && (sourceNodeType.toLowerCase().includes('video') && !sourceNodeType.toLowerCase().includes('videogen'));
+        const isAudioSource = sourceNodeType && sourceNodeType.toLowerCase().includes('audio');
         const isImageSource =
-          !isMaskSource &&
-          (sourceNodeType.includes('image') || sourceNodeType.includes('Image') || sourceNodeType.includes('video') || sourceNodeType.includes('Video'));
+          !isMaskSource && !isVideoSource && !isAudioSource &&
+          (sourceNodeType.includes('image') || sourceNodeType.includes('Image'));
 
         const existingEdgesToTarget = edges.filter((e) => e.target === target && e.targetHandle === 'input');
 
-        if (isMaskSource) {
-          const existingMaskCount = existingEdgesToTarget.filter((e) => {
+        const countByType = (typeCheck: (t: string) => boolean) =>
+          existingEdgesToTarget.filter((e) => {
             const src = get().nodes.find((n) => n.id === e.source);
-            return src?.type === 'maskInput';
+            return src?.type ? typeCheck(src.type) : false;
           }).length;
-          if (existingMaskCount >= 1) return; // mask limit: 1
-        }
 
+        if (isMaskSource && countByType((t) => t === 'maskInput') >= 1) return;
+        if (isVideoSource && countByType((t) => t.includes('video') && !t.includes('videogen')) >= 1) return;
+        if (isAudioSource && countByType((t) => t.includes('audio')) >= 1) return;
         if (isImageSource) {
-          const existingImageCount = existingEdgesToTarget.filter((e) => {
-            const src = get().nodes.find((n) => n.id === e.source);
-            return src?.type && (src.type.includes('image') || src.type.includes('Image') || src.type.includes('video') || src.type.includes('Video'));
-          }).length;
-          if (existingImageCount >= 9) return; // image limit: 9
+          const limit = targetNode?.type === 'imageGenV2' ? 9 : 1;
+          if (countByType((t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video')) >= limit) return;
         }
       }
       const filteredEdges = isMultiInput

@@ -21,6 +21,7 @@ import { execute as executeTextMerge } from './textMerge.ts';
 import { execute as executeTextSplit } from './textSplit.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 import { execute as executeVideoGen } from './videoGen.ts';
+import { execute as executeVideoGenV2 } from './videoGenV2.ts';
 import { execute as executeVideoInput } from './videoInput.ts';
 import { execute as executeVideoMerge } from './videoMerge.ts';
 
@@ -47,6 +48,7 @@ export const NODE_EXECUTORS = {
   imageGen: executeImageGen,
   imageGenV2: executeImageGenV2,
   videoGen: executeVideoGen,
+  videoGenV2: executeVideoGenV2,
   saveFile: executeSaveFile,
   output: executeOutput,
 };
