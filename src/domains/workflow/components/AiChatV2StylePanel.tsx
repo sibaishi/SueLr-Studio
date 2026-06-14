@@ -210,13 +210,15 @@ export default function AiChatV2StylePanel() {
             )}
           </select>
         </PopoverButton>
+        </div>
       </div>
     </div>
   );
 }
 
-function PopoverButton({ icon, label, open, direction, onToggle, children }:
-  { icon: React.ReactNode; label: string; open: boolean; direction: 'up' | 'down'; onToggle: () => void; children: React.ReactNode }) {
+function PopoverButton({ icon, label, open, direction, onToggle, children }: {
+  icon: React.ReactNode; label: string; open: boolean; direction: 'up' | 'down'; onToggle: () => void; children: React.ReactNode;
+}) {
   return (
     <div style={{ position: 'relative' }}>
       <button type="button" onClick={onToggle} className="nodrag"
