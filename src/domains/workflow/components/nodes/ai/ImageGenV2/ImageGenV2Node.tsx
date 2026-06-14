@@ -93,6 +93,7 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
           <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();toggleNodesLocked([id],!isDirectlyLocked)}} title={isLocked?'解锁':'锁定'}>
             {isLocked?<Lock size={14}/>:<Unlock size={14}/>}
           </button>
+          <div className="node-v2-appendix-divider" />
           <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();duplicateNode(id)}} title="复制">
             <Copy size={14}/>
           </button>
