@@ -2,6 +2,7 @@
 
 > 分支：`refactor/ImageGenV2-node-styles`  
 > 日期：2026-06-13  
+> 最后更新：2026-06-14  
 > 用途：后续将其他节点迁移到 V2 形式时的参考文档
 
 ---
@@ -32,7 +33,13 @@ V2 节点的核心变更：原有节点的多个独立类型端口（prompt/refe
 | `backend/src/engine/executor-helpers.ts` | `collectInputs` 新增可选 `nodes` 参数，传入时附带 `_inputTypes` 元数据；多条边同 handle 时收集为数组 |
 | `backend/src/engine/executor.ts` | `collectInputs` 调用处传入 `executableNodes` |
 
-### 前端（16 文件）
+### 前端（17 文件）
+
+#### 共享组件（1 文件）
+
+| 文件 | 改动 |
+|---|---|
+| `src/shared/ui/NodeAppendix.tsx` | 定位从 `top: -40px` 改为 `bottom/top: 100%` + `margin`（由 CSS 变量 `--appendix-gap` 控制） |
 
 #### 节点组件（4 新文件）
 
@@ -145,6 +152,77 @@ inputs._inputTypes = ['textInput', 'imageInput'];
 
 该改动对所有节点类型兼容（`nodes` 参数可选，不传行为完全不变）。
 
+### 7. 顶部工具栏与底部状态胶囊
+
+V2 节点卡片上方有一个统一的操作栏，下方有状态胶囊，均使用节点色板：
+
+**NodeAppendix 定位**
+- 从固定偏移 `top: -40px` 改为 `bottom/top: 100%` + `margin`
+- 间距由 CSS 变量 `--appendix-gap: 10px` 控制（定义在 `.flow-node-v2` 上）
+- 上下天然一致，不受内容高度影响
+
+**顶部工具栏 `.node-v2-appendix-bar`**
+| 参数 | 值 |
+|---|---|
+| 高度 | 38px |
+| 内边距 | 4px |
+| 圆角 | 999px（胶囊） |
+| 边框 | 0.5px `--node-card-line` |
+| 按钮尺寸 | 30×30, 圆角 7px |
+| 图标尺寸 | 15px |
+| 分割线 | 0.5px × 20px |
+| 默认色 | `--node-card-muted`，hover → `--node-card-ink` + `--node-card-panel` 底 |
+| 启动按钮 | `--node-color` 着色 |
+
+**节点名标签**
+- 左侧显示：\[色点\] + 节点名
+- 色点 7×7，颜色取自 `--node-color`
+- 文字 12px/500，`line-height: 1` 真居中
+- 点击进入编辑模式（Enter 确认，Escape 取消）
+- 自定义名存入 `node.data.label`，留空恢复默认
+- 超出 7 字自动省略号（`max-width: 84px; text-overflow: ellipsis`）
+
+**底部状态胶囊 `.node-v2-status-pill`**
+| 参数 | 值 |
+|---|---|
+| 高度 | 40px |
+| 内边距 | 0 14px |
+| 字号/字重 | 13px / 500, `line-height: 1` |
+| 圆角 | 999px（胶囊） |
+| 边框 | 0.5px `--node-card-line` |
+| 颜色 | 行内指定（muted/橙色/状态色） |
+
+### 8. V2 节点样式参数速查
+
+### 8. V2 节点样式参数速查
+
+**节点卡片**
+
+| 参数 | 值 |
+|---|---|
+| 默认尺寸 | 280×280（10×10 grid） |
+| 圆角 | 25px |
+| 边框 | 0.5px `--node-card-line` |
+| overflow | visible（不裁 handles） |
+| 框内边距 `__frame` | 3px |
+| 画廊框圆角 | 15px, margin 6px |
+| 画廊框选中环 | 2px `--node-color` 22% |
+| 空状态 icon | 32px, strokeWidth 1.2, opacity 0.52 |
+| NodeResizer handle | 14×14, 圆角 7px, `--node-color` |
+| Handle 尺寸 | 12×12, border 3px |
+| 选中环 | 3px `--node-color` 16% |
+
+**空间链**
+```
+280×280 节点
+  → __frame padding 3px → 274×274
+    → gallery-shell flex:1 → 274×274
+      → gallery-frame margin 6px → 262×262
+        → border 1px → 260×260 实际显示
+```
+
+**顶部工具栏 + 底部胶囊**（见 §7）
+
 ---
 
 ## 后续节点迁移 checklist
@@ -164,3 +242,5 @@ inputs._inputTypes = ['textInput', 'imageInput'];
 - [ ] **editorGraph.ts**：如有限制需求，在 `addEdge` 添加类型上限拦截
 - [ ] **execution.ts**：如有排序需求，加入 `MULTI_INPUT_NODE_TYPES`
 - [ ] **前端类型常量**：如有新增/删除的输入类型，更新 `InputThumb` 和 `TYPE_ORDER`
+- [ ] **NodeAppendix**：确保使用 `bottom/top: 100%` + margin 定位（不是固定偏移）
+- [ ] **节点标识**：在工具栏中添加色点 + 可编辑标签，色点用 `--node-color`
