@@ -426,6 +426,9 @@ export function createWorkflowGraphEditorActions(
             if (countByType((t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video')) >= 2) return;
           }
         }
+
+        // Generic total connection cap for iterate nodes
+        if ((targetNode?.type === 'iterateRunV2' || targetNode?.type === 'iterateImageRunV2') && existingEdgesToTarget.length >= 9) return;
       }
       const filteredEdges = isMultiInput
         ? edges
