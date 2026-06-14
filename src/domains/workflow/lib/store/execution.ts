@@ -75,8 +75,8 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   return sorted;
 }
 
-const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'imageGen', 'imageGenV2', 'videoGen']);
-const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'imageGen', 'imageGenV2', 'videoGen']);
+const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'aiChatV2', 'imageGen', 'imageGenV2', 'videoGen', 'videoGenV2']);
+const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'aiChatV2', 'imageGen', 'imageGenV2', 'videoGen', 'videoGenV2']);
 
 function sanitizeSavedFile(file: unknown) {
   if (!file || typeof file !== 'object') return file;
