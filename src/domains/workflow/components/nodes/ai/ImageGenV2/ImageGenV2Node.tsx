@@ -85,16 +85,16 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
     >
       {/* Appendix buttons */}
       <NodeAppendix position="top">
-        <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();updateNodeData(id,{disabled:!isDisabled})}} title={isDisabled?'启用':'禁用'}>
-          <Ban size={15} style={{color:isDisabled?'var(--t-red)':undefined}}/>
+        <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();updateNodeData(id,{disabled:!isDisabled})}} title={isDisabled?'启用':'禁用'}>
+          <Ban size={15} style={{color:isDisabled?'#ff3b30':undefined}}/>
         </button>
-        <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();toggleNodesLocked([id],!isDirectlyLocked)}} title={isLocked?'解锁':'锁定'}>
+        <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();toggleNodesLocked([id],!isDirectlyLocked)}} title={isLocked?'解锁':'锁定'}>
           {isLocked?<Lock size={15}/>:<Unlock size={15}/>}
         </button>
-        <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();duplicateNode(id)}} title="复制">
+        <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();duplicateNode(id)}} title="复制">
           <Copy size={15}/>
         </button>
-        <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();executeWorkflowToNode(id)}} title="执行到此节点">
+        <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();executeWorkflowToNode(id)}} title="执行到此节点">
           <Play size={15}/>
         </button>
       </NodeAppendix>
@@ -102,9 +102,9 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
       {/* Bottom status */}
       {(isDisabled||hasWarning||execStatus!=='idle')&&(
         <NodeAppendix position="bottom" showOnHover={false}>
-          {isDisabled&&(<span style={{padding:'6px 14px',fontSize:13,fontWeight:500,borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text3)',boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>已禁用</span>)}
-          {hasWarning&&(<span style={{padding:'6px 14px',fontSize:13,fontWeight:500,borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-orange)',boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}} title={warningMessage}>⚠ {warningMessage}</span>)}
-          {execStatus!=='idle'&&statusText&&(<span style={{padding:'6px 14px',fontSize:13,fontWeight:500,borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:badge.color||'var(--t-text)',boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}} title={badge.label+(execError?`: ${execError}`:'')}>{badge.label==='running'?'执行中':badge.label==='error'?'出错':badge.label==='success'?'完成':badge.label} {statusText}</span>)}
+          {isDisabled&&(<span className="node-v2-status-pill" style={{color:'var(--node-card-muted)'}}>已禁用</span>)}
+          {hasWarning&&(<span className="node-v2-status-pill" style={{color:'#ff9500'}} title={warningMessage}>⚠ {warningMessage}</span>)}
+          {execStatus!=='idle'&&statusText&&(<span className="node-v2-status-pill" style={{color:badge.color||'var(--node-card-ink)'}} title={badge.label+(execError?`: ${execError}`:'')}>{badge.label==='running'?'执行中':badge.label==='error'?'出错':badge.label==='success'?'完成':badge.label} {statusText}</span>)}
         </NodeAppendix>
       )}
 

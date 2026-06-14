@@ -2729,3 +2729,37 @@
   font-weight: 500;
   letter-spacing: 0.04em;
 }
+
+/* Appendix buttons & status pills — V2 node shell palette */
+.node-v2-appendix-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--node-card-bg);
+  backdrop-filter: blur(40px);
+  border: 0.5px solid var(--node-card-line);
+  color: var(--node-card-muted);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.node-v2-appendix-btn:hover {
+  color: var(--node-card-ink);
+  border-color: var(--node-card-line-strong);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.node-v2-status-pill {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 999px;
+  background: var(--node-card-bg);
+  backdrop-filter: blur(40px);
+  border: 0.5px solid var(--node-card-line);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
