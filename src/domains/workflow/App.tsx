@@ -1,3 +1,4 @@
+import AiChatV2StylePanel from '@/domains/workflow/components/AiChatV2StylePanel';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import NodeStylePanel from '@/domains/workflow/components/NodeStylePanel';
@@ -285,6 +286,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
 
         <NodeStylePanel />
         <VideoGenV2StylePanel />
+        <AiChatV2StylePanel />
       </div>
 
       {importErrorMessage && (

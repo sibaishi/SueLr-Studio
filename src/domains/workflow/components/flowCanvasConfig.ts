@@ -1,4 +1,5 @@
 import FlowNode from './nodes/FlowNode';
+import AiChatV2Node from './nodes/ai/AiChatV2/AiChatV2Node';
 import ImageGenV2Node from './nodes/ai/ImageGenV2/ImageGenV2Node';
 import VideoGenV2Node from './nodes/ai/VideoGenV2/VideoGenV2Node';
 
@@ -26,6 +27,7 @@ export const FLOW_NODE_TYPES = {
   imageGen: FlowNode,
   imageGenV2: ImageGenV2Node,
   videoGenV2: VideoGenV2Node,
+  aiChatV2: AiChatV2Node,
   videoGen: FlowNode,
   saveFile: FlowNode,
   output: FlowNode,

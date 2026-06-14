@@ -1,4 +1,5 @@
 import { execute as executeAiChat } from './aiChat.ts';
+import { execute as executeAiChatV2 } from './aiChatV2.ts';
 import { execute as executeApiKeyInput } from './apiKeyInput.ts';
 import { execute as executeAudioInput } from './audioInput.ts';
 import { execute as executeAudioMerge } from './audioMerge.ts';
@@ -45,6 +46,7 @@ export const NODE_EXECUTORS = {
   videoMerge: executeVideoMerge,
   audioMerge: executeAudioMerge,
   aiChat: executeAiChat,
+  aiChatV2: executeAiChatV2,
   imageGen: executeImageGen,
   imageGenV2: executeImageGenV2,
   videoGen: executeVideoGen,

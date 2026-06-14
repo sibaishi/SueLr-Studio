@@ -40,6 +40,7 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   imageGen: { w: 14, h: 20 },
   imageGenV2: { w: 10, h: 10 },
   videoGenV2: { w: 10, h: 10 },
+  aiChatV2: { w: 10, h: 10 },
   videoGen: { w: 14, h: 23 },
   saveFile: { w: 14, h: 12 },
   output: { w: 13, h: 10 },

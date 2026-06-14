@@ -29,7 +29,7 @@ type WorkflowStoreExecutionActions = Pick<
   | 'syncExecutionRunStatus'
 >;
 
-const MULTI_INPUT_NODE_TYPES = new Set(['imageGenV2', 'videoGenV2']);
+const MULTI_INPUT_NODE_TYPES = new Set(['imageGenV2', 'videoGenV2', 'aiChatV2']);
 
 function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   const multiInputNodes = nodes.filter((n) => MULTI_INPUT_NODE_TYPES.has(n.type || ''));

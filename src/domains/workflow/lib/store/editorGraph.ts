@@ -395,7 +395,7 @@ export function createWorkflowGraphEditorActions(
 
       // Skip single-connection filter for node types that support multi-input
       const targetNode = get().nodes.find((n) => n.id === target);
-      const isMultiInput = targetNode?.type === 'imageGenV2' || targetNode?.type === 'videoGenV2';
+      const isMultiInput = targetNode?.type === 'imageGenV2' || targetNode?.type === 'videoGenV2' || targetNode?.type === 'aiChatV2';
 
       // Enforce per-type connection limits for V2 nodes
       if (isMultiInput && targetHandle === 'input') {
