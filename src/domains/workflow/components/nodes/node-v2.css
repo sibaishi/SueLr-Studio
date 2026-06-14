@@ -2762,6 +2762,27 @@
   color: var(--node-card-muted);
   white-space: nowrap;
   line-height: 1;
+  cursor: text;
+  user-select: none;
+}
+
+.node-v2-appendix-label:hover {
+  color: var(--node-card-ink);
+}
+
+.node-v2-appendix-label-input {
+  height: 24px;
+  padding: 0 8px;
+  margin: 0 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--node-card-ink);
+  background: var(--node-card-panel);
+  border: 1px solid var(--node-card-line-strong);
+  border-radius: 6px;
+  outline: none;
+  line-height: 1;
+  min-width: 80px;
 }
 
 .node-v2-appendix-dot {

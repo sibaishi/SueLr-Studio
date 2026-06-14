@@ -4,7 +4,7 @@ import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorSh
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
 import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
 import { Ban, Copy, Lock, Play, Unlock } from 'lucide-react';
-import { type CSSProperties, memo, useEffect, useMemo } from 'react';
+import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
 import { STATUS_BADGE } from '../../nodeConstants';
 import { NodeContent } from '../../NodeContent';
@@ -35,6 +35,37 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
   const duplicateNode = useWorkflowStore((s) => s.duplicateNode);
   const executeWorkflowToNode = useWorkflowStore((s) => s.executeWorkflowToNode);
   const updateNodeInternals = useUpdateNodeInternals();
+
+  // Editable label
+  const defaultLabel = def?.label || '图像生成 V2';
+  const customLabel = typeof data.label === 'string' ? data.label : '';
+  const displayLabel = customLabel || defaultLabel;
+  const [isEditingLabel, setIsEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState('');
+  const labelInputRef = useRef<HTMLInputElement>(null);
+
+  const startEditing = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLabelDraft(customLabel || defaultLabel);
+    setIsEditingLabel(true);
+  }, [customLabel, defaultLabel]);
+
+  const commitLabel = useCallback(() => {
+    setIsEditingLabel(false);
+    const trimmed = labelDraft.trim();
+    if (trimmed && trimmed !== defaultLabel) {
+      updateNodeData(id, { label: trimmed });
+    } else if (!trimmed || trimmed === defaultLabel) {
+      updateNodeData(id, { label: undefined });
+    }
+  }, [labelDraft, defaultLabel, id, updateNodeData]);
+
+  useEffect(() => {
+    if (isEditingLabel) {
+      labelInputRef.current?.focus();
+      labelInputRef.current?.select();
+    }
+  }, [isEditingLabel]);
 
   const isDisabled = Boolean(data.disabled);
   const isLocked = isNodeLockedWithAncestors(id, nodes);
@@ -86,10 +117,22 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
       {/* Appendix buttons */}
       <NodeAppendix position="top">
         <div className="node-v2-appendix-bar">
-          <span className="node-v2-appendix-label">
-            <span className="node-v2-appendix-dot" style={{ backgroundColor: def?.color || '#FF9500' }} />
-            {def?.label || type}
-          </span>
+          {isEditingLabel ? (
+            <input
+              ref={labelInputRef}
+              className="node-v2-appendix-label-input"
+              value={labelDraft}
+              onChange={(e) => setLabelDraft(e.target.value)}
+              onBlur={commitLabel}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitLabel(); if (e.key === 'Escape') setIsEditingLabel(false); }}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="node-v2-appendix-label" onClick={startEditing} title="点击重命名">
+              <span className="node-v2-appendix-dot" style={{ backgroundColor: def?.color || '#FF9500' }} />
+              {displayLabel}
+            </span>
+          )}
           <div className="node-v2-appendix-divider" />
           <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();updateNodeData(id,{disabled:!isDisabled})}} title={isDisabled?'启用':'禁用'}>
             <Ban size={15} style={{color:isDisabled?'#ff3b30':undefined}}/>
