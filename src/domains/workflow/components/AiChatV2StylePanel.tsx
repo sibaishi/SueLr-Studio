@@ -153,40 +153,46 @@ export default function AiChatV2StylePanel() {
         </div>
       )}
 
-      {/* System prompt textarea — fills remaining space */}
-      <textarea
-        className="nodrag nowheel"
-        value={String(nodeData.systemPrompt || '')}
-        onChange={(e) => setData({ systemPrompt: e.target.value })}
-        style={{
-          flex: 1, minHeight: 0, width: '100%', resize: 'none',
-          border: '1px solid var(--t-border)', borderRadius: 12,
-          outline: 'none', background: 'var(--t-bg2)', color: 'var(--t-text)',
-          fontSize: 12, lineHeight: 1.5, padding: '8px 12px', fontFamily: 'inherit',
-        }}
-        placeholder="系统提示词（如：你是一个有帮助的 AI 助手）"
-        onPointerDown={(e) => e.stopPropagation()}
-      />
+      {/* System prompt textarea with floating controls */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex' }}>
+        <textarea
+          className="nodrag nowheel"
+          value={String(nodeData.systemPrompt || '')}
+          onChange={(e) => setData({ systemPrompt: e.target.value })}
+          style={{
+            width: '100%', height: '100%', resize: 'none',
+            border: '1px solid var(--t-border)', borderRadius: 15,
+            outline: 'none', background: 'var(--t-bg2)', color: 'var(--t-text)',
+            fontSize: 13, lineHeight: 1.6, padding: '10px 14px 44px', fontFamily: 'inherit',
+          }}
+          placeholder="系统提示词（如：你是一个有帮助的 AI 助手）"
+          onPointerDown={(e) => e.stopPropagation()}
+        />
 
-      {/* Controls row */}
-      <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          onClick={() => setData({ enableWebSearch: !webSearchEnabled })}
+        <div
           className="nodrag"
           style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 30, height: 30, borderRadius: 10,
-            border: webSearchEnabled ? '1px solid var(--node-color)' : '1px solid transparent',
-            background: webSearchEnabled ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'transparent',
-            color: webSearchEnabled ? 'var(--node-color)' : 'var(--t-text3)',
-            cursor: 'pointer', transition: 'background 140ms ease, border-color 140ms ease, color 140ms ease',
+            position: 'absolute', bottom: 6, right: 6,
+            display: 'flex', gap: 4,
           }}
-          title={webSearchEnabled ? '联网搜索已开启' : '联网搜索'}
         >
-          <Globe size={14} />
-        </button>
-        <PopoverButton icon={<span style={{ fontSize: 12, fontWeight: 700 }}>M</span>} label="模型"
+          <button
+            type="button"
+            onClick={() => setData({ enableWebSearch: !webSearchEnabled })}
+            className="nodrag"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, borderRadius: 10,
+              border: webSearchEnabled ? '1px solid var(--node-color)' : '1px solid transparent',
+              background: webSearchEnabled ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'transparent',
+              color: webSearchEnabled ? 'var(--node-color)' : 'var(--t-text3)',
+              cursor: 'pointer', transition: 'background 140ms ease, border-color 140ms ease, color 140ms ease',
+            }}
+            title={webSearchEnabled ? '联网搜索已开启' : '联网搜索'}
+          >
+            <Globe size={14} />
+          </button>
+          <PopoverButton icon={<span style={{ fontSize: 12, fontWeight: 700 }}>M</span>} label="模型"
           open={openPopover === 'model'} direction="up"
           onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}>
           <select value={String(nodeData.model || '')} onChange={(e) => setData({ model: e.target.value })}
