@@ -86,6 +86,11 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
       {/* Appendix buttons */}
       <NodeAppendix position="top">
         <div className="node-v2-appendix-bar">
+          <span className="node-v2-appendix-label">
+            <span className="node-v2-appendix-dot" style={{ backgroundColor: def?.color || '#FF9500' }} />
+            {def?.label || type}
+          </span>
+          <div className="node-v2-appendix-divider" />
           <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();updateNodeData(id,{disabled:!isDisabled})}} title={isDisabled?'启用':'禁用'}>
             <Ban size={15} style={{color:isDisabled?'#ff3b30':undefined}}/>
           </button>

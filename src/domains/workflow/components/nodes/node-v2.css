@@ -2752,6 +2752,24 @@
   flex-shrink: 0;
 }
 
+.node-v2-appendix-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--node-card-muted);
+  white-space: nowrap;
+}
+
+.node-v2-appendix-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .node-v2-appendix-btn {
   width: 30px;
   height: 30px;
