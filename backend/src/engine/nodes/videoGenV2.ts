@@ -42,7 +42,7 @@ export async function execute(
       : [];
 
   let prompt = '';
-  let reference: DynamicValue | undefined;
+  const reference: DynamicValue[] = [];
   let video: DynamicValue | undefined;
   let audio: DynamicValue | undefined;
 
@@ -57,7 +57,7 @@ export async function execute(
         prompt = prompt ? `${prompt}\n${String(value)}` : String(value);
         break;
       case 'image':
-        if (!reference) reference = value as DynamicValue;
+        if (reference.length < 2) reference.push(value as DynamicValue);
         break;
       case 'video':
         if (!video) video = value as DynamicValue;

@@ -420,7 +420,7 @@ export function createWorkflowGraphEditorActions(
         if (isVideoSource && countByType((t) => t.includes('video') && !t.includes('videogen')) >= 1) return;
         if (isAudioSource && countByType((t) => t.includes('audio')) >= 1) return;
         if (isImageSource) {
-          const limit = targetNode?.type === 'imageGenV2' ? 9 : 1;
+          const limit = targetNode?.type === 'imageGenV2' ? 9 : 2;
           if (countByType((t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video')) >= limit) return;
         }
       }
