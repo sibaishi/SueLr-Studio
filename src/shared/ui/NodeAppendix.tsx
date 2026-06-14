@@ -26,9 +26,11 @@ export const NodeAppendix = memo(function NodeAppendix({
         'absolute left-1/2 -translate-x-1/2',
         'flex items-center gap-1',
         showOnHover && 'opacity-0 group-hover:opacity-100 transition-opacity duration-150',
-        position === 'top' ? '-top-10' : '-bottom-10',
         className,
       )}
+      style={{
+        [position === 'top' ? 'top' : 'bottom']: 'var(--appendix-offset, -40px)',
+      }}
     >
       {children}
     </div>
