@@ -58,7 +58,7 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
   }, [data, id, isLocked, parentId, updateNodeInternals]);
 
   const className = [
-    'flow-node-v2',
+    'flow-node-v2 group',
     selected ? 'flow-node-v2--selected' : '',
     isError ? 'flow-node-v2--error' : '',
     hasWarning ? 'flow-node-v2--warning' : '',
@@ -84,7 +84,7 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
       } as CSSProperties}
     >
       {/* Appendix buttons */}
-      <NodeAppendix position="top" showOnHover={false}>
+      <NodeAppendix position="top">
         <button type="button" style={{ width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:10,background:'var(--t-card)',backdropFilter:'blur(40px)',border:'1px solid var(--t-border)',color:'var(--t-text2)',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,0.08)' }} onClick={(e)=>{e.stopPropagation();updateNodeData(id,{disabled:!isDisabled})}} title={isDisabled?'启用':'禁用'}>
           <Ban size={15} style={{color:isDisabled?'var(--t-red)':undefined}}/>
         </button>
