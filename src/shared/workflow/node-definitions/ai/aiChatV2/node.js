@@ -16,10 +16,8 @@ export const AI_CHAT_V2_NODE = {
   params: [
     { id: 'model', label: '模型', type: 'select', options: EMPTY_OPTIONS, default: '' },
     { id: 'enableWebSearch', label: '联网搜索', type: 'toggle', default: false },
-    { id: 'temperature', label: '温度', type: 'slider', min: 0, max: 2, step: 0.1, default: 0.7 },
-    { id: 'maxTokens', label: '最大 Token', type: 'number', min: 1, max: 32000, default: 4096 },
     { id: 'systemPrompt', label: '系统提示词', type: 'textarea', default: '' },
   ],
-  architect: { enabled: true, order: 18.5, defaults: { model: '', temperature: 0.7, maxTokens: 4096, systemPrompt: '' } },
+  architect: { enabled: true, order: 18.5, defaults: { model: '', systemPrompt: '' } },
   supportsDisabledPassthrough: true,
 };

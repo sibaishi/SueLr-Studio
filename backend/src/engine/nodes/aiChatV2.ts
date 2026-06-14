@@ -76,20 +76,6 @@ function buildSearchPlan(text: DynamicValue) {
   return { query: normalized, topic: isNewsIntent ? 'news' : undefined, days: undefined, dateHint: '' };
 }
 
-function normalizeTemperature(value: DynamicValue) {
-  if (value === undefined || value === null || value === '') return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return undefined;
-  return Math.min(2, Math.max(0, parsed));
-}
-
-function normalizeMaxTokens(value: DynamicValue) {
-  if (value === undefined || value === null || value === '') return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
-  return Math.max(1, Math.floor(parsed));
-}
-
 function classifyBySourceType(sourceType: string): 'text' | 'image' | null {
   if (!sourceType) return null;
   const t = sourceType.toLowerCase();
@@ -143,8 +129,6 @@ export async function execute(
 
   const model = String(runtimeConfig.model || node.data?.model || 'gpt-4o-mini');
   const systemPrompt = String(node.data?.systemPrompt || '你是一个有帮助的 AI 助手。');
-  const temperature = normalizeTemperature(node.data?.temperature);
-  const maxTokens = normalizeMaxTokens(node.data?.maxTokens);
   const enableWebSearch = Boolean(node.data?.enableWebSearch);
   const tavilyKey = String(apiConfig.tavilyApiKey || '').trim();
 
@@ -167,13 +151,13 @@ export async function execute(
       { role: 'user', content: ['【用户原始请求】', stringifyPromptForSearch(userContent), '', '【实际搜索词】', searchPlan.query, searchPlan.dateHint ? `时间锚点：${searchPlan.dateHint}` : '', '', '【联网搜索结果】', searchContext, '', '请结合以上搜索结果回答用户问题。'].join('\n') },
     ];
     sendProgress?.('正在基于搜索结果生成最终回答...');
-    const finalResponse = await runChatCompletion({ apiKey, baseUrl, providerConfig, projectModels, model, messages, temperature, maxTokens, tools: undefined, stream: false, signal: apiConfig.abortSignal, scope: apiConfig.scope });
+    const finalResponse = await runChatCompletion({ apiKey, baseUrl, providerConfig, projectModels, model, messages, tools: undefined, stream: false, signal: apiConfig.abortSignal, scope: apiConfig.scope });
     const finalResult = await parseChatResponse(finalResponse);
     content = finalResult.content;
   } else {
     const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }];
     sendProgress?.('正在调用 AI 模型...');
-    const response = await runChatCompletion({ apiKey, baseUrl, providerConfig, projectModels, model, messages, temperature, maxTokens, tools: undefined, stream: false, signal: apiConfig.abortSignal, scope: apiConfig.scope });
+    const response = await runChatCompletion({ apiKey, baseUrl, providerConfig, projectModels, model, messages, tools: undefined, stream: false, signal: apiConfig.abortSignal, scope: apiConfig.scope });
     const result = await parseChatResponse(response);
     content = result.content;
   }

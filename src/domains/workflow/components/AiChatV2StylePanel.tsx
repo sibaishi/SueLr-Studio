@@ -1,7 +1,7 @@
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Globe, Thermometer } from 'lucide-react';
+import { Globe } from 'lucide-react';
 
 const MIN_H = 200;
 const MAX_H = 380;
@@ -105,8 +105,6 @@ export default function AiChatV2StylePanel() {
 
   const chatModels = availableModels.chat || [];
   const webSearchEnabled = Boolean(nodeData.enableWebSearch);
-  const temperatureVal = Number(nodeData.temperature ?? 0.7);
-  const maxTokensVal = Number(nodeData.maxTokens ?? 4096);
 
   return (
     <div
@@ -209,25 +207,6 @@ export default function AiChatV2StylePanel() {
               ) : options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)
             )}
           </select>
-        </PopoverButton>
-
-        <PopoverButton icon={<Thermometer size={14} />} label="温度"
-          open={openPopover === 'temperature'} direction="up"
-          onToggle={() => setOpenPopover(openPopover === 'temperature' ? null : 'temperature')}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>温度: {temperatureVal}</div>
-              <input type="range" min={0} max={2} step={0.1} value={temperatureVal}
-                onChange={(e) => setData({ temperature: Number(e.target.value) })}
-                className="nodrag" style={{ width: '100%' }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>最大 Token</div>
-              <input type="number" value={maxTokensVal}
-                onChange={(e) => setData({ maxTokens: Math.max(1, Number(e.target.value) || 1) })}
-                min={1} max={32000} className="nodrag" style={{ ...fieldStyle, width: '100%' }} />
-            </div>
-          </div>
         </PopoverButton>
       </div>
     </div>
