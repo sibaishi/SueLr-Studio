@@ -129,6 +129,7 @@ export async function execute(
 
   const model = String(runtimeConfig.model || node.data?.model || 'gpt-4o-mini');
   const systemPrompt = String(node.data?.systemPrompt || '你是一个有帮助的 AI 助手。');
+
   const enableWebSearch = Boolean(node.data?.enableWebSearch);
   const tavilyKey = String(apiConfig.tavilyApiKey || '').trim();
 
@@ -137,25 +138,48 @@ export async function execute(
   }
 
   sendProgress?.('正在准备输入内容...');
-  const userContent = await buildMessageContent(userPrompt, imageReferences, apiConfig.scope);
+  const rawUserContent = await buildMessageContent(userPrompt, imageReferences, apiConfig.scope);
   let content = '';
 
+  // Prepend system prompt to user content so models that ignore system role still pick it up
+  const prependSystemToUser = (userPart: DynamicValue): DynamicValue => {
+    const sp = systemPrompt || '';
+    if (typeof userPart === 'string') return sp ? `${sp}\n${userPart}` : userPart;
+    if (Array.isArray(userPart)) {
+      return sp ? [{ type: 'text', text: sp + '\n' }, ...userPart] : userPart;
+    }
+    return userPart;
+  };
+
   if (enableWebSearch) {
-    const searchPlan = buildSearchPlan(stringifyPromptForSearch(userContent));
+    const searchPlan = buildSearchPlan(stringifyPromptForSearch(rawUserContent));
     if (!searchPlan?.query) throw new Error('已开启联网搜索，但无法从输入中提取搜索词');
     sendProgress?.(`正在联网搜索：${searchPlan.query}`);
     const searchData = await runWebSearch({ tavilyApiKey: tavilyKey, query: searchPlan.query, maxResults: 5, includeAnswer: true, topic: searchPlan.topic, days: searchPlan.days, signal: apiConfig.abortSignal });
     const searchContext = String(formatWebSearchResult(searchData) || '搜索未返回任何结果。');
+    const searchInstructions = '已为你提供联网搜索结果。请优先基于这些结果回答；若结果不足或互相冲突，请明确说明不确定性，不要编造。';
+    const searchUserMsg = [
+      '【用户原始请求】',
+      stringifyPromptForSearch(rawUserContent),
+      '',
+      '【实际搜索词】',
+      searchPlan.query,
+      searchPlan.dateHint ? `时间锚点：${searchPlan.dateHint}` : '',
+      '',
+      '【联网搜索结果】',
+      searchContext,
+      '',
+      searchInstructions,
+    ].filter(Boolean).join('\n');
     const messages = [
-      { role: 'system', content: [systemPrompt, '已为你提供联网搜索结果。请优先基于这些结果回答；若结果不足或互相冲突，请明确说明不确定性，不要编造。'].filter(Boolean).join('\n\n') },
-      { role: 'user', content: ['【用户原始请求】', stringifyPromptForSearch(userContent), '', '【实际搜索词】', searchPlan.query, searchPlan.dateHint ? `时间锚点：${searchPlan.dateHint}` : '', '', '【联网搜索结果】', searchContext, '', '请结合以上搜索结果回答用户问题。'].join('\n') },
+      { role: 'user', content: prependSystemToUser(searchUserMsg) },
     ];
     sendProgress?.('正在基于搜索结果生成最终回答...');
     const finalResponse = await runChatCompletion({ apiKey, baseUrl, providerConfig, projectModels, model, messages, tools: undefined, stream: false, signal: apiConfig.abortSignal, scope: apiConfig.scope });
     const finalResult = await parseChatResponse(finalResponse);
     content = finalResult.content;
   } else {
-    const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }];
+    const messages = [{ role: 'user', content: prependSystemToUser(rawUserContent) }];
     sendProgress?.('正在调用 AI 模型...');
     const response = await runChatCompletion({ apiKey, baseUrl, providerConfig, projectModels, model, messages, tools: undefined, stream: false, signal: apiConfig.abortSignal, scope: apiConfig.scope });
     const result = await parseChatResponse(response);
