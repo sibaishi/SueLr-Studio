@@ -2761,6 +2761,7 @@
   font-weight: 500;
   color: var(--node-card-muted);
   white-space: nowrap;
+  line-height: 1;
 }
 
 .node-v2-appendix-dot {
@@ -2800,6 +2801,7 @@
   padding: 0 14px;
   font-size: 13px;
   font-weight: 500;
+  line-height: 1;
   border-radius: 999px;
   background: var(--node-card-bg);
   backdrop-filter: blur(40px);
