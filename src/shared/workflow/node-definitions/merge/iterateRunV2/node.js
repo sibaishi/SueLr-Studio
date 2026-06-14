@@ -8,7 +8,7 @@ export const ITERATE_RUN_V2_NODE = {
   icon: 'repeat',
   color: '#007AFF',
   category: 'iterate',
-  inputs: [{ id: 'any', label: '任何', type: 'any', multiple: true }],
+  inputs: [{ id: 'input', label: '输入', type: 'any', required: false }],,
   outputs: [{ id: 'text', label: '当前文本', type: 'string' }],
   params: [],
   architect: { enabled: true, order: 11, defaults: {} },
