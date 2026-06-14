@@ -57,6 +57,9 @@ export default function VideoGenV2StylePanel() {
   const dragStartHeight = useRef(0);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [promptValue, setPromptValue] = useState('');
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const inputsRef = useRef<InputThumb[]>([]);
 
   const nodeData = (v2Node?.data || {}) as Record<string, unknown>;
 
@@ -70,6 +73,15 @@ export default function VideoGenV2StylePanel() {
     },
     [v2Node, updateNodeData],
   );
+
+  const handleReorder = useCallback((fromIdx: number, toIdx: number) => {
+    const current = inputsRef.current;
+    if (current.length === 0) return;
+    const reordered = current.map((x) => x.id);
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    setData({ inputOrder: reordered });
+  }, [setData]);
 
   const handleDragStart = useCallback(
     (event: React.PointerEvent) => {
@@ -126,7 +138,19 @@ export default function VideoGenV2StylePanel() {
     });
 
   const TYPE_ORDER: Record<InputThumb['type'], number> = { text: 0, image: 1, video: 2, audio: 3 };
-  const inputs = [...rawInputs].sort((a, b) => (TYPE_ORDER[a.type] ?? 99) - (TYPE_ORDER[b.type] ?? 99));
+  const edgeInputOrder: string[] = Array.isArray(nodeData.inputOrder) ? (nodeData.inputOrder as string[]) : [];
+  const orderMap = new Map(edgeInputOrder.map((id, i) => [id, i]));
+  const inputs = [...rawInputs].sort((a, b) => {
+    const typeDiff = (TYPE_ORDER[a.type] ?? 99) - (TYPE_ORDER[b.type] ?? 99);
+    if (typeDiff !== 0) return typeDiff;
+    const ai = orderMap.get(a.id);
+    const bi = orderMap.get(b.id);
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+    return 0;
+  });
+  inputsRef.current = inputs;
 
   const modelOptions = availableModels.video || [];
 
@@ -169,21 +193,48 @@ export default function VideoGenV2StylePanel() {
             flexWrap: 'wrap',
           }}
         >
-          {inputs.map((input) => (
+          {inputs.map((input, idx) => (
             <div
               key={input.id}
+              draggable
+              onDragStart={(e) => {
+                setDraggedIdx(idx);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', input.id);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                setDragOverIdx(idx);
+              }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedIdx !== null && draggedIdx !== idx) {
+                  handleReorder(draggedIdx, idx);
+                }
+                setDraggedIdx(null);
+                setDragOverIdx(null);
+              }}
+              onDragEnd={() => {
+                setDraggedIdx(null);
+                setDragOverIdx(null);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 5,
                 padding: '3px 8px 3px 4px',
                 borderRadius: 10,
-                background: 'var(--t-bg2)',
+                background: dragOverIdx === idx ? 'var(--t-border)' : 'var(--t-bg2)',
                 border: '1px solid var(--t-border)',
+                cursor: 'grab',
                 fontSize: 11,
                 color: 'var(--t-text2)',
+                opacity: draggedIdx === idx ? 0.4 : 1,
+                transition: 'background 120ms ease, opacity 120ms ease',
               }}
-              title={input.value || '暂无内容'}
+              title={input.value || '暂无内容（拖动可调整顺序）'}
             >
               <div
                 style={{
