@@ -3,8 +3,8 @@ import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/Node
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Globe } from 'lucide-react';
 
-const MIN_H = 200;
-const MAX_H = 380;
+const MIN_H = 150;
+const MAX_H = 300;
 
 const fieldStyle: React.CSSProperties = {
   border: '1px solid var(--t-border)', borderRadius: 8,
