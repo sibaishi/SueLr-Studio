@@ -2731,26 +2731,46 @@
 }
 
 /* Appendix buttons & status pills — V2 node shell palette */
-.node-v2-appendix-btn {
-  width: 36px;
-  height: 36px;
+/* Appendix bar — unified button container */
+.node-v2-appendix-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  padding: 3px;
   border-radius: 10px;
   background: var(--node-card-bg);
   backdrop-filter: blur(40px);
   border: 0.5px solid var(--node-card-line);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.node-v2-appendix-divider {
+  width: 0.5px;
+  height: 16px;
+  background: var(--node-card-line);
+  flex-shrink: 0;
+}
+
+.node-v2-appendix-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
   color: var(--node-card-muted);
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  transition: color 140ms ease, background 140ms ease;
 }
 
 .node-v2-appendix-btn:hover {
   color: var(--node-card-ink);
-  border-color: var(--node-card-line-strong);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background: var(--node-card-panel);
+}
+
+.node-v2-appendix-btn--primary {
+  color: var(--node-color);
 }
 
 .node-v2-status-pill {
