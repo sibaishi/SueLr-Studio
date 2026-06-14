@@ -169,21 +169,23 @@ export default function AiChatV2StylePanel() {
       />
 
       {/* Controls row */}
-      <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end' }}>
         <button
           type="button"
           onClick={() => setData({ enableWebSearch: !webSearchEnabled })}
-          className="node-v2-appendix-btn"
+          className="nodrag"
           style={{
-            width: 'auto', padding: '0 10px', gap: 5,
-            color: webSearchEnabled ? 'var(--node-color)' : 'var(--node-card-muted)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 30, height: 30, borderRadius: 10,
+            border: webSearchEnabled ? '1px solid var(--node-color)' : '1px solid transparent',
+            background: webSearchEnabled ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'transparent',
+            color: webSearchEnabled ? 'var(--node-color)' : 'var(--t-text3)',
+            cursor: 'pointer', transition: 'background 140ms ease, border-color 140ms ease, color 140ms ease',
           }}
+          title={webSearchEnabled ? '联网搜索已开启' : '联网搜索'}
         >
-          <Globe size={14} /> {webSearchEnabled ? '已开启' : '联网搜索'}
+          <Globe size={14} />
         </button>
-
-        <div style={{ flex: 1 }} />
-
         <PopoverButton icon={<span style={{ fontSize: 12, fontWeight: 700 }}>M</span>} label="模型"
           open={openPopover === 'model'} direction="up"
           onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}>
