@@ -130,7 +130,7 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
           ) : (
             <span className="node-v2-appendix-label" onClick={startEditing} title="点击重命名">
               <span className="node-v2-appendix-dot" style={{ backgroundColor: def?.color || '#FF9500' }} />
-              {displayLabel}
+              <span className="node-v2-appendix-label-text">{displayLabel}</span>
             </span>
           )}
           <div className="node-v2-appendix-divider" />
