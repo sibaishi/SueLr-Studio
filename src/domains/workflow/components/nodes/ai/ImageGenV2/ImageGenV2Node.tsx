@@ -87,19 +87,19 @@ function ImageGenV2Node({ id, data, selected, isConnectable }: ImageGenV2NodePro
       <NodeAppendix position="top">
         <div className="node-v2-appendix-bar">
           <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();updateNodeData(id,{disabled:!isDisabled})}} title={isDisabled?'启用':'禁用'}>
-            <Ban size={14} style={{color:isDisabled?'#ff3b30':undefined}}/>
+            <Ban size={15} style={{color:isDisabled?'#ff3b30':undefined}}/>
           </button>
           <div className="node-v2-appendix-divider" />
           <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();toggleNodesLocked([id],!isDirectlyLocked)}} title={isLocked?'解锁':'锁定'}>
-            {isLocked?<Lock size={14}/>:<Unlock size={14}/>}
+            {isLocked?<Lock size={15}/>:<Unlock size={15}/>}
           </button>
           <div className="node-v2-appendix-divider" />
           <button type="button" className="node-v2-appendix-btn" onClick={(e)=>{e.stopPropagation();duplicateNode(id)}} title="复制">
-            <Copy size={14}/>
+            <Copy size={15}/>
           </button>
           <div className="node-v2-appendix-divider" />
           <button type="button" className="node-v2-appendix-btn node-v2-appendix-btn--primary" onClick={(e)=>{e.stopPropagation();executeWorkflowToNode(id)}} title="执行到此节点">
-            <Play size={14}/>
+            <Play size={15}/>
           </button>
         </div>
       </NodeAppendix>

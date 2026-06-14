@@ -87,7 +87,7 @@
     0 12px 40px rgba(0,0,0,0.08);
   overflow: visible;
   transition: border-color 200ms ease, box-shadow 200ms ease;
-  --appendix-gap: 8px;
+  --appendix-gap: 10px;
 }
 
 .flow-node-v2:hover {
@@ -2736,7 +2736,8 @@
 .node-v2-appendix-bar {
   display: flex;
   align-items: center;
-  padding: 3px;
+  height: 40px;
+  padding: 4px;
   border-radius: 10px;
   background: var(--node-card-bg);
   backdrop-filter: blur(40px);
@@ -2746,14 +2747,14 @@
 
 .node-v2-appendix-divider {
   width: 0.5px;
-  height: 16px;
+  height: 18px;
   background: var(--node-card-line);
   flex-shrink: 0;
 }
 
 .node-v2-appendix-btn {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2775,8 +2776,11 @@
 }
 
 .node-v2-status-pill {
-  padding: 5px 12px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  font-size: 13px;
   font-weight: 500;
   border-radius: 999px;
   background: var(--node-card-bg);
