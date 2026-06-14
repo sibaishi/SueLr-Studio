@@ -2736,9 +2736,9 @@
 .node-v2-appendix-bar {
   display: flex;
   align-items: center;
-  height: 40px;
+  height: 38px;
   padding: 4px;
-  border-radius: 10px;
+  border-radius: 999px;
   background: var(--node-card-bg);
   backdrop-filter: blur(40px);
   border: 0.5px solid var(--node-card-line);
@@ -2747,14 +2747,14 @@
 
 .node-v2-appendix-divider {
   width: 0.5px;
-  height: 18px;
+  height: 20px;
   background: var(--node-card-line);
   flex-shrink: 0;
 }
 
 .node-v2-appendix-btn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
