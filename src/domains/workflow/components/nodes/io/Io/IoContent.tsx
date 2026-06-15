@@ -68,13 +68,30 @@ export function IoContent({
           if (typeof val === 'string' && val) { v = val; break; }
         }
       }
+      if (!v) {
+        const srcOutputs = nodeOutputs[e.source];
+        if (srcOutputs) {
+          const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((ov) => typeof ov === 'string' && ov);
+          if (typeof outVal === 'string') v = outVal;
+        }
+      }
       return v ?? null;
     }).filter((v) => v !== null);
-  }, [nodeId, edges, nodes, data.inputOrder]);
+  }, [nodeId, edges, nodes, nodeOutputs, data.inputOrder]);
+
+  // Source-mode content: combine text + file URLs, same as panel display
+  const sourceContent = useMemo(() => {
+    const text = data.text;
+    const files = data.content;
+    if (text && Array.isArray(files) && files.length > 0) return [text, ...files];
+    if (Array.isArray(files) && files.length > 0) return files;
+    if (text) return text;
+    return null;
+  }, [data.text, data.content]);
 
   const rawContent = upstreamFromEdges?.length
     ? upstreamFromEdges.length === 1 ? upstreamFromEdges[0] : upstreamFromEdges
-    : (outputs as Record<string, unknown>)?.result ?? data.content;
+    : (outputs as Record<string, unknown>)?.result ?? sourceContent;
   const effectiveContent = typeof rawContent === 'string' && rawContent.trim() === '' ? undefined
     : Array.isArray(rawContent) && rawContent.length === 0 ? undefined
     : rawContent;

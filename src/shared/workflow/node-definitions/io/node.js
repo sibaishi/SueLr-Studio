@@ -13,6 +13,6 @@ export const IO_NODE = {
   ],
   outputs: [{ id: 'result', label: '输出', type: 'any' }],
   params: [],
-  architect: { enabled: true, order: 1, defaults: {} },
+  architect: { enabled: true, order: 1, defaults: { text: '', content: [], _fileIds: [], _fileKinds: [] } },
   supportsDisabledPassthrough: true,
 };

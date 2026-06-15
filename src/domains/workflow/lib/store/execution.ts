@@ -334,27 +334,35 @@ export function createWorkflowExecutionActions(
       if (pnode.type !== 'io') continue;
       const nd = pnode.data as Record<string, unknown>;
       const fileIds: number[] | undefined = nd._fileIds as number[] | undefined;
-      if (!fileIds?.length) continue;
-      const fileOrder: number[] = (nd._fileOrder as number[]) || [];
-      const orderMap = new Map(fileOrder.map((id, i) => [id, i]));
-      const sortedIds = [...fileIds].sort((a, b) => {
-        const ai = orderMap.get(a); const bi = orderMap.get(b);
-        if (ai !== undefined && bi !== undefined) return ai - bi;
-        if (ai !== undefined) return -1;
-        if (bi !== undefined) return 1;
-        return 0;
-      });
-      try {
-        const { fileRawStore } = await import('@/domains/workflow/components/nodes/io/fileRawStore');
-        const rawFiles: string[] = [];
-        for (const fid of sortedIds) {
-          const b64 = fileRawStore.getBase64(fid);
-          if (b64) rawFiles.push(b64);
-        }
-        if (rawFiles.length > 0) {
-          nd._rawContent = rawFiles.length === 1 ? rawFiles[0] : rawFiles;
-        }
-      } catch { /* fileRawStore not available, skip */ }
+      const nodeText = nd.text as string | undefined;
+
+      let rawFiles: string[] = [];
+      if (fileIds?.length) {
+        const fileOrder: number[] = (nd._fileOrder as number[]) || [];
+        const orderMap = new Map(fileOrder.map((id, i) => [id, i]));
+        const sortedIds = [...fileIds].sort((a, b) => {
+          const ai = orderMap.get(a); const bi = orderMap.get(b);
+          if (ai !== undefined && bi !== undefined) return ai - bi;
+          if (ai !== undefined) return -1;
+          if (bi !== undefined) return 1;
+          return 0;
+        });
+        try {
+          const { fileRawStore } = await import('@/domains/workflow/components/nodes/io/fileRawStore');
+          for (const fid of sortedIds) {
+            const b64 = fileRawStore.getBase64(fid);
+            if (b64) rawFiles.push(b64);
+          }
+        } catch { /* fileRawStore not available, skip */ }
+      }
+
+      // Combine text + files into _rawContent for backend executor (text first)
+      if (nodeText || rawFiles.length > 0) {
+        const combined: string[] = [];
+        if (nodeText) combined.push(nodeText);
+        combined.push(...rawFiles);
+        nd._rawContent = combined.length === 1 ? combined[0] : combined;
+      }
     }
 
     const runtimeApiConfig =

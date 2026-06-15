@@ -94,21 +94,18 @@ export default function IoStylePanel() {
   }, [nodeData.content, nodeData._fileIds, nodeData._fileKinds]);
 
   useEffect(() => {
-    const c = nodeData?.content;
-    setTextValue(typeof c === 'string' ? c : '');
+    setTextValue(String(nodeData.text || ''));
     setFiles(buildFilesFromData());
   }, [selectedNodeId]);
 
   useEffect(() => {
-    if (!hasUpstream) return;
+    if (hasUpstream) return;
     clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
-      const displayContent: string[] = sortedFiles.map((f) => f.objectUrl || f.thumbnail);
-      const displayArr = textValue.trim()
-        ? [textValue, ...displayContent]
-        : displayContent.length > 0 ? displayContent : textValue || undefined;
+      const fileUrls: string[] = sortedFiles.map((f) => f.objectUrl || f.thumbnail);
       setData({
-        content: displayArr,
+        text: textValue || '',
+        content: fileUrls,
         _fileIds: sortedFiles.filter((f) => f._id >= 0).map((f) => f._id),
         _fileKinds: sortedFiles.map((f) => f.kind),
       });
@@ -292,7 +289,7 @@ export default function IoStylePanel() {
       )}
 
       {/* ── SOURCE MODE: user-uploaded file chips ── */}
-      {!hasUpstream && sortedFiles.length > 0 && (
+      {!hasUpstream && (
         <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 6, padding: '0 4px', flexWrap: 'wrap' }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); handleFileUpload(e.dataTransfer.files); }}
