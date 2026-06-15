@@ -77,6 +77,7 @@ export function IoContent({
       const srcOutputs = nodeOutputs[slot.sourceNodeId];
 
       let value = '';
+      let type: string = slot.type;
       if (slot.sourceNodeType === 'io') {
         if (slot.type === 'text') {
           value = String(srcData.text || '');
@@ -89,7 +90,6 @@ export function IoContent({
       } else {
         const edge = edges.find((e) => e.id === slot.edgeId);
         const handle = edge?.sourceHandle || 'output';
-        let type: string = slot.type;
         value = String(srcData[handle] || '');
         if (!value) {
           for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
@@ -98,7 +98,23 @@ export function IoContent({
           }
         }
         if (!value && srcOutputs) {
-          const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+          let outVal: unknown = srcOutputs[handle];
+          // AiV3 image mode returns [prompt, base64]; repeated executions may nest arrays
+          if (Array.isArray(outVal)) {
+            const collect = (arr: unknown[]): string[] => {
+              const acc: string[] = [];
+              for (const v of arr) {
+                if (typeof v === 'string') acc.push(v);
+                else if (Array.isArray(v)) acc.push(...collect(v));
+              }
+              return acc;
+            };
+            const strings = collect(outVal);
+            outVal = strings[strings.length - 1];
+          }
+          if (typeof outVal !== 'string') {
+            outVal = Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+          }
           if (typeof outVal === 'string') value = outVal;
         }
         // Fallback: if slot type is 'text' but value looks like an image/video, override type
@@ -108,7 +124,7 @@ export function IoContent({
         }
       }
 
-      return { value, type: slot.type, slotId: slot.id, edgeId: slot.edgeId, fileId: slot.fileId };
+      return { value, type, slotId: slot.id, edgeId: slot.edgeId, fileId: slot.fileId };
     });
 
     // Fallback: if upstream IO has data.content file URLs not covered by _fileIds slots,

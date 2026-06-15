@@ -182,7 +182,22 @@ export default function IoStylePanel() {
             }
           }
           if (!value && srcOutputs) {
-            const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+            let outVal: unknown = srcOutputs[handle];
+            if (Array.isArray(outVal)) {
+              const collect = (arr: unknown[]): string[] => {
+                const acc: string[] = [];
+                for (const v of arr) {
+                  if (typeof v === 'string') acc.push(v);
+                  else if (Array.isArray(v)) acc.push(...collect(v));
+                }
+                return acc;
+              };
+              const strings = collect(outVal);
+              outVal = strings[strings.length - 1];
+            }
+            if (typeof outVal !== 'string') {
+              outVal = Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+            }
             if (typeof outVal === 'string') value = outVal;
           }
         }
