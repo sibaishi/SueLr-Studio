@@ -1,6 +1,6 @@
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
-import { ChevronLeft, ChevronRight, Copy, Download, ImagePlus } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Copy, Download, Maximize2 } from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createPortal } from 'react-dom';
 
@@ -17,7 +17,7 @@ export function ImagePreviewModal({
   images,
   initialIndex,
   onClose,
-  onBackfillImage,
+  onApplyResize,
   children,
 }: {
   src: string;
@@ -26,7 +26,7 @@ export function ImagePreviewModal({
   images?: PreviewImageItem[];
   initialIndex?: number;
   onClose: () => void;
-  onBackfillImage?: (image: PreviewImageItem) => void;
+  onApplyResize?: (resizedBlobUrl: string, w: number, h: number) => void;
   children?: ReactNode;
 }) {
   const gallery = useMemo(() => {
@@ -44,7 +44,15 @@ export function ImagePreviewModal({
         );
   const [activeIndex, setActiveIndex] = useState(resolvedInitialIndex);
   const [copyStatus, setCopyStatus] = useState('');
+  const [showResize, setShowResize] = useState(false);
+  const [resizeMode, setResizeMode] = useState<'percent' | 'dimensions'>('percent');
+  const [scalePercent, setScalePercent] = useState(100);
+  const [targetWidth, setTargetWidth] = useState(0);
+  const [targetHeight, setTargetHeight] = useState(0);
+  const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
+  const origSizesRef = useRef<Record<number, { w: number; h: number }>>({});
   const activeImage = gallery[activeIndex] || gallery[0];
+  const displaySrc = resizedSrcs[activeIndex] || activeImage.src;
   const canNavigate = gallery.length > 1;
 
   useEffect(() => {
@@ -73,7 +81,7 @@ export function ImagePreviewModal({
         return;
       }
 
-      const blob = await buildClipboardImageBlob(activeImage.src);
+      const blob = await buildClipboardImageBlob(displaySrc);
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setCopyStatus('已复制图片');
     } catch {
@@ -84,13 +92,56 @@ export function ImagePreviewModal({
 
   const handleSaveAs = () => {
     const link = document.createElement('a');
-    link.href = activeImage.src;
+    link.href = displaySrc;
     link.download = activeImage.name || imageNameFromUrl(activeImage.src) || 'image';
     link.rel = 'noreferrer';
     document.body.appendChild(link);
     link.click();
     link.remove();
   };
+
+  const handleApplyResize = useCallback(async () => {
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const nextImage = new Image();
+        nextImage.crossOrigin = 'anonymous';
+        nextImage.onload = () => resolve(nextImage);
+        nextImage.onerror = () => reject(new Error('image load failed'));
+        nextImage.src = displaySrc;
+      });
+
+      const origW = img.naturalWidth || img.width;
+      const origH = img.naturalHeight || img.height;
+
+      if (!origSizesRef.current[activeIndex]) {
+        origSizesRef.current[activeIndex] = { w: origW, h: origH };
+      }
+
+      let w: number;
+      let h: number;
+      if (resizeMode === 'percent') {
+        const pct = Math.max(1, Math.min(1000, scalePercent)) / 100;
+        w = Math.round(origW * pct);
+        h = Math.round(origH * pct);
+      } else {
+        w = targetWidth || Math.round(origW * (targetHeight / origH));
+        h = targetHeight || Math.round(origH * (targetWidth / origW));
+        w = w || origW;
+        h = h || origH;
+      }
+
+      const blob = await drawImageToPng(img, w, h);
+      const url = URL.createObjectURL(blob);
+      setResizedSrcs((prev) => {
+        const next = { ...prev, [activeIndex]: url };
+        if (prev[activeIndex]) URL.revokeObjectURL(prev[activeIndex]);
+        return next;
+      });
+      onApplyResize?.(url, w, h);
+    } catch {
+      // silently fail
+    }
+  }, [displaySrc, activeIndex, resizeMode, scalePercent, targetWidth, targetHeight, onApplyResize]);
 
   if (typeof document === 'undefined') return null;
 
@@ -122,7 +173,7 @@ export function ImagePreviewModal({
           {closeLabel}
         </button>
         <ImageSizeLabel
-          src={activeImage.src}
+          src={displaySrc}
           className="absolute left-3 top-3 z-10 rounded-full px-3 py-1 text-xs text-white"
         />
         {canNavigate && (
@@ -149,18 +200,76 @@ export function ImagePreviewModal({
         )}
         <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2">
           {children}
+          {showResize && (
+            <div
+              className="flex items-center gap-2 rounded-xl px-3 py-2"
+              style={{ background: 'rgba(0,0,0,0.64)', backdropFilter: 'blur(12px)' }}
+            >
+              <select
+                value={resizeMode}
+                onChange={(e) => setResizeMode(e.target.value as 'percent' | 'dimensions')}
+                className="rounded-lg border-0 px-2 py-1 text-xs"
+                style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+              >
+                <option value="percent">百分比</option>
+                <option value="dimensions">按尺寸</option>
+              </select>
+              {resizeMode === 'percent' ? (
+                <>
+                  <input
+                    type="number"
+                    value={scalePercent}
+                    min={1}
+                    max={1000}
+                    onChange={(e) => setScalePercent(Math.max(1, Math.min(1000, Number(e.target.value) || 1)))}
+                    className="w-16 rounded-lg border-0 px-2 py-1 text-right text-xs"
+                    style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                  />
+                  <span className="text-xs text-white/60">%</span>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    value={targetWidth || ''}
+                    min={1}
+                    onChange={(e) => setTargetWidth(Math.max(1, Number(e.target.value) || 0))}
+                    className="w-16 rounded-lg border-0 px-2 py-1 text-right text-xs"
+                    style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                    placeholder="宽"
+                  />
+                  <span className="text-xs text-white/40">×</span>
+                  <input
+                    type="number"
+                    value={targetHeight || ''}
+                    min={1}
+                    onChange={(e) => setTargetHeight(Math.max(1, Number(e.target.value) || 0))}
+                    className="w-16 rounded-lg border-0 px-2 py-1 text-right text-xs"
+                    style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                    placeholder="高"
+                  />
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => { void handleApplyResize(); }}
+                className="rounded-lg px-2 py-1 text-xs font-medium"
+                style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}
+              >
+                应用
+              </button>
+            </div>
+          )}
           {copyStatus && (
             <span className="rounded-full px-3 py-2 text-xs text-white" style={{ background: 'rgba(0,0,0,0.54)' }}>
               {copyStatus}
             </span>
           )}
-          {onBackfillImage && (
-            <ImagePreviewActionButton
-              icon={<ImagePlus size={14} />}
-              label="回填到画布"
-              onClick={() => onBackfillImage(activeImage)}
-            />
-          )}
+          <ImagePreviewActionButton
+            icon={<Maximize2 size={14} />}
+            label="缩放"
+            onClick={() => setShowResize((prev) => !prev)}
+          />
           <ImagePreviewActionButton
             icon={<Copy size={14} />}
             label="复制图片"
@@ -170,7 +279,7 @@ export function ImagePreviewModal({
           />
           <ImagePreviewActionButton icon={<Download size={14} />} label="另存为" onClick={handleSaveAs} />
         </div>
-        <img src={activeImage.src} alt={alt} className="h-full w-full object-contain" draggable={false} />
+        <img src={displaySrc} alt={alt} className="h-full w-full object-contain" draggable={false} />
       </div>
     </div>,
     document.body,

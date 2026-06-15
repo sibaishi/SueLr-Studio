@@ -112,6 +112,7 @@ export function createBaseWorkflowState(overrides: Partial<WorkflowState> = {}):
     duplicateNodes: () => [],
     autoArrangeWorkflow: () => undefined,
     createNodeGroup: () => null,
+    patchNodeOutput: () => undefined,
     toggleGroupCollapsed: () => undefined,
     updateGroupPort: (_groupId: string, _side: GroupPortSide, _portId: string) => undefined,
     ungroupNodes: () => undefined,

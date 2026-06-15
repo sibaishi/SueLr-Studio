@@ -165,6 +165,7 @@ export interface WorkflowState {
   duplicateNodes: (nodeIds: string[]) => string[];
   autoArrangeWorkflow: () => void;
   createNodeGroup: (nodeIds: string[]) => string | null;
+  patchNodeOutput: (nodeId: string, patch: Record<string, unknown>) => void;
   toggleGroupCollapsed: (groupId: string, collapsed?: boolean) => void;
   updateGroupPort: (groupId: string, side: GroupPortSide, portId: string, patch: Partial<GroupPort>) => void;
   ungroupNodes: (groupIds: string[]) => void;

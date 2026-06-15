@@ -1,4 +1,3 @@
-import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ParamDef } from '@/domains/workflow/lib/types';
 import { selectDirectory } from '@/shared/api';
@@ -31,32 +30,7 @@ export function NodeParamFields({
 }) {
   if (params.length === 0) return null;
 
-  const resizeMode = String(values.resizeMode || 'percent');
-  const visibleParams = params.filter((param) => {
-    if (nodeType !== 'imageResize') return true;
-    if (param.id === 'scalePercent') return resizeMode === 'percent';
-    if (param.id === 'targetWidth' || param.id === 'targetHeight') return resizeMode === 'dimensions';
-    return true;
-  });
-
-  const nodes = useWorkflowStore((s) => s.nodes);
-  const edges = useWorkflowStore((s) => s.edges);
-  const imageResizeSourceType =
-    nodeId && nodeType === 'imageResize'
-      ? (() => {
-          const imageEdge = edges.find((edge) => edge.target === nodeId && edge.targetHandle === 'image');
-          if (!imageEdge?.sourceHandle) return null;
-          const sourceNode = nodes.find((node) => node.id === imageEdge.source);
-          const sourceDef = getNodeDef(sourceNode?.type || '');
-          return sourceDef?.outputs.find((output) => output.id === imageEdge.sourceHandle)?.type || null;
-        })()
-      : null;
-  const hasImageGroupInput = imageResizeSourceType === 'image[]';
-
-  useEffect(() => {
-    if (nodeType !== 'imageResize' || !hasImageGroupInput || values.resizeMode === 'percent' || !onPatch) return;
-    onPatch({ resizeMode: 'percent' });
-  }, [hasImageGroupInput, nodeType, onPatch, values.resizeMode]);
+  const visibleParams = params.filter(() => true);
 
   const consumed = new Set<string>();
   const rows = visibleParams.flatMap((param) => {
@@ -108,7 +82,6 @@ export function NodeParamFields({
                   nodeType={nodeType}
                   values={values}
                   nodeId={nodeId}
-                  hasImageGroupInput={hasImageGroupInput}
                 />
               ))}
             </div>
@@ -125,7 +98,6 @@ function ParamEditor({
   onChange,
   suppressModelHint,
   nodeType,
-  hasImageGroupInput,
 }: {
   param: ParamDef;
   value: unknown;
@@ -136,7 +108,6 @@ function ParamEditor({
   nodeType?: string;
   nodeId?: string;
   values: Record<string, unknown>;
-  hasImageGroupInput?: boolean;
 }) {
   const availableModels = useWorkflowStore((s) => s.availableModels);
   const addExecutionLog = useWorkflowStore((s) => s.addExecutionLog);
@@ -352,9 +323,6 @@ function ParamEditor({
     case 'select': {
       const isModelParam = param.id === 'model';
       let selectOptions = param.options || [];
-      if (nodeType === 'imageResize' && param.id === 'resizeMode' && hasImageGroupInput) {
-        selectOptions = selectOptions.filter((option) => String(option.value) === 'percent');
-      }
 
       if (isModelParam && availableModels.all.length > 0) {
         selectOptions = availableModels.all;
@@ -423,9 +391,6 @@ function ParamEditor({
               配置来源：全局设置。
             </div>
           )}
-          {nodeType === 'imageResize' && param.id === 'resizeMode' && hasImageGroupInput && (
-            <div className="node-param__hint">检测到上游输入为图像组，当前仅支持按百分比批量缩放。</div>
-          )}
         </div>
       );
     }
@@ -450,9 +415,6 @@ function ParamEditor({
             className="node-field"
             onFocus={handleFocus}
           />
-          {nodeType === 'imageResize' && param.id === 'targetHeight' && (
-            <div className="node-param__hint">按尺寸缩放会自动锁定宽高比，填写宽或高任意一项即可。</div>
-          )}
         </div>
       );
 

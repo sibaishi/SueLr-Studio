@@ -22,8 +22,10 @@ export function AiV3Content({
   onChange: _onChange,
 }: AiV3ContentProps) {
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
+  const patchNodeOutput = useWorkflowStore((s) => s.patchNodeOutput);
   const outputs = nodeId ? nodeOutputs[nodeId] : undefined;
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [resizedPreviewSrc, setResizedPreviewSrc] = useState<string | null>(null);
 
   const mode = (data.mode as string) || 'chat';
 
@@ -47,7 +49,17 @@ export function AiV3Content({
             </div>
           )}
         </div>
-        {previewImage && <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />}
+        {previewImage && (
+          <ImagePreviewModal
+            src={resizedPreviewSrc || previewImage}
+            onClose={() => setPreviewImage(null)}
+            onApplyResize={(url) => {
+              setResizedPreviewSrc(url);
+              setPreviewImage(url);
+              if (nodeId) patchNodeOutput(nodeId, { result: url });
+            }}
+          />
+        )}
       </div>
     );
   }

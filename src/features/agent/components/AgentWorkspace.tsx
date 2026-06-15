@@ -879,6 +879,7 @@ export default function AgentWorkspace({
     () => localStorage.getItem(VIDEO_MODEL_STORAGE_KEY) || '',
   );
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [resizedAgentGallerySrcs, setResizedAgentGallerySrcs] = useState<Record<number, string>>({});
   const [pendingImagePreview, setPendingImagePreview] = useState<PendingImagePreviewState | null>(null);
   const [pendingImages, setPendingImages] = useState<AgentPendingImage[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -2573,19 +2574,18 @@ export default function AgentWorkspace({
         )}
         {previewImage && (
           <ImagePreviewModal
-            src={previewImage}
+            src={resizedAgentGallerySrcs[previewImageIndex] || previewImage}
             images={previewImageIndex >= 0 ? previewImageGallery : [{ src: previewImage }]}
             initialIndex={previewImageIndex >= 0 ? previewImageIndex : 0}
             onClose={() => setPreviewImage(null)}
-            onBackfillImage={
-              onBackfillImageToCanvas
-                ? (image) => {
-                    onBackfillImageToCanvas(image);
-                    onOpenWorkflow();
-                    setPreviewImage(null);
-                  }
-                : undefined
-            }
+            onApplyResize={(url) => {
+              setResizedAgentGallerySrcs((prev) => {
+                const next = { ...prev, [previewImageIndex]: url };
+                if (prev[previewImageIndex]) URL.revokeObjectURL(prev[previewImageIndex]);
+                return next;
+              });
+              setPreviewImage(url);
+            }}
           />
         )}
         {pendingImagePreview && activePendingImage && (

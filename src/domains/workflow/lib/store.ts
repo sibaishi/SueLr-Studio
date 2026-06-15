@@ -35,6 +35,12 @@ export const useWorkflowStore = create<WorkflowState>((baseSet, get) => {
     ...createInitialWorkflowState(),
     resetUserWorkspace: () => set(createResetWorkflowState()),
 
+    patchNodeOutput: (nodeId, patch) =>
+      set((s) => {
+        const prev = s.nodeOutputs[nodeId] || {};
+        return { nodeOutputs: { ...s.nodeOutputs, [nodeId]: { ...prev, ...patch } } };
+      }),
+
     ...createWorkflowEditorActions(set, get),
     ...createWorkflowDocumentTabActions(set, get),
     ...createWorkflowExecutionActions(set, get),

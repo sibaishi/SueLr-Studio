@@ -39,7 +39,9 @@ export function IoContent({
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
   const outputs = nodeId ? nodeOutputs[nodeId] : undefined;
+  const patchNodeOutput = useWorkflowStore((s) => s.patchNodeOutput);
   const [previewIdx, setPreviewIdx] = useState<number>(-1);
+  const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
 
   // Compute upstream content from edges + source nodes, sorted by inputOrder (matching panel drag order)
   const upstreamFromEdges = useMemo(() => {
@@ -174,8 +176,16 @@ export function IoContent({
           {/* Modal viewer */}
           {previewIdx >= 0 && previewIdx < previewable.length && (
             <ImagePreviewModal
-              src={previewable[previewIdx].value}
+              src={resizedSrcs[previewIdx] || previewable[previewIdx].value}
               onClose={() => setPreviewIdx(-1)}
+              onApplyResize={(url) => {
+                setResizedSrcs((prev) => {
+                  const next = { ...prev, [previewIdx]: url };
+                  if (prev[previewIdx]) URL.revokeObjectURL(prev[previewIdx]);
+                  return next;
+                });
+                if (nodeId) patchNodeOutput(nodeId, { result: url });
+              }}
             />
           )}
         </div>

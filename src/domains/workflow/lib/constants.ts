@@ -14,7 +14,6 @@ const DEFAULT_NODE_SIZE_UNITS = { w: 10, h: 6 };
 
 export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   group: { w: 14, h: 10 },
-  imageResize: { w: 14, h: 12 },
   imageSplit: { w: 12, h: 23 },
   imageCompare: { w: 16, h: 14 },
   iterateRun: { w: 11, h: 8 },

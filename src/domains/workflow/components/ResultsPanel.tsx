@@ -50,6 +50,7 @@ type ReadableLog = WorkflowResultLog & {
 export default function ResultsPanel() {
   const [tab, setTab] = useState<PanelTab>('results');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [resizedGallerySrcs, setResizedGallerySrcs] = useState<Record<number, string>>({});
   const [generatedOutputs, setGeneratedOutputs] = useState<GeneratedOutputFile[]>([]);
   const [isLoadingOutputs, setIsLoadingOutputs] = useState(false);
   const [isClearingOutputs, setIsClearingOutputs] = useState(false);
@@ -240,10 +241,19 @@ export default function ResultsPanel() {
 
       {previewImage && (
         <ImagePreviewModal
-          src={previewImage}
+          src={resizedGallerySrcs[previewImageIndex] || previewImage}
           images={previewImageIndex >= 0 ? imageGallery : [{ src: previewImage }]}
           initialIndex={previewImageIndex >= 0 ? previewImageIndex : 0}
           onClose={() => setPreviewImage(null)}
+          onApplyResize={(url) => {
+            const idx = previewImageIndex;
+            setResizedGallerySrcs((prev) => {
+              const next = { ...prev, [idx]: url };
+              if (prev[idx]) URL.revokeObjectURL(prev[idx]);
+              return next;
+            });
+            setPreviewImage(url);
+          }}
         />
       )}
     </aside>

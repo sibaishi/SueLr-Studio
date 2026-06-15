@@ -75,6 +75,7 @@ export function MediaCard({
 }: { value: string; compact?: boolean; fill?: boolean }) {
   const kind = getMediaKind(value);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [resizedSrc, setResizedSrc] = useState<string | null>(null);
 
   return (
     <div className="node-media-card" style={{ height: fill ? '100%' : undefined }}>
@@ -83,7 +84,16 @@ export function MediaCard({
         {kind === 'image' && <ActionButton label="查看大图" onClick={() => setPreviewOpen(true)} />}
         <ActionButton label="下载保存" onClick={() => downloadUrl(value)} />
       </div>
-      {previewOpen && <ImagePreviewModal src={value} onClose={() => setPreviewOpen(false)} />}
+      {previewOpen && (
+        <ImagePreviewModal
+          src={resizedSrc || value}
+          onClose={() => setPreviewOpen(false)}
+          onApplyResize={(url) => {
+            if (resizedSrc) URL.revokeObjectURL(resizedSrc);
+            setResizedSrc(url);
+          }}
+        />
+      )}
     </div>
   );
 }
