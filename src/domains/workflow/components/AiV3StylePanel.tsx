@@ -1,4 +1,6 @@
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import { filterAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
+import { fileRawStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BoxSelect, Clock, Globe, Grid3X3, Image, Ruler } from 'lucide-react';
@@ -118,6 +120,8 @@ export default function AiV3StylePanel() {
     return 'chat';
   }, [availableModels]);
 
+  const currentMode = (nodeData.mode as string) || determineMode(selectedModel);
+
   const handleModelChange = useCallback((value: string) => {
     const mode = determineMode(value);
     setData({ model: value, mode });
@@ -126,50 +130,48 @@ export default function AiV3StylePanel() {
   // ── early exit ──
   if (!v3Node) return null;
 
-  // ── input thumbnails ──
-  const rawInputs: InputThumb[] = edges
-    .filter((e) => e.target === v3Node.id && e.targetHandle === 'input')
-    .map((e) => {
-      const src = nodes.find((n) => n.id === e.source);
-      const srcData = (src?.data || {}) as Record<string, unknown>;
-      const handle = e.sourceHandle || '';
-      let value = String(srcData[handle] || '');
+  // ── input thumbnails (slot-level: IO nodes are expanded) ──
+  const filterResult = filterAiV3InputSlots(v3Node.id, currentMode, edges, nodes);
+  const rawInputs: InputThumb[] = filterResult.acceptedSlots.map((slot) => {
+    const src = nodes.find((n) => n.id === slot.sourceNodeId);
+    const srcData = (src?.data || {}) as Record<string, unknown>;
+    const srcOutputs = nodeOutputs[slot.sourceNodeId];
+
+    // Determine value for thumbnail / tooltip
+    let value = '';
+    if (slot.sourceNodeType === 'io') {
+      if (slot.type === 'text') {
+        value = String(srcData.text || '');
+      } else if (slot.fileId !== undefined) {
+        value = fileRawStore.getObjectUrl(slot.fileId) || '';
+      }
+    } else {
+      // Standard node: try handle, then common keys, then nodeOutputs
+      const handle = 'output'; // default handle for standard nodes
+      value = String(srcData[handle] || '');
       if (!value) {
-        for (const k of ['text', 'image', 'video', 'audio', 'mask', 'value', 'fileUrl']) {
+        for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
           const v = srcData[k];
           if (typeof v === 'string' && v) { value = v; break; }
         }
       }
-      if (!value) {
-        const srcOutputs = nodeOutputs[e.source];
-        if (srcOutputs) {
-          const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
-          if (typeof outVal === 'string') value = outVal;
-        }
+      if (!value && srcOutputs) {
+        const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+        if (typeof outVal === 'string') value = outVal;
       }
-      let thumbType: InputThumb['type'] = 'text';
-      if (handle.includes('mask') || src?.type === 'maskInput') thumbType = 'mask';
-      else if (handle.includes('video') || src?.type?.includes('Video')) thumbType = 'video';
-      else if (handle.includes('audio') || src?.type?.includes('Audio')) thumbType = 'audio';
-      else if (handle.includes('image') || src?.type?.includes('Image')) thumbType = 'image';
-      return { id: e.id, type: thumbType, label: src?.type || '?', value };
-    });
+    }
 
-  const TYPE_ORDER: Record<InputThumb['type'], number> = { text: 0, image: 1, video: 2, audio: 3, mask: 4 };
-  const edgeInputOrder: string[] = Array.isArray(nodeData.inputOrder) ? (nodeData.inputOrder as string[]) : [];
-  const orderMap = new Map(edgeInputOrder.map((id, i) => [id, i]));
-  const inputs = [...rawInputs].sort((a, b) => {
-    const td = (TYPE_ORDER[a.type] ?? 99) - (TYPE_ORDER[b.type] ?? 99);
-    if (td !== 0) return td;
-    const ai = orderMap.get(a.id); const bi = orderMap.get(b.id);
-    if (ai !== undefined && bi !== undefined) return ai - bi;
-    if (ai !== undefined) return -1;
-    if (bi !== undefined) return 1;
-    return 0;
+    const label =
+      slot.sourceNodeType === 'io' && slot.type === 'text' ? '文本' :
+      slot.sourceNodeType === 'io' ? `文件${(slot.fileIdx ?? 0) + 1}` :
+      src?.type || '?';
+
+    return { id: slot.id, type: slot.type, label, value };
   });
-  inputsRef.current = inputs;
 
-  const currentMode = (nodeData.mode as string) || determineMode(selectedModel);
+  inputsRef.current = rawInputs;
+  const inputs = rawInputs;
+
   const webSearchEnabled = Boolean(nodeData.enableWebSearch);
 
   // ── grouped ALL models across categories ──

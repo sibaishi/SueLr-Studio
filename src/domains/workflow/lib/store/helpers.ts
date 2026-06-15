@@ -309,3 +309,203 @@ export function getAiNodesMissingValidOutputs(nodes: Node[], edges: Edge[]) {
     return true;
   });
 }
+
+// ── Mode-aware input slot filtering for aiV3 ──
+
+const AI_V3_MODE_INPUT_LIMITS: Record<string, Record<string, number>> = {
+  chat: { text: Infinity, image: 9 },
+  image: { text: Infinity, image: 9 },
+  video: { text: Infinity, image: 2, video: 1, audio: 1 },
+};
+
+export interface AiV3InputSlot {
+  id: string;         // unique slot id: edgeId or edgeId+'/text' or edgeId+'/f'+fileId
+  edgeId: string;
+  type: 'text' | 'image' | 'video' | 'audio';
+  sourceNodeId: string;
+  sourceNodeType: string;
+  fileIdx?: number;   // index in IO _fileIds array (only for IO file slots)
+  fileId?: number;    // raw fileId from IO _fileIds (only for IO file slots)
+}
+
+export interface AiV3FilterResult {
+  acceptedSlots: AiV3InputSlot[];
+  acceptedEdgeIds: Set<string>;
+  /** edgeId → Set of accepted _fileIds indices (0-based) for IO _rawContent trimming */
+  acceptedIoFileIndices: Map<string, Set<number>>;
+}
+
+function classifyInputEdgeSource(edge: Edge, nodes: Node[]): string {
+  const src = nodes.find((n) => n.id === edge.source);
+  if (!src) return 'text';
+  const srcType = src.type || '';
+  const handle = edge.sourceHandle || '';
+
+  if (handle.includes('mask') || srcType === 'maskInput') return 'mask';
+  if (
+    handle.includes('video') ||
+    (srcType.toLowerCase().includes('video') && !srcType.toLowerCase().includes('videogen'))
+  )
+    return 'video';
+  if (handle.includes('audio') || srcType.toLowerCase().includes('audio')) return 'audio';
+  if (handle.includes('image') || srcType.toLowerCase().includes('image')) return 'image';
+  return 'text';
+}
+
+function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[]): AiV3InputSlot[] {
+  const inputEdges = edges.filter((e) => e.target === nodeId && e.targetHandle === 'input');
+  const slots: AiV3InputSlot[] = [];
+
+  for (const edge of inputEdges) {
+    const src = nodes.find((n) => n.id === edge.source);
+    if (!src) continue;
+
+    if (src.type === 'io') {
+      const data = (src.data || {}) as Record<string, unknown>;
+      const text = typeof data.text === 'string' ? data.text : '';
+      const fileKinds: string[] = Array.isArray(data._fileKinds) ? (data._fileKinds as string[]) : [];
+      const fileIds: number[] = Array.isArray(data._fileIds) ? (data._fileIds as number[]) : [];
+      const fileOrder: number[] = Array.isArray(data._fileOrder) ? (data._fileOrder as number[]) : [];
+
+      // Sort file entries by fileOrder, then by array position
+      const orderMap = new Map(fileOrder.map((fid, i) => [fid, i]));
+      const sortedFileEntries = fileIds
+        .map((fid, idx) => ({ fid, idx, order: orderMap.get(fid) ?? 9999 }))
+        .sort((a, b) => a.order - b.order || a.idx - b.idx);
+
+      // Text slot (always first within this edge's group)
+      if (text) {
+        slots.push({
+          id: `${edge.id}/text`,
+          edgeId: edge.id,
+          type: 'text',
+          sourceNodeId: src.id,
+          sourceNodeType: 'io',
+        });
+      }
+
+      // File slots
+      for (const { fid, idx } of sortedFileEntries) {
+        const kind = fileKinds[idx] || 'other';
+        let slotType: AiV3InputSlot['type'] | null = null;
+        if (kind === 'image') slotType = 'image';
+        else if (kind === 'video') slotType = 'video';
+        else if (kind === 'audio') slotType = 'audio';
+        if (!slotType) continue;
+
+        slots.push({
+          id: `${edge.id}/f${fid}`,
+          edgeId: edge.id,
+          type: slotType,
+          sourceNodeId: src.id,
+          sourceNodeType: 'io',
+          fileIdx: idx,
+          fileId: fid,
+        });
+      }
+    } else {
+      const type = classifyInputEdgeSource(edge, nodes);
+      if (type === 'mask') continue;
+      slots.push({
+        id: edge.id,
+        edgeId: edge.id,
+        type: type as AiV3InputSlot['type'],
+        sourceNodeId: src.id,
+        sourceNodeType: src.type || '',
+      });
+    }
+  }
+
+  return slots;
+}
+
+function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: string[]): AiV3InputSlot[] {
+  const orderMap = new Map(inputOrder.map((id, i) => [id, i]));
+
+  return [...slots].sort((a, b) => {
+    // Primary: edge's position in inputOrder
+    const ai = orderMap.get(a.edgeId);
+    const bi = orderMap.get(b.edgeId);
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+
+    // Same edge: text before files, files by fileIdx / fileId
+    if (a.edgeId === b.edgeId) {
+      if (a.type === 'text' && b.type !== 'text') return -1;
+      if (a.type !== 'text' && b.type === 'text') return 1;
+      const fa = a.fileIdx ?? 0;
+      const fb = b.fileIdx ?? 0;
+      return fa - fb;
+    }
+
+    return 0;
+  });
+}
+
+/**
+ * Expand IO nodes into individual slots and filter by mode-aware per-type caps.
+ * Slots of types not in the mode's limits table (e.g. mask) are silently dropped.
+ * Within each type, slots are accepted in inputOrder priority; excess slots
+ * beyond a type's cap are silently ignored.
+ */
+export function filterAiV3InputSlots(
+  nodeId: string,
+  mode: string,
+  edges: Edge[],
+  nodes: Node[],
+): AiV3FilterResult {
+  const limits = AI_V3_MODE_INPUT_LIMITS[mode];
+  const slots = expandAiV3InputSlots(nodeId, edges, nodes);
+
+  if (!limits) {
+    const allEdgeIds = new Set(slots.map((s) => s.edgeId));
+    return { acceptedSlots: slots, acceptedEdgeIds: allEdgeIds, acceptedIoFileIndices: new Map() };
+  }
+
+  const targetNode = nodes.find((n) => n.id === nodeId);
+  const inputOrder: string[] = Array.isArray(targetNode?.data?.inputOrder)
+    ? (targetNode.data.inputOrder as string[])
+    : [];
+  const sorted = sortSlotsByInputOrder(slots, inputOrder);
+
+  const counts: Record<string, number> = {};
+  const acceptedSlots: AiV3InputSlot[] = [];
+
+  for (const slot of sorted) {
+    const limit = limits[slot.type];
+    if (limit === undefined) continue;
+    counts[slot.type] = (counts[slot.type] || 0) + 1;
+    if (counts[slot.type] <= limit) {
+      acceptedSlots.push(slot);
+    }
+  }
+
+  const acceptedEdgeIds = new Set(acceptedSlots.map((s) => s.edgeId));
+  const acceptedIoFileIndices = new Map<string, Set<number>>();
+  for (const slot of acceptedSlots) {
+    if (slot.fileIdx !== undefined) {
+      const set = acceptedIoFileIndices.get(slot.edgeId) || new Set();
+      set.add(slot.fileIdx);
+      acceptedIoFileIndices.set(slot.edgeId, set);
+    }
+  }
+
+  return { acceptedSlots, acceptedEdgeIds, acceptedIoFileIndices };
+}
+
+/**
+ * Legacy wrapper: filter edges by mode, returning only accepted edges.
+ * For IO nodes, the edge is accepted if at least one of its slots passes.
+ */
+export function filterAiV3InputEdgesByMode(
+  nodeId: string,
+  mode: string,
+  edges: Edge[],
+  nodes: Node[],
+): Edge[] {
+  const { acceptedEdgeIds } = filterAiV3InputSlots(nodeId, mode, edges, nodes);
+  return edges.filter(
+    (e) => e.target === nodeId && e.targetHandle === 'input' && acceptedEdgeIds.has(e.id),
+  );
+}

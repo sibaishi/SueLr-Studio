@@ -6,6 +6,7 @@ import {
 } from '@/domains/workflow/lib/executionGraph';
 import {
   buildWorkflowPayload,
+  filterAiV3InputSlots,
   formatLogDetails,
   getAiNodesMissingValidOutputs,
   getNodeDisplayName,
@@ -54,8 +55,20 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   for (const node of multiInputNodes) {
     const nodeEdges = targetEdgeMap.get(node.id);
     if (!nodeEdges || nodeEdges.length <= 1) continue;
-    const inputOrder: string[] = Array.isArray(node.data?.inputOrder) ? (node.data.inputOrder as string[]) : [];
-    if (inputOrder.length === 0) continue;
+    const rawInputOrder: string[] = Array.isArray(node.data?.inputOrder) ? (node.data.inputOrder as string[]) : [];
+    if (rawInputOrder.length === 0) continue;
+
+    // For aiV3: inputOrder contains slot IDs; extract unique edge IDs preserving first-occurrence order
+    const seenEdges = new Set<string>();
+    const inputOrder = node.type === 'aiV3'
+      ? rawInputOrder
+          .map((sid) => {
+            const slash = sid.indexOf('/');
+            return slash === -1 ? sid : sid.slice(0, slash);
+          })
+          .filter((eid) => seenEdges.has(eid) ? false : (seenEdges.add(eid), true))
+      : rawInputOrder;
+
     const orderMap = new Map(inputOrder.map((id, i) => [id, i]));
     nodeEdges.sort((a, b) => {
       const ai = orderMap.get(a.id);
@@ -319,7 +332,33 @@ export function createWorkflowExecutionActions(
     });
 
     // Reorder edges for multi-input nodes (aiV3) based on inputOrder
-    const sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);
+    let sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);
+
+    // Apply mode-aware input edge/slot limits for aiV3 nodes
+    // Collect per-edge accepted IO file indices for _rawContent trimming
+    const ioFileTrimMap = new Map<string, Set<number>>(); // edgeId → accepted fileIdx
+    for (const node of executableGraph.nodes) {
+      if (node.type !== 'aiV3') continue;
+      const nodeData = (node.data || {}) as Record<string, unknown>;
+      const mode = (nodeData.mode as string) || 'chat';
+      const result = filterAiV3InputSlots(node.id, mode, sortedEdges, executableGraph.nodes);
+
+      // Filter edges: keep non-input edges + only accepted input edges
+      const nonInputEdges = sortedEdges.filter(
+        (e) => !(e.target === node.id && e.targetHandle === 'input'),
+      );
+      const filteredInputEdges = sortedEdges.filter(
+        (e) => e.target === node.id && e.targetHandle === 'input' && result.acceptedEdgeIds.has(e.id),
+      );
+      sortedEdges = [...nonInputEdges, ...filteredInputEdges];
+
+      // Merge IO file trim info
+      for (const [edgeId, indices] of result.acceptedIoFileIndices) {
+        const existing = ioFileTrimMap.get(edgeId) || new Set();
+        for (const idx of indices) existing.add(idx);
+        ioFileTrimMap.set(edgeId, existing);
+      }
+    }
     const executableGraphOrdered = { nodes: executableGraph.nodes, edges: sortedEdges };
 
     const payload = buildWorkflowPayload(
@@ -336,20 +375,29 @@ export function createWorkflowExecutionActions(
       const fileIds: number[] | undefined = nd._fileIds as number[] | undefined;
       const nodeText = nd.text as string | undefined;
 
+      // Determine which file indices to include: union of accepted indices across
+      // all edges from this IO node to aiV3 targets (untrimmed if feeding non-aiV3 nodes)
+      let acceptedIndices: Set<number> | null = null;
+      for (const [edgeId, indices] of ioFileTrimMap) {
+        const edge = payload.edges.find((e) => e.id === edgeId);
+        if (edge && edge.source === pnode.id) {
+          if (!acceptedIndices) acceptedIndices = new Set();
+          for (const idx of indices) acceptedIndices.add(idx);
+        }
+      }
+
       let rawFiles: string[] = [];
       if (fileIds?.length) {
         const fileOrder: number[] = (nd._fileOrder as number[]) || [];
         const orderMap = new Map(fileOrder.map((id, i) => [id, i]));
-        const sortedIds = [...fileIds].sort((a, b) => {
-          const ai = orderMap.get(a); const bi = orderMap.get(b);
-          if (ai !== undefined && bi !== undefined) return ai - bi;
-          if (ai !== undefined) return -1;
-          if (bi !== undefined) return 1;
-          return 0;
-        });
+        const sortedEntries = fileIds
+          .map((fid, idx) => ({ fid, idx, order: orderMap.get(fid) ?? 9999 }))
+          .sort((a, b) => a.order - b.order || a.idx - b.idx);
         try {
           const { fileRawStore } = await import('@/domains/workflow/components/nodes/io/fileRawStore');
-          for (const fid of sortedIds) {
+          for (const { fid, idx } of sortedEntries) {
+            // If trim map exists and this IO feeds aiV3 nodes, only include accepted file indices
+            if (acceptedIndices && !acceptedIndices.has(idx)) continue;
             const b64 = fileRawStore.getBase64(fid);
             if (b64) rawFiles.push(b64);
           }

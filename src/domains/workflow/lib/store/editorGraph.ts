@@ -397,8 +397,8 @@ export function createWorkflowGraphEditorActions(
       const targetNode = get().nodes.find((n) => n.id === target);
       const isMultiInput = targetNode?.type === 'aiV3' || targetNode?.type === 'io';
 
-      // Enforce per-type connection limits for V2 nodes
-      if (isMultiInput && targetHandle === 'input') {
+      // Enforce per-type connection limits for io nodes only (aiV3 limits are mode-aware, applied at execution)
+      if (isMultiInput && targetHandle === 'input' && targetNode?.type !== 'aiV3') {
         const sourceNode = get().nodes.find((n) => n.id === source);
         const sourceNodeType = sourceNode?.type || '';
         const isMaskSource = sourceNodeType === 'maskInput' || sourceNodeType.toLowerCase().includes('mask');
@@ -420,9 +420,7 @@ export function createWorkflowGraphEditorActions(
         if (isVideoSource && countByType((t) => t.includes('video') && !t.includes('videogen')) >= 1) return;
         if (isAudioSource && countByType((t) => t.includes('audio')) >= 1) return;
         if (isImageSource) {
-          if (targetNode?.type === 'aiV3') {
-            if (countByType((t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video')) >= 9) return;
-          }
+          if (countByType((t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video')) >= 9) return;
         }
       }
       const filteredEdges = isMultiInput
