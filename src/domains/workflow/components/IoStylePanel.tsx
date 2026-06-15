@@ -1,5 +1,6 @@
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import { expandAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fileRawStore } from './nodes/io/fileRawStore';
 
@@ -157,34 +158,53 @@ export default function IoStylePanel() {
     });
   }, []);
 
-  // ═══ V3-STYLE UPSTREAM INPUTS ═══
-  const rawInputs: InputThumb[] = selectedNodeId ? edges
-    .filter((e) => e.target === selectedNodeId && e.targetHandle === 'input')
-    .map((e) => {
-      const src = nodes.find((n) => n.id === e.source);
-      const srcData = (src?.data || {}) as Record<string, unknown>;
-      const handle = e.sourceHandle || '';
-      let value = String(srcData[handle] || '');
-      if (!value) {
-        for (const k of ['text', 'image', 'video', 'audio', 'mask', 'value', 'fileUrl']) {
-          const v = srcData[k];
-          if (typeof v === 'string' && v) { value = v; break; }
+  // ═══ V3-STYLE UPSTREAM INPUTS (slot expansion, same as AiV3StylePanel) ═══
+  const rawInputs: InputThumb[] = selectedNodeId
+    ? expandAiV3InputSlots(selectedNodeId, edges, nodes).map((slot) => {
+        const src = nodes.find((n) => n.id === slot.sourceNodeId);
+        const srcData = (src?.data || {}) as Record<string, unknown>;
+        const srcOutputs = nodeOutputs[slot.sourceNodeId];
+
+        let value = '';
+        if (slot.sourceNodeType === 'io') {
+          if (slot.type === 'text') {
+            value = String(srcData.text || '');
+          } else if (slot.fileId !== undefined) {
+            value = fileRawStore.getObjectUrl(slot.fileId) || '';
+          }
+        } else {
+          const handle = 'output';
+          value = String(srcData[handle] || '');
+          if (!value) {
+            for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
+              const v = srcData[k];
+              if (typeof v === 'string' && v) { value = v; break; }
+            }
+          }
+          if (!value && srcOutputs) {
+            const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+            if (typeof outVal === 'string') value = outVal;
+          }
         }
-      }
-      if (!value) {
-        const srcOutputs = nodeOutputs[e.source];
-        if (srcOutputs) {
-          const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
-          if (typeof outVal === 'string') value = outVal;
+
+        // Fallback: if slot type is 'text' but value looks like media, override type
+        let finalType = slot.type;
+        if (finalType === 'text' && value) {
+          const str = String(value);
+          if (str.startsWith('blob:') || str.startsWith('data:image/') || str.startsWith('data:video/') || str.startsWith('http')) {
+            if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) finalType = 'video';
+            else finalType = 'image';
+          }
         }
-      }
-      let thumbType: InputThumb['type'] = 'text';
-      if (handle.includes('mask') || src?.type === 'maskInput') thumbType = 'mask';
-      else if (handle.includes('video') || src?.type?.includes('Video')) thumbType = 'video';
-      else if (handle.includes('audio') || src?.type?.includes('Audio')) thumbType = 'audio';
-      else if (handle.includes('image') || src?.type?.includes('Image')) thumbType = 'image';
-      return { id: e.id, type: thumbType, label: src?.type || '?', value };
-    }) : [];
+
+        const label =
+          slot.sourceNodeType === 'io' && slot.type === 'text' ? '文本' :
+          slot.sourceNodeType === 'io' ? `文件${(slot.fileIdx ?? 0) + 1}` :
+          src?.type || '?';
+
+        return { id: slot.id, type: finalType as InputThumb['type'], label, value };
+      })
+    : [];
 
   const TYPE_ORDER: Record<InputThumb['type'], number> = { text: 0, image: 1, video: 2, audio: 3, mask: 4 };
   const ioInputOrder: string[] = Array.isArray(nodeData.inputOrder) ? (nodeData.inputOrder as string[]) : [];

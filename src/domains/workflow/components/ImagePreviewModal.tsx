@@ -26,7 +26,7 @@ export function ImagePreviewModal({
   images?: PreviewImageItem[];
   initialIndex?: number;
   onClose: () => void;
-  onApplyResize?: (resizedBlobUrl: string, w: number, h: number) => void;
+  onApplyResize?: (resizedBlobUrl: string, w: number, h: number, blob?: Blob) => void;
   children?: ReactNode;
 }) {
   const gallery = useMemo(() => {
@@ -137,7 +137,7 @@ export function ImagePreviewModal({
         if (prev[activeIndex]) URL.revokeObjectURL(prev[activeIndex]);
         return next;
       });
-      onApplyResize?.(url, w, h);
+      onApplyResize?.(url, w, h, blob);
     } catch {
       // silently fail
     }

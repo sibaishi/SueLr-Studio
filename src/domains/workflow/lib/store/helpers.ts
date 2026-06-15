@@ -352,7 +352,7 @@ function classifyInputEdgeSource(edge: Edge, nodes: Node[]): string {
   return 'text';
 }
 
-function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[]): AiV3InputSlot[] {
+export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[]): AiV3InputSlot[] {
   const inputEdges = edges.filter((e) => e.target === nodeId && e.targetHandle === 'input');
   const slots: AiV3InputSlot[] = [];
 
