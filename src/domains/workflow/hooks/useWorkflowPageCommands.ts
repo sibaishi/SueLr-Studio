@@ -1,4 +1,3 @@
-import type { PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
 import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
 import { serializeWorkflowExport } from '@/domains/workflow/lib/importExport';
 import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
@@ -60,79 +59,6 @@ export function useWorkflowPageCommands({
   const handleViewportCenterChange = useCallback((position: { x: number; y: number }) => {
     viewportCenterRef.current = position;
   }, []);
-
-  const handleBackfillImageToCanvas = useCallback(
-    (image: PreviewImageItem) => {
-      const center = viewportCenterRef.current || { x: 300, y: 200 };
-      const size = getNodeDefaultSize('imageInput');
-      const stagger = (store.nodes.length % 5) * 24;
-      const name = image.name || 'image';
-      store.addNode(
-        'imageInput',
-        {
-          x: center.x - size.w / 2 + stagger,
-          y: center.y - size.h / 2 + stagger,
-        },
-        {
-          fileUrl: image.src,
-          previewUrl: image.src,
-          localPath: name,
-          fileName: name,
-          fileKind: 'image',
-          _uploading: false,
-          _uploadError: '',
-          canvasOriginalFileUrl: '',
-          canvasOriginalPreviewUrl: '',
-          canvasOriginalFileName: '',
-          canvasOriginalFileSize: undefined,
-        },
-      );
-    },
-    [store],
-  );
-
-  const handleBackfillVideoToCanvas = useCallback(
-    (video: { src: string; name?: string }) => {
-      const center = viewportCenterRef.current || { x: 300, y: 200 };
-      const size = getNodeDefaultSize('videoInput');
-      const stagger = (store.nodes.length % 5) * 24;
-      const name = video.name || 'video';
-      store.addNode(
-        'videoInput',
-        {
-          x: center.x - size.w / 2 + stagger,
-          y: center.y - size.h / 2 + stagger,
-        },
-        {
-          fileUrl: video.src,
-          previewUrl: video.src,
-          localPath: name,
-          fileName: name,
-          fileKind: 'video',
-          _uploading: false,
-          _uploadError: '',
-        },
-      );
-    },
-    [store],
-  );
-
-  const handleBackfillTextToCanvas = useCallback(
-    (text: string) => {
-      const center = viewportCenterRef.current || { x: 300, y: 200 };
-      const size = getNodeDefaultSize('textInput');
-      const stagger = (store.nodes.length % 5) * 24;
-      store.addNode(
-        'textInput',
-        {
-          x: center.x - size.w / 2 + stagger,
-          y: center.y - size.h / 2 + stagger,
-        },
-        { text },
-      );
-    },
-    [store],
-  );
 
   const handleSave = useCallback(async () => {
     const result = await store.saveWorkflowDetailed();
@@ -222,9 +148,6 @@ export function useWorkflowPageCommands({
   return {
     handleAddNode,
     handleViewportCenterChange,
-    handleBackfillImageToCanvas,
-    handleBackfillVideoToCanvas,
-    handleBackfillTextToCanvas,
     handleSave,
     handleExecute,
     handleCreateSelectedNodeGroup,

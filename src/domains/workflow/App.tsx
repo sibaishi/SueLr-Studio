@@ -91,8 +91,6 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
   });
   const {
     handleViewportCenterChange,
-    handleBackfillImageToCanvas,
-    handleBackfillTextToCanvas,
     handleSave,
     handleExecute,
     handleCreateSelectedNodeGroup,
@@ -269,7 +267,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
         />
 
         {!rightPanelCollapsed && (
-          <ResultsPanel onBackfillImage={handleBackfillImageToCanvas} onBackfillText={handleBackfillTextToCanvas} />
+          <ResultsPanel />
         )}
 
         <StatusBar

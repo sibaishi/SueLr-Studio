@@ -1,5 +1,4 @@
 import { getNodeDef } from '@/domains/workflow/lib/constants';
-import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ParamDef } from '@/domains/workflow/lib/types';
 import { selectDirectory } from '@/shared/api';
@@ -126,7 +125,6 @@ function ParamEditor({
   onChange,
   suppressModelHint,
   nodeType,
-  nodeId,
   hasImageGroupInput,
 }: {
   param: ParamDef;
@@ -147,20 +145,6 @@ function ParamEditor({
   const isServerRuntime = false;
   const runtimeSearchEnabled = runtimeCapabilities?.search?.enabled ?? false;
   const runtimeSearchDisabledReason = runtimeCapabilities?.search?.disabledReason || '当前部署未启用联网搜索';
-  const nodes = useWorkflowStore((s) => s.nodes);
-  const edges = useWorkflowStore((s) => s.edges);
-  const connectedApiKeyNode = nodeId
-    ? edges
-        .filter((edge) => edge.target === nodeId && edge.targetHandle === 'apiKey')
-        .map((edge) => nodes.find((node) => node.id === edge.source && node.type === 'apiKeyInput'))
-        .find(Boolean)
-    : undefined;
-  const connectedApiModel = String(connectedApiKeyNode?.data?.selectedModel || '').trim();
-  const connectedApiModelGroups = (connectedApiKeyNode?.data?.apiModelGroups || {}) as {
-    chat?: ModelOption[];
-    image?: ModelOption[];
-    video?: ModelOption[];
-  };
 
   const handleFocus = (event: FocusEvent<HTMLElement>) => {
     event.currentTarget.classList.add('node-field--focused');
@@ -371,40 +355,18 @@ function ParamEditor({
       if (nodeType === 'imageResize' && param.id === 'resizeMode' && hasImageGroupInput) {
         selectOptions = selectOptions.filter((option) => String(option.value) === 'percent');
       }
-      const modelLockedByApiKey = isModelParam && Boolean(connectedApiKeyNode);
 
-      if (isModelParam) {
-        let modelsForType: ModelOption[] = [];
-        if (connectedApiKeyNode) {
-          if (nodeType === 'aiChat') modelsForType = connectedApiModelGroups.chat || [];
-          else if (nodeType === 'imageGen') modelsForType = connectedApiModelGroups.image || [];
-          else if (nodeType === 'videoGen') modelsForType = connectedApiModelGroups.video || [];
-          else
-            modelsForType = Array.isArray(connectedApiKeyNode.data?.apiModels)
-              ? connectedApiKeyNode.data.apiModels.map((id) => ({
-                  label: String(id),
-                  value: String(id),
-                  modelId: String(id),
-                }))
-              : [];
-        } else if (nodeType === 'aiChat') modelsForType = availableModels.chat;
-        else if (nodeType === 'imageGen') modelsForType = availableModels.image;
-        else if (nodeType === 'videoGen') modelsForType = availableModels.video;
-        else modelsForType = availableModels.all;
-
-        if (modelsForType.length > 0) {
-          selectOptions = modelsForType;
-        }
+      if (isModelParam && availableModels.all.length > 0) {
+        selectOptions = availableModels.all;
       }
 
       const currentValue = String(value ?? param.default ?? '');
-      const displayedValue = modelLockedByApiKey && connectedApiModel ? connectedApiModel : currentValue;
+      const displayedValue = currentValue;
       const hasValidOption = displayedValue && selectOptions.some((option) => String(option.value) === displayedValue);
-      const showCombinedModelHint = nodeType === 'aiChat' && param.group === 'aiChatTop' && param.id === 'model';
       const wrapperClassName = [
         'node-param',
-        nodeType === 'aiChat' && param.group === 'aiChatTop' && param.id === 'model' ? 'node-param--ai-chat-model' : '',
-        nodeType === 'aiChat' && param.group === 'aiChatTop' && param.id === 'enableWebSearch'
+        nodeType === 'aiV3' && param.group === 'aiChatTop' && param.id === 'model' ? 'node-param--ai-chat-model' : '',
+        nodeType === 'aiV3' && param.group === 'aiChatTop' && param.id === 'enableWebSearch'
           ? 'node-param--ai-chat-toggle'
           : '',
       ]
@@ -421,17 +383,14 @@ function ParamEditor({
                 onChange(event.target.value);
               }
             }}
-            disabled={modelLockedByApiKey}
             className="node-field"
             onFocus={handleFocus}
             onBlur={handleBlur}
           >
             <option value="" disabled>
-              {modelLockedByApiKey
-                ? connectedApiModel || '由 API Key 节点指定'
-                : selectOptions.length === 0
-                  ? '还没有可用模型，请先配置或检测'
-                  : '请选择...'}
+              {selectOptions.length === 0
+                ? '还没有可用模型，请先配置或检测'
+                : '请选择...'}
             </option>
             {displayedValue && !hasValidOption && <option value={displayedValue}>{displayedValue}</option>}
             {Object.entries(
@@ -459,21 +418,9 @@ function ParamEditor({
               ),
             )}
           </select>
-          {isModelParam && !modelLockedByApiKey && !suppressModelHint && !showCombinedModelHint && (
+          {isModelParam && !suppressModelHint && (
             <div className="node-param__hint">
-              配置来源：全局设置。若连接 API Key 节点，这里会切换为上游节点指定的模型。
-            </div>
-          )}
-          {modelLockedByApiKey && !suppressModelHint && !showCombinedModelHint && (
-            <div className="node-param__hint">
-              配置来源：已连接的 API Key 节点。这个节点只影响当前直接连接的 AI 节点。
-            </div>
-          )}
-          {showCombinedModelHint && !suppressModelHint && (
-            <div className="node-param__hint node-param__hint--row-span">
-              {modelLockedByApiKey
-                ? '配置来源：已连接的 API Key 节点。这个节点只影响当前直接连接的 AI 节点。'
-                : '配置来源：全局设置。若连接 API Key 节点，这里会切换为上游节点指定的模型。'}
+              配置来源：全局设置。
             </div>
           )}
           {nodeType === 'imageResize' && param.id === 'resizeMode' && hasImageGroupInput && (
@@ -539,11 +486,11 @@ function ParamEditor({
 
     case 'toggle': {
       const toggled = Boolean(value ?? param.default ?? false);
-      const searchToggleDisabled = nodeType === 'aiChat' && param.id === 'enableWebSearch' && !runtimeSearchEnabled;
+      const searchToggleDisabled = nodeType === 'aiV3' && param.id === 'enableWebSearch' && !runtimeSearchEnabled;
       const wrapperClassName = [
         'node-param',
         'node-param--toggle',
-        nodeType === 'aiChat' && param.group === 'aiChatTop' ? 'node-param--ai-chat-toggle' : '',
+        nodeType === 'aiV3' && param.group === 'aiChatTop' ? 'node-param--ai-chat-toggle' : '',
       ]
         .filter(Boolean)
         .join(' ');

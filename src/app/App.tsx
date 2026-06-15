@@ -103,7 +103,7 @@ export default function App() {
   const memory = useMemory();
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
   const workflowStore = useWorkflowStore();
-  const { handleBackfillImageToCanvas, handleBackfillVideoToCanvas } = useWorkflowPageCommands({
+  useWorkflowPageCommands({
     store: workflowStore,
     confirmDiscardChanges: () => true,
     resetHistory: () => {},
@@ -258,8 +258,6 @@ export default function App() {
               open={agentOpen}
               onClose={() => setAgentOpen(false)}
               onOpenWorkflow={() => setAgentOpen(false)}
-              onBackfillImageToCanvas={handleBackfillImageToCanvas}
-              onBackfillVideoToCanvas={handleBackfillVideoToCanvas}
               plannerModels={settings.configuredProjectModels.filter((model) => model.cat === 'chat')}
               imageModels={settings.configuredProjectModels.filter((model) => model.cat === 'image')}
               videoModels={settings.configuredProjectModels.filter((model) => model.cat === 'video')}

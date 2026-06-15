@@ -3,7 +3,7 @@ import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes'
 import type { Edge, Node } from '@xyflow/react';
 
 const AI_TYPES = ['aiV3'];
-const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile', 'textInput', 'io']);
+const OUTPUT_NODE_TYPES = new Set(['io']);
 const FORCE_DISABLED_NODE_TYPES = new Set<string>();
 const LOG_DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
 const LOG_DATA_URL_PREVIEW_LENGTH = 48;

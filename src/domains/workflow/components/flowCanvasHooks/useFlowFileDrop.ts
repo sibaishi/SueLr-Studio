@@ -1,11 +1,8 @@
-import { uploadFile } from '@/domains/workflow/lib/api';
-import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
 import type { DragEvent } from 'react';
 import { useCallback } from 'react';
 import { getDropNodePosition } from '../flowCanvasClipboard';
 import { FLOW_DISABLED_NEW_NODE_TYPES } from '../flowCanvasConfig';
 import { buildDefaultData, getDroppedFileNodeType } from '../flowCanvasHelpers';
-import { formatCanvasUploadError } from '../flowCanvasText';
 import type { FlowHookDeps } from './types';
 
 interface UseFlowFileDropDeps extends FlowHookDeps {
@@ -30,112 +27,25 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
           buildDefaultData(droppedNodeType),
         );
 
-        if (droppedNodeType === 'io') {
-          // io node: store blob + base64 in fileRawStore, object URL in content
-          const reader = new FileReader();
-          reader.onload = () => {
-            import('@/domains/workflow/components/nodes/io/fileRawStore').then(({ fileRawStore }) => {
-              const base64 = String(reader.result);
-              const id = fileRawStore.add(file, file.name, base64);
-              store.updateNodeData(nodeId, {
-                content: [fileRawStore.get(id)!.objectUrl],
-                _fileIds: [id],
-                _fileKinds: ['image'],
-                _fileOrder: [id],
-              });
-            });
-          };
-          reader.readAsDataURL(file);
-          return;
-        }
-
-        if (droppedNodeType === 'textInput') {
-          void file
-            .text()
-            .then((text) => {
-              store.updateNodeData(nodeId, { text });
-            })
-            .catch((error) => {
-              store.updateNodeData(nodeId, {
-                text: `导入文本没有完成，请检查文件编码或稍后重试。${error instanceof Error ? error.message : ''}`,
-              });
-            });
-          return;
-        }
-
-        const localPreview = URL.createObjectURL(file);
-        store.updateNodeData(nodeId, {
-          fileUrl: '',
-          thumbnailUrl: '',
-          previewUrl: localPreview,
-          localPath: file.webkitRelativePath || file.name,
-          fileName: file.name,
-          fileKind: droppedNodeType === 'imageInput' ? 'image' : droppedNodeType === 'videoInput' ? 'video' : 'audio',
-          fileSize: file.size,
-          _uploading: true,
-          _uploadError: '',
-          _fileProcessingStatus: '',
-          _fileProcessingError: '',
-          canvasOriginalFileUrl: '',
-          canvasOriginalPreviewUrl: '',
-          canvasOriginalFileName: '',
-          canvasOriginalFileSize: undefined,
-        });
-
-        void uploadFile(file)
-          .then((result) => {
-            if (result.success && result.url) {
-              store.updateNodeData(nodeId, {
-                fileUrl: result.url,
-                thumbnailUrl: result.thumbnailUrl || '',
-                previewUrl: result.thumbnailUrl || localPreview,
-                fileName: result.fileName || file.name,
-                fileSize: result.fileSize || file.size,
-                _uploading: false,
-                _uploadError: '',
-                _fileProcessingStatus: result.processing ? 'processing' : '',
-                _fileProcessingError: result.processingError || '',
-              });
-              if (result.processing && result.url) {
-                void waitForUploadedImageMetadata(result.url, (metadata) => {
-                  if (metadata.thumbnailUrl || metadata.url) {
-                    URL.revokeObjectURL(localPreview);
-                  }
-                  store.updateNodeData(nodeId, {
-                    fileUrl: metadata.url || result.url,
-                    thumbnailUrl: metadata.thumbnailUrl || '',
-                    previewUrl: metadata.thumbnailUrl || metadata.url || result.url,
-                    width: metadata.width,
-                    height: metadata.height,
-                    _fileProcessingStatus: metadata.processingStatus || '',
-                    _fileProcessingError: metadata.processingError || '',
-                  });
-                });
-              } else if (result.thumbnailUrl || result.url) {
-                URL.revokeObjectURL(localPreview);
-              }
-              return;
-            }
-
-            URL.revokeObjectURL(localPreview);
+        // All files go to io nodes
+        const reader = new FileReader();
+        reader.onload = () => {
+          import('@/domains/workflow/components/nodes/io/fileRawStore').then(({ fileRawStore }) => {
+            const base64 = String(reader.result);
+            const kind: string =
+              file.type.startsWith('video/') ? 'video' :
+              file.type.startsWith('audio/') ? 'audio' :
+              'image';
+            const id = fileRawStore.add(file, file.name, base64);
             store.updateNodeData(nodeId, {
-              previewUrl: '',
-              _uploading: false,
-              _uploadError: formatCanvasUploadError(result.error),
-              _fileProcessingStatus: '',
-              _fileProcessingError: '',
-            });
-          })
-          .catch((error) => {
-            URL.revokeObjectURL(localPreview);
-            store.updateNodeData(nodeId, {
-              previewUrl: '',
-              _uploading: false,
-              _uploadError: formatCanvasUploadError(error instanceof Error ? error.message : ''),
-              _fileProcessingStatus: '',
-              _fileProcessingError: '',
+              content: [fileRawStore.get(id)!.objectUrl],
+              _fileIds: [id],
+              _fileKinds: [kind],
+              _fileOrder: [id],
             });
           });
+        };
+        reader.readAsDataURL(file);
       });
     },
     [store],

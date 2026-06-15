@@ -62,8 +62,6 @@ import {
 import './contextMenu.css';
 import './nodes/nodeAnimations.css';
 
-const AI_CAPABILITY_NODE_TYPES = new Set(['aiChat', 'imageGen', 'videoGen']);
-
 interface FlowCanvasProps {
   onViewportCenterChange?: (position: { x: number; y: number }) => void;
   onBeforeCanvasEditorSave?: () => void;
@@ -463,7 +461,7 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   const canRunToSingleContextNode = (() => {
     if (contextNodes.length !== 1) return false;
     const node = contextNodes[0];
-    if (!node || node.type === 'group' || AI_CAPABILITY_NODE_TYPES.has(node.type || '')) return false;
+    if (!node || node.type === 'group') return false;
     const def = getNodeDef(node.type || '');
     return Boolean(def && ((def.inputs?.length || 0) > 0 || (def.maxInputs || 0) > 0));
   })();

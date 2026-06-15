@@ -47,13 +47,7 @@ type ReadableLog = WorkflowResultLog & {
   detailSource?: WorkflowResultLog;
 };
 
-export default function ResultsPanel({
-  onBackfillImage,
-  onBackfillText,
-}: {
-  onBackfillImage?: (image: PreviewImageItem) => void;
-  onBackfillText?: (text: string) => void;
-}) {
+export default function ResultsPanel() {
   const [tab, setTab] = useState<PanelTab>('results');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [generatedOutputs, setGeneratedOutputs] = useState<GeneratedOutputFile[]>([]);
@@ -238,7 +232,6 @@ export default function ResultsPanel({
             isLoading={isLoadingOutputs}
             error={outputsError}
             onPreviewImage={setPreviewImage}
-            onBackfillText={onBackfillText}
           />
         ) : (
           <LogsList logs={executionLogs} onClear={clearExecutionLogs} />
@@ -251,10 +244,6 @@ export default function ResultsPanel({
           images={previewImageIndex >= 0 ? imageGallery : [{ src: previewImage }]}
           initialIndex={previewImageIndex >= 0 ? previewImageIndex : 0}
           onClose={() => setPreviewImage(null)}
-          onBackfillImage={(image) => {
-            onBackfillImage?.(image);
-            setPreviewImage(null);
-          }}
         />
       )}
     </aside>
