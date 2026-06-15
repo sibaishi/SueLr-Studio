@@ -8,7 +8,7 @@ interface FileRecord {
 }
 
 const store = new Map<number, FileRecord>();
-let nextId = 0;
+let nextId = Date.now();
 
 export const fileRawStore = {
   add(blob: Blob, name: string, base64: string): number {

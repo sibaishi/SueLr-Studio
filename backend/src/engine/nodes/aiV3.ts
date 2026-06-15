@@ -8,6 +8,32 @@ import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, Work
 
 // ── helpers ──────────────────────────────────────────────────────
 
+/**
+ * Some image APIs return both url and b64_json per generated image.
+ * extractImagesFromResponse picks up both, producing duplicate entries.
+ * Prefer URLs; for data-only cases, deduplicate identical data URIs.
+ */
+function dedupePreferUrl(images: DynamicValue[]): DynamicValue[] {
+  if (images.length <= 1) return images;
+  const urlEntries: string[] = [];
+  const dataEntries: string[] = [];
+  for (const img of images) {
+    const s = String(img);
+    if (/^https?:\/\//i.test(s)) urlEntries.push(s);
+    else if (s.startsWith('data:')) dataEntries.push(s);
+    else urlEntries.push(s);
+  }
+  // Deduplicate data URIs by value (same base64 downloaded/parsed twice)
+  const uniqueData = [...new Set(dataEntries)];
+  // If only one kind, return deduped version
+  if (urlEntries.length === 0) return uniqueData;
+  if (uniqueData.length === 0) return [...new Set(urlEntries)];
+  // When counts match, data entries are likely base64 mirrors of URLs
+  if (urlEntries.length >= uniqueData.length) return [...new Set(urlEntries)];
+  // More data entries than URLs: keep all URLs + excess data entries
+  return [...new Set(urlEntries), ...uniqueData.slice(urlEntries.length)];
+}
+
 function classifyBySourceType(sourceType: string): 'text' | 'image' | 'video' | 'audio' | null {
   if (!sourceType) return null;
   const t = sourceType.toLowerCase();
@@ -163,7 +189,12 @@ async function executeImageMode(
 
   const imgConfig = { ...runtimeConfig, abortSignal: apiConfig?.abortSignal, persistGeneratedOutputs: false };
   const result = (await runImageGeneration(request, imgConfig, sendProgress)) as { images: DynamicValue[]; request?: { model?: DynamicValue } };
-  return { result: result.images, meta: { model: result.request?.model || request.model, count: result.images.length } };
+
+  // Some upstream responses include both url and b64_json per image,
+  // causing extractImagesFromResponse to return duplicates.
+  // Prefer URLs; keep data URIs only when no URL present for that image.
+  const deduped = dedupePreferUrl(result.images);
+  return { result: deduped, meta: { model: result.request?.model || request.model, count: deduped.length } };
 }
 
 async function executeVideoMode(

@@ -42,6 +42,7 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
               _fileIds: [id],
               _fileKinds: [kind],
               _fileOrder: [id],
+              _fileNames: [file.name],
             });
           });
         };

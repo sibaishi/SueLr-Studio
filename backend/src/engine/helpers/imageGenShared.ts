@@ -402,22 +402,34 @@ export function extractImagesFromResponse(data: DynamicValue): string[] {
     }
 
     for (const [nestedKey, nestedValue] of Object.entries(value)) {
+      // When url is present in the same object, b64_json is a mirror — skip it
+      if (nestedKey === 'b64_json' && typeof (value as Record<string, unknown>).url === 'string' && (value as Record<string, unknown>).url) {
+        continue;
+      }
       collectNestedImages(nestedValue, nestedKey);
     }
   };
 
   if (Array.isArray(data?.data)) {
     for (const item of data.data) {
-      if (item?.url) pushImage(item.url);
-      if (item?.b64_json) pushImage(item.b64_json, 'image/png', true);
+      // Prefer url over b64_json to avoid counting the same image twice
+      if (item?.url) {
+        pushImage(item.url);
+      } else if (item?.b64_json) {
+        pushImage(item.b64_json, 'image/png', true);
+      }
     }
   }
 
   if (Array.isArray(payload?.outputs)) {
     for (const output of payload.outputs) {
-      if (typeof output === 'string') pushImage(output);
-      if (output?.url) pushImage(output.url);
-      if (output?.b64_json) pushImage(output.b64_json, 'image/png', true);
+      if (typeof output === 'string') {
+        pushImage(output);
+      } else if (output?.url) {
+        pushImage(output.url);
+      } else if (output?.b64_json) {
+        pushImage(output.b64_json, 'image/png', true);
+      }
     }
   }
 

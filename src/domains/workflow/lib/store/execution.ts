@@ -389,6 +389,7 @@ export function createWorkflowExecutionActions(
       let rawFiles: string[] = [];
       if (fileIds?.length) {
         const fileOrder: number[] = (nd._fileOrder as number[]) || [];
+        const content: string[] = Array.isArray(nd.content) ? (nd.content as string[]) : [];
         const orderMap = new Map(fileOrder.map((id, i) => [id, i]));
         const sortedEntries = fileIds
           .map((fid, idx) => ({ fid, idx, order: orderMap.get(fid) ?? 9999 }))
@@ -399,7 +400,27 @@ export function createWorkflowExecutionActions(
             // If trim map exists and this IO feeds aiV3 nodes, only include accepted file indices
             if (acceptedIndices && !acceptedIndices.has(idx)) continue;
             const b64 = fileRawStore.getBase64(fid);
-            if (b64) rawFiles.push(b64);
+            if (b64) {
+              rawFiles.push(b64);
+            } else {
+              // fileRawStore is empty after page refresh; fall back to server URL
+              const url = content[idx];
+              if (url && typeof url === 'string' && (url.startsWith('/api/files/') || (url.startsWith('http') && !url.startsWith('blob:')))) {
+                try {
+                  const response = await fetch(url);
+                  if (response.ok) {
+                    const blob = await response.blob();
+                    const fetchedB64 = await new Promise<string>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onload = () => resolve(String(reader.result));
+                      reader.onerror = () => reject(new Error('read failed'));
+                      reader.readAsDataURL(blob);
+                    });
+                    rawFiles.push(fetchedB64);
+                  }
+                } catch { /* fetch failed, skip this file */ }
+              }
+            }
           }
         } catch { /* fileRawStore not available, skip */ }
       }

@@ -143,7 +143,13 @@ export default function AiV3StylePanel() {
       if (slot.type === 'text') {
         value = String(srcData.text || '');
       } else if (slot.fileId !== undefined) {
-        value = fileRawStore.getObjectUrl(slot.fileId) || '';
+        // fileRawStore is cleared on page refresh; fall back to data.content server URL
+        const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+        const fileIds: number[] = Array.isArray(srcData._fileIds) ? (srcData._fileIds as number[]) : [];
+        const cIdx = fileIds.indexOf(slot.fileId);
+        value = fileRawStore.getObjectUrl(slot.fileId)
+          || (cIdx >= 0 ? content[cIdx] : '')
+          || '';
       }
     } else {
       // Standard node: use actual edge sourceHandle, then common keys, then nodeOutputs
@@ -183,12 +189,22 @@ export default function AiV3StylePanel() {
       }
     }
 
+    // Infer actual media type from value when slot classification is too broad
+    let finalType = slot.type;
+    if (finalType === 'text' && value) {
+      const str = String(value);
+      if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) finalType = 'video';
+      else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) finalType = 'audio';
+      else if (str.startsWith('blob:') || str.startsWith('data:image/') || str.startsWith('http') || str.startsWith('/api/')) finalType = 'image';
+    }
+
     const label =
-      slot.sourceNodeType === 'io' && slot.type === 'text' ? '文本' :
+      finalType === 'text' && slot.sourceNodeType === 'io' ? '文本' :
       slot.sourceNodeType === 'io' ? `文件${(slot.fileIdx ?? 0) + 1}` :
+      finalType !== 'text' ? getNodeTypeLabel(finalType) :
       src?.type || '?';
 
-    return { id: slot.id, type: slot.type, label, value };
+    return { id: slot.id, type: finalType, label, value };
   });
 
   inputsRef.current = rawInputs;
@@ -210,6 +226,9 @@ export default function AiV3StylePanel() {
   }
 
   // thumbnail label helpers
+  const TYPE_MAP: Record<string, string> = { text: '文本', image: '图片', video: '视频', audio: '音频', mask: '遮罩' };
+  const getNodeTypeLabel = (type: string) => TYPE_MAP[type] || type;
+
   const thumbLabel = (input: InputThumb) => {
     if (input.value) return input.value.slice(0, 1) + '…';
     const map: Record<string, string> = { text: 'T', image: 'IMG', video: 'V', audio: 'A', mask: 'M' };

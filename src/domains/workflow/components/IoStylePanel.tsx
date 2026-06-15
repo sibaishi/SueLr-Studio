@@ -84,17 +84,18 @@ export default function IoStylePanel() {
     const content = nodeData.content;
     const fileIds: number[] = (nodeData._fileIds as number[]) || [];
     const fileKinds: string[] = (nodeData._fileKinds as string[]) || [];
+    const fileNames: string[] = (nodeData._fileNames as string[]) || [];
     const arr = Array.isArray(content) ? content : [];
     return arr.map((entry, idx) => {
       const fid = fileIds[idx] ?? -1;
       const rec = fid >= 0 ? fileRawStore.get(fid) : undefined;
       return {
-        _id: fid, name: rec?.name || '',
+        _id: fid, name: rec?.name || fileNames[idx] || '',
         kind: (fileKinds[idx] as FileKind) || 'other',
         thumbnail: String(entry), objectUrl: rec?.objectUrl || '',
       };
     });
-  }, [nodeData.content, nodeData._fileIds, nodeData._fileKinds]);
+  }, [nodeData.content, nodeData._fileIds, nodeData._fileKinds, nodeData._fileNames]);
 
   useEffect(() => {
     setTextValue(String(nodeData.text || ''));
@@ -108,19 +109,31 @@ export default function IoStylePanel() {
       // Preserve existing server URLs from node data to avoid overwriting
       // them with blob URLs before upload completes, or after page refresh.
       const existingContent: string[] = Array.isArray(nodeData.content) ? (nodeData.content as string[]) : [];
+      const existingNames: string[] = Array.isArray(nodeData._fileNames) ? (nodeData._fileNames as string[]) : [];
       const fileUrls: string[] = sortedFiles.map((f, i) => {
         const serverUrl = uploadedUrlsRef.current.get(f._id);
         if (serverUrl) return serverUrl;
-        // Keep existing /api/files/ URL if present (from prior save or refresh restore)
+        // Keep existing /api/files/ or http URL if present (survives refresh)
         const prev = existingContent[i];
-        if (prev && (prev.startsWith('/api/files/') || prev.startsWith('http')) && !prev.startsWith('blob:')) return prev;
-        return f.objectUrl || f.thumbnail;
+        if (prev && (prev.startsWith('/api/files/') || (prev.startsWith('http') && !prev.startsWith('blob:')))) return prev;
+        // Don't persist blob URLs — they break after refresh
+        if (f.objectUrl && !f.objectUrl.startsWith('blob:')) return f.objectUrl;
+        // Wait for upload to complete; keep previous value or leave empty
+        return prev || '';
+      });
+      const fileNames: string[] = sortedFiles.map((f, i) => {
+        if (f.name) return f.name;
+        // Preserve existing name from prior save
+        const prev = existingNames[i];
+        if (prev) return prev;
+        return '';
       });
       setData({
         text: textValue || '',
         content: fileUrls,
         _fileIds: sortedFiles.filter((f) => f._id >= 0).map((f) => f._id),
         _fileKinds: sortedFiles.map((f) => f.kind),
+        _fileNames: fileNames,
       });
     }, 300);
     return () => { if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current); };
@@ -190,7 +203,13 @@ export default function IoStylePanel() {
           if (slot.type === 'text') {
             value = String(srcData.text || '');
           } else if (slot.fileId !== undefined) {
-            value = fileRawStore.getObjectUrl(slot.fileId) || '';
+            // fileRawStore is cleared on page refresh; fall back to data.content server URL
+            const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+            const fileIds: number[] = Array.isArray(srcData._fileIds) ? (srcData._fileIds as number[]) : [];
+            const cIdx = fileIds.indexOf(slot.fileId);
+            value = fileRawStore.getObjectUrl(slot.fileId)
+              || (cIdx >= 0 ? content[cIdx] : '')
+              || '';
           }
         } else {
           // Use actual edge sourceHandle (aiV3→io uses 'result', not 'output')

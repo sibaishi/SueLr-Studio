@@ -284,6 +284,7 @@ export function IoContent({
                   const fileKinds: string[] = Array.isArray(nd._fileKinds) ? [...(nd._fileKinds as string[])] : [];
                   const fileOrder: number[] = Array.isArray(nd._fileOrder) ? [...(nd._fileOrder as number[])] : [];
                   const content: string[] = Array.isArray(nd.content) ? [...(nd.content as string[])] : [];
+                  const fileNames: string[] = Array.isArray(nd._fileNames) ? [...(nd._fileNames as string[])] : [];
 
                   if (fid !== undefined) {
                     // Replace existing fileRawStore entry
@@ -311,7 +312,10 @@ export function IoContent({
                     content.push(newUrl);
                   }
 
-                  store.updateNodeData(nodeId, { content, _fileIds: fileIds, _fileKinds: fileKinds, _fileOrder: fileOrder });
+                  // Keep name aligned with array positions after possible shifts
+                  while (fileNames.length < fileIds.length) fileNames.push('');
+
+                  store.updateNodeData(nodeId, { content, _fileIds: fileIds, _fileKinds: fileKinds, _fileOrder: fileOrder, _fileNames: fileNames });
                 };
                 reader.readAsDataURL(blob);
               }}
