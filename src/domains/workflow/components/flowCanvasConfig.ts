@@ -1,10 +1,6 @@
 import FlowNode from './nodes/FlowNode';
-import AiChatV2Node from './nodes/ai/AiChatV2/AiChatV2Node';
 import AiV3Node from './nodes/ai/AiV3/AiV3Node';
-import ImageGenV2Node from './nodes/ai/ImageGenV2/ImageGenV2Node';
-import IterateImageRunV2Node from './nodes/ai/IterateImageRunV2/IterateImageRunV2Node';
-import IterateRunV2Node from './nodes/ai/IterateRunV2/IterateRunV2Node';
-import VideoGenV2Node from './nodes/ai/VideoGenV2/VideoGenV2Node';
+import IoNode from './nodes/io/Io/IoNode';
 
 export const FLOW_NODE_TYPES = {
   group: FlowNode,
@@ -17,10 +13,6 @@ export const FLOW_NODE_TYPES = {
   videoInput: FlowNode,
   audioInput: FlowNode,
   apiKeyInput: FlowNode,
-  iterateRun: FlowNode,
-  iterateRunV2: IterateRunV2Node,
-  iterateImageRun: FlowNode,
-  iterateImageRunV2: IterateImageRunV2Node,
   promptHelper: FlowNode,
   textClean: FlowNode,
   textSplit: FlowNode,
@@ -28,13 +20,8 @@ export const FLOW_NODE_TYPES = {
   imageMerge: FlowNode,
   videoMerge: FlowNode,
   audioMerge: FlowNode,
-  aiChat: FlowNode,
-  imageGen: FlowNode,
-  imageGenV2: ImageGenV2Node,
-  videoGenV2: VideoGenV2Node,
-  aiChatV2: AiChatV2Node,
   aiV3: AiV3Node,
-  videoGen: FlowNode,
+  io: IoNode,
   saveFile: FlowNode,
   output: FlowNode,
 } as const;
@@ -50,10 +37,6 @@ export const FLOW_NODE_COLORS: Record<string, string> = {
   videoInput: '#AF52DE',
   audioInput: '#FF375F',
   apiKeyInput: '#5856D6',
-  iterateRun: '#007AFF',
-  iterateRunV2: '#007AFF',
-  iterateImageRun: '#FF9500',
-  iterateImageRunV2: '#FF9500',
   promptHelper: '#00C7BE',
   textClean: '#007AFF',
   textSplit: '#0A84FF',
@@ -61,13 +44,8 @@ export const FLOW_NODE_COLORS: Record<string, string> = {
   imageMerge: '#FF9500',
   videoMerge: '#AF52DE',
   audioMerge: '#FF375F',
-  aiChat: '#30D158',
-  imageGen: '#FF9500',
-  imageGenV2: '#FF9500',
-  videoGenV2: '#AF52DE',
-  aiChatV2: '#30D158',
   aiV3: '#0A84FF',
-  videoGen: '#AF52DE',
+  io: '#5E5CE6',
   saveFile: '#34C759',
   output: '#8E8E93',
 };

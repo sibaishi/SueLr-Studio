@@ -7,8 +7,6 @@ import type { NodeTypeDef } from './types';
 
 export const GRID_SIZE = 28;
 const VARIABLE_INPUT_MERGE_TYPES = new Set([
-  'iterateRun',
-  'iterateImageRun',
   'textMerge',
   'imageMerge',
   'videoMerge',
@@ -27,8 +25,6 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   videoInput: { w: 13, h: 11 },
   audioInput: { w: 13, h: 9 },
   apiKeyInput: { w: 14, h: 21 },
-  iterateRun: { w: 11, h: 8 },
-  iterateImageRun: { w: 11, h: 8 },
   promptHelper: { w: 14, h: 12 },
   textClean: { w: 12, h: 14 },
   textSplit: { w: 12, h: 23 },
@@ -36,12 +32,8 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   imageMerge: { w: 11, h: 8 },
   videoMerge: { w: 11, h: 8 },
   audioMerge: { w: 11, h: 8 },
-  aiChat: { w: 14, h: 20 },
-  imageGen: { w: 14, h: 20 },
-  imageGenV2: { w: 10, h: 10 },
-  videoGenV2: { w: 10, h: 10 },
-  aiChatV2: { w: 10, h: 10 },
-  videoGen: { w: 14, h: 23 },
+  aiV3: { w: 10, h: 10 },
+  io: { w: 10, h: 10 },
   saveFile: { w: 14, h: 12 },
   output: { w: 13, h: 10 },
 };

@@ -30,6 +30,25 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
           buildDefaultData(droppedNodeType),
         );
 
+        if (droppedNodeType === 'io') {
+          // io node: store blob + base64 in fileRawStore, object URL in content
+          const reader = new FileReader();
+          reader.onload = () => {
+            import('@/domains/workflow/components/nodes/io/fileRawStore').then(({ fileRawStore }) => {
+              const base64 = String(reader.result);
+              const id = fileRawStore.add(file, file.name, base64);
+              store.updateNodeData(nodeId, {
+                content: [fileRawStore.get(id)!.objectUrl],
+                _fileIds: [id],
+                _fileKinds: ['image'],
+                _fileOrder: [id],
+              });
+            });
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+
         if (droppedNodeType === 'textInput') {
           void file
             .text()

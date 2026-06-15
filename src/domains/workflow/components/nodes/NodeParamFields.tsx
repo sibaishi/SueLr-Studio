@@ -76,7 +76,7 @@ export function NodeParamFields({
       {rows.map((row, index) => {
         const rowClassName = [
           'node-param-row',
-          nodeType === 'aiChat' && row.some((item) => item.group === 'aiChatTop') ? 'node-param-row--ai-chat-top' : '',
+          nodeType === 'aiV3' && row.some((item) => item.group === 'aiChatTop') ? 'node-param-row--ai-chat-top' : '',
           row.some((item) => item.type === 'textarea') ? 'node-param-row--textarea' : '',
         ]
           .filter(Boolean)
@@ -86,7 +86,7 @@ export function NodeParamFields({
             ? [
                 'node-param-grid',
                 row.length === 3 ? 'node-param-grid--three' : '',
-                nodeType === 'aiChat' && row.some((item) => item.group === 'aiChatTop')
+                nodeType === 'aiV3' && row.some((item) => item.group === 'aiChatTop')
                   ? 'node-param-grid--ai-chat-top'
                   : '',
               ]

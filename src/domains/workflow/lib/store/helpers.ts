@@ -2,7 +2,7 @@ import { GRID_SIZE, NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
 import type { Edge, Node } from '@xyflow/react';
 
-const AI_TYPES = ['aiChat', 'imageGen', 'imageGenV2', 'videoGen'];
+const AI_TYPES = ['aiV3'];
 const OUTPUT_NODE_TYPES = new Set(['output', 'saveFile', 'textInput']);
 const FORCE_DISABLED_NODE_TYPES = new Set<string>();
 const LOG_DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;

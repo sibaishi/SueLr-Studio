@@ -11,15 +11,15 @@ import { NodeContent } from '../../NodeContent';
 import '../../node-v2.css';
 import '../../nodeAnimations.css';
 
-interface VideoGenV2NodeProps {
+interface IoNodeProps {
   id: string;
   data: Record<string, unknown>;
   selected: boolean;
   isConnectable: boolean;
 }
 
-function VideoGenV2Node({ id, data, selected, isConnectable }: VideoGenV2NodeProps) {
-  const type = 'videoGenV2';
+function IoNode({ id, data, selected, isConnectable }: IoNodeProps) {
+  const type = 'io';
   const def = getNodeDef(type);
   const execStatus = useWorkflowStore((s) => s.nodeExecStatus[id] || 'idle');
   const execError = useWorkflowStore((s) => s.nodeErrors[id]);
@@ -34,8 +34,16 @@ function VideoGenV2Node({ id, data, selected, isConnectable }: VideoGenV2NodePro
   const executeWorkflowToNode = useWorkflowStore((s) => s.executeWorkflowToNode);
   const updateNodeInternals = useUpdateNodeInternals();
 
-  // Editable label
-  const defaultLabel = def?.label || '视频生成 V2';
+  const isDisabled = Boolean(data.disabled);
+  const isLocked = isNodeLockedWithAncestors(id, nodes);
+  const isDirectlyLocked = Boolean(data.locked);
+  const isRunning = execStatus === 'running' && !isDisabled;
+  const isError = execStatus === 'error';
+  const hasWarning = !isError && Boolean(typeof data.warning === 'string' ? data.warning : '');
+  const warningMessage = typeof data.warning === 'string' ? data.warning : '';
+  const badge = STATUS_BADGE[execStatus];
+
+  const defaultLabel = def?.label || 'IO';
   const customLabel = typeof data.label === 'string' ? data.label : '';
   const displayLabel = customLabel || defaultLabel;
   const [isEditingLabel, setIsEditingLabel] = useState(false);
@@ -51,28 +59,13 @@ function VideoGenV2Node({ id, data, selected, isConnectable }: VideoGenV2NodePro
   const commitLabel = useCallback(() => {
     setIsEditingLabel(false);
     const trimmed = labelDraft.trim();
-    if (trimmed && trimmed !== defaultLabel) {
-      updateNodeData(id, { label: trimmed });
-    } else if (!trimmed || trimmed === defaultLabel) {
-      updateNodeData(id, { label: undefined });
-    }
+    if (trimmed && trimmed !== defaultLabel) updateNodeData(id, { label: trimmed });
+    else if (!trimmed || trimmed === defaultLabel) updateNodeData(id, { label: undefined });
   }, [labelDraft, defaultLabel, id, updateNodeData]);
 
   useEffect(() => {
-    if (isEditingLabel) {
-      labelInputRef.current?.focus();
-      labelInputRef.current?.select();
-    }
+    if (isEditingLabel) { labelInputRef.current?.focus(); labelInputRef.current?.select(); }
   }, [isEditingLabel]);
-
-  const isDisabled = Boolean(data.disabled);
-  const isLocked = isNodeLockedWithAncestors(id, nodes);
-  const isDirectlyLocked = Boolean(data.locked);
-  const isRunning = execStatus === 'running' && !isDisabled;
-  const isError = execStatus === 'error';
-  const hasWarning = Boolean(data.warning) && !isError;
-  const warningMessage = typeof data.warning === 'string' ? data.warning : '';
-  const badge = STATUS_BADGE[execStatus];
 
   const minSize = def ? getNodeDefaultSize(type, 0) : { w: 280, h: 280 };
   const currentNode = nodes.find((node) => node.id === id);
@@ -83,9 +76,9 @@ function VideoGenV2Node({ id, data, selected, isConnectable }: VideoGenV2NodePro
     return formatDurationSeconds(execTime);
   }, [execStatus, execTime]);
 
-  useEffect(() => {
-    updateNodeInternals(id);
-  }, [data, id, isLocked, parentId, updateNodeInternals]);
+  useEffect(() => { updateNodeInternals(id); }, [data, id, isLocked, parentId, updateNodeInternals]);
+
+  const nodeColor = def?.color || '#5E5CE6';
 
   const className = [
     'flow-node-v2 group',
@@ -95,40 +88,29 @@ function VideoGenV2Node({ id, data, selected, isConnectable }: VideoGenV2NodePro
     isRunning ? 'flow-node-v2--running' : '',
     isDisabled ? 'flow-node-v2--disabled' : '',
     isLocked ? 'flow-node-v2--locked' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  ].filter(Boolean).join(' ');
 
   return (
     <div
       className={className}
       style={{
-        '--node-color': def?.color || '#AF52DE',
-        width: '100%',
-        height: '100%',
-        minWidth: minSize.w,
-        minHeight: minSize.h,
+        '--node-color': nodeColor,
+        width: '100%', height: '100%',
+        minWidth: minSize.w, minHeight: minSize.h,
         animation: isRunning ? 'pulse-border 1.5s ease-in-out infinite' : undefined,
-        boxSizing: 'border-box',
-        position: 'relative',
+        boxSizing: 'border-box', position: 'relative',
       } as CSSProperties}
     >
-      {/* Appendix buttons */}
       <NodeAppendix position="top">
         <div className="node-v2-appendix-bar">
           {isEditingLabel ? (
-            <input
-              ref={labelInputRef}
-              className="node-v2-appendix-label-input"
-              value={labelDraft}
-              onChange={(e) => setLabelDraft(e.target.value)}
-              onBlur={commitLabel}
+            <input ref={labelInputRef} className="node-v2-appendix-label-input" value={labelDraft}
+              onChange={(e) => setLabelDraft(e.target.value)} onBlur={commitLabel}
               onKeyDown={(e) => { if (e.key === 'Enter') commitLabel(); if (e.key === 'Escape') setIsEditingLabel(false); }}
-              onMouseDown={(e) => e.stopPropagation()}
-            />
+              onMouseDown={(e) => e.stopPropagation()} />
           ) : (
             <span className="node-v2-appendix-label" onClick={startEditing} title="点击重命名">
-              <span className="node-v2-appendix-dot" style={{ backgroundColor: def?.color || '#AF52DE' }} />
+              <span className="node-v2-appendix-dot" style={{ backgroundColor: nodeColor }} />
               <span className="node-v2-appendix-label-text">{displayLabel}</span>
             </span>
           )}
@@ -151,7 +133,6 @@ function VideoGenV2Node({ id, data, selected, isConnectable }: VideoGenV2NodePro
         </div>
       </NodeAppendix>
 
-      {/* Bottom status */}
       {(isDisabled||hasWarning||execStatus!=='idle')&&(
         <NodeAppendix position="bottom" showOnHover={false}>
           {isDisabled&&(<span className="node-v2-status-pill" style={{color:'var(--node-card-muted)'}}>已禁用</span>)}
@@ -160,77 +141,31 @@ function VideoGenV2Node({ id, data, selected, isConnectable }: VideoGenV2NodePro
         </NodeAppendix>
       )}
 
-      <NodeResizer
-        isVisible={selected && !isLocked}
-        minWidth={minSize.w}
-        minHeight={minSize.h}
+      <NodeResizer isVisible={selected && !isLocked} minWidth={minSize.w} minHeight={minSize.h}
         onResizeEnd={(_, params) => {
           if (!snapToGridEnabled) return;
           const GRID_SIZE = 28;
-          setNodeSize(id, {
-            width: Math.max(minSize.w, Math.round(params.width / GRID_SIZE) * GRID_SIZE),
-            height: Math.max(minSize.h, Math.round(params.height / GRID_SIZE) * GRID_SIZE),
-          });
+          setNodeSize(id, { width: Math.max(minSize.w, Math.round(params.width / GRID_SIZE) * GRID_SIZE), height: Math.max(minSize.h, Math.round(params.height / GRID_SIZE) * GRID_SIZE) });
           useWorkflowStore.setState((state) => ({
             nodes: state.nodes.map((node) => (node.id === id ? { ...node, position: { x: Math.round(params.x / GRID_SIZE) * GRID_SIZE, y: Math.round(params.y / GRID_SIZE) * GRID_SIZE } } : node)),
             hasUnsavedChanges: true,
           }));
         }}
-        lineStyle={{
-          borderColor: def?.color || '#AF52DE',
-          borderWidth: 1,
-          borderStyle: 'dashed',
-          opacity: 0.3,
-        }}
-        handleStyle={{
-          width: 14,
-          height: 14,
-          borderRadius: 7,
-          backgroundColor: def?.color || '#AF52DE',
-          border: '2px solid var(--color-bg-primary)',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-        }}
+        lineStyle={{ borderColor: nodeColor, borderWidth: 1, borderStyle: 'dashed', opacity: 0.3 }}
+        handleStyle={{ width: 14, height: 14, borderRadius: 7, backgroundColor: nodeColor, border: '2px solid var(--color-bg-primary)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
       />
 
-      {/* Side ports */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="input"
-        isConnectable={isConnectable}
-        style={{
-          left: -6,
-          top: '50%',
-          transform: 'translateY(-50%)',
-        }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="video"
-        isConnectable={isConnectable}
-        style={{
-          right: -6,
-          top: '50%',
-          transform: 'translateY(-50%)',
-        }}
-      />
+      <Handle type="target" position={Position.Left} id="input" isConnectable={isConnectable}
+        maxConnections={99}
+        style={{ left: -6, top: '50%', transform: 'translateY(-50%)' }} />
+      <Handle type="source" position={Position.Right} id="result" isConnectable={isConnectable}
+        style={{ right: -6, top: '50%', transform: 'translateY(-50%)' }} />
 
-      {/* Content */}
       <div className="flow-node-v2__frame">
-        <NodeContent
-          type={type}
-          data={data}
-          nodeId={id}
-          def={def!}
-          updateNodeData={updateNodeData}
-          outputs={nodeOutputs}
-          showBottomBorder={false}
-          connectedInputCount={0}
-        />
+        <NodeContent type={type} data={data} nodeId={id} def={def!} updateNodeData={updateNodeData} outputs={nodeOutputs} showBottomBorder={false} connectedInputCount={0} />
       </div>
     </div>
   );
 }
 
-export default memo(VideoGenV2Node);
+export default memo(IoNode);

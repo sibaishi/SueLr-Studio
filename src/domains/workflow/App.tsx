@@ -1,13 +1,9 @@
-import AiChatV2StylePanel from '@/domains/workflow/components/AiChatV2StylePanel';
 import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
+import IoStylePanel from '@/domains/workflow/components/IoStylePanel';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
-import IterateImageRunV2StylePanel from '@/domains/workflow/components/IterateImageRunV2StylePanel';
-import IterateRunV2StylePanel from '@/domains/workflow/components/IterateRunV2StylePanel';
-import NodeStylePanel from '@/domains/workflow/components/NodeStylePanel';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import StatusBar from '@/domains/workflow/components/StatusBar';
-import VideoGenV2StylePanel from '@/domains/workflow/components/VideoGenV2StylePanel';
 import Toolbar from '@/domains/workflow/components/Toolbar';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
 import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
@@ -287,12 +283,8 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           onCloseDocument={handleCloseDocument}
         />
 
-        <NodeStylePanel />
-        <VideoGenV2StylePanel />
-        <AiChatV2StylePanel />
         <AiV3StylePanel />
-        <IterateRunV2StylePanel />
-        <IterateImageRunV2StylePanel />
+        <IoStylePanel />
       </div>
 
       {importErrorMessage && (

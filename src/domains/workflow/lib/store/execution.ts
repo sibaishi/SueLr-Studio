@@ -29,7 +29,7 @@ type WorkflowStoreExecutionActions = Pick<
   | 'syncExecutionRunStatus'
 >;
 
-const MULTI_INPUT_NODE_TYPES = new Set(['imageGenV2', 'videoGenV2', 'aiChatV2', 'aiV3', 'iterateRunV2', 'iterateImageRunV2']);
+const MULTI_INPUT_NODE_TYPES = new Set(['aiV3', 'io']);
 
 function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   const multiInputNodes = nodes.filter((n) => MULTI_INPUT_NODE_TYPES.has(n.type || ''));
@@ -75,8 +75,8 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   return sorted;
 }
 
-const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'aiChatV2', 'aiV3', 'imageGen', 'imageGenV2', 'videoGen', 'videoGenV2']);
-const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'aiChatV2', 'aiV3', 'imageGen', 'imageGenV2', 'videoGen', 'videoGenV2']);
+const AI_RESULT_NODE_TYPES = new Set(['aiV3']);
+const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiV3']);
 
 function sanitizeSavedFile(file: unknown) {
   if (!file || typeof file !== 'object') return file;
@@ -318,7 +318,7 @@ export function createWorkflowExecutionActions(
       lastExecutionSummary: null,
     });
 
-    // Reorder edges for multi-input nodes (imageGenV2) based on inputOrder
+    // Reorder edges for multi-input nodes (aiV3) based on inputOrder
     const sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);
     const executableGraphOrdered = { nodes: executableGraph.nodes, edges: sortedEdges };
 
@@ -328,6 +328,34 @@ export function createWorkflowExecutionActions(
       executableGraphOrdered.nodes,
       executableGraphOrdered.edges,
     );
+
+    // Inject _rawContent for io nodes into PAYLOAD only (not store)
+    for (const pnode of payload.nodes) {
+      if (pnode.type !== 'io') continue;
+      const nd = pnode.data as Record<string, unknown>;
+      const fileIds: number[] | undefined = nd._fileIds as number[] | undefined;
+      if (!fileIds?.length) continue;
+      const fileOrder: number[] = (nd._fileOrder as number[]) || [];
+      const orderMap = new Map(fileOrder.map((id, i) => [id, i]));
+      const sortedIds = [...fileIds].sort((a, b) => {
+        const ai = orderMap.get(a); const bi = orderMap.get(b);
+        if (ai !== undefined && bi !== undefined) return ai - bi;
+        if (ai !== undefined) return -1;
+        if (bi !== undefined) return 1;
+        return 0;
+      });
+      try {
+        const { fileRawStore } = await import('@/domains/workflow/components/nodes/io/fileRawStore');
+        const rawFiles: string[] = [];
+        for (const fid of sortedIds) {
+          const b64 = fileRawStore.getBase64(fid);
+          if (b64) rawFiles.push(b64);
+        }
+        if (rawFiles.length > 0) {
+          nd._rawContent = rawFiles.length === 1 ? rawFiles[0] : rawFiles;
+        }
+      } catch { /* fileRawStore not available, skip */ }
+    }
 
     const runtimeApiConfig =
       state.workflowRuntimeConfigs.length > 0 ? { configs: state.workflowRuntimeConfigs } : undefined;

@@ -32,17 +32,15 @@ export function getDroppedFileNodeType(file: File) {
   const mime = file.type.toLowerCase();
   const name = file.name.toLowerCase();
 
-  if (mime.startsWith('image/')) return 'imageInput';
-  if (mime.startsWith('video/')) return 'videoInput';
-  if (mime.startsWith('audio/')) return 'audioInput';
   if (
+    mime.startsWith('image/') ||
+    mime.startsWith('video/') ||
+    mime.startsWith('audio/') ||
     mime.startsWith('text/') ||
     mime === 'application/json' ||
-    /\.(txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml)$/i.test(
-      name,
-    )
+    /\.(txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml|png|jpg|jpeg|gif|webp|avif|bmp|svg|mp4|webm|mov|mkv|mp3|wav|ogg|aac|flac)$/i.test(name)
   ) {
-    return 'textInput';
+    return 'io';
   }
 
   return null;
