@@ -21,6 +21,8 @@ import { execute as executeVideoInput } from './videoInput.ts';
 import { execute as executeVideoMerge } from './videoMerge.ts';
 
 export const NODE_EXECUTORS = {
+  iterateRun: async () => ({}),
+  iterateImageRun: async () => ({}),
   textInput: executeTextInput,
   imageInput: executeImageInput,
   maskInput: executeMaskInput,

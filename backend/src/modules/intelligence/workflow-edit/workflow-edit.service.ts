@@ -128,6 +128,15 @@ function summarizeWorkflowCanvas(workflow: PlainObject | null) {
     nodeTypeCounts.set(type, (nodeTypeCounts.get(type) || 0) + 1);
   }
 
+  const hasIncomingEdge = (nodeId: string) =>
+    edges.some((edge) => cleanText((edge as PlainObject).target, 120) === nodeId);
+  const isInputNode = (node: PlainObject) => {
+    const nodeId = cleanText(node.id, 120);
+    const type = cleanText(node.type, 80);
+    if (type === 'io') return !hasIncomingEdge(nodeId);
+    return ['textInput', 'imageInput', 'videoInput', 'audioInput', 'maskInput'].includes(type);
+  };
+
   return {
     id: workflow.id,
     name: workflow.name,
@@ -137,11 +146,7 @@ function summarizeWorkflowCanvas(workflow: PlainObject | null) {
     signature: computeWorkflowSignature(workflow),
     nodeTypes: Array.from(nodeTypeCounts.entries()).map(([type, count]) => ({ type, count })),
     inputNodes: nodes
-      .filter((rawNode) =>
-        ['textInput', 'imageInput', 'videoInput', 'audioInput', 'maskInput'].includes(
-          cleanText((rawNode as PlainObject).type, 80),
-        ),
-      )
+      .filter((rawNode) => isInputNode(rawNode as PlainObject))
       .map((rawNode, index) => {
         const node = rawNode as PlainObject;
         const data = isPlainObject(node.data) ? node.data : {};
@@ -209,6 +214,10 @@ function buildEditPatchFromInstruction(workflow: PlainObject, instruction: strin
   const requestedRatio = extractRequestedRatio(instruction);
   const requestedFormat = extractRequestedFormat(instruction);
   const nodes = Array.isArray(nextWorkflow.nodes) ? (nextWorkflow.nodes as PlainObject[]) : [];
+  const isAiV3Mode = (node: PlainObject, mode: string) => {
+    const data = isPlainObject(node.data) ? node.data : {};
+    return cleanText(node.type, 80) === 'aiV3' && cleanText(data.mode, 40) === mode;
+  };
 
   if (requestedName && requestedName !== cleanText(nextWorkflow.name, 200)) {
     operations.push({
@@ -222,7 +231,7 @@ function buildEditPatchFromInstruction(workflow: PlainObject, instruction: strin
 
   if (requestedCount !== null) {
     let changed = false;
-    for (const node of nodes.filter((item) => cleanText(item.type, 80) === 'imageGen')) {
+    for (const node of nodes.filter((item) => isAiV3Mode(item, 'image'))) {
       changed =
         updateNodeField(node, 'n', requestedCount, operations, `调整图片生成数量为 ${requestedCount}`) || changed;
     }
@@ -240,7 +249,7 @@ function buildEditPatchFromInstruction(workflow: PlainObject, instruction: strin
 
   if (requestedRatio) {
     let changed = false;
-    for (const node of nodes.filter((item) => ['imageGen', 'videoGen'].includes(cleanText(item.type, 80)))) {
+    for (const node of nodes.filter((item) => isAiV3Mode(item, 'image') || isAiV3Mode(item, 'video'))) {
       changed =
         updateNodeField(node, 'ratio', requestedRatio, operations, `调整输出比例为 ${requestedRatio}`) || changed;
     }
@@ -249,7 +258,7 @@ function buildEditPatchFromInstruction(workflow: PlainObject, instruction: strin
 
   if (requestedFormat) {
     let changed = false;
-    for (const node of nodes.filter((item) => cleanText(item.type, 80) === 'imageGen')) {
+    for (const node of nodes.filter((item) => isAiV3Mode(item, 'image'))) {
       changed =
         updateNodeField(node, 'output_format', requestedFormat, operations, `调整图片输出格式为 ${requestedFormat}`) ||
         changed;

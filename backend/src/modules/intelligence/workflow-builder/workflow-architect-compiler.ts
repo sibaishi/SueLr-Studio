@@ -49,6 +49,23 @@ function normalizeNodeData(node: WorkflowArchitectDsl['nodes'][number], edges: W
     data.model = typeof data.model === 'string' ? data.model : '';
     data.duration = clampInteger(data.duration, 5, 1, 30);
   }
+  if (node.type === 'aiV3') {
+    const mode = typeof data.mode === 'string' ? data.mode : 'chat';
+    data.mode = mode;
+    data.model = typeof data.model === 'string' ? data.model : '';
+    if (mode === 'chat') {
+      data.temperature = Number.isFinite(Number(data.temperature)) ? Number(data.temperature) : 0.7;
+      data.maxTokens = clampInteger(data.maxTokens, 4096, 1, 32000);
+      data.systemPrompt = typeof data.systemPrompt === 'string' ? data.systemPrompt : '';
+    }
+    if (mode === 'image') {
+      data.n = clampInteger(data.n, 1, 1, 8);
+      data.output_format = typeof data.output_format === 'string' ? data.output_format : 'png';
+    }
+    if (mode === 'video') {
+      data.duration = clampInteger(data.duration, 5, 1, 30);
+    }
+  }
   if (node.type === 'imageSplit') {
     data.rows = clampInteger(data.rows, 3, 1, 3);
     data.columns = clampInteger(data.columns, 3, 1, 3);

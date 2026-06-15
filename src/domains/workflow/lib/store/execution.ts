@@ -147,13 +147,11 @@ function appendRepeatedNodeOutputs(existing: Record<string, unknown> | undefined
   return merged;
 }
 
-function shouldPersistTextInputOutput(state: WorkflowState, nodeId: string, outputs: Record<string, unknown>) {
+function shouldPersistIoOutput(state: WorkflowState, nodeId: string, outputs: Record<string, unknown>) {
   const node = state.nodes.find((item) => item.id === nodeId);
-  if (node?.type !== 'textInput') return false;
-  if (typeof outputs.text !== 'string') return false;
-  return state.edges.some(
-    (edge) => edge.target === nodeId && ['input', 'text'].includes(String(edge.targetHandle || '')),
-  );
+  if (node?.type !== 'io') return false;
+  if (!Object.prototype.hasOwnProperty.call(outputs, 'result')) return false;
+  return state.edges.some((edge) => edge.target === nodeId && String(edge.targetHandle || '') === 'input');
 }
 
 function buildTextSplitSegmentsFromOutputs(outputs: Record<string, unknown>) {
@@ -509,7 +507,7 @@ export function createWorkflowExecutionActions(
           details: formatLogDetails(data.logOutputs ?? sanitizedOutputs),
         });
         set((currentState) => {
-          const persistTextOutput = shouldPersistTextInputOutput(currentState, data.nodeId, sanitizedOutputs);
+          const persistIoOutput = shouldPersistIoOutput(currentState, data.nodeId, sanitizedOutputs);
           const persistTextSplitOutput = shouldPersistTextSplitOutput(currentState, data.nodeId, sanitizedOutputs);
           const activeCount = Math.max(0, (currentState.nodeExecutionActiveCounts[data.nodeId] || 0) - 1);
           const completedCount = (currentState.nodeExecutionCompletedCounts[data.nodeId] || 0) + 1;
@@ -527,14 +525,14 @@ export function createWorkflowExecutionActions(
           return {
             executionMessage: `${nodeLabel} 执行完成`,
             nodes:
-              persistTextOutput || persistTextSplitOutput
+              persistIoOutput || persistTextSplitOutput
                 ? currentState.nodes.map((node) =>
                     node.id === data.nodeId
                       ? {
                           ...node,
                           data: {
                             ...node.data,
-                            ...(persistTextOutput ? { text: sanitizedOutputs.text } : {}),
+                            ...(persistIoOutput ? { content: sanitizedOutputs.result } : {}),
                             ...(persistTextSplitOutput
                               ? { segments: buildTextSplitSegmentsFromOutputs(sanitizedOutputs) }
                               : {}),
@@ -543,7 +541,7 @@ export function createWorkflowExecutionActions(
                       : node,
                   )
                 : currentState.nodes,
-            hasUnsavedChanges: persistTextOutput || persistTextSplitOutput ? true : currentState.hasUnsavedChanges,
+            hasUnsavedChanges: persistIoOutput || persistTextSplitOutput ? true : currentState.hasUnsavedChanges,
             nodeExecStatus: {
               ...currentState.nodeExecStatus,
               [data.nodeId]: allKnownExecutionsCompleted ? 'success' : 'running',

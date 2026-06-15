@@ -31,7 +31,7 @@ describe('workflow store execution actions', () => {
       nodes: [
         {
           id: 'outer_prompt',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { text: 'hello group' },
         },
@@ -44,8 +44,8 @@ describe('workflow store execution actions', () => {
               {
                 id: 'port_in',
                 label: '输入 1',
-                type: 'string',
-                binding: { nodeId: 'inner_ai', handleId: 'prompt' },
+                type: 'any',
+                binding: { nodeId: 'inner_ai', handleId: 'input' },
               },
               {
                 id: 'port_in_empty',
@@ -58,8 +58,8 @@ describe('workflow store execution actions', () => {
               {
                 id: 'port_out',
                 label: '输出 1',
-                type: 'string',
-                binding: { nodeId: 'inner_ai', handleId: 'response' },
+                type: 'any',
+                binding: { nodeId: 'inner_ai', handleId: 'result' },
               },
               {
                 id: 'port_out_empty',
@@ -72,7 +72,7 @@ describe('workflow store execution actions', () => {
         },
         {
           id: 'inner_ai',
-          type: 'aiChat',
+          type: 'aiV3',
           position: { x: 48, y: 96 },
           parentId: 'group',
           extent: 'parent',
@@ -80,7 +80,7 @@ describe('workflow store execution actions', () => {
         },
         {
           id: 'outer_output',
-          type: 'output',
+          type: 'io',
           position: { x: 720, y: 0 },
           data: { disabled: false },
         },
@@ -89,7 +89,7 @@ describe('workflow store execution actions', () => {
         {
           id: 'edge_ext_in',
           source: 'outer_prompt',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'group',
           targetHandle: 'group-port:input:external:port_in',
         },
@@ -98,12 +98,12 @@ describe('workflow store execution actions', () => {
           source: 'group',
           sourceHandle: 'group-port:input:internal:port_in',
           target: 'inner_ai',
-          targetHandle: 'prompt',
+          targetHandle: 'input',
         },
         {
           id: 'edge_bind_out',
           source: 'inner_ai',
-          sourceHandle: 'response',
+          sourceHandle: 'result',
           target: 'group',
           targetHandle: 'group-port:output:internal:port_out',
         },
@@ -112,7 +112,7 @@ describe('workflow store execution actions', () => {
           source: 'group',
           sourceHandle: 'group-port:output:external:port_out',
           target: 'outer_output',
-          targetHandle: 'content',
+          targetHandle: 'input',
         },
       ],
       saveWorkflow: vi.fn(async () => true),
@@ -128,22 +128,22 @@ describe('workflow store execution actions', () => {
       'wf_local',
       expect.objectContaining({
         nodes: expect.arrayContaining([
-          expect.objectContaining({ id: 'outer_prompt', type: 'textInput' }),
-          expect.objectContaining({ id: 'inner_ai', type: 'aiChat' }),
-          expect.objectContaining({ id: 'outer_output', type: 'output' }),
+          expect.objectContaining({ id: 'outer_prompt', type: 'io' }),
+          expect.objectContaining({ id: 'inner_ai', type: 'aiV3' }),
+          expect.objectContaining({ id: 'outer_output', type: 'io' }),
         ]),
         edges: expect.arrayContaining([
           expect.objectContaining({
             source: 'outer_prompt',
-            sourceHandle: 'text',
+            sourceHandle: 'result',
             target: 'inner_ai',
-            targetHandle: 'prompt',
+            targetHandle: 'input',
           }),
           expect.objectContaining({
             source: 'inner_ai',
-            sourceHandle: 'response',
+            sourceHandle: 'result',
             target: 'outer_output',
-            targetHandle: 'content',
+            targetHandle: 'input',
           }),
         ]),
       }),
@@ -164,7 +164,7 @@ describe('workflow store execution actions', () => {
       nodes: [
         {
           id: 'ai_node',
-          type: 'aiChat',
+          type: 'aiV3',
           position: { x: 0, y: 0 },
           data: { disabled: false },
         },
@@ -191,26 +191,26 @@ describe('workflow store execution actions', () => {
       nodes: [
         {
           id: 'prompt',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { text: 'hello' },
         },
         {
           id: 'ai_node',
-          type: 'aiChat',
+          type: 'aiV3',
           position: { x: 200, y: 0 },
           data: { disabled: false },
         },
         {
           id: 'editable_text',
-          type: 'textInput',
+          type: 'io',
           position: { x: 400, y: 0 },
-          data: { text: 'local fallback' },
+          data: { content: 'local fallback' },
         },
       ],
       edges: [
-        { id: 'edge-prompt-ai', source: 'prompt', sourceHandle: 'text', target: 'ai_node', targetHandle: 'prompt' },
-        { id: 'edge-ai-text', source: 'ai_node', sourceHandle: 'response', target: 'editable_text', targetHandle: 'input' },
+        { id: 'edge-prompt-ai', source: 'prompt', sourceHandle: 'result', target: 'ai_node', targetHandle: 'input' },
+        { id: 'edge-ai-text', source: 'ai_node', sourceHandle: 'result', target: 'editable_text', targetHandle: 'input' },
       ],
     });
 
@@ -226,18 +226,18 @@ describe('workflow store execution actions', () => {
   it('executes only the upstream graph when running to a target node', async () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'a', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'a' } },
-        { id: 'b', type: 'textMerge', position: { x: 200, y: 0 }, data: {} },
-        { id: 'c', type: 'textInput', position: { x: 400, y: 0 }, data: {} },
-        { id: 'd', type: 'output', position: { x: 600, y: 0 }, data: {} },
-        { id: 'side', type: 'output', position: { x: 400, y: 160 }, data: {} },
-        { id: 'other', type: 'textInput', position: { x: 0, y: 160 }, data: { text: 'other' } },
+        { id: 'a', type: 'io', position: { x: 0, y: 0 }, data: { text: 'a' } },
+        { id: 'b', type: 'iterateRun', position: { x: 200, y: 0 }, data: {} },
+        { id: 'c', type: 'io', position: { x: 400, y: 0 }, data: {} },
+        { id: 'd', type: 'io', position: { x: 600, y: 0 }, data: {} },
+        { id: 'side', type: 'io', position: { x: 400, y: 160 }, data: {} },
+        { id: 'other', type: 'io', position: { x: 0, y: 160 }, data: { text: 'other' } },
       ],
       edges: [
-        { id: 'ab', source: 'a', sourceHandle: 'text', target: 'b', targetHandle: 'text1' },
-        { id: 'bc', source: 'b', sourceHandle: 'text', target: 'c', targetHandle: 'input' },
-        { id: 'cd', source: 'c', sourceHandle: 'text', target: 'd', targetHandle: 'content' },
-        { id: 'b-side', source: 'b', sourceHandle: 'text', target: 'side', targetHandle: 'content' },
+        { id: 'ab', source: 'a', sourceHandle: 'result', target: 'b', targetHandle: 'item1' },
+        { id: 'bc', source: 'b', sourceHandle: 'result', target: 'c', targetHandle: 'input' },
+        { id: 'cd', source: 'c', sourceHandle: 'result', target: 'd', targetHandle: 'input' },
+        { id: 'b-side', source: 'b', sourceHandle: 'result', target: 'side', targetHandle: 'input' },
       ],
     });
 
@@ -257,13 +257,13 @@ describe('workflow store execution actions', () => {
   it('running to a non-output node skips full AI terminal validation', async () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'prompt', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'hello' } },
-        { id: 'ai_node', type: 'aiChat', position: { x: 200, y: 0 }, data: { disabled: false } },
+        { id: 'prompt', type: 'io', position: { x: 0, y: 0 }, data: { text: 'hello' } },
+        { id: 'ai_node', type: 'aiV3', position: { x: 200, y: 0 }, data: { disabled: false } },
         { id: 'clean_node', type: 'textClean', position: { x: 400, y: 0 }, data: {} },
       ],
       edges: [
-        { id: 'prompt-ai', source: 'prompt', sourceHandle: 'text', target: 'ai_node', targetHandle: 'prompt' },
-        { id: 'ai-clean', source: 'ai_node', sourceHandle: 'response', target: 'clean_node', targetHandle: 'text' },
+        { id: 'prompt-ai', source: 'prompt', sourceHandle: 'result', target: 'ai_node', targetHandle: 'input' },
+        { id: 'ai-clean', source: 'ai_node', sourceHandle: 'result', target: 'clean_node', targetHandle: 'text' },
       ],
     });
 
@@ -279,11 +279,11 @@ describe('workflow store execution actions', () => {
   it('does not run to an AI capability node', async () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'prompt', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'hello' } },
-        { id: 'ai_node', type: 'aiChat', position: { x: 200, y: 0 }, data: { disabled: false } },
+        { id: 'prompt', type: 'io', position: { x: 0, y: 0 }, data: { text: 'hello' } },
+        { id: 'ai_node', type: 'aiV3', position: { x: 200, y: 0 }, data: { disabled: false } },
       ],
       edges: [
-        { id: 'prompt-ai', source: 'prompt', sourceHandle: 'text', target: 'ai_node', targetHandle: 'prompt' },
+        { id: 'prompt-ai', source: 'prompt', sourceHandle: 'result', target: 'ai_node', targetHandle: 'input' },
       ],
     });
 
@@ -296,10 +296,10 @@ describe('workflow store execution actions', () => {
     expect(harness.getState().workflowWarningMessage).toBe('无法运行到该节点：目标节点不存在或不可执行');
   });
 
-  it('does not run to a source-only node without inputs', async () => {
+  it('runs to a standalone io node because io is executable in the current catalog', async () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'source', type: 'apiKeyInput', position: { x: 0, y: 0 }, data: { apiKey: 'secret' } },
+        { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: { apiKey: 'secret' } },
       ],
     });
 
@@ -308,8 +308,8 @@ describe('workflow store execution actions', () => {
 
     await actions.executeWorkflowToNode('source');
 
-    expect(api.executeWorkflow).not.toHaveBeenCalled();
-    expect(harness.getState().workflowWarningMessage).toBe('无法运行到该节点：目标节点不存在或不可执行');
+    expect(api.executeWorkflow).toHaveBeenCalledTimes(1);
+    expect(harness.getState().workflowWarningMessage).toBeNull();
   });
 
   it('clears a stale active run snapshot when the upstream run is no longer running', async () => {
@@ -424,18 +424,18 @@ describe('workflow store execution actions', () => {
       nodes: [
         {
           id: 'text_node',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { text: 'hello' },
         },
         {
           id: 'output_node',
-          type: 'output',
+          type: 'io',
           position: { x: 320, y: 0 },
           data: { disabled: false },
         },
       ],
-      edges: [{ id: 'edge-1', source: 'text_node', sourceHandle: 'text', target: 'output_node', targetHandle: 'content' }],
+      edges: [{ id: 'edge-1', source: 'text_node', sourceHandle: 'result', target: 'output_node', targetHandle: 'input' }],
       saveWorkflow,
       addExecutionLog,
     });
@@ -452,18 +452,18 @@ describe('workflow store execution actions', () => {
       expect.objectContaining({
         name: 'Test Workflow',
         nodes: expect.arrayContaining([
-          expect.objectContaining({ id: 'text_node', type: 'textInput' }),
+          expect.objectContaining({ id: 'text_node', type: 'io' }),
         ]),
       }),
       expect.any(Object),
     );
   });
 
-  it('writes upstream textInput execution output back into node text', async () => {
+  it('writes upstream io execution output back into node content', async () => {
     vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
       callbacks.onNodeComplete?.({
         nodeId: 'editable_text',
-        outputs: { text: 'from upstream' },
+        outputs: { result: 'from upstream' },
         duration: 1,
       });
       callbacks.onWorkflowComplete?.({
@@ -478,18 +478,18 @@ describe('workflow store execution actions', () => {
       nodes: [
         {
           id: 'source_text',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
-          data: { text: 'from upstream' },
+          data: { content: 'from upstream' },
         },
         {
           id: 'editable_text',
-          type: 'textInput',
+          type: 'io',
           position: { x: 300, y: 0 },
-          data: { text: 'local fallback' },
+          data: { content: 'local fallback' },
         },
       ],
-      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'text', target: 'editable_text', targetHandle: 'input' }],
+      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'result', target: 'editable_text', targetHandle: 'input' }],
       saveWorkflow: vi.fn(async () => false),
       addExecutionLog: vi.fn(),
     });
@@ -500,7 +500,7 @@ describe('workflow store execution actions', () => {
     await actions.executeWorkflow();
 
     const state = harness.getState();
-    expect(state.nodes.find((node) => node.id === 'editable_text')?.data.text).toBe('from upstream');
+    expect(state.nodes.find((node) => node.id === 'editable_text')?.data.content).toBe('from upstream');
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
@@ -523,7 +523,7 @@ describe('workflow store execution actions', () => {
       nodes: [
         {
           id: 'source_text',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { text: 'first\n---\nsecond' },
         },
@@ -534,7 +534,7 @@ describe('workflow store execution actions', () => {
           data: { outputCount: 2, segments: ['local first', 'local second'] },
         },
       ],
-      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'text', target: 'split_node', targetHandle: 'text' }],
+      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'result', target: 'split_node', targetHandle: 'text' }],
       saveWorkflow: vi.fn(async () => false),
       addExecutionLog: vi.fn(),
     });

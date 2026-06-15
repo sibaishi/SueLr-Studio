@@ -133,9 +133,9 @@ test('ExecutionService stores sanitized node outputs in workflow run logs', asyn
     nodes: [
       {
         id: 'text-1',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 0 },
-        data: { text: inlineImage },
+        data: { content: inlineImage },
       },
     ],
     edges: [],
@@ -171,21 +171,21 @@ test('ExecutionService stores sanitized node outputs in workflow run logs', asyn
     (entry) => entry.event === 'workflow_node_completed' && entry.data.nodeId === 'text-1',
   );
   assert.ok(completedEntry);
-  assert.equal(completedEntry.data.outputs.text.kind, 'inline-data-url');
-  assert.equal(completedEntry.data.outputs.text.mimeType, 'image/png');
-  assert.equal(completedEntry.data.outputs.text.encoding, 'base64');
-  assert.equal(completedEntry.data.outputs.text.length, inlineImage.length);
-  assert.match(completedEntry.data.outputs.text.preview, /^data:image\/png;base64,/);
-  assert.match(completedEntry.data.outputs.text.artifact, /\.dataurl\.txt$/);
+  assert.equal(completedEntry.data.outputs.result.kind, 'inline-data-url');
+  assert.equal(completedEntry.data.outputs.result.mimeType, 'image/png');
+  assert.equal(completedEntry.data.outputs.result.encoding, 'base64');
+  assert.equal(completedEntry.data.outputs.result.length, inlineImage.length);
+  assert.match(completedEntry.data.outputs.result.preview, /^data:image\/png;base64,/);
+  assert.match(completedEntry.data.outputs.result.artifact, /\.dataurl\.txt$/);
 
-  const artifactPath = path.join(path.dirname(logPath), completedEntry.data.outputs.text.artifact);
+  const artifactPath = path.join(path.dirname(logPath), completedEntry.data.outputs.result.artifact);
   assert.equal(fs.existsSync(artifactPath), true);
   assert.equal(fs.readFileSync(artifactPath, 'utf8'), inlineImage);
 
   const sseCompletedEvent = sseEvents.find(
     ({ event, data }) => event === 'workflow_node_completed' && data.nodeId === 'text-1',
   );
-  assert.equal(sseCompletedEvent.data.outputs.text, inlineImage);
+  assert.equal(sseCompletedEvent.data.outputs.result, inlineImage);
 });
 
 test('ExecutionService.executeForAgent resolves saved workflows by name and returns key outputs', async () => {
@@ -196,13 +196,13 @@ test('ExecutionService.executeForAgent resolves saved workflows by name and retu
     nodes: [
       {
         id: 'text-1',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 0 },
-        data: { text: 'workflow output text' },
+        data: { content: 'workflow output text' },
       },
       {
         id: 'output-1',
-        type: 'output',
+        type: 'io',
         position: { x: 100, y: 0 },
         data: {},
       },
@@ -211,9 +211,9 @@ test('ExecutionService.executeForAgent resolves saved workflows by name and retu
       {
         id: 'edge-1',
         source: 'text-1',
-        sourceHandle: 'text',
+        sourceHandle: 'result',
         target: 'output-1',
-        targetHandle: 'content',
+        targetHandle: 'input',
       },
     ],
     settings: {},
@@ -251,13 +251,13 @@ test('ExecutionService.executeForAgent applies input overrides as a draft run an
     nodes: [
       {
         id: 'node_prompt',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 0 },
-        data: { text: 'original prompt' },
+        data: { content: 'original prompt' },
       },
       {
         id: 'output-1',
-        type: 'output',
+        type: 'io',
         position: { x: 100, y: 0 },
         data: {},
       },
@@ -266,9 +266,9 @@ test('ExecutionService.executeForAgent applies input overrides as a draft run an
       {
         id: 'edge-1',
         source: 'node_prompt',
-        sourceHandle: 'text',
+        sourceHandle: 'result',
         target: 'output-1',
-        targetHandle: 'content',
+        targetHandle: 'input',
       },
     ],
     settings: {},
@@ -300,8 +300,8 @@ test('ExecutionService.executeForAgent applies input overrides as a draft run an
   assert.deepEqual(result.appliedInputs, [
     {
       nodeId: 'node_prompt',
-      nodeType: 'textInput',
-      field: 'text',
+      nodeType: 'io',
+      field: 'content',
       matchedBy: 'node_prompt',
     },
   ]);
@@ -312,7 +312,7 @@ test('ExecutionService.executeForAgent applies input overrides as a draft run an
   assert.equal(runStarted?.appliedInputs?.[0]?.nodeId, 'node_prompt');
 });
 
-test('ExecutionService.executeForAgent matches human-friendly input aliases like 文本输入1', async () => {
+test('ExecutionService.executeForAgent matches human-friendly input aliases like text1', async () => {
   const workflow = {
     id: 'wf_agent_alias',
     name: 'Agent Alias Workflow',
@@ -320,19 +320,19 @@ test('ExecutionService.executeForAgent matches human-friendly input aliases like
     nodes: [
       {
         id: 'first_prompt',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 0 },
-        data: { text: 'original first' },
+        data: { content: 'original first' },
       },
       {
         id: 'second_prompt',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 80 },
-        data: { text: 'original second' },
+        data: { content: 'original second' },
       },
       {
         id: 'output-1',
-        type: 'output',
+        type: 'io',
         position: { x: 100, y: 0 },
         data: {},
       },
@@ -341,9 +341,9 @@ test('ExecutionService.executeForAgent matches human-friendly input aliases like
       {
         id: 'edge-1',
         source: 'first_prompt',
-        sourceHandle: 'text',
+        sourceHandle: 'result',
         target: 'output-1',
-        targetHandle: 'content',
+        targetHandle: 'input',
       },
     ],
     settings: {},
@@ -360,7 +360,7 @@ test('ExecutionService.executeForAgent matches human-friendly input aliases like
   const result = await service.executeForAgent({
     workflowId: 'wf_agent_alias',
     inputs: {
-      文本输入1: '兄弟你好香啊',
+      text1: 'updated alias value',
     },
     apiConfig: {},
   });
@@ -368,7 +368,7 @@ test('ExecutionService.executeForAgent matches human-friendly input aliases like
   assert.equal(result.status, 'completed');
   assert.equal(result.source, 'draft');
   assert.equal(result.appliedInputs[0]?.nodeId, 'first_prompt');
-  assert.equal(result.appliedInputs[0]?.matchedBy, '文本输入1');
+  assert.equal(result.appliedInputs[0]?.matchedBy, 'text1');
   assert.match(result.summary, /appliedInputs: first_prompt/);
 });
 
@@ -380,9 +380,9 @@ test('ExecutionService.executeForAgent throws when no requested input keys match
     nodes: [
       {
         id: 'question',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 0 },
-        data: { text: 'original' },
+        data: { content: 'original' },
       },
     ],
     edges: [],
@@ -410,23 +410,23 @@ test('ExecutionService.executeForAgent throws when no requested input keys match
   );
 });
 
-test('ExecutionService.executeForAgent applies mask input overrides before execution', async () => {
+test('ExecutionService.executeForAgent applies image-like io overrides before execution', async () => {
   const whitePixelPng =
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=';
   const workflow = {
-    id: 'wf_agent_mask_input',
-    name: 'Agent Mask Input Workflow',
+    id: 'wf_agent_image_input',
+    name: 'Agent Image Input Workflow',
     version: 1,
     nodes: [
       {
-        id: 'node_mask',
-        type: 'maskInput',
+        id: 'node_image',
+        type: 'io',
         position: { x: 0, y: 0 },
-        data: { fileUrl: '' },
+        data: { content: '' },
       },
       {
         id: 'output-1',
-        type: 'output',
+        type: 'io',
         position: { x: 100, y: 0 },
         data: {},
       },
@@ -434,10 +434,10 @@ test('ExecutionService.executeForAgent applies mask input overrides before execu
     edges: [
       {
         id: 'edge-1',
-        source: 'node_mask',
-        sourceHandle: 'mask',
+        source: 'node_image',
+        sourceHandle: 'result',
         target: 'output-1',
-        targetHandle: 'content',
+        targetHandle: 'input',
       },
     ],
     settings: {},
@@ -452,9 +452,9 @@ test('ExecutionService.executeForAgent applies mask input overrides before execu
   });
 
   const result = await service.executeForAgent({
-    workflowId: 'wf_agent_mask_input',
+    workflowId: 'wf_agent_image_input',
     inputs: {
-      mask: { maskUrl: whitePixelPng },
+      image: { imageUrl: whitePixelPng },
     },
     apiConfig: {},
   });
@@ -463,11 +463,11 @@ test('ExecutionService.executeForAgent applies mask input overrides before execu
   assert.equal(result.source, 'draft');
   assert.deepEqual(result.appliedInputs, [
     {
-      nodeId: 'node_mask',
-      nodeType: 'maskInput',
-      field: 'fileUrl',
-      matchedBy: 'mask',
+      nodeId: 'node_image',
+      nodeType: 'io',
+      field: 'content',
+      matchedBy: 'image',
     },
   ]);
-  assert.match(result.summary, /appliedInputs: node_mask/);
+  assert.match(result.summary, /appliedInputs: node_image/);
 });

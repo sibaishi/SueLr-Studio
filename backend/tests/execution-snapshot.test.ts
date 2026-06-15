@@ -12,7 +12,7 @@ test('execution snapshot keeps persisted workflow identity and draft source', as
       version: 1,
       createdAt: 10,
       updatedAt: 20,
-      nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'persisted' } }],
+      nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'persisted' } }],
       edges: [],
       settings: {},
     },
@@ -22,7 +22,7 @@ test('execution snapshot keeps persisted workflow identity and draft source', as
       version: 1,
       createdAt: 10,
       updatedAt: 20,
-      nodes: [{ id: 'node-1', type: 'textInput', position: { x: 4, y: 8 }, data: { text: 'draft' } }],
+      nodes: [{ id: 'node-1', type: 'io', position: { x: 4, y: 8 }, data: { content: 'draft' } }],
       edges: [],
       settings: {},
     },
@@ -33,7 +33,7 @@ test('execution snapshot keeps persisted workflow identity and draft source', as
   assert.equal(snapshot.workflowId, 'wf_persisted');
   assert.equal(snapshot.source, 'draft');
   assert.equal(snapshot.snapshotVersion, CURRENT_SNAPSHOT_VERSION);
-  assert.equal(snapshot.nodes[0].data.text, 'draft');
+  assert.equal(snapshot.nodes[0].data.content, 'draft');
   assert.equal(snapshot.nodes[0].position.x, 4);
 });
 
@@ -47,7 +47,7 @@ test('execution snapshot generates persisted source when no draft exists', async
       version: 1,
       createdAt: 11,
       updatedAt: 22,
-      nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+      nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: {} }],
       edges: [],
       settings: {},
     },

@@ -75,13 +75,13 @@ describe('workflow store document actions', () => {
         name: 'Loaded Workflow',
         updatedAt: 3456,
         nodes: [
-          { id: 'outside', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+          { id: 'outside', type: 'io', position: { x: 0, y: 0 }, data: {} },
           { id: 'group', type: 'group', position: { x: 196, y: 0 }, data: {} },
-          { id: 'inner', type: 'aiChat', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
+          { id: 'inner', type: 'aiV3', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
         ],
         edges: [
-          { id: 'edge_in', source: 'outside', sourceHandle: 'text', target: 'inner', targetHandle: 'prompt' },
-          { id: 'edge_out', source: 'inner', sourceHandle: 'response', target: 'outside', targetHandle: 'text' },
+          { id: 'edge_in', source: 'outside', sourceHandle: 'result', target: 'inner', targetHandle: 'input' },
+          { id: 'edge_out', source: 'inner', sourceHandle: 'result', target: 'outside', targetHandle: 'input' },
           { id: 'edge_invalid', source: 'outside', target: 'missing_node' },
         ],
       }),
@@ -91,7 +91,7 @@ describe('workflow store document actions', () => {
     const harness = createWorkflowStoreHarness({
       workflowId: 'wf_old',
       workflowName: 'Stale Workflow',
-      nodes: [{ id: 'stale', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+      nodes: [{ id: 'stale', type: 'io', position: { x: 0, y: 0 }, data: {} }],
       edges: [{ id: 'edge_stale', source: 'stale', target: 'stale' }],
       isExecuting: true,
       currentRunId: 'run_old',
@@ -129,14 +129,14 @@ describe('workflow store document actions', () => {
       groupOutputs?: unknown[];
     };
     expect(groupData.groupInputs?.[0]).toMatchObject({
-      type: 'string',
-      insideLinks: [{ nodeId: 'inner', handleId: 'prompt' }],
-      outsideLinks: [{ nodeId: 'outside', handleId: 'text' }],
+      type: 'any',
+      insideLinks: [{ nodeId: 'inner', handleId: 'input' }],
+      outsideLinks: [{ nodeId: 'outside', handleId: 'result' }],
     });
     expect(groupData.groupOutputs?.[0]).toMatchObject({
-      type: 'string',
-      insideLinks: [{ nodeId: 'inner', handleId: 'response' }],
-      outsideLinks: [{ nodeId: 'outside', handleId: 'text' }],
+      type: 'any',
+      insideLinks: [{ nodeId: 'inner', handleId: 'result' }],
+      outsideLinks: [{ nodeId: 'outside', handleId: 'input' }],
     });
     expect(state.isExecuting).toBe(false);
     expect(state.currentRunId).toBeNull();
@@ -185,12 +185,12 @@ describe('workflow store document actions', () => {
         id: 'wf_imported',
         name: 'Imported Flow',
         nodes: [
-          { id: 'outside', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+          { id: 'outside', type: 'io', position: { x: 0, y: 0 }, data: {} },
           { id: 'group', type: 'group', position: { x: 196, y: 0 }, data: {} },
-          { id: 'inner', type: 'aiChat', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
+          { id: 'inner', type: 'aiV3', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
         ],
         edges: [
-          { id: 'edge_in', source: 'outside', sourceHandle: 'text', target: 'inner', targetHandle: 'prompt' },
+          { id: 'edge_in', source: 'outside', sourceHandle: 'result', target: 'inner', targetHandle: 'input' },
         ],
       }),
       report: createWorkflowImportReport(),
@@ -226,9 +226,9 @@ describe('workflow store document actions', () => {
       groupInputs?: unknown[];
     };
     expect(groupData.groupInputs?.[0]).toMatchObject({
-      type: 'string',
-      insideLinks: [{ nodeId: 'inner', handleId: 'prompt' }],
-      outsideLinks: [{ nodeId: 'outside', handleId: 'text' }],
+      type: 'any',
+      insideLinks: [{ nodeId: 'inner', handleId: 'input' }],
+      outsideLinks: [{ nodeId: 'outside', handleId: 'result' }],
     });
     expect(state.isExecuting).toBe(false);
     expect(state.currentRunId).toBeNull();
@@ -265,7 +265,7 @@ describe('workflow store document actions', () => {
       data: createPersistedWorkflow({
         id: 'wf_saved',
         name: 'Saved Workflow',
-        nodes: [{ id: 'saved_node', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+        nodes: [{ id: 'saved_node', type: 'io', position: { x: 0, y: 0 }, data: {} }],
       }),
     });
 
@@ -275,7 +275,7 @@ describe('workflow store document actions', () => {
     const draftDocumentId = harness.getState().activeDocumentId;
     harness.set({
       workflowName: 'Draft A',
-      nodes: [{ id: 'draft_node', type: 'textInput', position: { x: 1, y: 1 }, data: {} }],
+      nodes: [{ id: 'draft_node', type: 'io', position: { x: 1, y: 1 }, data: {} }],
       hasUnsavedChanges: true,
     });
 
@@ -293,7 +293,7 @@ describe('workflow store document actions', () => {
     const harness = createWorkflowStoreHarness({
       workflowId: 'wf_last',
       workflowName: 'Last Workflow',
-      nodes: [{ id: 'last_node', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+      nodes: [{ id: 'last_node', type: 'io', position: { x: 0, y: 0 }, data: {} }],
       hasUnsavedChanges: false,
       documents: [
         {
@@ -302,7 +302,7 @@ describe('workflow store document actions', () => {
           workflowId: 'wf_last',
           sourceWorkflowId: 'wf_last',
           name: 'Last Workflow',
-          nodes: [{ id: 'last_node', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+          nodes: [{ id: 'last_node', type: 'io', position: { x: 0, y: 0 }, data: {} }],
           origin: 'saved',
         },
       ],

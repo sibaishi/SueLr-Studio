@@ -28,6 +28,7 @@ const allowedMarkdownDocs = new Set([
   'docs/user-guide.md',
   'docs/developer-guide.md',
   'docs/release-sop.md',
+  'docs/imageGenV2-changes.md',
   'docs/intelligence/README.md',
   'docs/intelligence/00-master-plan.md',
   'docs/intelligence/01-phased-execution-plan.md',

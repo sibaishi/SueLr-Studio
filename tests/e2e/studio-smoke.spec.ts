@@ -15,12 +15,18 @@ async function clearLocalState(page: import('@playwright/test').Page) {
 
 async function addTextInputNode(page: import('@playwright/test').Page) {
   await page.getByTestId('workflow-add-node').click();
-  await page.getByTestId('workflow-node-catalog-item-textInput').click();
+  await page.getByTestId('workflow-node-catalog-item-io').click();
 }
 
 async function openSettings(page: import('@playwright/test').Page) {
   await page.getByTestId('workflow-open-settings').click();
   await expect(page.getByTestId('settings-page')).toBeVisible();
+}
+
+async function openConnectionSettings(page: import('@playwright/test').Page) {
+  await openSettings(page);
+  await page.getByTestId('settings-module-connection').click();
+  await expect(page.getByTestId('settings-base-url-field')).toBeVisible();
 }
 
 async function readPersistedStudioConfig(page: import('@playwright/test').Page) {
@@ -130,7 +136,7 @@ test.describe('studio smoke', () => {
     const apiKey = `sk-e2e-${seed}`;
 
     await clearLocalState(page);
-    await openSettings(page);
+    await openConnectionSettings(page);
     await expect(page.locator('.splash-overlay')).toHaveCount(0);
 
     const configNameInput = page.getByTestId('settings-config-name-field').locator('input');
@@ -160,7 +166,7 @@ test.describe('studio smoke', () => {
     }));
 
     await page.reload();
-    await openSettings(page);
+    await openConnectionSettings(page);
 
     await expect(configNameInput).toHaveValue(configName);
     await expect(baseUrlInput).toHaveValue(baseUrl);
@@ -361,7 +367,7 @@ test.describe('studio smoke', () => {
 
   test('settings connection test syncs models into import list', async ({ page }) => {
     await clearLocalState(page);
-    await openSettings(page);
+    await openConnectionSettings(page);
 
     await page.route('**/api/settings/test-api', async (route) => {
       await route.fulfill({
@@ -399,7 +405,7 @@ test.describe('studio smoke', () => {
 
   test('settings connection failure shows visible feedback and does not import phantom models', async ({ page }) => {
     await clearLocalState(page);
-    await openSettings(page);
+    await openConnectionSettings(page);
 
     await page.route('**/api/settings/test-api', async (route) => {
       await route.fulfill({
@@ -420,9 +426,14 @@ test.describe('studio smoke', () => {
     await page.getByTestId('settings-provider-auth-type').selectOption('api-key');
     await page.getByTestId('settings-provider-models-endpoint').fill('/v1/models');
 
+    const failedConnection = page.waitForResponse(
+      (response) => response.url().includes('/api/settings/test-api') && response.status() === 502,
+    );
     await page.getByTestId('settings-test-connection').click();
+    await failedConnection;
 
-    await expect(page.locator('text=ERROR')).toBeVisible();
+    await page.getByTestId('settings-module-diagnostics').click();
+    await expect(page.getByTestId('settings-page')).toContainText('上游连接超时');
     await expect(page.getByTestId('settings-importable-models-panel')).toHaveCount(0);
     await expect(page.locator('[data-testid^="settings-project-model-card-"]')).toHaveCount(0);
   });

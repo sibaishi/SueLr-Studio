@@ -139,11 +139,19 @@ function stage(
   input: Omit<WorkflowDraftStage, 'knowledgeIds'> & { knowledgeIds?: string[] },
   knowledge: ReturnType<typeof summarizeKnowledge>,
 ): WorkflowDraftStage {
-  const nodeKnowledgeId = knowledge.nodeCapabilityIds.get(input.nodeType);
+  const nodeType = normalizePlannerNodeType(input.nodeType);
+  const nodeKnowledgeId = knowledge.nodeCapabilityIds.get(nodeType);
   return {
     ...input,
+    nodeType,
     knowledgeIds: Array.from(new Set([nodeKnowledgeId, ...(input.knowledgeIds || [])].filter(Boolean) as string[])),
   };
+}
+
+function normalizePlannerNodeType(type: string) {
+  if (['textInput', 'imageInput', 'videoInput', 'audioInput', 'saveFile', 'output'].includes(type)) return 'io';
+  if (['aiChat', 'imageGen', 'videoGen'].includes(type)) return 'aiV3';
+  return type;
 }
 
 function appendKnowledgeDescription(description: string, knowledge: ReturnType<typeof summarizeKnowledge>) {

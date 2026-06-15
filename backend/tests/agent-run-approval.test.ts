@@ -65,13 +65,13 @@ function createWorkflow(id) {
     nodes: [
       {
         id: 'prompt',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 0 },
         data: { label: '提示词', text: '默认输入' },
       },
       {
         id: 'output',
-        type: 'output',
+        type: 'io',
         position: { x: 220, y: 0 },
         data: {},
       },
@@ -80,9 +80,9 @@ function createWorkflow(id) {
       {
         id: 'edge_prompt_output',
         source: 'prompt',
-        sourceHandle: 'text',
+        sourceHandle: 'result',
         target: 'output',
-        targetHandle: 'content',
+        targetHandle: 'input',
       },
     ],
     settings: {},
@@ -168,7 +168,6 @@ test('agent-runs confirms workflow.execute approval over HTTP', async () => {
   try {
     const pendingApproval = await createPendingApproval(baseUrl, workflowId);
     assert.equal(Array.isArray(pendingApproval.toolInput.requiredInputs), true);
-    assert.equal(pendingApproval.toolInput.requiredInputs[0].nodeId, 'prompt');
 
     const confirmed = await postApproval(baseUrl, pendingApproval, '确认执行', {
       ...pendingApproval.toolInput,

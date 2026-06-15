@@ -31,14 +31,14 @@ async function runWorkflow(workflow) {
 test('iterateRun executes downstream once per connected text input', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
-      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+      { id: 'promptA', type: 'io', data: { content: 'alpha' } },
+      { id: 'promptB', type: 'io', data: { content: 'beta' } },
       { id: 'iterate', type: 'iterateRun', data: { inputCount: 3 } },
       { id: 'clean', type: 'textClean', data: {} },
     ],
     edges: [
-      edge('a-iterate', 'promptA', 'text', 'iterate', 'item1'),
-      edge('b-iterate', 'promptB', 'text', 'iterate', 'item2'),
+      edge('a-iterate', 'promptA', 'result', 'iterate', 'item1'),
+      edge('b-iterate', 'promptB', 'result', 'iterate', 'item2'),
       edge('iterate-clean', 'iterate', 'text', 'clean', 'text'),
     ],
   });
@@ -61,14 +61,14 @@ test('iterateRun executes downstream once per connected text input', async () =>
 test('iterateRun skips empty text inputs', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
-      { id: 'promptB', type: 'textInput', data: { text: '' } },
+      { id: 'promptA', type: 'io', data: { content: 'alpha' } },
+      { id: 'promptB', type: 'io', data: { content: '' } },
       { id: 'iterate', type: 'iterateRun', data: { inputCount: 3 } },
       { id: 'clean', type: 'textClean', data: {} },
     ],
     edges: [
-      edge('a-iterate', 'promptA', 'text', 'iterate', 'item1'),
-      edge('b-iterate', 'promptB', 'text', 'iterate', 'item2'),
+      edge('a-iterate', 'promptA', 'result', 'iterate', 'item1'),
+      edge('b-iterate', 'promptB', 'result', 'iterate', 'item2'),
       edge('iterate-clean', 'iterate', 'text', 'clean', 'text'),
     ],
   });
@@ -84,21 +84,21 @@ test('iterateRun skips empty text inputs', async () => {
 test('iterateRun supports multiple independent control nodes', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
-      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
-      { id: 'promptC', type: 'textInput', data: { text: 'gamma' } },
-      { id: 'promptD', type: 'textInput', data: { text: 'delta' } },
+      { id: 'promptA', type: 'io', data: { content: 'alpha' } },
+      { id: 'promptB', type: 'io', data: { content: 'beta' } },
+      { id: 'promptC', type: 'io', data: { content: 'gamma' } },
+      { id: 'promptD', type: 'io', data: { content: 'delta' } },
       { id: 'iterateA', type: 'iterateRun', data: { inputCount: 2 } },
       { id: 'iterateB', type: 'iterateRun', data: { inputCount: 2 } },
       { id: 'cleanA', type: 'textClean', data: {} },
       { id: 'cleanB', type: 'textClean', data: {} },
     ],
     edges: [
-      edge('a-iterate-a', 'promptA', 'text', 'iterateA', 'item1'),
-      edge('b-iterate-a', 'promptB', 'text', 'iterateA', 'item2'),
+      edge('a-iterate-a', 'promptA', 'result', 'iterateA', 'item1'),
+      edge('b-iterate-a', 'promptB', 'result', 'iterateA', 'item2'),
       edge('iterate-a-clean-a', 'iterateA', 'text', 'cleanA', 'text'),
-      edge('c-iterate-b', 'promptC', 'text', 'iterateB', 'item1'),
-      edge('d-iterate-b', 'promptD', 'text', 'iterateB', 'item2'),
+      edge('c-iterate-b', 'promptC', 'result', 'iterateB', 'item1'),
+      edge('d-iterate-b', 'promptD', 'result', 'iterateB', 'item2'),
       edge('iterate-b-clean-b', 'iterateB', 'text', 'cleanB', 'text'),
     ],
   });
@@ -126,15 +126,15 @@ test('iterateRun supports multiple independent control nodes', async () => {
 test('iterateRun supports nested control nodes', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
-      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+      { id: 'promptA', type: 'io', data: { content: 'alpha' } },
+      { id: 'promptB', type: 'io', data: { content: 'beta' } },
       { id: 'outer', type: 'iterateRun', data: { inputCount: 2 } },
       { id: 'inner', type: 'iterateRun', data: { inputCount: 1 } },
       { id: 'clean', type: 'textClean', data: {} },
     ],
     edges: [
-      edge('a-outer', 'promptA', 'text', 'outer', 'item1'),
-      edge('b-outer', 'promptB', 'text', 'outer', 'item2'),
+      edge('a-outer', 'promptA', 'result', 'outer', 'item1'),
+      edge('b-outer', 'promptB', 'result', 'outer', 'item2'),
       edge('outer-inner', 'outer', 'text', 'inner', 'item1'),
       edge('inner-clean', 'inner', 'text', 'clean', 'text'),
     ],
@@ -157,15 +157,15 @@ test('iterateRun supports nested control nodes', async () => {
 test('iterateImageRun executes downstream once per connected image input', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'imageA', type: 'imageInput', data: { fileUrl: '/api/files/a.png' } },
-      { id: 'imageB', type: 'imageInput', data: { fileUrl: '/api/files/b.png' } },
+      { id: 'imageA', type: 'io', data: { content: '/api/files/a.png' } },
+      { id: 'imageB', type: 'io', data: { content: '/api/files/b.png' } },
       { id: 'iterateImage', type: 'iterateImageRun', data: { inputCount: 3 } },
-      { id: 'output', type: 'output', data: {} },
+      { id: 'output', type: 'io', data: {} },
     ],
     edges: [
-      edge('a-iterate-image', 'imageA', 'image', 'iterateImage', 'item1'),
-      edge('b-iterate-image', 'imageB', 'image', 'iterateImage', 'item2'),
-      edge('iterate-image-output', 'iterateImage', 'image', 'output', 'content'),
+      edge('a-iterate-image', 'imageA', 'result', 'iterateImage', 'item1'),
+      edge('b-iterate-image', 'imageB', 'result', 'iterateImage', 'item2'),
+      edge('iterate-image-output', 'iterateImage', 'image', 'output', 'input'),
     ],
   });
 
@@ -174,7 +174,7 @@ test('iterateImageRun executes downstream once per connected image input', async
   );
 
   assert.equal(outputCompletions.length, 2);
-  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.content), [
+  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.result), [
     '/api/files/a.png',
     '/api/files/b.png',
   ]);
@@ -187,17 +187,17 @@ test('iterateImageRun executes downstream once per connected image input', async
 test('iterateImageRun expands image array inputs into sequential item runs', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'imageA', type: 'imageInput', data: { fileUrl: '/api/files/a.png' } },
-      { id: 'imageB', type: 'imageInput', data: { fileUrl: '/api/files/b.png' } },
-      { id: 'merge', type: 'imageMerge', data: { inputCount: 2 } },
+      { id: 'imageA', type: 'io', data: { content: '/api/files/a.png' } },
+      { id: 'imageB', type: 'io', data: { content: '/api/files/b.png' } },
+      { id: 'merge', type: 'io', data: { inputCount: 2 } },
       { id: 'iterateImage', type: 'iterateImageRun', data: { inputCount: 2 } },
-      { id: 'output', type: 'output', data: {} },
+      { id: 'output', type: 'io', data: {} },
     ],
     edges: [
-      edge('a-merge', 'imageA', 'image', 'merge', 'item1'),
-      edge('b-merge', 'imageB', 'image', 'merge', 'item2'),
-      edge('merged-to-iterate-image', 'merge', 'merged', 'iterateImage', 'item1'),
-      edge('iterate-image-output', 'iterateImage', 'image', 'output', 'content'),
+      edge('a-merge', 'imageA', 'result', 'merge', 'input'),
+      edge('b-merge', 'imageB', 'result', 'merge', 'input'),
+      edge('merged-to-iterate-image', 'merge', 'result', 'iterateImage', 'item1'),
+      edge('iterate-image-output', 'iterateImage', 'image', 'output', 'input'),
     ],
   });
 
@@ -205,7 +205,7 @@ test('iterateImageRun expands image array inputs into sequential item runs', asy
     (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
   );
   assert.equal(outputCompletions.length, 2);
-  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.content), [
+  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.result), [
     '/api/files/a.png',
     '/api/files/b.png',
   ]);
@@ -231,14 +231,14 @@ test('iterateRun executes item downstream segments concurrently', async () => {
   try {
     const runPromise = executeWorkflow({
       nodes: [
-        { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
-        { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+        { id: 'promptA', type: 'io', data: { content: 'alpha' } },
+        { id: 'promptB', type: 'io', data: { content: 'beta' } },
         { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
         { id: 'clean', type: 'textClean', data: {} },
       ],
       edges: [
-        edge('a-iterate', 'promptA', 'text', 'iterate', 'item1'),
-        edge('b-iterate', 'promptB', 'text', 'iterate', 'item2'),
+        edge('a-iterate', 'promptA', 'result', 'iterate', 'item1'),
+        edge('b-iterate', 'promptB', 'result', 'iterate', 'item2'),
         edge('iterate-clean', 'iterate', 'text', 'clean', 'text'),
       ],
     }, { workflowExecution: { enabled: true, maxConcurrency: 16 } }, (event, data) => {
@@ -289,14 +289,14 @@ test('iterateRun waits for concurrent item runs to settle before failing on one 
   try {
     const runPromise = executeWorkflow({
       nodes: [
-        { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
-        { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
+        { id: 'promptA', type: 'io', data: { content: 'alpha' } },
+        { id: 'promptB', type: 'io', data: { content: 'beta' } },
         { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
         { id: 'clean', type: 'textClean', data: {} },
       ],
       edges: [
-        edge('a-iterate', 'promptA', 'text', 'iterate', 'item1'),
-        edge('b-iterate', 'promptB', 'text', 'iterate', 'item2'),
+        edge('a-iterate', 'promptA', 'result', 'iterate', 'item1'),
+        edge('b-iterate', 'promptB', 'result', 'iterate', 'item2'),
         edge('iterate-clean', 'iterate', 'text', 'clean', 'text'),
       ],
     }, { workflowExecution: { enabled: true, maxConcurrency: 16 } }, (event, data) => {
@@ -329,15 +329,15 @@ test('iterateRun waits for concurrent item runs to settle before failing on one 
 test('merge nodes pass one grouped payload downstream', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
-      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
-      { id: 'merge', type: 'textMerge', data: { inputCount: 2 } },
-      { id: 'output', type: 'output', data: {} },
+      { id: 'promptA', type: 'io', data: { content: 'alpha' } },
+      { id: 'promptB', type: 'io', data: { content: 'beta' } },
+      { id: 'merge', type: 'io', data: { inputCount: 2 } },
+      { id: 'output', type: 'io', data: {} },
     ],
     edges: [
-      edge('a-merge', 'promptA', 'text', 'merge', 'item1'),
-      edge('b-merge', 'promptB', 'text', 'merge', 'item2'),
-      edge('merge-output', 'merge', 'merged', 'output', 'content'),
+      edge('a-merge', 'promptA', 'result', 'merge', 'input'),
+      edge('b-merge', 'promptB', 'result', 'merge', 'input'),
+      edge('merge-output', 'merge', 'result', 'output', 'input'),
     ],
   });
 
@@ -350,26 +350,26 @@ test('merge nodes pass one grouped payload downstream', async () => {
 
   assert.equal(mergeCompletions.length, 1);
   assert.equal(outputCompletions.length, 1);
-  assert.deepEqual(mergeCompletions[0].data.outputs, { merged: ['alpha', 'beta'] });
-  assert.deepEqual(outputCompletions[0].data.outputs.content, ['alpha', 'beta']);
+  assert.deepEqual(mergeCompletions[0].data.outputs.result, ['alpha', 'beta']);
+  assert.deepEqual(outputCompletions[0].data.outputs.result, ['alpha', 'beta']);
 });
 
 test('merge nodes flatten grouped inputs from other merge nodes', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'promptA', type: 'textInput', data: { text: 'alpha' } },
-      { id: 'promptB', type: 'textInput', data: { text: 'beta' } },
-      { id: 'promptC', type: 'textInput', data: { text: 'gamma' } },
-      { id: 'mergeA', type: 'textMerge', data: { inputCount: 2 } },
-      { id: 'mergeB', type: 'textMerge', data: { inputCount: 2 } },
-      { id: 'output', type: 'output', data: {} },
+      { id: 'promptA', type: 'io', data: { content: 'alpha' } },
+      { id: 'promptB', type: 'io', data: { content: 'beta' } },
+      { id: 'promptC', type: 'io', data: { content: 'gamma' } },
+      { id: 'mergeA', type: 'io', data: { inputCount: 2 } },
+      { id: 'mergeB', type: 'io', data: { inputCount: 2 } },
+      { id: 'output', type: 'io', data: {} },
     ],
     edges: [
-      edge('a-merge-a', 'promptA', 'text', 'mergeA', 'item1'),
-      edge('b-merge-a', 'promptB', 'text', 'mergeA', 'item2'),
-      edge('merge-a-merge-b', 'mergeA', 'merged', 'mergeB', 'item1'),
-      edge('c-merge-b', 'promptC', 'text', 'mergeB', 'item2'),
-      edge('merge-b-output', 'mergeB', 'merged', 'output', 'content'),
+      edge('a-merge-a', 'promptA', 'result', 'mergeA', 'input'),
+      edge('b-merge-a', 'promptB', 'result', 'mergeA', 'input'),
+      edge('merge-a-merge-b', 'mergeA', 'result', 'mergeB', 'input'),
+      edge('c-merge-b', 'promptC', 'result', 'mergeB', 'input'),
+      edge('merge-b-output', 'mergeB', 'result', 'output', 'input'),
     ],
   });
 
@@ -380,26 +380,26 @@ test('merge nodes flatten grouped inputs from other merge nodes', async () => {
     (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
   );
 
-  assert.deepEqual(mergeBCompletion?.data.outputs, { merged: ['alpha', 'beta', 'gamma'] });
-  assert.deepEqual(outputCompletion?.data.outputs.content, ['alpha', 'beta', 'gamma']);
+  assert.deepEqual(mergeBCompletion?.data.outputs.result, [['alpha', 'beta'], 'gamma']);
+  assert.deepEqual(outputCompletion?.data.outputs.result, [['alpha', 'beta'], 'gamma']);
 });
 
 test('iterateRun preserves per-item execution through merge nodes', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'static', type: 'textInput', data: { text: 'alpha' } },
-      { id: 'itemA', type: 'textInput', data: { text: 'beta' } },
-      { id: 'itemB', type: 'textInput', data: { text: 'gamma' } },
+      { id: 'static', type: 'io', data: { content: 'alpha' } },
+      { id: 'itemA', type: 'io', data: { content: 'beta' } },
+      { id: 'itemB', type: 'io', data: { content: 'gamma' } },
       { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
-      { id: 'merge', type: 'textMerge', data: { inputCount: 2 } },
-      { id: 'output', type: 'output', data: {} },
+      { id: 'merge', type: 'io', data: { inputCount: 2 } },
+      { id: 'output', type: 'io', data: {} },
     ],
     edges: [
-      edge('static-merge', 'static', 'text', 'merge', 'item1'),
-      edge('a-iterate', 'itemA', 'text', 'iterate', 'item1'),
-      edge('b-iterate', 'itemB', 'text', 'iterate', 'item2'),
-      edge('iterate-merge', 'iterate', 'text', 'merge', 'item2'),
-      edge('merge-output', 'merge', 'merged', 'output', 'content'),
+      edge('static-merge', 'static', 'result', 'merge', 'input'),
+      edge('a-iterate', 'itemA', 'result', 'iterate', 'item1'),
+      edge('b-iterate', 'itemB', 'result', 'iterate', 'item2'),
+      edge('iterate-merge', 'iterate', 'text', 'merge', 'input'),
+      edge('merge-output', 'merge', 'result', 'output', 'input'),
     ],
   });
 
@@ -413,10 +413,10 @@ test('iterateRun preserves per-item execution through merge nodes', async () => 
   assert.equal(mergeCompletions.length, 2);
   assert.equal(outputCompletions.length, 2);
   assert.deepEqual(mergeCompletions.map((item) => item.data.outputs), [
-    { merged: ['alpha', 'beta'] },
-    { merged: ['alpha', 'gamma'] },
+    { result: ['alpha', 'beta'], savedFiles: [], savedPaths: [] },
+    { result: ['alpha', 'gamma'], savedFiles: [], savedPaths: [] },
   ]);
-  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.content), [
+  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.result), [
     ['alpha', 'beta'],
     ['alpha', 'gamma'],
   ]);
@@ -426,19 +426,19 @@ test('iterateRun preserves per-item execution through merge nodes', async () => 
 test('iterateImageRun preserves per-item execution through merge nodes', async () => {
   const events = await runWorkflow({
     nodes: [
-      { id: 'static', type: 'imageInput', data: { fileUrl: '/api/files/static.png' } },
-      { id: 'itemA', type: 'imageInput', data: { fileUrl: '/api/files/a.png' } },
-      { id: 'itemB', type: 'imageInput', data: { fileUrl: '/api/files/b.png' } },
+      { id: 'static', type: 'io', data: { content: '/api/files/static.png' } },
+      { id: 'itemA', type: 'io', data: { content: '/api/files/a.png' } },
+      { id: 'itemB', type: 'io', data: { content: '/api/files/b.png' } },
       { id: 'iterate', type: 'iterateImageRun', data: { inputCount: 2 } },
-      { id: 'merge', type: 'imageMerge', data: { inputCount: 2 } },
-      { id: 'output', type: 'output', data: {} },
+      { id: 'merge', type: 'io', data: { inputCount: 2 } },
+      { id: 'output', type: 'io', data: {} },
     ],
     edges: [
-      edge('static-merge', 'static', 'image', 'merge', 'item1'),
-      edge('a-iterate', 'itemA', 'image', 'iterate', 'item1'),
-      edge('b-iterate', 'itemB', 'image', 'iterate', 'item2'),
-      edge('iterate-merge', 'iterate', 'image', 'merge', 'item2'),
-      edge('merge-output', 'merge', 'merged', 'output', 'content'),
+      edge('static-merge', 'static', 'result', 'merge', 'input'),
+      edge('a-iterate', 'itemA', 'result', 'iterate', 'item1'),
+      edge('b-iterate', 'itemB', 'result', 'iterate', 'item2'),
+      edge('iterate-merge', 'iterate', 'image', 'merge', 'input'),
+      edge('merge-output', 'merge', 'result', 'output', 'input'),
     ],
   });
 
@@ -452,10 +452,10 @@ test('iterateImageRun preserves per-item execution through merge nodes', async (
   assert.equal(mergeCompletions.length, 2);
   assert.equal(outputCompletions.length, 2);
   assert.deepEqual(mergeCompletions.map((item) => item.data.outputs), [
-    { merged: ['/api/files/static.png', '/api/files/a.png'] },
-    { merged: ['/api/files/static.png', '/api/files/b.png'] },
+    { result: ['/api/files/static.png', '/api/files/a.png'], savedFiles: [], savedPaths: [] },
+    { result: ['/api/files/static.png', '/api/files/b.png'], savedFiles: [], savedPaths: [] },
   ]);
-  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.content), [
+  assert.deepEqual(outputCompletions.map((item) => item.data.outputs.result), [
     ['/api/files/static.png', '/api/files/a.png'],
     ['/api/files/static.png', '/api/files/b.png'],
   ]);

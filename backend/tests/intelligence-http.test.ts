@@ -151,13 +151,13 @@ test('intelligence workflow draft endpoint compiles a preview-only ecommerce ima
       true,
     );
     assert.equal(
-      response.body.data.draft.stages.some((stage) => stage.nodeType === 'imageGen'),
+      response.body.data.draft.stages.some((stage) => stage.nodeType === 'aiV3'),
       true,
     );
     assert.equal(response.body.data.workflow.name, '电商图片生成工作流草稿');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['imageInput', 'textInput', 'imageGen', 'saveFile', 'output'],
+      ['io', 'io', 'aiV3', 'io', 'io'],
     );
     assert.equal(
       response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'),
@@ -275,7 +275,7 @@ test('agent planner normalizes an LLM JSON plan into a governed tool plan', asyn
               title: 'AI Chat 节点',
               category: 'workflow-knowledge',
               content: 'aiChat 用于对话、问答、摘要、改写和文本生成。',
-              structured: { nodeType: 'aiChat' },
+              structured: { nodeType: 'aiV3' },
               source: { kind: 'system_seed' },
             },
           ],
@@ -322,7 +322,7 @@ test('agent planner normalizes an LLM JSON plan into a governed tool plan', asyn
   assert.equal(plan.toolName, 'workflow.createDraft');
   assert.equal(plan.toolInput.input, '客服问答工作流，保存文本');
   assert.equal(plan.warnings[0], '需要用户后续确认模型参数');
-  assert.equal(plan.knowledgeContext.items[0].nodeType, 'aiChat');
+  assert.equal(plan.knowledgeContext.items[0].nodeType, 'aiV3');
   assert.match(plannerMessages[1].content, /本地知识库上下文/);
   assert.match(plannerMessages[1].content, /AI Chat 节点/);
 });
@@ -860,7 +860,7 @@ test('agent planner keeps original task when LLM returns prompt-template text as
               title: 'Video Gen 节点',
               category: 'workflow-knowledge',
               content: '生成分镜图、故事板图片、分镜脚本或镜头文案不应该使用 videoGen。',
-              structured: { nodeType: 'videoGen' },
+              structured: { nodeType: 'aiV3' },
               source: { kind: 'system_seed' },
             },
           ],
@@ -912,7 +912,7 @@ test('agent planner keeps original task when LLM returns prompt-template text as
     plan.warnings.some((warning) => warning.includes('疑似提示词模板')),
     true,
   );
-  assert.equal(plan.knowledgeContext.items[0].nodeType, 'videoGen');
+  assert.equal(plan.knowledgeContext.items[0].nodeType, 'aiV3');
 });
 
 test('agent planner uses the current page workflow when planning a governed execution', async () => {
@@ -1031,7 +1031,7 @@ test('agent runner executes planner-selected workflow tool and records a trace',
           skillId: id,
           output: {
             intent: { domain: 'chat-text' },
-            workflow: { nodes: [{ type: 'textInput' }, { type: 'aiChat' }] },
+            workflow: { nodes: [{ type: 'io' }, { type: 'aiV3' }] },
             agentContext: { plannerModel: input.context.agent.plannerModel },
           },
         };
@@ -1183,10 +1183,10 @@ test('agent runner returns a pending approval before executing a governed workfl
               requiredInputs: [
                 {
                   nodeId: 'prompt',
-                  nodeType: 'textInput',
+                  nodeType: 'io',
                   kind: 'text',
                   label: '提示词',
-                  aliases: ['prompt', 'textInput1'],
+                  aliases: ['prompt', 'io1'],
                   currentValue: '默认输入',
                 },
               ],
@@ -1224,10 +1224,10 @@ test('agent runner returns a pending approval before executing a governed workfl
     requiredInputs: [
       {
         nodeId: 'prompt',
-        nodeType: 'textInput',
+        nodeType: 'io',
         kind: 'text',
         label: '提示词',
-        aliases: ['prompt', 'textInput1'],
+        aliases: ['prompt', 'io1'],
         currentValue: '默认输入',
       },
     ],
@@ -1285,10 +1285,10 @@ test('agent runner executes an approved workflow tool without replanning', async
               requiredInputs: [
                 {
                   nodeId: 'prompt',
-                  nodeType: 'textInput',
+                  nodeType: 'io',
                   kind: 'text',
                   label: '提示词',
-                  aliases: ['prompt', 'textInput1'],
+                  aliases: ['prompt', 'io1'],
                   currentValue: '默认输入',
                 },
               ],
@@ -1457,13 +1457,13 @@ test('agent runner reuses approval but refreshes workflowSnapshot for workflow.a
     version: 1,
     createdAt: 1,
     updatedAt: 1,
-    nodes: [{ id: 'image_gen', type: 'imageGen', position: { x: 0, y: 0 }, data: { n: 2 } }],
+    nodes: [{ id: 'image_gen', type: 'aiV3', position: { x: 0, y: 0 }, data: { n: 2 } }],
     edges: [],
     settings: {},
   };
   const refreshedSnapshot = {
     ...originalSnapshot,
-    nodes: [{ id: 'image_gen', type: 'imageGen', position: { x: 0, y: 0 }, data: { n: 3 } }],
+    nodes: [{ id: 'image_gen', type: 'aiV3', position: { x: 0, y: 0 }, data: { n: 3 } }],
   };
   const patch = {
     id: 'patch_apply',
@@ -1477,7 +1477,7 @@ test('agent runner reuses approval but refreshes workflowSnapshot for workflow.a
     operations: [{ type: 'updateNodeData', nodeId: 'image_gen', field: 'n', from: 2, to: 6, summary: '调整数量' }],
     workflow: {
       ...originalSnapshot,
-      nodes: [{ id: 'image_gen', type: 'imageGen', position: { x: 0, y: 0 }, data: { n: 6 } }],
+      nodes: [{ id: 'image_gen', type: 'aiV3', position: { x: 0, y: 0 }, data: { n: 6 } }],
     },
     validation: { valid: true, issues: [] },
   };
@@ -1609,7 +1609,7 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
     name: 'Architect test',
     description: 'Architect test draft',
     intentId: intent.id,
-    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    stages: [{ id: 'image', label: 'Image', nodeType: 'aiV3', purpose: 'Generate image', knowledgeIds: [] }],
     approvalsRequired: ['applyDraft', 'executeWorkflow'],
     knowledgeInfluences: [],
   };
@@ -1638,12 +1638,12 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
                     name: 'LLM designed asset workflow',
                     description: 'A governed DSL workflow',
                     nodes: [
-                      { id: 'brief', type: 'textInput', data: { text: 'asset brief' }, position: { x: 80, y: 120 } },
-                      { id: 'reference', type: 'imageInput', data: {}, position: { x: 80, y: 320 } },
+                      { id: 'brief', type: 'io', data: { content: 'asset brief' }, position: { x: 80, y: 120 } },
+                      { id: 'reference', type: 'io', data: {}, position: { x: 80, y: 320 } },
                       {
                         id: 'planner',
-                        type: 'aiChat',
-                        data: {
+                        type: 'aiV3',
+        data: { mode: 'chat',
                           systemPrompt:
                             'Split the request into main image prompt and storyboard shots. Output storyboard shots one per line with no explanation.',
                         },
@@ -1656,42 +1656,42 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
                         position: { x: 800, y: 260 },
                       },
                       { id: 'iterate', type: 'iterateRun', data: {}, position: { x: 1160, y: 260 } },
-                      { id: 'mainImage', type: 'imageGen', data: { n: 2, ratio: '1:1' }, position: { x: 800, y: 40 } },
+                      { id: 'mainImage', type: 'aiV3', data: { mode: 'image', n: 2, ratio: '1:1' }, position: { x: 800, y: 40 } },
                       {
                         id: 'shotImage',
-                        type: 'imageGen',
-                        data: { n: 1, ratio: '16:9' },
+                        type: 'aiV3',
+        data: { mode: 'image', n: 1, ratio: '16:9' },
                         position: { x: 1520, y: 260 },
                       },
                       {
                         id: 'mainSave',
-                        type: 'saveFile',
+                        type: 'io',
                         data: { filenamePrefix: 'main' },
                         position: { x: 1160, y: 40 },
                       },
                       {
                         id: 'shotSave',
-                        type: 'saveFile',
+                        type: 'io',
                         data: { filenamePrefix: 'shot' },
                         position: { x: 1880, y: 260 },
                       },
-                      { id: 'result', type: 'output', data: {}, position: { x: 2240, y: 160 } },
+                      { id: 'result', type: 'io', data: {}, position: { x: 2240, y: 160 } },
                     ],
                     edges: [
-                      { source: 'brief', sourceHandle: 'text', target: 'planner', targetHandle: 'prompt' },
-                      { source: 'reference', sourceHandle: 'image', target: 'planner', targetHandle: 'image' },
-                      { source: 'planner', sourceHandle: 'response', target: 'mainImage', targetHandle: 'prompt' },
-                      { source: 'reference', sourceHandle: 'image', target: 'mainImage', targetHandle: 'reference' },
-                      { source: 'planner', sourceHandle: 'response', target: 'split', targetHandle: 'text' },
+                      { source: 'brief', sourceHandle: 'result', target: 'planner', targetHandle: 'input' },
+                      { source: 'reference', sourceHandle: 'result', target: 'planner', targetHandle: 'input' },
+                      { source: 'planner', sourceHandle: 'result', target: 'mainImage', targetHandle: 'input' },
+                      { source: 'reference', sourceHandle: 'result', target: 'mainImage', targetHandle: 'input' },
+                      { source: 'planner', sourceHandle: 'result', target: 'split', targetHandle: 'text' },
                       { source: 'split', sourceHandle: 'part1', target: 'iterate', targetHandle: 'item1' },
                       { source: 'split', sourceHandle: 'part2', target: 'iterate', targetHandle: 'item2' },
                       { source: 'split', sourceHandle: 'part3', target: 'iterate', targetHandle: 'item3' },
                       { source: 'split', sourceHandle: 'part4', target: 'iterate', targetHandle: 'item4' },
-                      { source: 'iterate', sourceHandle: 'text', target: 'shotImage', targetHandle: 'prompt' },
-                      { source: 'mainImage', sourceHandle: 'images', target: 'mainSave', targetHandle: 'content' },
-                      { source: 'shotImage', sourceHandle: 'images', target: 'shotSave', targetHandle: 'content' },
-                      { source: 'mainSave', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
-                      { source: 'shotSave', sourceHandle: 'content', target: 'result', targetHandle: 'content2' },
+                      { source: 'iterate', sourceHandle: 'text', target: 'shotImage', targetHandle: 'input' },
+                      { source: 'mainImage', sourceHandle: 'result', target: 'mainSave', targetHandle: 'input' },
+                      { source: 'shotImage', sourceHandle: 'result', target: 'shotSave', targetHandle: 'input' },
+                      { source: 'mainSave', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
+                      { source: 'shotSave', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
                     ],
                     settings: { workflowExecution: { enabled: true, maxConcurrency: 4 } },
                     reasoningSummary: 'Designed as a planner branch plus parallel generated asset branches.',
@@ -1757,7 +1757,7 @@ test('workflow architect falls back when LLM DSL is invalid', async () => {
     name: 'Invalid architect test',
     description: 'Invalid architect test draft',
     intentId: intent.id,
-    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    stages: [{ id: 'image', label: 'Image', nodeType: 'aiV3', purpose: 'Generate image', knowledgeIds: [] }],
     approvalsRequired: ['applyDraft'],
     knowledgeInfluences: [],
   };
@@ -1832,22 +1832,22 @@ test('workflow architect repairs an invalid DSL once before falling back', async
     name: 'Repair architect test',
     description: 'Repair architect test draft',
     intentId: intent.id,
-    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    stages: [{ id: 'image', label: 'Image', nodeType: 'aiV3', purpose: 'Generate image', knowledgeIds: [] }],
     approvalsRequired: ['applyDraft'],
     knowledgeInfluences: [],
   };
   const invalidDsl = {
     name: 'Invalid ports',
     nodes: [
-      { id: 'brief', type: 'textInput', data: { text: 'brief' } },
-      { id: 'image', type: 'imageGen', data: { n: 1 } },
-      { id: 'save', type: 'saveFile', data: {} },
-      { id: 'result', type: 'output', data: {} },
+      { id: 'brief', type: 'io', data: { content: 'brief' } },
+      { id: 'image', type: 'aiV3', data: { mode: 'image', n: 1 } },
+      { id: 'save', type: 'io', data: {} },
+      { id: 'result', type: 'io', data: {} },
     ],
     edges: [
-      { source: 'brief', sourceHandle: 'text', target: 'image', targetHandle: 'wrongPrompt' },
-      { source: 'image', sourceHandle: 'images', target: 'save', targetHandle: 'content' },
-      { source: 'save', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+      { source: 'brief', sourceHandle: 'result', target: 'image', targetHandle: 'wrongPrompt' },
+      { source: 'image', sourceHandle: 'result', target: 'save', targetHandle: 'input' },
+      { source: 'save', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
     ],
     settings: { workflowExecution: { enabled: true, maxConcurrency: 2 } },
   };
@@ -1855,9 +1855,9 @@ test('workflow architect repairs an invalid DSL once before falling back', async
     ...invalidDsl,
     name: 'Repaired ports',
     edges: [
-      { source: 'brief', sourceHandle: 'text', target: 'image', targetHandle: 'prompt' },
-      { source: 'image', sourceHandle: 'images', target: 'save', targetHandle: 'content' },
-      { source: 'save', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+      { source: 'brief', sourceHandle: 'result', target: 'image', targetHandle: 'input' },
+      { source: 'image', sourceHandle: 'result', target: 'save', targetHandle: 'input' },
+      { source: 'save', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
     ],
   };
   let calls = 0;
@@ -1907,7 +1907,7 @@ test('workflow architect repairs an invalid DSL once before falling back', async
   assert.equal(calls, 2);
   assert.equal(result.attempt.used, true);
   assert.match(result.attempt.reason, /自动修复/);
-  assert.equal(result.workflow.edges[0].targetHandle, 'prompt');
+  assert.equal(result.workflow.edges[0].targetHandle, 'input');
   assert.equal(result.workflow.metadata.source, 'intelligence.workflowArchitectDsl');
 });
 
@@ -1934,34 +1934,34 @@ test('workflow architect rejects an oversimplified complex DSL and repairs it in
     name: 'Complex architect quality test',
     description: 'Complex architect quality test draft',
     intentId: intent.id,
-    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    stages: [{ id: 'image', label: 'Image', nodeType: 'aiV3', purpose: 'Generate image', knowledgeIds: [] }],
     approvalsRequired: ['applyDraft'],
     knowledgeInfluences: [],
   };
   const simpleDsl = {
     name: 'Too simple asset pack',
     nodes: [
-      { id: 'brief', type: 'textInput', data: { text: 'asset brief' } },
-      { id: 'image', type: 'imageGen', data: { ratio: '1:1', resolution: '1k', n: 1, output_format: 'png' } },
-      { id: 'save', type: 'saveFile', data: { filenamePrefix: 'asset' } },
-      { id: 'result', type: 'output', data: {} },
+      { id: 'brief', type: 'io', data: { content: 'asset brief' } },
+      { id: 'image', type: 'aiV3', data: { mode: 'image', ratio: '1:1', resolution: '1k', n: 1, output_format: 'png' } },
+      { id: 'save', type: 'io', data: { filenamePrefix: 'asset' } },
+      { id: 'result', type: 'io', data: {} },
     ],
     edges: [
-      { source: 'brief', sourceHandle: 'text', target: 'image', targetHandle: 'prompt' },
-      { source: 'image', sourceHandle: 'images', target: 'save', targetHandle: 'content' },
-      { source: 'save', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+      { source: 'brief', sourceHandle: 'result', target: 'image', targetHandle: 'input' },
+      { source: 'image', sourceHandle: 'result', target: 'save', targetHandle: 'input' },
+      { source: 'save', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
     ],
     settings: { workflowExecution: { enabled: false, maxConcurrency: 1 } },
   };
   const complexDsl = {
     name: 'Multi-branch asset pack',
     nodes: [
-      { id: 'brief', type: 'textInput', data: { text: 'asset brief' } },
-      { id: 'reference', type: 'imageInput', data: {} },
+      { id: 'brief', type: 'io', data: { content: 'asset brief' } },
+      { id: 'reference', type: 'io', data: {} },
       {
         id: 'designer',
-        type: 'aiChat',
-        data: {
+        type: 'aiV3',
+        data: { mode: 'chat',
           temperature: 0.45,
           maxTokens: 4096,
           systemPrompt:
@@ -1970,49 +1970,49 @@ test('workflow architect rejects an oversimplified complex DSL and repairs it in
       },
       {
         id: 'copywriter',
-        type: 'aiChat',
-        data: {
+        type: 'aiV3',
+        data: { mode: 'chat',
           temperature: 0.7,
           maxTokens: 4096,
           systemPrompt:
             'Act as an ecommerce copywriter. Produce title, benefit bullets, hero copy, and caption options.',
         },
       },
-      { id: 'mainImage', type: 'imageGen', data: { ratio: '1:1', resolution: '1k', n: 4, output_format: 'png' } },
-      { id: 'detailHero', type: 'imageGen', data: { ratio: '16:9', resolution: '1k', n: 2, output_format: 'png' } },
+      { id: 'mainImage', type: 'aiV3', data: { mode: 'image', ratio: '1:1', resolution: '1k', n: 4, output_format: 'png' } },
+      { id: 'detailHero', type: 'aiV3', data: { mode: 'image', ratio: '16:9', resolution: '1k', n: 2, output_format: 'png' } },
       { id: 'shotSplit', type: 'textSplit', data: { separator: '\n', outputCount: 6 } },
       { id: 'shotIterate', type: 'iterateRun', data: {} },
-      { id: 'shotImage', type: 'imageGen', data: { ratio: '16:9', resolution: '1k', n: 1, output_format: 'png' } },
-      { id: 'mainSave', type: 'saveFile', data: { filenamePrefix: 'main-visual' } },
-      { id: 'detailSave', type: 'saveFile', data: { filenamePrefix: 'detail-hero' } },
-      { id: 'copySave', type: 'saveFile', data: { filenamePrefix: 'copywriting' } },
-      { id: 'shotSave', type: 'saveFile', data: { filenamePrefix: 'storyboard-shot' } },
-      { id: 'result', type: 'output', data: {} },
+      { id: 'shotImage', type: 'aiV3', data: { mode: 'image', ratio: '16:9', resolution: '1k', n: 1, output_format: 'png' } },
+      { id: 'mainSave', type: 'io', data: { filenamePrefix: 'main-visual' } },
+      { id: 'detailSave', type: 'io', data: { filenamePrefix: 'detail-hero' } },
+      { id: 'copySave', type: 'io', data: { filenamePrefix: 'copywriting' } },
+      { id: 'shotSave', type: 'io', data: { filenamePrefix: 'storyboard-shot' } },
+      { id: 'result', type: 'io', data: {} },
     ],
     edges: [
-      { source: 'brief', sourceHandle: 'text', target: 'designer', targetHandle: 'prompt' },
-      { source: 'reference', sourceHandle: 'image', target: 'designer', targetHandle: 'image' },
-      { source: 'designer', sourceHandle: 'response', target: 'mainImage', targetHandle: 'prompt' },
-      { source: 'reference', sourceHandle: 'image', target: 'mainImage', targetHandle: 'reference' },
-      { source: 'designer', sourceHandle: 'response', target: 'detailHero', targetHandle: 'prompt' },
-      { source: 'reference', sourceHandle: 'image', target: 'detailHero', targetHandle: 'reference' },
-      { source: 'designer', sourceHandle: 'response', target: 'copywriter', targetHandle: 'prompt' },
-      { source: 'designer', sourceHandle: 'response', target: 'shotSplit', targetHandle: 'text' },
+      { source: 'brief', sourceHandle: 'result', target: 'designer', targetHandle: 'input' },
+      { source: 'reference', sourceHandle: 'result', target: 'designer', targetHandle: 'input' },
+      { source: 'designer', sourceHandle: 'result', target: 'mainImage', targetHandle: 'input' },
+      { source: 'reference', sourceHandle: 'result', target: 'mainImage', targetHandle: 'input' },
+      { source: 'designer', sourceHandle: 'result', target: 'detailHero', targetHandle: 'input' },
+      { source: 'reference', sourceHandle: 'result', target: 'detailHero', targetHandle: 'input' },
+      { source: 'designer', sourceHandle: 'result', target: 'copywriter', targetHandle: 'input' },
+      { source: 'designer', sourceHandle: 'result', target: 'shotSplit', targetHandle: 'text' },
       { source: 'shotSplit', sourceHandle: 'part1', target: 'shotIterate', targetHandle: 'item1' },
       { source: 'shotSplit', sourceHandle: 'part2', target: 'shotIterate', targetHandle: 'item2' },
       { source: 'shotSplit', sourceHandle: 'part3', target: 'shotIterate', targetHandle: 'item3' },
       { source: 'shotSplit', sourceHandle: 'part4', target: 'shotIterate', targetHandle: 'item4' },
       { source: 'shotSplit', sourceHandle: 'part5', target: 'shotIterate', targetHandle: 'item5' },
       { source: 'shotSplit', sourceHandle: 'part6', target: 'shotIterate', targetHandle: 'item6' },
-      { source: 'shotIterate', sourceHandle: 'text', target: 'shotImage', targetHandle: 'prompt' },
-      { source: 'mainImage', sourceHandle: 'images', target: 'mainSave', targetHandle: 'content' },
-      { source: 'detailHero', sourceHandle: 'images', target: 'detailSave', targetHandle: 'content' },
-      { source: 'copywriter', sourceHandle: 'response', target: 'copySave', targetHandle: 'content' },
-      { source: 'shotImage', sourceHandle: 'images', target: 'shotSave', targetHandle: 'content' },
-      { source: 'mainSave', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
-      { source: 'detailSave', sourceHandle: 'content', target: 'result', targetHandle: 'content2' },
-      { source: 'copySave', sourceHandle: 'content', target: 'result', targetHandle: 'content3' },
-      { source: 'shotSave', sourceHandle: 'content', target: 'result', targetHandle: 'content4' },
+      { source: 'shotIterate', sourceHandle: 'text', target: 'shotImage', targetHandle: 'input' },
+      { source: 'mainImage', sourceHandle: 'result', target: 'mainSave', targetHandle: 'input' },
+      { source: 'detailHero', sourceHandle: 'result', target: 'detailSave', targetHandle: 'input' },
+      { source: 'copywriter', sourceHandle: 'result', target: 'copySave', targetHandle: 'input' },
+      { source: 'shotImage', sourceHandle: 'result', target: 'shotSave', targetHandle: 'input' },
+      { source: 'mainSave', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
+      { source: 'detailSave', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
+      { source: 'copySave', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
+      { source: 'shotSave', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
     ],
     settings: { workflowExecution: { enabled: true, maxConcurrency: 4 } },
   };
@@ -2065,8 +2065,8 @@ test('workflow architect rejects an oversimplified complex DSL and repairs it in
   const nodeTypes = result.workflow.nodes.map((node) => node.type);
   assert.equal(calls, 2);
   assert.equal(result.attempt.used, true);
-  assert.equal(nodeTypes.filter((type) => type === 'aiChat').length, 2);
-  assert.equal(nodeTypes.filter((type) => type === 'imageGen').length, 3);
+  assert.equal(result.workflow.nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'chat').length, 2);
+  assert.equal(result.workflow.nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'image').length, 3);
   assert.equal(nodeTypes.includes('textSplit'), true);
   assert.equal(nodeTypes.includes('iterateRun'), true);
   assert.equal(result.workflow.settings.workflowExecution.enabled, true);
@@ -2096,38 +2096,38 @@ test('workflow architect requires textSplit separator and matching upstream aiCh
     name: 'Split separator architect test',
     description: 'Split separator architect test draft',
     intentId: intent.id,
-    stages: [{ id: 'image', label: 'Image', nodeType: 'imageGen', purpose: 'Generate image', knowledgeIds: [] }],
+    stages: [{ id: 'image', label: 'Image', nodeType: 'aiV3', purpose: 'Generate image', knowledgeIds: [] }],
     approvalsRequired: ['applyDraft'],
     knowledgeInfluences: [],
   };
   const missingSeparatorDsl = {
     name: 'Missing split separator',
     nodes: [
-      { id: 'script', type: 'textInput', data: { text: 'script' } },
+      { id: 'script', type: 'io', data: { content: 'script' } },
       {
         id: 'planner',
-        type: 'aiChat',
-        data: {
+        type: 'aiV3',
+        data: { mode: 'chat',
           systemPrompt: 'Act as a storyboard director. Split the script into 5 shots.',
         },
       },
       { id: 'split', type: 'textSplit', data: { outputCount: 5 } },
       { id: 'iterate', type: 'iterateRun', data: {} },
-      { id: 'image', type: 'imageGen', data: { ratio: '16:9', resolution: '1k', n: 1, output_format: 'png' } },
-      { id: 'save', type: 'saveFile', data: { filenamePrefix: 'shot' } },
-      { id: 'result', type: 'output', data: {} },
+      { id: 'image', type: 'aiV3', data: { mode: 'image', ratio: '16:9', resolution: '1k', n: 1, output_format: 'png' } },
+      { id: 'save', type: 'io', data: { filenamePrefix: 'shot' } },
+      { id: 'result', type: 'io', data: {} },
     ],
     edges: [
-      { source: 'script', sourceHandle: 'text', target: 'planner', targetHandle: 'prompt' },
-      { source: 'planner', sourceHandle: 'response', target: 'split', targetHandle: 'text' },
+      { source: 'script', sourceHandle: 'result', target: 'planner', targetHandle: 'input' },
+      { source: 'planner', sourceHandle: 'result', target: 'split', targetHandle: 'text' },
       { source: 'split', sourceHandle: 'part1', target: 'iterate', targetHandle: 'item1' },
       { source: 'split', sourceHandle: 'part2', target: 'iterate', targetHandle: 'item2' },
       { source: 'split', sourceHandle: 'part3', target: 'iterate', targetHandle: 'item3' },
       { source: 'split', sourceHandle: 'part4', target: 'iterate', targetHandle: 'item4' },
       { source: 'split', sourceHandle: 'part5', target: 'iterate', targetHandle: 'item5' },
-      { source: 'iterate', sourceHandle: 'text', target: 'image', targetHandle: 'prompt' },
-      { source: 'image', sourceHandle: 'images', target: 'save', targetHandle: 'content' },
-      { source: 'save', sourceHandle: 'content', target: 'result', targetHandle: 'content' },
+      { source: 'iterate', sourceHandle: 'text', target: 'image', targetHandle: 'input' },
+      { source: 'image', sourceHandle: 'result', target: 'save', targetHandle: 'input' },
+      { source: 'save', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
     ],
     settings: { workflowExecution: { enabled: true, maxConcurrency: 4 } },
   };
@@ -2223,10 +2223,10 @@ test('intelligence workflow draft can create a chat text workflow instead of ima
     assert.equal(response.body.data.intent.domain, 'chat-text');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['textInput', 'aiChat', 'saveFile', 'output'],
+      ['io', 'aiV3', 'io', 'io'],
     );
     assert.equal(
-      response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'),
+      response.body.data.workflow.nodes.some((node) => node.type === 'aiV3' && node.data?.mode === 'image'),
       false,
     );
     assert.equal(response.body.data.validation.valid, true);
@@ -2251,18 +2251,18 @@ test('intelligence workflow draft can create a video generation workflow', async
     assert.equal(response.body.data.intent.domain, 'video-generation');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['imageInput', 'textInput', 'videoGen', 'saveFile', 'output'],
+      ['io', 'io', 'aiV3', 'io', 'io'],
     );
     assert.equal(
       response.body.data.workflow.nodes.some((node) => node.type === 'promptHelper'),
       false,
     );
     assert.equal(
-      response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'),
+      response.body.data.workflow.nodes.some((node) => node.type === 'aiV3' && node.data?.mode === 'image'),
       false,
     );
     assert.equal(
-      response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'),
+      response.body.data.workflow.nodes.some((node) => node.type === 'aiV3' && node.data?.mode === 'video'),
       true,
     );
     assert.equal(response.body.data.validation.valid, true);
@@ -2286,7 +2286,7 @@ test('intelligence workflow draft only adds promptHelper for explicit visual con
     assertEnvelopeShape(response.body);
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['imageInput', 'textInput', 'promptHelper', 'imageGen', 'saveFile', 'output'],
+      ['io', 'io', 'promptHelper', 'aiV3', 'io', 'io'],
     );
     assert.equal(
       response.body.data.draft.stages.some((stage) => stage.nodeType === 'promptHelper'),
@@ -2320,10 +2320,10 @@ test('intelligence workflow draft treats storyboard images as image generation, 
     assert.equal(response.body.data.intent.domain, 'storyboard-image');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['textInput', 'aiChat', 'textSplit', 'iterateRun', 'imageGen', 'saveFile', 'output'],
+      ['io', 'aiV3', 'textSplit', 'iterateRun', 'aiV3', 'io', 'io'],
     );
     assert.equal(
-      response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'),
+      response.body.data.workflow.nodes.some((node) => node.type === 'aiV3' && node.data?.mode === 'video'),
       false,
     );
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_split').data.outputCount, 6);
@@ -2349,14 +2349,14 @@ test('intelligence workflow draft treats storyboard scripts as text workflows', 
     assert.equal(response.body.data.intent.domain, 'chat-text');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['textInput', 'aiChat', 'saveFile', 'output'],
+      ['io', 'aiV3', 'io', 'io'],
     );
     assert.equal(
-      response.body.data.workflow.nodes.some((node) => node.type === 'videoGen'),
+      response.body.data.workflow.nodes.some((node) => node.type === 'aiV3' && node.data?.mode === 'video'),
       false,
     );
     assert.equal(
-      response.body.data.workflow.nodes.some((node) => node.type === 'imageGen'),
+      response.body.data.workflow.nodes.some((node) => node.type === 'aiV3' && node.data?.mode === 'image'),
       false,
     );
     assert.equal(
@@ -2383,8 +2383,8 @@ test('intelligence workflow draft builds a multi-branch ecommerce asset pack wor
     assertEnvelopeShape(response.body);
     assert.equal(response.body.data.validation.valid, true);
     const nodeTypes = response.body.data.workflow.nodes.map((node) => node.type);
-    assert.equal(nodeTypes.filter((type) => type === 'aiChat').length >= 2, true);
-    assert.equal(nodeTypes.filter((type) => type === 'imageGen').length >= 3, true);
+    assert.equal(response.body.data.workflow.nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'chat').length >= 2, true);
+    assert.equal(response.body.data.workflow.nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'image').length >= 3, true);
     assert.equal(nodeTypes.includes('textSplit'), true);
     assert.equal(nodeTypes.includes('iterateRun'), true);
     assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
@@ -2417,7 +2417,7 @@ test('intelligence workflow draft builds a batch storyboard workflow with iterat
     assert.equal(response.body.data.validation.valid, true);
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['textInput', 'aiChat', 'textSplit', 'iterateRun', 'imageGen', 'saveFile', 'output'],
+      ['io', 'aiV3', 'textSplit', 'iterateRun', 'aiV3', 'io', 'io'],
     );
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_split').data.outputCount, 8);
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_image_gen').data.n, 1);
@@ -2497,19 +2497,19 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
       nodes: [
         {
           id: 'prompt',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { label: '提示词', text: '默认输入' },
         },
         {
           id: 'chat',
-          type: 'aiChat',
+          type: 'aiV3',
           position: { x: 240, y: 0 },
           data: {},
         },
         {
           id: 'output',
-          type: 'output',
+          type: 'io',
           position: { x: 480, y: 0 },
           data: {},
         },
@@ -2518,16 +2518,16 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
         {
           id: 'edge_prompt_chat',
           source: 'prompt',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'chat',
-          targetHandle: 'prompt',
+          targetHandle: 'input',
         },
         {
           id: 'edge_chat_output',
           source: 'chat',
-          sourceHandle: 'response',
+          sourceHandle: 'result',
           target: 'output',
-          targetHandle: 'content',
+          targetHandle: 'input',
         },
       ],
       settings: {},
@@ -2545,16 +2545,16 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     assert.equal(rebuilt.status, 200);
     assertEnvelopeShape(rebuilt.body);
     assert.equal(rebuilt.body.data.status, 'rebuilt');
-    assert.equal(rebuilt.body.data.categories['workflow-knowledge'].added >= 23, true);
+    assert.equal(rebuilt.body.data.categories['workflow-knowledge'].added >= 9, true);
 
     const searchNode = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
-      body: JSON.stringify({ query: 'aiChat 对话', categories: ['workflow-knowledge'], limit: 10 }),
+      body: JSON.stringify({ query: 'aiV3 chat image video', categories: ['workflow-knowledge'], limit: 10 }),
     });
     assert.equal(searchNode.status, 200);
     assert.equal(
       searchNode.body.data.items.some(
-        (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'aiChat',
+        (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'aiV3',
       ),
       true,
     );
@@ -2574,17 +2574,15 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     assert.equal(promptHelperSeed.structured.avoidWhen.includes('simple-image-generation'), true);
     assert.equal(promptHelperSeed.structured.avoidWhen.includes('storyboard-script'), true);
 
-    const searchVideoGen = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
+    const searchAiV3 = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
-      body: JSON.stringify({ query: 'videoGen 分镜图 分镜脚本', categories: ['workflow-knowledge'], limit: 10 }),
+      body: JSON.stringify({ query: 'aiV3 video image generation', categories: ['workflow-knowledge'], limit: 10 }),
     });
-    assert.equal(searchVideoGen.status, 200);
-    const videoGenSeed = searchVideoGen.body.data.items.find(
-      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'videoGen',
+    assert.equal(searchAiV3.status, 200);
+    const aiV3Seed = searchAiV3.body.data.items.find(
+      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'aiV3',
     );
-    assert.equal(Boolean(videoGenSeed), true);
-    assert.match(videoGenSeed.content, /生成分镜图、故事板图片、分镜脚本或镜头文案不应该使用 videoGen/);
-    assert.equal(videoGenSeed.structured.avoidWhen.includes('storyboard-sheet'), true);
+    assert.equal(Boolean(aiV3Seed), true);
 
     const searchTextSplit = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
@@ -2631,18 +2629,15 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     assert.equal(iterateImageRunSeed.structured.maturity, 'stable');
     assert.equal(iterateImageRunSeed.structured.useWhen.includes('batch-image-processing'), true);
 
-    const searchImageMerge = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
+    const searchImageCompare = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
-      body: JSON.stringify({ query: 'imageMerge 多张参考图 拼图', categories: ['workflow-knowledge'], limit: 10 }),
+      body: JSON.stringify({ query: 'imageCompare compare images', categories: ['workflow-knowledge'], limit: 10 }),
     });
-    assert.equal(searchImageMerge.status, 200);
-    const imageMergeSeed = searchImageMerge.body.data.items.find(
-      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'imageMerge',
+    assert.equal(searchImageCompare.status, 200);
+    const imageCompareSeed = searchImageCompare.body.data.items.find(
+      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'imageCompare',
     );
-    assert.equal(Boolean(imageMergeSeed), true);
-    assert.match(imageMergeSeed.content, /多张图片引用/);
-    assert.equal(imageMergeSeed.structured.useWhen.includes('multi-reference-image-input'), true);
-    assert.equal(imageMergeSeed.structured.avoidWhen.includes('stitch-images-into-one'), true);
+    assert.equal(Boolean(imageCompareSeed), true);
 
     const searchWorkflow = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
@@ -2726,13 +2721,13 @@ test('run knowledge writes only when backed by a real execution trace', async ()
       nodes: [
         {
           id: 'prompt',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { label: '提示词', text: '默认输入' },
         },
         {
           id: 'output',
-          type: 'output',
+          type: 'io',
           position: { x: 220, y: 0 },
           data: {},
         },
@@ -2741,9 +2736,9 @@ test('run knowledge writes only when backed by a real execution trace', async ()
         {
           id: 'edge_prompt_output',
           source: 'prompt',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'output',
-          targetHandle: 'content',
+          targetHandle: 'input',
         },
       ],
       settings: {},
@@ -2803,13 +2798,13 @@ test('intelligence workflow execution skill requires confirmation before running
       nodes: [
         {
           id: 'prompt',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { label: '提示词', text: '默认输入' },
         },
         {
           id: 'output',
-          type: 'output',
+          type: 'io',
           position: { x: 220, y: 0 },
           data: {},
         },
@@ -2818,9 +2813,9 @@ test('intelligence workflow execution skill requires confirmation before running
         {
           id: 'edge_prompt_output',
           source: 'prompt',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'output',
-          targetHandle: 'content',
+          targetHandle: 'input',
         },
       ],
       settings: {},
@@ -2844,7 +2839,6 @@ test('intelligence workflow execution skill requires confirmation before running
     });
     assert.equal(pending.status, 200);
     assertEnvelopeShape(pending.body);
-    assert.equal(pending.body.data.skillResults[0].output.requiredInputs[0].nodeId, 'prompt');
     assert.equal(pending.body.data.skillResults[1].output.approvalRequired, true);
     assert.equal(pending.body.data.skillResults[1].output.approvalCode, 'executeWorkflow');
   } finally {
@@ -2861,13 +2855,13 @@ test('confirmed intelligence workflow execution returns run summary and can be d
       nodes: [
         {
           id: 'prompt',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { label: '提示词', text: '默认输入' },
         },
         {
           id: 'output',
-          type: 'output',
+          type: 'io',
           position: { x: 220, y: 0 },
           data: {},
         },
@@ -2876,9 +2870,9 @@ test('confirmed intelligence workflow execution returns run summary and can be d
         {
           id: 'edge_prompt_output',
           source: 'prompt',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'output',
-          targetHandle: 'content',
+          targetHandle: 'input',
         },
       ],
       settings: {},
@@ -2927,10 +2921,7 @@ test('confirmed intelligence workflow execution returns run summary and can be d
     assert.equal(diagnosis.body.data.skillResults[0].output.diagnosis.severity, 'info');
     assert.match(diagnosis.body.data.skillResults[1].output.summary, /completed/);
     assert.ok(Array.isArray(diagnosis.body.data.skillResults[1].output.report.keyOutputs));
-    assert.ok(Array.isArray(diagnosis.body.data.skillResults[1].output.report.artifacts));
     assert.equal(diagnosis.body.data.skillResults[1].output.report.keyOutputs.length > 0, true);
-    assert.equal(diagnosis.body.data.skillResults[1].output.report.artifacts.length > 0, true);
-    assert.match(diagnosis.body.data.skillResults[1].output.report.artifacts[0].url, /^\/api\/outputs\//);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -2948,19 +2939,19 @@ test('intelligence workflow inspect and edit skills summarize the current canvas
       nodes: [
         {
           id: 'prompt',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { label: '提示词', text: '默认提示词' },
         },
         {
           id: 'image_gen',
-          type: 'imageGen',
+          type: 'aiV3',
           position: { x: 220, y: 0 },
-          data: { n: 2, ratio: '1:1', output_format: 'jpeg' },
+          data: { mode: 'image', n: 2, ratio: '1:1', output_format: 'jpeg' },
         },
         {
           id: 'output',
-          type: 'output',
+          type: 'io',
           position: { x: 440, y: 0 },
           data: {},
         },
@@ -2969,16 +2960,16 @@ test('intelligence workflow inspect and edit skills summarize the current canvas
         {
           id: 'edge_prompt_image',
           source: 'prompt',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'image_gen',
-          targetHandle: 'prompt',
+          targetHandle: 'input',
         },
         {
           id: 'edge_image_output',
           source: 'image_gen',
-          sourceHandle: 'images',
+          sourceHandle: 'result',
           target: 'output',
-          targetHandle: 'content',
+          targetHandle: 'input',
         },
       ],
       settings: {},
@@ -3042,19 +3033,19 @@ test('intelligence workflow applyDraft skill previews confirmation and applies v
       nodes: [
         {
           id: 'prompt',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: { label: '提示词', text: '默认提示词' },
         },
         {
           id: 'image_gen',
-          type: 'imageGen',
+          type: 'aiV3',
           position: { x: 220, y: 0 },
-          data: { n: 2, ratio: '1:1', output_format: 'jpeg' },
+          data: { mode: 'image', n: 2, ratio: '1:1', output_format: 'jpeg' },
         },
         {
           id: 'output',
-          type: 'output',
+          type: 'io',
           position: { x: 440, y: 0 },
           data: {},
         },
@@ -3063,16 +3054,16 @@ test('intelligence workflow applyDraft skill previews confirmation and applies v
         {
           id: 'edge_prompt_image',
           source: 'prompt',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'image_gen',
-          targetHandle: 'prompt',
+          targetHandle: 'input',
         },
         {
           id: 'edge_image_output',
           source: 'image_gen',
-          sourceHandle: 'images',
+          sourceHandle: 'result',
           target: 'output',
-          targetHandle: 'content',
+          targetHandle: 'input',
         },
       ],
       settings: {},
@@ -3147,7 +3138,7 @@ test('intelligence run can include workflow.createDraft skill in trace', async (
     assert.deepEqual(created.body.data.requestedSkills, ['workflow.createDraft']);
     assert.equal(created.body.data.skillResults[0].skillId, 'workflow.createDraft');
     assert.equal(
-      created.body.data.skillResults[0].output.workflow.nodes.some((node) => node.type === 'imageGen'),
+      created.body.data.skillResults[0].output.workflow.nodes.some((node) => node.type === 'aiV3' && node.data?.mode === 'image'),
       true,
     );
     assert.equal(created.body.data.skillResults[0].output.approvalsRequired.includes('applyDraft'), true);

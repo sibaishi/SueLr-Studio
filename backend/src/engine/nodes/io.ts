@@ -35,7 +35,11 @@ export async function execute(
         }
       }
       // Save AI items to disk
-      let savedResult = { content: aiItems as string[] | string, savedFiles: [] as unknown[], savedPaths: [] as string[] };
+      let savedResult: { content: unknown; savedFiles: unknown[]; savedPaths?: string[] } = {
+        content: aiItems,
+        savedFiles: [],
+        savedPaths: [],
+      };
       if (aiItems.length > 0) {
         sendProgress?.('正在保存 AI 生成内容...');
         const raw = aiItems.length === 1 ? aiItems[0] : aiItems;
@@ -54,7 +58,7 @@ export async function execute(
       return {
         result: results.length === 1 ? results[0] : results,
         savedFiles: savedResult.savedFiles,
-        savedPaths: savedResult.savedPaths,
+        savedPaths: savedResult.savedPaths || [],
       };
     }
 

@@ -347,7 +347,7 @@ test('HTTP contract: workflows CRUD endpoints return expected envelopes', async 
       method: 'POST',
       body: JSON.stringify({
         name: 'Contract Workflow',
-        nodes: [{ id: 'node-1', type: 'textInput', data: {} }],
+        nodes: [{ id: 'node-1', type: 'io', data: {} }],
         edges: [],
       }),
     });
@@ -680,7 +680,7 @@ test('HTTP contract: execution status and cancel use runId routes', async () => 
       body: JSON.stringify({
         id: 'wf_execution_run',
         name: 'Execution Run Workflow',
-        nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'hello' } }],
+        nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'hello' } }],
         edges: [],
         settings: {},
       }),
@@ -692,7 +692,7 @@ test('HTTP contract: execution status and cancel use runId routes', async () => 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         source: 'draft',
-        nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'hello' } }],
+        nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'hello' } }],
         edges: [],
       }),
     });

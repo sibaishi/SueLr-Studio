@@ -84,6 +84,28 @@ function hasLocalInputValue(node: PlainObject, handleId: string) {
   return value !== undefined && value !== null && value !== false;
 }
 
+function hasIncomingEdge(edges: PlainObject[], nodeId: string) {
+  return edges.some((edge) => String(edge.target || '') === nodeId);
+}
+
+function hasOutgoingEdge(edges: PlainObject[], nodeId: string) {
+  return edges.some((edge) => String(edge.source || '') === nodeId);
+}
+
+function isExternalInputNode(node: PlainObject, edges: PlainObject[]) {
+  const nodeId = String(node.id || '');
+  const type = String(node.type || '');
+  if (type === 'io') return !hasIncomingEdge(edges, nodeId);
+  return INPUT_NODE_TYPES.has(type);
+}
+
+function isTerminalOutputNode(node: PlainObject, edges: PlainObject[]) {
+  const nodeId = String(node.id || '');
+  const type = String(node.type || '');
+  if (type === 'output') return true;
+  return type === 'io' && hasIncomingEdge(edges, nodeId) && !hasOutgoingEdge(edges, nodeId);
+}
+
 function normalizeType(type: string) {
   return type.replace(/\[\]$/, '');
 }
@@ -207,7 +229,7 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
     }
   }
 
-  const imageGenNodes = nodes.filter((node) => node.type === 'imageGen');
+  const imageGenNodes = nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'image');
   for (const node of imageGenNodes) {
     if (!String(node.data?.model || '').trim()) {
       issues.push({
@@ -219,11 +241,9 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
     }
   }
 
-  const inputNodeIds = new Set(
-    nodes.filter((node) => INPUT_NODE_TYPES.has(String(node.type))).map((node) => String(node.id || '')),
-  );
+  const inputNodeIds = new Set(nodes.filter((node) => isExternalInputNode(node, edges)).map((node) => String(node.id || '')));
   for (const nodeId of inputNodeIds) {
-    const hasOutgoing = edges.some((edge) => edge.source === nodeId);
+    const hasOutgoing = hasOutgoingEdge(edges, nodeId);
     if (!hasOutgoing) {
       issues.push({
         code: 'INPUT_UNUSED',
@@ -234,7 +254,7 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
     }
   }
 
-  const outputNodes = nodes.filter((node) => String(node.type || '') === 'output');
+  const outputNodes = nodes.filter((node) => isTerminalOutputNode(node, edges));
   if (outputNodes.length === 0) {
     pushIssue(issues, {
       code: 'OUTPUT_NODE_MISSING',
@@ -243,7 +263,7 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
   }
   for (const node of outputNodes) {
     const nodeId = String(node.id || '');
-    const hasIncoming = edges.some((edge) => String(edge.target || '') === nodeId);
+    const hasIncoming = hasIncomingEdge(edges, nodeId);
     if (!hasIncoming) {
       pushIssue(issues, {
         code: 'OUTPUT_DISCONNECTED',
@@ -256,12 +276,12 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
   for (const node of nodes) {
     const nodeId = String(node.id || '');
     const type = String(node.type || '');
-    if (type.endsWith('Input') || type === 'output') continue;
+    if (isExternalInputNode(node, edges) || isTerminalOutputNode(node, edges)) continue;
     const def = NODE_PORTS[type];
     const hasInputs = Boolean(def && (Object.keys(def.inputs).length > 0 || def.dynamicInputs));
     const hasOutputs = Boolean(def && (Object.keys(def.outputs).length > 0 || def.dynamicOutputs));
-    const hasIncoming = edges.some((edge) => String(edge.target || '') === nodeId);
-    const hasOutgoing = edges.some((edge) => String(edge.source || '') === nodeId);
+    const hasIncoming = hasIncomingEdge(edges, nodeId);
+    const hasOutgoing = hasOutgoingEdge(edges, nodeId);
     if (
       hasInputs &&
       !hasIncoming &&

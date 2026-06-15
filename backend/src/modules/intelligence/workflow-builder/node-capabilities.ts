@@ -1,3 +1,4 @@
+import { getWorkflowArchitectNodeTypes } from '../../../../../src/shared/workflow/node-catalog.js';
 import { getNodeDef } from '../../../../../src/shared/workflow/node-registry.js';
 
 export type WorkflowNodeCapability = {
@@ -443,4 +444,31 @@ function deriveCapabilityContract(seed: WorkflowNodeCapability): WorkflowNodeCap
   };
 }
 
-export const WORKFLOW_NODE_CAPABILITY_SEEDS = MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS.map(deriveCapabilityContract);
+function createDefaultCapabilitySeed(nodeType: string): WorkflowNodeCapability | null {
+  const node = getNodeDef(nodeType);
+  if (!node) return null;
+  return deriveCapabilityContract({
+    id: `seed_workflow_node_${nodeType}`,
+    title: `${node.label || nodeType} ${nodeType}`,
+    content: `${node.label || nodeType} 是当前工作流节点目录中的 ${node.category} 节点。`,
+    tags: ['system-seed', 'node', node.category, nodeType],
+    structured: {
+      nodeType,
+      category: node.category,
+      maturity: 'stable',
+      outputs: [],
+      params: node.params.map((param: { id: string }) => param.id),
+    },
+  });
+}
+
+const architectNodeTypes = getWorkflowArchitectNodeTypes();
+const manualSeedsByType = new Map(
+  MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS.filter((seed) => architectNodeTypes.includes(seed.structured.nodeType)).map(
+    (seed) => [seed.structured.nodeType, deriveCapabilityContract(seed)],
+  ),
+);
+
+export const WORKFLOW_NODE_CAPABILITY_SEEDS = architectNodeTypes
+  .map((nodeType) => manualSeedsByType.get(nodeType) || createDefaultCapabilitySeed(nodeType))
+  .filter((seed): seed is WorkflowNodeCapability => Boolean(seed));

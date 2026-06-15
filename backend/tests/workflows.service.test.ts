@@ -25,7 +25,7 @@ test('workflows service supports CRUD through repository layer', async () => {
 
   const created = service.create({
     name: 'Test Workflow',
-    nodes: [{ id: 'node-1', type: 'textInput', data: {} }],
+    nodes: [{ id: 'node-1', type: 'io', data: {} }],
     edges: [],
   });
 
@@ -67,7 +67,7 @@ test('workflows repository seeds starter workflows only for empty storage', asyn
     seeded.map((workflow) => workflow.id).sort(),
     ['starter_ai_chat', 'starter_image_to_image', 'starter_text_to_image'],
   );
-  assert.equal(service.getById('starter_text_to_image').nodes.some((node) => node.type === 'imageGen'), true);
+  assert.equal(service.getById('starter_text_to_image').nodes.some((node) => node.type === 'aiV3'), true);
 
   const secondRepository = new WorkflowsRepository();
   const secondService = new WorkflowsService(secondRepository);
@@ -88,7 +88,7 @@ test('workflows repository does not seed starter workflows over existing user fi
     version: 1,
     createdAt: 1,
     updatedAt: 1,
-    nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'mine' } }],
+    nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'mine' } }],
     edges: [],
     settings: {},
   }));
@@ -140,7 +140,7 @@ test('workflow update keeps createdAt stable', async () => {
   const created = service.create({
     id: 'wf_created_at',
     name: 'CreatedAt Workflow',
-    nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+    nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: {} }],
     edges: [],
     settings: {},
   });
@@ -170,7 +170,7 @@ test('workflow import/export round-trip keeps structure stable', async () => {
   const created = service.create({
     id: 'wf_roundtrip',
     name: 'Round Trip Workflow',
-    nodes: [{ id: 'node-1', type: 'textInput', position: { x: 16, y: 24 }, data: { text: 'hello' } }],
+    nodes: [{ id: 'node-1', type: 'io', position: { x: 16, y: 24 }, data: { content: 'hello' } }],
     edges: [],
     settings: {},
   });
@@ -182,7 +182,7 @@ test('workflow import/export round-trip keeps structure stable', async () => {
   assert.equal(imported.workflow.name, created.name);
   assert.equal(imported.workflow.nodes.length, created.nodes.length);
   assert.equal(imported.workflow.nodes[0].type, created.nodes[0].type);
-  assert.equal(imported.workflow.nodes[0].data.text, 'hello');
+  assert.equal(imported.workflow.nodes[0].data.content, 'hello');
 });
 
 test('workflow import supports preserve id conflict and overwrite mode', async () => {
@@ -200,7 +200,7 @@ test('workflow import supports preserve id conflict and overwrite mode', async (
   service.create({
     id: 'wf_conflict',
     name: 'Existing Workflow',
-    nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'old' } }],
+    nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'old' } }],
     edges: [],
     settings: {},
   });
@@ -212,7 +212,7 @@ test('workflow import supports preserve id conflict and overwrite mode', async (
       version: 1,
       createdAt: 1,
       updatedAt: 1,
-      nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'new' } }],
+      nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'new' } }],
       edges: [],
       settings: {},
     }, { mode: 'preserve_id' });
@@ -224,7 +224,7 @@ test('workflow import supports preserve id conflict and overwrite mode', async (
     version: 1,
     createdAt: 1,
     updatedAt: 1,
-    nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'new' } }],
+    nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'new' } }],
     edges: [],
     settings: {},
   }, { mode: 'overwrite' });
@@ -252,7 +252,7 @@ test('workflow import migrates historical version and reports applied migration'
     version: 0,
     createdAt: 1,
     updatedAt: 1,
-    nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: { text: 'legacy' } }],
+    nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'legacy' } }],
     edges: [],
     settings: {},
   }, { mode: 'preserve_id' });
@@ -283,7 +283,7 @@ test('workflow import rejects future version and unknown node type with structur
       version: 99,
       createdAt: 1,
       updatedAt: 1,
-      nodes: [{ id: 'node-1', type: 'textInput', position: { x: 0, y: 0 }, data: {} }],
+      nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: {} }],
       edges: [],
       settings: {},
     }, { mode: 'preserve_id' });

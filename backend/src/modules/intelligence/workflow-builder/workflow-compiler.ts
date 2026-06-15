@@ -35,6 +35,73 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
   };
 }
 
+function normalizeCompiledNodeType(type: string) {
+  if (['textInput', 'imageInput', 'videoInput', 'audioInput', 'saveFile', 'output'].includes(type)) return 'io';
+  if (['aiChat', 'imageGen', 'videoGen'].includes(type)) return 'aiV3';
+  return type;
+}
+
+function normalizeCompiledNodeData(type: string, data: PlainObject = {}) {
+  const normalized: PlainObject = { ...data };
+  if (type === 'textInput' && normalized.text !== undefined) {
+    normalized.content = normalized.text;
+    delete normalized.text;
+  }
+  if (['imageInput', 'videoInput', 'audioInput'].includes(type) && normalized.fileUrl !== undefined) {
+    normalized.content = normalized.fileUrl;
+    delete normalized.fileUrl;
+  }
+  if (type === 'aiChat') normalized.mode = 'chat';
+  if (type === 'imageGen') normalized.mode = 'image';
+  if (type === 'videoGen') normalized.mode = 'video';
+  return normalized;
+}
+
+function normalizeCompiledWorkflow(workflow: PlainObject) {
+  const originalTypeById = new Map<string, string>();
+  const nodes = (Array.isArray(workflow.nodes) ? workflow.nodes : []).map((item) => {
+    const nodeItem = item as PlainObject;
+    const originalType = String(nodeItem.type || '');
+    originalTypeById.set(String(nodeItem.id || ''), originalType);
+    return {
+      ...nodeItem,
+      type: normalizeCompiledNodeType(originalType),
+      data: normalizeCompiledNodeData(originalType, (nodeItem.data || {}) as PlainObject),
+    };
+  });
+
+  const typeById = new Map(nodes.map((item) => [String((item as PlainObject).id || ''), String((item as PlainObject).type || '')]));
+  const edges = (Array.isArray(workflow.edges) ? workflow.edges : []).map((item) => {
+    const edgeItem = item as PlainObject;
+    const sourceType = typeById.get(String(edgeItem.source || '')) || '';
+    const targetType = typeById.get(String(edgeItem.target || '')) || '';
+    const originalSourceType = originalTypeById.get(String(edgeItem.source || '')) || sourceType;
+    const sourceHandle = String(edgeItem.sourceHandle || '');
+    const targetHandle = String(edgeItem.targetHandle || '');
+    const normalizedSourceHandle =
+      sourceType === 'io' || ['aiChat', 'imageGen', 'videoGen', 'saveFile', 'output'].includes(originalSourceType)
+        ? 'result'
+        : sourceHandle;
+    const normalizedTargetHandle = targetType === 'io' || targetType === 'aiV3' ? 'input' : targetHandle;
+
+    return {
+      ...edgeItem,
+      sourceHandle: normalizedSourceHandle,
+      targetHandle: normalizedTargetHandle,
+    };
+  });
+
+  return {
+    ...workflow,
+    nodes,
+    edges,
+  };
+}
+
+function normalizeCurrentWorkflow(workflow: PlainObject, options: { preserveCreatedAt?: boolean; scope?: DynamicValue } = {}) {
+  return normalizePersistedWorkflow(normalizeCompiledWorkflow(workflow), options);
+}
+
 function chainTextInputToAiChat(id: string, x: number, y: number, inputText: string, systemPrompt: string) {
   return [
     node(`${id}_input`, 'textInput', x, y, { text: inputText }),
@@ -277,7 +344,7 @@ function compileComplexAssetPack(
     edge('storyboard-save-to-output', 'storyboard_save', 'content', 'asset_output', 'content4'),
   ];
 
-  return normalizePersistedWorkflow(
+  return normalizeCurrentWorkflow(
     {
       id: workflowId,
       name: draft.name,
@@ -337,7 +404,7 @@ function compileBatchStoryboard(
     edge('save-to-output', 'shot_save', 'content', 'shot_output', 'content'),
   ];
 
-  return normalizePersistedWorkflow(
+  return normalizeCurrentWorkflow(
     {
       id: workflowId,
       name: draft.name,
@@ -381,7 +448,7 @@ export function compileWorkflowDraft(
       node('plain_output', 'output', 460, 200),
     ];
     const edges = [edge('text-to-output', 'plain_text', 'text', 'plain_output', 'content')];
-    return normalizePersistedWorkflow(
+    return normalizeCurrentWorkflow(
       {
         id: `draft_${draft.id}`,
         name: draft.name,
@@ -418,7 +485,7 @@ export function compileWorkflowDraft(
       edge('save-file-to-output', 'save_file', 'content', 'output', 'content'),
     ];
 
-    return normalizePersistedWorkflow(
+    return normalizeCurrentWorkflow(
       {
         id: workflowId,
         name: draft.name,
@@ -478,7 +545,7 @@ export function compileWorkflowDraft(
       edge('save-file-to-output', 'save_file', 'content', 'output', 'content'),
     ];
 
-    return normalizePersistedWorkflow(
+    return normalizeCurrentWorkflow(
       {
         id: workflowId,
         name: draft.name,
@@ -527,7 +594,7 @@ export function compileWorkflowDraft(
     edge('save-file-to-output', 'save_file', 'content', 'output', 'content'),
   ];
 
-  return normalizePersistedWorkflow(
+  return normalizeCurrentWorkflow(
     {
       id: workflowId,
       name: draft.name,

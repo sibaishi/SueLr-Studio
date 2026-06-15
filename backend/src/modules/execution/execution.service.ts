@@ -345,6 +345,12 @@ function applyAgentInputOverrides(persistedWorkflow: PlainObject, rawInputs: Dyn
       continue;
     }
 
+    if (node.type === 'io') {
+      node.data.content = stringifyWorkflowInput(value);
+      appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'content', matchedBy: String(rawKey) });
+      continue;
+    }
+
     if (node.type === 'textInput') {
       node.data.text = stringifyWorkflowInput(value);
       appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'text', matchedBy: String(rawKey) });

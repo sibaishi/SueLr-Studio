@@ -5,11 +5,11 @@ import { autoArrangeNodes, isNodeLockedWithAncestors, normalizeMergeNodeSizes } 
 
 describe('workflow store shared editor helpers', () => {
   it('grows merge nodes to match the highest connected input handle', () => {
-    const minimumSize = getNodeDefaultSize('textMerge', 4);
+    const minimumSize = getNodeDefaultSize('iterateRun', 4);
     const nodes = [
       {
         id: 'merge',
-        type: 'textMerge',
+        type: 'iterateRun',
         position: { x: 0, y: 0 },
         width: minimumSize.w - 56,
         height: minimumSize.h - 56,
@@ -17,8 +17,8 @@ describe('workflow store shared editor helpers', () => {
       },
     ];
     const edges = [
-      { id: 'edge0', source: 'source0', sourceHandle: 'output', target: 'merge', targetHandle: 'item0' },
-      { id: 'edge3', source: 'source3', sourceHandle: 'output', target: 'merge', targetHandle: 'item3' },
+      { id: 'edge0', source: 'source0', sourceHandle: 'result', target: 'merge', targetHandle: 'item0' },
+      { id: 'edge3', source: 'source3', sourceHandle: 'result', target: 'merge', targetHandle: 'item3' },
     ];
 
     const [mergeNode] = normalizeMergeNodeSizes(nodes, edges);
@@ -38,7 +38,7 @@ describe('workflow store shared editor helpers', () => {
       },
       {
         id: 'child',
-        type: 'textInput',
+        type: 'io',
         position: { x: 24, y: 24 },
         parentId: 'group',
         extent: 'parent',
@@ -54,7 +54,7 @@ describe('workflow store shared editor helpers', () => {
     const nodes: Node[] = [
       {
         id: 'source',
-        type: 'textInput',
+        type: 'io',
         position: { x: 1200, y: 520 },
         data: {},
       },
@@ -69,25 +69,25 @@ describe('workflow store shared editor helpers', () => {
             {
               id: 'port_in',
               label: 'Input 1',
-              type: 'string',
-              insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
-              outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
+              type: 'any',
+              insideLinks: [{ nodeId: 'child', handleId: 'input' }],
+              outsideLinks: [{ nodeId: 'source', handleId: 'result' }],
             },
           ],
           groupOutputs: [
             {
               id: 'port_out',
               label: 'Output 1',
-              type: 'string',
-              insideLinks: [{ nodeId: 'child', handleId: 'response' }],
-              outsideLinks: [{ nodeId: 'output', handleId: 'content' }],
+              type: 'any',
+              insideLinks: [{ nodeId: 'child', handleId: 'result' }],
+              outsideLinks: [{ nodeId: 'output', handleId: 'input' }],
             },
           ],
         },
       },
       {
         id: 'child',
-        type: 'aiChat',
+        type: 'aiV3',
         position: { x: 64, y: 112 },
         parentId: 'group',
         extent: 'parent',
@@ -95,7 +95,7 @@ describe('workflow store shared editor helpers', () => {
       },
       {
         id: 'output',
-        type: 'outputDisplay',
+        type: 'io',
         position: { x: 160, y: 1200 },
         data: {},
       },
@@ -105,7 +105,7 @@ describe('workflow store shared editor helpers', () => {
       {
         id: 'source-to-group',
         source: 'source',
-        sourceHandle: 'text',
+        sourceHandle: 'result',
         target: 'group',
         targetHandle: 'group-port:input:external:port_in',
       },
@@ -114,12 +114,12 @@ describe('workflow store shared editor helpers', () => {
         source: 'group',
         sourceHandle: 'group-port:input:internal:port_in',
         target: 'child',
-        targetHandle: 'prompt',
+        targetHandle: 'input',
       },
       {
         id: 'child-to-group',
         source: 'child',
-        sourceHandle: 'response',
+        sourceHandle: 'result',
         target: 'group',
         targetHandle: 'group-port:output:internal:port_out',
       },
@@ -128,7 +128,7 @@ describe('workflow store shared editor helpers', () => {
         source: 'group',
         sourceHandle: 'group-port:output:external:port_out',
         target: 'output',
-        targetHandle: 'content',
+        targetHandle: 'input',
       },
     ];
 

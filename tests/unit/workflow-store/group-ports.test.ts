@@ -4,16 +4,16 @@ import { buildGroupPortsFromBoundaryEdges, normalizeGroupPortNodes } from '@/dom
 describe('group port helpers', () => {
   it('builds facade transit ports from boundary edges and keeps one trailing empty slot', () => {
     const nodes = [
-      { id: 'sourceA', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
-      { id: 'sourceB', type: 'textInput', position: { x: 0, y: 120 }, data: {} },
-      { id: 'inner', type: 'aiChat', position: { x: 240, y: 0 }, data: {} },
-      { id: 'outside', type: 'saveFile', position: { x: 520, y: 0 }, data: {} },
+      { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
+      { id: 'sourceB', type: 'io', position: { x: 0, y: 120 }, data: {} },
+      { id: 'inner', type: 'aiV3', position: { x: 240, y: 0 }, data: {} },
+      { id: 'outside', type: 'io', position: { x: 520, y: 0 }, data: {} },
     ];
     const edges = [
-      { id: 'e1', source: 'sourceA', sourceHandle: 'text', target: 'inner', targetHandle: 'prompt' },
-      { id: 'e2', source: 'sourceB', sourceHandle: 'text', target: 'inner', targetHandle: 'prompt' },
-      { id: 'e3', source: 'inner', sourceHandle: 'response', target: 'outside', targetHandle: 'content' },
-      { id: 'e4', source: 'inner', sourceHandle: 'response', target: 'sourceA', targetHandle: 'text' },
+      { id: 'e1', source: 'sourceA', sourceHandle: 'result', target: 'inner', targetHandle: 'input' },
+      { id: 'e2', source: 'sourceB', sourceHandle: 'result', target: 'inner', targetHandle: 'input' },
+      { id: 'e3', source: 'inner', sourceHandle: 'result', target: 'outside', targetHandle: 'input' },
+      { id: 'e4', source: 'inner', sourceHandle: 'result', target: 'sourceA', targetHandle: 'input' },
     ];
 
     const result = buildGroupPortsFromBoundaryEdges(nodes, edges, ['inner']);
@@ -21,21 +21,21 @@ describe('group port helpers', () => {
     expect(result.groupInputs).toHaveLength(3);
     expect(result.groupOutputs).toHaveLength(2);
     expect(result.groupInputs[0]).toMatchObject({
-      type: 'string',
-      insideLinks: [{ nodeId: 'inner', handleId: 'prompt' }],
-      outsideLinks: [{ nodeId: 'sourceA', handleId: 'text' }],
+      type: 'any',
+      insideLinks: [{ nodeId: 'inner', handleId: 'input' }],
+      outsideLinks: [{ nodeId: 'sourceA', handleId: 'result' }],
     });
     expect(result.groupInputs[1]).toMatchObject({
-      type: 'string',
-      insideLinks: [{ nodeId: 'inner', handleId: 'prompt' }],
-      outsideLinks: [{ nodeId: 'sourceB', handleId: 'text' }],
+      type: 'any',
+      insideLinks: [{ nodeId: 'inner', handleId: 'input' }],
+      outsideLinks: [{ nodeId: 'sourceB', handleId: 'result' }],
     });
     expect(result.groupOutputs[0]).toMatchObject({
-      type: 'string',
-      insideLinks: [{ nodeId: 'inner', handleId: 'response' }],
+      type: 'any',
+      insideLinks: [{ nodeId: 'inner', handleId: 'result' }],
       outsideLinks: [
-        { nodeId: 'outside', handleId: 'content' },
-        { nodeId: 'sourceA', handleId: 'text' },
+        { nodeId: 'outside', handleId: 'input' },
+        { nodeId: 'sourceA', handleId: 'input' },
       ],
     });
     expect(result.groupInputs[2]).toMatchObject({ insideLinks: [], outsideLinks: [], type: null });
@@ -53,20 +53,20 @@ describe('group port helpers', () => {
             {
               id: 'port_valid',
               label: 'Input 1',
-              type: 'string',
-              binding: { nodeId: 'child', handleId: 'prompt' },
+              type: 'any',
+              binding: { nodeId: 'child', handleId: 'input' },
             },
             {
               id: 'port_missing_node',
               label: 'Input 2',
-              type: 'string',
-              binding: { nodeId: 'ghost', handleId: 'prompt' },
+              type: 'any',
+              binding: { nodeId: 'ghost', handleId: 'input' },
             },
             {
               id: 'port_duplicate',
               label: 'Input 3',
-              type: 'string',
-              binding: { nodeId: 'child', handleId: 'prompt' },
+              type: 'any',
+              binding: { nodeId: 'child', handleId: 'input' },
             },
             {
               id: 'port_empty_a',
@@ -85,7 +85,7 @@ describe('group port helpers', () => {
       },
       {
         id: 'child',
-        type: 'aiChat',
+        type: 'aiV3',
         position: { x: 48, y: 96 },
         parentId: 'group',
         extent: 'parent',
@@ -98,9 +98,9 @@ describe('group port helpers', () => {
 
     expect(inputs).toHaveLength(2);
     expect(inputs[0]).toMatchObject({
-      insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
+      insideLinks: [{ nodeId: 'child', handleId: 'input' }],
       outsideLinks: [],
-      type: 'string',
+      type: 'any',
     });
     expect(inputs[1]).toMatchObject({ insideLinks: [], outsideLinks: [], type: null });
   });
@@ -109,7 +109,7 @@ describe('group port helpers', () => {
     const nodes = normalizeGroupPortNodes([
       {
         id: 'source',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 0 },
         data: {},
       },
@@ -122,25 +122,25 @@ describe('group port helpers', () => {
             {
               id: 'port_in',
               label: 'Input 1',
-              type: 'string',
-              insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
-              outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
+              type: 'any',
+              insideLinks: [{ nodeId: 'child', handleId: 'input' }],
+              outsideLinks: [{ nodeId: 'source', handleId: 'result' }],
             },
           ],
           groupOutputs: [
             {
               id: 'port_out',
               label: 'Output 1',
-              type: 'string',
-              insideLinks: [{ nodeId: 'child', handleId: 'response' }],
-              outsideLinks: [{ nodeId: 'sink', handleId: 'content' }],
+              type: 'any',
+              insideLinks: [{ nodeId: 'child', handleId: 'result' }],
+              outsideLinks: [{ nodeId: 'sink', handleId: 'input' }],
             },
           ],
         },
       },
       {
         id: 'child',
-        type: 'aiChat',
+        type: 'aiV3',
         position: { x: 48, y: 96 },
         parentId: 'group',
         extent: 'parent',
@@ -148,7 +148,7 @@ describe('group port helpers', () => {
       },
       {
         id: 'sink',
-        type: 'saveFile',
+        type: 'io',
         position: { x: 640, y: 0 },
         data: {},
       },
@@ -156,7 +156,7 @@ describe('group port helpers', () => {
       {
         id: 'outside-to-group',
         source: 'source',
-        sourceHandle: 'text',
+        sourceHandle: 'result',
         target: 'group',
         targetHandle: 'group-port:input:external:port_in',
       },
@@ -165,12 +165,12 @@ describe('group port helpers', () => {
         source: 'group',
         sourceHandle: 'group-port:input:internal:port_in',
         target: 'child',
-        targetHandle: 'prompt',
+        targetHandle: 'input',
       },
       {
         id: 'child-to-group',
         source: 'child',
-        sourceHandle: 'response',
+        sourceHandle: 'result',
         target: 'group',
         targetHandle: 'group-port:output:internal:port_out',
       },
@@ -179,7 +179,7 @@ describe('group port helpers', () => {
         source: 'group',
         sourceHandle: 'group-port:output:external:port_out',
         target: 'sink',
-        targetHandle: 'content',
+        targetHandle: 'input',
       },
     ]);
 
@@ -188,14 +188,14 @@ describe('group port helpers', () => {
     const outputs = Array.isArray(groupNode?.data?.groupOutputs) ? groupNode.data.groupOutputs : [];
 
     expect(inputs[0]).toMatchObject({
-      insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
-      outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
-      type: 'string',
+      insideLinks: [{ nodeId: 'child', handleId: 'input' }],
+      outsideLinks: [{ nodeId: 'source', handleId: 'result' }],
+      type: 'any',
     });
     expect(outputs[0]).toMatchObject({
-      insideLinks: [{ nodeId: 'child', handleId: 'response' }],
-      outsideLinks: [{ nodeId: 'sink', handleId: 'content' }],
-      type: 'string',
+      insideLinks: [{ nodeId: 'child', handleId: 'result' }],
+      outsideLinks: [{ nodeId: 'sink', handleId: 'input' }],
+      type: 'any',
     });
     expect(inputs.flatMap((port) => port.outsideLinks).some((link) => link.nodeId === 'group')).toBe(false);
     expect(outputs.flatMap((port) => port.outsideLinks).some((link) => link.nodeId === 'group')).toBe(false);
@@ -205,7 +205,7 @@ describe('group port helpers', () => {
     const nodes = normalizeGroupPortNodes([
       {
         id: 'source',
-        type: 'textInput',
+        type: 'io',
         position: { x: 0, y: 0 },
         data: {},
       },
@@ -218,8 +218,8 @@ describe('group port helpers', () => {
             {
               id: 'port_in',
               label: 'Input 1',
-              type: 'string',
-              insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
+              type: 'any',
+              insideLinks: [{ nodeId: 'child', handleId: 'input' }],
               outsideLinks: [{ nodeId: 'group', handleId: 'group-port:input:internal:port_in' }],
             },
           ],
@@ -227,7 +227,7 @@ describe('group port helpers', () => {
       },
       {
         id: 'child',
-        type: 'aiChat',
+        type: 'aiV3',
         position: { x: 48, y: 96 },
         parentId: 'group',
         extent: 'parent',
@@ -239,12 +239,12 @@ describe('group port helpers', () => {
         source: 'group',
         sourceHandle: 'group-port:input:internal:port_in',
         target: 'child',
-        targetHandle: 'prompt',
+        targetHandle: 'input',
       },
       {
         id: 'source-to-group',
         source: 'source',
-        sourceHandle: 'text',
+        sourceHandle: 'result',
         target: 'group',
         targetHandle: 'group-port:input:external:port_in',
       },
@@ -254,9 +254,9 @@ describe('group port helpers', () => {
     const inputs = Array.isArray(groupNode?.data?.groupInputs) ? groupNode.data.groupInputs : [];
 
     expect(inputs[0]).toMatchObject({
-      insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
-      outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
-      type: 'string',
+      insideLinks: [{ nodeId: 'child', handleId: 'input' }],
+      outsideLinks: [{ nodeId: 'source', handleId: 'result' }],
+      type: 'any',
     });
     expect(inputs.flatMap((port) => port.outsideLinks).some((link) => link.nodeId === 'group')).toBe(false);
   });

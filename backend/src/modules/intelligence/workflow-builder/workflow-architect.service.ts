@@ -170,7 +170,7 @@ function buildArchitectDslQualityIssues(dsl: WorkflowArchitectDsl) {
     const upstreamAiEdges = dsl.edges.filter((edge) => edge.target === node.id && edge.targetHandle === 'text');
     for (const edge of upstreamAiEdges) {
       const sourceNode = nodeMap.get(edge.source);
-      if (sourceNode?.type !== 'aiChat' || edge.sourceHandle !== 'response') continue;
+      if (sourceNode?.type !== 'aiV3' || edge.sourceHandle !== 'result') continue;
       const systemPrompt = cleanText(sourceNode.data?.systemPrompt, 2400);
       if (!promptMentionsSeparator(systemPrompt, separator || '\n')) {
         issues.push({
@@ -191,21 +191,26 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
   const nodes = getWorkflowNodes(workflow);
   const edges = getWorkflowEdges(workflow);
   const nodeMap = new Map(nodes.map((node) => [String(node.id || ''), node]));
+  const outgoingNodeIds = new Set(edges.map((edge) => String(edge.source || '')));
   const countType = (type: string) => nodes.filter((node) => node.type === type).length;
-  const countAnyType = (types: string[]) => nodes.filter((node) => types.includes(String(node.type || ''))).length;
-  const outputBranches = edges.filter((edge) => nodeMap.get(String(edge.target || ''))?.type === 'output').length;
+  const countAiV3Mode = (mode?: string) =>
+    nodes.filter((node) => node.type === 'aiV3' && (!mode || String(node.data?.mode || 'chat') === mode)).length;
+  const outputBranches = edges.filter((edge) => {
+    const targetId = String(edge.target || '');
+    return nodeMap.get(targetId)?.type === 'io' && !outgoingNodeIds.has(targetId);
+  }).length;
   const complex = isComplexRequest(input, intent);
   const batch = isBatchRequest(input, intent);
 
   if (complex) {
-    if (countType('aiChat') < 1) {
+    if (countAiV3Mode('chat') < 1) {
       issues.push({
         code: 'ARCHITECT_COMPLEX_PLANNER_MISSING',
         message: '复杂需求应至少包含一个承担需求拆解、策略规划或文案规划的 aiChat 节点。',
         severity: 'error',
       });
     }
-    if (countAnyType(['imageGen', 'videoGen', 'aiChat']) < 3) {
+    if (countType('aiV3') < 3) {
       issues.push({
         code: 'ARCHITECT_COMPLEX_AI_NODES_TOO_FEW',
         message: '复杂需求应拆成多个 AI 能力节点协同，而不是单个生成节点直接输出。',
@@ -239,7 +244,7 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
     const hasIterateAiDownstream = edges.some((edge) => {
       if (!iterateIds.has(String(edge.source || ''))) return false;
       const targetType = String(nodeMap.get(String(edge.target || ''))?.type || '');
-      return ['aiChat', 'imageGen', 'videoGen'].includes(targetType);
+      return targetType === 'aiV3';
     });
     if (hasIterate && !hasIterateAiDownstream) {
       issues.push({
@@ -251,7 +256,7 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
   }
 
   if (complex || batch) {
-    for (const node of nodes.filter((item) => item.type === 'aiChat')) {
+    for (const node of nodes.filter((item) => item.type === 'aiV3' && String(item.data?.mode || 'chat') === 'chat')) {
       if (!cleanText(node.data?.systemPrompt, 1200)) {
         issues.push({
           code: 'ARCHITECT_AI_ROLE_PROMPT_MISSING',
@@ -261,7 +266,7 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
         });
       }
     }
-    for (const node of nodes.filter((item) => item.type === 'imageGen')) {
+    for (const node of nodes.filter((item) => item.type === 'aiV3' && String(item.data?.mode || 'chat') === 'image')) {
       const configured = ['ratio', 'resolution', 'n', 'output_format'].filter(
         (key) => node.data?.[key] !== undefined && node.data?.[key] !== '',
       );
@@ -274,7 +279,7 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
         });
       }
     }
-    for (const node of nodes.filter((item) => item.type === 'videoGen')) {
+    for (const node of nodes.filter((item) => item.type === 'aiV3' && String(item.data?.mode || 'chat') === 'video')) {
       const configured = ['duration', 'resolution', 'ratio'].filter(
         (key) => node.data?.[key] !== undefined && node.data?.[key] !== '',
       );

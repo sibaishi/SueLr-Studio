@@ -30,15 +30,15 @@ describe('workflow store graph editor actions', () => {
   it('replaces an existing connection on the same target handle', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'sourceA', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
-        { id: 'sourceB', type: 'textInput', position: { x: 0, y: 80 }, data: {} },
-        { id: 'merge', type: 'textMerge', position: { x: 220, y: 0 }, data: { inputCount: 1 } },
+        { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
+        { id: 'sourceB', type: 'io', position: { x: 0, y: 80 }, data: {} },
+        { id: 'merge', type: 'iterateRun', position: { x: 220, y: 0 }, data: { inputCount: 1 } },
       ],
       edges: [
         {
           id: 'edge_existing',
           source: 'sourceA',
-          sourceHandle: 'output',
+          sourceHandle: 'result',
           target: 'merge',
           targetHandle: 'item2',
         },
@@ -62,15 +62,15 @@ describe('workflow store graph editor actions', () => {
   it('compacts iterate-run input handles after disconnecting a middle input', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'sourceA', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
-        { id: 'sourceB', type: 'textInput', position: { x: 0, y: 80 }, data: {} },
-        { id: 'sourceC', type: 'textInput', position: { x: 0, y: 160 }, data: {} },
+        { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
+        { id: 'sourceB', type: 'io', position: { x: 0, y: 80 }, data: {} },
+        { id: 'sourceC', type: 'io', position: { x: 0, y: 160 }, data: {} },
         { id: 'iterate', type: 'iterateRun', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
       ],
       edges: [
-        { id: 'edge_a', source: 'sourceA', sourceHandle: 'text', target: 'iterate', targetHandle: 'item1' },
-        { id: 'edge_b', source: 'sourceB', sourceHandle: 'text', target: 'iterate', targetHandle: 'item2' },
-        { id: 'edge_c', source: 'sourceC', sourceHandle: 'text', target: 'iterate', targetHandle: 'item3' },
+        { id: 'edge_a', source: 'sourceA', sourceHandle: 'result', target: 'iterate', targetHandle: 'item1' },
+        { id: 'edge_b', source: 'sourceB', sourceHandle: 'result', target: 'iterate', targetHandle: 'item2' },
+        { id: 'edge_c', source: 'sourceC', sourceHandle: 'result', target: 'iterate', targetHandle: 'item3' },
       ],
     });
 
@@ -118,15 +118,15 @@ describe('workflow store graph editor actions', () => {
   it('compacts merge input handles after deleting a connected source node', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'sourceA', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
-        { id: 'sourceB', type: 'textInput', position: { x: 0, y: 80 }, data: {} },
-        { id: 'sourceC', type: 'textInput', position: { x: 0, y: 160 }, data: {} },
-        { id: 'merge', type: 'textMerge', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
+        { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
+        { id: 'sourceB', type: 'io', position: { x: 0, y: 80 }, data: {} },
+        { id: 'sourceC', type: 'io', position: { x: 0, y: 160 }, data: {} },
+        { id: 'merge', type: 'iterateRun', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
       ],
       edges: [
-        { id: 'edge_a', source: 'sourceA', sourceHandle: 'text', target: 'merge', targetHandle: 'item1' },
-        { id: 'edge_b', source: 'sourceB', sourceHandle: 'text', target: 'merge', targetHandle: 'item2' },
-        { id: 'edge_c', source: 'sourceC', sourceHandle: 'text', target: 'merge', targetHandle: 'item3' },
+        { id: 'edge_a', source: 'sourceA', sourceHandle: 'result', target: 'merge', targetHandle: 'item1' },
+        { id: 'edge_b', source: 'sourceB', sourceHandle: 'result', target: 'merge', targetHandle: 'item2' },
+        { id: 'edge_c', source: 'sourceC', sourceHandle: 'result', target: 'merge', targetHandle: 'item3' },
       ],
     });
 
@@ -155,8 +155,8 @@ describe('workflow store graph editor actions', () => {
               {
                 id: 'port_a',
                 label: 'Input 1',
-                type: 'string',
-                binding: { nodeId: 'child', handleId: 'prompt' },
+                type: 'any',
+                binding: { nodeId: 'child', handleId: 'input' },
               },
               {
                 id: 'port_b',
@@ -175,7 +175,7 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'child',
-          type: 'aiChat',
+          type: 'aiV3',
           position: { x: 56, y: 84 },
           parentId: 'group',
           extent: 'parent',
@@ -196,9 +196,9 @@ describe('workflow store graph editor actions', () => {
 
     expect(inputs).toHaveLength(2);
     expect(inputs[0]).toMatchObject({
-      insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
+      insideLinks: [{ nodeId: 'child', handleId: 'input' }],
       outsideLinks: [],
-      type: 'string',
+      type: 'any',
     });
     expect(inputs[1]).toMatchObject({ insideLinks: [], outsideLinks: [], type: null });
   });
@@ -207,14 +207,14 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'group', type: 'group', position: { x: 0, y: 0 }, data: {} },
-        { id: 'child', type: 'textInput', position: { x: 24, y: 24 }, parentId: 'group', extent: 'parent', data: {} },
-        { id: 'output', type: 'output', position: { x: 360, y: 0 }, data: {} },
+        { id: 'child', type: 'io', position: { x: 24, y: 24 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'output', type: 'io', position: { x: 360, y: 0 }, data: {} },
       ],
       edges: [
         {
           id: 'edge_child_output',
           source: 'child',
-          sourceHandle: 'output',
+          sourceHandle: 'result',
           target: 'output',
           targetHandle: 'input',
         },
@@ -261,20 +261,20 @@ describe('workflow store graph editor actions', () => {
                 id: 'port_in',
                 label: 'Input 1',
                 type: 'string',
-                insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
-                outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
+                insideLinks: [{ nodeId: 'child', handleId: 'input' }],
+                outsideLinks: [{ nodeId: 'source', handleId: 'result' }],
               },
             ],
           },
         },
-        { id: 'source', type: 'textInput', position: { x: -240, y: 0 }, data: {} },
-        { id: 'child', type: 'aiChat', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'source', type: 'io', position: { x: -240, y: 0 }, data: {} },
+        { id: 'child', type: 'aiV3', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
       ],
       edges: [
         {
           id: 'outside-to-group',
           source: 'source',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'group',
           targetHandle: 'group-port:input:external:port_in',
         },
@@ -283,7 +283,7 @@ describe('workflow store graph editor actions', () => {
           source: 'group',
           sourceHandle: 'group-port:input:internal:port_in',
           target: 'child',
-          targetHandle: 'prompt',
+          targetHandle: 'input',
         },
       ],
     });
@@ -309,13 +309,13 @@ describe('workflow store graph editor actions', () => {
   it('detaches a middle node and reconnects compatible upstream and downstream nodes', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'input', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
-        { id: 'chat', type: 'aiChat', position: { x: 240, y: 0 }, data: {} },
-        { id: 'output', type: 'output', position: { x: 520, y: 0 }, data: {} },
+        { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: {} },
+        { id: 'chat', type: 'aiV3', position: { x: 240, y: 0 }, data: {} },
+        { id: 'output', type: 'io', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
-        { id: 'edge_in', source: 'input', sourceHandle: 'text', target: 'chat', targetHandle: 'prompt' },
-        { id: 'edge_out', source: 'chat', sourceHandle: 'response', target: 'output', targetHandle: 'content' },
+        { id: 'edge_in', source: 'input', sourceHandle: 'result', target: 'chat', targetHandle: 'input' },
+        { id: 'edge_out', source: 'chat', sourceHandle: 'result', target: 'output', targetHandle: 'input' },
       ],
     });
 
@@ -329,9 +329,9 @@ describe('workflow store graph editor actions', () => {
     expect(state.edges).toHaveLength(1);
     expect(state.edges[0]).toMatchObject({
       source: 'input',
-      sourceHandle: 'text',
+      sourceHandle: 'result',
       target: 'output',
-      targetHandle: 'content',
+      targetHandle: 'input',
     });
     expect(state.hasUnsavedChanges).toBe(true);
   });
@@ -339,13 +339,13 @@ describe('workflow store graph editor actions', () => {
   it('reconnects compatible upstream and downstream nodes when deleting a single middle node', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'input', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
-        { id: 'chat', type: 'aiChat', position: { x: 240, y: 0 }, data: {} },
-        { id: 'output', type: 'output', position: { x: 520, y: 0 }, data: {} },
+        { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: {} },
+        { id: 'chat', type: 'aiV3', position: { x: 240, y: 0 }, data: {} },
+        { id: 'output', type: 'io', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
-        { id: 'edge_in', source: 'input', sourceHandle: 'text', target: 'chat', targetHandle: 'prompt' },
-        { id: 'edge_out', source: 'chat', sourceHandle: 'response', target: 'output', targetHandle: 'content' },
+        { id: 'edge_in', source: 'input', sourceHandle: 'result', target: 'chat', targetHandle: 'input' },
+        { id: 'edge_out', source: 'chat', sourceHandle: 'result', target: 'output', targetHandle: 'input' },
       ],
       selectedNodeId: 'chat',
     });
@@ -360,9 +360,9 @@ describe('workflow store graph editor actions', () => {
     expect(state.edges).toHaveLength(1);
     expect(state.edges[0]).toMatchObject({
       source: 'input',
-      sourceHandle: 'text',
+      sourceHandle: 'result',
       target: 'output',
-      targetHandle: 'content',
+      targetHandle: 'input',
     });
     expect(state.selectedNodeId).toBeNull();
     expect(state.hasUnsavedChanges).toBe(true);
@@ -371,13 +371,13 @@ describe('workflow store graph editor actions', () => {
   it('does not detach a middle node when no compatible bypass connection exists', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'imageInput', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
-        { id: 'resize', type: 'imageResize', position: { x: 240, y: 0 }, data: {} },
-        { id: 'chat', type: 'aiChat', position: { x: 520, y: 0 }, data: {} },
+        { id: 'imageInput', type: 'iterateImageRun', position: { x: 0, y: 0 }, data: {} },
+        { id: 'resize', type: 'imageSplit', position: { x: 240, y: 0 }, data: {} },
+        { id: 'chat', type: 'textClean', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
         { id: 'edge_in', source: 'imageInput', sourceHandle: 'image', target: 'resize', targetHandle: 'image' },
-        { id: 'edge_out', source: 'resize', sourceHandle: 'image', target: 'chat', targetHandle: 'prompt' },
+        { id: 'edge_out', source: 'resize', sourceHandle: 'part1', target: 'chat', targetHandle: 'text' },
       ],
     });
 
@@ -389,7 +389,7 @@ describe('workflow store graph editor actions', () => {
     const state = harness.getState();
     expect(state.edges).toEqual([
       { id: 'edge_in', source: 'imageInput', sourceHandle: 'image', target: 'resize', targetHandle: 'image' },
-      { id: 'edge_out', source: 'resize', sourceHandle: 'image', target: 'chat', targetHandle: 'prompt' },
+      { id: 'edge_out', source: 'resize', sourceHandle: 'part1', target: 'chat', targetHandle: 'text' },
     ]);
     expect(state.hasUnsavedChanges).toBe(false);
   });
@@ -397,9 +397,9 @@ describe('workflow store graph editor actions', () => {
   it('inserts a node onto an existing compatible edge', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'imageInput', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
-        { id: 'resize', type: 'imageResize', position: { x: 240, y: 0 }, data: {} },
-        { id: 'merge', type: 'imageMerge', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
+        { id: 'imageInput', type: 'iterateImageRun', position: { x: 0, y: 0 }, data: {} },
+        { id: 'resize', type: 'imageSplit', position: { x: 240, y: 0 }, data: {} },
+        { id: 'merge', type: 'iterateImageRun', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
       ],
       edges: [
         { id: 'edge_original', source: 'imageInput', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
@@ -422,7 +422,7 @@ describe('workflow store graph editor actions', () => {
       }),
       expect.objectContaining({
         source: 'resize',
-        sourceHandle: 'image',
+        sourceHandle: 'part1',
         target: 'merge',
         targetHandle: 'item1',
       }),
@@ -433,9 +433,9 @@ describe('workflow store graph editor actions', () => {
   it('does not insert a node when it cannot bridge the edge types', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'imageInput', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
-        { id: 'chat', type: 'aiChat', position: { x: 240, y: 0 }, data: {} },
-        { id: 'merge', type: 'imageMerge', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
+        { id: 'imageInput', type: 'iterateImageRun', position: { x: 0, y: 0 }, data: {} },
+        { id: 'chat', type: 'textClean', position: { x: 240, y: 0 }, data: {} },
+        { id: 'merge', type: 'iterateImageRun', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
       ],
       edges: [
         { id: 'edge_original', source: 'imageInput', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
@@ -457,7 +457,7 @@ describe('workflow store graph editor actions', () => {
   it('locks selected nodes and blocks subsequent graph changes', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'lockedNode', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+        { id: 'lockedNode', type: 'io', position: { x: 0, y: 0 }, data: {} },
       ],
     });
 
@@ -482,7 +482,7 @@ describe('workflow store graph editor actions', () => {
   it('allows internal dimensions updates for locked nodes so restored edges can remeasure handles', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'lockedNode', type: 'textInput', position: { x: 0, y: 0 }, data: { locked: true } },
+        { id: 'lockedNode', type: 'io', position: { x: 0, y: 0 }, data: { locked: true } },
       ],
     });
 
@@ -505,13 +505,13 @@ describe('workflow store graph editor actions', () => {
   it('auto arranges root nodes by dependency columns and snaps them to the grid', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'input', type: 'textInput', position: { x: 300, y: 300 }, data: {} },
-        { id: 'chat', type: 'aiChat', position: { x: 120, y: 40 }, data: {} },
-        { id: 'output', type: 'output', position: { x: 40, y: 260 }, data: {} },
+        { id: 'input', type: 'io', position: { x: 300, y: 300 }, data: {} },
+        { id: 'chat', type: 'aiV3', position: { x: 120, y: 40 }, data: {} },
+        { id: 'output', type: 'io', position: { x: 40, y: 260 }, data: {} },
       ],
       edges: [
-        { id: 'edge_a', source: 'input', sourceHandle: 'output', target: 'chat', targetHandle: 'text' },
-        { id: 'edge_b', source: 'chat', sourceHandle: 'output', target: 'output', targetHandle: 'input' },
+        { id: 'edge_a', source: 'input', sourceHandle: 'result', target: 'chat', targetHandle: 'input' },
+        { id: 'edge_b', source: 'chat', sourceHandle: 'result', target: 'output', targetHandle: 'input' },
       ],
     });
 
@@ -536,8 +536,8 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'group', type: 'group', position: { x: 0, y: 0 }, width: 280, height: 280, data: {} },
-        { id: 'lockedChild', type: 'textInput', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: { locked: true } },
-        { id: 'freeChild', type: 'output', position: { x: 24, y: 196 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'lockedChild', type: 'io', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: { locked: true } },
+        { id: 'freeChild', type: 'io', position: { x: 24, y: 196 }, parentId: 'group', extent: 'parent', data: {} },
       ],
       edges: [],
     });
@@ -562,12 +562,12 @@ describe('workflow store graph editor actions', () => {
   it('only arranges the selected subset when there is an active selection', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'selectedA', type: 'textInput', position: { x: 300, y: 280 }, data: {}, selected: true },
-        { id: 'selectedB', type: 'aiChat', position: { x: 120, y: 56 }, data: {}, selected: true },
-        { id: 'untouched', type: 'output', position: { x: 812, y: 476 }, data: {}, selected: false },
+        { id: 'selectedA', type: 'io', position: { x: 300, y: 280 }, data: {}, selected: true },
+        { id: 'selectedB', type: 'aiV3', position: { x: 120, y: 56 }, data: {}, selected: true },
+        { id: 'untouched', type: 'io', position: { x: 812, y: 476 }, data: {}, selected: false },
       ],
       edges: [
-        { id: 'edge_sel', source: 'selectedA', sourceHandle: 'output', target: 'selectedB', targetHandle: 'text' },
+        { id: 'edge_sel', source: 'selectedA', sourceHandle: 'result', target: 'selectedB', targetHandle: 'input' },
       ],
     });
 
@@ -589,11 +589,11 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'group', type: 'group', position: { x: 0, y: 0 }, width: 392, height: 336, data: {}, selected: true },
-        { id: 'childA', type: 'textInput', position: { x: 196, y: 196 }, parentId: 'group', extent: 'parent', data: {} },
-        { id: 'childB', type: 'output', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'childA', type: 'io', position: { x: 196, y: 196 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'childB', type: 'io', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
       ],
       edges: [
-        { id: 'edge_group', source: 'childA', sourceHandle: 'output', target: 'childB', targetHandle: 'input' },
+        { id: 'edge_group', source: 'childA', sourceHandle: 'result', target: 'childB', targetHandle: 'input' },
       ],
     });
 
@@ -614,14 +614,14 @@ describe('workflow store graph editor actions', () => {
   it('orders nodes within a layer by upstream flow to reduce crossing', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'leftTop', type: 'textInput', position: { x: 56, y: 56 }, data: {} },
-        { id: 'leftBottom', type: 'textInput', position: { x: 56, y: 420 }, data: {} },
-        { id: 'rightTop', type: 'aiChat', position: { x: 560, y: 420 }, data: {} },
-        { id: 'rightBottom', type: 'aiChat', position: { x: 560, y: 56 }, data: {} },
+        { id: 'leftTop', type: 'io', position: { x: 56, y: 56 }, data: {} },
+        { id: 'leftBottom', type: 'io', position: { x: 56, y: 420 }, data: {} },
+        { id: 'rightTop', type: 'aiV3', position: { x: 560, y: 420 }, data: {} },
+        { id: 'rightBottom', type: 'aiV3', position: { x: 560, y: 56 }, data: {} },
       ],
       edges: [
-        { id: 'edge_top', source: 'leftTop', sourceHandle: 'output', target: 'rightTop', targetHandle: 'text' },
-        { id: 'edge_bottom', source: 'leftBottom', sourceHandle: 'output', target: 'rightBottom', targetHandle: 'text' },
+        { id: 'edge_top', source: 'leftTop', sourceHandle: 'result', target: 'rightTop', targetHandle: 'input' },
+        { id: 'edge_bottom', source: 'leftBottom', sourceHandle: 'result', target: 'rightBottom', targetHandle: 'input' },
       ],
     });
 
@@ -640,14 +640,14 @@ describe('workflow store graph editor actions', () => {
   it('keeps disconnected chains as separate blocks and stacks them vertically', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'chainATop', type: 'textInput', position: { x: 56, y: 420 }, data: {} },
-        { id: 'chainABottom', type: 'aiChat', position: { x: 560, y: 84 }, data: {} },
-        { id: 'chainBTop', type: 'textInput', position: { x: 84, y: 1120 }, data: {} },
-        { id: 'chainBBottom', type: 'output', position: { x: 588, y: 700 }, data: {} },
+        { id: 'chainATop', type: 'io', position: { x: 56, y: 420 }, data: {} },
+        { id: 'chainABottom', type: 'aiV3', position: { x: 560, y: 84 }, data: {} },
+        { id: 'chainBTop', type: 'io', position: { x: 84, y: 1120 }, data: {} },
+        { id: 'chainBBottom', type: 'io', position: { x: 588, y: 700 }, data: {} },
       ],
       edges: [
-        { id: 'edge_a', source: 'chainATop', sourceHandle: 'output', target: 'chainABottom', targetHandle: 'text' },
-        { id: 'edge_b', source: 'chainBTop', sourceHandle: 'output', target: 'chainBBottom', targetHandle: 'input' },
+        { id: 'edge_a', source: 'chainATop', sourceHandle: 'result', target: 'chainABottom', targetHandle: 'input' },
+        { id: 'edge_b', source: 'chainBTop', sourceHandle: 'result', target: 'chainBBottom', targetHandle: 'input' },
       ],
     });
 
@@ -670,15 +670,15 @@ describe('workflow store graph editor actions', () => {
 
   it('keeps the root arrangement near the original bounding-box center', () => {
     const originalNodes = [
-      { id: 'left', type: 'textInput', position: { x: 840, y: 308 }, data: {} },
-      { id: 'middle', type: 'aiChat', position: { x: 1596, y: 560 }, data: {} },
-      { id: 'right', type: 'output', position: { x: 2380, y: 896 }, data: {} },
+      { id: 'left', type: 'io', position: { x: 840, y: 308 }, data: {} },
+      { id: 'middle', type: 'aiV3', position: { x: 1596, y: 560 }, data: {} },
+      { id: 'right', type: 'io', position: { x: 2380, y: 896 }, data: {} },
     ];
     const harness = createWorkflowStoreHarness({
       nodes: originalNodes,
       edges: [
-        { id: 'edge_left', source: 'left', sourceHandle: 'output', target: 'middle', targetHandle: 'text' },
-        { id: 'edge_right', source: 'middle', sourceHandle: 'output', target: 'right', targetHandle: 'input' },
+        { id: 'edge_left', source: 'left', sourceHandle: 'result', target: 'middle', targetHandle: 'input' },
+        { id: 'edge_right', source: 'middle', sourceHandle: 'result', target: 'right', targetHandle: 'input' },
       ],
     });
 
@@ -711,7 +711,7 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'childA',
-          type: 'textInput',
+          type: 'io',
           position: { x: 84, y: 112 },
           parentId: 'group',
           extent: 'parent',
@@ -719,7 +719,7 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'childB',
-          type: 'output',
+          type: 'io',
           position: { x: 420, y: 224 },
           parentId: 'group',
           extent: 'parent',
@@ -760,7 +760,7 @@ describe('workflow store graph editor actions', () => {
                 id: 'port_in',
                 label: 'Input 1',
                 type: 'string',
-                binding: { nodeId: 'childIn', handleId: 'prompt' },
+                binding: { nodeId: 'childIn', handleId: 'input' },
               },
               {
                 id: 'port_in_empty',
@@ -774,7 +774,7 @@ describe('workflow store graph editor actions', () => {
                 id: 'port_out',
                 label: 'Output 1',
                 type: 'string',
-                binding: { nodeId: 'childOut', handleId: 'output' },
+                binding: { nodeId: 'childOut', handleId: 'result' },
               },
               {
                 id: 'port_out_empty',
@@ -785,11 +785,11 @@ describe('workflow store graph editor actions', () => {
             ],
           },
         },
-        { id: 'source', type: 'textInput', position: { x: 0, y: 180 }, data: {} },
-        { id: 'sink', type: 'output', position: { x: 980, y: 180 }, data: {} },
+        { id: 'source', type: 'io', position: { x: 0, y: 180 }, data: {} },
+        { id: 'sink', type: 'io', position: { x: 980, y: 180 }, data: {} },
         {
           id: 'childIn',
-          type: 'aiChat',
+          type: 'aiV3',
           position: { x: 56, y: 140 },
           parentId: 'group',
           extent: 'parent',
@@ -797,7 +797,7 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'childOut',
-          type: 'textInput',
+          type: 'io',
           position: { x: 280, y: 252 },
           parentId: 'group',
           extent: 'parent',
@@ -808,7 +808,7 @@ describe('workflow store graph editor actions', () => {
         {
           id: 'edge_external_in',
           source: 'source',
-          sourceHandle: 'output',
+          sourceHandle: 'result',
           target: 'group',
           targetHandle: 'group-port:input:external:port_in',
         },
@@ -817,12 +817,12 @@ describe('workflow store graph editor actions', () => {
           source: 'group',
           sourceHandle: 'group-port:input:internal:port_in',
           target: 'childIn',
-          targetHandle: 'prompt',
+          targetHandle: 'input',
         },
         {
           id: 'edge_internal_out',
           source: 'childOut',
-          sourceHandle: 'output',
+          sourceHandle: 'result',
           target: 'group',
           targetHandle: 'group-port:output:internal:port_out',
         },
@@ -850,13 +850,13 @@ describe('workflow store graph editor actions', () => {
     expect(state.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({
         source: 'source',
-        sourceHandle: 'output',
+        sourceHandle: 'result',
         target: 'childIn',
-        targetHandle: 'prompt',
+        targetHandle: 'input',
       }),
       expect.objectContaining({
         source: 'childOut',
-        sourceHandle: 'output',
+        sourceHandle: 'result',
         target: 'sink',
         targetHandle: 'input',
       }),
@@ -876,7 +876,7 @@ describe('workflow store graph editor actions', () => {
                 id: 'port_in',
                 label: 'Input 1',
                 type: 'string',
-                binding: { nodeId: 'child', handleId: 'prompt' },
+                binding: { nodeId: 'child', handleId: 'input' },
               },
               {
                 id: 'port_empty',
@@ -889,13 +889,13 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'source',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: {},
         },
         {
           id: 'child',
-          type: 'aiChat',
+          type: 'aiV3',
           position: { x: 56, y: 84 },
           parentId: 'group',
           extent: 'parent',
@@ -906,7 +906,7 @@ describe('workflow store graph editor actions', () => {
         {
           id: 'edge_external',
           source: 'source',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'group',
           targetHandle: 'group-port:input:external:port_in',
         },
@@ -915,7 +915,7 @@ describe('workflow store graph editor actions', () => {
           source: 'group',
           sourceHandle: 'group-port:input:internal:port_in',
           target: 'child',
-          targetHandle: 'prompt',
+          targetHandle: 'input',
         },
       ],
     });
@@ -951,8 +951,8 @@ describe('workflow store graph editor actions', () => {
                 id: 'port_in',
                 label: 'Input 1',
                 type: 'string',
-                insideLinks: [{ nodeId: 'child', handleId: 'prompt' }],
-                outsideLinks: [{ nodeId: 'source', handleId: 'text' }],
+                insideLinks: [{ nodeId: 'child', handleId: 'input' }],
+                outsideLinks: [{ nodeId: 'source', handleId: 'result' }],
               },
               {
                 id: 'port_empty',
@@ -966,13 +966,13 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'source',
-          type: 'textInput',
+          type: 'io',
           position: { x: 0, y: 0 },
           data: {},
         },
         {
           id: 'child',
-          type: 'aiChat',
+          type: 'aiV3',
           position: { x: 56, y: 84 },
           parentId: 'group',
           extent: 'parent',
@@ -983,7 +983,7 @@ describe('workflow store graph editor actions', () => {
         {
           id: 'edge_external',
           source: 'source',
-          sourceHandle: 'text',
+          sourceHandle: 'result',
           target: 'group',
           targetHandle: 'group-port:input:external:port_in',
         },
@@ -992,7 +992,7 @@ describe('workflow store graph editor actions', () => {
           source: 'group',
           sourceHandle: 'group-port:input:internal:port_in',
           target: 'child',
-          targetHandle: 'prompt',
+          targetHandle: 'input',
         },
       ],
     });

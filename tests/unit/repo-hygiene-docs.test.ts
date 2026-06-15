@@ -99,8 +99,6 @@ describe('repository documentation and branch hygiene', () => {
 
     for (const file of [
       'src/domains/workflow/components/nodes/explicitContentRegistry.tsx',
-      'src/domains/workflow/components/nodes/fileInputRegistry.tsx',
-      'src/domains/workflow/components/nodes/mergeContentRegistry.tsx',
       'src/domains/workflow/components/nodes/settingsContentRegistry.tsx',
     ]) {
       const source = readUtf8(file);
