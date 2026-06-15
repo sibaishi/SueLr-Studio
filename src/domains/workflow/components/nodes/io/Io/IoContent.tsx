@@ -207,7 +207,7 @@ export function IoContent({
           </div>
         </div>
       ) : (
-        <div className="node-gallery-frame-v2" style={{ padding: 8, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 6 }}>
+        <div className="node-gallery-frame-v2" style={{ padding: 8, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 6, overflowY: 'auto' }}>
           {/* Image thumbnails */}
           {imageItems.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -244,11 +244,10 @@ export function IoContent({
               key={`t${idx}`}
               style={{
                 fontSize: 10, lineHeight: 1.5, color: 'var(--node-card-ink)',
-                maxHeight: 60, overflow: 'hidden', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
               }}
             >
-              {String(text).slice(0, 200)}
-              {String(text).length > 200 ? '...' : ''}
+              {String(text)}
             </div>
           ))}
 

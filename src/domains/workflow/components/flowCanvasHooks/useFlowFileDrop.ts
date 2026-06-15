@@ -5,6 +5,9 @@ import { FLOW_DISABLED_NEW_NODE_TYPES } from '../flowCanvasConfig';
 import { buildDefaultData, getDroppedFileNodeType } from '../flowCanvasHelpers';
 import type { FlowHookDeps } from './types';
 
+const TEXT_EXTENSIONS = /\.(txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml)$/i;
+const isTextFile = (file: File) => TEXT_EXTENSIONS.test(file.name) || file.type.startsWith('text/') || file.type === 'application/json';
+
 interface UseFlowFileDropDeps extends FlowHookDeps {
   closeContextMenu: () => void;
 }
@@ -27,7 +30,18 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
           buildDefaultData(droppedNodeType),
         );
 
-        // All files go to io nodes
+        // Text files: read content into the text field, don't create a file entry
+        if (isTextFile(file)) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const text = String(reader.result);
+            store.updateNodeData(nodeId, { text: `[${file.name}]\n${text}` });
+          };
+          reader.readAsText(file);
+          return;
+        }
+
+        // Media files: store as file entry
         const reader = new FileReader();
         reader.onload = () => {
           import('@/domains/workflow/components/nodes/io/fileRawStore').then(({ fileRawStore }) => {
