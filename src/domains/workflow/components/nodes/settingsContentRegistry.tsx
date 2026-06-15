@@ -1,6 +1,7 @@
 import { aiChatContentRenderer } from './ai/AiChat/renderer';
 import { imageGenContentRenderer } from './ai/ImageGen/renderer';
 import { aiChatV2ContentRenderer } from './ai/AiChatV2/renderer';
+import { aiV3ContentRenderer } from './ai/AiV3/renderer';
 import { imageGenV2ContentRenderer } from './ai/ImageGenV2/renderer';
 import { iterateImageRunV2ContentRenderer } from './ai/IterateImageRunV2/renderer';
 import { iterateRunV2ContentRenderer } from './ai/IterateRunV2/renderer';
@@ -19,6 +20,7 @@ const settingsContentRenderers: Record<string, NodeContentRenderer> = {
   imageGenV2: imageGenV2ContentRenderer,
   videoGenV2: videoGenV2ContentRenderer,
   aiChatV2: aiChatV2ContentRenderer,
+  aiV3: aiV3ContentRenderer,
   iterateRunV2: iterateRunV2ContentRenderer,
   iterateImageRunV2: iterateImageRunV2ContentRenderer,
   videoGen: videoGenContentRenderer,

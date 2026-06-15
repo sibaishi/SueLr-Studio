@@ -1,5 +1,6 @@
 import FlowNode from './nodes/FlowNode';
 import AiChatV2Node from './nodes/ai/AiChatV2/AiChatV2Node';
+import AiV3Node from './nodes/ai/AiV3/AiV3Node';
 import ImageGenV2Node from './nodes/ai/ImageGenV2/ImageGenV2Node';
 import IterateImageRunV2Node from './nodes/ai/IterateImageRunV2/IterateImageRunV2Node';
 import IterateRunV2Node from './nodes/ai/IterateRunV2/IterateRunV2Node';
@@ -32,6 +33,7 @@ export const FLOW_NODE_TYPES = {
   imageGenV2: ImageGenV2Node,
   videoGenV2: VideoGenV2Node,
   aiChatV2: AiChatV2Node,
+  aiV3: AiV3Node,
   videoGen: FlowNode,
   saveFile: FlowNode,
   output: FlowNode,
@@ -62,6 +64,9 @@ export const FLOW_NODE_COLORS: Record<string, string> = {
   aiChat: '#30D158',
   imageGen: '#FF9500',
   imageGenV2: '#FF9500',
+  videoGenV2: '#AF52DE',
+  aiChatV2: '#30D158',
+  aiV3: '#0A84FF',
   videoGen: '#AF52DE',
   saveFile: '#34C759',
   output: '#8E8E93',

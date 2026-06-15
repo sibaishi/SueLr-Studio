@@ -709,7 +709,7 @@ async function downloadRemoteImage(
 
   let response: Response;
   try {
-    response = await fetch(url, { signal, redirect: 'error' });
+    response = await fetch(url, { signal, redirect: 'follow' });
   } catch (error) {
     throw new Error(`下载图片失败: ${describeFetchError(error)}`);
   }

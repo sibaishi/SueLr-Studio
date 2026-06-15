@@ -1,4 +1,5 @@
 import AiChatV2StylePanel from '@/domains/workflow/components/AiChatV2StylePanel';
+import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import IterateImageRunV2StylePanel from '@/domains/workflow/components/IterateImageRunV2StylePanel';
@@ -289,6 +290,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
         <NodeStylePanel />
         <VideoGenV2StylePanel />
         <AiChatV2StylePanel />
+        <AiV3StylePanel />
         <IterateRunV2StylePanel />
         <IterateImageRunV2StylePanel />
       </div>

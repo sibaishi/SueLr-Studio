@@ -29,7 +29,7 @@ type WorkflowStoreExecutionActions = Pick<
   | 'syncExecutionRunStatus'
 >;
 
-const MULTI_INPUT_NODE_TYPES = new Set(['imageGenV2', 'videoGenV2', 'aiChatV2', 'iterateRunV2', 'iterateImageRunV2']);
+const MULTI_INPUT_NODE_TYPES = new Set(['imageGenV2', 'videoGenV2', 'aiChatV2', 'aiV3', 'iterateRunV2', 'iterateImageRunV2']);
 
 function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   const multiInputNodes = nodes.filter((n) => MULTI_INPUT_NODE_TYPES.has(n.type || ''));
@@ -75,8 +75,8 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   return sorted;
 }
 
-const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'aiChatV2', 'imageGen', 'imageGenV2', 'videoGen', 'videoGenV2']);
-const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'aiChatV2', 'imageGen', 'imageGenV2', 'videoGen', 'videoGenV2']);
+const AI_RESULT_NODE_TYPES = new Set(['aiChat', 'aiChatV2', 'aiV3', 'imageGen', 'imageGenV2', 'videoGen', 'videoGenV2']);
+const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiChat', 'aiChatV2', 'aiV3', 'imageGen', 'imageGenV2', 'videoGen', 'videoGenV2']);
 
 function sanitizeSavedFile(file: unknown) {
   if (!file || typeof file !== 'object') return file;

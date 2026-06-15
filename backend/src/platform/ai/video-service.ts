@@ -373,7 +373,7 @@ async function downloadRemoteVideo(url: string): Promise<string> {
   await assertSafeRemoteDownloadUrl(url, '视频下载地址');
 
   const response = await fetch(url, {
-    redirect: 'error',
+    redirect: 'follow',
     signal: AbortSignal.timeout(REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS),
   });
   if (!response.ok) {

@@ -32,7 +32,7 @@ export async function imageSourceToBlob(imageSource: DynamicValue): Promise<Blob
     await assertSafeRemoteDownloadUrl(imageSource, '编辑图片地址');
     const response = await fetch(imageSource, {
       signal: AbortSignal.timeout(REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS),
-      redirect: 'error',
+      redirect: 'follow',
     });
     if (!response.ok) {
       throw new Error(`下载编辑图片失败: HTTP ${response.status}`);
