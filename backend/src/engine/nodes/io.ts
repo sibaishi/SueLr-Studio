@@ -3,9 +3,16 @@ import type { NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } fro
 
 const AI_NODE_TYPES = /^(aiV3|imageGenV2|videoGenV2|aiChatV2)$/;
 
+function resolveSourceType(types: unknown[], idx: number): unknown {
+  // When upstream data is a single array from one source node, sourceTypes has
+  // one entry but the data array may have many items. Use index 0 for all items
+  // so multi-image outputs from a single AI node are all recognised as AI content.
+  return types.length === 1 ? types[0] : types[idx];
+}
+
 function isFromAi(types: unknown, idx: number): boolean {
   if (!Array.isArray(types)) return false;
-  const t = types[idx];
+  const t = resolveSourceType(types, idx);
   return typeof t === 'string' && AI_NODE_TYPES.test(t);
 }
 
