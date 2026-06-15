@@ -1,6 +1,7 @@
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { expandAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
+import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fileRawStore } from './nodes/io/fileRawStore';
 
@@ -15,7 +16,7 @@ const AUDIO_EXTENSIONS = /\.(mp3|wav|ogg|aac|flac)$/i;
 type FileKind = 'image' | 'video' | 'audio' | 'other';
 const KIND_ORDER: Record<FileKind, number> = { image: 0, video: 1, audio: 2, other: 3 };
 
-interface FileThumb { _id: number; name: string; kind: FileKind; thumbnail: string; objectUrl: string }
+interface FileThumb { _id: number; name: string; kind: FileKind; thumbnail: string; objectUrl: string; uploadedUrl?: string }
 type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio' | 'mask'; label: string; value: string };
 
 function classifyFile(file: File): FileKind {
@@ -73,6 +74,7 @@ export default function IoStylePanel() {
 
   const [textValue, setTextValue] = useState('');
   const [files, setFiles] = useState<FileThumb[]>([]);
+  const uploadedUrlsRef = useRef<Map<number, string>>(new Map());
 
   const setData = useCallback((patch: Record<string, unknown>) => {
     if (selectedNodeId) updateNodeData(selectedNodeId, patch);
@@ -103,7 +105,17 @@ export default function IoStylePanel() {
     if (hasUpstream) return;
     if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
-      const fileUrls: string[] = sortedFiles.map((f) => f.objectUrl || f.thumbnail);
+      // Preserve existing server URLs from node data to avoid overwriting
+      // them with blob URLs before upload completes, or after page refresh.
+      const existingContent: string[] = Array.isArray(nodeData.content) ? (nodeData.content as string[]) : [];
+      const fileUrls: string[] = sortedFiles.map((f, i) => {
+        const serverUrl = uploadedUrlsRef.current.get(f._id);
+        if (serverUrl) return serverUrl;
+        // Keep existing /api/files/ URL if present (from prior save or refresh restore)
+        const prev = existingContent[i];
+        if (prev && (prev.startsWith('/api/files/') || prev.startsWith('http')) && !prev.startsWith('blob:')) return prev;
+        return f.objectUrl || f.thumbnail;
+      });
       setData({
         text: textValue || '',
         content: fileUrls,
@@ -146,7 +158,15 @@ export default function IoStylePanel() {
       const base64 = await new Promise<string>((r) => { const reader = new FileReader(); reader.onload = () => r(String(reader.result)); reader.readAsDataURL(file); });
       const id = fileRawStore.add(file, file.name, base64);
       const rec = fileRawStore.get(id)!;
-      newFiles.push({ _id: id, name: file.name, kind, thumbnail, objectUrl: rec.objectUrl });
+      const entry: FileThumb = { _id: id, name: file.name, kind, thumbnail, objectUrl: rec.objectUrl };
+      newFiles.push(entry);
+      // Upload to backend for persistence across page refreshes
+      uploadFile(file).then((result) => {
+        if (result.success && result.url) {
+          uploadedUrlsRef.current.set(id, result.url);
+          setFiles((prev) => prev.map((f) => (f._id === id ? { ...f, uploadedUrl: result.url } : f)));
+        }
+      }).catch(() => { /* upload failed, blob URL fallback is fine */ });
     }
     if (newFiles.length > 0) setFiles((prev) => [...prev, ...newFiles]);
   };
@@ -355,8 +375,8 @@ export default function IoStylePanel() {
               title={f.name || '暂无内容（拖动可调整顺序）'}
             >
               <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--t-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                {(f.kind === 'image' || f.kind === 'video') && f.objectUrl ? (
-                  <img src={f.objectUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                {(f.kind === 'image' || f.kind === 'video') && (f.objectUrl || f.thumbnail) ? (
+                  <img src={f.objectUrl || f.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
                   <span style={{ fontSize: 9, fontWeight: 700 }}>{srcThumbLetter(f)}</span>
