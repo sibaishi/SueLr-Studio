@@ -1063,10 +1063,6 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
                   </div>
                 </div>
 
-                {clipboard.clipboardNode && ctxMenu.contextMenu.kind !== 'connect' && (
-                  <ContextMenuButton label="粘贴节点" onClick={clipboard.pasteNodeAtContext} />
-                )}
-
                 <div className="workflow-context-menu__category-strip">
                   {groupedNodeDefs.map((group) => (
                     <button
