@@ -156,7 +156,6 @@ function IoNode({ id, data, selected, isConnectable }: IoNodeProps) {
       />
 
       <Handle type="target" position={Position.Left} id="input" isConnectable={isConnectable}
-        maxConnections={99}
         style={{ left: -6, top: '50%', transform: 'translateY(-50%)' }} />
       <Handle type="source" position={Position.Right} id="result" isConnectable={isConnectable}
         style={{ right: -6, top: '50%', transform: 'translateY(-50%)' }} />

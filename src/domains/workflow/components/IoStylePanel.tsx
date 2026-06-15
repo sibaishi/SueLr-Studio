@@ -68,7 +68,7 @@ export default function IoStylePanel() {
   const dragStartHeight = useRef(0);
   const inputsRef = useRef<InputThumb[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [textValue, setTextValue] = useState('');
   const [files, setFiles] = useState<FileThumb[]>([]);
@@ -100,7 +100,7 @@ export default function IoStylePanel() {
 
   useEffect(() => {
     if (hasUpstream) return;
-    clearTimeout(syncTimerRef.current);
+    if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       const fileUrls: string[] = sortedFiles.map((f) => f.objectUrl || f.thumbnail);
       setData({
@@ -110,7 +110,7 @@ export default function IoStylePanel() {
         _fileKinds: sortedFiles.map((f) => f.kind),
       });
     }, 300);
-    return () => clearTimeout(syncTimerRef.current);
+    return () => { if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current); };
   }, [textValue, files]);
 
   // ── resize ──
@@ -304,8 +304,8 @@ export default function IoStylePanel() {
                 const current = sortedFiles;
                 if (current.length > 0) {
                   const reordered = current.map((x) => x._id);
-                  const [moved] = reordered.splice(fromIdx, 1);
-                  reordered.splice(toIdx, 0, moved);
+                  const [moved] = reordered.splice(draggedIdx, 1);
+                  reordered.splice(idx, 0, moved);
                   setData({ _fileOrder: reordered });
                 }
                 setDraggedIdx(null); setDragOverIdx(null);

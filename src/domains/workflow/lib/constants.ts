@@ -7,6 +7,8 @@ import type { NodeTypeDef } from './types';
 
 export const GRID_SIZE = 28;
 const VARIABLE_INPUT_MERGE_TYPES = new Set([
+  'iterateRun',
+  'iterateImageRun',
   'textMerge',
   'imageMerge',
   'videoMerge',
@@ -25,6 +27,8 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   videoInput: { w: 13, h: 11 },
   audioInput: { w: 13, h: 9 },
   apiKeyInput: { w: 14, h: 21 },
+  iterateRun: { w: 11, h: 8 },
+  iterateImageRun: { w: 11, h: 8 },
   promptHelper: { w: 14, h: 12 },
   textClean: { w: 12, h: 14 },
   textSplit: { w: 12, h: 23 },
