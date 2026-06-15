@@ -146,8 +146,9 @@ export default function AiV3StylePanel() {
         value = fileRawStore.getObjectUrl(slot.fileId) || '';
       }
     } else {
-      // Standard node: try handle, then common keys, then nodeOutputs
-      const handle = 'output'; // default handle for standard nodes
+      // Standard node: use actual edge sourceHandle, then common keys, then nodeOutputs
+      const edge = edges.find((e) => e.id === slot.edgeId);
+      const handle = edge?.sourceHandle || 'output';
       value = String(srcData[handle] || '');
       if (!value) {
         for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
@@ -156,7 +157,28 @@ export default function AiV3StylePanel() {
         }
       }
       if (!value && srcOutputs) {
-        const outVal = srcOutputs[handle] || Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+        // Recursively flatten nested arrays (aiV3 image mode returns [prompt, base64])
+        const collect = (arr: unknown[]): string[] => {
+          const acc: string[] = [];
+          for (const v of arr) {
+            if (typeof v === 'string') acc.push(v);
+            else if (Array.isArray(v)) acc.push(...collect(v));
+          }
+          return acc;
+        };
+        let outVal: unknown = srcOutputs[handle];
+        if (Array.isArray(outVal)) {
+          const strings = collect(outVal);
+          outVal = strings[strings.length - 1];
+        }
+        if (typeof outVal !== 'string') {
+          const flatEntries = Object.entries(srcOutputs).flatMap(([_, v]) => {
+            if (typeof v === 'string') return [v];
+            if (Array.isArray(v)) return collect(v);
+            return [];
+          });
+          outVal = flatEntries.find((v) => typeof v === 'string') || undefined;
+        }
         if (typeof outVal === 'string') value = outVal;
       }
     }

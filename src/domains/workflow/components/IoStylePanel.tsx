@@ -193,7 +193,9 @@ export default function IoStylePanel() {
             value = fileRawStore.getObjectUrl(slot.fileId) || '';
           }
         } else {
-          const handle = 'output';
+          // Use actual edge sourceHandle (aiV3→io uses 'result', not 'output')
+          const edge = edges.find((e) => e.id === slot.edgeId);
+          const handle = edge?.sourceHandle || 'output';
           value = String(srcData[handle] || '');
           if (!value) {
             for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
@@ -203,20 +205,28 @@ export default function IoStylePanel() {
           }
           if (!value && srcOutputs) {
             let outVal: unknown = srcOutputs[handle];
+            // Recursively flatten nested arrays (aiV3 image mode returns [prompt, base64])
+            const collect = (arr: unknown[]): string[] => {
+              const acc: string[] = [];
+              for (const v of arr) {
+                if (typeof v === 'string') acc.push(v);
+                else if (Array.isArray(v)) acc.push(...collect(v));
+              }
+              return acc;
+            };
             if (Array.isArray(outVal)) {
-              const collect = (arr: unknown[]): string[] => {
-                const acc: string[] = [];
-                for (const v of arr) {
-                  if (typeof v === 'string') acc.push(v);
-                  else if (Array.isArray(v)) acc.push(...collect(v));
-                }
-                return acc;
-              };
               const strings = collect(outVal);
               outVal = strings[strings.length - 1];
             }
             if (typeof outVal !== 'string') {
-              outVal = Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
+              // aiV3 outputs are keyed by their handle (e.g. 'result'), not 'output'
+              // Also try flattening array values from any key
+              const flatEntries = Object.entries(srcOutputs).flatMap(([_, v]) => {
+                if (typeof v === 'string') return [v];
+                if (Array.isArray(v)) return collect(v);
+                return [];
+              });
+              outVal = flatEntries.find((v) => typeof v === 'string') || undefined;
             }
             if (typeof outVal === 'string') value = outVal;
           }
@@ -226,10 +236,9 @@ export default function IoStylePanel() {
         let finalType = slot.type;
         if (finalType === 'text' && value) {
           const str = String(value);
-          if (str.startsWith('blob:') || str.startsWith('data:image/') || str.startsWith('data:video/') || str.startsWith('http')) {
-            if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) finalType = 'video';
-            else finalType = 'image';
-          }
+          if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) finalType = 'video';
+          else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) finalType = 'audio';
+          else if (str.startsWith('blob:') || str.startsWith('data:image/') || str.startsWith('http') || str.startsWith('/api/')) finalType = 'image';
         }
 
         const label =
