@@ -898,7 +898,7 @@ export class SkillRegistry {
         execute: async (input, _options) => ({
           comparisonUrl: null,
           layout: input.layout || 'side-by-side',
-          note: '当前为占位实现；后续会生成真正的并排对比图。请使用工作流中的 imageCompare 节点进行实际对比。',
+          note: '当前为占位实现；后续会生成真正的并排对比图。请使用大图查看窗口中的对比功能进行实际对比。',
           image1: String(input.image1 || '').slice(0, 120),
           image2: String(input.image2 || '').slice(0, 120),
         }),

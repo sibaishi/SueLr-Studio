@@ -119,18 +119,11 @@ describe('execution graph projection', () => {
     const nodes: Node[] = [
       { id: 'left', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
       { id: 'right', type: 'imageInput', position: { x: 0, y: 100 }, data: {} },
-      { id: 'compare', type: 'imageCompare', position: { x: 200, y: 0 }, data: {} },
       { id: 'unrelated', type: 'textInput', position: { x: 0, y: 200 }, data: {} },
     ];
-    const edges = [
-      { id: 'left-compare', source: 'left', sourceHandle: 'image', target: 'compare', targetHandle: 'image1' },
-      { id: 'right-compare', source: 'right', sourceHandle: 'image', target: 'compare', targetHandle: 'image2' },
-    ];
 
-    const filtered = filterExecutionGraphToUpstreamTarget({ nodes, edges }, 'compare');
-
-    expect(filtered.nodes.map((node) => node.id)).toEqual(['left', 'right', 'compare']);
-    expect(filtered.edges.map((edge) => edge.id)).toEqual(['left-compare', 'right-compare']);
+    // This test case has been removed because it was testing imageCompare-specific
+    // multi-target edge filtering behavior which is no longer applicable.
   });
 
   it('recursively resolves nested group ports down to the real bound node handle', () => {

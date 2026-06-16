@@ -3,7 +3,6 @@ import { execute as executeIo } from './io.ts';
 import { execute as executeApiKeyInput } from './apiKeyInput.ts';
 import { execute as executeAudioInput } from './audioInput.ts';
 import { execute as executeAudioMerge } from './audioMerge.ts';
-import { execute as executeImageCompare } from './imageCompare.ts';
 import { execute as executeImageInput } from './imageInput.ts';
 import { execute as executeImageMerge } from './imageMerge.ts';
 import { execute as executeImageResize } from './imageResize.ts';
@@ -36,7 +35,6 @@ export const NODE_EXECUTORS = {
   textSplit: executeTextSplit,
   textMerge: executeTextMerge,
   imageMerge: executeImageMerge,
-  imageCompare: executeImageCompare,
   videoMerge: executeVideoMerge,
   audioMerge: executeAudioMerge,
   aiV3: executeAiV3,

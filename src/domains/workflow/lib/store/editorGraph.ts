@@ -401,7 +401,7 @@ export function createWorkflowGraphEditorActions(
       if (isMultiInput && targetHandle === 'input' && targetNode?.type !== 'aiV3') {
         const sourceNode = get().nodes.find((n) => n.id === source);
         const sourceNodeType = sourceNode?.type || '';
-        const isMaskSource = sourceNodeType === 'maskInput' || sourceNodeType.toLowerCase().includes('mask');
+        const isMaskSource = sourceNodeType.toLowerCase().includes('mask');
         const isVideoSource = sourceNodeType && (sourceNodeType.toLowerCase().includes('video') && !sourceNodeType.toLowerCase().includes('videogen'));
         const isAudioSource = sourceNodeType && sourceNodeType.toLowerCase().includes('audio');
         const isImageSource =
@@ -416,7 +416,7 @@ export function createWorkflowGraphEditorActions(
             return src?.type ? typeCheck(src.type) : false;
           }).length;
 
-        if (isMaskSource && countByType((t) => t === 'maskInput') >= 1) return;
+        if (isMaskSource && countByType((t) => t.toLowerCase().includes('mask')) >= 1) return;
         if (isVideoSource && countByType((t) => t.includes('video') && !t.includes('videogen')) >= 1) return;
         if (isAudioSource && countByType((t) => t.includes('audio')) >= 1) return;
         if (isImageSource) {

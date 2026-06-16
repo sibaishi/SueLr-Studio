@@ -341,7 +341,7 @@ function classifyInputEdgeSource(edge: Edge, nodes: Node[]): string {
   const srcType = src.type || '';
   const handle = edge.sourceHandle || '';
 
-  if (handle.includes('mask') || srcType === 'maskInput') return 'mask';
+  if (handle.includes('mask') || srcType.toLowerCase().includes('mask')) return 'mask';
   if (
     handle.includes('video') ||
     (srcType.toLowerCase().includes('video') && !srcType.toLowerCase().includes('videogen'))

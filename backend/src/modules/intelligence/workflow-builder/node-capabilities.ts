@@ -335,25 +335,6 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     },
   },
   {
-    id: 'seed_workflow_node_imageCompare',
-    title: '图片对比节点 imageCompare',
-    content:
-      'imageCompare 接收两张图片用于对比检查，当前不产生下游输出，适合人工或诊断环节，不适合作为生成链路中的转换节点。',
-    tags: ['system-seed', 'node', 'tool', 'imageCompare', 'image'],
-    structured: {
-      nodeType: 'imageCompare',
-      category: 'tool',
-      maturity: 'limited',
-      inputs: [
-        { id: 'image1', type: 'image', required: true },
-        { id: 'image2', type: 'image', required: true },
-      ],
-      outputs: [],
-      useWhen: ['visual-comparison', 'review-step'],
-      avoidWhen: ['needs-downstream-generated-value'],
-    },
-  },
-  {
     id: 'seed_workflow_node_iterateRun',
     title: '文本逐项节点 iterateRun',
     content:

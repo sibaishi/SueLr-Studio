@@ -2629,16 +2629,6 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     assert.equal(iterateImageRunSeed.structured.maturity, 'stable');
     assert.equal(iterateImageRunSeed.structured.useWhen.includes('batch-image-processing'), true);
 
-    const searchImageCompare = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
-      method: 'POST',
-      body: JSON.stringify({ query: 'imageCompare compare images', categories: ['workflow-knowledge'], limit: 10 }),
-    });
-    assert.equal(searchImageCompare.status, 200);
-    const imageCompareSeed = searchImageCompare.body.data.items.find(
-      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'imageCompare',
-    );
-    assert.equal(Boolean(imageCompareSeed), true);
-
     const searchWorkflow = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
       body: JSON.stringify({ query: '种子索引测试工作流', categories: ['workflow-knowledge'], limit: 10 }),

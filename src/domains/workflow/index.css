@@ -963,6 +963,168 @@ body {
   user-select: none;
 }
 
+.workflow-image-preview-modal__compare-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 14px 14px;
+  flex-shrink: 0;
+}
+
+.workflow-image-preview-modal__compare-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.workflow-image-preview-modal__slot-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
+  color: var(--color-text-primary);
+  box-shadow: var(--glass-shadow-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.workflow-image-preview-modal__slot-toggle.is-active {
+  background: color-mix(in srgb, var(--color-accent, #0A84FF) 20%, transparent);
+  border-color: var(--color-accent, #0A84FF);
+}
+
+.workflow-image-preview-modal__swap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
+  color: var(--color-text-primary);
+  box-shadow: var(--glass-shadow-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.workflow-image-preview-modal__swap-btn:hover {
+  background: color-mix(in srgb, var(--glass-bg) 72%, transparent);
+}
+
+.workflow-image-preview-modal__thumb-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  scrollbar-width: none;
+}
+
+.workflow-image-preview-modal__thumb-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.workflow-image-preview-modal__thumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--glass-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.12s;
+  padding: 0;
+}
+
+.workflow-image-preview-modal__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.workflow-image-preview-modal__thumb:hover {
+  transform: scale(1.08);
+  border-color: var(--color-text-secondary);
+}
+
+.workflow-image-preview-modal__thumb.is-compare-a {
+  border-color: var(--color-accent, #0A84FF);
+  box-shadow: 0 0 0 1px var(--color-accent, #0A84FF), 0 0 8px color-mix(in srgb, var(--color-accent, #0A84FF) 36%, transparent);
+}
+
+.workflow-image-preview-modal__thumb.is-compare-b {
+  border-color: #FF9500;
+  box-shadow: 0 0 0 1px #FF9500, 0 0 8px color-mix(in srgb, #FF9500 36%, transparent);
+}
+
+.workflow-image-preview-modal__thumb-badge {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Override compare labels for modal context */
+.workflow-image-preview-modal__dialog .node-image-compare__labels {
+  inset: auto 14px 14px;
+}
+
+.workflow-image-preview-modal__dialog .node-image-compare__labels span {
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
+  border: 1px solid var(--glass-border);
+  color: var(--color-text-primary);
+  box-shadow: var(--glass-shadow-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.workflow-image-preview-modal__dialog .node-image-compare__divider {
+  width: 2px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.18), 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.workflow-image-preview-modal__dialog .node-image-compare__divider::after {
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--glass-border);
+  background: color-mix(in srgb, var(--glass-bg) 94%, transparent);
+  box-shadow: var(--glass-shadow-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
 .workflow-workbench {
   display: flex;
   flex-direction: column;

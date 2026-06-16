@@ -5,7 +5,6 @@ import IoNode from './nodes/io/Io/IoNode';
 export const FLOW_NODE_TYPES = {
   group: FlowNode,
   imageSplit: FlowNode,
-  imageCompare: FlowNode,
   iterateRun: FlowNode,
   iterateImageRun: FlowNode,
   promptHelper: FlowNode,
@@ -18,7 +17,6 @@ export const FLOW_NODE_TYPES = {
 export const FLOW_NODE_COLORS: Record<string, string> = {
   group: '#8E8E93',
   imageSplit: '#FF9500',
-  imageCompare: '#FF9500',
   iterateRun: '#007AFF',
   iterateImageRun: '#FF9500',
   promptHelper: '#00C7BE',

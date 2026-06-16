@@ -17,7 +17,6 @@ const EXPECTED_ARCHITECT_NODE_TYPES = [
   'iterateRun',
   'iterateImageRun',
   'imageSplit',
-  'imageCompare',
   'promptHelper',
   'textClean',
   'textSplit',
