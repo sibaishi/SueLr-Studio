@@ -1,7 +1,7 @@
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
+import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { expandAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
-import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fileRawStore } from './nodes/io/fileRawStore';
 
@@ -18,6 +18,21 @@ const KIND_ORDER: Record<FileKind, number> = { image: 0, video: 1, audio: 2, oth
 
 interface FileThumb { _id: number; name: string; kind: FileKind; thumbnail: string; objectUrl: string; uploadedUrl?: string }
 type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio' | 'mask'; label: string; value: string };
+
+function isPersistentFileUrl(value: unknown) {
+  const str = String(value || '');
+  return str.startsWith('/api/files/') || (str.startsWith('http') && !str.startsWith('blob:'));
+}
+
+function buildPersistentContentSignature(value: unknown) {
+  if (!Array.isArray(value)) return '';
+  return value.map((item) => (isPersistentFileUrl(item) ? String(item) : '')).join('\u0001');
+}
+
+function buildStringArraySignature(value: unknown) {
+  if (!Array.isArray(value)) return '';
+  return value.map((item) => String(item || '')).join('\u0001');
+}
 
 function classifyFile(file: File): FileKind {
   if (IMAGE_EXTENSIONS.test(file.name) || file.type.startsWith('image/')) return 'image';
@@ -102,6 +117,9 @@ export default function IoStylePanel() {
     setFiles(buildFilesFromData());
   }, [selectedNodeId]);
 
+  const persistentContentSignature = buildPersistentContentSignature(nodeData.content);
+  const fileNamesSignature = buildStringArraySignature(nodeData._fileNames);
+
   useEffect(() => {
     if (hasUpstream) return;
     if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current);
@@ -115,7 +133,7 @@ export default function IoStylePanel() {
         if (serverUrl) return serverUrl;
         // Keep existing /api/files/ or http URL if present (survives refresh)
         const prev = existingContent[i];
-        if (prev && (prev.startsWith('/api/files/') || (prev.startsWith('http') && !prev.startsWith('blob:')))) return prev;
+        if (isPersistentFileUrl(prev)) return prev;
         // Don't persist blob URLs — they break after refresh
         if (f.objectUrl && !f.objectUrl.startsWith('blob:')) return f.objectUrl;
         // Wait for upload to complete; keep previous value or leave empty
@@ -137,7 +155,7 @@ export default function IoStylePanel() {
       });
     }, 300);
     return () => { if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current); };
-  }, [textValue, files]);
+  }, [textValue, files, persistentContentSignature, fileNamesSignature]);
 
   // ── resize ──
   const handleDragStart = useCallback((event: React.PointerEvent) => {
