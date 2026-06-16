@@ -374,6 +374,7 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
         .sort((a, b) => a.order - b.order || a.idx - b.idx);
 
       // Text slot (always first within this edge's group)
+      let hasTextSlot = false;
       if (text) {
         slots.push({
           id: `${edge.id}/text`,
@@ -382,6 +383,7 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
           sourceNodeId: src.id,
           sourceNodeType: 'io',
         });
+        hasTextSlot = true;
       }
 
       // File slots
@@ -402,6 +404,46 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
           fileIdx: idx,
           fileId: fid,
         });
+      }
+
+      // Fallback: when _fileIds is empty (execution passthrough output),
+      // classify content items by URL pattern to generate text + file slots.
+      if (fileIds.length === 0) {
+        const content: string[] = Array.isArray(data.content) ? (data.content as string[]) : [];
+        let fallbackFileIdx = 0;
+        for (const item of content) {
+          const s = String(item);
+          if (!s || !s.trim()) continue;
+          // Skip plain-text items (handled as text slot below)
+          if (!/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) {
+            if (!hasTextSlot) {
+              slots.push({
+                id: `${edge.id}/text`,
+                edgeId: edge.id,
+                type: 'text',
+                sourceNodeId: src.id,
+                sourceNodeType: 'io',
+              });
+              hasTextSlot = true;
+            }
+            continue;
+          }
+          // Classify media URL
+          let slotType: AiV3InputSlot['type'] | null = null;
+          if (s.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(s)) slotType = 'video';
+          else if (s.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(s)) slotType = 'audio';
+          else slotType = 'image';
+          if (!slotType) continue;
+          slots.push({
+            id: `${edge.id}/f_fallback_${fallbackFileIdx}`,
+            edgeId: edge.id,
+            type: slotType,
+            sourceNodeId: src.id,
+            sourceNodeType: 'io',
+            fileIdx: fallbackFileIdx,
+          });
+          fallbackFileIdx++;
+        }
       }
     } else {
       const type = classifyInputEdgeSource(edge, nodes);

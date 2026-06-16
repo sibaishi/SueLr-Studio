@@ -154,6 +154,85 @@ function shouldPersistIoOutput(state: WorkflowState, nodeId: string, outputs: Re
   return state.edges.some((edge) => edge.target === nodeId && String(edge.targetHandle || '') === 'input');
 }
 
+function classifyOutputUrl(value: string): string {
+  if (value.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(value)) return 'video';
+  if (value.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(value)) return 'audio';
+  return 'image';
+}
+
+function deriveFileName(url: string, kind: string, index: number): string {
+  // Try to extract filename from /api/files/123/filename.ext paths
+  const apiMatch = url.match(/\/api\/files\/\d+\/([^/?]+)/);
+  if (apiMatch) return decodeURIComponent(apiMatch[1]);
+  // For http/https URLs, extract last path segment
+  const httpMatch = url.match(/https?:\/\/[^?]*\/([^/?]+)(?:\?|$)/);
+  if (httpMatch) return decodeURIComponent(httpMatch[1]);
+  // For data URIs, use type prefix
+  const dataMatch = url.match(/^data:([\w.+-]+\/[\w.+-]+)/);
+  if (dataMatch) {
+    const ext = dataMatch[1].split('/')[1] || kind;
+    return `${kind}_${index + 1}.${ext}`;
+  }
+  // Fallback: kind + index
+  return `${kind}_${index + 1}`;
+}
+
+function buildIoOutputMetadata(result: unknown): {
+  content: unknown;
+  text: string;
+  _fileKinds: string[];
+  _fileIds: number[];
+  _fileNames: string[];
+} {
+  const empty = { content: [], text: '', _fileKinds: [] as string[], _fileIds: [] as number[], _fileNames: [] as string[] };
+
+  if (typeof result === 'string') {
+    if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(result)) {
+      const kind = classifyOutputUrl(result);
+      return { ...empty, content: [result], _fileKinds: [kind], _fileNames: [deriveFileName(result, kind, 0)] };
+    }
+    return { ...empty, text: result };
+  }
+
+  if (Array.isArray(result)) {
+    const files: string[] = [];
+    const fileKinds: string[] = [];
+    const fileNames: string[] = [];
+    const textParts: string[] = [];
+
+    // Recursively flatten nested arrays (multiple upstream edges combine into one IO node)
+    const flatten = (arr: unknown[]): void => {
+      for (const item of arr) {
+        if (Array.isArray(item)) {
+          flatten(item);
+          continue;
+        }
+        const s = String(item);
+        if (!s || !s.trim()) continue;
+        if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) {
+          const kind = classifyOutputUrl(s);
+          files.push(s);
+          fileKinds.push(kind);
+          fileNames.push(deriveFileName(s, kind, files.length - 1));
+        } else {
+          textParts.push(s);
+        }
+      }
+    };
+    flatten(result);
+
+    return {
+      content: files,
+      text: textParts.join('\n'),
+      _fileKinds: fileKinds,
+      _fileIds: [],
+      _fileNames: fileNames,
+    };
+  }
+
+  return { ...empty, content: result };
+}
+
 function buildTextSplitSegmentsFromOutputs(outputs: Record<string, unknown>) {
   return Object.entries(outputs)
     .filter(([key]) => /^part\d+$/.test(key))
@@ -527,7 +606,7 @@ export function createWorkflowExecutionActions(
                           ...node,
                           data: {
                             ...node.data,
-                            ...(persistIoOutput ? { content: sanitizedOutputs.result } : {}),
+                            ...(persistIoOutput ? buildIoOutputMetadata(sanitizedOutputs.result) : {}),
                             ...(persistTextSplitOutput
                               ? { segments: buildTextSplitSegmentsFromOutputs(sanitizedOutputs) }
                               : {}),

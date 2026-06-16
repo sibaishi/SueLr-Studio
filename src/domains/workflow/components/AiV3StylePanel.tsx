@@ -142,6 +142,17 @@ export default function AiV3StylePanel() {
     if (slot.sourceNodeType === 'io') {
       if (slot.type === 'text') {
         value = String(srcData.text || '');
+        // Fallback: text may be in content as a plain-text item (execution passthrough)
+        if (!value) {
+          const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+          for (const item of content) {
+            const s = String(item);
+            if (!s || !s.trim()) continue;
+            if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) continue;
+            value = s;
+            break;
+          }
+        }
       } else if (slot.fileId !== undefined) {
         // fileRawStore is cleared on page refresh; fall back to data.content server URL
         const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
@@ -150,6 +161,10 @@ export default function AiV3StylePanel() {
         value = fileRawStore.getObjectUrl(slot.fileId)
           || (cIdx >= 0 ? content[cIdx] : '')
           || '';
+      } else if (slot.fileIdx !== undefined) {
+        // Fallback: _fileIds is empty (execution passthrough), resolve by index in content
+        const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+        value = content[slot.fileIdx] || '';
       }
     } else {
       // Standard node: use actual edge sourceHandle, then common keys, then nodeOutputs
@@ -231,11 +246,11 @@ export default function AiV3StylePanel() {
 
   const thumbLabel = (input: InputThumb) => {
     if (input.value) return input.value.slice(0, 1) + '…';
-    const map: Record<string, string> = { text: 'T', image: 'IMG', video: 'V', audio: 'A', mask: 'M' };
+    const map: Record<string, string> = { text: '文', image: '图', video: '视', audio: '音', mask: '遮' };
     return map[input.type] || '?';
   };
   const thumbLetter = (input: InputThumb) => {
-    const map: Record<string, string> = { text: 'T', image: 'IMG', video: 'V', audio: 'A', mask: 'M' };
+    const map: Record<string, string> = { text: '文', image: '图', video: '视', audio: '音', mask: '遮' };
     return map[input.type] || '?';
   };
 

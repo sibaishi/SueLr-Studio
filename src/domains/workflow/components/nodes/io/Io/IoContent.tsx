@@ -18,6 +18,8 @@ interface IoContentProps {
 }
 
 function classifyItemValue(value: unknown): 'image' | 'video' | 'audio' | 'text' {
+  // Reject nested arrays before coercing to string (multiple upstream edges combine into one IO)
+  if (Array.isArray(value)) return 'text';
   const str = String(value);
   if (str.startsWith('blob:')) {
     if (str.includes('/image/') || /\.(png|jpg|jpeg|gif|webp|avif)/i.test(str)) return 'image';
@@ -29,6 +31,19 @@ function classifyItemValue(value: unknown): 'image' | 'video' | 'audio' | 'text'
   if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) return 'audio';
   if (str.startsWith('data:image/') || str.startsWith('http') || /\.(png|jpg|jpeg|gif|webp|avif)(\?|$)/i.test(str)) return 'image';
   return 'text';
+}
+
+/** Flatten nested arrays from multi-edge combined IO outputs into a flat string list */
+function flattenNestedOutput(arr: unknown[]): string[] {
+  const out: string[] = [];
+  for (const item of arr) {
+    if (Array.isArray(item)) {
+      out.push(...flattenNestedOutput(item));
+    } else {
+      out.push(String(item));
+    }
+  }
+  return out;
 }
 
 // Upstream items use expandIoInputSlots for type classification instead of classifyItemValue
@@ -154,10 +169,10 @@ export function IoContent({
       for (const url of content) {
         if (!url || typeof url !== 'string') continue;
         const type = classifyItemValue(url);
-        if (type === 'text' || type === 'audio') continue;
+        if (type === 'audio') continue;
         expanded.push({
           value: url,
-          type: type as 'image' | 'video',
+          type: type as 'image' | 'video' | 'text',
           slotId: `${slot.edgeId}/f_fallback_${expanded.length}`,
           edgeId: slot.edgeId,
           fileId: undefined,
@@ -173,7 +188,7 @@ export function IoContent({
   const effectiveContent = typeof rawContent === 'string' && rawContent.trim() === '' ? undefined
     : Array.isArray(rawContent) && rawContent.length === 0 ? undefined
     : rawContent;
-  const items: unknown[] = Array.isArray(effectiveContent) ? effectiveContent : effectiveContent != null ? [effectiveContent] : [];
+  const items: unknown[] = Array.isArray(effectiveContent) ? flattenNestedOutput(effectiveContent) : effectiveContent != null ? [String(effectiveContent)] : [];
   const hasContent = items.length > 0;
 
   const useUpstreamTypes = upstreamItems && upstreamItems.length > 0;

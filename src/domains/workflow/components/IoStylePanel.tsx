@@ -117,7 +117,9 @@ export default function IoStylePanel() {
     const content = Array.isArray(nodeData.content) ? (nodeData.content as string[]) : [];
     const files: string[] = [];
     const fileKinds: string[] = [];
-    let text = String(nodeData.text || '');
+    const existingText = String(nodeData.text || '');
+    // Discard existing text if it looks like a media URL (leaked from execution)
+    const preservedText = /^(https?:\/\/|\/api\/|data:|blob:)/.test(existingText) ? '' : existingText;
     const textParts: string[] = [];
 
     for (const item of content) {
@@ -134,9 +136,8 @@ export default function IoStylePanel() {
       }
     }
 
-    if (textParts.length > 0 && !text) {
-      text = textParts.join('\n');
-    }
+    // Prefer text extracted from content; fall back to preserved existing text
+    const text = textParts.length > 0 ? textParts.join('\n') : preservedText;
 
     setData({
       text: text || '',
@@ -290,6 +291,17 @@ export default function IoStylePanel() {
         if (slot.sourceNodeType === 'io') {
           if (slot.type === 'text') {
             value = String(srcData.text || '');
+            // Fallback: text may be in content as a plain-text item (execution passthrough)
+            if (!value) {
+              const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+              for (const item of content) {
+                const s = String(item);
+                if (!s || !s.trim()) continue;
+                if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) continue;
+                value = s;
+                break;
+              }
+            }
           } else if (slot.fileId !== undefined) {
             // fileRawStore is cleared on page refresh; fall back to data.content server URL
             const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
@@ -298,6 +310,10 @@ export default function IoStylePanel() {
             value = fileRawStore.getObjectUrl(slot.fileId)
               || (cIdx >= 0 ? content[cIdx] : '')
               || '';
+          } else if (slot.fileIdx !== undefined) {
+            // Fallback: _fileIds is empty (execution passthrough), resolve by index in content
+            const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+            value = content[slot.fileIdx] || '';
           }
         } else {
           // Use actual edge sourceHandle (aiV3→io uses 'result', not 'output')
@@ -383,11 +399,11 @@ export default function IoStylePanel() {
   // ── thumb helpers (V3 style) ──
   const thumbLabel = (input: InputThumb) => {
     if (input.value) return input.value.slice(0, 1) + '…';
-    const map: Record<string, string> = { text: 'T', image: 'IMG', video: 'V', audio: 'A', mask: 'M' };
+    const map: Record<string, string> = { text: '文', image: '图', video: '视', audio: '音', mask: '遮' };
     return map[input.type] || '?';
   };
   const thumbLetter = (input: InputThumb) => {
-    const map: Record<string, string> = { text: 'T', image: 'IMG', video: 'V', audio: 'A', mask: 'M' };
+    const map: Record<string, string> = { text: '文', image: '图', video: '视', audio: '音', mask: '遮' };
     return map[input.type] || '?';
   };
 
@@ -405,7 +421,7 @@ export default function IoStylePanel() {
   });
 
   const srcThumbLetter = (f: FileThumb) => {
-    const map: Record<string, string> = { image: 'IMG', video: 'V', audio: 'A', other: 'T' };
+    const map: Record<string, string> = { image: '图', video: '视', audio: '音', other: '?' };
     return map[f.kind] || '?';
   };
 
