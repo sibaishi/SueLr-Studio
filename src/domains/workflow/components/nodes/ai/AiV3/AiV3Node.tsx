@@ -24,6 +24,7 @@ function AiV3Node({ id, data, selected, isConnectable }: AiV3NodeProps) {
   const execStatus = useWorkflowStore((s) => s.nodeExecStatus[id] || 'idle');
   const execError = useWorkflowStore((s) => s.nodeErrors[id]);
   const execTime = useWorkflowStore((s) => s.nodeExecutionTime[id]);
+  const execStartedAt = useWorkflowStore((s) => s.nodeExecutionStartedAt[id]);
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs[id]);
   const nodes = useWorkflowStore((s) => s.nodes);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
@@ -71,10 +72,21 @@ function AiV3Node({ id, data, selected, isConnectable }: AiV3NodeProps) {
   const currentNode = nodes.find((node) => node.id === id);
   const parentId = (currentNode as typeof currentNode & { parentId?: string })?.parentId;
 
+  const [tick, setTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isRunning) return;
+    const timer = window.setInterval(() => setTick(Date.now()), 200);
+    return () => window.clearInterval(timer);
+  }, [isRunning]);
+
   const statusText = useMemo(() => {
-    if (execStatus === 'idle' || execStatus === 'running') return '';
+    if (execStatus === 'idle') return '';
+    if (execStatus === 'running') {
+      return formatDurationSeconds(Math.max(0, tick - (execStartedAt || tick)));
+    }
     return formatDurationSeconds(execTime);
-  }, [execStatus, execTime]);
+  }, [execStartedAt, execStatus, execTime, tick]);
 
   useEffect(() => { updateNodeInternals(id); }, [data, id, isLocked, parentId, updateNodeInternals]);
 
