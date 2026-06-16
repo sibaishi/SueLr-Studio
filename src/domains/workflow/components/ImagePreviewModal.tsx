@@ -1,7 +1,7 @@
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
-import { ChevronLeft, ChevronRight, Copy, Download, Maximize2 } from 'lucide-react';
+import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasEditorModal';
+import { Brush, Check, ChevronLeft, ChevronRight, Copy, Download, Maximize2, X } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
 import { createPortal } from 'react-dom';
 
 export interface PreviewImageItem {
@@ -18,6 +18,8 @@ export function ImagePreviewModal({
   initialIndex,
   onClose,
   onApplyResize,
+  showEditActions = false,
+  renderActions,
   children,
 }: {
   src: string;
@@ -26,7 +28,16 @@ export function ImagePreviewModal({
   images?: PreviewImageItem[];
   initialIndex?: number;
   onClose: () => void;
-  onApplyResize?: (resizedBlobUrl: string, w: number, h: number, blob?: Blob) => void;
+  onApplyResize?: (
+    resizedBlobUrl: string,
+    w: number,
+    h: number,
+    blob?: Blob,
+    activeItem?: PreviewImageItem,
+    activeIndex?: number,
+  ) => void;
+  showEditActions?: boolean;
+  renderActions?: (activeItem: PreviewImageItem, activeIndex: number) => ReactNode;
   children?: ReactNode;
 }) {
   const gallery = useMemo(() => {
@@ -35,6 +46,7 @@ export function ImagePreviewModal({
       .map((item) => ({ src: item.src, name: item.name || imageNameFromUrl(item.src) }));
     return normalized.length > 0 ? normalized : [{ src, name: imageNameFromUrl(src) }];
   }, [images, src]);
+
   const resolvedInitialIndex =
     typeof initialIndex === 'number' && initialIndex >= 0 && initialIndex < gallery.length
       ? initialIndex
@@ -42,6 +54,7 @@ export function ImagePreviewModal({
           0,
           gallery.findIndex((item) => item.src === src),
         );
+
   const [activeIndex, setActiveIndex] = useState(resolvedInitialIndex);
   const [copyStatus, setCopyStatus] = useState('');
   const [showResize, setShowResize] = useState(false);
@@ -50,10 +63,17 @@ export function ImagePreviewModal({
   const [targetWidth, setTargetWidth] = useState(0);
   const [targetHeight, setTargetHeight] = useState(0);
   const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
-  const origSizesRef = useRef<Record<number, { w: number; h: number }>>({});
+  const [canvasEditorOpen, setCanvasEditorOpen] = useState(false);
+  const resizedSrcsRef = useRef<Record<number, string>>({});
+
   const activeImage = gallery[activeIndex] || gallery[0];
   const displaySrc = resizedSrcs[activeIndex] || activeImage.src;
   const canNavigate = gallery.length > 1;
+  const canEditImage = showEditActions && Boolean(onApplyResize);
+
+  useEffect(() => {
+    setActiveIndex(resolvedInitialIndex);
+  }, [resolvedInitialIndex]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -69,6 +89,16 @@ export function ImagePreviewModal({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [canNavigate, gallery.length, onClose]);
+
+  useEffect(() => {
+    resizedSrcsRef.current = resizedSrcs;
+  }, [resizedSrcs]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(resizedSrcsRef.current).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const goPrevious = () => setActiveIndex((index) => (index - 1 + gallery.length) % gallery.length);
   const goNext = () => setActiveIndex((index) => (index + 1) % gallery.length);
@@ -100,22 +130,23 @@ export function ImagePreviewModal({
     link.remove();
   };
 
+  const publishEditedBlob = useCallback(
+    (url: string, width: number, height: number, blob: Blob) => {
+      setResizedSrcs((prev) => {
+        const next = { ...prev, [activeIndex]: url };
+        if (prev[activeIndex]) URL.revokeObjectURL(prev[activeIndex]);
+        return next;
+      });
+      onApplyResize?.(url, width, height, blob, activeImage, activeIndex);
+    },
+    [activeImage, activeIndex, onApplyResize],
+  );
+
   const handleApplyResize = useCallback(async () => {
     try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const nextImage = new Image();
-        nextImage.crossOrigin = 'anonymous';
-        nextImage.onload = () => resolve(nextImage);
-        nextImage.onerror = () => reject(new Error('image load failed'));
-        nextImage.src = displaySrc;
-      });
-
+      const img = await loadImageElement(displaySrc);
       const origW = img.naturalWidth || img.width;
       const origH = img.naturalHeight || img.height;
-
-      if (!origSizesRef.current[activeIndex]) {
-        origSizesRef.current[activeIndex] = { w: origW, h: origH };
-      }
 
       let w: number;
       let h: number;
@@ -132,57 +163,45 @@ export function ImagePreviewModal({
 
       const blob = await drawImageToPng(img, w, h);
       const url = URL.createObjectURL(blob);
-      setResizedSrcs((prev) => {
-        const next = { ...prev, [activeIndex]: url };
-        if (prev[activeIndex]) URL.revokeObjectURL(prev[activeIndex]);
-        return next;
-      });
-      onApplyResize?.(url, w, h, blob);
+      publishEditedBlob(url, w, h, blob);
     } catch {
-      // silently fail
+      // Keep the viewer open; callers already treat resizing as optional.
     }
-  }, [displaySrc, activeIndex, resizeMode, scalePercent, targetWidth, targetHeight, onApplyResize]);
+  }, [displaySrc, publishEditedBlob, resizeMode, scalePercent, targetHeight, targetWidth]);
+
+  const handleCanvasSave = useCallback(
+    async (file: File, previewUrl: string) => {
+      const img = await loadImageElement(previewUrl);
+      publishEditedBlob(previewUrl, img.naturalWidth || img.width, img.naturalHeight || img.height, file);
+      setCanvasEditorOpen(false);
+    },
+    [publishEditedBlob],
+  );
 
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center p-6"
-      style={{
-        background: 'rgba(0,0,0,0.72)',
-        backdropFilter: 'blur(8px)',
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="relative flex items-center justify-center overflow-hidden rounded-2xl shadow-2xl"
-        style={{
-          width: 'min(1120px, 90vw)',
-          height: 'min(820px, 86vh)',
-          background: 'rgba(12, 12, 14, 0.88)',
-          border: '1px solid rgba(255,255,255,0.16)',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full px-3 py-1 text-xs"
-          style={{ background: 'rgba(0,0,0,0.62)', color: '#fff' }}
-        >
-          {closeLabel}
-        </button>
-        <ImageSizeLabel
-          src={displaySrc}
-          className="absolute left-3 top-3 z-10 rounded-full px-3 py-1 text-xs text-white"
-        />
+    <div className="workflow-image-preview-modal" onClick={onClose}>
+      <div className="workflow-image-preview-modal__dialog" onClick={(event) => event.stopPropagation()}>
+        <div className="workflow-image-preview-modal__topbar">
+          <ImageSizeLabel src={displaySrc} className="workflow-image-preview-modal__size-badge" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="workflow-image-preview-modal__icon-button"
+            aria-label={closeLabel}
+            title={closeLabel}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
         {canNavigate && (
           <>
             <button
               type="button"
               onClick={goPrevious}
-              className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full text-white"
-              style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(8px)' }}
+              className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--prev"
               aria-label="上一张"
             >
               <ChevronLeft size={26} />
@@ -190,26 +209,23 @@ export function ImagePreviewModal({
             <button
               type="button"
               onClick={goNext}
-              className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full text-white"
-              style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(8px)' }}
+              className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--next"
               aria-label="下一张"
             >
               <ChevronRight size={26} />
             </button>
           </>
         )}
-        <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2">
+
+        <div className="workflow-image-preview-modal__actions">
           {children}
-          {showResize && (
-            <div
-              className="flex items-center gap-2 rounded-xl px-3 py-2"
-              style={{ background: 'rgba(0,0,0,0.64)', backdropFilter: 'blur(12px)' }}
-            >
+          {renderActions?.(activeImage, activeIndex)}
+          {showResize && canEditImage && (
+            <div className="workflow-image-preview-modal__resize-panel">
               <select
                 value={resizeMode}
-                onChange={(e) => setResizeMode(e.target.value as 'percent' | 'dimensions')}
-                className="rounded-lg border-0 px-2 py-1 text-xs"
-                style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                onChange={(event) => setResizeMode(event.target.value as 'percent' | 'dimensions')}
+                className="workflow-image-preview-modal__field"
               >
                 <option value="percent">百分比</option>
                 <option value="dimensions">按尺寸</option>
@@ -221,11 +237,12 @@ export function ImagePreviewModal({
                     value={scalePercent}
                     min={1}
                     max={1000}
-                    onChange={(e) => setScalePercent(Math.max(1, Math.min(1000, Number(e.target.value) || 1)))}
-                    className="w-16 rounded-lg border-0 px-2 py-1 text-right text-xs"
-                    style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                    onChange={(event) =>
+                      setScalePercent(Math.max(1, Math.min(1000, Number(event.target.value) || 1)))
+                    }
+                    className="workflow-image-preview-modal__field workflow-image-preview-modal__field--number"
                   />
-                  <span className="text-xs text-white/60">%</span>
+                  <span className="workflow-image-preview-modal__muted">%</span>
                 </>
               ) : (
                 <>
@@ -233,43 +250,49 @@ export function ImagePreviewModal({
                     type="number"
                     value={targetWidth || ''}
                     min={1}
-                    onChange={(e) => setTargetWidth(Math.max(1, Number(e.target.value) || 0))}
-                    className="w-16 rounded-lg border-0 px-2 py-1 text-right text-xs"
-                    style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                    onChange={(event) => setTargetWidth(Math.max(1, Number(event.target.value) || 0))}
+                    className="workflow-image-preview-modal__field workflow-image-preview-modal__field--number"
                     placeholder="宽"
                   />
-                  <span className="text-xs text-white/40">×</span>
+                  <span className="workflow-image-preview-modal__muted">x</span>
                   <input
                     type="number"
                     value={targetHeight || ''}
                     min={1}
-                    onChange={(e) => setTargetHeight(Math.max(1, Number(e.target.value) || 0))}
-                    className="w-16 rounded-lg border-0 px-2 py-1 text-right text-xs"
-                    style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                    onChange={(event) => setTargetHeight(Math.max(1, Number(event.target.value) || 0))}
+                    className="workflow-image-preview-modal__field workflow-image-preview-modal__field--number"
                     placeholder="高"
                   />
                 </>
               )}
               <button
                 type="button"
-                onClick={() => { void handleApplyResize(); }}
-                className="rounded-lg px-2 py-1 text-xs font-medium"
-                style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}
+                onClick={() => {
+                  void handleApplyResize();
+                }}
+                className="workflow-image-preview-modal__apply"
               >
+                <Check size={13} />
                 应用
               </button>
             </div>
           )}
-          {copyStatus && (
-            <span className="rounded-full px-3 py-2 text-xs text-white" style={{ background: 'rgba(0,0,0,0.54)' }}>
-              {copyStatus}
-            </span>
+          {copyStatus && <span className="workflow-image-preview-modal__status">{copyStatus}</span>}
+          {canEditImage && (
+            <>
+              <ImagePreviewActionButton
+                icon={<Maximize2 size={14} />}
+                label="缩放"
+                active={showResize}
+                onClick={() => setShowResize((prev) => !prev)}
+              />
+              <ImagePreviewActionButton
+                icon={<Brush size={14} />}
+                label="画板"
+                onClick={() => setCanvasEditorOpen(true)}
+              />
+            </>
           )}
-          <ImagePreviewActionButton
-            icon={<Maximize2 size={14} />}
-            label="缩放"
-            onClick={() => setShowResize((prev) => !prev)}
-          />
           <ImagePreviewActionButton
             icon={<Copy size={14} />}
             label="复制图片"
@@ -279,7 +302,17 @@ export function ImagePreviewModal({
           />
           <ImagePreviewActionButton icon={<Download size={14} />} label="另存为" onClick={handleSaveAs} />
         </div>
-        <img src={displaySrc} alt={alt} className="h-full w-full object-contain" draggable={false} />
+
+        <img src={displaySrc} alt={alt} className="workflow-image-preview-modal__image" draggable={false} />
+
+        {canvasEditorOpen && canEditImage && (
+          <NodeCanvasEditorModal
+            src={displaySrc}
+            nodeLabel={activeImage.name || '画板'}
+            onClose={() => setCanvasEditorOpen(false)}
+            onSavePaint={handleCanvasSave}
+          />
+        )}
       </div>
     </div>,
     document.body,
@@ -289,18 +322,19 @@ export function ImagePreviewModal({
 function ImagePreviewActionButton({
   icon,
   label,
+  active = false,
   onClick,
 }: {
   icon: ReactNode;
   label: string;
+  active?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-white"
-      style={{ background: 'rgba(0,0,0,0.54)', backdropFilter: 'blur(8px)' }}
+      className={`workflow-image-preview-modal__action ${active ? 'is-active' : ''}`}
       aria-label={label}
       title={label}
     >
@@ -341,15 +375,18 @@ async function imageBlobToPng(blob: Blob) {
 }
 
 async function imageElementToPng(src: string) {
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+  const image = await loadImageElement(src);
+  return drawImageToPng(image, image.naturalWidth || image.width, image.naturalHeight || image.height);
+}
+
+function loadImageElement(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
     const nextImage = new Image();
     nextImage.crossOrigin = 'anonymous';
     nextImage.onload = () => resolve(nextImage);
     nextImage.onerror = () => reject(new Error('image load failed'));
     nextImage.src = src;
   });
-
-  return drawImageToPng(image, image.naturalWidth || image.width, image.naturalHeight || image.height);
 }
 
 function drawImageToPng(image: CanvasImageSource, width: number, height: number) {

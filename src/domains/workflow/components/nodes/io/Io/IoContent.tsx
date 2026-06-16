@@ -4,8 +4,9 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { expandAiV3InputSlots, type AiV3InputSlot } from '@/domains/workflow/lib/store/helpers';
 import { fileRawStore } from '../fileRawStore';
+import { createIoImageFileEntry, imageFileNameFromUrl, uploadIoImageFileEntry } from '@/domains/workflow/lib/ioImageFiles';
 import { FileText, Layers } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import '../../node-v2.css';
 
 interface IoContentProps {
@@ -71,60 +72,66 @@ export function IoContent({
   const upstreamItems = useMemo(() => {
     if (!upstreamSlots) return null;
 
-    const resolved = upstreamSlots.map((slot) => {
+    const resolved = upstreamSlots.flatMap((slot) => {
       const src = nodes.find((n) => n.id === slot.sourceNodeId);
       const srcData = (src?.data || {}) as Record<string, unknown>;
       const srcOutputs = nodeOutputs[slot.sourceNodeId];
 
-      let value = '';
+      const values: string[] = [];
       let type: string = slot.type;
       if (slot.sourceNodeType === 'io') {
         if (slot.type === 'text') {
-          value = String(srcData.text || '');
+          values.push(String(srcData.text || ''));
         } else if (slot.fileId !== undefined) {
           const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
           const fileIds: number[] = Array.isArray(srcData._fileIds) ? (srcData._fileIds as number[]) : [];
           const cIdx = fileIds.indexOf(slot.fileId);
-          value = (cIdx >= 0 ? content[cIdx] : '') || fileRawStore.getObjectUrl(slot.fileId) || '';
+          values.push((cIdx >= 0 ? content[cIdx] : '') || fileRawStore.getObjectUrl(slot.fileId) || '');
         }
       } else {
         const edge = edges.find((e) => e.id === slot.edgeId);
         const handle = edge?.sourceHandle || 'output';
-        value = String(srcData[handle] || '');
-        if (!value) {
+        const directValue = String(srcData[handle] || '');
+        if (directValue) {
+          values.push(directValue);
+        }
+        if (values.length === 0) {
           for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
             const v = srcData[k];
-            if (typeof v === 'string' && v) { value = v; break; }
+            if (typeof v === 'string' && v) { values.push(v); break; }
           }
         }
-        if (!value && srcOutputs) {
-          let outVal: unknown = srcOutputs[handle];
-          // AiV3 image mode returns [prompt, base64]; repeated executions may nest arrays
-          if (Array.isArray(outVal)) {
-            const collect = (arr: unknown[]): string[] => {
-              const acc: string[] = [];
-              for (const v of arr) {
-                if (typeof v === 'string') acc.push(v);
-                else if (Array.isArray(v)) acc.push(...collect(v));
-              }
-              return acc;
-            };
-            const strings = collect(outVal);
-            outVal = strings[strings.length - 1];
-          }
-          if (typeof outVal !== 'string') {
-            outVal = Object.values(srcOutputs).find((v) => typeof v === 'string' && v);
-          }
-          if (typeof outVal === 'string') value = outVal;
-        }
-        // Fallback: if slot type is 'text' but value looks like an image/video, override type
-        if (type === 'text' && value) {
-          const inferred = classifyItemValue(value);
-          if (inferred !== 'text') type = inferred;
+        if (values.length === 0 && srcOutputs) {
+          const collect = (value: unknown): string[] => {
+            if (typeof value === 'string') return [value];
+            if (Array.isArray(value)) return value.flatMap(collect);
+            if (value && typeof value === 'object' && typeof (value as { url?: unknown }).url === 'string') {
+              return [String((value as { url: string }).url)];
+            }
+            return [];
+          };
+          const handleValues = collect(srcOutputs[handle]);
+          const outputValues = handleValues.length > 0 ? handleValues : Object.values(srcOutputs).flatMap(collect);
+          values.push(...outputValues);
         }
       }
 
-      return { value, type, slotId: slot.id, edgeId: slot.edgeId, fileId: slot.fileId };
+      return values
+        .filter(Boolean)
+        .map((value, valueIndex) => {
+          let itemType = type;
+          if (value) {
+            const inferred = classifyItemValue(value);
+            if (inferred !== 'text' || itemType === 'text') itemType = inferred;
+          }
+          return {
+            value,
+            type: itemType,
+            slotId: valueIndex === 0 ? slot.id : `${slot.id}/${valueIndex}`,
+            edgeId: slot.edgeId,
+            fileId: slot.fileId,
+          };
+        });
     });
 
     // Fallback: if upstream IO has data.content file URLs not covered by _fileIds slots,
@@ -196,6 +203,10 @@ export function IoContent({
           })
           .filter((p) => p.type === 'image' || p.type === 'video');
       })();
+  const imagePreviewItems = previewable
+    .filter((item) => item.type === 'image')
+    .map((item) => ({ src: resizedSrcs[item.idx] || item.value }));
+  const canEditSourceImages = !useUpstreamTypes && imagePreviewItems.length > 0;
 
   return (
     <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
@@ -212,7 +223,7 @@ export function IoContent({
           {imageItems.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {imageItems.map((img, idx) => {
-                const globalIdx = items.indexOf(img);
+                const previewIndex = previewable.findIndex((item) => item.type === 'image' && item.value === img);
                 return (
                   <div
                     key={idx}
@@ -221,7 +232,7 @@ export function IoContent({
                       background: 'var(--node-card-bg-soft)', cursor: 'pointer',
                       border: '1px solid var(--node-card-line)',
                     }}
-                    onClick={() => setPreviewIdx(previewable.findIndex(p => p.idx === globalIdx))}
+                    onClick={() => setPreviewIdx(previewIndex)}
                   >
                     <img src={String(img)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
@@ -264,19 +275,24 @@ export function IoContent({
           {/* Modal viewer */}
           {previewIdx >= 0 && previewIdx < previewable.length && (
             <ImagePreviewModal
-              src={resizedSrcs[previewIdx] || previewable[previewIdx].value}
+              src={resizedSrcs[previewable[previewIdx].idx] || previewable[previewIdx].value}
+              images={imagePreviewItems}
+              initialIndex={Math.max(
+                0,
+                imagePreviewItems.findIndex((item) => item.src === (resizedSrcs[previewable[previewIdx].idx] || previewable[previewIdx].value)),
+              )}
               onClose={() => setPreviewIdx(-1)}
-              onApplyResize={(url, _w, _h, blob) => {
-                setResizedSrcs((prev) => {
-                  const next = { ...prev, [previewIdx]: url };
-                  if (prev[previewIdx]) URL.revokeObjectURL(prev[previewIdx]);
-                  return next;
-                });
-                const item = previewable[previewIdx];
+              showEditActions={canEditSourceImages}
+              onApplyResize={(url, _w, _h, blob, activeItem) => {
+                const activePreviewIdx = activeItem?.src
+                  ? previewable.findIndex((item) => item.type === 'image' && (resizedSrcs[item.idx] || item.value) === activeItem.src)
+                  : previewIdx;
+                const targetPreviewIdx = activePreviewIdx >= 0 ? activePreviewIdx : previewIdx;
+                const item = previewable[targetPreviewIdx];
+                if (!item) return;
                 const fid = item.fileId;
                 if (!blob || !nodeId) return;
-                const reader = new FileReader();
-                reader.onload = () => {
+                void createIoImageFileEntry(blob, imageFileNameFromUrl(item.value, blob.type)).then((entry) => {
                   const store = useWorkflowStore.getState();
                   const nd = (store.nodes.find((n) => n.id === nodeId)?.data || {}) as Record<string, unknown>;
                   const fileIds: number[] = Array.isArray(nd._fileIds) ? [...(nd._fileIds as number[])] : [];
@@ -289,22 +305,27 @@ export function IoContent({
                     // Replace existing fileRawStore entry
                     fileRawStore.remove(fid);
                   }
-                  const newId = fileRawStore.add(blob, '', String(reader.result));
-                  const newUrl = fileRawStore.getObjectUrl(newId)!;
+                  const newId = entry.fileId;
+                  const newUrl = entry.objectUrl || url;
 
                   // Find or create index: match by old URL in content, or append
                   let idx = fid !== undefined ? fileIds.indexOf(fid) : -1;
                   if (idx < 0) idx = content.indexOf(item.value);
                   if (idx >= 0) {
+                    while (content.length <= idx) content.push('');
+                    while (fileIds.length <= idx) fileIds.push(newId);
+                    while (fileKinds.length <= idx) fileKinds.push('image');
                     fileIds[idx] = newId;
                     content[idx] = newUrl;
+                    fileKinds[idx] = 'image';
                     if (fid !== undefined) {
                       const oi = fileOrder.indexOf(fid);
                       if (oi >= 0) fileOrder[oi] = newId;
-                    } else {
+                    } else if (!fileOrder.includes(newId)) {
                       fileOrder.push(newId);
                     }
                   } else {
+                    idx = fileIds.length;
                     fileIds.push(newId);
                     fileKinds.push('image');
                     fileOrder.push(newId);
@@ -313,10 +334,25 @@ export function IoContent({
 
                   // Keep name aligned with array positions after possible shifts
                   while (fileNames.length < fileIds.length) fileNames.push('');
+                  fileNames[idx >= 0 ? idx : fileIds.length - 1] = entry.fileName;
 
                   store.updateNodeData(nodeId, { content, _fileIds: fileIds, _fileKinds: fileKinds, _fileOrder: fileOrder, _fileNames: fileNames });
-                };
-                reader.readAsDataURL(blob);
+                  setResizedSrcs((prev) => ({ ...prev, [item.idx]: newUrl }));
+
+                  uploadIoImageFileEntry(entry, (uploadedUrl, resultFileName) => {
+                    const latestStore = useWorkflowStore.getState();
+                    const latestNodeData = (latestStore.nodes.find((n) => n.id === nodeId)?.data || {}) as Record<string, unknown>;
+                    const latestFileIds: number[] = Array.isArray(latestNodeData._fileIds) ? [...(latestNodeData._fileIds as number[])] : [];
+                    const latestContent: string[] = Array.isArray(latestNodeData.content) ? [...(latestNodeData.content as string[])] : [];
+                    const latestFileNames: string[] = Array.isArray(latestNodeData._fileNames) ? [...(latestNodeData._fileNames as string[])] : [];
+                    const latestIndex = latestFileIds.indexOf(newId);
+                    if (latestIndex < 0) return;
+                    latestContent[latestIndex] = uploadedUrl;
+                    while (latestFileNames.length < latestFileIds.length) latestFileNames.push('');
+                    latestFileNames[latestIndex] = resultFileName || entry.fileName;
+                    latestStore.updateNodeData(nodeId, { content: latestContent, _fileNames: latestFileNames });
+                  });
+                });
               }}
             />
           )}

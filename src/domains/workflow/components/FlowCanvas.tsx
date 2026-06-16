@@ -1,4 +1,3 @@
-import { uploadFile } from '@/domains/workflow/lib/api';
 import {
   GRID_SIZE,
   NODE_REGISTRY,
@@ -15,7 +14,6 @@ import { parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/domains/workflow/lib/store/selectors';
-import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
 import { AnimatedSvgEdge } from '@/shared/ui/AnimatedSvgEdge';
 import {
   Background,
@@ -34,7 +32,6 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
 import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
 import { getAbsoluteNodePosition, snapNodeBox } from './flowCanvasClipboard';
 import {
@@ -51,7 +48,7 @@ import { useFlowContextMenu } from './flowCanvasHooks/useFlowContextMenu';
 import { useFlowEdgeCutting } from './flowCanvasHooks/useFlowEdgeCutting';
 import { useFlowFileDrop } from './flowCanvasHooks/useFlowFileDrop';
 import { buildFlowCanvasRenderModel } from './flowCanvasRenderModel';
-import { formatCanvasUploadError, isEditableElement } from './flowCanvasText';
+import { isEditableElement } from './flowCanvasText';
 import type { EdgeInsertionCandidate } from './flowCanvasTypes';
 import {
   DEFAULT_WORKFLOW_EDGE_STYLE,
@@ -64,15 +61,13 @@ import './nodes/nodeAnimations.css';
 
 interface FlowCanvasProps {
   onViewportCenterChange?: (position: { x: number; y: number }) => void;
-  onBeforeCanvasEditorSave?: () => void;
 }
 
-function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: FlowCanvasProps) {
+function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const store = useWorkflowCanvasStore();
   const reactFlow = useReactFlow();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
-  const [canvasEditorNodeId, setCanvasEditorNodeId] = useState<string | null>(null);
   const [edgeInsertionCandidate, setEdgeInsertionCandidate] = useState<EdgeInsertionCandidate | null>(null);
   const lastPointerFlowPositionRef = useRef<{ x: number; y: number } | null>(null);
   const ctxMenu = useFlowContextMenu({ store, reactFlow, containerRef });
@@ -456,7 +451,6 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   const hasSingleGroupContextNode = contextNodes.length === 1 && contextNodes[0]?.type === 'group';
   const hasSingleChildContextNode =
     contextNodes.length === 1 && Boolean((contextNodes[0] as FlowNodeType & { parentId?: string })?.parentId);
-  const hasSingleImageInputContextNode = contextNodes.length === 1 && contextNodes[0]?.type === 'imageInput';
   const canDetachSingleContextNode = contextNodes.length === 1 && contextNodes[0]?.type !== 'group';
   const canRunToSingleContextNode = (() => {
     if (contextNodes.length !== 1) return false;
@@ -469,24 +463,6 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
   const allContextNodesDisabled =
     contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.disabled));
   const allContextNodesLocked = contextNodes.length > 0 && contextNodes.every((node) => Boolean(node?.data?.locked));
-  const canvasEditorNode = useMemo(() => {
-    if (!canvasEditorNodeId) return null;
-    return store.nodes.find((node) => node.id === canvasEditorNodeId) || null;
-  }, [canvasEditorNodeId, store.nodes]);
-  const canvasEditorSource = useMemo(() => {
-    if (!canvasEditorNode) return '';
-    const fileUrl = typeof canvasEditorNode.data?.fileUrl === 'string' ? canvasEditorNode.data.fileUrl : '';
-    const previewUrl = typeof canvasEditorNode.data?.previewUrl === 'string' ? canvasEditorNode.data.previewUrl : '';
-    return previewUrl && !(previewUrl.startsWith('blob:') && fileUrl) ? previewUrl : fileUrl;
-  }, [canvasEditorNode]);
-  const canvasEditorMaskSource = useMemo(() => {
-    if (!canvasEditorNode) return '';
-    const fileUrl = typeof canvasEditorNode.data?.maskFileUrl === 'string' ? canvasEditorNode.data.maskFileUrl : '';
-    const previewUrl =
-      typeof canvasEditorNode.data?.maskPreviewUrl === 'string' ? canvasEditorNode.data.maskPreviewUrl : '';
-    return previewUrl && !(previewUrl.startsWith('blob:') && fileUrl) ? previewUrl : fileUrl;
-  }, [canvasEditorNode]);
-
   const getViewportCenterFlowPosition = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
@@ -575,133 +551,6 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
     store.resetNodeSize(ctxMenu.contextMenu.nodeId);
     ctxMenu.closeContextMenu();
   }, [ctxMenu.closeContextMenu, ctxMenu.contextMenu?.nodeId, store]);
-
-  const openCanvasEditorForContextNode = useCallback(() => {
-    const nodeId = ctxMenu.contextMenu?.nodeId;
-    if (!nodeId) return;
-    const node = store.nodes.find((item) => item.id === nodeId);
-    if (!node || node.type !== 'imageInput') return;
-    const fileUrl = typeof node.data?.fileUrl === 'string' ? node.data.fileUrl : '';
-    const previewUrl = typeof node.data?.previewUrl === 'string' ? node.data.previewUrl : '';
-    if (!fileUrl && !previewUrl) return;
-    setCanvasEditorNodeId(node.id);
-    ctxMenu.closeContextMenu();
-  }, [ctxMenu.closeContextMenu, ctxMenu.contextMenu?.nodeId, store.nodes]);
-
-  const saveCanvasEditorAsset = useCallback(
-    async (
-      nodeId: string,
-      file: File,
-      previewUrl: string,
-      target: 'paint' | 'mask',
-      options?: { clearMask?: boolean },
-    ) => {
-      onBeforeCanvasEditorSave?.();
-
-      if (target === 'mask' && options?.clearMask) {
-        store.updateNodeData(nodeId, {
-          maskFileUrl: '',
-          maskPreviewUrl: '',
-          maskFileName: '',
-          maskFileSize: undefined,
-          _maskUploading: false,
-          _maskUploadError: '',
-        });
-        return;
-      }
-
-      if (target === 'paint') {
-        const node = store.nodes.find((item) => item.id === nodeId);
-        const hasStoredOriginal = Boolean(node?.data?.canvasOriginalFileUrl || node?.data?.canvasOriginalPreviewUrl);
-        const originalPatch = hasStoredOriginal
-          ? {}
-          : {
-              canvasOriginalFileUrl: typeof node?.data?.fileUrl === 'string' ? node.data.fileUrl : '',
-              canvasOriginalPreviewUrl: typeof node?.data?.previewUrl === 'string' ? node.data.previewUrl : '',
-              canvasOriginalFileName: typeof node?.data?.fileName === 'string' ? node.data.fileName : '',
-              canvasOriginalFileSize: typeof node?.data?.fileSize === 'number' ? node.data.fileSize : undefined,
-            };
-        store.updateNodeData(nodeId, {
-          fileUrl: '',
-          thumbnailUrl: '',
-          previewUrl,
-          fileName: file.name,
-          fileKind: 'image',
-          fileSize: file.size,
-          _uploading: true,
-          _uploadError: '',
-          _fileProcessingStatus: '',
-          _fileProcessingError: '',
-          ...originalPatch,
-        });
-      } else {
-        store.updateNodeData(nodeId, {
-          maskFileUrl: '',
-          maskPreviewUrl: previewUrl,
-          maskFileName: file.name,
-          maskFileSize: file.size,
-          _maskUploading: true,
-          _maskUploadError: '',
-        });
-      }
-
-      const result = await uploadFile(file);
-      if (!result.success || !result.url) {
-        if (target === 'paint') {
-          store.updateNodeData(nodeId, {
-            _uploading: false,
-            _uploadError: formatCanvasUploadError(result.error),
-            _fileProcessingStatus: '',
-            _fileProcessingError: '',
-          });
-        } else {
-          store.updateNodeData(nodeId, {
-            _maskUploading: false,
-            _maskUploadError: formatCanvasUploadError(result.error),
-          });
-        }
-        throw new Error(formatCanvasUploadError(result.error));
-      }
-
-      if (target === 'paint') {
-        store.updateNodeData(nodeId, {
-          fileUrl: result.url,
-          thumbnailUrl: result.thumbnailUrl || '',
-          previewUrl,
-          fileName: result.fileName || file.name,
-          fileSize: result.fileSize || file.size,
-          _uploading: false,
-          _uploadError: '',
-          _fileProcessingStatus: result.processing ? 'processing' : '',
-          _fileProcessingError: result.processingError || '',
-        });
-        if (result.processing && result.url) {
-          void waitForUploadedImageMetadata(result.url, (metadata) => {
-            store.updateNodeData(nodeId, {
-              fileUrl: metadata.url || result.url,
-              thumbnailUrl: metadata.thumbnailUrl || '',
-              previewUrl: metadata.thumbnailUrl || previewUrl || metadata.url || result.url,
-              width: metadata.width,
-              height: metadata.height,
-              _fileProcessingStatus: metadata.processingStatus || '',
-              _fileProcessingError: metadata.processingError || '',
-            });
-          });
-        }
-        return;
-      }
-
-      store.updateNodeData(nodeId, {
-        maskFileUrl: result.url,
-        maskPreviewUrl: previewUrl,
-        maskFileName: result.fileName || file.name,
-        maskFileSize: result.fileSize || file.size,
-        _maskUploading: false,
-        _maskUploadError: '',
-      });
-    },
-    [onBeforeCanvasEditorSave, store],
-  );
 
   const resolveTargetHandle = useCallback((nodeType: string, sourceType?: string) => {
     const def = getNodeDef(nodeType);
@@ -1015,20 +864,6 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
                     }
                   />
                 )}
-                {hasSingleImageInputContextNode && (
-                  <ContextMenuButton
-                    label="进入画板"
-                    onClick={openCanvasEditorForContextNode}
-                    disabled={
-                      !canvasEditorSource && !contextNodes[0]?.data?.fileUrl && !contextNodes[0]?.data?.previewUrl
-                    }
-                    title={
-                      !canvasEditorSource && !contextNodes[0]?.data?.fileUrl && !contextNodes[0]?.data?.previewUrl
-                        ? '当前节点还没有图片，无法进入画板'
-                        : undefined
-                    }
-                  />
-                )}
                 {hasSingleGroupContextNode && <ContextMenuButton label="解组" onClick={ungroupContextNodes} />}
                 {hasSingleChildContextNode && (
                   <ContextMenuButton label="从组释放" onClick={releaseContextNodesFromGroup} />
@@ -1094,41 +929,14 @@ function FlowCanvasInner({ onViewportCenterChange, onBeforeCanvasEditorSave }: F
           </div>
         ))}
 
-      {canvasEditorNode && canvasEditorSource && (
-        <NodeCanvasEditorModal
-          src={canvasEditorSource}
-          initialMaskSrc={canvasEditorMaskSource || undefined}
-          nodeLabel={getNodeDef(canvasEditorNode.type || '')?.label || '图像输入'}
-          initialMode="mask"
-          onClose={() => setCanvasEditorNodeId(null)}
-          onSavePaint={async (file, previewUrl) => {
-            await saveCanvasEditorAsset(canvasEditorNode.id, file, previewUrl, 'paint');
-          }}
-          onSaveMask={async (file, previewUrl) => {
-            await saveCanvasEditorAsset(canvasEditorNode.id, file, previewUrl, 'mask');
-          }}
-          onClearMask={async () => {
-            await saveCanvasEditorAsset(
-              canvasEditorNode.id,
-              new File([], 'empty-mask.png', { type: 'image/png' }),
-              '',
-              'mask',
-              { clearMask: true },
-            );
-          }}
-        />
-      )}
     </div>
   );
 }
 
-export default function FlowCanvas({ onViewportCenterChange, onBeforeCanvasEditorSave }: FlowCanvasProps) {
+export default function FlowCanvas({ onViewportCenterChange }: FlowCanvasProps) {
   return (
     <ReactFlowProvider>
-      <FlowCanvasInner
-        onViewportCenterChange={onViewportCenterChange}
-        onBeforeCanvasEditorSave={onBeforeCanvasEditorSave}
-      />
+      <FlowCanvasInner onViewportCenterChange={onViewportCenterChange} />
     </ReactFlowProvider>
   );
 }

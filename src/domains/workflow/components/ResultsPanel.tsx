@@ -9,6 +9,11 @@ import {
 } from '@/domains/workflow/lib/api/files';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { formatDurationSeconds, getExecutionStatusLabel } from '@/domains/workflow/lib/executionFormat';
+import {
+  createIoImageFileEntryFromUrl,
+  imageFileNameFromUrl,
+  uploadIoImageFileEntry,
+} from '@/domains/workflow/lib/ioImageFiles';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import {
   AlertTriangle,
@@ -54,7 +59,6 @@ type ReadableLog = WorkflowResultLog & {
 export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelProps) {
   const [tab, setTab] = useState<PanelTab>('results');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [resizedGallerySrcs, setResizedGallerySrcs] = useState<Record<number, string>>({});
   const [generatedOutputs, setGeneratedOutputs] = useState<GeneratedOutputFile[]>([]);
   const [isLoadingOutputs, setIsLoadingOutputs] = useState(false);
   const [isClearingOutputs, setIsClearingOutputs] = useState(false);
@@ -69,6 +73,9 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
   const nodeWarnings = useWorkflowStore((s) => s.nodeWarnings);
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const clearExecutionLogs = useWorkflowStore((s) => s.clearExecutionLogs);
+  const addNode = useWorkflowStore((s) => s.addNode);
+  const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
+  const selectNode = useWorkflowStore((s) => s.selectNode);
   const isServerRuntime = false;
 
   const refreshGeneratedOutputs = useCallback(async () => {
@@ -151,6 +158,51 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
       }));
   }, [generatedOutputs]);
   const previewImageIndex = previewImage ? imageGallery.findIndex((item) => item.src === previewImage) : -1;
+
+  const handleBackfillImageToCanvas = useCallback(
+    async (image: PreviewImageItem) => {
+      let entry;
+      try {
+        entry = await createIoImageFileEntryFromUrl(
+          image.src,
+          image.name || imageFileNameFromUrl(image.src),
+        );
+      } catch (error) {
+        console.warn('Failed to backfill image to IO node', error);
+        return;
+      }
+
+      const nodeCount = nodes.length;
+      const position = {
+        x: 80 + (nodeCount % 6) * 34,
+        y: 80 + Math.floor(nodeCount / 6) * 34,
+      };
+      const nodeId = addNode('io', position, {
+        text: '',
+        content: [entry.objectUrl],
+        _fileIds: [entry.fileId],
+        _fileKinds: ['image'],
+        _fileOrder: [entry.fileId],
+        _fileNames: [entry.fileName],
+      });
+      updateNodeData(nodeId, {
+        content: [entry.objectUrl],
+        _fileIds: [entry.fileId],
+        _fileKinds: ['image'],
+        _fileOrder: [entry.fileId],
+        _fileNames: [entry.fileName],
+      });
+      uploadIoImageFileEntry(entry, (uploadedUrl, resultFileName) => {
+        updateNodeData(nodeId, {
+          content: [uploadedUrl],
+          _fileNames: [resultFileName || entry.fileName],
+        });
+      });
+      selectNode(nodeId);
+      setPreviewImage(null);
+    },
+    [addNode, nodes.length, selectNode, updateNodeData],
+  );
 
   return (
     <aside className={`workflow-panel workflow-results workflow-results--${motionState} glass`}>
@@ -245,19 +297,21 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
 
       {previewImage && (
         <ImagePreviewModal
-          src={resizedGallerySrcs[previewImageIndex] || previewImage}
+          src={previewImage}
           images={previewImageIndex >= 0 ? imageGallery : [{ src: previewImage }]}
           initialIndex={previewImageIndex >= 0 ? previewImageIndex : 0}
           onClose={() => setPreviewImage(null)}
-          onApplyResize={(url) => {
-            const idx = previewImageIndex;
-            setResizedGallerySrcs((prev) => {
-              const next = { ...prev, [idx]: url };
-              if (prev[idx]) URL.revokeObjectURL(prev[idx]);
-              return next;
-            });
-            setPreviewImage(url);
-          }}
+          renderActions={(activeImage) => (
+            <button
+              type="button"
+              className="workflow-image-preview-modal__action"
+              onClick={() => {
+                void handleBackfillImageToCanvas(activeImage);
+              }}
+            >
+              填回到画板
+            </button>
+          )}
         />
       )}
     </aside>

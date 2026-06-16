@@ -75,7 +75,6 @@ export function MediaCard({
 }: { value: string; compact?: boolean; fill?: boolean }) {
   const kind = getMediaKind(value);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [resizedSrc, setResizedSrc] = useState<string | null>(null);
 
   return (
     <div className="node-media-card" style={{ height: fill ? '100%' : undefined }}>
@@ -86,12 +85,8 @@ export function MediaCard({
       </div>
       {previewOpen && (
         <ImagePreviewModal
-          src={resizedSrc || value}
+          src={value}
           onClose={() => setPreviewOpen(false)}
-          onApplyResize={(url) => {
-            if (resizedSrc) URL.revokeObjectURL(resizedSrc);
-            setResizedSrc(url);
-          }}
         />
       )}
     </div>

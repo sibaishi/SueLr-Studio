@@ -43,7 +43,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
   const [workflowLibraryOpen, setWorkflowLibraryOpen] = useState(false);
   const [workflowLibraryBusy, setWorkflowLibraryBusy] = useState(false);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
-  const { canUndo, canRedo, handleUndo, handleRedo, resetHistory, captureImmediateHistory } = useWorkflowHistory(store);
+  const { canUndo, canRedo, handleUndo, handleRedo, resetHistory } = useWorkflowHistory(store);
 
   useEffect(() => {
     void useWorkflowStore.getState().initializeWorkflowPersistence();
@@ -251,10 +251,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           rightPanelCollapsed={rightPanelCollapsed}
           isExecuting={store.isExecuting}
         />
-        <FlowCanvas
-          onViewportCenterChange={handleViewportCenterChange}
-          onBeforeCanvasEditorSave={captureImmediateHistory}
-        />
+        <FlowCanvas onViewportCenterChange={handleViewportCenterChange} />
         {!store.isHydratingWorkflow && store.nodes.length === 0 && <EmptyCanvasHint />}
         <FloatingToolbar
           onAddNode={handleOpenNodeCatalog}
