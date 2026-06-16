@@ -230,28 +230,11 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
         <Toolbar
           workflowName={store.workflowName}
           workflows={store.workflowList}
-          onWorkflowNameChange={store.setWorkflowName}
-          onNewWorkflow={handleNewWorkflow}
+          onWorkflowNameSave={store.setWorkflowName}
           onOpenWorkflowLibrary={() => setWorkflowLibraryOpen(true)}
-          onDuplicateWorkflow={handleDuplicateWorkflow}
-          onDeleteWorkflow={handleDeleteWorkflow}
-          onImportWorkflow={handleImportClick}
-          onExportWorkflow={handleExportWorkflow}
-          onAutoArrange={store.autoArrangeWorkflow}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onSave={handleSave}
           onExecute={handleExecute}
           onCancelExecution={handleCancelExecution}
-          onToggleRightPanel={() => setRightPanelCollapsed((value) => !value)}
-          rightPanelCollapsed={rightPanelCollapsed}
-          onToggleSnapToGrid={() => store.setSnapToGridEnabled(!store.snapToGridEnabled)}
-          snapToGridEnabled={store.snapToGridEnabled}
           isExecuting={store.isExecuting}
-          isSavingWorkflow={store.isSavingWorkflow}
-          hasUnsavedChanges={store.hasUnsavedChanges}
         />
         <FlowCanvas
           onViewportCenterChange={handleViewportCenterChange}
@@ -264,6 +247,11 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           onOpenAgent={onOpenAgent}
           onToggleTheme={onToggleTheme}
           themeMode={themeMode}
+          onToggleRightPanel={() => setRightPanelCollapsed((value) => !value)}
+          rightPanelCollapsed={rightPanelCollapsed}
+          onToggleSnapToGrid={() => store.setSnapToGridEnabled(!store.snapToGridEnabled)}
+          snapToGridEnabled={store.snapToGridEnabled}
+          onAutoArrange={store.autoArrangeWorkflow}
         />
 
         {!rightPanelCollapsed && (
@@ -273,12 +261,20 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
         <StatusBar
           documents={store.documents}
           activeDocumentId={store.activeDocumentId}
-          nodeCount={store.nodes.length}
-          edgeCount={store.edges.length}
-          canUndo={canUndo}
-          canRedo={canRedo}
           onSelectDocument={store.setActiveWorkflowDocument}
           onCloseDocument={handleCloseDocument}
+          onNewWorkflow={handleNewWorkflow}
+          onDuplicateWorkflow={handleDuplicateWorkflow}
+          onDeleteWorkflow={handleDeleteWorkflow}
+          onImportWorkflow={handleImportClick}
+          onExportWorkflow={handleExportWorkflow}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onSave={handleSave}
+          isSavingWorkflow={store.isSavingWorkflow}
+          hasUnsavedChanges={store.hasUnsavedChanges}
         />
 
         <AiV3StylePanel />
@@ -286,35 +282,49 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
       </div>
 
       {importErrorMessage && (
-        <div className="px-4 pb-3">
-          <div className="workflow-empty-state" style={{ pointerEvents: 'auto' }}>
-            <div className="workflow-empty-state__title">导入没有完成</div>
-            <div className="workflow-empty-state__body">{importErrorMessage}</div>
-            <button
-              type="button"
-              onClick={() => setImportErrorMessage(null)}
-              className="node-secondary-button"
-              style={{ marginTop: 12, alignSelf: 'center' }}
-            >
-              知道了
-            </button>
+        <div className="workflow-import-modal" onClick={() => setImportErrorMessage(null)}>
+          <div className="workflow-import-modal__dialog glass" onClick={(e) => e.stopPropagation()}>
+            <div className="workflow-import-modal__header">
+              <div>
+                <div className="workflow-panel__title">导入没有完成</div>
+              </div>
+            </div>
+            <div className="workflow-import-modal__body">
+              <p className="workflow-import-modal__item">{importErrorMessage}</p>
+            </div>
+            <div className="workflow-import-modal__footer">
+              <button
+                type="button"
+                onClick={() => setImportErrorMessage(null)}
+                className="workflow-import-modal__button workflow-import-modal__button--primary"
+              >
+                知道了
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {workflowErrorMessage && (
-        <div className="px-4 pb-3">
-          <div className="workflow-empty-state" style={{ pointerEvents: 'auto' }}>
-            <div className="workflow-empty-state__title">操作没有完成</div>
-            <div className="workflow-empty-state__body">{workflowErrorMessage}</div>
-            <button
-              type="button"
-              onClick={() => setWorkflowErrorMessage(null)}
-              className="node-secondary-button"
-              style={{ marginTop: 12, alignSelf: 'center' }}
-            >
-              知道了
-            </button>
+        <div className="workflow-import-modal" onClick={() => setWorkflowErrorMessage(null)}>
+          <div className="workflow-import-modal__dialog glass" onClick={(e) => e.stopPropagation()}>
+            <div className="workflow-import-modal__header">
+              <div>
+                <div className="workflow-panel__title">操作没有完成</div>
+              </div>
+            </div>
+            <div className="workflow-import-modal__body">
+              <p className="workflow-import-modal__item">{workflowErrorMessage}</p>
+            </div>
+            <div className="workflow-import-modal__footer">
+              <button
+                type="button"
+                onClick={() => setWorkflowErrorMessage(null)}
+                className="workflow-import-modal__button workflow-import-modal__button--primary"
+              >
+                知道了
+              </button>
+            </div>
           </div>
         </div>
       )}

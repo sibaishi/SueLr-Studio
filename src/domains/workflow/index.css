@@ -306,64 +306,53 @@ body {
   -webkit-backdrop-filter: var(--glass-blur);
 }
 
-.workflow-canvas-toolbar {
+.workflow-library-fab {
   position: absolute;
   top: 22px;
   left: 50%;
   z-index: 22;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 50px;
-  max-width: 50px;
-  min-width: 0;
-  padding: 8px;
-  border-radius: 25px;
-  overflow: hidden;
-  transform: translateX(-50%);
-  transition: max-width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  justify-content: center;
   background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow-lg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-}
-
-.workflow-canvas-toolbar:hover {
-  max-width: min(960px, calc(100% - 360px));
-}
-
-.workflow-canvas-toolbar__trigger {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--color-text-tertiary);
-  opacity: 0.45;
-  transition: opacity 0.3s ease, color 0.3s ease;
-}
-
-.workflow-canvas-toolbar:hover .workflow-canvas-toolbar__trigger {
-  opacity: 1;
   color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
-.workflow-canvas-toolbar__content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
+.workflow-library-fab:hover {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 34%, var(--glass-border));
+  box-shadow: var(--glass-shadow-lg), 0 0 18px rgba(10, 132, 255, 0.18);
 }
 
-.workflow-toolbar__divider {
-  width: 1px;
-  height: 20px;
+.workflow-library-fab:active {
+  transform: translateX(-50%) scale(0.94);
+}
+
+.workflow-library-fab__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
   border-radius: 999px;
-  background: var(--color-border);
-  flex-shrink: 0;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  color: #fff;
+  background: var(--color-accent);
+  box-shadow: 0 2px 6px rgba(10, 132, 255, 0.35);
 }
 
 .workflow-canvas-run-controls {
@@ -503,6 +492,23 @@ body {
   flex-wrap: wrap;
 }
 
+.workflow-statusbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.workflow-statusbar__sep {
+  width: 1px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-border);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
 .workflow-statusbar__pill {
   display: inline-flex;
   align-items: center;
@@ -569,6 +575,37 @@ body {
   white-space: normal;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.workflow-toolbar__title--editable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 1px 4px;
+  margin-left: -4px;
+  margin-top: -1px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+
+.workflow-toolbar__title--editable:hover {
+  background: var(--color-bg-secondary);
+}
+
+.workflow-toolbar__title-input {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.25;
+  width: 100%;
+  min-width: 0;
+  padding: 1px 4px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  outline: none;
 }
 
 .workflow-toolbar__group,
@@ -2690,12 +2727,6 @@ body {
   }
 }
 
-@media (max-width: 1500px) {
-  .workflow-canvas-toolbar:hover {
-    max-width: min(720px, calc(100% - 36px));
-  }
-}
-
 @media (max-width: 1280px) {
   .workflow-toolbar__identity {
     flex-basis: 180px;
@@ -3475,19 +3506,11 @@ input[type="range"]::-moz-range-thumb {
     border-radius: 999px;
   }
 
-  .workflow-canvas-toolbar {
+  .workflow-library-fab {
     position: fixed;
     top: 94px;
     left: 22px;
-    width: auto;
-    max-width: none;
-    overflow-x: auto;
-    border-radius: 999px;
     transform: none;
-  }
-
-  .workflow-canvas-toolbar:hover {
-    max-width: none;
   }
 
   .workflow-canvas-run-controls {

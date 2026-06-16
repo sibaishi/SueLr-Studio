@@ -193,7 +193,9 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     await page.getByTestId('workflow-new').click();
-    await page.getByTestId('workflow-name-input').fill(workflowName);
+    await page.locator('.workflow-toolbar__title--editable').click();
+    await page.locator('.workflow-toolbar__title-input').fill(workflowName);
+    await page.keyboard.press('Enter');
     const beforeCount = await readStableNodeCount(page);
     await addTextInputNode(page);
     const expectedNodeCount = beforeCount + 1;
@@ -216,7 +218,7 @@ test.describe('studio smoke', () => {
 
     await page.reload();
     await expect(page.getByTestId('workflow-page')).toBeVisible();
-    await expect(page.getByTestId('workflow-name-input')).toHaveValue(workflowName);
+    await expect(page.locator('.workflow-toolbar__title')).toHaveText(workflowName);
     await expect(page.locator('.react-flow__node')).toHaveCount(expectedNodeCount);
   });
 
@@ -228,7 +230,9 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     await page.getByTestId('workflow-new').click();
-    await page.getByTestId('workflow-name-input').fill(workflowName);
+    await page.locator('.workflow-toolbar__title--editable').click();
+    await page.locator('.workflow-toolbar__title-input').fill(workflowName);
+    await page.keyboard.press('Enter');
     await addTextInputNode(page);
     await page.getByTestId('workflow-save').click();
 
@@ -257,7 +261,7 @@ test.describe('studio smoke', () => {
     const duplicated = await readDuplicateWorkflow(page, originalId as string, workflowName);
     const duplicatedId = (duplicated as { id?: string }).id;
     expect(typeof duplicatedId).toBe('string');
-    await expect(page.getByTestId('workflow-name-input')).toHaveValue((duplicated as { name: string }).name);
+    await expect(page.locator('.workflow-toolbar__title')).toHaveText((duplicated as { name: string }).name);
 
     page.once('dialog', async (dialog) => {
       await dialog.accept();

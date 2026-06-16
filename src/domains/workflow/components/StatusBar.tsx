@@ -1,27 +1,44 @@
 import { APP_VERSION } from '@/domains/workflow/lib/constants';
 import type { WorkflowDocument } from '@/domains/workflow/lib/store';
-import { X } from 'lucide-react';
+import { Copy, Download, Plus, Redo2, Save, Trash2, Undo2, Upload, X } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 interface StatusBarProps {
   documents: WorkflowDocument[];
   activeDocumentId: string;
-  nodeCount: number;
-  edgeCount: number;
-  canUndo: boolean;
-  canRedo: boolean;
   onSelectDocument: (documentId: string) => void;
   onCloseDocument: (documentId: string) => void;
+  onNewWorkflow: () => void;
+  onDuplicateWorkflow: () => void;
+  onDeleteWorkflow: () => void;
+  onImportWorkflow: () => void;
+  onExportWorkflow: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onSave: () => void;
+  isSavingWorkflow: boolean;
+  hasUnsavedChanges: boolean;
 }
 
 export default function StatusBar({
   documents,
   activeDocumentId,
-  nodeCount,
-  edgeCount,
-  canUndo,
-  canRedo,
   onSelectDocument,
   onCloseDocument,
+  onNewWorkflow,
+  onDuplicateWorkflow,
+  onDeleteWorkflow,
+  onImportWorkflow,
+  onExportWorkflow,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  onSave,
+  isSavingWorkflow,
+  hasUnsavedChanges,
 }: StatusBarProps) {
   return (
     <div className="workflow-statusbar">
@@ -64,11 +81,54 @@ export default function StatusBar({
           ))}
         </div>
 
-        <div className="workflow-statusbar__items">
-          <StatusPill label="节点" value={String(nodeCount)} testId="workflow-node-count" />
-          <StatusPill label="连线" value={String(edgeCount)} />
-          <StatusPill label="撤销" value={canUndo ? '可用' : '不可用'} />
-          <StatusPill label="重做" value={canRedo ? '可用' : '不可用'} />
+        <div className="workflow-statusbar__actions">
+          <StatusbarIconButton
+            icon={<Undo2 size={15} />}
+            label="撤销"
+            onClick={onUndo}
+            disabled={!canUndo}
+          />
+          <StatusbarIconButton
+            icon={<Redo2 size={15} />}
+            label="重做"
+            onClick={onRedo}
+            disabled={!canRedo}
+          />
+          <span className="workflow-statusbar__sep" />
+          <StatusbarIconButton
+            icon={<Upload size={15} />}
+            label="导入"
+            onClick={onImportWorkflow}
+            testId="workflow-import"
+          />
+          <StatusbarIconButton
+            icon={<Download size={15} />}
+            label="导出"
+            onClick={onExportWorkflow}
+            testId="workflow-export"
+          />
+          <span className="workflow-statusbar__sep" />
+          <StatusbarIconButton icon={<Plus size={15} />} label="新建" onClick={onNewWorkflow} testId="workflow-new" />
+          <StatusbarIconButton
+            icon={<Copy size={15} />}
+            label="另存为副本"
+            onClick={onDuplicateWorkflow}
+            testId="workflow-duplicate"
+          />
+          <StatusbarIconButton
+            icon={<Trash2 size={15} />}
+            label="删除"
+            onClick={onDeleteWorkflow}
+            testId="workflow-delete"
+          />
+          <StatusbarIconButton
+            icon={<Save size={15} />}
+            label="保存"
+            onClick={onSave}
+            disabled={isSavingWorkflow}
+            active={hasUnsavedChanges}
+            testId="workflow-save"
+          />
         </div>
 
         <div className="workflow-statusbar__version">
@@ -79,11 +139,41 @@ export default function StatusBar({
   );
 }
 
-function StatusPill({ label, value, testId }: { label: string; value: string; testId?: string }) {
+function StatusbarIconButton({
+  icon,
+  label,
+  onClick,
+  disabled = false,
+  active = false,
+  testId,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  testId?: string;
+}) {
   return (
-    <div className="workflow-statusbar__pill" data-testid={testId}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testId}
+      className="workflow-toolbar__icon-button"
+      style={{
+        opacity: disabled ? 0.45 : 1,
+        color: active
+          ? 'var(--color-accent)'
+          : disabled
+            ? 'var(--color-text-quaternary)'
+            : 'var(--color-text-secondary)',
+        background: active ? 'rgba(10,132,255,0.12)' : 'transparent',
+      }}
+      title={label}
+      aria-label={label}
+    >
+      {icon}
+    </button>
   );
 }
