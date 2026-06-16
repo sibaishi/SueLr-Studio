@@ -332,8 +332,13 @@ export function createWorkflowExecutionActions(
     // Reorder edges for multi-input nodes (aiV3) based on inputOrder
     let sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);
 
-    // Apply mode-aware input edge/slot limits for aiV3 nodes
-    // Collect per-edge accepted IO file indices for _rawContent trimming
+    // Collect per-edge accepted IO file indices for _rawContent trimming.
+    // IMPORTANT: Do NOT drop any edges here — dropping an edge breaks the
+    // topological dependency graph sent to the backend. Mid-stream IO nodes
+    // have empty data before execution, so slot expansion yields zero slots
+    // and acceptedEdgeIds would not include their incoming edges, resulting
+    // in those edges being removed from the payload and breaking execution
+    // order (e.g. AiV3 starting before upstream IO completes).
     const ioFileTrimMap = new Map<string, Set<number>>(); // edgeId → accepted fileIdx
     for (const node of executableGraph.nodes) {
       if (node.type !== 'aiV3') continue;
@@ -341,16 +346,6 @@ export function createWorkflowExecutionActions(
       const mode = (nodeData.mode as string) || 'chat';
       const result = filterAiV3InputSlots(node.id, mode, sortedEdges, executableGraph.nodes);
 
-      // Filter edges: keep non-input edges + only accepted input edges
-      const nonInputEdges = sortedEdges.filter(
-        (e) => !(e.target === node.id && e.targetHandle === 'input'),
-      );
-      const filteredInputEdges = sortedEdges.filter(
-        (e) => e.target === node.id && e.targetHandle === 'input' && result.acceptedEdgeIds.has(e.id),
-      );
-      sortedEdges = [...nonInputEdges, ...filteredInputEdges];
-
-      // Merge IO file trim info
       for (const [edgeId, indices] of result.acceptedIoFileIndices) {
         const existing = ioFileTrimMap.get(edgeId) || new Set();
         for (const idx of indices) existing.add(idx);
