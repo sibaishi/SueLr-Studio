@@ -1,4 +1,5 @@
 import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import type { WorkflowConfirmRequest } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { serializeWorkflowExport } from '@/domains/workflow/lib/importExport';
 import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
 import type { NodeTypeDef } from '@/domains/workflow/lib/types';
@@ -25,6 +26,8 @@ type PageCommandStore = {
   saveWorkflowDetailed: () => Promise<{ success: true } | { success: false; message: string }>;
 };
 
+type ConfirmWorkflowAction = (request: WorkflowConfirmRequest) => Promise<boolean>;
+
 function formatWorkflowActionError(action: string, message?: string | null) {
   const detail = String(message || '').trim();
   return detail ? `${action}没有完成，请稍后重试。${detail}` : `${action}没有完成，请稍后重试。`;
@@ -34,11 +37,12 @@ export function useWorkflowPageCommands({
   store,
   resetHistory,
   setWorkflowErrorMessage,
+  confirm,
 }: {
   store: PageCommandStore;
-  confirmDiscardChanges: (actionLabel: string) => boolean;
   resetHistory: () => void;
   setWorkflowErrorMessage: (message: string | null) => void;
+  confirm: ConfirmWorkflowAction;
 }) {
   const viewportCenterRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -119,7 +123,13 @@ export function useWorkflowPageCommands({
     const scopeCopy = isSavedWorkflow
       ? '将从工作流库中删除已保存记录。已打开的标签页会变为未保存草稿。'
       : '当前内容还没有保存到工作流库。';
-    const confirmed = window.confirm(`确定要删除“${workflowLabel}”吗？\n\n${scopeCopy}\n此操作不可撤销。`);
+    const confirmed = await confirm({
+      title: `删除“${workflowLabel}”？`,
+      message: `${scopeCopy}\n此操作不可撤销。`,
+      confirmText: '删除',
+      cancelText: '取消',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     const result = await store.deleteCurrentWorkflowDetailed();
@@ -129,7 +139,7 @@ export function useWorkflowPageCommands({
     }
     setWorkflowErrorMessage(null);
     resetHistory();
-  }, [resetHistory, setWorkflowErrorMessage, store]);
+  }, [confirm, resetHistory, setWorkflowErrorMessage, store]);
 
   const handleExportWorkflow = useCallback(() => {
     const payload = store.exportCurrentWorkflow();

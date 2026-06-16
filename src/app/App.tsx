@@ -1,5 +1,4 @@
 import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
-import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
 import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { AgentWorkspace } from '@/features/agent';
@@ -102,13 +101,6 @@ export default function App() {
   const settings = useStudioSettingsState();
   const memory = useMemory();
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
-  const workflowStore = useWorkflowStore();
-  useWorkflowPageCommands({
-    store: workflowStore,
-    confirmDiscardChanges: () => true,
-    resetHistory: () => {},
-    setWorkflowErrorMessage: () => {},
-  });
   const [agentOpen, setAgentOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(

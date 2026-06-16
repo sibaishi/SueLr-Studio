@@ -5,6 +5,7 @@ import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
+import { WorkflowConfirmProvider, useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
 import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
 import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
@@ -27,16 +28,19 @@ interface WorkflowPageProps {
 
 export default function WorkflowPage({ onOpenStudioSettings, onOpenAgent, onToggleTheme, themeMode }: WorkflowPageProps) {
   return (
-    <WorkflowPageContent
-      onOpenStudioSettings={onOpenStudioSettings}
-      onOpenAgent={onOpenAgent}
-      onToggleTheme={onToggleTheme}
-      themeMode={themeMode}
-    />
+    <WorkflowConfirmProvider>
+      <WorkflowPageContent
+        onOpenStudioSettings={onOpenStudioSettings}
+        onOpenAgent={onOpenAgent}
+        onToggleTheme={onToggleTheme}
+        themeMode={themeMode}
+      />
+    </WorkflowConfirmProvider>
   );
 }
 
 function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme, themeMode }: WorkflowPageProps) {
+  const confirm = useWorkflowConfirm();
   const store = useWorkflowPageStore();
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [shouldRenderResultsPanel, setShouldRenderResultsPanel] = useState(!rightPanelCollapsed);
@@ -80,14 +84,6 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
     return () => window.clearTimeout(timer);
   }, [rightPanelCollapsed]);
 
-  const confirmDiscardChanges = useCallback(
-    (actionLabel: string) => {
-      if (!store.hasUnsavedChanges) return true;
-      return window.confirm(`当前工作流还有未保存修改，确定要继续${actionLabel}吗？未保存的修改会保留在本地草稿中。`);
-    },
-    [store.hasUnsavedChanges],
-  );
-
   const {
     importInputRef,
     importReport,
@@ -99,7 +95,6 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
     setImportErrorMessage,
   } = useWorkflowImport({
     store,
-    confirmDiscardChanges,
     resetHistory,
     clearWorkflowError: () => setWorkflowErrorMessage(null),
   });
@@ -116,9 +111,9 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
     handleExportWorkflow,
   } = useWorkflowPageCommands({
     store,
-    confirmDiscardChanges,
     resetHistory,
     setWorkflowErrorMessage,
+    confirm,
   });
 
   useEffect(() => {
@@ -164,7 +159,12 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
     void (async () => {
       const target = useWorkflowStore.getState().documents.find((document) => document.documentId === documentId);
       if (target?.hasUnsavedChanges) {
-        const shouldSave = window.confirm('这个标签页有未保存修改。点击“确定”先保存，点击“取消”继续选择是否放弃。');
+        const shouldSave = await confirm({
+          title: '关闭前保存修改？',
+          message: '这个标签页有未保存修改。可以先保存再关闭，或继续选择是否放弃修改。',
+          confirmText: '先保存',
+          cancelText: '继续关闭',
+        });
         if (shouldSave) {
           if (target.documentId !== useWorkflowStore.getState().activeDocumentId) {
             useWorkflowStore.getState().setActiveWorkflowDocument(target.documentId);
@@ -174,14 +174,20 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           await useWorkflowStore.getState().closeWorkflowDocument(target.documentId, { discardUnsaved: true });
           return;
         }
-        const discard = window.confirm('放弃这个标签页的未保存修改并关闭？');
+        const discard = await confirm({
+          title: '放弃未保存修改？',
+          message: '关闭后，这个标签页里的未保存修改会被丢弃。',
+          confirmText: '放弃并关闭',
+          cancelText: '返回编辑',
+          tone: 'danger',
+        });
         if (!discard) return;
         await useWorkflowStore.getState().closeWorkflowDocument(documentId, { discardUnsaved: true });
         return;
       }
       await useWorkflowStore.getState().closeWorkflowDocument(documentId);
     })();
-  }, []);
+  }, [confirm]);
 
   const handleLibraryOpenWorkflow = useCallback(
     (workflowId: string) => {

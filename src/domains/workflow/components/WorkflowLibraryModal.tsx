@@ -1,4 +1,5 @@
 import type { WorkflowListItem } from '@/domains/workflow/lib/api';
+import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { CalendarClock, Edit3, FolderOpen, Search, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -34,6 +35,7 @@ export default function WorkflowLibraryModal({
   onRenameWorkflow,
   onDeleteWorkflow,
 }: WorkflowLibraryModalProps) {
+  const confirm = useWorkflowConfirm();
   const [query, setQuery] = useState('');
   const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -72,7 +74,13 @@ export default function WorkflowLibraryModal({
   };
 
   const deleteWorkflow = async (workflow: WorkflowListItem) => {
-    const confirmed = window.confirm(`确定删除“${workflow.name}”吗？\n\n此操作会从工作流库中移除该记录，无法撤销。`);
+    const confirmed = await confirm({
+      title: `删除“${workflow.name}”？`,
+      message: '此操作会从工作流库中移除该记录，无法撤销。',
+      confirmText: '删除',
+      cancelText: '取消',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     setPendingWorkflowId(workflow.id);

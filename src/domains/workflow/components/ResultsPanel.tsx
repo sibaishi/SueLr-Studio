@@ -2,6 +2,7 @@ import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/com
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { NODE_ICONS } from '@/domains/workflow/components/nodes/nodeConstants';
+import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import {
   type GeneratedOutputFile,
   clearGeneratedOutputs,
@@ -57,6 +58,7 @@ type ReadableLog = WorkflowResultLog & {
 };
 
 export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelProps) {
+  const confirm = useWorkflowConfirm();
   const [tab, setTab] = useState<PanelTab>('results');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [generatedOutputs, setGeneratedOutputs] = useState<GeneratedOutputFile[]>([]);
@@ -103,9 +105,13 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
   }, [isExecuting, refreshGeneratedOutputs]);
 
   const handleClearGeneratedOutputs = useCallback(async () => {
-    const confirmed = window.confirm(
-      '确定要清除服务器后端当前保留的历史输出吗？此操作会直接删除服务器上的临时输出文件，且无法撤回。',
-    );
+    const confirmed = await confirm({
+      title: '清空历史输出？',
+      message: '此操作会直接删除后端当前保留的临时输出文件，且无法撤回。',
+      confirmText: '清空',
+      cancelText: '取消',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     setIsClearingOutputs(true);
@@ -118,7 +124,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
     }
 
     await refreshGeneratedOutputs();
-  }, [refreshGeneratedOutputs]);
+  }, [confirm, refreshGeneratedOutputs]);
 
   const warningItems = useMemo(() => {
     return nodes

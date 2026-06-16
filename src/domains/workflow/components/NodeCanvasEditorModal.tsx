@@ -1,3 +1,4 @@
+import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { Check, Eraser, Hand, Pencil, RotateCcw, RotateCw, Trash2, X } from 'lucide-react';
 import {
   type CSSProperties,
@@ -52,6 +53,7 @@ export function NodeCanvasEditorModal({
   onClose,
   onSavePaint,
 }: NodeCanvasEditorModalProps) {
+  const confirm = useWorkflowConfirm();
   const [tool, setTool] = useState<ToolMode>('brush');
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [paintColor, setPaintColor] = useState('#ff375f');
@@ -109,10 +111,19 @@ export function NodeCanvasEditorModal({
     setPan({ x: 0, y: 0 });
   }, [getFitZoom]);
 
-  const handleClose = useCallback(() => {
-    if (dirtyRef.current && !window.confirm('当前画板还有未保存修改，确定要关闭吗？')) return;
+  const handleClose = useCallback(async () => {
+    if (dirtyRef.current) {
+      const confirmed = await confirm({
+        title: '关闭画板？',
+        message: '当前画板还有未保存修改，关闭后这些修改会被丢弃。',
+        confirmText: '关闭',
+        cancelText: '继续编辑',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+    }
     onClose();
-  }, [onClose]);
+  }, [confirm, onClose]);
 
   useEffect(() => {
     dirtyRef.current = isDirty;
@@ -212,7 +223,7 @@ export function NodeCanvasEditorModal({
       if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target?.isContentEditable) return;
 
       if (event.key === 'Escape') {
-        handleClose();
+        void handleClose();
         return;
       }
 
@@ -439,7 +450,7 @@ export function NodeCanvasEditorModal({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="node-canvas-editor-modal" onClick={handleClose}>
+    <div className="node-canvas-editor-modal" onClick={() => void handleClose()}>
       <div className="node-canvas-editor-modal__dialog glass" onClick={(event) => event.stopPropagation()}>
         <div className="node-canvas-editor-modal__header">
           <div className="workflow-toolbar__badge">
@@ -451,7 +462,7 @@ export function NodeCanvasEditorModal({
           </div>
           <button
             type="button"
-            onClick={handleClose}
+            onClick={() => void handleClose()}
             className="node-canvas-editor-modal__icon-button"
             aria-label="关闭画板"
           >
@@ -650,7 +661,7 @@ export function NodeCanvasEditorModal({
             <button
               type="button"
               className="node-canvas-editor-modal__secondary"
-              onClick={handleClose}
+              onClick={() => void handleClose()}
               disabled={isSaving}
             >
               取消

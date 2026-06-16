@@ -20,7 +20,6 @@ export function useWorkflowImport({
   clearWorkflowError,
 }: {
   store: ImportStore;
-  confirmDiscardChanges: (actionLabel: string) => boolean;
   resetHistory: () => void;
   clearWorkflowError: () => void;
 }) {
