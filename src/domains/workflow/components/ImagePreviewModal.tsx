@@ -12,6 +12,9 @@ export interface PreviewImageItem {
 
 export function ImagePreviewModal({
   src,
+  textContent,
+  title,
+  renderTextActions,
   alt = '查看大图',
   closeLabel = '关闭',
   images,
@@ -23,6 +26,9 @@ export function ImagePreviewModal({
   children,
 }: {
   src: string;
+  textContent?: string;
+  title?: string;
+  renderTextActions?: () => ReactNode;
   alt?: string;
   closeLabel?: string;
   images?: PreviewImageItem[];
@@ -57,6 +63,7 @@ export function ImagePreviewModal({
 
   const [activeIndex, setActiveIndex] = useState(resolvedInitialIndex);
   const [copyStatus, setCopyStatus] = useState('');
+  const [textCopyStatus, setTextCopyStatus] = useState('');
   const [showResize, setShowResize] = useState(false);
   const [resizeMode, setResizeMode] = useState<'percent' | 'dimensions'>('percent');
   const [scalePercent, setScalePercent] = useState(100);
@@ -298,11 +305,54 @@ export function ImagePreviewModal({
     [publishEditedBlob],
   );
 
+  const handleCopyText = useCallback(async () => {
+    if (!textContent) return;
+    try {
+      await navigator.clipboard.writeText(textContent);
+      setTextCopyStatus('已复制');
+    } catch {
+      setTextCopyStatus('复制失败');
+    }
+    setTimeout(() => setTextCopyStatus(''), 2000);
+  }, [textContent]);
+
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div className="workflow-image-preview-modal" onClick={onClose}>
       <div className="workflow-image-preview-modal__dialog" onClick={(event) => event.stopPropagation()}>
+        {textContent != null ? (
+          <div className="workflow-image-preview-modal__text-viewer">
+            <div className="workflow-image-preview-modal__text-card">
+              <div className="workflow-image-preview-modal__text-toolbar">
+                {title && <span className="workflow-image-preview-modal__text-title">{title}</span>}
+                <div style={{ flex: 1 }} />
+                {renderTextActions?.()}
+                <button
+                  type="button"
+                  onClick={handleCopyText}
+                  className="workflow-image-preview-modal__icon-button"
+                  aria-label="复制文本"
+                  title={textCopyStatus || '复制文本'}
+                  disabled={!!textCopyStatus}
+                >
+                  <Copy size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="workflow-image-preview-modal__icon-button"
+                  aria-label={closeLabel}
+                  title={closeLabel}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <pre className="workflow-image-preview-modal__text-content">{textContent}</pre>
+            </div>
+          </div>
+        ) : (
+          <>
         <div className="workflow-image-preview-modal__topbar">
           <ImageSizeLabel
             src={isCompareMode ? compareSrcA : displaySrc}
@@ -525,6 +575,8 @@ export function ImagePreviewModal({
             onClose={() => setCanvasEditorOpen(false)}
             onSavePaint={handleCanvasSave}
           />
+        )}
+          </>
         )}
       </div>
     </div>,

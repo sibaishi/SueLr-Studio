@@ -23,14 +23,11 @@ import {
   Clock3,
   FileText,
   ImageIcon,
-  Loader2,
   PlayCircle,
   TerminalSquare,
   Video,
-  X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type PanelTab = 'results' | 'logs';
 const LOG_MESSAGE_PREVIEW_LIMIT = 600;
@@ -809,25 +806,22 @@ function TextFileResult({
 }) {
   const [text, setText] = useState('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const textFetchedRef = useRef(false);
 
   const openPreview = async () => {
     setIsPreviewOpen(true);
-    if (text || isLoading) return;
-
-    setIsLoading(true);
-    setError('');
+    if (textFetchedRef.current) return;
+    textFetchedRef.current = true;
     try {
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      setText(await response.text());
-    } catch (previewError) {
-      setError(previewError instanceof Error ? previewError.message : String(previewError));
-    } finally {
-      setIsLoading(false);
+      if (response.ok) setText(await response.text());
+    } catch {
+      // 文本文件应该始终可访问，忽略 fetch 失败
     }
   };
+
+  const lines = text ? text.split(/\r\n|\r|\n/).length : 0;
+  const titleWithMeta = `${name}  ·  ${lines} 行  ·  ${text.length} 字符`;
 
   return (
     <div>
@@ -841,104 +835,36 @@ function TextFileResult({
         </span>
       </button>
       {isPreviewOpen && (
-        <TextPreviewModal
-          title={name}
-          text={text}
-          isLoading={isLoading}
-          error={error}
+        <ImagePreviewModal
+          src=""
+          textContent={text || '（加载中……）'}
+          title={titleWithMeta}
+          renderTextActions={
+            onBackfillText
+              ? () => (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onBackfillText(text);
+                      setIsPreviewOpen(false);
+                    }}
+                    className="workflow-image-preview-modal__icon-button"
+                    title="回填到画布"
+                    disabled={!text}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z" />
+                      <polyline points="8 6 8 12" />
+                      <polyline points="5 9 8 12 11 9" />
+                    </svg>
+                  </button>
+                )
+              : undefined
+          }
           onClose={() => setIsPreviewOpen(false)}
-          onBackfillText={onBackfillText}
         />
       )}
     </div>
-  );
-}
-
-function TextPreviewModal({
-  title,
-  text,
-  isLoading,
-  error,
-  onClose,
-  onBackfillText,
-}: {
-  title: string;
-  text: string;
-  isLoading: boolean;
-  error: string;
-  onClose: () => void;
-  onBackfillText?: (text: string) => void;
-}) {
-  return createPortal(
-    <div
-      className="workflow-text-preview-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="workflow-text-preview-modal__dialog" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="workflow-text-preview-modal__header">
-          <div className="min-w-0">
-            <div className="workflow-text-preview-modal__title">{title}</div>
-            <div className="workflow-text-preview-modal__meta">
-              {isLoading
-                ? '读取中...'
-                : error
-                  ? '读取失败'
-                  : `${text ? text.split(/\r\n|\r|\n/).length : 0} 行 · ${text.length} 字符`}
-            </div>
-          </div>
-          <div className="workflow-text-preview-modal__actions">
-            <button
-              type="button"
-              onClick={() => void navigator.clipboard?.writeText(text)}
-              disabled={!text || isLoading}
-              className="workflow-results__mini-action"
-            >
-              <Clipboard size={11} />
-              复制
-            </button>
-            {onBackfillText && (
-              <button
-                type="button"
-                onClick={() => {
-                  onBackfillText(text);
-                  onClose();
-                }}
-                disabled={!text || isLoading || Boolean(error)}
-                className="workflow-results__mini-action"
-              >
-                回填到画布
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="workflow-text-preview-modal__close"
-              aria-label="关闭文本预览"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-        <div className="workflow-text-preview-modal__body">
-          {isLoading && (
-            <div className="workflow-text-preview-modal__state">
-              <Loader2 size={18} className="workflow-text-preview-modal__spinner" />
-              正在读取文本内容...
-            </div>
-          )}
-          {!isLoading && error && (
-            <div className="workflow-text-preview-modal__state workflow-text-preview-modal__state--error">{error}</div>
-          )}
-          {!isLoading && !error && <pre className="workflow-text-preview-modal__text">{text || '(空内容)'}</pre>}
-        </div>
-      </div>
-    </div>,
-    document.body,
   );
 }
 

@@ -60,6 +60,7 @@ export function IoContent({
   const nodes = useWorkflowStore((s) => s.nodes);
   const [previewIdx, setPreviewIdx] = useState<number>(-1);
   const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
+  const [textModalContent, setTextModalContent] = useState<string | null>(null);
 
   // Compute upstream content from edges via slot expansion (same as AiV3 panel)
   const upstreamSlots = useMemo((): AiV3InputSlot[] | null => {
@@ -268,9 +269,23 @@ export function IoContent({
           {textItems.map((text, idx) => (
             <div
               key={`t${idx}`}
+              onDoubleClick={() => setTextModalContent(String(text))}
               style={{
                 fontSize: 10, lineHeight: 1.5, color: 'var(--node-card-ink)',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                cursor: 'pointer',
+                padding: '4px 6px',
+                borderRadius: 6,
+                border: '1px solid transparent',
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--node-card-bg-soft)';
+                e.currentTarget.style.borderColor = 'var(--node-card-line)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '';
+                e.currentTarget.style.borderColor = 'transparent';
               }}
             >
               {String(text)}
@@ -369,6 +384,15 @@ export function IoContent({
                   });
                 });
               }}
+            />
+          )}
+
+          {/* Text viewer modal */}
+          {textModalContent != null && (
+            <ImagePreviewModal
+              src=""
+              textContent={textModalContent}
+              onClose={() => setTextModalContent(null)}
             />
           )}
         </div>
