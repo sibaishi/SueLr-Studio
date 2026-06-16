@@ -9,6 +9,7 @@ interface ToolbarProps {
   onOpenWorkflowLibrary: () => void;
   onExecute: () => void;
   onCancelExecution: () => void;
+  rightPanelCollapsed: boolean;
   isExecuting: boolean;
 }
 
@@ -19,6 +20,7 @@ export default function Toolbar({
   onOpenWorkflowLibrary,
   onExecute,
   onCancelExecution,
+  rightPanelCollapsed,
   isExecuting,
 }: ToolbarProps) {
   const [editingName, setEditingName] = useState(false);
@@ -108,7 +110,9 @@ export default function Toolbar({
       </button>
 
       <div
-        className="workflow-canvas-run-controls"
+        className={`workflow-canvas-run-controls ${
+          rightPanelCollapsed ? '' : 'workflow-canvas-run-controls--with-results'
+        }`}
       >
         <button
           type="button"

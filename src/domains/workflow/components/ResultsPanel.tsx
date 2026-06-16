@@ -30,6 +30,10 @@ type PanelTab = 'results' | 'logs';
 const LOG_MESSAGE_PREVIEW_LIMIT = 600;
 const LOG_DETAILS_PREVIEW_LIMIT = 4000;
 
+interface ResultsPanelProps {
+  motionState?: 'entering' | 'leaving';
+}
+
 type WorkflowResultLog = {
   id: string;
   level: 'info' | 'success' | 'error';
@@ -47,7 +51,7 @@ type ReadableLog = WorkflowResultLog & {
   detailSource?: WorkflowResultLog;
 };
 
-export default function ResultsPanel() {
+export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelProps) {
   const [tab, setTab] = useState<PanelTab>('results');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [resizedGallerySrcs, setResizedGallerySrcs] = useState<Record<number, string>>({});
@@ -149,7 +153,7 @@ export default function ResultsPanel() {
   const previewImageIndex = previewImage ? imageGallery.findIndex((item) => item.src === previewImage) : -1;
 
   return (
-    <aside className="workflow-panel workflow-results glass">
+    <aside className={`workflow-panel workflow-results workflow-results--${motionState} glass`}>
       <div className="workflow-panel__header">
         <div>
           <div className="workflow-panel__eyebrow">执行观察</div>

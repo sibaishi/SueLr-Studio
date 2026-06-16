@@ -39,6 +39,7 @@ export default function WorkflowPage({ onOpenStudioSettings, onOpenAgent, onTogg
 function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme, themeMode }: WorkflowPageProps) {
   const store = useWorkflowPageStore();
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [shouldRenderResultsPanel, setShouldRenderResultsPanel] = useState(!rightPanelCollapsed);
   const [workflowLibraryOpen, setWorkflowLibraryOpen] = useState(false);
   const [workflowLibraryBusy, setWorkflowLibraryBusy] = useState(false);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
@@ -65,6 +66,19 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
   useEffect(() => {
     store.persistLocalDraft();
   }, [store.workflowId, store.workflowName, store.nodes, store.edges]);
+
+  useEffect(() => {
+    if (!rightPanelCollapsed) {
+      setShouldRenderResultsPanel(true);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShouldRenderResultsPanel(false);
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [rightPanelCollapsed]);
 
   const confirmDiscardChanges = useCallback(
     (actionLabel: string) => {
@@ -234,6 +248,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           onOpenWorkflowLibrary={() => setWorkflowLibraryOpen(true)}
           onExecute={handleExecute}
           onCancelExecution={handleCancelExecution}
+          rightPanelCollapsed={rightPanelCollapsed}
           isExecuting={store.isExecuting}
         />
         <FlowCanvas
@@ -254,8 +269,8 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           onAutoArrange={store.autoArrangeWorkflow}
         />
 
-        {!rightPanelCollapsed && (
-          <ResultsPanel />
+        {shouldRenderResultsPanel && (
+          <ResultsPanel motionState={rightPanelCollapsed ? 'leaving' : 'entering'} />
         )}
 
         <StatusBar

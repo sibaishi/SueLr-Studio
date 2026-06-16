@@ -234,6 +234,18 @@ body {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+  transform: translateX(0);
+  opacity: 1;
+  will-change: transform, opacity;
+}
+
+.workflow-results--entering {
+  animation: workflowResultsSlideIn var(--transition-normal) both;
+}
+
+.workflow-results--leaving {
+  pointer-events: none;
+  animation: workflowResultsSlideOut var(--transition-normal) both;
 }
 
 .workflow-panel__header {
@@ -370,6 +382,11 @@ body {
   box-shadow: var(--glass-shadow-lg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+  transition: right var(--transition-normal), left var(--transition-normal), bottom var(--transition-normal);
+}
+
+.workflow-canvas-run-controls--with-results {
+  right: calc(var(--panel-width) + 44px);
 }
 
 .workflow-toolbar__frame {
@@ -3430,6 +3447,37 @@ body {
 
 .animate-fade-in {
   animation: fadeIn var(--transition-normal);
+}
+
+@keyframes workflowResultsSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes workflowResultsSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-results--entering,
+  .workflow-results--leaving {
+    animation: none;
+  }
 }
 
 input[type="range"] {
