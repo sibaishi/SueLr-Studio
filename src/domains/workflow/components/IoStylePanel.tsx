@@ -104,18 +104,52 @@ export default function IoStylePanel() {
     return arr.map((entry, idx) => {
       const fid = fileIds[idx] ?? -1;
       const rec = fid >= 0 ? fileRawStore.get(fid) : undefined;
+      const str = String(entry);
+      let kind: FileKind = (fileKinds[idx] as FileKind) || 'other';
+      // When metadata is missing (e.g. after midstream execution),
+      // infer kind from the URL/URI pattern so file chips show the
+      // correct type instead of all defaulting to 'other' (T).
+      if (kind === 'other' && str) {
+        if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) kind = 'video';
+        else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) kind = 'audio';
+        else if (str.startsWith('data:image/') || str.startsWith('blob:') || str.startsWith('http') || str.startsWith('/api/')) kind = 'image';
+      }
       return {
         _id: fid, name: rec?.name || fileNames[idx] || '',
-        kind: (fileKinds[idx] as FileKind) || 'other',
+        kind,
         thumbnail: String(entry), objectUrl: rec?.objectUrl || '',
       };
     });
   }, [nodeData.content, nodeData._fileIds, nodeData._fileKinds, nodeData._fileNames]);
 
   useEffect(() => {
-    setTextValue(String(nodeData.text || ''));
+    // Guard: don't overwrite user edits while midstream mode is active
+    if (hasUpstream) return;
+    // When downstream data is kept after disconnection, extract text items
+    // from data.content into the text area and persist to data.text so they
+    // survive subsequent runs.
+    let text = String(nodeData.text || '');
+    if (!text) {
+      const content = nodeData.content;
+      if (Array.isArray(content) && content.length > 0) {
+        const textParts: string[] = [];
+        for (const item of content) {
+          const s = String(item);
+          // Items that don't look like URLs / data URIs are treated as text
+          if (!/^(https?:\/\/|\/api\/|data:|blob:)/.test(s) && s.trim()) {
+            textParts.push(s);
+          }
+        }
+        if (textParts.length > 0) {
+          text = textParts.join('\n');
+          // Persist text back to store so it survives re-runs
+          setData({ text });
+        }
+      }
+    }
+    setTextValue(text);
     setFiles(buildFilesFromData());
-  }, [selectedNodeId]);
+  }, [selectedNodeId, hasUpstream]);
 
   const persistentContentSignature = buildPersistentContentSignature(nodeData.content);
   const fileNamesSignature = buildStringArraySignature(nodeData._fileNames);
