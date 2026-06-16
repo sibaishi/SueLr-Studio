@@ -2,7 +2,7 @@ import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/Node
 import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { expandAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fileRawStore } from './nodes/io/fileRawStore';
 
 const MIN_H = 150;
@@ -95,61 +95,97 @@ export default function IoStylePanel() {
     if (selectedNodeId) updateNodeData(selectedNodeId, patch);
   }, [selectedNodeId, updateNodeData]);
 
+  // Detect when data.content is in execution-origin format (text + URLs mixed,
+  // no _fileKinds metadata) and needs migration to upstream IO format.
+  const needsMigration = useMemo(() => {
+    if (hasUpstream) return false;
+    const content = nodeData.content;
+    if (!Array.isArray(content) || content.length === 0) return false;
+    const fileKinds = (nodeData._fileKinds as string[]) || [];
+    // Execution-origin data: _fileKinds is empty or shorter than content
+    if (fileKinds.length === 0 || fileKinds.length < content.length) return true;
+    // Content contains plain-text items mixed with file URLs
+    return content.some((item) => {
+      const s = String(item);
+      return s.trim() && !/^(https?:\/\/|\/api\/|data:|blob:)/.test(s);
+    });
+  }, [hasUpstream, nodeData.content, nodeData._fileKinds]);
+
+  // Migrate execution-format data.content to upstream IO format:
+  // extract text → data.text, split file URLs → data.content with proper _fileKinds.
+  const migrateContent = useCallback(() => {
+    const content = Array.isArray(nodeData.content) ? (nodeData.content as string[]) : [];
+    const files: string[] = [];
+    const fileKinds: string[] = [];
+    let text = String(nodeData.text || '');
+    const textParts: string[] = [];
+
+    for (const item of content) {
+      const s = String(item);
+      if (!s || !s.trim()) continue;
+      if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) {
+        files.push(s);
+        let kind: FileKind = 'image';
+        if (s.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(s)) kind = 'video';
+        else if (s.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(s)) kind = 'audio';
+        fileKinds.push(kind);
+      } else {
+        textParts.push(s);
+      }
+    }
+
+    if (textParts.length > 0 && !text) {
+      text = textParts.join('\n');
+    }
+
+    setData({
+      text: text || '',
+      content: files,
+      _fileIds: [],
+      _fileKinds: fileKinds,
+      _fileNames: files.map(() => ''),
+    });
+  }, [nodeData.content, nodeData.text, nodeData._fileKinds, setData]);
+
+  // Run migration when transitioning from midstream to upstream
+  useEffect(() => {
+    if (needsMigration) migrateContent();
+  }, [needsMigration, migrateContent]);
+
   const buildFilesFromData = useCallback(() => {
     const content = nodeData.content;
     const fileIds: number[] = (nodeData._fileIds as number[]) || [];
     const fileKinds: string[] = (nodeData._fileKinds as string[]) || [];
     const fileNames: string[] = (nodeData._fileNames as string[]) || [];
     const arr = Array.isArray(content) ? content : [];
-    return arr.map((entry, idx) => {
-      const fid = fileIds[idx] ?? -1;
-      const rec = fid >= 0 ? fileRawStore.get(fid) : undefined;
-      const str = String(entry);
-      let kind: FileKind = (fileKinds[idx] as FileKind) || 'other';
-      // When metadata is missing (e.g. after midstream execution),
-      // infer kind from the URL/URI pattern so file chips show the
-      // correct type instead of all defaulting to 'other' (T).
-      if (kind === 'other' && str) {
-        if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) kind = 'video';
-        else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) kind = 'audio';
-        else if (str.startsWith('data:image/') || str.startsWith('blob:') || str.startsWith('http') || str.startsWith('/api/')) kind = 'image';
-      }
-      return {
-        _id: fid, name: rec?.name || fileNames[idx] || '',
-        kind,
-        thumbnail: String(entry), objectUrl: rec?.objectUrl || '',
-      };
-    });
+    return arr
+      .map((entry, idx) => {
+        const fid = fileIds[idx] ?? -1;
+        const rec = fid >= 0 ? fileRawStore.get(fid) : undefined;
+        const str = String(entry);
+        if (!str) return null;
+        // After migration, content only has file URLs; still infer kind as fallback
+        let kind: FileKind = (fileKinds[idx] as FileKind) || 'other';
+        if (kind === 'other') {
+          if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) kind = 'video';
+          else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) kind = 'audio';
+          else kind = 'image';
+        }
+        return {
+          _id: fid, name: rec?.name || fileNames[idx] || '',
+          kind,
+          thumbnail: String(entry), objectUrl: rec?.objectUrl || '',
+        };
+      })
+      .filter(Boolean) as FileThumb[];
   }, [nodeData.content, nodeData._fileIds, nodeData._fileKinds, nodeData._fileNames]);
 
+  // Initialize local state when the selected node or upstream status changes
   useEffect(() => {
-    // Guard: don't overwrite user edits while midstream mode is active
     if (hasUpstream) return;
-    // When downstream data is kept after disconnection, extract text items
-    // from data.content into the text area and persist to data.text so they
-    // survive subsequent runs.
-    let text = String(nodeData.text || '');
-    if (!text) {
-      const content = nodeData.content;
-      if (Array.isArray(content) && content.length > 0) {
-        const textParts: string[] = [];
-        for (const item of content) {
-          const s = String(item);
-          // Items that don't look like URLs / data URIs are treated as text
-          if (!/^(https?:\/\/|\/api\/|data:|blob:)/.test(s) && s.trim()) {
-            textParts.push(s);
-          }
-        }
-        if (textParts.length > 0) {
-          text = textParts.join('\n');
-          // Persist text back to store so it survives re-runs
-          setData({ text });
-        }
-      }
-    }
-    setTextValue(text);
+    setTextValue(String(nodeData.text || ''));
     setFiles(buildFilesFromData());
-  }, [selectedNodeId, hasUpstream]);
+  }, [selectedNodeId, hasUpstream, nodeData.text, buildFilesFromData]);
 
   const persistentContentSignature = buildPersistentContentSignature(nodeData.content);
   const fileNamesSignature = buildStringArraySignature(nodeData._fileNames);
