@@ -58,7 +58,6 @@ export function IoContent({
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
-  const outputs = nodeId ? nodeOutputs[nodeId] : undefined;
   const [previewIdx, setPreviewIdx] = useState<number>(-1);
   const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
 
@@ -182,9 +181,10 @@ export function IoContent({
 
     return expanded.filter((item) => item.value);
   }, [upstreamSlots, nodes, nodeOutputs, edges]);
+  // Source mode: read from persisted node data (panel-aligned).
   const rawContent = upstreamItems?.length
     ? upstreamItems.map((item) => item.value)
-    : (outputs as Record<string, unknown>)?.result ?? sourceContent;
+    : sourceContent;
   const effectiveContent = typeof rawContent === 'string' && rawContent.trim() === '' ? undefined
     : Array.isArray(rawContent) && rawContent.length === 0 ? undefined
     : rawContent;
