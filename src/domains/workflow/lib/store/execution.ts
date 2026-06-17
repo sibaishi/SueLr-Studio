@@ -201,9 +201,13 @@ function buildIoOutputMetadata(result: unknown): {
   const empty = { content: [], text: '', _fileKinds: [] as string[], _fileIds: [] as number[], _fileNames: [] as string[] };
 
   if (typeof result === 'string') {
-    if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(result)) {
+    if (/^(https?:\/\/|\/api\/|blob:)/.test(result)) {
       const kind = classifyOutputUrl(result);
       return { ...empty, content: [result], _fileKinds: [kind], _fileNames: [deriveFileName(result, kind, 0)] };
+    }
+    // Never persist base64 data URLs — they must be materialized by the backend first
+    if (result.startsWith('data:')) {
+      return empty;
     }
     return { ...empty, text: result };
   }
@@ -223,7 +227,9 @@ function buildIoOutputMetadata(result: unknown): {
         }
         const s = String(item);
         if (!s || !s.trim()) continue;
-        if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) {
+        // Never persist base64 data URLs — they must be materialized by the backend first
+        if (s.startsWith('data:')) continue;
+        if (/^(https?:\/\/|\/api\/|blob:)/.test(s)) {
           const kind = classifyOutputUrl(s);
           files.push(s);
           fileKinds.push(kind);

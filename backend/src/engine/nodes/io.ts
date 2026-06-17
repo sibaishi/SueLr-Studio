@@ -25,9 +25,17 @@ export async function execute(
   const nodeData = (node.data || {}) as Record<string, unknown>;
 
   // _rawContent (pre-assembled upstream data in per-type order) takes priority
-  // over live upstream inputs — enables per-type independent ordering
+  // over live upstream inputs — enables per-type independent ordering.
+  // Always materialize to disk so base64 never leaks into persisted state.
   if (nodeData._rawContent !== undefined && nodeData._rawContent !== null) {
-    return { result: nodeData._rawContent };
+    const raw = nodeData._rawContent;
+    sendProgress?.('正在保存...');
+    const result = await materializeContentForOutput(raw, { prefix: 'io', scope: apiConfig.scope });
+    return {
+      result: result.content ?? raw,
+      savedFiles: result.savedFiles,
+      savedPaths: result.savedPaths || [],
+    };
   }
 
   const upstreamValue = inputs.input;
