@@ -224,18 +224,22 @@ export async function execute(
   apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
-  const rawValues: unknown[] = Array.isArray(inputs.input) ? inputs.input : inputs.input !== undefined ? [inputs.input] : [];
-  const sourceTypes: string[] = Array.isArray((inputs as Record<string, unknown>)._inputTypes) ? (inputs as Record<string, unknown>)._inputTypes as string[] : [];
+  // Flatten nested arrays (multiple upstream edges merge into array-of-arrays)
+  const flatRawValues: unknown[] = [];
+  const queue = Array.isArray(inputs.input) ? [...inputs.input] : inputs.input !== undefined ? [inputs.input] : [];
+  for (const item of queue) {
+    if (Array.isArray(item)) flatRawValues.push(...item);
+    else flatRawValues.push(item);
+  }
 
   let prompt = '';
   const images: DynamicValue[] = [];
   let video: DynamicValue | undefined;
   let audio: DynamicValue | undefined;
 
-  for (let i = 0; i < rawValues.length; i++) {
-    const value = rawValues[i];
-    let type = sourceTypes[i] ? classifyBySourceType(sourceTypes[i]) : null;
-    if (!type) type = classifyByValue(value);
+  for (let i = 0; i < flatRawValues.length; i++) {
+    const value = flatRawValues[i];
+    let type = classifyByValue(value);
     if (!type) type = 'text';
 
     switch (type) {
