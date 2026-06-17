@@ -100,7 +100,6 @@ export async function execute(
   }
 
   // No upstream: serve own content (prefer _rawContent for execution, fallback to content)
-  const nodeData = (node.data || {}) as Record<string, unknown>;
   const selfContent = nodeData._rawContent ?? nodeData.content;
   if (selfContent !== undefined && selfContent !== null) {
     return { result: selfContent };
