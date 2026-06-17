@@ -288,31 +288,36 @@ export function IoContent({
           )}
 
           {/* Text snippets */}
-          {textItems.map((text, idx) => (
+          {textItems.map((text, idx) => {
+            const isUpstream = !upstreamSlots;
+            return (
             <div
               key={`t${idx}`}
-              onDoubleClick={() => setTextModalOpen(true)}
+              onDoubleClick={() => { if (isUpstream) setTextModalOpen(true); }}
               style={{
                 fontSize: 10, lineHeight: 1.5, color: 'var(--node-card-ink)',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                cursor: 'pointer',
+                cursor: isUpstream ? 'pointer' : 'default',
                 padding: '4px 6px',
                 borderRadius: 6,
                 border: '1px solid transparent',
                 transition: 'background 0.15s, border-color 0.15s',
               }}
               onMouseEnter={(e) => {
+                if (!isUpstream) return;
                 e.currentTarget.style.background = 'var(--node-card-bg-soft)';
                 e.currentTarget.style.borderColor = 'var(--node-card-line)';
               }}
               onMouseLeave={(e) => {
+                if (!isUpstream) return;
                 e.currentTarget.style.background = '';
                 e.currentTarget.style.borderColor = 'transparent';
               }}
             >
               {String(text)}
             </div>
-          ))}
+          );
+          })}
 
           {/* Video indicators */}
           {videoItems.map((_vid, idx) => (
