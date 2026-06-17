@@ -22,6 +22,14 @@ export async function execute(
   apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
+  const nodeData = (node.data || {}) as Record<string, unknown>;
+
+  // _rawContent (pre-assembled upstream data in per-type order) takes priority
+  // over live upstream inputs — enables per-type independent ordering
+  if (nodeData._rawContent !== undefined && nodeData._rawContent !== null) {
+    return { result: nodeData._rawContent };
+  }
+
   const upstreamValue = inputs.input;
   const hasUpstream = upstreamValue !== undefined && upstreamValue !== null;
 
