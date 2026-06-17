@@ -1166,6 +1166,14 @@ body {
   max-width: 320px;
 }
 
+.workflow-image-preview-modal__text-stats {
+  font-size: 11px;
+  color: var(--node-card-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
 .workflow-image-preview-modal__text-content {
   flex: 1;
   width: 100%;

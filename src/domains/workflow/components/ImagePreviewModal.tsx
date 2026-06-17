@@ -335,6 +335,14 @@ export function ImagePreviewModal({
     setTimeout(() => setTextCopyStatus(''), 2000);
   }, [textContent]);
 
+  const textStats = useMemo(() => {
+    const t = localText || '';
+    const chars = [...t].length;
+    const lines = t ? t.split(/\n/).length : 0;
+    const paragraphs = t ? t.split(/\n\n/).filter((p) => p.trim()).length : 0;
+    return { chars, lines, paragraphs };
+  }, [localText]);
+
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -345,6 +353,9 @@ export function ImagePreviewModal({
             <div className="workflow-image-preview-modal__text-card">
               <div className="workflow-image-preview-modal__text-toolbar">
                 {title && <span className="workflow-image-preview-modal__text-title">{title}</span>}
+                <span className="workflow-image-preview-modal__text-stats">
+                  {textStats.chars} 字符　{textStats.lines} 行　{textStats.paragraphs} 段落
+                </span>
                 <div style={{ flex: 1 }} />
                 {renderTextActions?.()}
                 <button
