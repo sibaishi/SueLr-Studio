@@ -160,6 +160,7 @@ export function collectInputs(
     ? new Map(nodes.filter((n) => n.id && n.type).map((n) => [String(n.id), String(n.type)]))
     : null;
   const collectedTypes: Record<string, string[]> = {};
+  const collectedEdgeIds: Record<string, string[]> = {};
   edges
     .filter((edge) => edge.target === node.id)
     .forEach((edge) => {
@@ -174,6 +175,7 @@ export function collectInputs(
           if (typeMap) {
             (collectedTypes[targetHandle] = collectedTypes[targetHandle] || []).push(typeMap.get(edge.source) || '');
           }
+          (collectedEdgeIds[targetHandle] = collectedEdgeIds[targetHandle] || []).push(String(edge.id || ''));
         }
       }
     });
@@ -185,6 +187,11 @@ export function collectInputs(
       if (collected[handle].length > 0) {
         (result as Record<string, unknown>)[`_${handle}Types`] = types;
       }
+    }
+  }
+  for (const [handle, edgeIds] of Object.entries(collectedEdgeIds)) {
+    if (collected[handle].length > 0) {
+      (result as Record<string, unknown>)[`_${handle}EdgeIds`] = edgeIds;
     }
   }
   return result;

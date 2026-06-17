@@ -224,33 +224,83 @@ export async function execute(
   apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
-  // Flatten nested arrays (multiple upstream edges merge into array-of-arrays)
-  const flatRawValues: unknown[] = [];
+  // Parse per-edge input data and edge IDs for per-type ordering
+  const edgesData: unknown[][] = [];
   const queue = Array.isArray(inputs.input) ? [...inputs.input] : inputs.input !== undefined ? [inputs.input] : [];
   for (const item of queue) {
-    if (Array.isArray(item)) flatRawValues.push(...item);
-    else flatRawValues.push(item);
+    if (Array.isArray(item)) edgesData.push(item as unknown[]);
+    else edgesData.push([item]);
+  }
+  const edgeIds: string[] = Array.isArray((inputs as Record<string, unknown>)._inputEdgeIds)
+    ? (inputs as Record<string, unknown>)._inputEdgeIds as string[]
+    : [];
+
+  // Per-edge: classify all items into type buckets
+  interface EdgeItems {
+    texts: string[];
+    images: unknown[];
+    videos: unknown[];
+    audios: unknown[];
+  }
+  const edgeItems: EdgeItems[] = edgesData.map((data) => {
+    const result: EdgeItems = { texts: [], images: [], videos: [], audios: [] };
+    for (const item of data) {
+      const t = classifyByValue(item);
+      switch (t) {
+        case 'text': result.texts.push(String(item)); break;
+        case 'image': result.images.push(item); break;
+        case 'video': result.videos.push(item); break;
+        case 'audio': result.audios.push(item); break;
+      }
+    }
+    return result;
+  });
+
+  // Build edge index → edge ID mapping, then per-type ordered indices
+  const edgeIdToIdx = new Map(edgeIds.map((id, i) => [id, i]));
+  const nodeData = (node.data || {}) as Record<string, unknown>;
+  const inputOrder = nodeData.inputOrder as Record<string, string[]> | undefined;
+
+  function getOrderedEdgeIndices(type: string): number[] {
+    const order = inputOrder?.[type];
+    if (order && order.length > 0) {
+      const ordered = order.map((eid) => edgeIdToIdx.get(eid)).filter((i): i is number => i !== undefined);
+      // Append any edges not in the explicit order (new edges added after ordering was set)
+      for (let i = 0; i < edgesData.length; i++) {
+        if (!ordered.includes(i)) ordered.push(i);
+      }
+      return ordered;
+    }
+    return [...Array(edgesData.length).keys()];
   }
 
+  // Process per-type with independent edge ordering
   let prompt = '';
   const images: DynamicValue[] = [];
   let video: DynamicValue | undefined;
   let audio: DynamicValue | undefined;
 
-  for (let i = 0; i < flatRawValues.length; i++) {
-    const value = flatRawValues[i];
-    let type = classifyByValue(value);
-    if (!type) type = 'text';
-
-    switch (type) {
-      case 'text': prompt = prompt ? `${prompt}\n${String(value)}` : String(value); break;
-      case 'image': if (images.length < 9) images.push(value as DynamicValue); break;
-      case 'video': if (!video) video = value as DynamicValue; break;
-      case 'audio': if (!audio) audio = value as DynamicValue; break;
+  for (const idx of getOrderedEdgeIndices('text')) {
+    for (const t of edgeItems[idx].texts) {
+      prompt = prompt ? `${prompt}\n${t}` : t;
+    }
+  }
+  for (const idx of getOrderedEdgeIndices('image')) {
+    for (const img of edgeItems[idx].images) {
+      if (images.length < 9) images.push(img as DynamicValue);
+    }
+  }
+  for (const idx of getOrderedEdgeIndices('video')) {
+    for (const vid of edgeItems[idx].videos) {
+      if (!video) video = vid as DynamicValue;
+    }
+  }
+  for (const idx of getOrderedEdgeIndices('audio')) {
+    for (const aud of edgeItems[idx].audios) {
+      if (!audio) audio = aud as DynamicValue;
     }
   }
 
-  const nodeData = (node.data || {}) as Record<string, unknown>;
   const mode = String(nodeData.mode || 'chat');
 
   // Append panel prompt for image/video modes (not chat)
