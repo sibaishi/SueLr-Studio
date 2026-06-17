@@ -13,6 +13,8 @@ import {
   getNodeDisplayName,
   getNodeDisplayNameById,
   gid,
+  readInputOrder,
+  type InputOrderMap,
 } from '@/domains/workflow/lib/store/helpers';
 import {
   clearActiveRunSnapshot,
@@ -52,25 +54,36 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
     }
   }
 
-  // Sort each group by inputOrder
+  // Sort each group by inputOrder (type-grouped, then edge priority within type)
   for (const node of multiInputNodes) {
     const nodeEdges = targetEdgeMap.get(node.id);
     if (!nodeEdges || nodeEdges.length <= 1) continue;
-    const rawInputOrder: string[] = Array.isArray(node.data?.inputOrder) ? (node.data.inputOrder as string[]) : [];
-    if (rawInputOrder.length === 0) continue;
 
-    // For aiV3: inputOrder contains slot IDs; extract unique edge IDs preserving first-occurrence order
-    const seenEdges = new Set<string>();
-    const inputOrder = node.type === 'aiV3'
-      ? rawInputOrder
-          .map((sid) => {
-            const slash = sid.indexOf('/');
-            return slash === -1 ? sid : sid.slice(0, slash);
-          })
-          .filter((eid) => seenEdges.has(eid) ? false : (seenEdges.add(eid), true))
-      : rawInputOrder;
+    const inputOrder: InputOrderMap = readInputOrder(node);
+    if (Object.keys(inputOrder).length === 0) continue;
 
-    const orderMap = new Map(inputOrder.map((id, i) => [id, i]));
+    // Build ordered edge list: type groups in fixed order, edges within each group by priority
+    const typeOrderKeys = ['text', 'image', 'video', 'audio', 'mask'];
+    const orderedEdgeIds: string[] = [];
+    const seen = new Set<string>();
+
+    for (const type of typeOrderKeys) {
+      const typeEdges = inputOrder[type];
+      if (typeEdges) {
+        for (const eid of typeEdges) {
+          if (!seen.has(eid)) { seen.add(eid); orderedEdgeIds.push(eid); }
+        }
+      }
+    }
+    // Legacy compat: _legacy edges come after typed groups
+    const legacyEdges = inputOrder._legacy;
+    if (legacyEdges) {
+      for (const eid of legacyEdges) {
+        if (!seen.has(eid)) { seen.add(eid); orderedEdgeIds.push(eid); }
+      }
+    }
+
+    const orderMap = new Map(orderedEdgeIds.map((id, i) => [id, i]));
     nodeEdges.sort((a, b) => {
       const ai = orderMap.get(a.id);
       const bi = orderMap.get(b.id);

@@ -1,8 +1,9 @@
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { filterAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
+import { filterAiV3InputSlots, readInputOrder, type InputOrderMap } from '@/domains/workflow/lib/store/helpers';
 import { fileRawStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { BoxSelect, Clock, Globe, Grid3X3, Image, Ruler } from 'lucide-react';
 
 const MIN_H = 150;
@@ -53,7 +54,7 @@ function roundToNearest16(value: unknown) {
   return Math.round(numeric / 16) * 16;
 }
 
-type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio' | 'mask'; label: string; value: string };
+type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio' | 'mask'; label: string; value: string; sourceNodeId: string; edgeId: string };
 
 export default function AiV3StylePanel() {
   const nodes = useWorkflowStore((s) => s.nodes);
@@ -68,9 +69,10 @@ export default function AiV3StylePanel() {
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(0);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
-  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-  const inputsRef = useRef<InputThumb[]>([]);
+  const [draggedGroupIdx, setDraggedGroupIdx] = useState<number | null>(null);
+  const [dragOverGroupIdx, setDragOverGroupIdx] = useState<number | null>(null);
+  const [draggedGroupType, setDraggedGroupType] = useState<string | null>(null);
+  const typeGroupsRef = useRef<Record<string, { edgeId: string }[]>>({});
   const [promptValue, setPromptValue] = useState('');
 
   const nodeData = (v3Node?.data || {}) as Record<string, unknown>;
@@ -79,14 +81,25 @@ export default function AiV3StylePanel() {
     if (v3Node) updateNodeData(v3Node.id, patch);
   }, [v3Node, updateNodeData]);
 
-  const handleReorder = useCallback((fromIdx: number, toIdx: number) => {
-    const current = inputsRef.current;
-    if (current.length === 0) return;
-    const reordered = current.map((x) => x.id);
+  const handleGroupReorder = useCallback((type: string, fromIdx: number, toIdx: number) => {
+    const group = typeGroupsRef.current[type];
+    if (!group || group.length === 0 || fromIdx === toIdx) return;
+    const reordered = [...group.map((e) => e.edgeId)];
     const [moved] = reordered.splice(fromIdx, 1);
     reordered.splice(toIdx, 0, moved);
-    setData({ inputOrder: reordered });
-  }, [setData]);
+
+    const currentOrder = readInputOrder(v3Node);
+    const newOrder: InputOrderMap = { ...currentOrder };
+    for (const t of Object.keys(currentOrder)) { delete newOrder[t]; }
+    for (const t of Object.keys(typeGroupsRef.current)) {
+      if (t === type) newOrder[t] = reordered;
+      else newOrder[t] = typeGroupsRef.current[t].map((e) => e.edgeId);
+    }
+    // Preserve _legacy if it existed
+    if (currentOrder._legacy) newOrder._legacy = currentOrder._legacy;
+
+    setData({ inputOrder: newOrder });
+  }, [v3Node, setData]);
 
   const handleDragStart = useCallback((event: React.PointerEvent) => {
     event.preventDefault(); event.stopPropagation();
@@ -219,11 +232,70 @@ export default function AiV3StylePanel() {
       finalType !== 'text' ? getNodeTypeLabel(finalType) :
       src?.type || '?';
 
-    return { id: slot.id, type: finalType, label, value };
+    return { id: slot.id, type: finalType, label, value, sourceNodeId: slot.sourceNodeId, edgeId: slot.edgeId };
   });
 
-  inputsRef.current = rawInputs;
-  const inputs = rawInputs;
+  // ── type-grouped node-level chips (not per-slot) ──
+  const TYPE_ORDER_KEYS = ['text', 'image', 'video', 'audio', 'mask'] as const;
+  const TYPE_LABEL: Record<string, string> = { text: '文本', image: '图片', video: '视频', audio: '音频', mask: '遮罩' };
+  const getNodeTypeLabel = (type: string) => TYPE_LABEL[type] || type;
+
+  const typeGroups = useMemo(() => {
+    const groups: Record<string, { sourceNodeId: string; sourceNodeLabel: string; edgeId: string; count: number; previewUrl?: string }[]> = {};
+    const nodeInputOrder = readInputOrder(v3Node);
+
+    for (const type of TYPE_ORDER_KEYS) {
+      const typeInputs = rawInputs.filter((x) => x.type === type);
+      if (typeInputs.length === 0) continue;
+
+      const entries: typeof groups[string] = [];
+      const seenNodes = new Set<string>();
+      for (const input of typeInputs) {
+        if (seenNodes.has(input.sourceNodeId)) continue;
+        seenNodes.add(input.sourceNodeId);
+
+        const src = nodes.find((n) => n.id === input.sourceNodeId);
+        const srcDef = getNodeDef(src?.type || '');
+        const nodeLabel = (typeof (src?.data as Record<string, unknown> | undefined)?.label === 'string'
+          ? (src?.data as Record<string, unknown>).label as string
+          : '') || srcDef?.label || input.sourceNodeId;
+
+        entries.push({
+          sourceNodeId: input.sourceNodeId,
+          sourceNodeLabel: nodeLabel,
+          edgeId: input.edgeId,
+          count: 0,
+          previewUrl: (input.type === 'image' || input.type === 'video') ? input.value : undefined,
+        });
+      }
+
+      // Count slots per node
+      for (const entry of entries) {
+        entry.count = typeInputs.filter((x) => x.sourceNodeId === entry.sourceNodeId).length;
+      }
+
+      // Apply per-type edge ordering from inputOrder
+      const typeOrder = nodeInputOrder[type];
+      if (typeOrder && typeOrder.length > 0) {
+        const orderMap = new Map(typeOrder.map((eid, i) => [eid, i]));
+        entries.sort((a, b) => {
+          const ai = orderMap.get(a.edgeId);
+          const bi = orderMap.get(b.edgeId);
+          if (ai !== undefined && bi !== undefined) return ai - bi;
+          if (ai !== undefined) return -1;
+          if (bi !== undefined) return 1;
+          return 0;
+        });
+      }
+
+      groups[type] = entries;
+    }
+
+    return groups;
+  }, [rawInputs, nodes, v3Node]);
+
+  // Keep ref for handleGroupReorder
+  typeGroupsRef.current = typeGroups;
 
   const webSearchEnabled = Boolean(nodeData.enableWebSearch);
 
@@ -240,20 +312,6 @@ export default function AiV3StylePanel() {
     (groupedModels[cat] = groupedModels[cat] || []).push(m);
   }
 
-  // thumbnail label helpers
-  const TYPE_MAP: Record<string, string> = { text: '文本', image: '图片', video: '视频', audio: '音频', mask: '遮罩' };
-  const getNodeTypeLabel = (type: string) => TYPE_MAP[type] || type;
-
-  const thumbLabel = (input: InputThumb) => {
-    if (input.value) return input.value.slice(0, 1) + '…';
-    const map: Record<string, string> = { text: '文', image: '图', video: '视', audio: '音', mask: '遮' };
-    return map[input.type] || '?';
-  };
-  const thumbLetter = (input: InputThumb) => {
-    const map: Record<string, string> = { text: '文', image: '图', video: '视', audio: '音', mask: '遮' };
-    return map[input.type] || '?';
-  };
-
   return (
     <div
       style={{
@@ -266,38 +324,48 @@ export default function AiV3StylePanel() {
       }}
       onPointerDown={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (e.clientY - rect.top <= 12) handleDragStart(e); }}
     >
-      {/* Input thumbnails */}
-      {inputs.length > 0 && (
-        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 6, padding: '0 4px', flexWrap: 'wrap' }}>
-          {inputs.map((input, idx) => (
-            <div
-              key={input.id} draggable
-              onDragStart={(e) => { setDraggedIdx(idx); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', input.id); }}
-              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIdx(idx); }}
-              onDragLeave={() => setDragOverIdx(null)}
-              onDrop={(e) => { e.preventDefault(); if (draggedIdx !== null && draggedIdx !== idx) handleReorder(draggedIdx, idx); setDraggedIdx(null); setDragOverIdx(null); }}
-              onDragEnd={() => { setDraggedIdx(null); setDragOverIdx(null); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px',
-                borderRadius: 10, background: dragOverIdx === idx ? 'var(--t-border)' : 'var(--t-bg2)',
-                border: '1px solid var(--t-border)', cursor: 'grab', fontSize: 11, color: 'var(--t-text2)',
-                opacity: draggedIdx === idx ? 0.4 : 1, transition: 'background 120ms ease, opacity 120ms ease',
-              }}
-              title={input.value || '暂无内容（拖动可调整顺序）'}
-            >
-              <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--t-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                {(input.type === 'image' || input.type === 'video' || input.type === 'mask') && input.value ? (
-                  <img src={inferImageThumbnailUrl(input.value) || input.value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                ) : (
-                  <span style={{ fontSize: 9, fontWeight: 700 }}>{thumbLetter(input)}</span>
-                )}
+      {/* Input thumbnails — type-grouped, node-level chips */}
+      {rawInputs.length > 0 && (
+        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px' }}>
+          {TYPE_ORDER_KEYS.map((type) => {
+            const group = typeGroups[type];
+            if (!group || group.length === 0) return null;
+            return (
+              <div key={type} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: 10, color: 'var(--t-text3)', minWidth: 28, flexShrink: 0 }}>{TYPE_LABEL[type]}</span>
+                {group.map((entry, idx) => (
+                  <div
+                    key={entry.sourceNodeId}
+                    draggable
+                    onDragStart={(e) => { setDraggedGroupIdx(idx); setDraggedGroupType(type); e.dataTransfer.effectAllowed = 'move'; }}
+                    onDragOver={(e) => { if (draggedGroupType === type) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupIdx(idx); } }}
+                    onDragLeave={() => setDragOverGroupIdx(null)}
+                    onDrop={(e) => { e.preventDefault(); if (draggedGroupIdx !== null && draggedGroupType === type && draggedGroupIdx !== idx) handleGroupReorder(type, draggedGroupIdx, idx); setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
+                    onDragEnd={() => { setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px',
+                      borderRadius: 10, background: dragOverGroupIdx === idx && draggedGroupType === type ? 'var(--t-border)' : 'var(--t-bg2)',
+                      border: '1px solid var(--t-border)', cursor: 'grab', fontSize: 11, color: 'var(--t-text2)',
+                      opacity: draggedGroupIdx === idx && draggedGroupType === type ? 0.4 : 1, transition: 'background 120ms ease, opacity 120ms ease',
+                    }}
+                    title={`${entry.sourceNodeLabel} · ${entry.count} 个${TYPE_LABEL[type] || type}（拖动可调整排序优先级）`}
+                  >
+                    <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--t-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                      {entry.previewUrl ? (
+                        <img src={inferImageThumbnailUrl(entry.previewUrl) || entry.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                      ) : (
+                        <span style={{ fontSize: 10, fontWeight: 700 }}>{entry.count > 9 ? '9+' : entry.count}</span>
+                      )}
+                    </div>
+                    <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {entry.sourceNodeLabel}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <span style={{ maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {thumbLabel(input)}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

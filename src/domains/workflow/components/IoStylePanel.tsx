@@ -1,7 +1,8 @@
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { uploadFile } from '@/domains/workflow/lib/api/files';
+import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { expandAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
+import { expandAiV3InputSlots, readInputOrder, type InputOrderMap } from '@/domains/workflow/lib/store/helpers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fileRawStore } from './nodes/io/fileRawStore';
 
@@ -17,7 +18,7 @@ type FileKind = 'image' | 'video' | 'audio' | 'other';
 const KIND_ORDER: Record<FileKind, number> = { image: 0, video: 1, audio: 2, other: 3 };
 
 interface FileThumb { _id: number; name: string; kind: FileKind; thumbnail: string; objectUrl: string; uploadedUrl?: string }
-type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio' | 'mask'; label: string; value: string };
+type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio' | 'mask'; label: string; value: string; sourceNodeId: string; edgeId: string };
 
 function isPersistentFileUrl(value: unknown) {
   const str = String(value || '');
@@ -79,11 +80,14 @@ export default function IoStylePanel() {
 
   const [height, setHeight] = useState(MIN_H);
   const [dragging, setDragging] = useState(false);
-  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [draggedGroupIdx, setDraggedGroupIdx] = useState<number | null>(null);
+  const [dragOverGroupIdx, setDragOverGroupIdx] = useState<number | null>(null);
+  const [draggedGroupType, setDraggedGroupType] = useState<string | null>(null);
+  const [srcDraggedIdx, setSrcDraggedIdx] = useState<number | null>(null);
+  const [srcDragOverIdx, setSrcDragOverIdx] = useState<number | null>(null);
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(0);
-  const inputsRef = useRef<InputThumb[]>([]);
+  const typeGroupsRef = useRef<Record<string, { edgeId: string }[]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -369,43 +373,85 @@ export default function IoStylePanel() {
           slot.sourceNodeType === 'io' ? `文件${(slot.fileIdx ?? 0) + 1}` :
           src?.type || '?';
 
-        return { id: slot.id, type: finalType as InputThumb['type'], label, value };
+        return { id: slot.id, type: finalType as InputThumb['type'], label, value, sourceNodeId: slot.sourceNodeId, edgeId: slot.edgeId };
       })
     : [];
 
-  const TYPE_ORDER: Record<InputThumb['type'], number> = { text: 0, image: 1, video: 2, audio: 3, mask: 4 };
-  const ioInputOrder: string[] = Array.isArray(nodeData.inputOrder) ? (nodeData.inputOrder as string[]) : [];
-  const orderMap = new Map(ioInputOrder.map((id, i) => [id, i]));
-  const inputs = [...rawInputs].sort((a, b) => {
-    const td = (TYPE_ORDER[a.type] ?? 99) - (TYPE_ORDER[b.type] ?? 99);
-    if (td !== 0) return td;
-    const ai = orderMap.get(a.id); const bi = orderMap.get(b.id);
-    if (ai !== undefined && bi !== undefined) return ai - bi;
-    if (ai !== undefined) return -1;
-    if (bi !== undefined) return 1;
-    return 0;
-  });
-  inputsRef.current = inputs;
+  const TYPE_ORDER_KEYS = ['text', 'image', 'video', 'audio', 'mask'] as const;
+  const TYPE_LABEL: Record<string, string> = { text: '文本', image: '图片', video: '视频', audio: '音频', mask: '遮罩' };
 
-  const handleReorder = useCallback((fromIdx: number, toIdx: number) => {
-    const current = inputsRef.current;
-    if (current.length === 0) return;
-    const reordered = current.map((x) => x.id);
+  // ── type-grouped node-level chips (upstream mode) ──
+  const typeGroups = useMemo(() => {
+    const groups: Record<string, { sourceNodeId: string; sourceNodeLabel: string; edgeId: string; count: number; previewUrl?: string }[]> = {};
+    const nodeInputOrder = readInputOrder(ioNode);
+
+    for (const type of TYPE_ORDER_KEYS) {
+      const typeInputs = rawInputs.filter((x) => x.type === type);
+      if (typeInputs.length === 0) continue;
+
+      const entries: typeof groups[string] = [];
+      const seenNodes = new Set<string>();
+      for (const input of typeInputs) {
+        if (seenNodes.has(input.sourceNodeId)) continue;
+        seenNodes.add(input.sourceNodeId);
+
+        const src = nodes.find((n) => n.id === input.sourceNodeId);
+        const srcDef = getNodeDef(src?.type || '');
+        const nodeLabel = (typeof (src?.data as Record<string, unknown> | undefined)?.label === 'string'
+          ? (src?.data as Record<string, unknown>).label as string
+          : '') || srcDef?.label || input.sourceNodeId;
+
+        entries.push({
+          sourceNodeId: input.sourceNodeId,
+          sourceNodeLabel: nodeLabel,
+          edgeId: input.edgeId,
+          count: 0,
+          previewUrl: (input.type === 'image' || input.type === 'video') ? input.value : undefined,
+        });
+      }
+
+      for (const entry of entries) {
+        entry.count = typeInputs.filter((x) => x.sourceNodeId === entry.sourceNodeId).length;
+      }
+
+      const typeOrder = nodeInputOrder[type];
+      if (typeOrder && typeOrder.length > 0) {
+        const orderMap = new Map(typeOrder.map((eid, i) => [eid, i]));
+        entries.sort((a, b) => {
+          const ai = orderMap.get(a.edgeId);
+          const bi = orderMap.get(b.edgeId);
+          if (ai !== undefined && bi !== undefined) return ai - bi;
+          if (ai !== undefined) return -1;
+          if (bi !== undefined) return 1;
+          return 0;
+        });
+      }
+
+      groups[type] = entries;
+    }
+
+    return groups;
+  }, [rawInputs, nodes, ioNode]);
+
+  typeGroupsRef.current = typeGroups;
+
+  const handleGroupReorder = useCallback((type: string, fromIdx: number, toIdx: number) => {
+    const group = typeGroupsRef.current[type];
+    if (!group || group.length === 0 || fromIdx === toIdx) return;
+    const reordered = [...group.map((e) => e.edgeId)];
     const [moved] = reordered.splice(fromIdx, 1);
     reordered.splice(toIdx, 0, moved);
-    setData({ inputOrder: reordered });
-  }, [setData]);
 
-  // ── thumb helpers (V3 style) ──
-  const thumbLabel = (input: InputThumb) => {
-    if (input.value) return input.value.slice(0, 1) + '…';
-    const map: Record<string, string> = { text: '文', image: '图', video: '视', audio: '音', mask: '遮' };
-    return map[input.type] || '?';
-  };
-  const thumbLetter = (input: InputThumb) => {
-    const map: Record<string, string> = { text: '文', image: '图', video: '视', audio: '音', mask: '遮' };
-    return map[input.type] || '?';
-  };
+    const currentOrder = readInputOrder(ioNode);
+    const newOrder: InputOrderMap = {};
+    for (const t of TYPE_ORDER_KEYS) {
+      if (t === type) newOrder[t] = reordered;
+      else if (typeGroupsRef.current[t]) newOrder[t] = typeGroupsRef.current[t].map((e) => e.edgeId);
+    }
+    if (currentOrder._legacy) newOrder._legacy = currentOrder._legacy;
+
+    setData({ inputOrder: newOrder });
+  }, [ioNode, setData]);
 
   // source mode: sort user files (V3-style)
   const fileOrder: number[] = (nodeData._fileOrder as number[]) || [];
@@ -440,38 +486,48 @@ export default function IoStylePanel() {
       }}
       onPointerDown={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (e.clientY - rect.top <= 12) handleDragStart(e); }}
     >
-      {/* ── V3-STYLE UPSTREAM CHIPS ── */}
-      {hasUpstream && inputs.length > 0 && (
-        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 6, padding: '0 4px', flexWrap: 'wrap' }}>
-          {inputs.map((input, idx) => (
-            <div
-              key={input.id} draggable
-              onDragStart={(e) => { setDraggedIdx(idx); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', input.id); }}
-              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIdx(idx); }}
-              onDragLeave={() => setDragOverIdx(null)}
-              onDrop={(e) => { e.preventDefault(); if (draggedIdx !== null && draggedIdx !== idx) handleReorder(draggedIdx, idx); setDraggedIdx(null); setDragOverIdx(null); }}
-              onDragEnd={() => { setDraggedIdx(null); setDragOverIdx(null); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px',
-                borderRadius: 10, background: dragOverIdx === idx ? 'var(--t-border)' : 'var(--t-bg2)',
-                border: '1px solid var(--t-border)', cursor: 'grab', fontSize: 11, color: 'var(--t-text2)',
-                opacity: draggedIdx === idx ? 0.4 : 1, transition: 'background 120ms ease, opacity 120ms ease',
-              }}
-              title={input.value || '暂无内容（拖动可调整顺序）'}
-            >
-              <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--t-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                {(input.type === 'image' || input.type === 'video' || input.type === 'mask') && input.value ? (
-                  <img src={inferImageThumbnailUrl(input.value) || input.value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                ) : (
-                  <span style={{ fontSize: 9, fontWeight: 700 }}>{thumbLetter(input)}</span>
-                )}
+      {/* ── V3-STYLE UPSTREAM CHIPS (type-grouped node-level) ── */}
+      {hasUpstream && rawInputs.length > 0 && (
+        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px' }}>
+          {TYPE_ORDER_KEYS.map((type) => {
+            const group = typeGroups[type];
+            if (!group || group.length === 0) return null;
+            return (
+              <div key={type} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: 10, color: 'var(--t-text3)', minWidth: 28, flexShrink: 0 }}>{TYPE_LABEL[type]}</span>
+                {group.map((entry, idx) => (
+                  <div
+                    key={entry.sourceNodeId}
+                    draggable
+                    onDragStart={(e) => { setDraggedGroupIdx(idx); setDraggedGroupType(type); e.dataTransfer.effectAllowed = 'move'; }}
+                    onDragOver={(e) => { if (draggedGroupType === type) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupIdx(idx); } }}
+                    onDragLeave={() => setDragOverGroupIdx(null)}
+                    onDrop={(e) => { e.preventDefault(); if (draggedGroupIdx !== null && draggedGroupType === type && draggedGroupIdx !== idx) handleGroupReorder(type, draggedGroupIdx, idx); setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
+                    onDragEnd={() => { setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px',
+                      borderRadius: 10, background: dragOverGroupIdx === idx && draggedGroupType === type ? 'var(--t-border)' : 'var(--t-bg2)',
+                      border: '1px solid var(--t-border)', cursor: 'grab', fontSize: 11, color: 'var(--t-text2)',
+                      opacity: draggedGroupIdx === idx && draggedGroupType === type ? 0.4 : 1, transition: 'background 120ms ease, opacity 120ms ease',
+                    }}
+                    title={`${entry.sourceNodeLabel} · ${entry.count} 个${TYPE_LABEL[type] || type}（拖动可调整排序优先级）`}
+                  >
+                    <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--t-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                      {entry.previewUrl ? (
+                        <img src={inferImageThumbnailUrl(entry.previewUrl) || entry.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                      ) : (
+                        <span style={{ fontSize: 10, fontWeight: 700 }}>{entry.count > 9 ? '9+' : entry.count}</span>
+                      )}
+                    </div>
+                    <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {entry.sourceNodeLabel}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <span style={{ maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {thumbLabel(input)}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -484,25 +540,25 @@ export default function IoStylePanel() {
           {sortedFiles.map((f, idx) => (
             <div
               key={f._id >= 0 ? f._id : `p${idx}`} draggable
-              onDragStart={(e) => { setDraggedIdx(idx); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(f._id)); }}
-              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIdx(idx); }}
-              onDragLeave={() => setDragOverIdx(null)}
-              onDrop={(e) => { e.preventDefault(); if (draggedIdx !== null && draggedIdx !== idx) {
+              onDragStart={(e) => { setSrcDraggedIdx(idx); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(f._id)); }}
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setSrcDragOverIdx(idx); }}
+              onDragLeave={() => setSrcDragOverIdx(null)}
+              onDrop={(e) => { e.preventDefault(); if (srcDraggedIdx !== null && srcDraggedIdx !== idx) {
                 const current = sortedFiles;
                 if (current.length > 0) {
                   const reordered = current.map((x) => x._id);
-                  const [moved] = reordered.splice(draggedIdx, 1);
+                  const [moved] = reordered.splice(srcDraggedIdx, 1);
                   reordered.splice(idx, 0, moved);
                   setData({ _fileOrder: reordered });
                 }
-                setDraggedIdx(null); setDragOverIdx(null);
-              } else { setDraggedIdx(null); setDragOverIdx(null); } }}
-              onDragEnd={() => { setDraggedIdx(null); setDragOverIdx(null); }}
+                setSrcDraggedIdx(null); setSrcDragOverIdx(null);
+              } else { setSrcDraggedIdx(null); setSrcDragOverIdx(null); } }}
+              onDragEnd={() => { setSrcDraggedIdx(null); setSrcDragOverIdx(null); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px',
-                borderRadius: 10, background: dragOverIdx === idx ? 'var(--t-border)' : 'var(--t-bg2)',
+                borderRadius: 10, background: srcDragOverIdx === idx ? 'var(--t-border)' : 'var(--t-bg2)',
                 border: '1px solid var(--t-border)', cursor: 'grab', fontSize: 11, color: 'var(--t-text2)',
-                opacity: draggedIdx === idx ? 0.4 : 1, transition: 'background 120ms ease, opacity 120ms ease',
+                opacity: srcDraggedIdx === idx ? 0.4 : 1, transition: 'background 120ms ease, opacity 120ms ease',
               }}
               title={f.name || '暂无内容（拖动可调整顺序）'}
             >
@@ -564,7 +620,7 @@ export default function IoStylePanel() {
       {/* ── Upstream locked indicator ── */}
       {hasUpstream && (
         <div style={{ padding: '4px 10px', fontSize: 11, color: 'var(--t-text3)' }}>
-          上游 {inputs.length} 项数据，锁定中
+          上游 {rawInputs.length} 项数据，锁定中
         </div>
       )}
     </div>

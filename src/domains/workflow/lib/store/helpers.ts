@@ -461,18 +461,81 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
   return slots;
 }
 
-function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: string[]): AiV3InputSlot[] {
-  const orderMap = new Map(inputOrder.map((id, i) => [id, i]));
+// Fixed type display order (text → image → video → audio → mask)
+const TYPE_SORT_ORDER: Record<string, number> = { text: 0, image: 1, video: 2, audio: 3, mask: 4 };
+
+/** Per-type edge ID ordering: { image: ["edge_A", "edge_B"], text: ["edge_C"] } */
+export type InputOrderMap = Record<string, string[]>;
+
+/** Read inputOrder from node data with backward compat for legacy string[] format. */
+export function readInputOrder(targetNode?: Node | null): InputOrderMap {
+  const raw = targetNode?.data?.inputOrder;
+  if (!raw) return {};
+
+  // New format: Record<string, string[]>
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    const map: InputOrderMap = {};
+    for (const [type, order] of Object.entries(raw as Record<string, unknown>)) {
+      if (Array.isArray(order)) {
+        map[type] = order.filter((id): id is string => typeof id === 'string');
+      }
+    }
+    return map;
+  }
+
+  // Legacy string[] format: per-slot IDs containing edge+sub-ids. Extract edge IDs.
+  if (Array.isArray(raw)) {
+    const seen = new Set<string>();
+    const edgeIds: string[] = [];
+    for (const sid of raw as string[]) {
+      if (typeof sid !== 'string') continue;
+      const slash = sid.indexOf('/');
+      const eid = slash === -1 ? sid : sid.slice(0, slash);
+      if (!seen.has(eid)) { seen.add(eid); edgeIds.push(eid); }
+    }
+    // Put all edge IDs in a catch-all key; sortSlotsByInputOrder will apply
+    // fixed type grouping, and within each type the edge priority is shared.
+    return edgeIds.length > 0 ? { _legacy: edgeIds } : {};
+  }
+
+  return {};
+}
+
+function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: InputOrderMap): AiV3InputSlot[] {
+  // Build per-type edge priority maps
+  const edgeOrderByType = new Map<string, Map<string, number>>();
+  const legacyOrder = inputOrder._legacy;
+  const legacyMap = legacyOrder ? new Map(legacyOrder.map((eid, i) => [eid, i])) : null;
+
+  for (const [type, orderedEdgeIds] of Object.entries(inputOrder)) {
+    if (type === '_legacy') continue;
+    const typeMap = new Map<string, number>();
+    orderedEdgeIds.forEach((eid, i) => typeMap.set(eid, i));
+    edgeOrderByType.set(type, typeMap);
+  }
 
   return [...slots].sort((a, b) => {
-    // Primary: edge's position in inputOrder
-    const ai = orderMap.get(a.edgeId);
-    const bi = orderMap.get(b.edgeId);
+    // Level 1: fixed type ordering
+    const ta = TYPE_SORT_ORDER[a.type] ?? 99;
+    const tb = TYPE_SORT_ORDER[b.type] ?? 99;
+    if (ta !== tb) return ta - tb;
+
+    // Level 2: same type, order by edge priority from inputOrder (or legacy)
+    const typeEdgeOrder = edgeOrderByType.get(a.type);
+    const getOrder = (slot: AiV3InputSlot): number | undefined => {
+      if (typeEdgeOrder) {
+        const o = typeEdgeOrder.get(slot.edgeId);
+        if (o !== undefined) return o;
+      }
+      return legacyMap?.get(slot.edgeId);
+    };
+    const ai = getOrder(a);
+    const bi = getOrder(b);
     if (ai !== undefined && bi !== undefined) return ai - bi;
     if (ai !== undefined) return -1;
     if (bi !== undefined) return 1;
 
-    // Same edge: text before files, files by fileIdx / fileId
+    // Level 3: same edge, text before files, files by fileIdx
     if (a.edgeId === b.edgeId) {
       if (a.type === 'text' && b.type !== 'text') return -1;
       if (a.type !== 'text' && b.type === 'text') return 1;
@@ -506,9 +569,7 @@ export function filterAiV3InputSlots(
   }
 
   const targetNode = nodes.find((n) => n.id === nodeId);
-  const inputOrder: string[] = Array.isArray(targetNode?.data?.inputOrder)
-    ? (targetNode.data.inputOrder as string[])
-    : [];
+  const inputOrder = readInputOrder(targetNode);
   const sorted = sortSlotsByInputOrder(slots, inputOrder);
 
   const counts: Record<string, number> = {};
