@@ -352,11 +352,14 @@ export function ImagePreviewModal({
           <div className="workflow-image-preview-modal__text-viewer">
             <div className="workflow-image-preview-modal__text-card">
               <div className="workflow-image-preview-modal__text-toolbar">
+                <span className="workflow-image-preview-modal__text-mode">
+                  {onTextChange ? '编辑中' : '文本'}
+                </span>
                 {title && <span className="workflow-image-preview-modal__text-title">{title}</span>}
                 <span className="workflow-image-preview-modal__text-stats">
-                  {textStats.chars} 字符　{textStats.lines} 行　{textStats.paragraphs} 段落
+                  {textStats.chars} 字符　{textStats.lines} 行　{textStats.paragraphs} 段
                 </span>
-                <div style={{ flex: 1 }} />
+                <div style={{ flex: 1, minWidth: 12 }} />
                 {renderTextActions?.()}
                 <button
                   type="button"

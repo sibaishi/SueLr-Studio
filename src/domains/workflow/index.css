@@ -1151,8 +1151,9 @@ body {
 .workflow-image-preview-modal__text-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 10px;
+  padding: 10px 18px;
+  min-height: 44px;
   border-bottom: 1px solid var(--glass-border);
 }
 
@@ -1171,7 +1172,26 @@ body {
   color: var(--node-card-muted);
   white-space: nowrap;
   flex-shrink: 0;
-  margin-left: 12px;
+}
+
+.workflow-image-preview-modal__text-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.workflow-image-preview-modal__text-mode::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent, #10b981);
+  flex-shrink: 0;
 }
 
 .workflow-image-preview-modal__text-content {
