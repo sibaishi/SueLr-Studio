@@ -8,6 +8,7 @@ import type { CoordinateExtent, Node as FlowNodeType } from '@xyflow/react';
 import { useCallback, useEffect, useState } from 'react';
 import { buildClipboardSnapshot, snapValue } from '../flowCanvasClipboard';
 import { FLOW_FORCE_DISABLED_NODE_TYPES } from '../flowCanvasConfig';
+import { getDroppedFileNodeType } from '../flowCanvasHelpers';
 import { isEditableElement } from '../flowCanvasText';
 import type { ClipboardSnapshot, ContextMenuState } from '../flowCanvasTypes';
 import type { FlowHookDeps } from './types';
@@ -196,21 +197,21 @@ export function useFlowClipboard({
         return;
       }
 
-      const pastedImageFiles = Array.from(event.clipboardData?.files || []).filter((file) =>
-        file.type.startsWith('image/'),
+      const pastedFiles = Array.from(event.clipboardData?.files || []).filter((file) =>
+        getDroppedFileNodeType(file) === 'io',
       );
-      if (pastedImageFiles.length === 0) {
+      if (pastedFiles.length === 0) {
         Array.from(event.clipboardData?.items || []).forEach((item) => {
-          if (item.kind !== 'file' || !item.type.startsWith('image/')) return;
+          if (item.kind !== 'file') return;
           const file = item.getAsFile();
-          if (file) pastedImageFiles.push(file);
+          if (file && getDroppedFileNodeType(file) === 'io') pastedFiles.push(file);
         });
       }
 
-      if (pastedImageFiles.length > 0) {
+      if (pastedFiles.length > 0) {
         event.preventDefault();
         closeContextMenu();
-        addFilesToCanvas(pastedImageFiles, pastePosition);
+        addFilesToCanvas(pastedFiles, pastePosition);
         return;
       }
 

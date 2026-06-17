@@ -5,7 +5,12 @@ import type { DragEvent } from 'react';
 import { useCallback } from 'react';
 import { getNodeRenderRect } from '../flowCanvasClipboard';
 import { FLOW_DISABLED_NEW_NODE_TYPES } from '../flowCanvasConfig';
-import { buildDefaultData, getCenteredPosition, getDroppedFileNodeType } from '../flowCanvasHelpers';
+import {
+  buildDefaultData,
+  createThumbnailFromBlob,
+  getCenteredPosition,
+  getDroppedFileNodeType,
+} from '../flowCanvasHelpers';
 import type { FlowHookDeps } from './types';
 
 const TEXT_EXTENSIONS =
@@ -22,7 +27,6 @@ type DroppedMediaFile = {
   id: number;
   kind: string;
   name: string;
-  url: string;
 };
 
 function readFileAsText(file: File) {
@@ -47,6 +51,12 @@ function getFileKind(file: File) {
   if (file.type.startsWith('video/')) return 'video';
   if (file.type.startsWith('audio/')) return 'audio';
   return 'image';
+}
+
+function fallbackFileName(file: File, kind: string, id: number) {
+  if (file.name) return file.name;
+  const ext = file.type.split('/')[1] || kind;
+  return `${kind}_${id}.${ext}`;
 }
 
 function isStartIoNode(node: FlowNodeType | undefined, edges: { target: string }[]) {
@@ -97,11 +107,6 @@ function uploadDroppedMediaFile(nodeId: string, mediaFile: DroppedMediaFile) {
 }
 
 export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowFileDropDeps) {
-  const onDragOver = useCallback((event: DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files') ? 'copy' : 'move';
-  }, []);
-
   const addFilesToCanvas = useCallback(
     (files: File[], position: { x: number; y: number }) => {
       const acceptedFiles = files.filter((file) => {
@@ -116,11 +121,10 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
           ? dropTarget.id
           : store.addNode('io', getCenteredPosition('io', position), buildDefaultData('io'));
 
-      store.selectNode(null);
-
       void (async () => {
         const textParts: string[] = [];
         const mediaFiles: DroppedMediaFile[] = [];
+        const thumbnails: Record<number, string> = {};
         const mediaFileInputs = acceptedFiles.filter((file) => !isTextFile(file));
         const fileRawStoreModule =
           mediaFileInputs.length > 0 ? await import('@/domains/workflow/components/nodes/io/fileRawStore') : null;
@@ -128,22 +132,23 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
         for (const file of acceptedFiles) {
           if (isTextFile(file)) {
             const text = await readFileAsText(file);
-            textParts.push(`[${file.name}]\n${text}`);
+            textParts.push(`[${file.name || '未命名文本'}]\n${text}`);
             continue;
           }
 
           if (!fileRawStoreModule) continue;
+          const kind = getFileKind(file);
           const base64 = await readFileAsDataUrl(file);
           const id = fileRawStoreModule.fileRawStore.add(file, file.name, base64);
-          const record = fileRawStoreModule.fileRawStore.get(id);
-          if (!record) continue;
-          mediaFiles.push({
-            file,
-            id,
-            kind: getFileKind(file),
-            name: file.name,
-            url: record.objectUrl,
-          });
+          const displayName = fallbackFileName(file, kind, id);
+
+          // Generate thumbnail for images (aligned with IoStylePanel)
+          if (kind === 'image') {
+            const thumb = await createThumbnailFromBlob(file).catch(() => '');
+            if (thumb) thumbnails[id] = thumb;
+          }
+
+          mediaFiles.push({ file, id, kind, name: displayName });
         }
 
         const latestState = useWorkflowStore.getState();
@@ -155,14 +160,23 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
         const currentFileKinds = Array.isArray(currentData._fileKinds) ? (currentData._fileKinds as string[]) : [];
         const currentFileOrder = Array.isArray(currentData._fileOrder) ? (currentData._fileOrder as number[]) : [];
         const currentFileNames = Array.isArray(currentData._fileNames) ? (currentData._fileNames as string[]) : [];
+        const currentThumbnails =
+          (typeof currentData._thumbnails === 'object' && currentData._thumbnails !== null
+            ? (currentData._thumbnails as Record<number, string>)
+            : {});
+
+        // Content URLs: write empty initially (no blob URLs).
+        // Rendering falls back to fileRawStore.objectUrl until upload completes.
+        const newUrls = mediaFiles.map(() => '');
 
         latestState.updateNodeData(targetNodeId, {
           text: [...(currentText ? [currentText] : []), ...textParts].join('\n'),
-          content: [...currentContent, ...mediaFiles.map((file) => file.url)],
-          _fileIds: [...currentFileIds, ...mediaFiles.map((file) => file.id)],
-          _fileKinds: [...currentFileKinds, ...mediaFiles.map((file) => file.kind)],
-          _fileOrder: [...currentFileOrder, ...mediaFiles.map((file) => file.id)],
-          _fileNames: [...currentFileNames, ...mediaFiles.map((file) => file.name)],
+          content: [...currentContent, ...newUrls],
+          _fileIds: [...currentFileIds, ...mediaFiles.map((f) => f.id)],
+          _fileKinds: [...currentFileKinds, ...mediaFiles.map((f) => f.kind)],
+          _fileOrder: [...currentFileOrder, ...mediaFiles.map((f) => f.id)],
+          _fileNames: [...currentFileNames, ...mediaFiles.map((f) => f.name)],
+          _thumbnails: { ...currentThumbnails, ...thumbnails },
         });
         latestState.selectNode(targetNodeId);
 
@@ -173,6 +187,11 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
     },
     [store],
   );
+
+  const onDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files') ? 'copy' : 'move';
+  }, []);
 
   const onDrop = useCallback(
     (event: DragEvent) => {

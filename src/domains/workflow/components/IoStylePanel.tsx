@@ -3,6 +3,7 @@ import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { expandAiV3InputSlots, readInputOrder, type InputOrderMap } from '@/domains/workflow/lib/store/helpers';
+import { createThumbnailFromBlob } from '@/domains/workflow/components/flowCanvasHelpers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fileRawStore } from './nodes/io/fileRawStore';
 
@@ -42,28 +43,17 @@ function classifyFile(file: File): FileKind {
   return 'other';
 }
 
-function createThumbnailFromBlob(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const maxDim = 128;
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        const ratio = Math.min(maxDim / width, maxDim / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { reject(new Error('canvas')); return; }
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.7));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load')); };
-    img.src = url;
+function sortFilesByOrder(files: FileThumb[], fileOrder: number[]) {
+  const orderMap = new Map(fileOrder.map((id, i) => [id, i]));
+  return [...files].sort((a, b) => {
+    const kd = (KIND_ORDER[a.kind] ?? 99) - (KIND_ORDER[b.kind] ?? 99);
+    if (kd !== 0) return kd;
+    const ai = orderMap.get(a._id);
+    const bi = orderMap.get(b._id);
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+    return 0;
   });
 }
 
@@ -94,6 +84,14 @@ export default function IoStylePanel() {
   const [textValue, setTextValue] = useState('');
   const [files, setFiles] = useState<FileThumb[]>([]);
   const uploadedUrlsRef = useRef<Map<number, string>>(new Map());
+  // Refs to avoid stale closures in syncTimer (external changes via drop/paste
+  // can arrive between effect creation and timer fire)
+  const filesRef = useRef(files);
+  filesRef.current = files;
+  const textValueRef = useRef(textValue);
+  textValueRef.current = textValue;
+  const selectedNodeIdRef = useRef(selectedNodeId);
+  selectedNodeIdRef.current = selectedNodeId;
 
   const setData = useCallback((patch: Record<string, unknown>) => {
     if (selectedNodeId) updateNodeData(selectedNodeId, patch);
@@ -194,16 +192,28 @@ export default function IoStylePanel() {
 
   const persistentContentSignature = buildPersistentContentSignature(nodeData.content);
   const fileNamesSignature = buildStringArraySignature(nodeData._fileNames);
+  // Include _fileIds length so external additions (e.g. drop/paste on same node) trigger re-sync
+  const fileIdsLen = Array.isArray(nodeData._fileIds) ? (nodeData._fileIds as number[]).length : 0;
 
   useEffect(() => {
     if (hasUpstream) return;
     if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
-      // Preserve existing server URLs from node data to avoid overwriting
-      // them with blob URLs before upload completes, or after page refresh.
-      const existingContent: string[] = Array.isArray(nodeData.content) ? (nodeData.content as string[]) : [];
-      const existingNames: string[] = Array.isArray(nodeData._fileNames) ? (nodeData._fileNames as string[]) : [];
-      const fileUrls: string[] = sortedFiles.map((f, i) => {
+      const currentFiles = filesRef.current;
+      const currentTextValue = textValueRef.current;
+      const currentSelectedNodeId = selectedNodeIdRef.current;
+      if (!currentSelectedNodeId) return;
+
+      // Read latest node data from store (not closure) to avoid overwriting
+      // content written by addFilesToCanvas or scheduleContentFlush.
+      const storeState = useWorkflowStore.getState();
+      const latestNode = storeState.nodes.find((n) => n.id === currentSelectedNodeId);
+      const latestData = (latestNode?.data || {}) as Record<string, unknown>;
+      const existingContent: string[] = Array.isArray(latestData.content) ? (latestData.content as string[]) : [];
+      const existingNames: string[] = Array.isArray(latestData._fileNames) ? (latestData._fileNames as string[]) : [];
+
+      const sorted = sortFilesByOrder(currentFiles, (latestData._fileOrder as number[]) || []);
+      const fileUrls: string[] = sorted.map((f, i) => {
         const serverUrl = uploadedUrlsRef.current.get(f._id);
         if (serverUrl) return serverUrl;
         // Keep existing /api/files/ or http URL if present (survives refresh)
@@ -214,7 +224,7 @@ export default function IoStylePanel() {
         // Wait for upload to complete; keep previous value or leave empty
         return prev || '';
       });
-      const fileNames: string[] = sortedFiles.map((f, i) => {
+      const fileNames: string[] = sorted.map((f, i) => {
         if (f.name) return f.name;
         // Preserve existing name from prior save
         const prev = existingNames[i];
@@ -222,15 +232,15 @@ export default function IoStylePanel() {
         return '';
       });
       setData({
-        text: textValue || '',
+        text: currentTextValue || '',
         content: fileUrls,
-        _fileIds: sortedFiles.filter((f) => f._id >= 0).map((f) => f._id),
-        _fileKinds: sortedFiles.map((f) => f.kind),
+        _fileIds: sorted.filter((f) => f._id >= 0).map((f) => f._id),
+        _fileKinds: sorted.map((f) => f.kind),
         _fileNames: fileNames,
       });
     }, 300);
     return () => { if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current); };
-  }, [textValue, files, persistentContentSignature, fileNamesSignature]);
+  }, [textValue, files, persistentContentSignature, fileNamesSignature, fileIdsLen]);
 
   // ── resize ──
   const handleDragStart = useCallback((event: React.PointerEvent) => {
@@ -455,16 +465,7 @@ export default function IoStylePanel() {
 
   // source mode: sort user files (V3-style)
   const fileOrder: number[] = (nodeData._fileOrder as number[]) || [];
-  const fileOrderMap = new Map(fileOrder.map((id, i) => [id, i]));
-  const sortedFiles = [...files].sort((a, b) => {
-    const kd = (KIND_ORDER[a.kind] ?? 99) - (KIND_ORDER[b.kind] ?? 99);
-    if (kd !== 0) return kd;
-    const ai = fileOrderMap.get(a._id); const bi = fileOrderMap.get(b._id);
-    if (ai !== undefined && bi !== undefined) return ai - bi;
-    if (ai !== undefined) return -1;
-    if (bi !== undefined) return 1;
-    return 0;
-  });
+  const sortedFiles = useMemo(() => sortFilesByOrder(files, fileOrder), [files, fileOrder]);
 
   const srcThumbLetter = (f: FileThumb) => {
     const map: Record<string, string> = { image: '图', video: '视', audio: '音', other: '?' };
