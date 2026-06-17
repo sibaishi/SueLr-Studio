@@ -77,7 +77,7 @@ export default function IoStylePanel() {
   const [srcDragOverIdx, setSrcDragOverIdx] = useState<number | null>(null);
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(0);
-  const typeGroupsRef = useRef<Record<string, { edgeId: string }[]>>({});
+  const typeGroupsRef = useRef<typeof inputGroups>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -396,65 +396,62 @@ export default function IoStylePanel() {
   const TYPE_ORDER_KEYS = ['text', 'image', 'video', 'audio', 'mask'] as const;
   const TYPE_LABEL: Record<string, string> = { text: '文本', image: '图片', video: '视频', audio: '音频', mask: '遮罩' };
 
-  // ── type-grouped node-level chips (upstream mode) ──
-  const typeGroups = useMemo(() => {
-    const groups: Record<string, { sourceNodeId: string; sourceNodeLabel: string; edgeId: string; count: number; previewUrl?: string }[]> = {};
-    const nodeInputOrder = readInputOrder(ioNode);
+  // ── type-grouped per-file items (upstream mode) ──
+  const inputGroups = useMemo(() => {
+    const groups: Record<string, {
+      sourceNodeId: string;
+      sourceNodeLabel: string;
+      items: { id: string; edgeId: string; value: string; label: string; type: string }[];
+    }[]> = {};
+    const inputOrder = readInputOrder(ioNode);
+
+    // Sort rawInputs: type group order → within type, order by inputOrder[type]
+    const edgeOrderMap = new Map<string, number>();
+    for (const type of TYPE_ORDER_KEYS) {
+      const order = inputOrder[type];
+      if (order) order.forEach((eid, i) => edgeOrderMap.set(eid, i));
+    }
 
     for (const type of TYPE_ORDER_KEYS) {
-      const typeInputs = rawInputs.filter((x) => x.type === type);
+      const typeInputs = rawInputs
+        .filter((x) => x.type === type)
+        .sort((a, b) => (edgeOrderMap.get(a.edgeId) ?? Infinity) - (edgeOrderMap.get(b.edgeId) ?? Infinity));
       if (typeInputs.length === 0) continue;
 
-      const entries: typeof groups[string] = [];
-      const seenNodes = new Set<string>();
+      const nodeGroups: typeof groups[string] = [];
+      let currentGroup: (typeof nodeGroups)[number] | null = null;
+
       for (const input of typeInputs) {
-        if (seenNodes.has(input.sourceNodeId)) continue;
-        seenNodes.add(input.sourceNodeId);
-
-        const src = nodes.find((n) => n.id === input.sourceNodeId);
-        const srcDef = getNodeDef(src?.type || '');
-        const nodeLabel = (typeof (src?.data as Record<string, unknown> | undefined)?.label === 'string'
-          ? (src?.data as Record<string, unknown>).label as string
-          : '') || srcDef?.label || input.sourceNodeId;
-
-        entries.push({
-          sourceNodeId: input.sourceNodeId,
-          sourceNodeLabel: nodeLabel,
+        if (!currentGroup || currentGroup.sourceNodeId !== input.sourceNodeId) {
+          const src = nodes.find((n) => n.id === input.sourceNodeId);
+          const srcDef = getNodeDef(src?.type || '');
+          const nodeLabel = (typeof (src?.data as Record<string, unknown> | undefined)?.label === 'string'
+            ? (src?.data as Record<string, unknown>).label as string
+            : '') || srcDef?.label || input.sourceNodeId;
+          currentGroup = { sourceNodeId: input.sourceNodeId, sourceNodeLabel: nodeLabel, items: [] };
+          nodeGroups.push(currentGroup);
+        }
+        currentGroup.items.push({
+          id: input.id,
           edgeId: input.edgeId,
-          count: 0,
-          previewUrl: (input.type === 'image' || input.type === 'video') ? input.value : undefined,
+          value: input.value,
+          label: input.label,
+          type: input.type,
         });
       }
 
-      for (const entry of entries) {
-        entry.count = typeInputs.filter((x) => x.sourceNodeId === entry.sourceNodeId).length;
-      }
-
-      const typeOrder = nodeInputOrder[type];
-      if (typeOrder && typeOrder.length > 0) {
-        const orderMap = new Map(typeOrder.map((eid, i) => [eid, i]));
-        entries.sort((a, b) => {
-          const ai = orderMap.get(a.edgeId);
-          const bi = orderMap.get(b.edgeId);
-          if (ai !== undefined && bi !== undefined) return ai - bi;
-          if (ai !== undefined) return -1;
-          if (bi !== undefined) return 1;
-          return 0;
-        });
-      }
-
-      groups[type] = entries;
+      groups[type] = nodeGroups;
     }
 
     return groups;
   }, [rawInputs, nodes, ioNode]);
 
-  typeGroupsRef.current = typeGroups;
+  typeGroupsRef.current = inputGroups;
 
   const handleGroupReorder = useCallback((type: string, fromIdx: number, toIdx: number) => {
     const group = typeGroupsRef.current[type];
     if (!group || group.length === 0 || fromIdx === toIdx) return;
-    const reordered = [...group.map((e) => e.edgeId)];
+    const reordered = [...group.map((e) => e.items[0]?.edgeId || '')];
     const [moved] = reordered.splice(fromIdx, 1);
     reordered.splice(toIdx, 0, moved);
 
@@ -462,7 +459,7 @@ export default function IoStylePanel() {
     const newOrder: InputOrderMap = {};
     for (const t of TYPE_ORDER_KEYS) {
       if (t === type) newOrder[t] = reordered;
-      else if (typeGroupsRef.current[t]) newOrder[t] = typeGroupsRef.current[t].map((e) => e.edgeId);
+      else if (typeGroupsRef.current[t]) newOrder[t] = typeGroupsRef.current[t].map((e) => e.items[0]?.edgeId || '');
     }
     if (currentOrder._legacy) newOrder._legacy = currentOrder._legacy;
 
@@ -493,43 +490,65 @@ export default function IoStylePanel() {
       }}
       onPointerDown={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (e.clientY - rect.top <= 12) handleDragStart(e); }}
     >
-      {/* ── V3-STYLE UPSTREAM CHIPS (type-grouped node-level) ── */}
+      {/* ── UPSTREAM FILE ITEMS (type-grouped, per-file thumbnails) ── */}
       {hasUpstream && rawInputs.length > 0 && (
-        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px' }}>
+        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8, padding: '0 4px' }}>
           {TYPE_ORDER_KEYS.map((type) => {
-            const group = typeGroups[type];
-            if (!group || group.length === 0) return null;
+            const groups = inputGroups[type];
+            if (!groups || groups.length === 0) return null;
             return (
-              <div key={type} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: 10, color: 'var(--t-text3)', minWidth: 28, flexShrink: 0 }}>{TYPE_LABEL[type]}</span>
-                {group.map((entry, idx) => (
+              <div key={type} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 10, color: 'var(--t-text3)', paddingLeft: 2 }}>{TYPE_LABEL[type]}</span>
+                {groups.map((nodeGroup, gIdx) => (
                   <div
-                    key={entry.sourceNodeId}
+                    key={nodeGroup.sourceNodeId}
                     draggable
-                    onDragStart={(e) => { setDraggedGroupIdx(idx); setDraggedGroupType(type); e.dataTransfer.effectAllowed = 'move'; }}
-                    onDragOver={(e) => { if (draggedGroupType === type) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupIdx(idx); } }}
+                    onDragStart={(e) => { setDraggedGroupIdx(gIdx); setDraggedGroupType(type); e.dataTransfer.effectAllowed = 'move'; }}
+                    onDragOver={(e) => { if (draggedGroupType === type) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupIdx(gIdx); } }}
                     onDragLeave={() => setDragOverGroupIdx(null)}
-                    onDrop={(e) => { e.preventDefault(); if (draggedGroupIdx !== null && draggedGroupType === type && draggedGroupIdx !== idx) handleGroupReorder(type, draggedGroupIdx, idx); setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
+                    onDrop={(e) => { e.preventDefault(); if (draggedGroupIdx !== null && draggedGroupType === type && draggedGroupIdx !== gIdx) handleGroupReorder(type, draggedGroupIdx, gIdx); setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
                     onDragEnd={() => { setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px',
-                      borderRadius: 10, background: dragOverGroupIdx === idx && draggedGroupType === type ? 'var(--t-border)' : 'var(--t-bg2)',
-                      border: '1px solid var(--t-border)', cursor: 'grab', fontSize: 11, color: 'var(--t-text2)',
-                      opacity: draggedGroupIdx === idx && draggedGroupType === type ? 0.4 : 1, transition: 'background 120ms ease, opacity 120ms ease',
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
+                      borderRadius: 10,
+                      background: dragOverGroupIdx === gIdx && draggedGroupType === type ? 'var(--t-border)' : 'var(--t-bg2)',
+                      border: '1px solid var(--t-border)', cursor: 'grab',
+                      opacity: draggedGroupIdx === gIdx && draggedGroupType === type ? 0.4 : 1,
+                      transition: 'background 120ms ease, opacity 120ms ease',
                     }}
-                    title={`${entry.sourceNodeLabel} · ${entry.count} 个${TYPE_LABEL[type] || type}（拖动可调整排序优先级）`}
                   >
-                    <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--t-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                      {entry.previewUrl ? (
-                        <img src={inferImageThumbnailUrl(entry.previewUrl) || entry.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                      ) : (
-                        <span style={{ fontSize: 10, fontWeight: 700 }}>{entry.count > 9 ? '9+' : entry.count}</span>
-                      )}
-                    </div>
-                    <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {entry.sourceNodeLabel}
+                    <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--t-text3)', whiteSpace: 'nowrap', maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>
+                      {nodeGroup.sourceNodeLabel}
                     </span>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {nodeGroup.items.map((item) => (
+                        <div
+                          key={item.id}
+                          style={{
+                            width: 26, height: 26, borderRadius: 6,
+                            background: 'var(--t-bg)', overflow: 'hidden', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: '1px solid var(--t-border)',
+                          }}
+                          title={item.type === 'text' ? item.value : item.label}
+                        >
+                          {(item.type === 'image' || item.type === 'video') && item.value ? (
+                            <img
+                              src={inferImageThumbnailUrl(item.value) || item.value}
+                              alt=""
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          ) : item.type === 'text' ? (
+                            <span style={{ fontSize: 8, lineHeight: 1.2, color: 'var(--t-text2)', padding: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                              {String(item.value || '').slice(0, 30)}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--t-text3)' }}>{item.type === 'video' ? '🎬' : item.type === 'audio' ? '🎵' : '?'}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
