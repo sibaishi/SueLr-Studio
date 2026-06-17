@@ -490,15 +490,15 @@ export default function IoStylePanel() {
       }}
       onPointerDown={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (e.clientY - rect.top <= 12) handleDragStart(e); }}
     >
-      {/* ── UPSTREAM FILE ITEMS (type-grouped, per-file thumbnails) ── */}
+      {/* ── UPSTREAM FILE ITEMS (type-grouped, compact horizontal) ── */}
       {hasUpstream && rawInputs.length > 0 && (
-        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8, padding: '0 4px' }}>
+        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px', cursor: 'default' }}>
           {TYPE_ORDER_KEYS.map((type) => {
             const groups = inputGroups[type];
             if (!groups || groups.length === 0) return null;
             return (
-              <div key={type} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 10, color: 'var(--t-text3)', paddingLeft: 2 }}>{TYPE_LABEL[type]}</span>
+              <div key={type} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: 10, color: 'var(--t-text3)', minWidth: 28, flexShrink: 0 }}>{TYPE_LABEL[type]}</span>
                 {groups.map((nodeGroup, gIdx) => (
                   <div
                     key={nodeGroup.sourceNodeId}
