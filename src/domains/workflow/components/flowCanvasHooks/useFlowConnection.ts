@@ -1,4 +1,5 @@
 import { PORT_COMPATIBILITY, getExpandedNodeOutputs, getNodeDef } from '@/domains/workflow/lib/constants';
+import { createsCycle } from '@/domains/workflow/lib/store/editorGraph';
 import { findGroupPort, isGroupPortExternallyConnectable, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { Connection, Node as FlowNodeType } from '@xyflow/react';
@@ -141,6 +142,9 @@ export function useFlowConnection({ openContextMenuAtPoint, renderNodeMap, store
     }) => {
       if (!connection.source || !connection.target) return false;
       if (connection.source === connection.target) return false;
+
+      // Prevent cycles — if target can already reach source, this edge would close a loop
+      if (createsCycle(store.nodes as { id: string }[], store.edges, connection.source, connection.target)) return false;
 
       const sourceNode = renderNodeMap.get(connection.source);
       const targetNode = renderNodeMap.get(connection.target);

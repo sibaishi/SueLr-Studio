@@ -30,7 +30,7 @@ import {
   isNodeLockedWithAncestors,
   normalizeEditorNodes,
 } from '@/domains/workflow/lib/store/editorShared';
-import { getDefaultData, gid } from '@/domains/workflow/lib/store/helpers';
+import { getDefaultData, gid, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
 import { type Edge, type Node, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 
@@ -61,6 +61,155 @@ type WorkflowStoreGraphEditorActions = Pick<
   | 'setShowDebugSizes'
   | 'setSnapToGridEnabled'
 >;
+
+/** BFS from targetId along edges; returns true if sourceId is reachable, meaning a new sourceId→targetId edge would close a cycle. */
+export function createsCycle(
+  nodes: { id: string }[],
+  edges: { source: string; target: string }[],
+  sourceId: string,
+  targetId: string,
+): boolean {
+  const adjacency = new Map<string, string[]>();
+  for (const node of nodes) adjacency.set(node.id, []);
+  for (const edge of edges) {
+    const list = adjacency.get(edge.source);
+    if (list) list.push(edge.target);
+  }
+
+  const visited = new Set<string>();
+  const queue = [targetId];
+  visited.add(targetId);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const neighbor of adjacency.get(current) || []) {
+      if (neighbor === sourceId) return true;
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return false;
+}
+
+/** Merge data from all incoming IO source nodes into an IO target, respecting inputOrder. */
+function computeIoMergedData(
+  targetId: string,
+  nodes: Node[],
+  edges: Edge[],
+): Record<string, unknown> {
+  const incomingEdges = edges.filter(
+    (e) => e.target === targetId && (e.targetHandle === 'input' || !e.targetHandle),
+  );
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const ioIncomingEdges = incomingEdges.filter((e) => nodeMap.get(e.source)?.type === 'io');
+
+  if (ioIncomingEdges.length === 0) {
+    return { text: '', content: [], _fileIds: [], _fileKinds: [], _fileNames: [], _thumbnails: {} };
+  }
+
+  // Sort by inputOrder (per-type groups, then per-group edge priority)
+  const inputOrder = readInputOrder(nodeMap.get(targetId));
+  const TYPE_ORDER = ['text', 'image', 'video', 'audio', 'mask'];
+  const orderedEdges: Edge[] = [];
+  const seen = new Set<string>();
+
+  for (const type of TYPE_ORDER) {
+    const typeEdges = inputOrder[type];
+    if (typeEdges) {
+      for (const eid of typeEdges) {
+        const edge = ioIncomingEdges.find((e) => e.id === eid);
+        if (edge && !seen.has(eid)) { seen.add(eid); orderedEdges.push(edge); }
+      }
+    }
+  }
+  for (const edge of ioIncomingEdges) {
+    if (!seen.has(edge.id)) { seen.add(edge.id); orderedEdges.push(edge); }
+  }
+
+  // Merge
+  const textParts: string[] = [];
+  const contents: string[] = [];
+  const fileIds: number[] = [];
+  const fileKinds: string[] = [];
+  const fileNames: string[] = [];
+  const thumbnails: Record<number, string> = {};
+
+  for (const edge of orderedEdges) {
+    const src = nodeMap.get(edge.source);
+    if (!src) continue;
+    const data = (src.data || {}) as Record<string, unknown>;
+
+    const srcText = typeof data.text === 'string' ? data.text.trim() : '';
+    if (srcText) textParts.push(srcText);
+
+    if (Array.isArray(data.content)) {
+      for (const item of data.content) {
+        if (item && typeof item === 'string') contents.push(item);
+      }
+    }
+    if (Array.isArray(data._fileIds)) {
+      for (const id of data._fileIds as number[]) fileIds.push(id);
+    }
+    if (Array.isArray(data._fileKinds)) {
+      for (const kind of data._fileKinds as string[]) fileKinds.push(kind);
+    }
+    if (Array.isArray(data._fileNames)) {
+      for (const name of data._fileNames as string[]) fileNames.push(name);
+    }
+    if (data._thumbnails && typeof data._thumbnails === 'object') {
+      Object.assign(thumbnails, data._thumbnails as Record<number, string>);
+    }
+  }
+
+  return {
+    text: textParts.join('\n'),
+    content: contents,
+    _fileIds: fileIds,
+    _fileKinds: fileKinds,
+    _fileNames: fileNames,
+    _thumbnails: thumbnails,
+  };
+}
+
+/** BFS from sourceNodeId along outgoing edges; for each downstream IO node, merge upstream data and keep going. Stops at non-IO nodes. Returns new nodes array. */
+function propagateIoData(nodes: Node[], edges: Edge[], sourceNodeId: string): Node[] {
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const source = nodeMap.get(sourceNodeId);
+  if (!source || source.type !== 'io') return nodes;
+
+  const updatedNodes = [...nodes];
+  const visited = new Set<string>([sourceNodeId]);
+  const queue = [sourceNodeId];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+
+    for (const edge of edges) {
+      if (edge.source !== currentId) continue;
+      const targetId = edge.target;
+      if (visited.has(targetId)) continue;
+
+      const target = nodeMap.get(targetId);
+      if (!target || target.type !== 'io') continue; // cutoff at non-IO
+
+      visited.add(targetId);
+
+      const mergedData = computeIoMergedData(targetId, updatedNodes, edges);
+      const idx = updatedNodes.findIndex((n) => n.id === targetId);
+      if (idx >= 0) {
+        updatedNodes[idx] = { ...updatedNodes[idx], data: { ...updatedNodes[idx].data, ...mergedData } };
+        nodeMap.set(targetId, updatedNodes[idx]);
+      }
+
+      queue.push(targetId);
+    }
+  }
+
+  return updatedNodes;
+}
 
 export function createWorkflowGraphEditorActions(
   set: WorkflowStoreSet,
@@ -128,15 +277,22 @@ export function createWorkflowGraphEditorActions(
     },
 
     updateNodeData: (nodeId, data) => {
-      set((state) => ({
-        nodes: normalizeEditorNodes(
-          state.nodes.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node)),
-          state.edges,
-        ),
-        nodeWarnings: {},
-        workflowWarningMessage: null,
-        hasUnsavedChanges: true,
-      }));
+      set((state) => {
+        const updatedNodes = state.nodes.map((node) =>
+          node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node,
+        );
+        const changedNode = updatedNodes.find((n) => n.id === nodeId);
+        const withPropagation =
+          changedNode?.type === 'io'
+            ? propagateIoData(updatedNodes, state.edges, nodeId)
+            : updatedNodes;
+        return {
+          nodes: normalizeEditorNodes(withPropagation, state.edges),
+          nodeWarnings: {},
+          workflowWarningMessage: null,
+          hasUnsavedChanges: true,
+        };
+      });
     },
 
     toggleGroupCollapsed: (groupId, collapsed) => {
@@ -393,6 +549,8 @@ export function createWorkflowGraphEditorActions(
       );
       if (exists) return;
 
+      if (createsCycle(get().nodes, edges, source, target)) return;
+
       // Skip single-connection filter for node types that support multi-input
       const targetNode = get().nodes.find((n) => n.id === target);
       const isMultiInput = targetNode?.type === 'aiV3' || targetNode?.type === 'io';
@@ -440,13 +598,20 @@ export function createWorkflowGraphEditorActions(
 
       const nextEdges = [...filteredEdges, newEdge];
 
-      set((state) => ({
-        edges: nextEdges,
-        nodes: normalizeEditorNodes(state.nodes, nextEdges),
-        nodeWarnings: {},
-        workflowWarningMessage: null,
-        hasUnsavedChanges: true,
-      }));
+      set((state) => {
+        const sourceNode = state.nodes.find((n) => n.id === source);
+        const withPropagation =
+          sourceNode?.type === 'io'
+            ? propagateIoData(state.nodes, nextEdges, source)
+            : state.nodes;
+        return {
+          edges: nextEdges,
+          nodes: normalizeEditorNodes(withPropagation, nextEdges),
+          nodeWarnings: {},
+          workflowWarningMessage: null,
+          hasUnsavedChanges: true,
+        };
+      });
     },
 
     removeEdge: (edgeId) => {
@@ -462,9 +627,19 @@ export function createWorkflowGraphEditorActions(
             state.edges.filter((edge) => edge.id !== edgeId && !cascadeRemovedEdgeIds.has(edge.id)),
           ),
         );
+
+        // If a removed edge connected IO→IO, recompute the target's data and propagate downstream
+        let withPropagation = updatedNodes;
+        for (const removedEdge of allRemovedEdges) {
+          const target = withPropagation.find((n) => n.id === removedEdge.target);
+          if (target?.type === 'io') {
+            withPropagation = propagateIoData(withPropagation, edges, removedEdge.target);
+          }
+        }
+
         return {
           edges,
-          nodes: normalizeEditorNodes(updatedNodes, edges),
+          nodes: normalizeEditorNodes(withPropagation, edges),
           nodeWarnings: {},
           workflowWarningMessage: null,
           hasUnsavedChanges: true,
