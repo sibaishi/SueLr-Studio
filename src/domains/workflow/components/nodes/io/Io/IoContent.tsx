@@ -74,12 +74,27 @@ export function IoContent({
   // Source-mode content: combine text + file URLs, same as panel display
   const sourceContent = useMemo(() => {
     const text = data.text;
-    const files = data.content;
+    const rawFiles = data.content;
+    const fileOrder: number[] = Array.isArray(data._fileOrder) ? (data._fileOrder as number[]) : [];
+    const fileIds: number[] = Array.isArray(data._fileIds) ? (data._fileIds as number[]) : [];
+
+    // Sort files by _fileOrder so the node card reflects the same order as IoStylePanel drag reorder
+    let files = rawFiles;
+    if (Array.isArray(rawFiles) && rawFiles.length > 0 && fileOrder.length > 0) {
+      const orderMap = new Map(fileOrder.map((fid, i) => [fid, i]));
+      const withOrder = rawFiles.map((url, idx) => ({
+        url,
+        order: orderMap.get(fileIds[idx]) ?? 9999,
+        idx,
+      }));
+      files = withOrder.sort((a, b) => a.order - b.order || a.idx - b.idx).map((e) => e.url);
+    }
+
     if (text && Array.isArray(files) && files.length > 0) return [text, ...files];
     if (Array.isArray(files) && files.length > 0) return files;
     if (text) return text;
     return null;
-  }, [data.text, data.content]);
+  }, [data.text, data.content, data._fileOrder, data._fileIds]);
 
   // Resolve slot values (same logic as AiV3StylePanel input thumbnails)
   // Also handle data.content fallback: when upstream IO has file URLs but no _fileIds
