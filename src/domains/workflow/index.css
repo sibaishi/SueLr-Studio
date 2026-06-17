@@ -1181,6 +1181,27 @@ body {
   padding: 14px 18px;
 }
 
+.workflow-image-preview-modal__text-editor {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--node-card-ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 14px 18px;
+}
+
+.workflow-image-preview-modal__text-editor::placeholder {
+  color: var(--node-card-muted);
+}
+
 .workflow-image-preview-modal__text-content::-webkit-scrollbar {
   width: 4px;
 }

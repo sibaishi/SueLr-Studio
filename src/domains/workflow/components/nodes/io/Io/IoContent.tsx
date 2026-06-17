@@ -60,7 +60,8 @@ export function IoContent({
   const nodes = useWorkflowStore((s) => s.nodes);
   const [previewIdx, setPreviewIdx] = useState<number>(-1);
   const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
-  const [textModalContent, setTextModalContent] = useState<string | null>(null);
+  const [textModalOpen, setTextModalOpen] = useState(false);
+  const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
 
   // Compute upstream content from edges via slot expansion (same as AiV3 panel)
   const upstreamSlots = useMemo((): AiV3InputSlot[] | null => {
@@ -290,7 +291,7 @@ export function IoContent({
           {textItems.map((text, idx) => (
             <div
               key={`t${idx}`}
-              onDoubleClick={() => setTextModalContent(String(text))}
+              onDoubleClick={() => setTextModalOpen(true)}
               style={{
                 fontSize: 10, lineHeight: 1.5, color: 'var(--node-card-ink)',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
@@ -408,12 +409,15 @@ export function IoContent({
             />
           )}
 
-          {/* Text viewer modal */}
-          {textModalContent != null && (
+          {/* Text editor modal */}
+          {textModalOpen && (
             <ImagePreviewModal
               src=""
-              textContent={textModalContent}
-              onClose={() => setTextModalContent(null)}
+              textContent={String(data.text || '')}
+              onTextChange={(text) => {
+                if (nodeId) updateNodeData(nodeId, { text });
+              }}
+              onClose={() => setTextModalOpen(false)}
             />
           )}
         </div>

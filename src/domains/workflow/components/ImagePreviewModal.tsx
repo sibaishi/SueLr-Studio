@@ -13,6 +13,7 @@ export interface PreviewImageItem {
 export function ImagePreviewModal({
   src,
   textContent,
+  onTextChange,
   title,
   renderTextActions,
   alt = '查看大图',
@@ -27,6 +28,7 @@ export function ImagePreviewModal({
 }: {
   src: string;
   textContent?: string;
+  onTextChange?: (text: string) => void;
   title?: string;
   renderTextActions?: () => ReactNode;
   alt?: string;
@@ -64,6 +66,23 @@ export function ImagePreviewModal({
   const [activeIndex, setActiveIndex] = useState(resolvedInitialIndex);
   const [copyStatus, setCopyStatus] = useState('');
   const [textCopyStatus, setTextCopyStatus] = useState('');
+  const [localText, setLocalText] = useState(textContent || '');
+
+  // Sync localText from external textContent changes (from textarea below)
+  useEffect(() => {
+    if (textContent !== undefined && textContent !== localText) {
+      setLocalText(textContent);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textContent]);
+
+  const handleTextChange = useCallback(
+    (value: string) => {
+      setLocalText(value);
+      onTextChange?.(value);
+    },
+    [onTextChange],
+  );
   const [showResize, setShowResize] = useState(false);
   const [resizeMode, setResizeMode] = useState<'percent' | 'dimensions'>('percent');
   const [scalePercent, setScalePercent] = useState(100);
@@ -348,7 +367,15 @@ export function ImagePreviewModal({
                   <X size={16} />
                 </button>
               </div>
-              <pre className="workflow-image-preview-modal__text-content">{textContent}</pre>
+              {onTextChange ? (
+                <textarea
+                  className="workflow-image-preview-modal__text-editor"
+                  value={localText}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                />
+              ) : (
+                <pre className="workflow-image-preview-modal__text-content">{localText}</pre>
+              )}
             </div>
           </div>
         ) : (
