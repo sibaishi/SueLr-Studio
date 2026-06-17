@@ -94,6 +94,46 @@ export function createsCycle(
   return false;
 }
 
+const OWN_FIELDS: [string, string][] = [
+  ['text', '_ownText'],
+  ['content', '_ownContent'],
+  ['_fileIds', '_ownFileIds'],
+  ['_fileKinds', '_ownFileKinds'],
+  ['_fileNames', '_ownFileNames'],
+  ['_thumbnails', '_ownThumbnails'],
+];
+
+/** Extract own-data copies from a data update (only for fields being changed). */
+function extractOwnUpdates(data: Record<string, unknown>): Record<string, unknown> {
+  const own: Record<string, unknown> = {};
+  for (const [field, ownField] of OWN_FIELDS) {
+    if (field in data) own[ownField] = data[field];
+  }
+  return own;
+}
+
+/** Save own-data snapshot from current node data (only if not already saved). */
+function snapshotOwnData(nodeData: Record<string, unknown>): Record<string, unknown> {
+  if ('_ownText' in nodeData) return {}; // already saved
+  const own: Record<string, unknown> = {};
+  for (const [field, ownField] of OWN_FIELDS) {
+    own[ownField] = nodeData[field];
+  }
+  return own;
+}
+
+/** Return own-data from a node, or empty defaults. */
+function restoreOwnData(nodeData: Record<string, unknown>): Record<string, unknown> {
+  return {
+    text: (nodeData._ownText as string) ?? '',
+    content: (nodeData._ownContent as string[]) ?? [],
+    _fileIds: (nodeData._ownFileIds as number[]) ?? [],
+    _fileKinds: (nodeData._ownFileKinds as string[]) ?? [],
+    _fileNames: (nodeData._ownFileNames as string[]) ?? [],
+    _thumbnails: (nodeData._ownThumbnails as Record<number, string>) ?? {},
+  };
+}
+
 /** Merge data from all incoming IO source nodes into an IO target, respecting inputOrder. */
 function computeIoMergedData(
   targetId: string,
@@ -107,7 +147,8 @@ function computeIoMergedData(
   const ioIncomingEdges = incomingEdges.filter((e) => nodeMap.get(e.source)?.type === 'io');
 
   if (ioIncomingEdges.length === 0) {
-    return { text: '', content: [], _fileIds: [], _fileKinds: [], _fileNames: [], _thumbnails: {} };
+    const target = nodeMap.get(targetId);
+    return restoreOwnData((target?.data || {}) as Record<string, unknown>);
   }
 
   // Sort by inputOrder (per-type groups, then per-group edge priority)
@@ -200,7 +241,8 @@ function propagateIoData(nodes: Node[], edges: Edge[], sourceNodeId: string): No
       const mergedData = computeIoMergedData(targetId, updatedNodes, edges);
       const idx = updatedNodes.findIndex((n) => n.id === targetId);
       if (idx >= 0) {
-        updatedNodes[idx] = { ...updatedNodes[idx], data: { ...updatedNodes[idx].data, ...mergedData } };
+        const savedOwn = snapshotOwnData((updatedNodes[idx].data || {}) as Record<string, unknown>);
+        updatedNodes[idx] = { ...updatedNodes[idx], data: { ...updatedNodes[idx].data, ...savedOwn, ...mergedData } };
         nodeMap.set(targetId, updatedNodes[idx]);
       }
 
@@ -278,10 +320,13 @@ export function createWorkflowGraphEditorActions(
 
     updateNodeData: (nodeId, data) => {
       set((state) => {
+        const changedNode = state.nodes.find((n) => n.id === nodeId);
+        const ownUpdates = changedNode?.type === 'io' ? extractOwnUpdates(data) : {};
         const updatedNodes = state.nodes.map((node) =>
-          node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node,
+          node.id === nodeId
+            ? { ...node, data: { ...node.data, ...data, ...ownUpdates } }
+            : node,
         );
-        const changedNode = updatedNodes.find((n) => n.id === nodeId);
         const withPropagation =
           changedNode?.type === 'io'
             ? propagateIoData(updatedNodes, state.edges, nodeId)
