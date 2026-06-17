@@ -116,12 +116,6 @@ describe('execution graph projection', () => {
   });
 
   it('keeps all upstream branches for multi-input target nodes', () => {
-    const nodes: Node[] = [
-      { id: 'left', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
-      { id: 'right', type: 'imageInput', position: { x: 0, y: 100 }, data: {} },
-      { id: 'unrelated', type: 'textInput', position: { x: 0, y: 200 }, data: {} },
-    ];
-
     // This test case has been removed because it was testing imageCompare-specific
     // multi-target edge filtering behavior which is no longer applicable.
   });

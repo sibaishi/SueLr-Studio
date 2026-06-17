@@ -1,3 +1,5 @@
+const path = require('node:path');
+
 const WINDOW_OPTIONS = {
   width: 1280,
   height: 820,
@@ -12,7 +14,9 @@ function createMainWindow({
   shell,
   url,
   iconPath,
+  app,
 }) {
+  const preloadPath = path.join(app.getAppPath(), 'electron', 'preload.cjs');
   const window = new BrowserWindow({
     ...WINDOW_OPTIONS,
     icon: iconPath,
@@ -20,6 +24,7 @@ function createMainWindow({
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: preloadPath,
     },
   });
 

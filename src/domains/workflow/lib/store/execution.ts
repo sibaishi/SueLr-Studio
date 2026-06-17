@@ -1,5 +1,6 @@
 import * as api from '@/domains/workflow/lib/api/execution';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
+import { notifyWorkflowComplete } from '@/shared/providers/notification';
 import {
   filterExecutionGraphToUpstreamTarget,
   projectWorkflowToExecutionGraph,
@@ -722,14 +723,15 @@ export function createWorkflowExecutionActions(
           message: `工作流完成：${data.successCount} 成功 / ${data.failCount} 失败 (${data.totalDuration} ms)`,
           details: formatLogDetails(data),
         });
+        const isPartialFailure = data.failCount > 0;
         set({
           isExecuting: false,
           executionProgress: null,
-          executionMessage: data.failCount > 0 ? '工作流执行完成，但有节点失败' : '工作流执行完成',
+          executionMessage: isPartialFailure ? '工作流执行完成，但有节点失败' : '工作流执行完成',
           currentRunId: null,
           lastExecutionRunId: get().lastExecutionRunId,
           executingNodeId: null,
-          lastExecutionStatus: data.failCount > 0 ? 'error' : 'success',
+          lastExecutionStatus: isPartialFailure ? 'error' : 'success',
           lastExecutionTime: data.totalDuration,
           lastExecutionSummary: {
             successCount: data.successCount,
@@ -738,6 +740,10 @@ export function createWorkflowExecutionActions(
           },
           aiResultOutputs: nextAiResultOutputs,
         });
+        notifyWorkflowComplete(
+          isPartialFailure ? '工作流执行完成（部分失败）' : '工作流执行完成',
+          `${data.successCount} 成功 / ${data.failCount} 失败 · ${data.totalDuration}ms`,
+        );
       },
       onWorkflowError: (data) => {
         clearActiveRunSnapshot();
@@ -757,6 +763,10 @@ export function createWorkflowExecutionActions(
           lastExecutionError: data.error || '未知错误',
           lastExecutionSummary: null,
         });
+        notifyWorkflowComplete(
+          '工作流执行失败',
+          typeof data.error === 'string' ? data.error : '发生未知错误',
+        );
       },
     };
     if (runtimeApiConfig) {

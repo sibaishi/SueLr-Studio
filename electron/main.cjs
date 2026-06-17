@@ -42,6 +42,7 @@ function createWindow(url) {
     shell,
     url,
     iconPath: resolveAppPath('build', 'icon.ico'),
+    app,
   });
 }
 
@@ -65,13 +66,35 @@ function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+function setupIPC() {
+  const { ipcMain } = require('electron');
+
+  ipcMain.on('focus:window', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (mainWindow.isVisible()) {
+      mainWindow.focus();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
+
+  // Windows 通知 click 事件必须关联 AppUserModelID
+  if (process.platform === 'win32') {
+    app.setAppUserModelId(process.execPath);
+  }
+
   const backend = await startEmbeddedBackend({
     resolveAppPath,
     relaunchApp,
   });
   backendServer = backend.server;
+  setupIPC();
   installApplicationMenu();
   createWindow(backend.url);
 
