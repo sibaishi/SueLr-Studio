@@ -5,7 +5,7 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { expandAiV3InputSlots, readInputOrder, type InputOrderMap } from '@/domains/workflow/lib/store/helpers';
 import { createThumbnailFromBlob } from '@/domains/workflow/components/flowCanvasHelpers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fileRawStore } from './nodes/io/fileRawStore';
+import { fileRawStore, uploadUrlStore } from './nodes/io/fileRawStore';
 
 const MIN_H = 150;
 const MAX_H = 300;
@@ -83,7 +83,6 @@ export default function IoStylePanel() {
 
   const [textValue, setTextValue] = useState('');
   const [files, setFiles] = useState<FileThumb[]>([]);
-  const uploadedUrlsRef = useRef<Map<number, string>>(new Map());
   // Refs to avoid stale closures in syncTimer (external changes via drop/paste
   // can arrive between effect creation and timer fire)
   const filesRef = useRef(files);
@@ -156,32 +155,38 @@ export default function IoStylePanel() {
   }, [needsMigration, migrateContent]);
 
   const buildFilesFromData = useCallback(() => {
-    const content = nodeData.content;
     const fileIds: number[] = (nodeData._fileIds as number[]) || [];
     const fileKinds: string[] = (nodeData._fileKinds as string[]) || [];
     const fileNames: string[] = (nodeData._fileNames as string[]) || [];
-    const arr = Array.isArray(content) ? content : [];
-    return arr
-      .map((entry, idx) => {
+    const contentArr = Array.isArray(nodeData.content) ? (nodeData.content as string[]) : [];
+
+    // Iterate by _fileIds when available (normal path); fall back to content
+    // length for migration path where _fileIds is intentionally empty.
+    const count = fileIds.length > 0 ? fileIds.length : contentArr.length;
+
+    return Array.from({ length: count }, (_, idx) => {
         const fid = fileIds[idx] ?? -1;
         const rec = fid >= 0 ? fileRawStore.get(fid) : undefined;
-        const str = String(entry);
-        if (!str) return null;
-        // After migration, content only has file URLs; still infer kind as fallback
+        const entry = contentArr[idx] || '';
+
+        // When content is an empty placeholder (drop/paste before upload completes),
+        // we still produce the entry — rendering falls back to objectUrl for thumbnails.
         let kind: FileKind = (fileKinds[idx] as FileKind) || 'other';
         if (kind === 'other') {
-          if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) kind = 'video';
-          else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) kind = 'audio';
+          if (entry.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(entry)) kind = 'video';
+          else if (entry.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(entry)) kind = 'audio';
           else kind = 'image';
         }
         return {
-          _id: fid, name: rec?.name || fileNames[idx] || '',
+          _id: fid,
+          name: rec?.name || fileNames[idx] || '',
           kind,
-          thumbnail: String(entry), objectUrl: rec?.objectUrl || '',
+          thumbnail: entry,
+          objectUrl: rec?.objectUrl || '',
         };
       })
-      .filter(Boolean) as FileThumb[];
-  }, [nodeData.content, nodeData._fileIds, nodeData._fileKinds, nodeData._fileNames]);
+      .filter((f) => f._id >= 0 || f.thumbnail) as FileThumb[];
+  }, [nodeData._fileIds, nodeData._fileKinds, nodeData._fileNames, nodeData.content]);
 
   // Initialize local state when the selected node or upstream status changes
   useEffect(() => {
@@ -214,7 +219,7 @@ export default function IoStylePanel() {
 
       const sorted = sortFilesByOrder(currentFiles, (latestData._fileOrder as number[]) || []);
       const fileUrls: string[] = sorted.map((f, i) => {
-        const serverUrl = uploadedUrlsRef.current.get(f._id);
+        const serverUrl = uploadUrlStore.get(f._id);
         if (serverUrl) return serverUrl;
         // Keep existing /api/files/ or http URL if present (survives refresh)
         const prev = existingContent[i];
@@ -279,8 +284,9 @@ export default function IoStylePanel() {
       // Upload to backend for persistence across page refreshes
       uploadFile(file).then((result) => {
         if (result.success && result.url) {
-          uploadedUrlsRef.current.set(id, result.url);
-          setFiles((prev) => prev.map((f) => (f._id === id ? { ...f, uploadedUrl: result.url } : f)));
+          uploadUrlStore.set(id, result.url);
+          // trigger sync timer via files reference change so it picks up the URL
+          setFiles((prev) => [...prev]);
         }
       }).catch(() => { /* upload failed, blob URL fallback is fine */ });
     }

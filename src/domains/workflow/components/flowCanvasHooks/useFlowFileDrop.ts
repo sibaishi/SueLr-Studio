@@ -1,4 +1,5 @@
 import { uploadFile } from '@/domains/workflow/lib/api/files';
+import { uploadUrlStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { Node as FlowNodeType } from '@xyflow/react';
 import type { DragEvent } from 'react';
@@ -82,24 +83,31 @@ function uploadDroppedMediaFile(nodeId: string, mediaFile: DroppedMediaFile) {
     .then((result) => {
       if (!result.success || !result.url) return;
 
+      // Write uploaded URL to shared module-level store.
+      // The IoStylePanel sync timer is the single consumer that persists URLs
+      // into nodeData.content — no other code writes content directly.
+      uploadUrlStore.set(mediaFile.id, result.url);
+
+      // Refresh _fileNames from server response (may differ via mojibake decode).
+      // This store update also triggers IoStylePanel re-render so the sync timer
+      // picks up the new URL from uploadUrlStore.
       const latestState = useWorkflowStore.getState();
       const node = latestState.nodes.find((item) => item.id === nodeId);
-      const nodeData = (node?.data || {}) as Record<string, unknown>;
-      const fileIds = Array.isArray(nodeData._fileIds) ? [...(nodeData._fileIds as number[])] : [];
+      if (!node) return;
+      const nodeData = (node.data || {}) as Record<string, unknown>;
+      const fileIds = Array.isArray(nodeData._fileIds) ? (nodeData._fileIds as number[]) : [];
       const index = fileIds.indexOf(mediaFile.id);
       if (index < 0) return;
 
-      const content = Array.isArray(nodeData.content) ? [...(nodeData.content as string[])] : [];
-      const fileNames = Array.isArray(nodeData._fileNames) ? [...(nodeData._fileNames as string[])] : [];
-      while (content.length < fileIds.length) content.push('');
+      const newName = result.fileName || mediaFile.name;
+      const fileNames = Array.isArray(nodeData._fileNames)
+        ? [...(nodeData._fileNames as string[])]
+        : [];
       while (fileNames.length < fileIds.length) fileNames.push('');
-      content[index] = result.url;
-      fileNames[index] = result.fileName || mediaFile.name;
+      if (fileNames[index] === newName) return;
 
-      latestState.updateNodeData(nodeId, {
-        content,
-        _fileNames: fileNames,
-      });
+      fileNames[index] = newName;
+      latestState.updateNodeData(nodeId, { _fileNames: fileNames });
     })
     .catch(() => {
       // Keep the local raw-store object URL usable for the current session.

@@ -10,6 +10,15 @@ interface FileRecord {
 const store = new Map<number, FileRecord>();
 let nextId = Date.now();
 
+/**
+ * Module-level map of fileRawStore id → uploaded server URL.
+ *
+ * All upload paths (manual click, paste, canvas drop, panel drop) write here.
+ * The IoStylePanel sync timer is the single consumer that persists URLs into
+ * nodeData.content — no other code writes content directly.
+ */
+export const uploadUrlStore = new Map<number, string>();
+
 export const fileRawStore = {
   add(blob: Blob, name: string, base64: string): number {
     const id = nextId++;
