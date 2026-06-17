@@ -631,9 +631,12 @@ export function createWorkflowGraphEditorActions(
         // If a removed edge connected IO→IO, recompute the target's data and propagate downstream
         let withPropagation = updatedNodes;
         for (const removedEdge of allRemovedEdges) {
-          const target = withPropagation.find((n) => n.id === removedEdge.target);
-          if (target?.type === 'io') {
-            withPropagation = propagateIoData(withPropagation, edges, removedEdge.target);
+          const targetIdx = withPropagation.findIndex((n) => n.id === removedEdge.target);
+          if (targetIdx >= 0 && withPropagation[targetIdx].type === 'io') {
+            const targetId = removedEdge.target;
+            const mergedData = computeIoMergedData(targetId, withPropagation, edges);
+            withPropagation[targetIdx] = { ...withPropagation[targetIdx], data: { ...withPropagation[targetIdx].data, ...mergedData } };
+            withPropagation = propagateIoData(withPropagation, edges, targetId);
           }
         }
 
