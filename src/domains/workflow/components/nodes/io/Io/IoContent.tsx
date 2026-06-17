@@ -288,36 +288,31 @@ export function IoContent({
           )}
 
           {/* Text snippets */}
-          {textItems.map((text, idx) => {
-            const isUpstream = !upstreamSlots;
-            return (
+          {textItems.map((text, idx) => (
             <div
               key={`t${idx}`}
-              onDoubleClick={() => { if (isUpstream) setTextModalOpen(true); }}
+              onDoubleClick={() => setTextModalOpen(true)}
               style={{
                 fontSize: 10, lineHeight: 1.5, color: 'var(--node-card-ink)',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                cursor: isUpstream ? 'pointer' : 'default',
+                cursor: 'pointer',
                 padding: '4px 6px',
                 borderRadius: 6,
                 border: '1px solid transparent',
                 transition: 'background 0.15s, border-color 0.15s',
               }}
               onMouseEnter={(e) => {
-                if (!isUpstream) return;
                 e.currentTarget.style.background = 'var(--node-card-bg-soft)';
                 e.currentTarget.style.borderColor = 'var(--node-card-line)';
               }}
               onMouseLeave={(e) => {
-                if (!isUpstream) return;
                 e.currentTarget.style.background = '';
                 e.currentTarget.style.borderColor = 'transparent';
               }}
             >
               {String(text)}
             </div>
-          );
-          })}
+          ))}
 
           {/* Video indicators */}
           {videoItems.map((_vid, idx) => (
@@ -414,14 +409,16 @@ export function IoContent({
             />
           )}
 
-          {/* Text editor modal */}
+          {/* Text editor/viewer modal */}
           {textModalOpen && (
             <ImagePreviewModal
               src=""
               textContent={String(data.text || '')}
-              onTextChange={(text) => {
-                if (nodeId) updateNodeData(nodeId, { text });
-              }}
+              onTextChange={
+                !upstreamSlots
+                  ? (text) => { if (nodeId) updateNodeData(nodeId, { text }); }
+                  : undefined
+              }
               onClose={() => setTextModalOpen(false)}
             />
           )}
