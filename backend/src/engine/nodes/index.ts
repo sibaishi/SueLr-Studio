@@ -1,44 +1,18 @@
 import { execute as executeAiV3 } from './aiV3.ts';
 import { execute as executeIo } from './io.ts';
-import { execute as executeApiKeyInput } from './apiKeyInput.ts';
-import { execute as executeAudioInput } from './audioInput.ts';
-import { execute as executeAudioMerge } from './audioMerge.ts';
-import { execute as executeImageInput } from './imageInput.ts';
-import { execute as executeImageMerge } from './imageMerge.ts';
-import { execute as executeImageResize } from './imageResize.ts';
 import { execute as executeImageSplit } from './imageSplit.ts';
-import { execute as executeMaskInput } from './maskInput.ts';
-import { execute as executeOutput } from './output.ts';
 import { execute as executePromptHelper } from './promptHelper.ts';
-import { execute as executeSaveFile } from './saveFile.ts';
 import { execute as executeTextClean } from './textClean.ts';
-import { execute as executeTextInput } from './textInput.ts';
-import { execute as executeTextMerge } from './textMerge.ts';
 import { execute as executeTextSplit } from './textSplit.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
-import { execute as executeVideoInput } from './videoInput.ts';
-import { execute as executeVideoMerge } from './videoMerge.ts';
 
 export const NODE_EXECUTORS = {
   iterateRun: async () => ({}),
   iterateImageRun: async () => ({}),
-  textInput: executeTextInput,
-  imageInput: executeImageInput,
-  maskInput: executeMaskInput,
-  imageResize: executeImageResize,
   imageSplit: executeImageSplit,
-  videoInput: executeVideoInput,
-  audioInput: executeAudioInput,
-  apiKeyInput: executeApiKeyInput,
   promptHelper: executePromptHelper,
   textClean: executeTextClean,
   textSplit: executeTextSplit,
-  textMerge: executeTextMerge,
-  imageMerge: executeImageMerge,
-  videoMerge: executeVideoMerge,
-  audioMerge: executeAudioMerge,
   aiV3: executeAiV3,
   io: executeIo,
-  saveFile: executeSaveFile,
-  output: executeOutput,
 };

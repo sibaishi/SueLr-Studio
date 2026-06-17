@@ -8,7 +8,7 @@ import {
 describe('execution graph projection', () => {
   it('flattens group transit ports into direct executable edges', () => {
     const nodes: Node[] = [
-      { id: 'source', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+      { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: {} },
       {
         id: 'group',
         type: 'group',
@@ -40,7 +40,7 @@ describe('execution graph projection', () => {
         extent: 'parent',
         data: {},
       },
-      { id: 'output', type: 'output', position: { x: 420, y: 84 }, data: {} },
+      { id: 'output', type: 'io', position: { x: 420, y: 84 }, data: {} },
     ];
 
     const edges = [
@@ -95,12 +95,12 @@ describe('execution graph projection', () => {
 
   it('keeps only the upstream closure when filtering to a target node', () => {
     const nodes: Node[] = [
-      { id: 'a', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+      { id: 'a', type: 'io', position: { x: 0, y: 0 }, data: {} },
       { id: 'b', type: 'aiChat', position: { x: 100, y: 0 }, data: {} },
-      { id: 'c', type: 'textInput', position: { x: 200, y: 0 }, data: {} },
-      { id: 'd', type: 'output', position: { x: 300, y: 0 }, data: {} },
-      { id: 'side', type: 'output', position: { x: 200, y: 100 }, data: {} },
-      { id: 'other', type: 'textInput', position: { x: 0, y: 100 }, data: {} },
+      { id: 'c', type: 'io', position: { x: 200, y: 0 }, data: {} },
+      { id: 'd', type: 'io', position: { x: 300, y: 0 }, data: {} },
+      { id: 'side', type: 'io', position: { x: 200, y: 100 }, data: {} },
+      { id: 'other', type: 'io', position: { x: 0, y: 100 }, data: {} },
     ];
     const edges = [
       { id: 'ab', source: 'a', sourceHandle: 'text', target: 'b', targetHandle: 'prompt' },
@@ -122,7 +122,7 @@ describe('execution graph projection', () => {
 
   it('recursively resolves nested group ports down to the real bound node handle', () => {
     const nodes: Node[] = [
-      { id: 'source', type: 'textInput', position: { x: 0, y: 0 }, data: {} },
+      { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: {} },
       {
         id: 'outer_group',
         type: 'group',
@@ -189,10 +189,10 @@ describe('execution graph projection', () => {
 
   it('passes a disabled imageSplit source image through part1 only', () => {
     const nodes: Node[] = [
-      { id: 'source', type: 'imageInput', position: { x: 0, y: 0 }, data: {} },
+      { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: {} },
       { id: 'split', type: 'imageSplit', position: { x: 100, y: 0 }, data: { disabled: true, rows: 3, columns: 3 } },
-      { id: 'part1-output', type: 'output', position: { x: 200, y: 0 }, data: {} },
-      { id: 'part2-output', type: 'output', position: { x: 200, y: 100 }, data: {} },
+      { id: 'part1-output', type: 'io', position: { x: 200, y: 0 }, data: {} },
+      { id: 'part2-output', type: 'io', position: { x: 200, y: 100 }, data: {} },
     ];
     const edges = [
       { id: 'source-split', source: 'source', sourceHandle: 'image', target: 'split', targetHandle: 'image' },

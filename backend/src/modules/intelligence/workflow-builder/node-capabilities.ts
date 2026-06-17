@@ -21,88 +21,18 @@ export type WorkflowNodeCapability = {
 
 const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   {
-    id: 'seed_workflow_node_textInput',
-    title: '文本输入节点 textInput',
-    content: 'textInput 提供或透传纯文本，输出 string 类型 text，可连接到对话、提示词处理、保存或输出节点。',
-    tags: ['system-seed', 'node', 'input', 'textInput', 'text'],
-    structured: {
-      nodeType: 'textInput',
-      category: 'input',
-      maturity: 'stable',
-      inputs: [{ id: 'input', type: 'string', required: false }],
-      outputs: [{ id: 'text', type: 'string' }],
-      useWhen: ['manual-text-input', 'prompt-input', 'text-passthrough'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_imageInput',
-    title: '图片输入节点 imageInput',
+    id: 'seed_workflow_node_io',
+    title: 'IO 通用输入输出节点 io',
     content:
-      'imageInput 提供上传或引用图片，输出 image，并可输出 mask，适合接入图片生成、图生视频、图片处理、保存或输出节点。',
-    tags: ['system-seed', 'node', 'input', 'imageInput', 'image', 'mask'],
+      'io 是通用输入输出节点，取代旧的 textInput/imageInput/videoInput/audioInput/maskInput/apiKeyInput。支持上传文件、录入文本、拖放素材，输出统一的结构化 content。可接收上游节点数据自动合并。',
+    tags: ['system-seed', 'node', 'input', 'io', 'text', 'image', 'video', 'audio', 'mask'],
     structured: {
-      nodeType: 'imageInput',
+      nodeType: 'io',
       category: 'input',
       maturity: 'stable',
-      outputs: [
-        { id: 'image', type: 'image' },
-        { id: 'mask', type: 'mask' },
-      ],
-      useWhen: ['reference-image-input', 'image-to-image', 'image-to-video', 'mask-from-image-input'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_videoInput',
-    title: '视频输入节点 videoInput',
-    content: 'videoInput 提供视频素材，输出 video，可作为视频生成、视频合并、保存或输出流程的输入。',
-    tags: ['system-seed', 'node', 'input', 'videoInput', 'video'],
-    structured: {
-      nodeType: 'videoInput',
-      category: 'input',
-      maturity: 'stable',
-      outputs: [{ id: 'video', type: 'video' }],
-      useWhen: ['reference-video-input', 'video-material-input'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_audioInput',
-    title: '音频输入节点 audioInput',
-    content: 'audioInput 提供音频素材，输出 audio，可用于音频合并、视频配音或保存输出。',
-    tags: ['system-seed', 'node', 'input', 'audioInput', 'audio'],
-    structured: {
-      nodeType: 'audioInput',
-      category: 'input',
-      maturity: 'stable',
-      outputs: [{ id: 'audio', type: 'audio' }],
-      useWhen: ['audio-material-input', 'voiceover-input', 'music-input'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_maskInput',
-    title: '遮罩输入节点 maskInput',
-    content: 'maskInput 提供遮罩素材，输出 mask，通常用于图像局部编辑或需要蒙版约束的流程。',
-    tags: ['system-seed', 'node', 'input', 'maskInput', 'mask'],
-    structured: {
-      nodeType: 'maskInput',
-      category: 'input',
-      maturity: 'stable',
-      outputs: [{ id: 'mask', type: 'mask' }],
-      useWhen: ['image-mask-input', 'local-image-editing'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_apiKeyInput',
-    title: 'API Key 配置节点 apiKeyInput',
-    content:
-      'apiKeyInput 输出 apiKey 配置，用于为下游 AI 节点覆盖模型、Base URL 和接口路径。只有需要节点级 API 配置时才使用。',
-    tags: ['system-seed', 'node', 'api', 'apiKeyInput', 'apiKey'],
-    structured: {
-      nodeType: 'apiKeyInput',
-      category: 'api',
-      maturity: 'stable',
-      outputs: [{ id: 'apiKey', type: 'apiKey' }],
-      useWhen: ['node-level-api-config', 'override-provider-config'],
-      avoidWhen: ['default-project-provider-is-enough'],
+      inputs: [{ id: 'input', type: 'any', required: false, multiple: true }],
+      outputs: [{ id: 'output', type: 'any' }],
+      useWhen: ['any-input-source', 'text-input', 'image-input', 'video-input', 'audio-input', 'passthrough'],
     },
   },
   {
@@ -234,90 +164,6 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     },
   },
   {
-    id: 'seed_workflow_node_textMerge',
-    title: '文本合并节点 textMerge',
-    content:
-      'textMerge 按输入端口顺序收集多个文本输入，过滤空值后输出 string[] 类型 merged。它用于把多段文本汇总为数组并继续向下游输入，例如把多段提示词、脚本片段或多路文本结果交给后续节点。',
-    tags: ['system-seed', 'node', 'merge', 'textMerge', 'text'],
-    structured: {
-      nodeType: 'textMerge',
-      category: 'merge',
-      maturity: 'stable',
-      inputs: [{ id: 'item', type: 'string', required: false, multiple: true }],
-      outputs: [{ id: 'merged', type: 'string[]' }],
-      useWhen: ['merge-text-results', 'collect-text-items', 'pass-multiple-texts-downstream', 'aggregate-multi-branch-text'],
-      avoidWhen: ['semantic-text-rewrite', 'compose-polished-article', 'concatenate-text-into-one-string'],
-      notes: ['它只汇总文本值到数组，不负责润色、改写或把多段内容拼接成一篇文章；语义合成应使用 aiChat。'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_imageMerge',
-    title: '图片合并节点 imageMerge',
-    content:
-      'imageMerge 按输入端口顺序收集多个图片输入，输出 image[] 类型 merged。它用于向下游一次传递多张图片引用，例如给图像生成、视频生成或逐项运行节点提供多张参考图。',
-    tags: ['system-seed', 'node', 'merge', 'imageMerge', 'image'],
-    structured: {
-      nodeType: 'imageMerge',
-      category: 'merge',
-      maturity: 'stable',
-      inputs: [{ id: 'item', type: 'image', required: false, multiple: true }],
-      outputs: [{ id: 'merged', type: 'image[]' }],
-      useWhen: ['merge-image-results', 'collect-image-items', 'multi-reference-image-input'],
-      avoidWhen: ['image-compositing', 'contact-sheet-layout', 'stitch-images-into-one'],
-      notes: ['它只汇总图片引用，不会拼图、排版或合成一张新图片。'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_videoMerge',
-    title: '视频合并节点 videoMerge',
-    content:
-      'videoMerge 按输入端口顺序收集多个视频输入，输出 video[] 类型 merged。它用于向下游或最终输出传递多个视频引用。',
-    tags: ['system-seed', 'node', 'merge', 'videoMerge', 'video'],
-    structured: {
-      nodeType: 'videoMerge',
-      category: 'merge',
-      maturity: 'stable',
-      inputs: [{ id: 'item', type: 'video', required: false, multiple: true }],
-      outputs: [{ id: 'merged', type: 'video[]' }],
-      useWhen: ['merge-video-results', 'collect-video-items', 'pass-multiple-videos-downstream'],
-      avoidWhen: ['video-editing', 'video-concatenation', 'transition-compositing'],
-      notes: ['它只汇总视频引用，不会剪辑、拼接、转场或导出合成视频。'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_audioMerge',
-    title: '音频合并节点 audioMerge',
-    content:
-      'audioMerge 按输入端口顺序收集多个音频输入，输出 audio[] 类型 merged。它用于向下游或最终输出传递多段音频引用。',
-    tags: ['system-seed', 'node', 'merge', 'audioMerge', 'audio'],
-    structured: {
-      nodeType: 'audioMerge',
-      category: 'merge',
-      maturity: 'stable',
-      inputs: [{ id: 'item', type: 'audio', required: false, multiple: true }],
-      outputs: [{ id: 'merged', type: 'audio[]' }],
-      useWhen: ['merge-audio-results', 'collect-audio-items', 'pass-multiple-audios-downstream'],
-      avoidWhen: ['audio-mixing', 'audio-concatenation', 'noise-reduction'],
-      notes: ['它只汇总音频引用，不会混音、拼接、降噪或处理音轨。'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_imageResize',
-    title: '图像缩放节点 imageResize',
-    content:
-      'imageResize 对输入 image 做尺寸或百分比缩放，输出缩放后的 image，适合在生成后统一尺寸或为下游节点准备指定规格图片。',
-    tags: ['system-seed', 'node', 'tool', 'imageResize', 'image'],
-    structured: {
-      nodeType: 'imageResize',
-      category: 'tool',
-      maturity: 'stable',
-      inputs: [{ id: 'image', type: 'image', required: true }],
-      outputs: [{ id: 'image', type: 'image' }],
-      params: ['resizeMode', 'scalePercent', 'targetWidth', 'targetHeight'],
-      useWhen: ['resize-image', 'prepare-image-dimensions'],
-    },
-  },
-  {
     id: 'seed_workflow_node_imageSplit',
     title: '图片拆分节点 imageSplit',
     content:
@@ -367,37 +213,6 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       outputs: [{ id: 'image', type: 'image' }],
       useWhen: ['iterate-image-items', 'batch-image-processing', 'run-downstream-once-per-image', 'storyboard-frame-iteration', 'batch-image-per-shot'],
       notes: ['这是执行器特殊识别的控制节点，不是普通单次透传节点。', '输入如果是 image[] 会被展开为多次逐项执行。'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_saveFile',
-    title: '保存文件节点 saveFile',
-    content:
-      'saveFile 用于把上游内容按配置落盘为运行时结果文件，并透传原 content；如果未设置 outputPath，执行器会跳过显式保存。',
-    tags: ['system-seed', 'node', 'output', 'saveFile', 'artifact'],
-    structured: {
-      nodeType: 'saveFile',
-      category: 'output',
-      maturity: 'stable',
-      inputs: [{ id: 'content', type: 'any', required: true }],
-      outputs: [{ id: 'content', type: 'any' }],
-      params: ['outputPath', 'filenamePrefix'],
-      useWhen: ['save-runtime-result', 'preserve-output-artifact'],
-    },
-  },
-  {
-    id: 'seed_workflow_node_output',
-    title: '结果输出节点 output',
-    content:
-      'output 是工作流最终结果节点。连接到 output 的内容会作为用户可查看的最终结果返回，并会自动整理可展示结果文件。',
-    tags: ['system-seed', 'node', 'output', 'result'],
-    structured: {
-      nodeType: 'output',
-      category: 'output',
-      maturity: 'stable',
-      inputs: [{ id: 'content', type: 'any', required: true }],
-      outputs: [],
-      useWhen: ['final-user-visible-result'],
     },
   },
 ];

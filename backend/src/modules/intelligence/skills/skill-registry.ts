@@ -200,32 +200,19 @@ function summarizeInputNodes(workflow: PlainObject | null) {
   return nodes
     .filter((node: DynamicValue) => {
       const type = String((node as PlainObject)?.type || '');
-      return ['textInput', 'imageInput', 'videoInput', 'audioInput', 'maskInput'].includes(type);
+      return type === 'io';
     })
     .map((node: DynamicValue, index: number) => {
       const item = node as PlainObject;
       const data = item.data as PlainObject;
-      const nodeType = String(item.type || '');
-      const currentValue =
-        nodeType === 'textInput'
-          ? stringifyInputDefaultValue(data?.text)
-          : stringifyInputDefaultValue(data?.fileUrl || data?.maskFileUrl || data?.maskPreviewUrl);
+      const textContent = typeof data?.text === 'string' ? data.text : '';
       return {
         nodeId: String(item.id || ''),
-        nodeType,
-        kind:
-          nodeType === 'textInput'
-            ? 'text'
-            : nodeType === 'imageInput'
-              ? 'image'
-              : nodeType === 'videoInput'
-                ? 'video'
-                : nodeType === 'audioInput'
-                  ? 'audio'
-                  : 'mask',
+        nodeType: 'io',
+        kind: 'any',
         label: String(data?.label || item.id || `输入 ${index + 1}`),
-        aliases: [String(item.id || ''), `${nodeType}${index + 1}`].filter(Boolean),
-        currentValue,
+        aliases: [String(item.id || ''), `io${index + 1}`].filter(Boolean),
+        currentValue: stringifyInputDefaultValue(textContent),
       };
     });
 }

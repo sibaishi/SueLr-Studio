@@ -350,53 +350,6 @@ function applyAgentInputOverrides(persistedWorkflow: PlainObject, rawInputs: Dyn
       appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'content', matchedBy: String(rawKey) });
       continue;
     }
-
-    if (node.type === 'textInput') {
-      node.data.text = stringifyWorkflowInput(value);
-      appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'text', matchedBy: String(rawKey) });
-      continue;
-    }
-
-    if (node.type === 'imageInput') {
-      const override = resolveMediaOverride(value, ['fileUrl', 'url', 'image', 'imageUrl']);
-      if (override.fileUrl) {
-        node.data.fileUrl = override.fileUrl;
-      }
-      if (override.maskFileUrl) {
-        node.data.maskFileUrl = override.maskFileUrl;
-      }
-      if (override.maskPreviewUrl) {
-        node.data.maskPreviewUrl = override.maskPreviewUrl;
-      }
-      appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'fileUrl', matchedBy: String(rawKey) });
-      continue;
-    }
-
-    if (node.type === 'maskInput') {
-      const override = resolveMediaOverride(value, ['fileUrl', 'url', 'mask', 'maskUrl']);
-      if (override.fileUrl) {
-        node.data.fileUrl = override.fileUrl;
-        appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'fileUrl', matchedBy: String(rawKey) });
-      }
-      continue;
-    }
-
-    if (node.type === 'videoInput') {
-      const override = resolveMediaOverride(value, ['fileUrl', 'url', 'video', 'videoUrl']);
-      if (override.fileUrl) {
-        node.data.fileUrl = override.fileUrl;
-        appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'fileUrl', matchedBy: String(rawKey) });
-      }
-      continue;
-    }
-
-    if (node.type === 'audioInput') {
-      const override = resolveMediaOverride(value, ['fileUrl', 'url', 'audio', 'audioUrl']);
-      if (override.fileUrl) {
-        node.data.fileUrl = override.fileUrl;
-        appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'fileUrl', matchedBy: String(rawKey) });
-      }
-    }
   }
 
   if (appliedInputs.length === 0 && unmatchedInputs.length > 0) {

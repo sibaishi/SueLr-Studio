@@ -139,7 +139,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
   const selectedMaskInfo = useMemo(() => {
     if (!selectedNodeId) return null;
     const node = nodes.find((item) => item.id === selectedNodeId);
-    if (!node || node.type !== 'imageInput') return null;
+    if (!node || node.type !== 'io') return null;
     const maskFileUrl = typeof node.data.maskFileUrl === 'string' ? node.data.maskFileUrl : '';
     const maskPreviewUrl = typeof node.data.maskPreviewUrl === 'string' ? node.data.maskPreviewUrl : '';
     const maskSrc =

@@ -9,9 +9,7 @@ const ARCHITECT_NODE_TYPES = WORKFLOW_NODE_REGISTRY.filter((node) => node.archit
   )
   .map((node) => node.type);
 
-const VALIDATION_PORT_OVERRIDES = {
-  textInput: { inputs: {} },
-};
+const VALIDATION_PORT_OVERRIDES = {};
 
 /** @param {{ id: string; type: string; required?: boolean }[]} ports */
 function toValidationPortMap(ports) {
