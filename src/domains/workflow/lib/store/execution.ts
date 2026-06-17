@@ -511,8 +511,15 @@ export function createWorkflowExecutionActions(
         } catch { /* fileRawStore not available, skip */ }
       }
 
+      // ── Detect passthrough IO nodes (have incoming edges from upstream) ──
+      const incomingEdges = payload.edges.filter(
+        (e) => e.target === pnode.id && e.targetHandle !== 'output',
+      );
+      const isPassthrough = incomingEdges.length > 0;
+
       // Combine text + files into _rawContent for backend executor (text first)
-      if (nodeText || rawFiles.length > 0) {
+      // Skip for passthrough IO nodes: their _rawContent is assembled from upstream below
+      if (!isPassthrough && (nodeText || rawFiles.length > 0)) {
         const combined: string[] = [];
         if (nodeText) combined.push(nodeText);
         combined.push(...rawFiles);
@@ -520,10 +527,7 @@ export function createWorkflowExecutionActions(
       }
 
       // ── Passthrough IO: assemble _rawContent from upstream nodes in per-type order ──
-      const incomingEdges = payload.edges.filter(
-        (e) => e.target === pnode.id && e.targetHandle !== 'output',
-      );
-      if (incomingEdges.length > 0) {
+      if (isPassthrough) {
         const graphNode = executableGraph.nodes.find((n) => n.id === pnode.id);
         const inputOrder: InputOrderMap = readInputOrder(graphNode ?? null);
 
@@ -533,7 +537,7 @@ export function createWorkflowExecutionActions(
 
         if (hasPerType) {
           const typeOrderKeys = ['text', 'image', 'video', 'audio'] as const;
-          let assembledText = (nodeText || '') as string;
+          let assembledText = '';
           const assembledFiles: string[] = [...rawFiles];
 
           for (const type of typeOrderKeys) {
