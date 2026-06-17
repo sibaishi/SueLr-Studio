@@ -34,7 +34,7 @@ test('iterateRun executes downstream once per connected text input', async () =>
       { id: 'promptA', type: 'io', data: { content: 'alpha' } },
       { id: 'promptB', type: 'io', data: { content: 'beta' } },
       { id: 'iterate', type: 'iterateRun', data: { inputCount: 3 } },
-      { id: 'clean', type: 'textClean', data: {} },
+      { id: 'clean', type: 'textSplit', data: {} },
     ],
     edges: [
       edge('a-iterate', 'promptA', 'result', 'iterate', 'item1'),
@@ -64,7 +64,7 @@ test('iterateRun skips empty text inputs', async () => {
       { id: 'promptA', type: 'io', data: { content: 'alpha' } },
       { id: 'promptB', type: 'io', data: { content: '' } },
       { id: 'iterate', type: 'iterateRun', data: { inputCount: 3 } },
-      { id: 'clean', type: 'textClean', data: {} },
+      { id: 'clean', type: 'textSplit', data: {} },
     ],
     edges: [
       edge('a-iterate', 'promptA', 'result', 'iterate', 'item1'),
@@ -90,8 +90,8 @@ test('iterateRun supports multiple independent control nodes', async () => {
       { id: 'promptD', type: 'io', data: { content: 'delta' } },
       { id: 'iterateA', type: 'iterateRun', data: { inputCount: 2 } },
       { id: 'iterateB', type: 'iterateRun', data: { inputCount: 2 } },
-      { id: 'cleanA', type: 'textClean', data: {} },
-      { id: 'cleanB', type: 'textClean', data: {} },
+      { id: 'cleanA', type: 'textSplit', data: {} },
+      { id: 'cleanB', type: 'textSplit', data: {} },
     ],
     edges: [
       edge('a-iterate-a', 'promptA', 'result', 'iterateA', 'item1'),
@@ -130,7 +130,7 @@ test('iterateRun supports nested control nodes', async () => {
       { id: 'promptB', type: 'io', data: { content: 'beta' } },
       { id: 'outer', type: 'iterateRun', data: { inputCount: 2 } },
       { id: 'inner', type: 'iterateRun', data: { inputCount: 1 } },
-      { id: 'clean', type: 'textClean', data: {} },
+      { id: 'clean', type: 'textSplit', data: {} },
     ],
     edges: [
       edge('a-outer', 'promptA', 'result', 'outer', 'item1'),
@@ -213,13 +213,13 @@ test('iterateImageRun expands image array inputs into sequential item runs', asy
 });
 
 test('iterateRun executes item downstream segments concurrently', async () => {
-  const originalTextClean = NODE_EXECUTORS.textClean;
+  const originalTextSplit = NODE_EXECUTORS.textSplit;
   const bothItemsStarted = createDeferred();
   const releaseItems = createDeferred();
   const startedIterations = [];
   const events = [];
 
-  NODE_EXECUTORS.textClean = async (_node, inputs) => {
+  NODE_EXECUTORS.textSplit = async (_node, inputs) => {
     startedIterations.push(inputs.text);
     if (startedIterations.length === 2) {
       bothItemsStarted.resolve();
@@ -234,7 +234,7 @@ test('iterateRun executes item downstream segments concurrently', async () => {
         { id: 'promptA', type: 'io', data: { content: 'alpha' } },
         { id: 'promptB', type: 'io', data: { content: 'beta' } },
         { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
-        { id: 'clean', type: 'textClean', data: {} },
+        { id: 'clean', type: 'textSplit', data: {} },
       ],
       edges: [
         edge('a-iterate', 'promptA', 'result', 'iterate', 'item1'),
@@ -263,18 +263,18 @@ test('iterateRun executes item downstream segments concurrently', async () => {
     assert.equal(cleanCompletions.length, 2);
     assert.deepEqual(cleanCompletions.map((item) => item.data.iteration.index).sort(), [1, 2]);
   } finally {
-    NODE_EXECUTORS.textClean = originalTextClean;
+    NODE_EXECUTORS.textSplit = originalTextSplit;
   }
 });
 
 test('iterateRun waits for concurrent item runs to settle before failing on one item error', async () => {
-  const originalTextClean = NODE_EXECUTORS.textClean;
+  const originalTextSplit = NODE_EXECUTORS.textSplit;
   const bothItemsStarted = createDeferred();
   const releaseItems = createDeferred();
   const startedIterations = [];
   const events = [];
 
-  NODE_EXECUTORS.textClean = async (_node, inputs) => {
+  NODE_EXECUTORS.textSplit = async (_node, inputs) => {
     startedIterations.push(inputs.text);
     if (startedIterations.length === 2) {
       bothItemsStarted.resolve();
@@ -292,7 +292,7 @@ test('iterateRun waits for concurrent item runs to settle before failing on one 
         { id: 'promptA', type: 'io', data: { content: 'alpha' } },
         { id: 'promptB', type: 'io', data: { content: 'beta' } },
         { id: 'iterate', type: 'iterateRun', data: { inputCount: 2 } },
-        { id: 'clean', type: 'textClean', data: {} },
+        { id: 'clean', type: 'textSplit', data: {} },
       ],
       edges: [
         edge('a-iterate', 'promptA', 'result', 'iterate', 'item1'),
@@ -322,7 +322,7 @@ test('iterateRun waits for concurrent item runs to settle before failing on one 
     assert.equal(cleanFailures.length, 1);
     assert.equal(cleanFailures[0].data.iteration.index, 1);
   } finally {
-    NODE_EXECUTORS.textClean = originalTextClean;
+    NODE_EXECUTORS.textSplit = originalTextSplit;
   }
 });
 

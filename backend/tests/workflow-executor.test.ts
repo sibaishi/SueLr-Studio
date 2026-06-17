@@ -328,13 +328,13 @@ test('aiV3 resolves image inputs from request-scoped upload storage', async () =
 });
 
 test('independent ready workflow nodes execute concurrently when enabled', async () => {
-  const originalTextClean = NODE_EXECUTORS.textClean;
+  const originalTextSplit = NODE_EXECUTORS.textSplit;
   const bothCleanNodesStarted = createDeferred();
   const releaseCleanNodes = createDeferred();
   const cleanStarted = [];
   const events = [];
 
-  NODE_EXECUTORS.textClean = async (_node, inputs) => {
+  NODE_EXECUTORS.textSplit = async (_node, inputs) => {
     cleanStarted.push(_node.id);
     if (cleanStarted.length === 2) {
       bothCleanNodesStarted.resolve();
@@ -349,8 +349,8 @@ test('independent ready workflow nodes execute concurrently when enabled', async
         nodes: [
           { id: 'source-a', type: 'io', data: { content: 'alpha' } },
           { id: 'source-b', type: 'io', data: { content: 'beta' } },
-          { id: 'clean-a', type: 'textClean', data: {} },
-          { id: 'clean-b', type: 'textClean', data: {} },
+          { id: 'clean-a', type: 'textSplit', data: {} },
+          { id: 'clean-b', type: 'textSplit', data: {} },
           { id: 'merge', type: 'io', data: {} },
         ],
         edges: [
@@ -390,7 +390,7 @@ test('independent ready workflow nodes execute concurrently when enabled', async
     assert.equal(cleanCompletionIndexes.length, 2);
     assert.ok(cleanCompletionIndexes.every((index) => index < mergeStartedIndex));
   } finally {
-    NODE_EXECUTORS.textClean = originalTextClean;
+    NODE_EXECUTORS.textSplit = originalTextSplit;
   }
 });
 

@@ -4,6 +4,7 @@ import { executeVideoGeneration } from '../../platform/ai/video-service.ts';
 import { formatWebSearchResult, runWebSearch } from '../../platform/ai/search-service.ts';
 import { resolveRuntimeApiConfig } from '../helpers/apiConfig.ts';
 import { fileToBase64 } from '../helpers/fileHelper.ts';
+import { cleanModelText } from './cleanModelText.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -153,7 +154,7 @@ async function executeChatMode(
     const resp = await runChatCompletion({ apiKey, baseUrl, providerConfig, projectModels, model, messages: [{ role: 'user', content: prependSystem(searchMsg) }], tools: undefined, stream: false, signal: apiConfig.abortSignal, scope: apiConfig.scope });
     const result = await parseChatResult(resp);
     if (!result.content) throw new Error('AI 返回了空内容');
-    return { result: result.content };
+    return { result: cleanModelText(result.content) };
   }
 
   const { apiKey, providerConfig, projectModels } = runtimeConfig;
@@ -162,7 +163,7 @@ async function executeChatMode(
   const resp = await runChatCompletion({ apiKey, baseUrl, providerConfig, projectModels, model, messages: [{ role: 'user', content: prependSystem(rawContent) }], tools: undefined, stream: false, signal: apiConfig.abortSignal, scope: apiConfig.scope });
   const result = await parseChatResult(resp);
   if (!result.content) throw new Error('AI 返回了空内容');
-  return { result: result.content };
+  return { result: cleanModelText(result.content) };
 }
 
 async function executeImageMode(

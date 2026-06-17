@@ -133,22 +133,6 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     },
   },
   {
-    id: 'seed_workflow_node_textClean',
-    title: '文本清理节点 textClean',
-    content:
-      'textClean 按开始/结束关键词清理文本，输入 text，输出清理后的 text，适合去除思考区间、包装标签或模型输出中的固定片段。',
-    tags: ['system-seed', 'node', 'tool', 'textClean', 'text'],
-    structured: {
-      nodeType: 'textClean',
-      category: 'tool',
-      maturity: 'stable',
-      inputs: [{ id: 'text', type: 'string', required: true }],
-      outputs: [{ id: 'text', type: 'string' }],
-      params: ['startToken', 'endToken', 'removeStartToken', 'removeEndToken', 'removeAllRanges'],
-      useWhen: ['clean-model-output', 'remove-delimited-text'],
-    },
-  },
-  {
     id: 'seed_workflow_node_textSplit',
     title: '文本拆分节点 textSplit',
     content: 'textSplit 按分隔符把文本拆成多个片段输出，适合把脚本、清单或多段提示词拆给后续逐项处理节点。配合 iterateRun 可实现批量逐项处理。',

@@ -373,7 +373,7 @@ describe('workflow store graph editor actions', () => {
       nodes: [
         { id: 'io', type: 'iterateImageRun', position: { x: 0, y: 0 }, data: {} },
         { id: 'resize', type: 'imageSplit', position: { x: 240, y: 0 }, data: {} },
-        { id: 'chat', type: 'textClean', position: { x: 520, y: 0 }, data: {} },
+        { id: 'chat', type: 'textSplit', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
         { id: 'edge_in', source: 'io', sourceHandle: 'image', target: 'resize', targetHandle: 'image' },
@@ -434,7 +434,7 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'io', type: 'iterateImageRun', position: { x: 0, y: 0 }, data: {} },
-        { id: 'chat', type: 'textClean', position: { x: 240, y: 0 }, data: {} },
+        { id: 'chat', type: 'textSplit', position: { x: 240, y: 0 }, data: {} },
         { id: 'merge', type: 'iterateImageRun', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
       ],
       edges: [

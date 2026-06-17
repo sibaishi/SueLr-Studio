@@ -259,7 +259,7 @@ describe('workflow store execution actions', () => {
       nodes: [
         { id: 'prompt', type: 'io', position: { x: 0, y: 0 }, data: { text: 'hello' } },
         { id: 'ai_node', type: 'aiV3', position: { x: 200, y: 0 }, data: { disabled: false } },
-        { id: 'clean_node', type: 'textClean', position: { x: 400, y: 0 }, data: {} },
+        { id: 'clean_node', type: 'textSplit', position: { x: 400, y: 0 }, data: {} },
       ],
       edges: [
         { id: 'prompt-ai', source: 'prompt', sourceHandle: 'result', target: 'ai_node', targetHandle: 'input' },
@@ -558,7 +558,7 @@ describe('workflow store execution actions', () => {
         nodes: [
           {
             id: 'repeated_node',
-            type: 'textClean',
+            type: 'textSplit',
             position: { x: 0, y: 0 },
             data: {},
           },
@@ -571,7 +571,7 @@ describe('workflow store execution actions', () => {
       vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
         callbacks.onNodeStart?.({
           nodeId: 'repeated_node',
-          nodeType: 'textClean',
+          nodeType: 'textSplit',
           index: 0,
           total: 1,
           iteration: { sourceNodeId: 'iter_node', index: 1, total: 2 },
@@ -579,7 +579,7 @@ describe('workflow store execution actions', () => {
         vi.setSystemTime(1200);
         callbacks.onNodeStart?.({
           nodeId: 'repeated_node',
-          nodeType: 'textClean',
+          nodeType: 'textSplit',
           index: 0,
           total: 1,
           iteration: { sourceNodeId: 'iter_node', index: 2, total: 2 },

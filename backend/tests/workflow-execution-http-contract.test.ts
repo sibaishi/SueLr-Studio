@@ -126,10 +126,10 @@ test('execution HTTP boundary rejects invalid draft execution bodies with a vali
 
 test('execution SSE disconnect does not cancel the active run so polling can recover it', async () => {
   const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
-  const originalTextClean = NODE_EXECUTORS.textClean;
+  const originalTextSplit = NODE_EXECUTORS.textSplit;
   const started = deferred();
   const release = deferred();
-  NODE_EXECUTORS.textClean = async (_node, inputs) => {
+  NODE_EXECUTORS.textSplit = async (_node, inputs) => {
     started.resolve();
     await release.promise;
     return { text: String(inputs.text || '') };
@@ -145,7 +145,7 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
         name: 'Disconnect Recover Workflow',
         nodes: [
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'hello' } },
-          { id: 'clean', type: 'textClean', position: { x: 160, y: 0 }, data: {} },
+          { id: 'clean', type: 'textSplit', position: { x: 160, y: 0 }, data: {} },
         ],
         edges: [
           {
@@ -183,7 +183,7 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
     assert.equal(finalStatus, 'completed');
   } finally {
     release.resolve();
-    NODE_EXECUTORS.textClean = originalTextClean;
+    NODE_EXECUTORS.textSplit = originalTextSplit;
     await new Promise((resolve) => server.close(resolve));
   }
 });

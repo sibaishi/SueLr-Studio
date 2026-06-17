@@ -18,7 +18,6 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   iterateRun: { w: 11, h: 8 },
   iterateImageRun: { w: 11, h: 8 },
   promptHelper: { w: 14, h: 12 },
-  textClean: { w: 12, h: 14 },
   textSplit: { w: 12, h: 23 },
   aiV3: { w: 10, h: 10 },
   io: { w: 10, h: 10 },
