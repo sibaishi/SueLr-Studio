@@ -518,6 +518,133 @@ export function createWorkflowExecutionActions(
         combined.push(...rawFiles);
         nd._rawContent = combined.length === 1 ? combined[0] : combined;
       }
+
+      // ── Passthrough IO: assemble _rawContent from upstream nodes in per-type order ──
+      const incomingEdges = payload.edges.filter(
+        (e) => e.target === pnode.id && e.targetHandle !== 'output',
+      );
+      if (incomingEdges.length > 0) {
+        const graphNode = executableGraph.nodes.find((n) => n.id === pnode.id);
+        const inputOrder: InputOrderMap = readInputOrder(graphNode ?? null);
+
+        const hasPerType = Object.entries(inputOrder).some(
+          ([k, v]) => k !== '_legacy' && Array.isArray(v) && v.length > 0,
+        );
+
+        if (hasPerType) {
+          const typeOrderKeys = ['text', 'image', 'video', 'audio'] as const;
+          let assembledText = (nodeText || '') as string;
+          const assembledFiles: string[] = [...rawFiles];
+
+          for (const type of typeOrderKeys) {
+            const typeEdgeIds = inputOrder[type] || [];
+
+            // Build ordered upstream source list for this type
+            const seenSources = new Set<string>();
+            const orderedSources: string[] = [];
+            for (const eid of typeEdgeIds) {
+              const edge = incomingEdges.find((e) => e.id === eid);
+              if (edge && !seenSources.has(edge.source)) {
+                orderedSources.push(edge.source);
+                seenSources.add(edge.source);
+              }
+            }
+            // Append un-ordered sources at the end
+            for (const edge of incomingEdges) {
+              if (!seenSources.has(edge.source)) {
+                orderedSources.push(edge.source);
+                seenSources.add(edge.source);
+              }
+            }
+
+            for (const sourceId of orderedSources) {
+              const upNode = executableGraph.nodes.find((n) => n.id === sourceId);
+              if (!upNode) continue;
+              const upData = (upNode.data || {}) as Record<string, unknown>;
+
+              if (type === 'text') {
+                const upText = String(upData.text || '').trim();
+                if (upText) {
+                  assembledText = assembledText ? assembledText + '\n' + upText : upText;
+                }
+              } else {
+                const upFileKinds: string[] = Array.isArray(upData._fileKinds)
+                  ? (upData._fileKinds as string[])
+                  : [];
+                const upFileIds: number[] = Array.isArray(upData._fileIds)
+                  ? (upData._fileIds as number[])
+                  : [];
+                const upContent: string[] = Array.isArray(upData.content)
+                  ? (upData.content as string[])
+                  : [];
+                const upFileOrder: number[] = Array.isArray(upData._fileOrder)
+                  ? (upData._fileOrder as number[])
+                  : [];
+
+                const orderMap = new Map(upFileOrder.map((fid, i) => [fid, i]));
+                const matchingFiles = upFileIds
+                  .map((fid, idx) => ({
+                    fid,
+                    idx,
+                    kind: upFileKinds[idx] || 'other',
+                    order: orderMap.get(fid) ?? 9999,
+                  }))
+                  .filter((f) => f.kind === type)
+                  .sort((a, b) => a.order - b.order || a.idx - b.idx);
+
+                try {
+                  const { fileRawStore } = await import(
+                    '@/domains/workflow/components/nodes/io/fileRawStore'
+                  );
+                  for (const { fid, idx } of matchingFiles) {
+                    const b64 = fileRawStore.getBase64(fid);
+                    if (b64) {
+                      assembledFiles.push(b64);
+                    } else {
+                      const url = upContent[idx];
+                      if (
+                        url &&
+                        typeof url === 'string' &&
+                        (url.startsWith('/api/files/') ||
+                          (url.startsWith('http') && !url.startsWith('blob:')))
+                      ) {
+                        try {
+                          const response = await fetch(url);
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const fetchedB64 = await new Promise<string>(
+                              (resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () => resolve(String(reader.result));
+                                reader.onerror = () =>
+                                  reject(new Error('read failed'));
+                                reader.readAsDataURL(blob);
+                              },
+                            );
+                            assembledFiles.push(fetchedB64);
+                          }
+                        } catch {
+                          /* fetch failed, skip this file */
+                        }
+                      }
+                    }
+                  }
+                } catch {
+                  /* fileRawStore not available, skip */
+                }
+              }
+            }
+          }
+
+          // Rebuild _rawContent with per-type ordering
+          const combined: string[] = [];
+          if (assembledText) combined.push(assembledText);
+          if (assembledFiles.length > 0) combined.push(...assembledFiles);
+          if (combined.length > 0) {
+            nd._rawContent = combined.length === 1 ? combined[0] : combined;
+          }
+        }
+      }
     }
 
     const runtimeApiConfig =

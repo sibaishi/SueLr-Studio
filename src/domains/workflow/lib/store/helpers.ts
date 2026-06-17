@@ -501,7 +501,7 @@ export function readInputOrder(targetNode?: Node | null): InputOrderMap {
   return {};
 }
 
-function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: InputOrderMap): AiV3InputSlot[] {
+export function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: InputOrderMap): AiV3InputSlot[] {
   // Build per-type edge priority maps
   const edgeOrderByType = new Map<string, Map<string, number>>();
   const legacyOrder = inputOrder._legacy;

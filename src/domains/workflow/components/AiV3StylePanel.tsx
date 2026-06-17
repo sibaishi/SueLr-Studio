@@ -140,107 +140,109 @@ export default function AiV3StylePanel() {
     setData({ model: value, mode });
   }, [determineMode, setData]);
 
-  // ── early exit ──
-  if (!v3Node) return null;
-
-  // ── input thumbnails (slot-level: IO nodes are expanded) ──
-  const filterResult = filterAiV3InputSlots(v3Node.id, currentMode, edges, nodes);
-  const rawInputs: InputThumb[] = filterResult.acceptedSlots.map((slot) => {
-    const src = nodes.find((n) => n.id === slot.sourceNodeId);
-    const srcData = (src?.data || {}) as Record<string, unknown>;
-    const srcOutputs = nodeOutputs[slot.sourceNodeId];
-
-    // Determine value for thumbnail / tooltip
-    let value = '';
-    if (slot.sourceNodeType === 'io') {
-      if (slot.type === 'text') {
-        value = String(srcData.text || '');
-        // Fallback: text may be in content as a plain-text item (execution passthrough)
-        if (!value) {
-          const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
-          for (const item of content) {
-            const s = String(item);
-            if (!s || !s.trim()) continue;
-            if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) continue;
-            value = s;
-            break;
-          }
-        }
-      } else if (slot.fileId !== undefined) {
-        // fileRawStore is cleared on page refresh; fall back to data.content server URL
-        const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
-        const fileIds: number[] = Array.isArray(srcData._fileIds) ? (srcData._fileIds as number[]) : [];
-        const cIdx = fileIds.indexOf(slot.fileId);
-        value = fileRawStore.getObjectUrl(slot.fileId)
-          || (cIdx >= 0 ? content[cIdx] : '')
-          || '';
-      } else if (slot.fileIdx !== undefined) {
-        // Fallback: _fileIds is empty (execution passthrough), resolve by index in content
-        const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
-        value = content[slot.fileIdx] || '';
-      }
-    } else {
-      // Standard node: use actual edge sourceHandle, then common keys, then nodeOutputs
-      const edge = edges.find((e) => e.id === slot.edgeId);
-      const handle = edge?.sourceHandle || 'output';
-      value = String(srcData[handle] || '');
-      if (!value) {
-        for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
-          const v = srcData[k];
-          if (typeof v === 'string' && v) { value = v; break; }
-        }
-      }
-      if (!value && srcOutputs) {
-        // Recursively flatten nested arrays (aiV3 image mode returns [prompt, base64])
-        const collect = (arr: unknown[]): string[] => {
-          const acc: string[] = [];
-          for (const v of arr) {
-            if (typeof v === 'string') acc.push(v);
-            else if (Array.isArray(v)) acc.push(...collect(v));
-          }
-          return acc;
-        };
-        let outVal: unknown = srcOutputs[handle];
-        if (Array.isArray(outVal)) {
-          const strings = collect(outVal);
-          outVal = strings[strings.length - 1];
-        }
-        if (typeof outVal !== 'string') {
-          const flatEntries = Object.entries(srcOutputs).flatMap(([_, v]) => {
-            if (typeof v === 'string') return [v];
-            if (Array.isArray(v)) return collect(v);
-            return [];
-          });
-          outVal = flatEntries.find((v) => typeof v === 'string') || undefined;
-        }
-        if (typeof outVal === 'string') value = outVal;
-      }
-    }
-
-    // Infer actual media type from value when slot classification is too broad
-    let finalType = slot.type;
-    if (finalType === 'text' && value) {
-      const str = String(value);
-      if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) finalType = 'video';
-      else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) finalType = 'audio';
-      else if (str.startsWith('blob:') || str.startsWith('data:image/') || str.startsWith('http') || str.startsWith('/api/')) finalType = 'image';
-    }
-
-    const label =
-      finalType === 'text' && slot.sourceNodeType === 'io' ? '文本' :
-      slot.sourceNodeType === 'io' ? `文件${(slot.fileIdx ?? 0) + 1}` :
-      finalType !== 'text' ? getNodeTypeLabel(finalType) :
-      src?.type || '?';
-
-    return { id: slot.id, type: finalType, label, value, sourceNodeId: slot.sourceNodeId, edgeId: slot.edgeId };
-  });
-
-  // ── type-grouped node-level chips (not per-slot) ──
+  // ── type labels (used in both rawInputs & typeGroups, hoist before early return) ──
   const TYPE_ORDER_KEYS = ['text', 'image', 'video', 'audio', 'mask'] as const;
   const TYPE_LABEL: Record<string, string> = { text: '文本', image: '图片', video: '视频', audio: '音频', mask: '遮罩' };
   const getNodeTypeLabel = (type: string) => TYPE_LABEL[type] || type;
 
+  // ── rawInputs (useMemo: must be before early return to keep hook count stable) ──
+  const rawInputs: InputThumb[] = useMemo(() => {
+    if (!v3Node) return [];
+    const filterResult = filterAiV3InputSlots(v3Node.id, currentMode, edges, nodes);
+    return filterResult.acceptedSlots.map((slot) => {
+      const src = nodes.find((n) => n.id === slot.sourceNodeId);
+      const srcData = (src?.data || {}) as Record<string, unknown>;
+      const srcOutputs = nodeOutputs[slot.sourceNodeId];
+
+      // Determine value for thumbnail / tooltip
+      let value = '';
+      if (slot.sourceNodeType === 'io') {
+        if (slot.type === 'text') {
+          value = String(srcData.text || '');
+          // Fallback: text may be in content as a plain-text item (execution passthrough)
+          if (!value) {
+            const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+            for (const item of content) {
+              const s = String(item);
+              if (!s || !s.trim()) continue;
+              if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) continue;
+              value = s;
+              break;
+            }
+          }
+        } else if (slot.fileId !== undefined) {
+          // fileRawStore is cleared on page refresh; fall back to data.content server URL
+          const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+          const fileIds: number[] = Array.isArray(srcData._fileIds) ? (srcData._fileIds as number[]) : [];
+          const cIdx = fileIds.indexOf(slot.fileId);
+          value = fileRawStore.getObjectUrl(slot.fileId)
+            || (cIdx >= 0 ? content[cIdx] : '')
+            || '';
+        } else if (slot.fileIdx !== undefined) {
+          // Fallback: _fileIds is empty (execution passthrough), resolve by index in content
+          const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
+          value = content[slot.fileIdx] || '';
+        }
+      } else {
+        // Standard node: use actual edge sourceHandle, then common keys, then nodeOutputs
+        const edge = edges.find((e) => e.id === slot.edgeId);
+        const handle = edge?.sourceHandle || 'output';
+        value = String(srcData[handle] || '');
+        if (!value) {
+          for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
+            const v = srcData[k];
+            if (typeof v === 'string' && v) { value = v; break; }
+          }
+        }
+        if (!value && srcOutputs) {
+          // Recursively flatten nested arrays (aiV3 image mode returns [prompt, base64])
+          const collect = (arr: unknown[]): string[] => {
+            const acc: string[] = [];
+            for (const v of arr) {
+              if (typeof v === 'string') acc.push(v);
+              else if (Array.isArray(v)) acc.push(...collect(v));
+            }
+            return acc;
+          };
+          let outVal: unknown = srcOutputs[handle];
+          if (Array.isArray(outVal)) {
+            const strings = collect(outVal);
+            outVal = strings[strings.length - 1];
+          }
+          if (typeof outVal !== 'string') {
+            const flatEntries = Object.entries(srcOutputs).flatMap(([_, v]) => {
+              if (typeof v === 'string') return [v];
+              if (Array.isArray(v)) return collect(v);
+              return [];
+            });
+            outVal = flatEntries.find((v) => typeof v === 'string') || undefined;
+          }
+          if (typeof outVal === 'string') value = outVal;
+        }
+      }
+
+      // Infer actual media type from value when slot classification is too broad
+      let finalType = slot.type;
+      if (finalType === 'text' && value) {
+        const str = String(value);
+        if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) finalType = 'video';
+        else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) finalType = 'audio';
+        else if (str.startsWith('blob:') || str.startsWith('data:image/') || str.startsWith('http') || str.startsWith('/api/')) finalType = 'image';
+      }
+
+      const label =
+        finalType === 'text' && slot.sourceNodeType === 'io' ? '文本' :
+        slot.sourceNodeType === 'io' ? `文件${(slot.fileIdx ?? 0) + 1}` :
+        finalType !== 'text' ? getNodeTypeLabel(finalType) :
+        src?.type || '?';
+
+      return { id: slot.id, type: finalType, label, value, sourceNodeId: slot.sourceNodeId, edgeId: slot.edgeId };
+    });
+  }, [v3Node, currentMode, edges, nodes, nodeOutputs]);
+
+  // ── type-grouped node-level chips (not per-slot) ──
   const typeGroups = useMemo(() => {
+    if (!v3Node) return {} as Record<string, { sourceNodeId: string; sourceNodeLabel: string; edgeId: string; count: number; previewUrl?: string }[]>;
     const groups: Record<string, { sourceNodeId: string; sourceNodeLabel: string; edgeId: string; count: number; previewUrl?: string }[]> = {};
     const nodeInputOrder = readInputOrder(v3Node);
 
@@ -293,6 +295,9 @@ export default function AiV3StylePanel() {
 
     return groups;
   }, [rawInputs, nodes, v3Node]);
+
+  // ── early exit ──
+  if (!v3Node) return null;
 
   // Keep ref for handleGroupReorder
   typeGroupsRef.current = typeGroups;

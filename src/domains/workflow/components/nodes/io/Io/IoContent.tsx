@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import type { ParamDef } from '@/domains/workflow/lib/types';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
-import { expandAiV3InputSlots, type AiV3InputSlot } from '@/domains/workflow/lib/store/helpers';
+import { expandAiV3InputSlots, type AiV3InputSlot, sortSlotsByInputOrder, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import { fileRawStore } from '../fileRawStore';
 import { createIoImageFileEntry, imageFileNameFromUrl, uploadIoImageFileEntry } from '@/domains/workflow/lib/ioImageFiles';
 import { FileText, Layers } from 'lucide-react';
@@ -67,8 +67,14 @@ export function IoContent({
     if (!nodeId) return null;
     const upstreamEdges = edges.filter((e) => e.target === nodeId && e.targetHandle === 'input');
     if (upstreamEdges.length === 0) return null;
-    const result = expandAiV3InputSlots(nodeId, edges, nodes);
-    return result;
+    const expanded = expandAiV3InputSlots(nodeId, edges, nodes);
+    // Apply per-type inputOrder sorting so card matches dialog
+    const currentNode = nodes.find((n) => n.id === nodeId);
+    const inputOrder = readInputOrder(currentNode ?? null);
+    const hasPerType = Object.entries(inputOrder).some(
+      ([k, v]) => k !== '_legacy' && Array.isArray(v) && v.length > 0,
+    );
+    return hasPerType ? sortSlotsByInputOrder(expanded, inputOrder) : expanded;
   }, [nodeId, edges, nodes]);
 
   // Source-mode content: combine text + file URLs, same as panel display
