@@ -218,6 +218,7 @@ export default function App() {
                       applyConfig={settings.applyConfig}
                       addNewConfig={settings.addNewConfig}
                       deleteConfig={settings.deleteConfig}
+                      toggleConfigEnabled={settings.toggleConfigEnabled}
                       base={settings.base}
                       apiKey={settings.apiKey}
                       setBase={settings.setBase}

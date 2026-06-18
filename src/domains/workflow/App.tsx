@@ -54,6 +54,10 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
   }, []);
 
   useEffect(() => {
+    void useWorkflowStore.getState().fetchModels();
+  }, []);
+
+  useEffect(() => {
     void useWorkflowStore.getState().restoreExecutionRun();
   }, []);
 

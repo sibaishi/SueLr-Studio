@@ -47,6 +47,7 @@ export function SettingsPanel({
   applyConfig,
   addNewConfig,
   deleteConfig,
+  toggleConfigEnabled,
   base,
   apiKey,
   setBase,
@@ -85,6 +86,9 @@ export function SettingsPanel({
   const [storageSettingsSaving, setStorageSettingsSaving] = useState(false);
   const [clientDownloadDirectory, setClientDownloadDirectory] = useState<ClientDownloadDirectoryState | null>(null);
   const [backendRestarting, setBackendRestarting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [connectionResult, setConnectionResult] = useState('');
+  const connectionDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [networkSearch, setNetworkSearch] = useState<NetworkSearchSettingsPayload>({
     searchEnabled: false,
@@ -255,15 +259,41 @@ export function SettingsPanel({
   };
 
   const testConnection = async () => {
-    const nextModels = await testConnectionAndSyncModels();
-    if (nextModels.length > 0) {
-      const byId = new Map(nextModels.map((model) => [model.id, model]));
-      setDiscoveredModels(Array.from(byId.values()).sort((left, right) => left.id.localeCompare(right.id)));
+    if (connectionDismissTimer.current) {
+      clearTimeout(connectionDismissTimer.current);
+      connectionDismissTimer.current = null;
     }
+    setConnectionStatus('testing');
+    setConnectionResult('');
+    try {
+      const nextModels = await testConnectionAndSyncModels();
+      if (nextModels.length > 0) {
+        const byId = new Map(nextModels.map((model) => [model.id, model]));
+        setDiscoveredModels(Array.from(byId.values()).sort((left, right) => left.id.localeCompare(right.id)));
+        setConnectionStatus('success');
+        setConnectionResult(`${nextModels.length} 个模型`);
+      } else {
+        setConnectionStatus('error');
+        setConnectionResult('未发现模型');
+      }
+    } catch {
+      setConnectionStatus('error');
+      setConnectionResult('连接失败');
+    }
+    connectionDismissTimer.current = setTimeout(() => {
+      setConnectionStatus('idle');
+      setConnectionResult('');
+      connectionDismissTimer.current = null;
+    }, 3000);
   };
 
   const addConfig = () => {
-    applyConfig(addNewConfig());
+    const id = addNewConfig();
+    _setActiveConfigId(id);
+    setBase('');
+    setApiKey('');
+    setModels([]);
+    setSelectedImports([]);
   };
 
   const importSelectedModels = () => {
@@ -586,6 +616,8 @@ export function SettingsPanel({
     runtimeCapabilities,
     canRestartBackend,
     canSelectDirectory,
+    connectionStatus,
+    connectionResult,
     themeMode,
     themeOptions,
     workflowConcurrency,
@@ -630,6 +662,7 @@ export function SettingsPanel({
     setStoragePathDraft,
     setThemeMode,
     testConnection,
+    toggleConfigEnabled,
     updateConfig,
     updateProjectModel: updateProjectModelAction,
     updateProviderConfig,

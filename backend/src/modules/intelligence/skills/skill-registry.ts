@@ -144,7 +144,7 @@ const teamRunInputSchema = {
 
 function listProviderModels(scope?: DynamicValue) {
   const settings = settingsService.getSettingsResponse(scope) as PlainObject;
-  const configs = Array.isArray(settings?.configs) ? settings.configs : [];
+  const configs = (Array.isArray(settings?.configs) ? settings.configs : []).filter((config: PlainObject) => config.enabled !== false);
   return configs.map((config: PlainObject) => ({
     configId: String(config.id || ''),
     name: String(config.name || ''),

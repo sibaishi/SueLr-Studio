@@ -29,6 +29,7 @@ export type ModelOption = {
   group?: string;
   modelId: string;
   configId?: string;
+  configName?: string;
 };
 
 function cleanText(value: unknown) {

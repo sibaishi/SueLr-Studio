@@ -2,7 +2,7 @@ import { groupConfiguredProjectModels, normalizeProjectModels } from '@/domains/
 import type { ProviderConfig } from '@/shared/providers';
 import { debouncedSaveJSON, ftime, gid, loadJSON } from '@/shared/runtime';
 import type { AgentRole, ApiConfig, LogEntry, ModelInfo } from '@/shared/types';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PRESET_ROLES, type AgentProfile } from './agentProfiles';
 import type { StreamMode, WorkflowConcurrencySettingsPayload } from './types';
 
@@ -20,7 +20,7 @@ function getConfigLabel(config: ApiConfig, index: number) {
 }
 
 function buildConfiguredProjectModels(configs: ApiConfig[]): ModelInfo[] {
-  return configs.flatMap((config, index) => {
+  return configs.filter((config) => config.enabled !== false).flatMap((config, index) => {
     const projectModels = normalizeProjectModels(config.projectModels || []);
     const grouped = groupConfiguredProjectModels(projectModels);
     const configName = getConfigLabel(config, index);
@@ -142,8 +142,12 @@ export function useStudioSettingsState() {
 
   const addNewConfig = useCallback(() => {
     const id = gid();
-    setApiConfigs((prev) => [...prev, { id, name: '', base: '', apiKey: '', models: [] }]);
+    setApiConfigs((prev) => [...prev, { id, name: '', base: '', apiKey: '', models: [], enabled: true }]);
     return id;
+  }, []);
+
+  const toggleConfigEnabled = useCallback((id: string) => {
+    setApiConfigs((prev) => prev.map((config) => (config.id === id ? { ...config, enabled: !(config.enabled !== false) } : config)));
   }, []);
 
   const deleteConfig = useCallback(
@@ -213,6 +217,10 @@ export function useStudioSettingsState() {
     [persistAgentProfiles],
   );
 
+  useEffect(() => {
+    debouncedSaveJSON('ai_configs', apiConfigs);
+  }, [apiConfigs]);
+
   const resetUserSettings = useCallback(() => {
     setApiConfigs([]);
     setActiveConfigId('');
@@ -256,6 +264,7 @@ export function useStudioSettingsState() {
     setModels,
     setWorkflowConcurrency,
     setVideoStreamingMode,
+    toggleConfigEnabled,
     upsertAgentProfile,
     videoStreamingMode,
     workflowConcurrency,

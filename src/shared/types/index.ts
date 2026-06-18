@@ -56,6 +56,7 @@ export interface ApiConfig {
   base: string;
   apiKey: string;
   apiKeySet?: boolean;
+  enabled?: boolean;
   models: ModelInfo[];
   providerConfig?: ProviderConfig;
   projectModels?: ProjectModel[];

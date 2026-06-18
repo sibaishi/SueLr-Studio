@@ -88,6 +88,7 @@ export type SettingsPanelProps = {
   applyConfig: (id: string) => void;
   addNewConfig: () => string;
   deleteConfig: (id: string) => void;
+  toggleConfigEnabled: (id: string) => void;
   base: string;
   apiKey: string;
   setBase: (value: string) => void;

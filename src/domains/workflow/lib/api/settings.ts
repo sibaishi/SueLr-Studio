@@ -41,10 +41,10 @@ export async function discoverProviderModels(
 }
 
 export interface CategorizedModels {
-  all: string[];
-  chat: string[];
-  image: string[];
-  video: string[];
+  all: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
+  chat: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
+  image: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
+  video: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
 }
 
 export async function fetchAvailableModels() {

@@ -14,22 +14,77 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
-      <SectionCard title="配置身份" description="切换当前工作室使用的 API 配置，并管理配置生命周期。">
+      <SectionCard title="配置身份" description="切换当前工作室使用的 API 配置，并管理配置生命周期。禁用的配置不会参与模型发现与工作流执行。">
         <div className="flex-col" style={{ gap: 14 }}>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {view.apiConfigs.map((config) => (
-              <button
-                key={config.id}
-                onClick={() => actions.applyConfig(config.id)}
-                style={{
-                  ...chipStyle(config.id === view.activeConfigId ? T.blue : undefined),
-                  cursor: 'pointer',
-                  background: config.id === view.activeConfigId ? `${T.blue}18` : 'var(--color-bg-secondary)',
-                }}
-              >
-                {config.name || '未命名配置'}
-              </button>
-            ))}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {view.apiConfigs.map((config) => {
+              const isEnabled = config.enabled !== false;
+              const isActive = config.id === view.activeConfigId;
+              return (
+                <div
+                  key={config.id}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '4px 6px 4px 10px',
+                    borderRadius: 20,
+                    background: isActive ? `${T.blue}16` : 'var(--color-bg-secondary)',
+                    border: isActive ? `1px solid ${T.blue}30` : '1px solid var(--color-border-primary)',
+                    opacity: isEnabled ? 1 : 0.4,
+                    transition: 'opacity 0.2s, background 0.2s',
+                  }}
+                >
+                  <button
+                    onClick={() => actions.applyConfig(config.id)}
+                    style={{
+                      cursor: 'pointer',
+                      background: 'transparent',
+                      border: 'none',
+                      padding: 0,
+                      fontSize: 13,
+                      fontWeight: isActive ? 600 : 400,
+                      color: isActive ? T.blue : 'var(--color-text-primary)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {config.name || '未命名配置'}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      actions.toggleConfigEnabled(config.id);
+                    }}
+                    title={isEnabled ? '禁用此配置' : '启用此配置'}
+                    style={{
+                      width: 30,
+                      height: 17,
+                      borderRadius: 9,
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: isEnabled ? T.blue : 'var(--color-bg-tertiary)',
+                      position: 'relative',
+                      transition: 'background 0.2s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: 1.5,
+                        left: isEnabled ? 14 : 1.5,
+                        width: 14,
+                        height: 14,
+                        borderRadius: '50%',
+                        background: '#fff',
+                        transition: 'left 0.2s',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                      }}
+                    />
+                  </button>
+                </div>
+              );
+            })}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <div style={{ minWidth: 0 }} data-testid="settings-config-name-field">
@@ -55,13 +110,14 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <IOSButton
               small
               label="测试连接"
               onClick={() => void actions.testConnection()}
               data-testid="settings-test-connection"
             />
+            <ConnectionTestStatus status={view.connectionStatus} result={view.connectionResult} />
             <IOSButton small label="添加配置" onClick={actions.addConfig} color={T.green} />
             {view.apiConfigs.length > 1 && (
               <IOSButton
@@ -188,5 +244,32 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
         </div>
       </SectionCard>
     </div>
+  );
+}
+
+function ConnectionTestStatus({ status, result }: { status: 'idle' | 'testing' | 'success' | 'error'; result: string }) {
+  if (status === 'idle') return null;
+
+  if (status === 'testing') {
+    return (
+      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <span className="cn-spinner" style={{ width: 12, height: 12, border: '2px solid var(--color-border-primary)', borderTopColor: 'var(--color-text-secondary)', borderRadius: '50%', display: 'inline-block' }} />
+        检测中…
+      </span>
+    );
+  }
+
+  if (status === 'success') {
+    return (
+      <span style={{ fontSize: 12, color: 'var(--color-green)', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+        ✓ {result}
+      </span>
+    );
+  }
+
+  return (
+    <span style={{ fontSize: 12, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+      ✗ {result}
+    </span>
   );
 }

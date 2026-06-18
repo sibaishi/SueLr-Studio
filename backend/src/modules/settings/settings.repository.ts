@@ -187,6 +187,7 @@ function sanitizeApiConfig(value: DynamicValue) {
     name: cleanOptionalString(value.name, 80),
     base: cleanOptionalString(value.base, 2000),
     apiKey: cleanOptionalString(value.apiKey, 4000),
+    enabled: value.enabled !== false,
     models: Array.isArray(value.models)
       ? value.models
           .map((item) => {
@@ -370,7 +371,19 @@ function mergeSettingsPreservingSecrets(current: DynamicValue, patch: DynamicVal
       const apiKey = cleanOptionalString(config.apiKey, 4000) || previous?.apiKey || '';
       return { ...config, apiKey };
     });
+  } else if (Array.isArray(patch.ai_configs)) {
+    const currentById = new Map<string, DynamicValue>(
+      (current.runtime?.configs || []).map((config: DynamicValue) => [config.id, config]),
+    );
+    const configs = sanitizeApiConfigList(patch.ai_configs);
+    next.runtime.configs = configs.map((config: DynamicValue) => {
+      const previous = currentById.get(config.id);
+      const apiKey = cleanOptionalString(config.apiKey, 4000) || previous?.apiKey || '';
+      return { ...config, apiKey };
+    });
   }
+  // 清理顶层 ai_configs 避免残留
+  delete (next as DynamicValue).ai_configs;
 
   return next;
 }
@@ -395,6 +408,8 @@ function sanitizeSettingsShape(input: DynamicValue) {
     searchEnabled: value.runtime?.searchEnabled,
     outboundProxy: sanitizeOutboundProxy(value.runtime?.outboundProxy),
     configs: sanitizeApiConfigList(value.runtime?.configs),
+  }, {
+    configs: sanitizeApiConfigList(value.ai_configs),
   });
   settings.workflow = {
     snapToGrid: validateBoolean(value.workflow?.snapToGrid, DEFAULT_SETTINGS.workflow.snapToGrid),
@@ -489,6 +504,7 @@ function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: Dyn
           };
         })
       : storedConfigs;
+  const enabledConfigs = configs.filter((config: DynamicValue) => config.enabled !== false);
   const requestedConfigId = cleanOptionalString(overrides.configId, 120);
   const active =
     (requestedConfigId ? configs.find((config: DynamicValue) => config.id === requestedConfigId) : null) ||
@@ -510,7 +526,7 @@ function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: Dyn
     projectModels,
     providerConfig,
     configId: active?.id || '',
-    configs,
+    configs: enabledConfigs,
   };
 }
 
@@ -681,6 +697,29 @@ export class SettingsRepository {
     const active = getActiveRuntimeConfig(currentSettings);
     const projectModels = normalizeProjectModels(active?.projectModels || []);
     const { outboundProxy: _legacyOutboundProxy, ...publicRuntime } = currentSettings.runtime;
+
+    // 从所有 enabled 配置中收集模型，附上 configId 和 configName
+    const configModels: Record<string, Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>> = { all: [], chat: [], image: [], video: [] };
+    const seenPairs = new Set<string>();
+    const allConfigs: DynamicValue[] = currentSettings.runtime.configs || [];
+    for (const config of allConfigs) {
+      if (config.enabled === false) continue;
+      const configId = String(config.id || '');
+      const configName = String(config.name || config.label || config.id || '');
+      const models = normalizeProjectModels(config.projectModels || []);
+      for (const model of models) {
+        if (!model.configured) continue;
+        const pairKey = `${configId}::${model.modelId}`;
+        if (seenPairs.has(pairKey)) continue;
+        seenPairs.add(pairKey);
+        const opt = { label: model.modelId, value: model.modelId, modelId: model.modelId, configId, configName };
+        configModels.all.push(opt);
+        if (model.type === 'chat') configModels.chat.push(opt);
+        if (model.type === 'image') configModels.image.push(opt);
+        if (model.type === 'video') configModels.video.push(opt);
+      }
+    }
+
     return {
       version: currentSettings.version,
       ui: currentSettings.ui,
@@ -706,7 +745,7 @@ export class SettingsRepository {
       baseUrl: active?.base || 'https://api.openai.com/v1',
       projectModels,
       providerConfig: sanitizeProviderConfig(active?.providerConfig || DEFAULT_PROVIDER_CONFIG),
-      availableProjectModels: groupConfiguredProjectModels(projectModels),
+      availableProjectModels: configModels,
     };
   }
 

@@ -262,6 +262,16 @@ p { line-height: 1.65; }
   }
 }
 
+@keyframes cn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cn-spinner {
+  animation: cn-spin 0.7s linear infinite;
+}
+
 @keyframes playPulse {
   0%,
   100% {

@@ -1,8 +1,8 @@
 import { inferEndpointCategory } from '@/domains/workflow/lib/projectModels';
 import type { ModelInfo, ProjectModel } from '@/shared/types';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { Check, Database, Search, UploadCloud, X } from 'lucide-react';
-import { useMemo } from 'react';
+import { Check, Database, Search, Trash2, UploadCloud, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 
@@ -12,11 +12,13 @@ type Props = {
   view: SettingsViewModel;
 };
 
+const CATEGORY_ORDER: Record<string, number> = { chat: 0, image: 1, 'image-edit': 2, video: 3 };
+const CATEGORY_LABELS: Record<string, string> = { chat: '对话', image: '图像', 'image-edit': '图像编辑', video: '视频' };
+
+
 function modelTypeLabel(type?: ModelInfo['cat'] | ProjectModel['type'] | ProjectModel['endpointCategory']) {
-  if (type === 'image' || type === 'image-edit') return '图像';
-  if (type === 'video') return '视频';
-  if (type === 'chat') return '对话';
-  return '未分类';
+  if (!type) return '未分类';
+  return CATEGORY_LABELS[type] || type;
 }
 
 function modelTypeColor(type: string | undefined, T: Record<string, string>) {
@@ -31,11 +33,75 @@ function isSelected(id: string, selected: string[]) {
 }
 
 export function ModelsSection({ T, actions, view }: Props) {
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
+
+  const toggleBatch = () => {
+    setBatchMode((prev) => !prev);
+    setBatchSelected(new Set());
+  };
+
+  const toggleBatchSelect = (modelId: string) => {
+    setBatchSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) next.delete(modelId); else next.add(modelId);
+      return next;
+    });
+  };
+
+  const selectAllBatch = () => {
+    setBatchSelected(new Set(view.filteredProjectModels.map((m) => m.modelId)));
+  };
+
+  const deselectAllBatch = () => {
+    setBatchSelected(new Set());
+  };
+
+  const removeSelectedBatch = () => {
+    batchSelected.forEach((id) => actions.removeProjectModel(id));
+    setBatchSelected(new Set());
+    setBatchMode(false);
+  };
+
+  const toggleCat = (cat: string) => {
+    setCollapsedCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
+
   const filteredImportableModels = useMemo(() => {
     const query = view.projectModelSearch.trim().toLowerCase();
     if (!query) return view.importableModels;
     return view.importableModels.filter((model) => model.id.toLowerCase().includes(query));
   }, [view.importableModels, view.projectModelSearch]);
+
+  const importableGroups = useMemo(() => {
+    const groups = new Map<string, ModelInfo[]>();
+    for (const model of filteredImportableModels) {
+      const cat = model.cat || 'other';
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat)!.push(model);
+    }
+    return Array.from(groups.entries()).sort(
+      (a, b) => (CATEGORY_ORDER[a[0]] ?? 99) - (CATEGORY_ORDER[b[0]] ?? 99),
+    );
+  }, [filteredImportableModels]);
+
+  const projectGroups = useMemo(() => {
+    const groups = new Map<string, ProjectModel[]>();
+    for (const model of view.filteredProjectModels) {
+      const type = model.type || 'other';
+      if (!groups.has(type)) groups.set(type, []);
+      groups.get(type)!.push(model);
+    }
+    return Array.from(groups.entries()).sort(
+      (a, b) => (CATEGORY_ORDER[a[0]] ?? 99) - (CATEGORY_ORDER[b[0]] ?? 99),
+    );
+  }, [view.filteredProjectModels]);
+
   const allVisibleSelected =
     filteredImportableModels.length > 0 &&
     filteredImportableModels.every((model) => isSelected(model.id, view.selectedImports));
@@ -64,7 +130,33 @@ export function ModelsSection({ T, actions, view }: Props) {
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
-      <SectionCard title="项目模型库" description="管理当前工作室在对话、图像、视频等场景下可用的模型资产。">
+      <SectionCard
+        title="项目模型库"
+        description="管理当前工作室在对话、图像、视频等场景下可用的模型资产。"
+        action={
+          view.filteredProjectModels.length > 0 ? (
+            <button
+              type="button"
+              onClick={toggleBatch}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 10px',
+                borderRadius: 8,
+                border: '1px solid var(--color-border)',
+                background: batchMode ? `${T.blue}18` : 'var(--color-bg-tertiary)',
+                color: batchMode ? T.blue : 'var(--color-text-secondary)',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {batchMode ? '取消' : '批量管理'}
+            </button>
+          ) : undefined
+        }
+      >
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ position: 'relative' }}>
             <Search
@@ -158,65 +250,76 @@ export function ModelsSection({ T, actions, view }: Props) {
                 </button>
               </div>
 
-              <div style={{ maxHeight: 260, overflow: 'auto', padding: 10, display: 'grid', gap: 8 }}>
-                {filteredImportableModels.map((model) => {
-                  const id = model.id;
-                  const selected = isSelected(id, view.selectedImports);
-                  const type = model.cat || 'chat';
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      data-testid={`settings-importable-model-${id}`}
-                      onClick={() => toggleImport(id)}
-                      style={{
-                        width: '100%',
-                        minHeight: 48,
-                        display: 'grid',
-                        gridTemplateColumns: '26px minmax(0, 1fr) auto',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '10px 12px',
-                        borderRadius: 12,
-                        border: `1px solid ${selected ? `${T.blue}66` : 'var(--color-border)'}`,
-                        background: selected ? `${T.blue}18` : 'var(--color-bg-tertiary)',
-                        color: 'var(--color-text-primary)',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: 7,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: `1px solid ${selected ? T.blue : 'var(--color-border)'}`,
-                          background: selected ? T.blue : 'transparent',
-                          color: '#fff',
-                        }}
-                      >
-                        {selected && <Check size={13} />}
-                      </span>
-                      <span style={{ minWidth: 0 }}>
-                        <span
+              <div style={{ maxHeight: 380, overflow: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {importableGroups.map(([cat, models]) => (
+                  <CategoryGroup
+                    key={cat}
+                    cat={cat}
+                    count={models.length}
+                    collapsed={collapsedCats.has(cat)}
+                    onToggle={() => toggleCat(cat)}
+                    T={T}
+                  >
+                    {models.map((model) => {
+                      const id = model.id;
+                      const selected = isSelected(id, view.selectedImports);
+                      const type = model.cat || 'chat';
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          data-testid={`settings-importable-model-${id}`}
+                          onClick={() => toggleImport(id)}
                           style={{
-                            display: 'block',
-                            fontFamily: 'monospace',
-                            fontSize: 13,
-                            lineHeight: 1.35,
-                            overflowWrap: 'anywhere',
+                            width: '100%',
+                            minHeight: 48,
+                            display: 'grid',
+                            gridTemplateColumns: '26px minmax(0, 1fr) auto',
+                            alignItems: 'center',
+                            gap: 10,
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            border: `1px solid ${selected ? `${T.blue}66` : 'var(--color-border)'}`,
+                            background: selected ? `${T.blue}18` : 'var(--color-bg-tertiary)',
+                            color: 'var(--color-text-primary)',
+                            cursor: 'pointer',
+                            textAlign: 'left',
                           }}
                         >
-                          {id}
-                        </span>
-                      </span>
-                      <span style={chipStyle(modelTypeColor(type, T))}>{modelTypeLabel(type)}</span>
-                    </button>
-                  );
-                })}
+                          <span
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 7,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: `1px solid ${selected ? T.blue : 'var(--color-border)'}`,
+                              background: selected ? T.blue : 'transparent',
+                              color: '#fff',
+                            }}
+                          >
+                            {selected && <Check size={13} />}
+                          </span>
+                          <span style={{ minWidth: 0 }}>
+                            <span
+                              style={{
+                                display: 'block',
+                                fontFamily: 'monospace',
+                                fontSize: 13,
+                                lineHeight: 1.35,
+                                overflowWrap: 'anywhere',
+                              }}
+                            >
+                              {id}
+                            </span>
+                          </span>
+                          <span style={chipStyle(modelTypeColor(type, T))}>{modelTypeLabel(type)}</span>
+                        </button>
+                      );
+                    })}
+                  </CategoryGroup>
+                ))}
                 {filteredImportableModels.length === 0 && (
                   <EmptyStateCard
                     title="没有匹配的待导入模型"
@@ -269,126 +372,163 @@ export function ModelsSection({ T, actions, view }: Props) {
             </div>
           )}
 
-          <div className="flex-col" style={{ gap: 10 }}>
-            {view.filteredProjectModels.map((model) => (
-              <IOSCard
-                key={model.modelId}
-                data-testid={`settings-project-model-card-${model.modelId}`}
-                style={{
-                  borderRadius: 18,
-                  boxShadow: 'none',
-                  background: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                }}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {projectGroups.map(([type, models]) => (
+              <CategoryGroup
+                key={type}
+                cat={type}
+                count={models.length}
+                collapsed={collapsedCats.has(type)}
+                onToggle={() => toggleCat(type)}
+                T={T}
               >
-                <div className="flex-col" style={{ gap: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          color: 'var(--color-text-primary)',
-                          fontFamily: 'monospace',
-                          overflowWrap: 'anywhere',
-                        }}
-                      >
-                        {model.modelId}
+                {models.map((model) => {
+                  const isBatchSelected = batchMode && batchSelected.has(model.modelId);
+                  return (
+                  <IOSCard
+                    key={model.modelId}
+                    data-testid={`settings-project-model-card-${model.modelId}`}
+                    style={{
+                      borderRadius: 18,
+                      boxShadow: 'none',
+                      background: isBatchSelected ? `${T.blue}14` : 'var(--color-bg-tertiary)',
+                      border: isBatchSelected ? `1px solid ${T.blue}40` : '1px solid var(--color-border)',
+                      cursor: batchMode ? 'pointer' : undefined,
+                    }}
+                    onClick={batchMode ? () => toggleBatchSelect(model.modelId) : undefined}
+                  >
+                    <div className="flex-col" style={{ gap: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0, flex: 1 }}>
+                          {batchMode && (
+                            <span
+                              style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: 7,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                marginTop: 1,
+                                border: `1px solid ${isBatchSelected ? T.blue : 'var(--color-border)'}`,
+                                background: isBatchSelected ? T.blue : 'transparent',
+                                color: '#fff',
+                              }}
+                            >
+                              {isBatchSelected && <Check size={13} />}
+                            </span>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              color: 'var(--color-text-primary)',
+                              fontFamily: 'monospace',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {model.modelId}
+                          </div>
+                          <div style={{ fontSize: 11, color: model.configured ? T.green : T.orange, marginTop: 4 }}>
+                            {model.configured ? '已配置，可用' : '配置还不完整'}
+                          </div>
+                        </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+                          <label
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontSize: 12,
+                              color: 'var(--color-text-secondary)',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={model.enabled}
+                              onChange={(event) =>
+                                actions.updateProjectModel(model.modelId, { enabled: event.target.checked })
+                              }
+                            />
+                            启用
+                          </label>
+                          <IOSButton
+                            small
+                            label="移除"
+                            color={T.red}
+                            onClick={() => actions.removeProjectModel(model.modelId)}
+                          />
+                        </div>
                       </div>
-                      <div style={{ fontSize: 11, color: model.configured ? T.green : T.orange, marginTop: 4 }}>
-                        {model.configured ? '已配置，可用' : '配置还不完整'}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+                        <div>
+                          <IOSLabel>模型类型</IOSLabel>
+                          <IOSSelect
+                            value={model.type}
+                            onChange={(value) => {
+                              const type = value as ProjectModel['type'];
+                              actions.updateProjectModel(model.modelId, {
+                                type,
+                                endpointCategory: inferEndpointCategory(type),
+                              });
+                            }}
+                          >
+                            <option value="">未设置</option>
+                            <option value="chat">对话</option>
+                            <option value="image">图像</option>
+                            <option value="video">视频</option>
+                          </IOSSelect>
+                        </div>
+                        <div>
+                          <IOSLabel>接口模式</IOSLabel>
+                          <IOSSelect
+                            value={model.endpointMode}
+                            onChange={(value) =>
+                              actions.updateProjectModel(model.modelId, {
+                                endpointMode: value as ProjectModel['endpointMode'],
+                              })
+                            }
+                          >
+                            <option value="category">按类别接口</option>
+                            <option value="custom">自定义接口</option>
+                          </IOSSelect>
+                        </div>
+                        {model.endpointMode === 'category' ? (
+                          <div>
+                            <IOSLabel>接口类别</IOSLabel>
+                            <IOSSelect
+                              value={model.endpointCategory}
+                              onChange={(value) =>
+                                actions.updateProjectModel(model.modelId, {
+                                  endpointCategory: value as ProjectModel['endpointCategory'],
+                                })
+                              }
+                            >
+                              <option value="">未设置</option>
+                              <option value="chat">chat</option>
+                              <option value="image">image</option>
+                              <option value="image-edit">image-edit</option>
+                              <option value="gemini-generate-content">Gemini generateContent</option>
+                              <option value="video">video</option>
+                            </IOSSelect>
+                          </div>
+                        ) : (
+                          <div>
+                            <IOSLabel>自定义接口路径</IOSLabel>
+                            <IOSInput
+                              value={model.customEndpoint}
+                              onChange={(value) => actions.updateProjectModel(model.modelId, { customEndpoint: value })}
+                              placeholder="/v1/your/custom/path"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-                      <label
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontSize: 12,
-                          color: 'var(--color-text-secondary)',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={model.enabled}
-                          onChange={(event) =>
-                            actions.updateProjectModel(model.modelId, { enabled: event.target.checked })
-                          }
-                        />
-                        启用
-                      </label>
-                      <IOSButton
-                        small
-                        label="移除"
-                        color={T.red}
-                        onClick={() => actions.removeProjectModel(model.modelId)}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-                    <div>
-                      <IOSLabel>模型类型</IOSLabel>
-                      <IOSSelect
-                        value={model.type}
-                        onChange={(value) => {
-                          const type = value as ProjectModel['type'];
-                          actions.updateProjectModel(model.modelId, {
-                            type,
-                            endpointCategory: inferEndpointCategory(type),
-                          });
-                        }}
-                      >
-                        <option value="">未设置</option>
-                        <option value="chat">对话</option>
-                        <option value="image">图像</option>
-                        <option value="video">视频</option>
-                      </IOSSelect>
-                    </div>
-                    <div>
-                      <IOSLabel>接口模式</IOSLabel>
-                      <IOSSelect
-                        value={model.endpointMode}
-                        onChange={(value) =>
-                          actions.updateProjectModel(model.modelId, {
-                            endpointMode: value as ProjectModel['endpointMode'],
-                          })
-                        }
-                      >
-                        <option value="category">按类别接口</option>
-                        <option value="custom">自定义接口</option>
-                      </IOSSelect>
-                    </div>
-                    {model.endpointMode === 'category' ? (
-                      <div>
-                        <IOSLabel>接口类别</IOSLabel>
-                        <IOSSelect
-                          value={model.endpointCategory}
-                          onChange={(value) =>
-                            actions.updateProjectModel(model.modelId, {
-                              endpointCategory: value as ProjectModel['endpointCategory'],
-                            })
-                          }
-                        >
-                          <option value="">未设置</option>
-                          <option value="chat">chat</option>
-                          <option value="image">image</option>
-                          <option value="image-edit">image-edit</option>
-                          <option value="gemini-generate-content">Gemini generateContent</option>
-                          <option value="video">video</option>
-                        </IOSSelect>
-                      </div>
-                    ) : (
-                      <div>
-                        <IOSLabel>自定义接口路径</IOSLabel>
-                        <IOSInput
-                          value={model.customEndpoint}
-                          onChange={(value) => actions.updateProjectModel(model.modelId, { customEndpoint: value })}
-                          placeholder="/v1/your/custom/path"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </IOSCard>
+                  </IOSCard>
+                );
+                })}
+              </CategoryGroup>
             ))}
             {view.filteredProjectModels.length === 0 && (
               <EmptyStateCard
@@ -401,9 +541,130 @@ export function ModelsSection({ T, actions, view }: Props) {
                 }
               />
             )}
+            {batchMode && view.filteredProjectModels.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-bg-secondary)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={batchSelected.size === view.filteredProjectModels.length ? deselectAllBatch : selectAllBatch}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: T.blue,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    {batchSelected.size === view.filteredProjectModels.length ? '取消全选' : '全选'}
+                  </button>
+                  <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                    已选 <strong style={{ color: 'var(--color-text-primary)' }}>{batchSelected.size}</strong> 个
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={removeSelectedBatch}
+                  disabled={batchSelected.size === 0}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '7px 12px',
+                    borderRadius: 9,
+                    border: 'none',
+                    background: batchSelected.size > 0 ? T.red : 'var(--color-bg-tertiary)',
+                    color: batchSelected.size > 0 ? '#fff' : 'var(--color-text-tertiary)',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: batchSelected.size > 0 ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  <Trash2 size={14} />
+                  批量移除
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </SectionCard>
+    </div>
+  );
+}
+
+function CategoryGroup({
+  cat,
+  count,
+  collapsed,
+  onToggle,
+  T,
+  children,
+}: {
+  cat: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  T: Record<string, string>;
+  children: React.ReactNode;
+}) {
+  if (count === 0) return null;
+  const label = CATEGORY_LABELS[cat] || '未分类';
+  const color = modelTypeColor(cat, T);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: collapsed ? 0 : 8 }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 10px',
+          borderRadius: 10,
+          border: '1px solid var(--color-border)',
+          background: 'var(--color-bg-tertiary)',
+          cursor: 'pointer',
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--color-text-secondary)',
+        }}
+      >
+        <span
+          style={{
+            display: 'inline-block',
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            flexShrink: 0,
+            background: color || 'var(--color-text-tertiary)',
+          }}
+        />
+        <span>{label}</span>
+        <span style={{ opacity: 0.5, fontSize: 11 }}>{count}</span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontSize: 10,
+            transition: 'transform 0.2s',
+            transform: collapsed ? '' : 'rotate(90deg)',
+          }}
+        >
+          ▶
+        </span>
+      </button>
+      {!collapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>}
     </div>
   );
 }

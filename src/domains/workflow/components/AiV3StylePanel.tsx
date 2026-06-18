@@ -64,6 +64,11 @@ export default function AiV3StylePanel() {
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   const v3Node = nodes.find((n) => n.selected && n.type === 'aiV3');
 
+  // 取消选中节点时自动关闭 popover
+  useEffect(() => {
+    if (!v3Node) setOpenPopover(null);
+  }, [v3Node]);
+
   const [height, setHeight] = useState(MIN_H);
   const [dragging, setDragging] = useState(false);
   const dragStartY = useRef(0);
@@ -72,7 +77,7 @@ export default function AiV3StylePanel() {
   const [draggedGroupIdx, setDraggedGroupIdx] = useState<number | null>(null);
   const [dragOverGroupIdx, setDragOverGroupIdx] = useState<number | null>(null);
   const [draggedGroupType, setDraggedGroupType] = useState<string | null>(null);
-  const typeGroupsRef = useRef<Record<string, { edgeId: string }[]>>({});
+  const typeGroupsRef = useRef<Record<string, { items: InputThumb[]; sourceNodeId: string }[]>>({});
   const [promptValue, setPromptValue] = useState('');
 
   const nodeData = (v3Node?.data || {}) as Record<string, unknown>;
@@ -84,7 +89,7 @@ export default function AiV3StylePanel() {
   const handleGroupReorder = useCallback((type: string, fromIdx: number, toIdx: number) => {
     const group = typeGroupsRef.current[type];
     if (!group || group.length === 0 || fromIdx === toIdx) return;
-    const reordered = [...group.map((e) => e.edgeId)];
+    const reordered = [...group.map((e) => e.items[0]?.edgeId || '')];
     const [moved] = reordered.splice(fromIdx, 1);
     reordered.splice(toIdx, 0, moved);
 
@@ -93,7 +98,7 @@ export default function AiV3StylePanel() {
     for (const t of Object.keys(currentOrder)) { delete newOrder[t]; }
     for (const t of Object.keys(typeGroupsRef.current)) {
       if (t === type) newOrder[t] = reordered;
-      else newOrder[t] = typeGroupsRef.current[t].map((e) => e.edgeId);
+      else newOrder[t] = typeGroupsRef.current[t].map((e) => e.items[0]?.edgeId || '');
     }
     // Preserve _legacy if it existed
     if (currentOrder._legacy) newOrder._legacy = currentOrder._legacy;
@@ -138,6 +143,7 @@ export default function AiV3StylePanel() {
   const handleModelChange = useCallback((value: string) => {
     const mode = determineMode(value);
     setData({ model: value, mode });
+    setOpenPopover(null);
   }, [determineMode, setData]);
 
   // ── type labels (used in both rawInputs & typeGroups, hoist before early return) ──
@@ -240,49 +246,39 @@ export default function AiV3StylePanel() {
     });
   }, [v3Node, currentMode, edges, nodes, nodeOutputs]);
 
-  // ── type-grouped node-level chips (not per-slot) ──
+  // ── type-grouped per-item chips (match IoStylePanel upstream style) ──
   const typeGroups = useMemo(() => {
-    if (!v3Node) return {} as Record<string, { sourceNodeId: string; sourceNodeLabel: string; edgeId: string; count: number; previewUrl?: string }[]>;
-    const groups: Record<string, { sourceNodeId: string; sourceNodeLabel: string; edgeId: string; count: number; previewUrl?: string }[]> = {};
+    if (!v3Node) return {} as Record<string, { sourceNodeId: string; sourceNodeLabel: string; items: InputThumb[] }[]>;
+    const groups: Record<string, { sourceNodeId: string; sourceNodeLabel: string; items: InputThumb[] }[]> = {};
     const nodeInputOrder = readInputOrder(v3Node);
 
     for (const type of TYPE_ORDER_KEYS) {
       const typeInputs = rawInputs.filter((x) => x.type === type);
       if (typeInputs.length === 0) continue;
 
-      const entries: typeof groups[string] = [];
-      const seenNodes = new Set<string>();
+      const seenNodes = new Map<string, InputThumb[]>();
       for (const input of typeInputs) {
-        if (seenNodes.has(input.sourceNodeId)) continue;
-        seenNodes.add(input.sourceNodeId);
+        const arr = seenNodes.get(input.sourceNodeId) ?? [];
+        arr.push(input);
+        seenNodes.set(input.sourceNodeId, arr);
+      }
 
-        const src = nodes.find((n) => n.id === input.sourceNodeId);
+      const entries = Array.from(seenNodes.entries()).map(([sourceNodeId, items]) => {
+        const src = nodes.find((n) => n.id === sourceNodeId);
         const srcDef = getNodeDef(src?.type || '');
         const nodeLabel = (typeof (src?.data as Record<string, unknown> | undefined)?.label === 'string'
           ? (src?.data as Record<string, unknown>).label as string
-          : '') || srcDef?.label || input.sourceNodeId;
-
-        entries.push({
-          sourceNodeId: input.sourceNodeId,
-          sourceNodeLabel: nodeLabel,
-          edgeId: input.edgeId,
-          count: 0,
-          previewUrl: (input.type === 'image' || input.type === 'video') ? input.value : undefined,
-        });
-      }
-
-      // Count slots per node
-      for (const entry of entries) {
-        entry.count = typeInputs.filter((x) => x.sourceNodeId === entry.sourceNodeId).length;
-      }
+          : '') || srcDef?.label || sourceNodeId;
+        return { sourceNodeId, sourceNodeLabel: nodeLabel, items };
+      });
 
       // Apply per-type edge ordering from inputOrder
       const typeOrder = nodeInputOrder[type];
       if (typeOrder && typeOrder.length > 0) {
         const orderMap = new Map(typeOrder.map((eid, i) => [eid, i]));
         entries.sort((a, b) => {
-          const ai = orderMap.get(a.edgeId);
-          const bi = orderMap.get(b.edgeId);
+          const ai = orderMap.get(a.items[0]?.edgeId || '');
+          const bi = orderMap.get(b.items[0]?.edgeId || '');
           if (ai !== undefined && bi !== undefined) return ai - bi;
           if (ai !== undefined) return -1;
           if (bi !== undefined) return 1;
@@ -296,6 +292,32 @@ export default function AiV3StylePanel() {
     return groups;
   }, [rawInputs, nodes, v3Node]);
 
+  // ── 模型三级树（must be before early return to keep hook count stable）──
+  const catLabels: Record<string, string> = { chat: '对话', image: '图像', video: '视频' };
+  const allModelOptions = [
+    ...(availableModels.chat || []).map((m) => ({ ...m, _cat: 'chat' as const })),
+    ...(availableModels.image || []).map((m) => ({ ...m, _cat: 'image' as const })),
+    ...(availableModels.video || []).map((m) => ({ ...m, _cat: 'video' as const })),
+  ];
+  const modelTree: Array<{ configName: string; configId: string; cats: Array<{ cat: string; label: string; models: typeof allModelOptions }> }> = useMemo(() => {
+    const configs: Record<string, { configId: string; cats: Record<string, typeof allModelOptions> }> = {};
+    for (const m of allModelOptions) {
+      const configKey = m.configName || m.configId || '未命名';
+      const configId = m.configId || '';
+      if (!configs[configKey]) configs[configKey] = { configId, cats: {} };
+      const cat = (m as typeof m & { _cat: string })._cat;
+      (configs[configKey].cats[cat] ??= []).push(m);
+    }
+    const catOrder = ['chat', 'image', 'video'];
+    return Object.entries(configs).map(([configName, entry]) => ({
+      configName,
+      configId: entry.configId,
+      cats: catOrder
+        .filter((cat) => entry.cats[cat]?.length)
+        .map((cat) => ({ cat, label: catLabels[cat] || cat, models: entry.cats[cat] })),
+    }));
+  }, [allModelOptions]);
+
   // ── early exit ──
   if (!v3Node) return null;
 
@@ -303,19 +325,6 @@ export default function AiV3StylePanel() {
   typeGroupsRef.current = typeGroups;
 
   const webSearchEnabled = Boolean(nodeData.enableWebSearch);
-
-  // ── grouped ALL models across categories ──
-  const allModelOptions = [
-    ...(availableModels.chat || []).map((m) => ({ ...m, _cat: 'chat' })),
-    ...(availableModels.image || []).map((m) => ({ ...m, _cat: 'image' })),
-    ...(availableModels.video || []).map((m) => ({ ...m, _cat: 'video' })),
-  ];
-  const catLabels: Record<string, string> = { chat: '对话模型', image: '图像生成', video: '视频生成' };
-  const groupedModels: Record<string, typeof allModelOptions> = {};
-  for (const m of allModelOptions) {
-    const cat = (m as typeof m & { _cat: string })._cat;
-    (groupedModels[cat] = groupedModels[cat] || []).push(m);
-  }
 
   return (
     <div
@@ -329,50 +338,77 @@ export default function AiV3StylePanel() {
       }}
       onPointerDown={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (e.clientY - rect.top <= 12) handleDragStart(e); }}
     >
-      {/* Input thumbnails — type-grouped, node-level chips */}
-      {rawInputs.length > 0 && (
-        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px' }}>
-          {TYPE_ORDER_KEYS.map((type) => {
-            const group = typeGroups[type];
-            if (!group || group.length === 0) return null;
-            return (
-              <div key={type} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: 10, color: 'var(--t-text3)', minWidth: 28, flexShrink: 0 }}>{TYPE_LABEL[type]}</span>
-                {group.map((entry, idx) => (
+      {/* Input thumbnails — per-item preview (match IoStylePanel upstream style) */}
+      {rawInputs.length > 0 && (() => {
+        // Flatten all type groups into one array for mixed rendering
+        const flatGroups: { type: string; nodeGroup: typeof typeGroups[string][number]; gIdx: number }[] = [];
+        for (const type of TYPE_ORDER_KEYS) {
+          const groups = typeGroups[type];
+          if (!groups) continue;
+          for (let i = 0; i < groups.length; i++) {
+            flatGroups.push({ type, nodeGroup: groups[i], gIdx: i });
+          }
+        }
+        return (
+        <div className="nodrag" style={{ flexShrink: 0, display: 'flex', gap: 6, padding: '0 4px', flexWrap: 'wrap', cursor: 'default' }}>
+          {flatGroups.map(({ type, nodeGroup, gIdx }) => (
+            <div
+              key={`${type}-${nodeGroup.sourceNodeId}`}
+              draggable
+              onDragStart={(e) => { e.stopPropagation(); setDraggedGroupIdx(gIdx); setDraggedGroupType(type); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragOver={(e) => { e.stopPropagation(); if (draggedGroupType === type) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupIdx(gIdx); } }}
+              onDragLeave={() => setDragOverGroupIdx(null)}
+              onDrop={(e) => { e.stopPropagation(); e.preventDefault(); if (draggedGroupIdx !== null && draggedGroupType === type && draggedGroupIdx !== gIdx) handleGroupReorder(type, draggedGroupIdx, gIdx); setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
+              onDragEnd={() => { setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px 3px 4px',
+                borderRadius: 10,
+                background: dragOverGroupIdx === gIdx && draggedGroupType === type ? 'var(--t-border)' : 'var(--t-bg2)',
+                border: '1px solid var(--t-border)', cursor: 'grab',
+                opacity: draggedGroupIdx === gIdx && draggedGroupType === type ? 0.4 : 1,
+                transition: 'background 120ms ease, opacity 120ms ease',
+              }}
+            >
+              <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--t-text3)', flexShrink: 0 }}>
+                {type === 'image' ? '图' : type === 'video' ? '视' : type === 'audio' ? '音' : type === 'text' ? '文' : type}
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--t-text3)', whiteSpace: 'nowrap', maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>
+                {nodeGroup.sourceNodeLabel}
+              </span>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                {nodeGroup.items.map((item) => (
                   <div
-                    key={entry.sourceNodeId}
-                    draggable
-                    onDragStart={(e) => { setDraggedGroupIdx(idx); setDraggedGroupType(type); e.dataTransfer.effectAllowed = 'move'; }}
-                    onDragOver={(e) => { if (draggedGroupType === type) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupIdx(idx); } }}
-                    onDragLeave={() => setDragOverGroupIdx(null)}
-                    onDrop={(e) => { e.preventDefault(); if (draggedGroupIdx !== null && draggedGroupType === type && draggedGroupIdx !== idx) handleGroupReorder(type, draggedGroupIdx, idx); setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
-                    onDragEnd={() => { setDraggedGroupIdx(null); setDragOverGroupIdx(null); setDraggedGroupType(null); }}
+                    key={item.id}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px',
-                      borderRadius: 10, background: dragOverGroupIdx === idx && draggedGroupType === type ? 'var(--t-border)' : 'var(--t-bg2)',
-                      border: '1px solid var(--t-border)', cursor: 'grab', fontSize: 11, color: 'var(--t-text2)',
-                      opacity: draggedGroupIdx === idx && draggedGroupType === type ? 0.4 : 1, transition: 'background 120ms ease, opacity 120ms ease',
+                      width: 26, height: 26, borderRadius: 6,
+                      background: 'var(--t-bg)', overflow: 'hidden', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: '1px solid var(--t-border)',
                     }}
-                    title={`${entry.sourceNodeLabel} · ${entry.count} 个${TYPE_LABEL[type] || type}（拖动可调整排序优先级）`}
+                    title={item.type === 'text' ? item.value : item.label}
                   >
-                    <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--t-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                      {entry.previewUrl ? (
-                        <img src={inferImageThumbnailUrl(entry.previewUrl) || entry.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                      ) : (
-                        <span style={{ fontSize: 10, fontWeight: 700 }}>{entry.count > 9 ? '9+' : entry.count}</span>
-                      )}
-                    </div>
-                    <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {entry.sourceNodeLabel}
-                    </span>
+                    {(item.type === 'image' || item.type === 'video') && item.value ? (
+                      <img
+                        src={inferImageThumbnailUrl(item.value) || item.value}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : item.type === 'text' ? (
+                      <span style={{ fontSize: 8, lineHeight: 1.2, color: 'var(--t-text2)', padding: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                        {String(item.value || '').slice(0, 30)}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--t-text3)' }}>{item.type === 'video' ? '🎬' : item.type === 'audio' ? '🎵' : '?'}</span>
+                    )}
                   </div>
                 ))}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* ── CHAT MODE ── */}
       {currentMode === 'chat' && (
@@ -408,15 +444,7 @@ export default function AiV3StylePanel() {
             <PopoverButton icon={<BoxSelect size={14} />} label="模型"
               open={openPopover === 'model'} direction="up"
               onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}>
-              <select value={selectedModel} onChange={(e) => handleModelChange(e.target.value)}
-                className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
-                <option value="" disabled>请选择模型...</option>
-                {Object.entries(groupedModels).map(([cat, options]) => (
-                  <optgroup key={cat} label={catLabels[cat] || cat}>
-                    {options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={(v) => handleModelChange(v)} />
             </PopoverButton>
           </div>
         </div>
@@ -442,22 +470,14 @@ export default function AiV3StylePanel() {
             <PopoverButton icon={<BoxSelect size={14} />} label="模型"
               open={openPopover === 'model'} direction="up"
               onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}>
-              <select value={selectedModel} onChange={(e) => handleModelChange(e.target.value)}
-                className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
-                <option value="" disabled>请选择模型...</option>
-                {Object.entries(groupedModels).map(([cat, options]) => (
-                  <optgroup key={cat} label={catLabels[cat] || cat}>
-                    {options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={(v) => handleModelChange(v)} />
             </PopoverButton>
             <PopoverButton icon={<Grid3X3 size={14} />} label="比例" open={openPopover === 'ratio'} direction="up"
               onToggle={() => setOpenPopover(openPopover === 'ratio' ? null : 'ratio')}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>比例</div>
-                  <select value={String(nodeData.ratio || 'auto')} onChange={(e) => setData({ ratio: e.target.value })}
+                  <select value={String(nodeData.ratio || 'auto')} onChange={(e) => { setData({ ratio: e.target.value }); setOpenPopover(null); }}
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
                     {RATIO_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -466,6 +486,7 @@ export default function AiV3StylePanel() {
                   <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>数量</div>
                   <input type="number" value={Number(nodeData.n ?? 1)} min={1} max={8}
                     onChange={(e) => setData({ n: Math.max(1, Math.min(8, Number(e.target.value) || 1)) })}
+                    onBlur={() => setOpenPopover(null)}
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }} />
                 </div>
               </div>
@@ -477,14 +498,14 @@ export default function AiV3StylePanel() {
                   <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>宽</div>
                   <input type="number" value={Number(nodeData.width || 0) || ''} min={16} placeholder="auto"
                     onChange={(e) => setData({ width: Number(e.target.value) || 0 })}
-                    onBlur={(e) => setData({ width: roundToNearest16(e.target.value) })}
+                    onBlur={(e) => { setData({ width: roundToNearest16(e.target.value) }); setOpenPopover(null); }}
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>高</div>
                   <input type="number" value={Number(nodeData.height || 0) || ''} min={16} placeholder="auto"
                     onChange={(e) => setData({ height: Number(e.target.value) || 0 })}
-                    onBlur={(e) => setData({ height: roundToNearest16(e.target.value) })}
+                    onBlur={(e) => { setData({ height: roundToNearest16(e.target.value) }); setOpenPopover(null); }}
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }} />
                 </div>
               </div>
@@ -494,14 +515,14 @@ export default function AiV3StylePanel() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>输出档位</div>
-                  <select value={String(nodeData.resolution || 'auto')} onChange={(e) => setData({ resolution: e.target.value })}
+                  <select value={String(nodeData.resolution || 'auto')} onChange={(e) => { setData({ resolution: e.target.value }); setOpenPopover(null); }}
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
                     {RESOLUTION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>格式</div>
-                  <select value={String(nodeData.output_format || 'png')} onChange={(e) => setData({ output_format: e.target.value })}
+                  <select value={String(nodeData.output_format || 'png')} onChange={(e) => { setData({ output_format: e.target.value }); setOpenPopover(null); }}
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
                     {FORMAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -532,19 +553,11 @@ export default function AiV3StylePanel() {
             <PopoverButton icon={<BoxSelect size={14} />} label="模型"
               open={openPopover === 'model'} direction="up"
               onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}>
-              <select value={selectedModel} onChange={(e) => handleModelChange(e.target.value)}
-                className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
-                <option value="" disabled>请选择模型...</option>
-                {Object.entries(groupedModels).map(([cat, options]) => (
-                  <optgroup key={cat} label={catLabels[cat] || cat}>
-                    {options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={(v) => handleModelChange(v)} />
             </PopoverButton>
             <PopoverButton icon={<Clock size={14} />} label="时长" open={openPopover === 'duration'} direction="up"
               onToggle={() => setOpenPopover(openPopover === 'duration' ? null : 'duration')}>
-              <select value={String(nodeData.duration || 5)} onChange={(e) => setData({ duration: Number(e.target.value) })}
+              <select value={String(nodeData.duration || 5)} onChange={(e) => { setData({ duration: Number(e.target.value) }); setOpenPopover(null); }}
                 className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
                 {VIDEO_DURATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -554,14 +567,14 @@ export default function AiV3StylePanel() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>比例</div>
-                  <select value={String(nodeData.ratio || 'auto')} onChange={(e) => setData({ ratio: e.target.value })}
+                  <select value={String(nodeData.ratio || 'auto')} onChange={(e) => { setData({ ratio: e.target.value }); setOpenPopover(null); }}
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
                     {VIDEO_RATIO_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>分辨率</div>
-                  <select value={String(nodeData.resolution || '720p')} onChange={(e) => setData({ resolution: e.target.value })}
+                  <select value={String(nodeData.resolution || '720p')} onChange={(e) => { setData({ resolution: e.target.value }); setOpenPopover(null); }}
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
                     {VIDEO_RESOLUTION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -571,6 +584,85 @@ export default function AiV3StylePanel() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ModelTreeSelector({
+  tree,
+  selectedModel,
+  onSelect,
+}: {
+  tree: Array<{ configName: string; configId: string; cats: Array<{ cat: string; label: string; models: Array<{ label: string; value: string; modelId: string }> }> }>;
+  selectedModel: string;
+  onSelect: (value: string) => void;
+}) {
+  const [collapsedConfigs, setCollapsedConfigs] = useState<Set<string>>(
+    () => new Set(tree.map((c) => c.configName)),
+  );
+
+  if (tree.length === 0) {
+    return <div style={{ fontSize: 12, color: 'var(--t-text3)', padding: 8, textAlign: 'center' }}>暂无可用模型</div>;
+  }
+
+  return (
+    <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {tree.map((config) => {
+        const isCollapsed = collapsedConfigs.has(config.configName);
+        return (
+          <div key={config.configName}>
+            <button
+              type="button"
+              onClick={() => setCollapsedConfigs((prev) => {
+                const next = new Set(prev);
+                if (next.has(config.configName)) next.delete(config.configName); else next.add(config.configName);
+                return next;
+              })}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                width: '100%', padding: '5px 6px', borderRadius: 6,
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                fontSize: 11, fontWeight: 600, color: 'var(--t-text2)',
+              }}
+            >
+              <span style={{ fontSize: 9, transition: 'transform 0.15s', transform: isCollapsed ? '' : 'rotate(90deg)', flexShrink: 0 }}>
+                ▶
+              </span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {config.configName}
+              </span>
+            </button>
+            {!isCollapsed && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingLeft: 10 }}>
+                {config.cats.map((catGroup) => (
+                  <div key={catGroup.cat} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 9, color: 'var(--t-text3)', fontWeight: 600, textTransform: 'uppercase', padding: '2px 4px 0' }}>
+                      {catGroup.label}
+                    </span>
+                    {catGroup.models.map((m) => (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => onSelect(m.value)}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          padding: '4px 8px', borderRadius: 6,
+                          border: 'none', cursor: 'pointer',
+                          background: m.value === selectedModel ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'transparent',
+                          color: m.value === selectedModel ? 'var(--node-color)' : 'var(--t-text)',
+                          fontSize: 12, fontFamily: 'monospace', fontWeight: m.value === selectedModel ? 600 : 400,
+                        }}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -594,7 +686,7 @@ function PopoverButton({ icon, label, open, direction, onToggle, children }: {
           <div style={{ position: 'fixed', inset: 0, zIndex: 31 }} onClick={onToggle} />
           <div className="nodrag" style={{
             position: 'absolute', ...(direction === 'up' ? { bottom: '100%', marginBottom: 6 } : { top: '100%', marginTop: 6 }),
-            right: 0, padding: 10, minWidth: 220, borderRadius: 15,
+            right: 0, padding: 10, minWidth: 260, borderRadius: 15,
             background: 'var(--t-card)', backdropFilter: 'blur(40px)',
             border: '1px solid var(--t-border)',
             boxShadow: direction === 'up' ? '0 -4px 32px rgba(0,0,0,0.18)' : '0 8px 32px rgba(0,0,0,0.18)',

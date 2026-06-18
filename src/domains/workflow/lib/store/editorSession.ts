@@ -167,7 +167,14 @@ export function createWorkflowEditorSessionActions(
     fetchModels: async () => {
       const result = await api.fetchAvailableModels();
       if (result.success && result.data) {
-        const toOptions = (items: string[] = []) => items.map((id) => ({ label: id, value: id, modelId: id }));
+        const toOptions = (items: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }> = []) =>
+          items.map((item) => ({
+            label: item.label,
+            value: item.value,
+            modelId: item.modelId,
+            configId: item.configId,
+            configName: item.configName,
+          }));
         const nextModels = {
           all: toOptions(result.data.all),
           chat: toOptions(result.data.chat),
@@ -192,11 +199,14 @@ export function createWorkflowEditorSessionActions(
 
     setAvailableModels: (models) => set({ availableModels: models }),
 
-    setProjectModels: (models) =>
+    setProjectModels: (models) => {
       set({
         projectModels: normalizeProjectModels(models),
         availableModels: groupConfiguredProjectModels(normalizeProjectModels(models)),
-      }),
+      });
+      // 异步从后端拉取带 configId/configName 的完整模型列表
+      void get().fetchModels();
+    },
 
     persistLocalDraft: () => {
       const state = get();

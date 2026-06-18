@@ -93,6 +93,7 @@ export type SettingsActions = {
   setNetworkSearchNoProxy: (value: string) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   testConnection: () => Promise<void>;
+  toggleConfigEnabled: (id: string) => void;
   updateConfig: (patch: Partial<ApiConfig>) => void;
   updateProjectModel: (modelId: string, patch: Partial<ProjectModel>) => void;
   updateProviderConfig: (patch: Partial<ProviderConfig>) => void;
@@ -133,6 +134,8 @@ export type SettingsViewModel = {
   runtimeCapabilities: RuntimeCapabilities | null;
   canRestartBackend: boolean;
   canSelectDirectory: boolean;
+  connectionStatus: 'idle' | 'testing' | 'success' | 'error';
+  connectionResult: string;
   themeMode: ThemeMode;
   themeOptions: Array<{ l: string; v: string }>;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
