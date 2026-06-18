@@ -32,7 +32,7 @@ describe('workflow store graph editor actions', () => {
       nodes: [
         { id: 'promptA', type: 'io', position: { x: 0, y: 0 }, data: {} },
         { id: 'promptB', type: 'io', position: { x: 0, y: 80 }, data: {} },
-        { id: 'midjourney', type: 'midjourneyGen', position: { x: 240, y: 0 }, data: {} },
+        { id: 'ai', type: 'aiV3', position: { x: 240, y: 0 }, data: {} },
       ],
       edges: [],
     });
@@ -40,20 +40,20 @@ describe('workflow store graph editor actions', () => {
     const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
     harness.attachActions(actions);
 
-    actions.addEdge('promptA', 'result', 'midjourney', 'input');
-    actions.addEdge('promptB', 'result', 'midjourney', 'input');
+    actions.addEdge('promptA', 'result', 'ai', 'input');
+    actions.addEdge('promptB', 'result', 'ai', 'input');
 
     expect(harness.getState().edges).toEqual([
       expect.objectContaining({
         source: 'promptA',
         sourceHandle: 'result',
-        target: 'midjourney',
+        target: 'ai',
         targetHandle: 'input',
       }),
       expect.objectContaining({
         source: 'promptB',
         sourceHandle: 'result',
-        target: 'midjourney',
+        target: 'ai',
         targetHandle: 'input',
       }),
     ]);

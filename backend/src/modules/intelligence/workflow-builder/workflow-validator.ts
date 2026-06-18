@@ -230,7 +230,7 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
   }
 
   const imageGenNodes = nodes.filter(
-    (node) => (node.type === 'aiV3' && node.data?.mode === 'image') || node.type === 'midjourneyGen',
+    (node) => (node.type === 'aiV3' && (node.data?.mode === 'image' || node.data?.mode === 'midjourney')),
   );
   for (const node of imageGenNodes) {
     if (!String(node.data?.model || '').trim()) {

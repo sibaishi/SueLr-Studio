@@ -20,7 +20,6 @@ export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   promptHelper: { w: 14, h: 12 },
   textSplit: { w: 12, h: 23 },
   aiV3: { w: 10, h: 10 },
-  midjourneyGen: { w: 10, h: 10 },
   io: { w: 10, h: 10 },
 };
 

@@ -33,7 +33,7 @@ type WorkflowStoreExecutionActions = Pick<
   | 'syncExecutionRunStatus'
 >;
 
-const MULTI_INPUT_NODE_TYPES = new Set(['aiV3', 'midjourneyGen', 'io']);
+const MULTI_INPUT_NODE_TYPES = new Set(['aiV3', 'io']);
 
 function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   const multiInputNodes = nodes.filter((n) => MULTI_INPUT_NODE_TYPES.has(n.type || ''));
@@ -102,8 +102,8 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   return sorted;
 }
 
-const AI_RESULT_NODE_TYPES = new Set(['aiV3', 'midjourneyGen']);
-const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiV3', 'midjourneyGen']);
+const AI_RESULT_NODE_TYPES = new Set(['aiV3']);
+const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiV3']);
 
 function sanitizeSavedFile(file: unknown) {
   if (!file || typeof file !== 'object') return file;

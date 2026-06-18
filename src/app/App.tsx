@@ -129,11 +129,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    const grouped: Record<'all' | 'chat' | 'image' | 'video', ModelOption[]> = {
+    const grouped: Record<'all' | 'chat' | 'image' | 'video' | 'midjourney', ModelOption[]> = {
       all: [],
       chat: [],
       image: [],
       video: [],
+      midjourney: [],
     };
     for (const model of settings.configuredProjectModels) {
       const option = {
@@ -146,6 +147,7 @@ export default function App() {
       grouped.all.push(option);
       grouped[model.cat].push(option);
     }
+    useWorkflowStore.getState().setProjectModels(settings.apiConfigs.flatMap((c) => c.projectModels || []));
     useWorkflowStore.getState().setAvailableModels(grouped);
     useWorkflowStore.setState({ workflowRuntimeConfigs: settings.apiConfigs });
   }, [settings.apiConfigs, settings.configuredProjectModels]);

@@ -111,12 +111,12 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
   },
   {
     id: 'seed_workflow_node_midjourneyGen',
-    title: 'Midjourney 生图节点 midjourneyGen',
+    title: 'Midjourney 生图（AiV3 midjourney 模式）',
     content:
-      'midjourneyGen 通过 Midjourney 异步任务接口生成图片。节点使用统一 input/result 端口，可直接连接新版 IO；任务 jobId、components 和状态摘要保存在结果元数据中。',
-    tags: ['system-seed', 'node', 'ai', 'midjourneyGen', 'midjourney', 'image', 'async-task'],
+      'AiV3 的 midjourney 模式通过 Midjourney 异步任务接口生成图片。选择 midjourney 类型的项目模型后，节点自动切为该模式，提交异步任务并轮询结果，生成的四宫格和放大图以本地路径形式透传给下游 IO。',
+    tags: ['system-seed', 'node', 'ai', 'aiV3', 'midjourney', 'image', 'async-task'],
     structured: {
-      nodeType: 'midjourneyGen',
+      nodeType: 'aiV3',
       category: 'ai',
       maturity: 'experimental',
       inputs: [

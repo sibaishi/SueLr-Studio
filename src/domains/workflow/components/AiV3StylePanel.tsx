@@ -6,7 +6,7 @@ import { loadJSON } from '@/shared/runtime';
 import type { ApiConfig } from '@/shared/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
-import { BoxSelect, Clock, Globe, Grid3X3, Image, Ruler } from 'lucide-react';
+import { BoxSelect, Clock, Gauge, Globe, Grid3X3, Image, Ruler, SlidersHorizontal } from 'lucide-react';
 
 const MIN_H = 150;
 const MAX_H = 300;
@@ -137,6 +137,7 @@ export default function AiV3StylePanel() {
     if ((availableModels.image || []).some((m) => String(m.value) === modelValue)) return 'image';
     if ((availableModels.video || []).some((m) => String(m.value) === modelValue)) return 'video';
     if ((availableModels.chat || []).some((m) => String(m.value) === modelValue)) return 'chat';
+    if ((availableModels.midjourney || []).some((m) => String(m.value) === modelValue)) return 'midjourney';
     return 'chat';
   }, [availableModels]);
 
@@ -295,11 +296,12 @@ export default function AiV3StylePanel() {
   }, [rawInputs, nodes, v3Node]);
 
   // ── 模型三级树（must be before early return to keep hook count stable）──
-  const catLabels: Record<string, string> = { chat: '对话', image: '图像', video: '视频' };
+  const catLabels: Record<string, string> = { chat: '对话', image: '图像', video: '视频', midjourney: 'Midjourney' };
   const allModelOptions = [
     ...(availableModels.chat || []).map((m) => ({ ...m, _cat: 'chat' as const })),
     ...(availableModels.image || []).map((m) => ({ ...m, _cat: 'image' as const })),
     ...(availableModels.video || []).map((m) => ({ ...m, _cat: 'video' as const })),
+    ...(availableModels.midjourney || []).map((m) => ({ ...m, _cat: 'midjourney' as const })),
   ];
   const modelTree: Array<{ configName: string; configId: string; cats: Array<{ cat: string; label: string; models: typeof allModelOptions }> }> = useMemo(() => {
     // 直接从 localStorage 读配置名，不依赖后端
@@ -317,7 +319,7 @@ export default function AiV3StylePanel() {
       const cat = (m as typeof m & { _cat: string })._cat;
       (configs[configName].cats[cat] ??= []).push(m);
     }
-    const catOrder = ['chat', 'image', 'video'];
+    const catOrder = ['chat', 'image', 'video', 'midjourney'];
     return Object.entries(configs).map(([configName, entry]) => ({
       configName,
       configId: entry.configId,
@@ -587,6 +589,109 @@ export default function AiV3StylePanel() {
                     className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
                     {VIDEO_RESOLUTION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
+                </div>
+              </div>
+            </PopoverButton>
+          </div>
+        </div>
+      )}
+
+      {/* ── MIDJOURNEY MODE ── */}
+      {currentMode === 'midjourney' && (
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <textarea
+            className="nodrag nowheel"
+            value={promptValue}
+            onChange={(e) => { setPromptValue(e.target.value); setData({ prompt: e.target.value }); }}
+            style={{
+              width: '100%', height: '100%', resize: 'none',
+              border: '1px solid var(--t-border)', borderRadius: 15,
+              outline: 'none', background: 'var(--t-bg2)', color: 'var(--t-text)',
+              fontSize: 13, lineHeight: 1.6, padding: '10px 14px 44px', fontFamily: 'inherit',
+            }}
+            placeholder="输入提示词..."
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
+            <PopoverButton icon={<BoxSelect size={14} />} label="模型"
+              open={openPopover === 'model'} direction="up"
+              onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}>
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={(v) => handleModelChange(v)} />
+            </PopoverButton>
+            <PopoverButton icon={<Gauge size={14} />} label={String(nodeData.mjMode || 'fast')} open={openPopover === 'mjMode'} direction="up"
+              onToggle={() => setOpenPopover(openPopover === 'mjMode' ? null : 'mjMode')}>
+              <select value={String(nodeData.mjMode || 'fast')} onChange={(e) => { setData({ mjMode: e.target.value }); setOpenPopover(null); }}
+                className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
+                <option value="fast">Fast</option>
+                <option value="relax">Relax</option>
+                <option value="turbo">Turbo</option>
+              </select>
+            </PopoverButton>
+            <PopoverButton icon={<Ruler size={14} />} label={String(nodeData.mjAr || '1:1')} open={openPopover === 'mjAr'} direction="up"
+              onToggle={() => setOpenPopover(openPopover === 'mjAr' ? null : 'mjAr')}>
+              <select value={String(nodeData.mjAr || '1:1')} onChange={(e) => { setData({ mjAr: e.target.value }); setOpenPopover(null); }}
+                className="nodrag" style={{ ...fieldStyle, width: '100%' }}>
+                <option value="1:1">1:1</option>
+                <option value="4:3">4:3</option>
+                <option value="3:4">3:4</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+                <option value="21:9">21:9</option>
+                <option value="3:2">3:2</option>
+                <option value="2:3">2:3</option>
+              </select>
+            </PopoverButton>
+            <PopoverButton icon={<SlidersHorizontal size={14} />} label="参数" open={openPopover === 'mjParams'} direction="up"
+              onToggle={() => setOpenPopover(openPopover === 'mjParams' ? null : 'mjParams')}>
+              <div className="nodrag" style={{ width: 200, display: 'flex', flexDirection: 'column', gap: 8 }}
+                onPointerDown={(e) => e.stopPropagation()}>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>版本 (--v)</div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {['', '8.1', '7', '6.1', 'niji 7', 'niji 6'].map((v) => {
+                      const label = v === '' ? '默认' : v === 'niji 7' ? 'Niji7' : v === 'niji 6' ? 'Niji6' : `V${v}`;
+                      const active = (nodeData.mjVersion || '') === v;
+                      return (
+                        <button key={v} type="button"
+                          onClick={() => setData({ mjVersion: v || undefined })}
+                          style={{
+                            padding: '3px 8px', borderRadius: 6, border: active ? '1px solid var(--node-color)' : '1px solid var(--t-border)',
+                            background: active ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'var(--t-bg2)',
+                            color: active ? 'var(--node-color)' : 'var(--t-text3)',
+                            fontSize: 11, fontWeight: active ? 600 : 400, cursor: 'pointer',
+                            transition: 'background 120ms, border-color 120ms',
+                          }}>{label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>种子 (--seed)</div>
+                    <input type="number" value={String(nodeData.mjSeed ?? '')} placeholder="随机"
+                      onChange={(e) => setData({ mjSeed: e.target.value ? Number(e.target.value) : undefined })}
+                      className="nodrag" style={{ ...fieldStyle, width: '100%' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>风格化 (--s)</div>
+                    <input type="number" min={0} max={1000} value={String(nodeData.mjStylize ?? '')} placeholder="100"
+                      onChange={(e) => setData({ mjStylize: e.target.value ? Math.max(0, Math.min(1000, Number(e.target.value))) : undefined })}
+                      className="nodrag" style={{ ...fieldStyle, width: '100%' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>混乱度 (--c)</div>
+                    <input type="number" min={0} max={100} value={String(nodeData.mjChaos ?? '')} placeholder="0"
+                      onChange={(e) => setData({ mjChaos: e.target.value ? Math.max(0, Math.min(100, Number(e.target.value))) : undefined })}
+                      className="nodrag" style={{ ...fieldStyle, width: '100%' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--t-text3)', marginBottom: 4 }}>排除 (--no)</div>
+                    <input type="text" value={String(nodeData.mjNo || '')} placeholder="text, watermark"
+                      onChange={(e) => setData({ mjNo: e.target.value })}
+                      className="nodrag" style={{ ...fieldStyle, width: '100%' }} />
+                  </div>
                 </div>
               </div>
             </PopoverButton>

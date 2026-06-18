@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import type { ParamDef } from '@/domains/workflow/lib/types';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
-import { Bot, Clapperboard, Image } from 'lucide-react';
+import { Bot, Clapperboard, Image, Palette } from 'lucide-react';
 import { useState } from 'react';
 import '../../node-v2.css';
 
@@ -27,7 +27,7 @@ export function AiV3Content({
 
   const mode = (data.mode as string) || 'chat';
 
-  if (mode === 'image') {
+  if (mode === 'image' || mode === 'midjourney') {
     const outputImages: string[] = [];
     if (outputs) {
       const v = (outputs as Record<string, unknown>).result || outputs.images;
@@ -35,6 +35,7 @@ export function AiV3Content({
       else if (typeof v === 'string') outputImages.push(v);
     }
     const hasImage = outputImages.length > 0;
+    const EmptyIcon = mode === 'midjourney' ? Palette : Image;
     return (
       <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
         <div className="node-gallery-frame-v2">
@@ -42,7 +43,7 @@ export function AiV3Content({
             <img src={outputImages[0]} alt="" className="node-gallery-image-v2" onClick={() => setPreviewImage(outputImages[0])} />
           ) : (
             <div className="node-gallery-empty-v2">
-              <Image size={32} strokeWidth={1.2} />
+              <EmptyIcon size={32} strokeWidth={1.2} />
               <span>待生成</span>
             </div>
           )}

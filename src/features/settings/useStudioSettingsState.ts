@@ -36,6 +36,7 @@ function buildConfiguredProjectModels(configs: ApiConfig[]): ModelInfo[] {
       ...grouped.chat.map(decorate('chat')),
       ...grouped.image.map(decorate('image')),
       ...grouped.video.map(decorate('video')),
+      ...grouped.midjourney.map(decorate('midjourney')),
     ];
   });
 }

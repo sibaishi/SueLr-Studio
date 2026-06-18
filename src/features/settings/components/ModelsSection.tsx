@@ -12,8 +12,8 @@ type Props = {
   view: SettingsViewModel;
 };
 
-const CATEGORY_ORDER: Record<string, number> = { chat: 0, image: 1, 'image-edit': 2, video: 3 };
-const CATEGORY_LABELS: Record<string, string> = { chat: '对话', image: '图像', 'image-edit': '图像编辑', video: '视频' };
+const CATEGORY_ORDER: Record<string, number> = { chat: 0, image: 1, 'image-edit': 2, video: 3, midjourney: 4 };
+const CATEGORY_LABELS: Record<string, string> = { chat: '对话', image: '图像', 'image-edit': '图像编辑', video: '视频', midjourney: 'Midjourney' };
 
 
 function modelTypeLabel(type?: ModelInfo['cat'] | ProjectModel['type'] | ProjectModel['endpointCategory']) {
@@ -25,6 +25,7 @@ function modelTypeColor(type: string | undefined, T: Record<string, string>) {
   if (type === 'image' || type === 'image-edit') return T.purple;
   if (type === 'video') return T.orange;
   if (type === 'chat') return T.blue;
+  if (type === 'midjourney') return T.purple;
   return undefined;
 }
 
@@ -261,6 +262,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                       <option value="chat">对话</option>
                       <option value="image">图像</option>
                       <option value="video">视频</option>
+                      <option value="midjourney">Midjourney</option>
                     </IOSSelect>
                   </div>
                   <div style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
@@ -584,6 +586,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                             <option value="chat">对话</option>
                             <option value="image">图像</option>
                             <option value="video">视频</option>
+                            <option value="midjourney">Midjourney</option>
                           </IOSSelect>
                         </div>
                         <div>

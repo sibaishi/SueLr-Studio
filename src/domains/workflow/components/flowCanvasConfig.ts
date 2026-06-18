@@ -1,6 +1,5 @@
 import FlowNode from './nodes/FlowNode';
 import AiV3Node from './nodes/ai/AiV3/AiV3Node';
-import MidjourneyGenNode from './nodes/ai/MidjourneyGen/MidjourneyGenNode';
 import IoNode from './nodes/io/Io/IoNode';
 
 export const FLOW_NODE_TYPES = {
@@ -11,7 +10,6 @@ export const FLOW_NODE_TYPES = {
   promptHelper: FlowNode,
   textSplit: FlowNode,
   aiV3: AiV3Node,
-  midjourneyGen: MidjourneyGenNode,
   io: IoNode,
 } as const;
 
@@ -23,7 +21,6 @@ export const FLOW_NODE_COLORS: Record<string, string> = {
   promptHelper: '#00C7BE',
   textSplit: '#0A84FF',
   aiV3: '#0A84FF',
-  midjourneyGen: '#FF9500',
   io: '#5E5CE6',
 };
 

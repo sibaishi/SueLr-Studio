@@ -45,6 +45,7 @@ export interface CategorizedModels {
   chat: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
   image: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
   video: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
+  midjourney: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
 }
 
 export async function fetchAvailableModels() {

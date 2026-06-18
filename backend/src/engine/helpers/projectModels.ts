@@ -1,8 +1,8 @@
-const MODEL_TYPES = new Set(['chat', 'image', 'video']);
+const MODEL_TYPES = new Set(['chat', 'image', 'video', 'midjourney']);
 const ENDPOINT_MODES = new Set(['category', 'custom']);
 const ENDPOINT_CATEGORIES = new Set(['chat', 'image', 'image-edit', 'gemini-generate-content', 'video']);
 
-export type ProjectModelType = 'chat' | 'image' | 'video';
+export type ProjectModelType = 'chat' | 'image' | 'video' | 'midjourney';
 export type EndpointMode = 'category' | 'custom';
 export type EndpointCategory = 'chat' | 'image' | 'image-edit' | 'gemini-generate-content' | 'video';
 
@@ -76,7 +76,7 @@ export function categorizeLegacyModel(modelId: unknown): ProjectModelType {
 }
 
 export function inferEndpointCategory(type: unknown): EndpointCategory | '' {
-  if (type === 'image') return 'image';
+  if (type === 'image' || type === 'midjourney') return 'image';
   if (type === 'video') return 'video';
   if (type === 'chat') return 'chat';
   return '';
@@ -181,13 +181,14 @@ export function migrateProjectModels(settings: ProjectModelSettings = {}): Proje
 }
 
 export function groupConfiguredProjectModels(projectModels: unknown): Record<'all' | ProjectModelType, string[]> {
-  const groups: Record<'all' | ProjectModelType, string[]> = { all: [], chat: [], image: [], video: [] };
+  const groups: Record<'all' | ProjectModelType, string[]> = { all: [], chat: [], image: [], video: [], midjourney: [] };
   for (const model of normalizeProjectModels(projectModels)) {
     if (!model.configured) continue;
     groups.all.push(model.modelId);
     if (model.type === 'chat') groups.chat.push(model.modelId);
     if (model.type === 'image') groups.image.push(model.modelId);
     if (model.type === 'video') groups.video.push(model.modelId);
+    if (model.type === 'midjourney') groups.midjourney.push(model.modelId);
   }
   return groups;
 }
@@ -218,7 +219,7 @@ export function resolveProjectModelRuntime({
   if (!model || !model.configured) {
     throw new Error(`模型未完成配置或不存在：${modelId}`);
   }
-  if (expectedType && model.type !== expectedType) {
+  if (expectedType && model.type !== expectedType && !(expectedType === 'image' && model.type === 'midjourney')) {
     throw new Error(`模型类型不匹配：${modelId} 不是 ${expectedType} 模型`);
   }
 

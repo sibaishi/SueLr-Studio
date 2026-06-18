@@ -5,7 +5,7 @@ export type ThemeMode = 'dark' | 'light' | 'system';
 
 export interface ModelInfo {
   id: string;
-  cat: 'chat' | 'image' | 'video';
+  cat: 'chat' | 'image' | 'video' | 'midjourney';
   modelId?: string;
   configId?: string;
   configName?: string;

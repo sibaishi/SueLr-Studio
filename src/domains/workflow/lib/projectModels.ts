@@ -1,4 +1,4 @@
-export type ProjectModelType = 'chat' | 'image' | 'video' | '';
+export type ProjectModelType = 'chat' | 'image' | 'video' | 'midjourney' | '';
 export type ProjectModelEndpointMode = 'category' | 'custom';
 export type ProjectModelEndpointCategory = 'chat' | 'image' | 'image-edit' | 'gemini-generate-content' | 'video' | '';
 
@@ -16,11 +16,12 @@ export type ProjectModel = {
   updatedAt: number;
 };
 
-type CategorizedModels = {
+export type CategorizedModels = {
   all: ModelOption[];
   chat: ModelOption[];
   image: ModelOption[];
   video: ModelOption[];
+  midjourney: ModelOption[];
 };
 
 export type ModelOption = {
@@ -40,6 +41,7 @@ export function inferEndpointCategory(type: ProjectModelType): ProjectModelEndpo
   if (type === 'chat') return 'chat';
   if (type === 'image') return 'image';
   if (type === 'video') return 'video';
+  if (type === 'midjourney') return 'image';
   return '';
 }
 
@@ -57,7 +59,7 @@ export function normalizeProjectModel(value: unknown): ProjectModel | null {
   if (!id || !modelId) return null;
 
   const type: ProjectModelType =
-    record.type === 'chat' || record.type === 'image' || record.type === 'video' ? record.type : '';
+    record.type === 'chat' || record.type === 'image' || record.type === 'video' || record.type === 'midjourney' ? record.type : '';
   const endpointMode: ProjectModelEndpointMode = record.endpointMode === 'custom' ? 'custom' : 'category';
   const endpointCategory: ProjectModelEndpointCategory =
     record.endpointCategory === 'chat' ||
@@ -102,13 +104,14 @@ export function normalizeProjectModels(value: unknown): ProjectModel[] {
 }
 
 export function groupConfiguredProjectModels(projectModels: ProjectModel[]): CategorizedModels {
-  const groups: CategorizedModels = { all: [], chat: [], image: [], video: [] };
+  const groups: CategorizedModels = { all: [], chat: [], image: [], video: [], midjourney: [] };
   for (const model of projectModels) {
     if (!model.configured) continue;
     const option = { label: model.modelId, value: model.modelId, modelId: model.modelId };
     groups.all.push(option);
     if (model.type === 'chat') groups.chat.push(option);
     if (model.type === 'image') groups.image.push(option);
+    if (model.type === 'midjourney') groups.midjourney.push(option);
     if (model.type === 'video') groups.video.push(option);
   }
   return groups;
@@ -122,9 +125,9 @@ function getImportModelId(value: ImportableModel) {
 
 function getImportModelType(value: ImportableModel): ProjectModelType {
   if (typeof value === 'string') return '';
-  return value.cat === 'chat' || value.cat === 'image' || value.cat === 'video'
+  return value.cat === 'chat' || value.cat === 'image' || value.cat === 'video' || value.cat === 'midjourney'
     ? value.cat
-    : value.type === 'chat' || value.type === 'image' || value.type === 'video'
+    : value.type === 'chat' || value.type === 'image' || value.type === 'video' || value.type === 'midjourney'
       ? value.type
       : '';
 }

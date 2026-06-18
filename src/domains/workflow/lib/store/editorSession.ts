@@ -189,14 +189,18 @@ export function createWorkflowEditorSessionActions(
           chat: result.data.chat.map(enrichConfigName),
           image: result.data.image.map(enrichConfigName),
           video: result.data.video.map(enrichConfigName),
+          midjourney: result.data.midjourney?.map(enrichConfigName) || [],
         };
 
+        // 后端不认识 midjourney 类项目模型，别让异步响应覆盖掉 App 层已经同步进去的
+        const prevMidjourney = get().availableModels.midjourney || [];
         set({
           availableModels: {
             all: nextModels.all,
             chat: nextModels.chat,
             image: nextModels.image,
             video: nextModels.video,
+            midjourney: nextModels.midjourney.length > 0 ? nextModels.midjourney : prevMidjourney,
           },
         });
 
