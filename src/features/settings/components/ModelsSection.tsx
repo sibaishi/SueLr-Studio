@@ -1,7 +1,7 @@
 import { inferEndpointCategory } from '@/domains/workflow/lib/projectModels';
 import type { ModelInfo, ProjectModel } from '@/shared/types';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { Check, Database, Search, Trash2, UploadCloud, X } from 'lucide-react';
+import { Check, Database, Plus, Search, Trash2, UploadCloud, X } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
@@ -36,6 +36,9 @@ export function ModelsSection({ T, actions, view }: Props) {
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [batchMode, setBatchMode] = useState(false);
   const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newModelId, setNewModelId] = useState('');
+  const [newModelType, setNewModelType] = useState<ProjectModel['type']>('image');
 
   const toggleBatch = () => {
     setBatchMode((prev) => !prev);
@@ -134,10 +137,10 @@ export function ModelsSection({ T, actions, view }: Props) {
         title="项目模型库"
         description="管理当前工作室在对话、图像、视频等场景下可用的模型资产。"
         action={
-          view.filteredProjectModels.length > 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
               type="button"
-              onClick={toggleBatch}
+              onClick={() => { setShowAddForm(!showAddForm); setNewModelId(''); setNewModelType('image'); }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -145,16 +148,38 @@ export function ModelsSection({ T, actions, view }: Props) {
                 padding: '5px 10px',
                 borderRadius: 8,
                 border: '1px solid var(--color-border)',
-                background: batchMode ? `${T.blue}18` : 'var(--color-bg-tertiary)',
-                color: batchMode ? T.blue : 'var(--color-text-secondary)',
+                background: showAddForm ? `${T.green}18` : 'var(--color-bg-tertiary)',
+                color: showAddForm ? T.green : 'var(--color-text-secondary)',
                 fontSize: 11,
                 fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
-              {batchMode ? '取消' : '批量管理'}
+              <Plus size={13} />
+              添加模型
             </button>
-          ) : undefined
+            {view.filteredProjectModels.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleBatch}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '5px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-border)',
+                  background: batchMode ? `${T.blue}18` : 'var(--color-bg-tertiary)',
+                  color: batchMode ? T.blue : 'var(--color-text-secondary)',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {batchMode ? '取消' : '批量管理'}
+              </button>
+            )}
+          </div>
         }
       >
         <div className="flex-col" style={{ gap: 12 }}>
@@ -177,6 +202,87 @@ export function ModelsSection({ T, actions, view }: Props) {
               style={{ paddingLeft: 38 }}
             />
           </div>
+
+          {showAddForm && (
+            <div
+              style={{
+                ...mutedPanelStyle(),
+                overflow: 'hidden',
+                borderColor: `${T.green}36`,
+                background: `linear-gradient(180deg, ${T.green}12, var(--color-bg-secondary) 42%)`,
+              }}
+            >
+              <div
+                style={{
+                  padding: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  borderBottom: '1px solid var(--color-border)',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                    <div
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: `${T.green}20`,
+                        color: T.green,
+                      }}
+                    >
+                      <Plus size={15} />
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' }}>手动添加模型</div>
+                  </div>
+                  <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                    适用于不提供模型列表接口的渠道，直接录入模型标识与类型。
+                  </div>
+                </div>
+              </div>
+              <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px auto', gap: 10, alignItems: 'end' }}>
+                  <div>
+                    <IOSLabel>模型标识</IOSLabel>
+                    <IOSInput
+                      value={newModelId}
+                      onChange={setNewModelId}
+                      placeholder="如 midjourney"
+                    />
+                  </div>
+                  <div>
+                    <IOSLabel>类型</IOSLabel>
+                    <IOSSelect value={newModelType} onChange={(value) => setNewModelType(value as ProjectModel['type'])}>
+                      <option value="chat">对话</option>
+                      <option value="image">图像</option>
+                      <option value="video">视频</option>
+                    </IOSSelect>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+                    <IOSButton
+                      small
+                      label="添加"
+                      color={T.green}
+                      onClick={() => {
+                        actions.addManualProjectModel(newModelId, newModelType);
+                        setShowAddForm(false);
+                      }}
+                    />
+                    <IOSButton
+                      small
+                      label="取消"
+                      onClick={() => setShowAddForm(false)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {view.importableModels.length > 0 && (
             <div

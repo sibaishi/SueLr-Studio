@@ -1,5 +1,6 @@
 import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
 import IoStylePanel from '@/domains/workflow/components/IoStylePanel';
+import MidjourneyGenStylePanel from '@/domains/workflow/components/MidjourneyGenStylePanel';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
@@ -300,6 +301,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
         />
 
         <AiV3StylePanel />
+        <MidjourneyGenStylePanel />
         <IoStylePanel />
       </div>
 

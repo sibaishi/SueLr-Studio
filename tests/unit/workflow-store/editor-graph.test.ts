@@ -27,6 +27,38 @@ function getBoundsCenter(nodes: Array<{ position: { x: number; y: number } } & P
 }
 
 describe('workflow store graph editor actions', () => {
+  it('keeps multiple new IO connections on the unified Midjourney input handle', () => {
+    const harness = createWorkflowStoreHarness({
+      nodes: [
+        { id: 'promptA', type: 'io', position: { x: 0, y: 0 }, data: {} },
+        { id: 'promptB', type: 'io', position: { x: 0, y: 80 }, data: {} },
+        { id: 'midjourney', type: 'midjourneyGen', position: { x: 240, y: 0 }, data: {} },
+      ],
+      edges: [],
+    });
+
+    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
+    harness.attachActions(actions);
+
+    actions.addEdge('promptA', 'result', 'midjourney', 'input');
+    actions.addEdge('promptB', 'result', 'midjourney', 'input');
+
+    expect(harness.getState().edges).toEqual([
+      expect.objectContaining({
+        source: 'promptA',
+        sourceHandle: 'result',
+        target: 'midjourney',
+        targetHandle: 'input',
+      }),
+      expect.objectContaining({
+        source: 'promptB',
+        sourceHandle: 'result',
+        target: 'midjourney',
+        targetHandle: 'input',
+      }),
+    ]);
+  });
+
   it('replaces an existing connection on the same target handle', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [

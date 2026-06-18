@@ -1,7 +1,7 @@
 import { materializeContentForOutput } from '../helpers/saveHelper.ts';
 import type { NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
-const AI_NODE_TYPES = /^(aiV3|imageGenV2|videoGenV2|aiChatV2)$/;
+const AI_NODE_TYPES = /^(aiV3|midjourneyGen|imageGenV2|videoGenV2|aiChatV2)$/;
 
 function resolveSourceType(types: unknown[], idx: number): unknown {
   // When upstream data is a single array from one source node, sourceTypes has

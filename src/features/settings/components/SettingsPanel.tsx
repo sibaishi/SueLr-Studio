@@ -1,5 +1,5 @@
 import { THEME_LABELS } from '@/app/theme/constants';
-import { createImportedProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
+import { createImportedProjectModels, createManualProjectModel, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import {
   checkSettingsServer,
   getBackendStatus,
@@ -307,6 +307,18 @@ export function SettingsPanel({
     );
     setSelectedImports([]);
     addLog('success', `已导入 ${selectedImports.length} 个模型条目`);
+  };
+
+  const addManualProjectModel = (modelId: string, type: ProjectModel['type']) => {
+    const trimmed = modelId.trim();
+    if (!trimmed || !type) return;
+    if (projectModels.some((model) => model.modelId === trimmed)) {
+      addLog('warn', `模型 ${trimmed} 已存在`);
+      return;
+    }
+    const next = createManualProjectModel(trimmed, type, projectModels);
+    setProjectModels(next);
+    addLog('success', `已添加模型 ${trimmed}，请完善接口配置`);
   };
 
   const removeProjectModel = (modelId: string) => {
@@ -626,6 +638,7 @@ export function SettingsPanel({
   const actions: SettingsActions = {
     addConfig,
     addLog,
+    addManualProjectModel,
     applyConfig,
     deleteAgentProfile,
     deleteConfig,

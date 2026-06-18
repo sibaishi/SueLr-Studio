@@ -258,6 +258,130 @@ test('aiV3 image output flows into io and materializes generated files', async (
   }
 });
 
+test('midjourneyGen accepts new io input and its unified result is materialized by new io output', async () => {
+  const originalFetch = globalThis.fetch;
+  const events = [];
+  const requests = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    const requestUrl = String(url);
+    const method = String(options.method || 'GET');
+    requests.push({ url: requestUrl, method, body: options.body ? JSON.parse(String(options.body)) : undefined });
+
+    if (method === 'POST') {
+      return new Response(JSON.stringify({ jobId: 'job-workflow' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (requestUrl.includes('/midjourney/v1/fetch')) {
+      return new Response(JSON.stringify({
+        status: 'SUCCESS',
+        cdnImage: 'https://cdn.example.com/midjourney-grid.png',
+        components: ['U1', 'U2', 'V1', 'V2'],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (requestUrl === 'https://cdn.example.com/midjourney-grid.png') {
+      return new Response(Buffer.from('ABC'), {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      });
+    }
+    throw new Error(`Unexpected request: ${method} ${requestUrl}`);
+  };
+
+  try {
+    await executeWorkflow(
+      {
+        nodes: [
+          {
+            id: 'prompt',
+            type: 'io',
+            data: { content: 'cinematic mountain at sunrise' },
+          },
+          {
+            id: 'midjourney',
+            type: 'midjourneyGen',
+            data: { model: 'midjourney', mode: 'turbo' },
+          },
+          {
+            id: 'output',
+            type: 'io',
+            data: {},
+          },
+        ],
+        edges: [
+          {
+            id: 'prompt-midjourney',
+            source: 'prompt',
+            sourceHandle: 'result',
+            target: 'midjourney',
+            targetHandle: 'input',
+          },
+          {
+            id: 'midjourney-output',
+            source: 'midjourney',
+            sourceHandle: 'result',
+            target: 'output',
+            targetHandle: 'input',
+          },
+        ],
+      },
+      {
+        apiKey: 'tt-demo-key',
+        baseUrl: 'https://api.ttapi.io',
+        providerConfig: {
+          authType: 'custom',
+          customHeaderName: 'TT-API-KEY',
+          customPrefix: '',
+          midjourneyPollIntervalMs: 0,
+          midjourneyMaxAttempts: 3,
+        },
+        projectModels: [
+          {
+            id: 'midjourney',
+            modelId: 'midjourney',
+            type: 'image',
+            enabled: true,
+            endpointMode: 'custom',
+            customEndpoint: '/midjourney/v1/imagine',
+            configured: true,
+            source: 'manual',
+          },
+        ],
+      },
+      (event, data) => events.push({ event, data }),
+    );
+
+    const midjourneyEvent = events.find(({ event, data }) => (
+      event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+      && data.nodeId === 'midjourney'
+    ));
+    const outputEvent = events.find(({ event, data }) => (
+      event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED
+      && data.nodeId === 'output'
+    ));
+
+    assert.ok(midjourneyEvent);
+    assert.deepEqual(midjourneyEvent.data.outputs.result, ['data:image/png;base64,QUJD']);
+    assert.equal(midjourneyEvent.data.outputs.meta.task.jobId, 'job-workflow');
+    assert.ok(outputEvent);
+    assert.equal(typeof outputEvent.data.outputs.result, 'string');
+    assert.match(outputEvent.data.outputs.result, /^\/api\/outputs\/images\/.+\.png$/);
+    assert.equal(outputEvent.data.outputs.savedFiles.length, 1);
+    assert.deepEqual(requests[0], {
+      url: 'https://api.ttapi.io/midjourney/v1/imagine',
+      method: 'POST',
+      body: { prompt: 'cinematic mountain at sunrise', mode: 'turbo' },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('aiV3 resolves image inputs from request-scoped upload storage', async () => {
   const previousConfigDir = process.env.APP_CONFIG_DIR;
   const storageRoot = createStorageDir('aichat-scoped-image');

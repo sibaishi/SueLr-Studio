@@ -54,6 +54,7 @@ export type SettingsActions = {
   applyConfig: (id: string) => void;
   deleteConfig: (id: string) => void;
   exportMemoriesToFile: () => void;
+  addManualProjectModel: (modelId: string, type: ProjectModel['type']) => void;
   importSelectedModels: () => void;
   onClearLogs: () => void;
   onClearMemories: () => void;

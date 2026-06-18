@@ -300,11 +300,12 @@ export async function executeWorkflow(
         });
       }
 
-      const result = await executor(node, inputs, apiConfig, (message) => {
+      const result = await executor(node, inputs, apiConfig, (message, data) => {
         sendSSE(WORKFLOW_SSE_EVENTS.NODE_PROGRESS, {
           nodeId: node.id,
           progress: -1,
           message,
+          ...(data || {}),
           ...(iteration ? { iteration } : {}),
         });
       });

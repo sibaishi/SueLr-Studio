@@ -17,4 +17,4 @@ export type RuntimeApiConfig = Record<string, DynamicValue> & {
   tavilyApiKey?: string;
 };
 
-export type ProgressCallback = ((message: string) => void) | undefined;
+export type ProgressCallback = ((message: string, data?: Record<string, unknown>) => void) | undefined;

@@ -129,6 +129,31 @@ function getImportModelType(value: ImportableModel): ProjectModelType {
       : '';
 }
 
+export function createManualProjectModel(
+  modelId: string,
+  type: ProjectModelType,
+  existing: ProjectModel[],
+): ProjectModel[] {
+  if (!modelId || !type) return [...existing];
+  const now = Date.now();
+  const byId = new Map(existing.map((model) => [model.modelId, model]));
+  const id = modelId;
+  byId.set(id, {
+    id,
+    modelId,
+    enabled: false,
+    type,
+    endpointMode: 'custom',
+    endpointCategory: '',
+    customEndpoint: '',
+    source: 'manual',
+    configured: false,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return Array.from(byId.values()).sort((left, right) => left.modelId.localeCompare(right.modelId));
+}
+
 export function createImportedProjectModels(models: ImportableModel[], existing: ProjectModel[]) {
   const now = Date.now();
   const byId = new Map(existing.map((model) => [model.modelId, model]));

@@ -66,6 +66,10 @@ function normalizeNodeData(node: WorkflowArchitectDsl['nodes'][number], edges: W
       data.duration = clampInteger(data.duration, 5, 1, 30);
     }
   }
+  if (node.type === 'midjourneyGen') {
+    data.model = typeof data.model === 'string' ? data.model : '';
+    data.mode = ['fast', 'relax', 'turbo'].includes(String(data.mode)) ? data.mode : 'fast';
+  }
   if (node.type === 'imageSplit') {
     data.rows = clampInteger(data.rows, 3, 1, 3);
     data.columns = clampInteger(data.columns, 3, 1, 3);

@@ -598,10 +598,11 @@ export function createWorkflowGraphEditorActions(
 
       // Skip single-connection filter for node types that support multi-input
       const targetNode = get().nodes.find((n) => n.id === target);
-      const isMultiInput = targetNode?.type === 'aiV3' || targetNode?.type === 'io';
+      const isUnifiedAiInput = targetNode?.type === 'aiV3' || targetNode?.type === 'midjourneyGen';
+      const isMultiInput = isUnifiedAiInput || targetNode?.type === 'io';
 
       // Enforce per-type connection limits for io nodes only (aiV3 limits are mode-aware, applied at execution)
-      if (isMultiInput && targetHandle === 'input' && targetNode?.type !== 'aiV3') {
+      if (targetNode?.type === 'io' && targetHandle === 'input') {
         const sourceNode = get().nodes.find((n) => n.id === source);
         const sourceNodeType = sourceNode?.type || '';
         const isMaskSource = sourceNodeType.toLowerCase().includes('mask');

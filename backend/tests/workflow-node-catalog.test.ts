@@ -20,6 +20,7 @@ const EXPECTED_ARCHITECT_NODE_TYPES = [
   'promptHelper',
   'textSplit',
   'aiV3',
+  'midjourneyGen',
 ];
 
 test('workflow node catalog preserves the architect node allowlist and dynamic port contracts', () => {
@@ -57,11 +58,19 @@ test('workflow node catalog preserves the architect node allowlist and dynamic p
     inputs: { input: { type: 'any' } },
     outputs: { result: { type: 'any' } },
   });
+  assert.deepEqual(ports.midjourneyGen, {
+    inputs: { input: { type: 'any' } },
+    outputs: { result: { type: 'any' } },
+  });
 });
 
 test('workflow node catalog preserves architect defaults and agent knowledge coverage', () => {
   assert.deepEqual(getWorkflowArchitectDefaultData('aiV3'), {
     model: '',
+  });
+  assert.deepEqual(getWorkflowArchitectDefaultData('midjourneyGen'), {
+    model: '',
+    mode: 'fast',
   });
   assert.deepEqual(getWorkflowArchitectDefaultData('io'), { text: '', content: [], _fileIds: [], _fileKinds: [] });
   assert.deepEqual(getWorkflowArchitectDefaultData('textSplit'), {

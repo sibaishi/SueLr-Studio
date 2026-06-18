@@ -9,6 +9,7 @@ import { getProviderAdapter } from '../providers/index.ts';
 import type { RequestScope } from '../runtime/request-scope.ts';
 import { assertSafeRemoteDownloadUrl } from '../security/network-guards.ts';
 import { STORAGE_PATHS } from '../storage/index.ts';
+import { waitForAsyncTask } from './async-task-runner.ts';
 
 const REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS = 30_000;
 const REMOTE_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
@@ -580,16 +581,9 @@ export async function waitForVideoTask({
 }: WaitForVideoTaskRequest): Promise<string> {
   const maxAttempts = 120;
   const intervalMs = 5000;
-  let lastProgress = 0;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    if (signal?.aborted) {
-      throw new Error('工作流已手动停止');
-    }
-    sendProgress?.(`正在等待视频生成... (${attempt * 5}s)`);
-
-    try {
-      const data = await pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint, signal });
+  return waitForAsyncTask({
+    poll: () => pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint, signal }),
+    inspect: (data) => {
       const videoUrl = extractVideoUrl(data);
       const rawStatus = extractVideoTaskStatus(data);
       const dataRecord = asRecord(data);
@@ -600,41 +594,30 @@ export async function waitForVideoTask({
       );
 
       if (status === 'completed') {
-        return videoUrl;
+        return { state: 'completed', result: videoUrl } as const;
       }
 
       if (status === 'failed' || status === 'cancelled') {
         const normalizedError = extractVideoTaskError(data) || '视频生成失败';
-        throw new Error(`视频生成失败: ${normalizedError}`);
+        return { state: 'failed', error: `视频生成失败: ${normalizedError}` } as const;
       }
 
       const progress = dataRecord.progress || getNestedRecord(data, 'data').progress;
-      if (typeof progress === 'number' && progress > lastProgress) {
-        lastProgress = progress;
-        sendProgress?.(`视频生成进度: ${Math.round(progress * 100)}%`);
-      }
-    } catch (error) {
-      if (String(error instanceof Error ? error.message : '').includes('视频生成失败')) {
-        throw error;
-      }
-    }
-
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(resolve, intervalMs);
-      if (signal) {
-        signal.addEventListener(
-          'abort',
-          () => {
-            clearTimeout(timer);
-            reject(new Error('工作流已手动停止'));
-          },
-          { once: true },
-        );
-      }
-    });
-  }
-
-  throw new Error('视频生成超时(超过 10 分钟)');
+      return {
+        state: 'pending',
+        ...(typeof progress === 'number' ? { progress } : {}),
+      } as const;
+    },
+    signal,
+    intervalMs,
+    maxAttempts,
+    abortMessage: '工作流已手动停止',
+    timeoutMessage: '视频生成超时(超过 10 分钟)',
+    onAttempt: (attempt) => sendProgress?.(`正在等待视频生成... (${attempt * 5}s)`),
+    onProgress: (progress) => sendProgress?.(`视频生成进度: ${Math.round(progress * 100)}%`),
+    shouldRetryError: (error) =>
+      !String(error instanceof Error ? error.message : '').includes('视频生成失败'),
+  });
 }
 
 export async function executeVideoGeneration(

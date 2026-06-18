@@ -110,6 +110,28 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     },
   },
   {
+    id: 'seed_workflow_node_midjourneyGen',
+    title: 'Midjourney 生图节点 midjourneyGen',
+    content:
+      'midjourneyGen 通过 Midjourney 异步任务接口生成图片。节点使用统一 input/result 端口，可直接连接新版 IO；任务 jobId、components 和状态摘要保存在结果元数据中。',
+    tags: ['system-seed', 'node', 'ai', 'midjourneyGen', 'midjourney', 'image', 'async-task'],
+    structured: {
+      nodeType: 'midjourneyGen',
+      category: 'ai',
+      maturity: 'experimental',
+      inputs: [
+        { id: 'input', type: 'any', required: false },
+      ],
+      outputs: [
+        { id: 'result', type: 'any' },
+      ],
+      params: ['model', 'mode'],
+      useWhen: ['midjourney-image-generation', 'midjourney-style', 'async-image-task'],
+      avoidWhen: ['image-editing-with-mask', 'video-output', 'pure-text-output'],
+      notes: ['首版仅支持 Imagine；task 输出保留 jobId 和 components，供后续 Action 节点使用。'],
+    },
+  },
+  {
     id: 'seed_workflow_node_promptHelper',
     title: '视觉控制提示词节点 promptHelper',
     content:
