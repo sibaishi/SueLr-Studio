@@ -117,7 +117,22 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
 
       if (loadedSettings) {
         if (loadedSettings.runtime?.configs?.length) {
-          cfgs = loadedSettings.runtime.configs;
+          // 合并后端配置到前端：用后端数据补全字段，但保留前端手动设置的 name
+          const backendById = new Map(
+            (loadedSettings.runtime.configs as ApiConfig[]).map((c) => [c.id, c]),
+          );
+          cfgs = cfgs.map((frontConfig) => {
+            const backend = backendById.get(frontConfig.id);
+            if (!backend) return frontConfig;
+            return {
+              ...backend,
+              name: frontConfig.name?.trim() || backend.name || '',
+            };
+          });
+          // 追加后端独有的配置
+          for (const bc of loadedSettings.runtime.configs as ApiConfig[]) {
+            if (!cfgs.find((c) => c.id === bc.id)) cfgs.push(bc);
+          }
           params.settings.setApiConfigs(cfgs);
         }
         if (loadedSettings.runtime?.activeConfigId) {

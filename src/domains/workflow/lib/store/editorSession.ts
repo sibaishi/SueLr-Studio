@@ -3,6 +3,8 @@ import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
+import { loadJSON } from '@/shared/runtime';
+import type { ApiConfig } from '@/shared/types';
 import { normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
 import { formatLogDetails, gid, sanitizeLogMessage } from '@/domains/workflow/lib/store/helpers';
 import { clearActiveRunSnapshot, saveLocalDraft } from '@/domains/workflow/lib/store/persistence';
@@ -167,19 +169,26 @@ export function createWorkflowEditorSessionActions(
     fetchModels: async () => {
       const result = await api.fetchAvailableModels();
       if (result.success && result.data) {
-        const toOptions = (items: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }> = []) =>
-          items.map((item) => ({
-            label: item.label,
-            value: item.value,
-            modelId: item.modelId,
-            configId: item.configId,
-            configName: item.configName,
-          }));
+        // 从前端 localStorage 直接取配置名，后端字段仅做 fallback
+        const localConfigs: ApiConfig[] = loadJSON('ai_configs', []);
+        const localNameMap = new Map(localConfigs.map((c, i) => [
+          c.id,
+          c.name?.trim() || c.base?.trim() || `API 配置 ${i + 1}`,
+        ]));
+
+        const enrichConfigName = (item: { label: string; value: string; modelId: string; configId: string; configName: string }) => ({
+          label: item.label,
+          value: item.value,
+          modelId: item.modelId,
+          configId: item.configId,
+          configName: localNameMap.get(item.configId) || item.configName || item.configId,
+        });
+
         const nextModels = {
-          all: toOptions(result.data.all),
-          chat: toOptions(result.data.chat),
-          image: toOptions(result.data.image),
-          video: toOptions(result.data.video),
+          all: result.data.all.map(enrichConfigName),
+          chat: result.data.chat.map(enrichConfigName),
+          image: result.data.image.map(enrichConfigName),
+          video: result.data.video.map(enrichConfigName),
         };
 
         set({

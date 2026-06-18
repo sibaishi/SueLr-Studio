@@ -2,6 +2,8 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { filterAiV3InputSlots, readInputOrder, type InputOrderMap } from '@/domains/workflow/lib/store/helpers';
 import { fileRawStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
+import { loadJSON } from '@/shared/runtime';
+import type { ApiConfig } from '@/shared/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { BoxSelect, Clock, Globe, Grid3X3, Image, Ruler } from 'lucide-react';
@@ -300,13 +302,20 @@ export default function AiV3StylePanel() {
     ...(availableModels.video || []).map((m) => ({ ...m, _cat: 'video' as const })),
   ];
   const modelTree: Array<{ configName: string; configId: string; cats: Array<{ cat: string; label: string; models: typeof allModelOptions }> }> = useMemo(() => {
+    // 直接从 localStorage 读配置名，不依赖后端
+    const localConfigs: ApiConfig[] = loadJSON('ai_configs', []);
+    const configLabelMap = new Map(localConfigs.map((c, i) => [
+      c.id,
+      c.name?.trim() || c.base?.trim() || `API 配置 ${i + 1}`,
+    ]));
+
     const configs: Record<string, { configId: string; cats: Record<string, typeof allModelOptions> }> = {};
     for (const m of allModelOptions) {
-      const configKey = m.configName || m.configId || '未命名';
+      const configName = configLabelMap.get(m.configId || '') || m.configName || m.configId || '未命名';
       const configId = m.configId || '';
-      if (!configs[configKey]) configs[configKey] = { configId, cats: {} };
+      if (!configs[configName]) configs[configName] = { configId, cats: {} };
       const cat = (m as typeof m & { _cat: string })._cat;
-      (configs[configKey].cats[cat] ??= []).push(m);
+      (configs[configName].cats[cat] ??= []).push(m);
     }
     const catOrder = ['chat', 'image', 'video'];
     return Object.entries(configs).map(([configName, entry]) => ({
