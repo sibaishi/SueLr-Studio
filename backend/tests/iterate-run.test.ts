@@ -49,8 +49,8 @@ test('iterateRun executes downstream once per connected text input', async () =>
 
   assert.equal(cleanCompletions.length, 2);
   assert.deepEqual(cleanCompletions.map((item) => item.data.outputs), [
-    { text: 'alpha' },
-    { text: 'beta' },
+    { part1: 'alpha', part2: '' },
+    { part1: 'beta', part2: '' },
   ]);
   assert.deepEqual(cleanCompletions.map((item) => item.data.iteration.index), [1, 2]);
 
@@ -78,7 +78,7 @@ test('iterateRun skips empty text inputs', async () => {
   );
 
   assert.equal(cleanCompletions.length, 1);
-  assert.deepEqual(cleanCompletions[0].data.outputs, { text: 'alpha' });
+  assert.deepEqual(cleanCompletions[0].data.outputs, { part1: 'alpha', part2: '' });
 });
 
 test('iterateRun supports multiple independent control nodes', async () => {
@@ -111,12 +111,12 @@ test('iterateRun supports multiple independent control nodes', async () => {
   );
 
   assert.deepEqual(cleanACompletions.map((item) => item.data.outputs), [
-    { text: 'alpha' },
-    { text: 'beta' },
+    { part1: 'alpha', part2: '' },
+    { part1: 'beta', part2: '' },
   ]);
   assert.deepEqual(cleanBCompletions.map((item) => item.data.outputs), [
-    { text: 'gamma' },
-    { text: 'delta' },
+    { part1: 'gamma', part2: '' },
+    { part1: 'delta', part2: '' },
   ]);
 
   const completed = events.find((item) => item.event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED);
@@ -145,8 +145,8 @@ test('iterateRun supports nested control nodes', async () => {
   );
 
   assert.deepEqual(cleanCompletions.map((item) => item.data.outputs), [
-    { text: 'alpha' },
-    { text: 'beta' },
+    { part1: 'alpha', part2: '' },
+    { part1: 'beta', part2: '' },
   ]);
   assert.deepEqual(cleanCompletions.map((item) => item.data.iteration.parent.index), [1, 2]);
 

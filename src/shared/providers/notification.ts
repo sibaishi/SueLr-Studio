@@ -9,6 +9,7 @@ let swRegistration: ServiceWorkerRegistration | null = null;
 
 function ensureSW(): Promise<ServiceWorkerRegistration | null> {
   if (swRegistration) return Promise.resolve(swRegistration);
+  if (typeof navigator === 'undefined') return Promise.resolve(null);
   if (!('serviceWorker' in navigator)) return Promise.resolve(null);
 
   return navigator.serviceWorker
@@ -21,6 +22,8 @@ function ensureSW(): Promise<ServiceWorkerRegistration | null> {
 }
 
 export function notifyWorkflowComplete(title: string, body: string) {
+  if (typeof window === 'undefined') return;
+
   // Electron：渲染进程 HTML5 Notification，onclick 回调中 focus 窗口
   if (window.electronAPI) {
     const n = new Notification(title, { body });

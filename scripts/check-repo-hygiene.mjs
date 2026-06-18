@@ -36,6 +36,7 @@ const allowedRootDirectories = new Set([
   'electron',
   'node_modules',
   'playwright-report',
+  'public',
   'release',
   'scripts',
   'src',

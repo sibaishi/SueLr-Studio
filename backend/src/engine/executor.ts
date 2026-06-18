@@ -20,6 +20,7 @@ const DEFAULT_WORKFLOW_CONCURRENCY = {
 };
 
 type WorkflowEdge = {
+  id?: string;
   source: string;
   target: string;
   sourceHandle?: string;

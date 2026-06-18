@@ -2545,7 +2545,7 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     assert.equal(rebuilt.status, 200);
     assertEnvelopeShape(rebuilt.body);
     assert.equal(rebuilt.body.data.status, 'rebuilt');
-    assert.equal(rebuilt.body.data.categories['workflow-knowledge'].added >= 9, true);
+    assert.equal(rebuilt.body.data.categories['workflow-knowledge'].added >= 8, true);
 
     const searchNode = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',

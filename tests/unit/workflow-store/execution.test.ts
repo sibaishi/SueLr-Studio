@@ -480,13 +480,13 @@ describe('workflow store execution actions', () => {
           id: 'source_text',
           type: 'io',
           position: { x: 0, y: 0 },
-          data: { content: 'from upstream' },
+          data: { text: 'from upstream', content: [] },
         },
         {
           id: 'editable_text',
           type: 'io',
           position: { x: 300, y: 0 },
-          data: { content: 'local fallback' },
+          data: { text: 'local fallback', content: [] },
         },
       ],
       edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'result', target: 'editable_text', targetHandle: 'input' }],
@@ -500,7 +500,10 @@ describe('workflow store execution actions', () => {
     await actions.executeWorkflow();
 
     const state = harness.getState();
-    expect(state.nodes.find((node) => node.id === 'editable_text')?.data.content).toBe('from upstream');
+    expect(state.nodes.find((node) => node.id === 'editable_text')?.data).toMatchObject({
+      text: 'from upstream',
+      content: [],
+    });
     expect(state.hasUnsavedChanges).toBe(true);
   });
 

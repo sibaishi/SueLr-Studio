@@ -19,7 +19,6 @@ const EXPECTED_ARCHITECT_NODE_TYPES = [
   'imageSplit',
   'promptHelper',
   'textSplit',
-  'textSplit',
   'aiV3',
 ];
 
@@ -66,8 +65,8 @@ test('workflow node catalog preserves architect defaults and agent knowledge cov
   });
   assert.deepEqual(getWorkflowArchitectDefaultData('io'), { text: '', content: [], _fileIds: [], _fileKinds: [] });
   assert.deepEqual(getWorkflowArchitectDefaultData('textSplit'), {
-    startKeyword: '<think>',
-    endKeyword: '</think>',
+    separator: '\n',
+    outputCount: 2,
   });
   assert.deepEqual(getWorkflowArchitectDefaultData('imageSplit'), { rows: 3, columns: 3 });
 

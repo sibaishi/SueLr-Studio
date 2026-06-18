@@ -3,6 +3,7 @@ import { getNodeTypeLabel } from './contracts/node-registry.ts';
 import type { DynamicValue, WorkflowNode } from './nodes/types.ts';
 
 type WorkflowEdge = {
+  id?: string;
   source: string;
   target: string;
   sourceHandle?: string;

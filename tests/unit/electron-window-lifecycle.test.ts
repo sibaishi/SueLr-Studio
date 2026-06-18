@@ -11,6 +11,7 @@ const { createMainWindow, focusWindow, WINDOW_OPTIONS } = require('../../electro
     shell: { openExternal: (url: string) => void };
     url: string;
     iconPath: string;
+    app: { getAppPath: () => string };
   }) => {
     webContents: { setWindowOpenHandler: (handler: ({ url }: { url: string }) => { action: string }) => void };
     loadURL: (url: string) => void;
@@ -51,6 +52,7 @@ describe('Electron window lifecycle helpers', () => {
       shell: { openExternal },
       url: 'http://127.0.0.1:3001',
       iconPath: 'build/icon.ico',
+      app: { getAppPath: () => 'C:\\SueLr-Studio' },
     });
 
     expect(capturedOptions).toMatchObject({
@@ -60,6 +62,7 @@ describe('Electron window lifecycle helpers', () => {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        preload: 'C:\\SueLr-Studio\\electron\\preload.cjs',
       },
     });
     expect(loadURL).toHaveBeenCalledWith('http://127.0.0.1:3001');
