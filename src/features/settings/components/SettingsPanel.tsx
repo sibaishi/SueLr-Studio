@@ -117,9 +117,14 @@ export function SettingsPanel({
   );
   const configStats = useMemo(() => {
     const enabled = apiConfigs.filter((c) => c.enabled !== false);
+    const allModels = enabled.flatMap((c) => normalizeProjectModels(c.projectModels || []));
     return {
       total: enabled.length,
-      totalModels: enabled.reduce((sum, c) => sum + (c.projectModels?.length || 0), 0),
+      totalModels: allModels.length,
+      chat: allModels.filter((m) => m.type === 'chat' && m.enabled).length,
+      image: allModels.filter((m) => m.type === 'image' && m.enabled).length,
+      video: allModels.filter((m) => m.type === 'video' && m.enabled).length,
+      midjourney: allModels.filter((m) => m.type === 'midjourney' && m.enabled).length,
     };
   }, [apiConfigs]);
   const importedIds = useMemo(() => new Set(projectModels.map((model) => model.modelId)), [projectModels]);
@@ -665,6 +670,36 @@ export function SettingsPanel({
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 0.9fr)', gap: 12 }}>
           <div style={{ ...mutedPanelStyle(), padding: 18 }}>
+            <div style={eyebrowStyle()}>能力分布</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Chat</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {configStats.chat}
+                </div>
+              </div>
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Image</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {configStats.image}
+                </div>
+              </div>
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Video</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {configStats.video}
+                </div>
+              </div>
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>MJ</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {configStats.midjourney}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ ...mutedPanelStyle(), padding: 18 }}>
             <div style={eyebrowStyle()}>已启用配置</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 12 }}>
               <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--color-text-primary)' }}>
@@ -706,30 +741,6 @@ export function SettingsPanel({
                   ...及其他 {configStats.total - 5} 项
                 </div>
               )}
-            </div>
-          </div>
-
-          <div style={{ ...mutedPanelStyle(), padding: 18 }}>
-            <div style={eyebrowStyle()}>运行状态</div>
-            <div className="flex-col" style={{ gap: 10, marginTop: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>运行模式</span>
-                <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
-                  {runtimeCapabilities?.mode || 'local-web'}
-                </strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>联网搜索</span>
-                <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
-                  {runtimeCapabilities?.search?.enabled ? '可用' : '未启用'}
-                </strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>目录选择</span>
-                <strong style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
-                  {canSelectDirectory ? '可用' : '禁用'}
-                </strong>
-              </div>
             </div>
           </div>
         </div>
