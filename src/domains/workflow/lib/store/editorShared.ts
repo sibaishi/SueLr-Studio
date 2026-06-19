@@ -81,6 +81,7 @@ export type WorkflowStoreEditorActions = Pick<
   | 'markWorkflowDirty'
   | 'setShowDebugSizes'
   | 'setSnapToGridEnabled'
+  | 'setEdgeStyle'
   | 'fetchModels'
   | 'setAvailableModels'
   | 'setProjectModels'

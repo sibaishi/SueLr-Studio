@@ -147,6 +147,7 @@ export interface WorkflowState {
   projectModels: ProjectModel[];
   showDebugSizes: boolean;
   snapToGridEnabled: boolean;
+  edgeStyle: 'bezier' | 'smoothstep';
 
   setWorkflowName: (name: string) => void;
   addNode: (type: string, position: { x: number; y: number }, data?: Record<string, unknown>) => string;
@@ -186,6 +187,7 @@ export interface WorkflowState {
   markWorkflowDirty: () => void;
   setShowDebugSizes: (show: boolean) => void;
   setSnapToGridEnabled: (enabled: boolean) => void;
+  setEdgeStyle: (style: 'bezier' | 'smoothstep') => void;
   resetUserWorkspace: () => void;
   setActiveWorkflowDocument: (documentId: string) => void;
   closeWorkflowDocument: (documentId: string, options?: { discardUnsaved?: boolean }) => Promise<boolean>;

@@ -51,6 +51,7 @@ type WorkflowStoreDataState = {
   projectModels: ProjectModel[];
   showDebugSizes: boolean;
   snapToGridEnabled: boolean;
+  edgeStyle: 'bezier' | 'smoothstep';
 };
 
 const initialDraftNodes = initialDraft ? normalizeNodes(initialDraft.nodes) : [];
@@ -120,6 +121,7 @@ export function createInitialWorkflowState(): WorkflowStoreDataState {
     projectModels: [],
     showDebugSizes: false,
     snapToGridEnabled: false,
+    edgeStyle: 'bezier',
   };
 }
 

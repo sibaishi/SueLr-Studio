@@ -15,6 +15,7 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/domains/workflow/lib/store/selectors';
 import { AnimatedSvgEdge } from '@/shared/ui/AnimatedSvgEdge';
+import { AnimatedSvgSmoothStepEdge } from '@/shared/ui/AnimatedSvgSmoothStepEdge';
 import {
   Background,
   BackgroundVariant,
@@ -65,6 +66,7 @@ interface FlowCanvasProps {
 
 function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const store = useWorkflowCanvasStore();
+  const animatedEdgeType = store.edgeStyle === 'smoothstep' ? ('animatedSvgSmoothstep' as const) : ('animatedSvg' as const);
   const reactFlow = useReactFlow();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
@@ -233,7 +235,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
             animated: false,
             ...(isConnected
               ? {
-                  type: 'animatedSvg' as const,
+                  type: animatedEdgeType,
                   data: { ...(edge.data || {}), flow: true, color: getEdgeDataTypeColor(edge, renderNodeMap) },
                 }
               : {}),
@@ -241,18 +243,25 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
             style: { ...(edge.style || {}), stroke: getEdgeDataTypeColor(edge, renderNodeMap), strokeWidth: 2 },
           };
         }
-        if (!isConnected) return edge;
+        if (!isConnected) {
+          return {
+            ...edge,
+            type: store.edgeStyle === 'smoothstep' ? 'smoothstep' : 'default',
+            animated: false,
+            ...(store.edgeStyle === 'smoothstep' ? { pathOptions: { borderRadius: 15 } } : {}),
+          };
+        }
         const typeColor = getEdgeDataTypeColor(edge, renderNodeMap);
         return {
           ...edge,
-          type: 'animatedSvg' as const,
+          type: animatedEdgeType,
           data: { ...(edge.data || {}), flow: true, color: typeColor },
           style: { ...(edge.style || {}), stroke: typeColor },
         };
       }),
       ...previewEdges,
     ];
-  }, [edgeInsertionCandidate, renderModel.edges, renderNodes]);
+  }, [edgeInsertionCandidate, renderModel.edges, renderNodes, store.edgeStyle]);
 
   const attachNodeToGroup = useCallback((nodeId: string, groupId: string) => {
     useWorkflowStore.setState((state) => {
@@ -729,11 +738,15 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         onDragOver={fileDrop.onDragOver}
         onDrop={fileDrop.onDrop}
         nodeTypes={FLOW_NODE_TYPES}
-        edgeTypes={{ animatedSvg: AnimatedSvgEdge }}
+        edgeTypes={{
+          animatedSvg: AnimatedSvgEdge,
+          animatedSvgSmoothstep: AnimatedSvgSmoothStepEdge,
+        }}
         isValidConnection={connection.isValidConnection}
         defaultEdgeOptions={{
-          type: 'default',
+          type: store.edgeStyle === 'smoothstep' ? 'smoothstep' : 'default',
           style: DEFAULT_WORKFLOW_EDGE_STYLE,
+          ...(store.edgeStyle === 'smoothstep' ? { pathOptions: { borderRadius: 15 } } : {}),
         }}
         connectionLineStyle={{
           stroke: 'var(--color-accent)',

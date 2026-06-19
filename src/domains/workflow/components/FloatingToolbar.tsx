@@ -1,7 +1,7 @@
 import { THEME_ICONS, THEME_LABELS } from '@/app/theme/constants';
 import type { ThemeMode } from '@/shared/types';
 import { Icon } from '@/shared/ui/icons';
-import { AlignStartVertical, Grid3x3, PanelRightClose, PanelRightOpen, Plus, Settings2, Sparkles } from 'lucide-react';
+import { AlignStartVertical, Grid3x3, PanelRightClose, PanelRightOpen, Plus, Route, Settings2, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface FloatingToolbarProps {
@@ -14,6 +14,8 @@ interface FloatingToolbarProps {
   rightPanelCollapsed?: boolean;
   onToggleSnapToGrid?: () => void;
   snapToGridEnabled?: boolean;
+  edgeStyle?: 'bezier' | 'smoothstep';
+  onToggleEdgeStyle?: () => void;
   onAutoArrange?: () => void;
 }
 
@@ -27,6 +29,8 @@ export default function FloatingToolbar({
   rightPanelCollapsed,
   onToggleSnapToGrid,
   snapToGridEnabled,
+  edgeStyle,
+  onToggleEdgeStyle,
   onAutoArrange,
 }: FloatingToolbarProps) {
   return (
@@ -50,6 +54,13 @@ export default function FloatingToolbar({
         label="自动整理"
         onClick={onAutoArrange}
         testId="workflow-auto-arrange"
+      />
+      <FloatingToolbarButton
+        icon={<Route size={16} />}
+        label={edgeStyle === 'smoothstep' ? '切换为贝塞尔连线' : '切换为平滑阶梯连线'}
+        onClick={onToggleEdgeStyle}
+        active={edgeStyle === 'smoothstep'}
+        testId="workflow-toggle-edge-style"
       />
       <FloatingToolbarButton
         icon={<Sparkles size={16} />}

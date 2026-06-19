@@ -60,6 +60,7 @@ type WorkflowStoreGraphEditorActions = Pick<
   | 'markWorkflowDirty'
   | 'setShowDebugSizes'
   | 'setSnapToGridEnabled'
+  | 'setEdgeStyle'
 >;
 
 /** BFS from targetId along edges; returns true if sourceId is reachable, meaning a new sourceId→targetId edge would close a cycle. */
@@ -775,5 +776,6 @@ export function createWorkflowGraphEditorActions(
 
     setShowDebugSizes: (show) => set({ showDebugSizes: show }),
     setSnapToGridEnabled: (enabled) => set({ snapToGridEnabled: enabled }),
+    setEdgeStyle: (style) => set({ edgeStyle: style }),
   };
 }

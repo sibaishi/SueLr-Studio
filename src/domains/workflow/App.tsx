@@ -356,6 +356,8 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           rightPanelCollapsed={rightPanelCollapsed}
           onToggleSnapToGrid={() => store.setSnapToGridEnabled(!store.snapToGridEnabled)}
           snapToGridEnabled={store.snapToGridEnabled}
+          edgeStyle={store.edgeStyle}
+          onToggleEdgeStyle={() => store.setEdgeStyle(store.edgeStyle === 'smoothstep' ? 'bezier' : 'smoothstep')}
           onAutoArrange={store.autoArrangeWorkflow}
         />
 
