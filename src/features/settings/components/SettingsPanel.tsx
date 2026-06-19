@@ -535,7 +535,7 @@ export function SettingsPanel({
       label: '连接',
       desc: 'Provider、鉴权与接口地址',
       icon: KeyRound,
-      accent: T.blue,
+      accent: T.purple,
       stat: base ? '已配置' : '待配置',
     },
     {
@@ -559,7 +559,7 @@ export function SettingsPanel({
       label: '诊断',
       desc: '运行态可见性与快速检查',
       icon: Gauge,
-      accent: T.green,
+      accent: T.red,
       stat: `${logs.length} 条`,
     },
   ];

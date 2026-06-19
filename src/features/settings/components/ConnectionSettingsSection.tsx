@@ -29,9 +29,9 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
                     gap: 6,
                     padding: '4px 6px 4px 10px',
                     borderRadius: 20,
-                    background: isActive ? `${T.blue}16` : 'var(--color-bg-secondary)',
-                    border: isActive ? `1px solid ${T.blue}30` : '1px solid var(--color-border-primary)',
-                    opacity: isEnabled ? 1 : 0.4,
+                    background: isActive ? `${T.purple}16` : 'var(--color-bg-secondary)',
+                    border: isActive ? `1px solid ${T.purple}30` : '1px solid var(--color-border-primary)',
+                    opacity: isEnabled ? 1 : 0.6,
                     transition: 'opacity 0.2s, background 0.2s',
                   }}
                 >
@@ -44,7 +44,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
                       padding: 0,
                       fontSize: 13,
                       fontWeight: isActive ? 600 : 400,
-                      color: isActive ? T.blue : 'var(--color-text-primary)',
+                      color: isActive ? T.purple : 'var(--color-text-primary)',
                       whiteSpace: 'nowrap',
                     }}
                   >
@@ -57,12 +57,12 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
                     }}
                     title={isEnabled ? '禁用此配置' : '启用此配置'}
                     style={{
-                      width: 30,
-                      height: 17,
+                      width: 32,
+                      height: 18,
                       borderRadius: 9,
                       border: 'none',
                       cursor: 'pointer',
-                      background: isEnabled ? T.blue : 'var(--color-bg-tertiary)',
+                      background: isEnabled ? T.purple : 'var(--color-bg-tertiary)',
                       position: 'relative',
                       transition: 'background 0.2s',
                       flexShrink: 0,
@@ -71,8 +71,8 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
                     <span
                       style={{
                         position: 'absolute',
-                        top: 1.5,
-                        left: isEnabled ? 14 : 1.5,
+                        top: 2,
+                        left: isEnabled ? 16 : 2,
                         width: 14,
                         height: 14,
                         borderRadius: '50%',
