@@ -853,10 +853,10 @@ function PopoverButton({ icon, label, valueHint, open, direction, onToggle, chil
           height: 28, padding: '0 8px 0 6px', borderRadius: 9,
           border: open
             ? '1px solid color-mix(in srgb, var(--t-border) 80%, transparent)'
-            : '1px solid color-mix(in srgb, var(--t-border) 32%, transparent)',
+            : '1px solid color-mix(in srgb, var(--t-border) 50%, transparent)',
           background: open
             ? 'color-mix(in srgb, var(--t-bg2) 72%, transparent)'
-            : 'color-mix(in srgb, var(--t-bg2) 36%, transparent)',
+            : 'color-mix(in srgb, var(--t-bg2) 55%, transparent)',
           backdropFilter: open ? 'blur(14px)' : 'blur(8px)',
           color: open ? 'var(--t-text)' : 'var(--t-text2)',
           fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-sans)',
