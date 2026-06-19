@@ -91,7 +91,7 @@ export function buildSearchPlan(text: DynamicValue) {
 // ── chat content builder ──────────────────────────────────────
 
 export async function buildChatContent(text: string, images: DynamicValue[], scope: RuntimeApiConfig['scope']) {
-  const { fileToBase64 } = await import('../helpers/fileHelper.ts');
+  const { fileToBase64 } = await import('../../helpers/fileHelper.ts');
   const parts: DynamicValue[] = [];
   if (text) parts.push({ type: 'text', text });
   for (const img of images) {

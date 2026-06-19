@@ -543,8 +543,10 @@ export function createWorkflowExecutionActions(
 
         if (hasPerType) {
           const typeOrderKeys = ['text', 'image', 'video', 'audio'] as const;
-          let assembledText = '';
+          const assembledTexts: string[] = [];
+          const assembledTextTypes: string[] = [];
           const assembledFiles: string[] = [...rawFiles];
+          const assembledFileTypes: string[] = rawFiles.map(() => 'io');
 
           for (const type of typeOrderKeys) {
             const typeEdgeIds = inputOrder[type] || [];
@@ -571,11 +573,13 @@ export function createWorkflowExecutionActions(
               const upNode = executableGraph.nodes.find((n) => n.id === sourceId);
               if (!upNode) continue;
               const upData = (upNode.data || {}) as Record<string, unknown>;
+              const upType = upNode.type || '';
 
               if (type === 'text') {
                 const upText = String(upData.text || '').trim();
                 if (upText) {
-                  assembledText = assembledText ? assembledText + '\n' + upText : upText;
+                  assembledTexts.push(upText);
+                  assembledTextTypes.push(upType);
                 }
               } else {
                 const upFileKinds: string[] = Array.isArray(upData._fileKinds)
@@ -610,6 +614,7 @@ export function createWorkflowExecutionActions(
                     const b64 = fileRawStore.getBase64(fid);
                     if (b64) {
                       assembledFiles.push(b64);
+                      assembledFileTypes.push(upType);
                     } else {
                       const url = upContent[idx];
                       if (
@@ -632,6 +637,7 @@ export function createWorkflowExecutionActions(
                               },
                             );
                             assembledFiles.push(fetchedB64);
+                            assembledFileTypes.push(upType);
                           }
                         } catch {
                           /* fetch failed, skip this file */
@@ -646,12 +652,20 @@ export function createWorkflowExecutionActions(
             }
           }
 
-          // Rebuild _rawContent with per-type ordering
+          // Rebuild _rawContent with per-type ordering + per-item source type tracking
           const combined: string[] = [];
-          if (assembledText) combined.push(assembledText);
-          if (assembledFiles.length > 0) combined.push(...assembledFiles);
+          const combinedTypes: string[] = [];
+          for (let i = 0; i < assembledTexts.length; i++) {
+            combined.push(assembledTexts[i]);
+            combinedTypes.push(assembledTextTypes[i]);
+          }
+          for (let i = 0; i < assembledFiles.length; i++) {
+            combined.push(assembledFiles[i]);
+            combinedTypes.push(assembledFileTypes[i]);
+          }
           if (combined.length > 0) {
             nd._rawContent = combined.length === 1 ? combined[0] : combined;
+            nd._rawContentSourceTypes = combinedTypes;
           }
         }
       }

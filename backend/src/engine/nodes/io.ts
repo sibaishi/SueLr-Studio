@@ -26,9 +26,64 @@ export async function execute(
 
   // _rawContent (pre-assembled upstream data in per-type order) takes priority
   // over live upstream inputs — enables per-type independent ordering.
-  // Always materialize to disk so base64 never leaks into persisted state.
+  // _rawContentSourceTypes (set by frontend) marks each item's origin node type,
+  // so only AI-generated items are materialized to disk; non-AI passthrough as-is.
   if (nodeData._rawContent !== undefined && nodeData._rawContent !== null) {
     const raw = nodeData._rawContent;
+    const rawSourceTypes = nodeData._rawContentSourceTypes as string[] | undefined;
+
+    // Per-item type info available: split AI / non-AI precisely
+    if (Array.isArray(rawSourceTypes)) {
+      const rawItems: unknown[] = Array.isArray(raw) ? raw : [raw];
+      if (rawSourceTypes.length !== rawItems.length) {
+        // Mismatched lengths — fall through to aggregate check below
+      } else {
+        const aiItems: unknown[] = [];
+        const results: unknown[] = [];
+        for (let i = 0; i < rawItems.length; i++) {
+          if (typeof rawSourceTypes[i] === 'string' && AI_NODE_TYPES.test(rawSourceTypes[i])) {
+            aiItems.push(rawItems[i]);
+          }
+        }
+
+        if (aiItems.length > 0) {
+          sendProgress?.('正在保存...');
+          const savedResult = await materializeContentForOutput(
+            aiItems.length === 1 ? aiItems[0] : aiItems,
+            { prefix: 'io', scope: apiConfig.scope },
+          );
+          // Rebuild result in original order: AI items → saved URLs, others → passthrough
+          let aiIdx = 0;
+          const aiResult = Array.isArray(savedResult.content) ? savedResult.content : [savedResult.content];
+          for (let i = 0; i < rawItems.length; i++) {
+            if (typeof rawSourceTypes[i] === 'string' && AI_NODE_TYPES.test(rawSourceTypes[i])) {
+              results.push(aiResult[aiIdx++] ?? rawItems[i]);
+            } else {
+              results.push(rawItems[i]);
+            }
+          }
+          return {
+            result: results.length === 1 ? results[0] : results,
+            savedFiles: savedResult.savedFiles,
+            savedPaths: savedResult.savedPaths || [],
+          };
+        }
+
+        // No AI items at all — pass through without saving
+        sendProgress?.('正在展示...');
+        return { result: raw };
+      }
+    }
+
+    // Fallback: no per-item type info — check aggregate _inputTypes
+    const sourceTypes: unknown = (inputs as Record<string, unknown>)._inputTypes;
+    const hasAiSource = Array.isArray(sourceTypes) && sourceTypes.some(
+      (t) => typeof t === 'string' && AI_NODE_TYPES.test(t),
+    );
+    if (!hasAiSource) {
+      sendProgress?.('正在展示...');
+      return { result: raw };
+    }
     sendProgress?.('正在保存...');
     const result = await materializeContentForOutput(raw, { prefix: 'io', scope: apiConfig.scope });
     return {
