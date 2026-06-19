@@ -5,42 +5,13 @@ import type {
   StorageSettingsPayload,
   WorkflowConcurrencySettingsPayload,
 } from '@/features/settings';
-import type { AgentProfile } from '../agentProfiles';
 import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { ApiConfig, LogEntry, Memory, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
+import type { ApiConfig, LogEntry, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
 import type { LucideIcon } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 
-export const ROLE_ICONS = [
-  'bot',
-  'palette',
-  'clapperboard',
-  'code',
-  'search',
-  'zap',
-  'brain',
-  'lightbulb',
-  'folder',
-  'star',
-];
-
-export const AGENT_TOOL_OPTIONS = [
-  'web_search',
-  'search_memory',
-  'memory_write',
-  'get_current_time',
-  'generate_image',
-  'video_generate',
-  'workflow_execute',
-] as const;
-
-export const MEMORY_MODE_OPTIONS = [
-  { l: '自动', v: 'auto' },
-  { l: '关闭', v: 'off' },
-] as const;
-
 export type SettingsModuleMeta = {
-  id: 'overview' | 'connection' | 'models' | 'agent' | 'workspace' | 'diagnostics';
+  id: 'overview' | 'connection' | 'models' | 'workspace' | 'diagnostics';
   label: string;
   desc: string;
   icon: LucideIcon;
@@ -53,21 +24,14 @@ export type SettingsActions = {
   addLog: (level: string, message: string) => void;
   applyConfig: (id: string) => void;
   deleteConfig: (id: string) => void;
-  exportMemoriesToFile: () => void;
   addManualProjectModel: (modelId: string, type: ProjectModel['type']) => void;
   importSelectedModels: () => void;
   onClearLogs: () => void;
-  onClearMemories: () => void;
-  onDeleteMemory: (id: string) => void;
   removeProjectModel: (modelId: string) => void;
-  deleteAgentProfile: (profileId: string) => Promise<void>;
-  saveAgentProfile: (profile: AgentProfile) => Promise<void>;
   setActiveConfigName: (value: string) => void;
   setActiveModule: (id: SettingsModuleMeta['id']) => void;
   setConnectionApiKey: (value: string) => void;
   setConnectionBase: (value: string) => void;
-  setEditingProfile: (profile: AgentProfile | null) => void;
-  setMemoryQuery: (value: string) => void;
   setProjectModelSearch: (value: string) => void;
   setProviderAuthType: (value: ProviderConfig['authType']) => void;
   setProviderCustomHeaderName: (value: string) => void;
@@ -104,20 +68,14 @@ export type SettingsViewModel = {
   activeConfig?: ApiConfig;
   activeConfigId: string;
   activeModule: SettingsModuleMeta['id'];
-  agentProfiles: AgentProfile[];
   apiConfigs: ApiConfig[];
   apiKey: string;
   base: string;
-  customAgentProfiles: AgentProfile[];
   discoveredModels: ModelInfo[];
-  editingProfile: AgentProfile | null;
-  filteredMemories: Memory[];
   filteredProjectModels: ProjectModel[];
   importableModels: ModelInfo[];
   logSummary: LogEntry[];
   logs: LogEntry[];
-  memories: Memory[];
-  memoryQuery: string;
   models: ModelInfo[];
   providerConfig: ProviderConfig;
   projectModelSearch: string;

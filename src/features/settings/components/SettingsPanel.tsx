@@ -28,16 +28,14 @@ import { getRuntimeCapabilities } from '@/shared/api/capabilities';
 import { apiRequest } from '@/shared/api/client';
 import { setCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
-import { Bot, CircleDot, Database, Gauge, KeyRound, Layers3 } from 'lucide-react';
+import { CircleDot, Database, Gauge, KeyRound, Layers3 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AgentPersonaSection } from './AgentPersonaSection';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
 import { DefaultsSection } from './DefaultsSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
-import { AgentMemorySection } from './MemorySection';
 import { ModelsSection } from './ModelsSection';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
-import { chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, panelStyle, sectionTitleStyle } from './styles';
+import { chipStyle, eyebrowStyle, mutedPanelStyle, panelStyle, sectionTitleStyle } from './styles';
 
 export function SettingsPanel({
   apiConfigs,
@@ -59,25 +57,15 @@ export function SettingsPanel({
   onClearLogs,
   themeMode,
   setThemeMode,
-  agentProfiles,
-  customAgentProfiles,
-  upsertAgentProfile,
-  deleteAgentProfile,
-  memories,
-  onDeleteMemory,
-  onClearMemories,
-  exportMemories,
   workflowConcurrency,
   setWorkflowConcurrency,
   projectBusy,
 }: SettingsPanelProps) {
   const T = useT();
   const toast = useToast();
-  const [editingProfile, setEditingProfile] = useState<SettingsViewModel['editingProfile']>(null);
   const [projectModelSearch, setProjectModelSearch] = useState('');
   const [discoveredModels, setDiscoveredModels] = useState<ModelInfo[]>([]);
   const [selectedImports, setSelectedImports] = useState<string[]>([]);
-  const [memoryQuery, setMemoryQuery] = useState('');
   const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>('overview');
   const [storageSettings, setStorageSettings] = useState<StorageSettingsPayload | null>(null);
   const [storagePathDraft, setStoragePathDraft] = useState('');
@@ -135,10 +123,6 @@ export function SettingsPanel({
   const filteredProjectModels = useMemo(
     () => projectModels.filter((model) => fuzzyMatch(model.modelId, projectModelSearch)),
     [projectModelSearch, projectModels],
-  );
-  const filteredMemories = useMemo(
-    () => memories.filter((memory) => fuzzyMatch(memory.content, memoryQuery)),
-    [memories, memoryQuery],
   );
   const themeOptions = Object.entries(THEME_LABELS).map(([value, label]) => ({ l: label, v: value }));
   const runtimeCapabilitiesSnapshot = getRuntimeCapabilitiesSnapshot();
@@ -323,22 +307,6 @@ export function SettingsPanel({
 
   const removeProjectModel = (modelId: string) => {
     setProjectModels(projectModels.filter((model) => model.modelId !== modelId));
-  };
-
-  const saveAgentProfile = async (profile: SettingsViewModel['agentProfiles'][number]) => {
-    await upsertAgentProfile(profile);
-    setEditingProfile(null);
-    addLog('success', `已保存 Agent Persona：${profile.name}`);
-  };
-
-  const exportMemoriesToFile = () => {
-    const blob = new Blob([exportMemories()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'agent-memories.json';
-    anchor.click();
-    URL.revokeObjectURL(url);
   };
 
   const updateNetworkSearch = (patch: Partial<NetworkSearchSettingsPayload>) => {
@@ -565,14 +533,6 @@ export function SettingsPanel({
       stat: `${projectModels.length} 项`,
     },
     {
-      id: 'agent',
-      label: 'Agent',
-      desc: 'Persona、记忆与工具身份',
-      icon: Bot,
-      accent: T.purple,
-      stat: `${agentProfiles.length} / ${memories.length}`,
-    },
-    {
       id: 'workspace',
       label: '工作室',
       desc: '主题与工作室基础偏好',
@@ -597,20 +557,14 @@ export function SettingsPanel({
     activeConfig,
     activeConfigId,
     activeModule,
-    agentProfiles,
     apiConfigs,
     apiKey,
     base,
-    customAgentProfiles,
     discoveredModels,
-    editingProfile,
-    filteredMemories,
     filteredProjectModels,
     importableModels,
     logSummary: [],
     logs,
-    memories,
-    memoryQuery,
     models,
     providerConfig,
     projectModelSearch,
@@ -640,19 +594,14 @@ export function SettingsPanel({
     addLog,
     addManualProjectModel,
     applyConfig,
-    deleteAgentProfile,
     deleteConfig,
-    exportMemoriesToFile,
     importSelectedModels,
     onClearLogs,
-    onClearMemories,
-    onDeleteMemory,
     clearClientDownloadDirectory: resetStoragePathAction,
     pickStoragePath: pickStoragePathAction,
     removeProjectModel,
     resetStoragePath: resetStoragePathAction,
     restartBackend: restartBackendAction,
-    saveAgentProfile,
     saveStoragePath: saveStoragePathAction,
     setActiveConfigName,
     setActiveModule,
@@ -661,8 +610,6 @@ export function SettingsPanel({
     setBase,
     setConnectionApiKey,
     setConnectionBase,
-    setEditingProfile,
-    setMemoryQuery,
     setModels,
     setWorkflowConcurrency,
     setProjectModelSearch,
@@ -706,15 +653,6 @@ export function SettingsPanel({
               {projectModels.length}
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>项目模型库条目</div>
-          </div>
-          <div style={{ ...mutedPanelStyle(), padding: 16 }}>
-            <div style={eyebrowStyle()}>Agent</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-              {agentProfiles.length}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
-              Persona，{memories.length} 条记忆
-            </div>
           </div>
         </div>
 
@@ -807,12 +745,6 @@ export function SettingsPanel({
     ),
     connection: <ConnectionSettingsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
     models: <ModelsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
-    agent: (
-      <div className="flex-col" style={{ gap: 16 }}>
-        <AgentPersonaSection actions={actions} view={view} />
-        <AgentMemorySection T={T as unknown as Record<string, string>} actions={actions} view={view} />
-      </div>
-    ),
     workspace: <DefaultsSection actions={actions} view={view} />,
     diagnostics: <DiagnosticsSection T={T as unknown as Record<string, string>} actions={actions} view={view} />,
   }[activeModule];
@@ -1021,7 +953,7 @@ export function SettingsPanel({
           <div style={{ ...panelStyle(), padding: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div>
               <div style={eyebrowStyle()}>实时概览</div>
-              <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>Agent 总览</h2>
+              <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>系统概览</h2>
             </div>
             <div className="flex-col" style={{ gap: 10, marginTop: 14, flex: 1 }}>
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
@@ -1050,18 +982,6 @@ export function SettingsPanel({
                 </div>
               </div>
 
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Agent 覆盖情况</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                  <span style={chipStyle(agentProfiles.length > 0 ? T.purple : undefined)}>
-                    {agentProfiles.length} 个 Persona
-                  </span>
-                  <span style={chipStyle(memories.length > 0 ? T.blue : undefined)}>{memories.length} 条记忆</span>
-                  <span style={chipStyle(customAgentProfiles.length > 0 ? T.green : undefined)}>
-                    {customAgentProfiles.length} 个自定义
-                  </span>
-                </div>
-              </div>
             </div>
 
             <div style={{ ...mutedPanelStyle(), padding: 14, flexShrink: 0 }}>

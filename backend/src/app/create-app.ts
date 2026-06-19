@@ -156,7 +156,6 @@ export function createApp() {
   app.use('/api/workflows', workflowRoutes);
   app.use('/api/execute', executeRoutes);
   app.use('/api/assistant', assistantRoutes);
-  app.use('/api/agent', agentRoutes);
   app.use('/api/intelligence', intelligenceRoutes);
   app.use('/api/images', imageRoutes);
   app.use('/api/capabilities', capabilitiesRoutes);

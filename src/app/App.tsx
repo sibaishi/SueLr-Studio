@@ -5,7 +5,6 @@ import { AgentWorkspace } from '@/features/agent';
 import { useStudioSettingsState } from '@/features/settings';
 import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
-import { useMemory } from '@/shared/hooks/useMemory';
 import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
 import { SplashScreen } from '@/shared/ui/ios';
 import { type ReactNode, Suspense, lazy, useEffect, useRef, useState } from 'react';
@@ -99,7 +98,6 @@ export default function App() {
   const hydratedRef = useRef(false);
   const { colors, themeMode, setThemeMode } = useThemeState();
   const settings = useStudioSettingsState();
-  const memory = useMemory();
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
   const [agentOpen, setAgentOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -231,14 +229,6 @@ export default function App() {
                       onClearLogs={settings.clearLogs}
                       themeMode={themeMode}
                       setThemeMode={setThemeMode}
-                      agentProfiles={settings.agentProfiles}
-                      customAgentProfiles={settings.customAgentProfiles}
-                      upsertAgentProfile={settings.upsertAgentProfile}
-                      deleteAgentProfile={settings.deleteAgentProfile}
-                      memories={memory.memories}
-                      onDeleteMemory={memory.deleteMemory}
-                      onClearMemories={memory.clearMemories}
-                      exportMemories={memory.exportMemories}
                       workflowConcurrency={settings.workflowConcurrency}
                       setWorkflowConcurrency={settings.setWorkflowConcurrency}
                       projectBusy={projectBusy}

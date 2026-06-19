@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 
-export type SettingsModuleId = 'overview' | 'connection' | 'models' | 'agent' | 'workspace' | 'diagnostics';
+export type SettingsModuleId = 'overview' | 'connection' | 'models' | 'workspace' | 'diagnostics';
 
 export function fuzzyMatch(text: string, query: string) {
   const normalizedQuery = query.trim().toLowerCase();

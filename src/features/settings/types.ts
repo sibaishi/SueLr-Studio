@@ -1,6 +1,5 @@
-import type { AgentProfile } from './agentProfiles';
 import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { AgentRole, ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/shared/types';
+import type { ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/shared/types';
 import type { Dispatch, SetStateAction } from 'react';
 
 export type StreamMode = 'stream' | 'non-stream';
@@ -8,7 +7,6 @@ export type StreamMode = 'stream' | 'non-stream';
 export type StudioSettingsPayload = {
   ui: {
     theme: ThemeMode;
-    customRoles: AgentRole[];
     imageStreamingMode: StreamMode;
     videoStreamingMode: StreamMode;
   };
@@ -100,14 +98,6 @@ export type SettingsPanelProps = {
   onClearLogs: () => void;
   themeMode: ThemeMode;
   setThemeMode: (theme: ThemeMode) => void;
-  agentProfiles: AgentProfile[];
-  customAgentProfiles: AgentProfile[];
-  upsertAgentProfile: (profile: AgentProfile) => Promise<void>;
-  deleteAgentProfile: (profileId: string) => Promise<void>;
-  memories: Memory[];
-  onDeleteMemory: (id: string) => void;
-  onClearMemories: () => void;
-  exportMemories: () => string;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   projectBusy: boolean;

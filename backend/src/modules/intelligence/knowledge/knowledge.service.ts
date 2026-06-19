@@ -10,7 +10,6 @@ import {
   safeResolveWithin,
   writeJsonFile,
 } from '../../../platform/storage/index.ts';
-import { agentMemoryService } from '../../agent/agent-memory.service.ts';
 import { executionService } from '../../execution/execution.service.ts';
 import { settingsService } from '../../settings/settings.service.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
@@ -616,43 +615,9 @@ export class KnowledgeService {
     };
   }
 
-  importLegacyMemory(options: { scope?: DynamicValue } = {}) {
-    const memories = agentMemoryService.list({ scope: options.scope });
-    let imported = 0;
-    const current = this.loadCategory('user-memory', options.scope);
-    const byId = new Map(current.map((record) => [record.id, record]));
-
-    for (const memory of memories) {
-      const record = normalizeRecord(
-        {
-          id: `legacy_${memory.id}`,
-          type: 'user_memory',
-          category: 'user-memory',
-          scope: memory.workflowId ? 'local-project' : 'local-private',
-          title: cleanString(memory.content, 80) || 'Legacy memory',
-          content: memory.content,
-          tags: ['legacy-memory', ...normalizeTags(memory.tags)],
-          source: { kind: 'legacy_agent_memory', id: memory.id },
-          confidence: Math.min(0.85, Math.max(0.35, Number(memory.importance) / 5 || 0.5)),
-          evidence: [{ kind: 'legacy_agent_memory', id: memory.id }],
-          createdAt: Number(memory.createdAt) || Date.now(),
-          updatedAt: Number(memory.updatedAt) || Date.now(),
-        },
-        'user-memory',
-        options.scope,
-      );
-      if (record && !byId.has(record.id)) {
-        byId.set(record.id, record);
-        imported += 1;
-      }
-    }
-
-    this.saveCategory('user-memory', Array.from(byId.values()), options.scope);
-    return {
-      status: 'imported',
-      imported,
-      total: byId.size,
-    };
+  importLegacyMemory(_options: { scope?: DynamicValue } = {}) {
+    // Agent memory 模块已移除，不再可用
+    return { status: 'imported' as const, imported: 0, total: 0 };
   }
 
   summarizeRun(input: DynamicValue, options: { scope?: DynamicValue } = {}) {

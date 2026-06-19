@@ -9,7 +9,7 @@ import {
 } from '@/features/settings';
 import { debouncedSaveJSON } from '@/shared/runtime';
 import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { AgentRole, ApiConfig, ThemeMode } from '@/shared/types';
+import type { ApiConfig, ThemeMode } from '@/shared/types';
 import type { MutableRefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -27,7 +27,6 @@ function mapLegacyStreamingMode(value: unknown): StreamMode {
 function buildStudioSettingsPayload(params: {
   activeConfigId: string;
   apiConfigs: ApiConfig[];
-  customRoles: AgentRole[];
   imageStreamingMode: StreamMode;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   themeMode: ThemeMode;
@@ -36,7 +35,6 @@ function buildStudioSettingsPayload(params: {
   return {
     ui: {
       theme: params.themeMode,
-      customRoles: params.customRoles,
       imageStreamingMode: params.imageStreamingMode,
       videoStreamingMode: params.videoStreamingMode,
     },
@@ -140,9 +138,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
           params.settings.setActiveConfigId(activeId);
         }
         if (loadedSettings.ui?.theme) params.setThemeMode(loadedSettings.ui.theme);
-        if (Array.isArray(loadedSettings.ui?.customRoles) && loadedSettings.ui.customRoles.length > 0) {
-          void params.settings.setCustomRoles(loadedSettings.ui.customRoles);
-        }
         if (loadedSettings.workflow?.concurrency) {
           params.settings.setWorkflowConcurrency(loadedSettings.workflow.concurrency);
         }
@@ -170,7 +165,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     const snapshot = buildStudioSettingsPayload({
       activeConfigId: settings.activeConfigId,
       apiConfigs: settings.apiConfigs,
-      customRoles: settings.customRoles,
       imageStreamingMode: settings.imageStreamingMode,
       workflowConcurrency: settings.workflowConcurrency,
       themeMode: params.themeMode,
@@ -180,7 +174,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     debouncedSaveJSON('ai_configs', settings.apiConfigs);
     debouncedSaveJSON('ai_active_config', settings.activeConfigId);
     debouncedSaveJSON('ai_theme', params.themeMode);
-    debouncedSaveJSON('ai_custom_roles', settings.customRoles);
     debouncedSaveJSON('ai_image_streaming_mode', settings.imageStreamingMode);
     debouncedSaveJSON('ai_video_streaming_mode', settings.videoStreamingMode);
 
@@ -190,7 +183,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     params.themeMode,
     settings.activeConfigId,
     settings.apiConfigs,
-    settings.customRoles,
     settings.imageStreamingMode,
     settings.videoStreamingMode,
     settings.workflowConcurrency,
