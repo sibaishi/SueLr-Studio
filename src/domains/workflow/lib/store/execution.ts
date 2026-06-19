@@ -144,6 +144,12 @@ function sanitizeNodeOutputs(outputs: Record<string, unknown>) {
     : outputs;
 }
 
+function formatHumanDuration(ms: number): string {
+  const seconds = Math.ceil(ms / 1000);
+  if (seconds < 1) return '不到 1 秒';
+  return `不到 ${seconds} 秒`;
+}
+
 function mergeRepeatedOutputValue(existing: unknown, next: unknown) {
   if (existing === undefined) return next;
   if (Array.isArray(existing) && Array.isArray(next)) return [...existing, ...next];
@@ -413,8 +419,8 @@ export function createWorkflowExecutionActions(
           timestamp: Date.now(),
           level: 'info',
           message: options.targetNodeId
-            ? `开始运行到节点：${getNodeDisplayName(targetNode || undefined, state.nodes)}`
-            : `开始执行工作流：${state.workflowName}`,
+            ? `从 ${getNodeDisplayName(targetNode || undefined, state.nodes)} 开始跑`
+            : `「${state.workflowName}」动了`,
           details: {
             nodeCount: executableGraph.nodes.length,
             edgeCount: executableGraph.edges.length,
@@ -679,7 +685,7 @@ export function createWorkflowExecutionActions(
         const nodeLabel = getNodeDisplayNameById(data.nodeId, get().nodes);
         get().addExecutionLog({
           level: 'info',
-          message: `开始节点：${nodeLabel} (${data.index + 1}/${data.total})`,
+          message: `${nodeLabel} 上场，第 ${data.index + 1}/${data.total} 轮`,
           nodeId: data.nodeId,
           details: data,
         });
@@ -727,7 +733,7 @@ export function createWorkflowExecutionActions(
         const nodeLabel = getNodeDisplayNameById(data.nodeId, get().nodes);
         get().addExecutionLog({
           level: 'info',
-          message: data.message || `${nodeLabel} 执行中...`,
+          message: data.message || `${nodeLabel} 跑着……`,
           nodeId: data.nodeId,
           details: formatLogDetails(data.message || data),
         });
@@ -741,7 +747,7 @@ export function createWorkflowExecutionActions(
         const sanitizedOutputs = sanitizeNodeOutputs(data.outputs);
         get().addExecutionLog({
           level: 'success',
-          message: `节点完成：${nodeLabel} (${data.duration} ms)`,
+          message: `${nodeLabel} 搞定 · ${formatHumanDuration(data.duration)}`,
           nodeId: data.nodeId,
           details: formatLogDetails(data.logOutputs ?? sanitizedOutputs),
         });
@@ -820,7 +826,7 @@ export function createWorkflowExecutionActions(
         const nodeLabel = getNodeDisplayNameById(data.nodeId, get().nodes);
         get().addExecutionLog({
           level: 'error',
-          message: `节点失败：${nodeLabel}`,
+          message: `${nodeLabel} 没跑通，点开看`,
           nodeId: data.nodeId,
           details: formatLogDetails(data.error),
         });
@@ -846,19 +852,11 @@ export function createWorkflowExecutionActions(
           },
         }));
       },
-      onWorkflowLog: (data) => {
-        get().addExecutionLog({
-          level: 'info',
-          message: '执行日志已建立',
-          details: formatLogDetails(data),
-        });
+      onWorkflowLog: (_data) => {
+        // 落盘日志由 workflow-run-logger 处理，面板不展示
       },
-      onSnapshotBuilt: (data) => {
-        get().addExecutionLog({
-          level: 'info',
-          message: '执行快照已构建',
-          details: formatLogDetails(data),
-        });
+      onSnapshotBuilt: (_data) => {
+        // 落盘日志由 workflow-run-logger 处理，面板不展示
       },
       onRunStarted: (data) => {
         saveActiveRunSnapshot({
@@ -868,11 +866,7 @@ export function createWorkflowExecutionActions(
           snapshotVersion: data.snapshotVersion,
         });
         set({ currentRunId: data.runId, lastExecutionRunId: data.runId });
-        get().addExecutionLog({
-          level: 'info',
-          message: '执行运行已启动',
-          details: formatLogDetails(data),
-        });
+        // 落盘日志由 workflow-run-logger 处理，面板不展示
       },
       onWorkflowComplete: (data) => {
         clearActiveRunSnapshot();
@@ -884,7 +878,7 @@ export function createWorkflowExecutionActions(
         );
         get().addExecutionLog({
           level: data.failCount > 0 ? 'error' : 'success',
-          message: `工作流完成：${data.successCount} 成功 / ${data.failCount} 失败 (${data.totalDuration} ms)`,
+          message: `画布收工 · ${data.successCount} 步成 ${data.failCount} 步败 · ${formatHumanDuration(data.totalDuration)}`,
           details: formatLogDetails(data),
         });
         const isPartialFailure = data.failCount > 0;
@@ -913,7 +907,7 @@ export function createWorkflowExecutionActions(
         clearActiveRunSnapshot();
         get().addExecutionLog({
           level: 'error',
-          message: '工作流失败',
+          message: '画布停了，没跑完',
           details: formatLogDetails(data.error),
         });
         set({

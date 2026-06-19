@@ -194,9 +194,9 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
     <aside className={`workflow-panel workflow-results workflow-results--${motionState} glass`}>
       <div className="workflow-panel__header">
         <div>
-          <div className="workflow-panel__eyebrow">执行观察</div>
-          <div className="workflow-panel__title">结果面板</div>
-          <div className="workflow-panel__desc">查看 AI 输出、运行日志和启动前校验信息。</div>
+          <div className="workflow-panel__eyebrow">刚刚发生了什么</div>
+          <div className="workflow-panel__title">结果与经过</div>
+          <div className="workflow-panel__desc">画布跑完后的产物和经过</div>
         </div>
       </div>
 
@@ -640,9 +640,9 @@ function LogsList({
     return (
       <EmptyState
         icon={<TerminalSquare size={20} />}
-        title="还没有运行日志"
-        body="工作流开始执行后，这里会显示节点级运行日志。"
-        action="先执行工作流；如果执行失败，也可以回到画布检查启动前校验。"
+        title="还没有记录"
+        body="跑一次画布，每一步的进度和结果会在这里展开。"
+        action="如果没跑通，回画布检查启动前校验。"
       />
     );
   }
@@ -654,8 +654,8 @@ function LogsList({
   return (
     <div className="workflow-results__stack">
       <div className="workflow-results__log-toolbar">
-        <span>显示 {readableLogs.length} 条摘要</span>
-        {compactedCount > 0 && <span>已精简 {compactedCount} 条过程日志</span>}
+        <span>共 {readableLogs.length} 条</span>
+        {compactedCount > 0 && <span>已折叠 {compactedCount} 条细节</span>}
         <button type="button" onClick={onClear} className="workflow-results__mini-action">
           清空
         </button>
@@ -671,7 +671,7 @@ function LogsList({
           </div>
           {log.count > 1 && (
             <div className="workflow-results__log-meta">
-              合并 {log.count} 条节点事件{log.compactedCount > 0 ? `，隐藏 ${log.compactedCount} 条过程明细` : ''}
+              {log.count} 次处理细节{log.compactedCount > 0 ? `，已收起 ${log.compactedCount} 条` : ''}
             </div>
           )}
           {Boolean(log.detailSource?.details) && (
@@ -750,9 +750,9 @@ function formatLogTime(timestamp: number) {
 }
 
 function formatLogsTabLabel(readableCount: number, rawCount: number) {
-  if (rawCount === 0) return '日志';
-  if (readableCount === rawCount) return `日志 ${rawCount}`;
-  return `日志 ${readableCount}/${rawCount}`;
+  if (rawCount === 0) return '记录';
+  if (readableCount === rawCount) return `记录 ${rawCount}`;
+  return `记录 ${readableCount}/${rawCount}`;
 }
 
 function TextFileResult({
