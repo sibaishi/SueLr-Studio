@@ -17,7 +17,7 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { useWorkflowPageStore } from '@/domains/workflow/lib/store/selectors';
 import type { ThemeMode } from '@/shared/types';
 import { Boxes } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface WorkflowPageProps {
   onOpenStudioSettings?: () => void;
@@ -47,6 +47,9 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
   const [workflowLibraryOpen, setWorkflowLibraryOpen] = useState(false);
   const [workflowLibraryBusy, setWorkflowLibraryBusy] = useState(false);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
+  const lastClosedSourceWorkflowIdRef = useRef<string | undefined>(undefined);
+  const handleCloseDocumentRef = useRef<(documentId: string) => void>(() => {});
+  const handleSelectWorkflowRef = useRef<(workflowId: string) => Promise<void>>(async () => {});
   const { canUndo, canRedo, handleUndo, handleRedo, resetHistory } = useWorkflowHistory(store);
 
   useEffect(() => {
@@ -119,12 +122,91 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
     setWorkflowErrorMessage,
     confirm,
   });
+  handleSelectWorkflowRef.current = handleSelectWorkflow;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName;
       if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target?.isContentEditable) return;
+
+      const hasPrimaryModifier = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      // Ctrl/Cmd+B: toggle disable for selected nodes
+      if (hasPrimaryModifier && !event.shiftKey && !event.altKey && key === 'b') {
+        event.preventDefault();
+        const state = useWorkflowStore.getState();
+        const selectedIds = state.nodes.filter((n) => n.selected).map((n) => n.id);
+        if (selectedIds.length > 0) state.toggleNodesDisabled(selectedIds);
+        return;
+      }
+
+      // Ctrl/Cmd+P: toggle right panel
+      if (hasPrimaryModifier && !event.shiftKey && !event.altKey && key === 'p') {
+        event.preventDefault();
+        setRightPanelCollapsed((v) => !v);
+        return;
+      }
+
+      // Ctrl/Cmd+S: force save
+      if (hasPrimaryModifier && !event.shiftKey && !event.altKey && key === 's') {
+        event.preventDefault();
+        void handleSave();
+        return;
+      }
+
+      // Electron-only tab/document shortcuts
+      if (window.electronAPI) {
+        // Ctrl/Cmd+W: close current document tab
+        if (hasPrimaryModifier && !event.shiftKey && !event.altKey && key === 'w') {
+          event.preventDefault();
+          const state = useWorkflowStore.getState();
+          if (state.documents.length > 1) {
+            const activeDoc = state.documents.find((d) => d.documentId === state.activeDocumentId);
+            if (activeDoc?.sourceWorkflowId) {
+              lastClosedSourceWorkflowIdRef.current = activeDoc.sourceWorkflowId;
+            }
+            void handleCloseDocumentRef.current(state.activeDocumentId);
+          }
+          return;
+        }
+
+        // Ctrl/Cmd+Shift+T: reopen last closed document
+        if (hasPrimaryModifier && event.shiftKey && !event.altKey && key === 't') {
+          event.preventDefault();
+          const sourceId = lastClosedSourceWorkflowIdRef.current;
+          if (sourceId) {
+            lastClosedSourceWorkflowIdRef.current = undefined;
+            void handleSelectWorkflowRef.current(sourceId);
+          }
+          return;
+        }
+
+        // Ctrl/Cmd+Tab: next document tab
+        if (hasPrimaryModifier && !event.shiftKey && !event.altKey && event.key === 'Tab') {
+          event.preventDefault();
+          const state = useWorkflowStore.getState();
+          const idx = state.documents.findIndex((d) => d.documentId === state.activeDocumentId);
+          if (idx >= 0) {
+            const nextIdx = (idx + 1) % state.documents.length;
+            state.setActiveWorkflowDocument(state.documents[nextIdx].documentId);
+          }
+          return;
+        }
+
+        // Ctrl/Cmd+Shift+Tab: previous document tab
+        if (hasPrimaryModifier && event.shiftKey && !event.altKey && event.key === 'Tab') {
+          event.preventDefault();
+          const state = useWorkflowStore.getState();
+          const idx = state.documents.findIndex((d) => d.documentId === state.activeDocumentId);
+          if (idx >= 0) {
+            const prevIdx = (idx - 1 + state.documents.length) % state.documents.length;
+            state.setActiveWorkflowDocument(state.documents[prevIdx].documentId);
+          }
+          return;
+        }
+      }
 
       const action = resolveWorkflowShortcutAction(event);
       if (!action) return;
@@ -153,7 +235,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleCreateSelectedNodeGroup, handleExecute, handleRedo, handleUndo]);
+  }, [handleCreateSelectedNodeGroup, handleExecute, handleRedo, handleSave, handleUndo, setRightPanelCollapsed]);
 
   const handleOpenNodeCatalog = useCallback(() => {
     window.dispatchEvent(new Event('workflow:open-node-catalog'));
@@ -192,6 +274,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
       await useWorkflowStore.getState().closeWorkflowDocument(documentId);
     })();
   }, [confirm]);
+  handleCloseDocumentRef.current = handleCloseDocument;
 
   const handleLibraryOpenWorkflow = useCallback(
     (workflowId: string) => {
