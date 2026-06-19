@@ -1,10 +1,10 @@
-import { inferEndpointCategory } from '@/domains/workflow/lib/projectModels';
+import { inferEndpointCategory, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import type { ModelInfo, ProjectModel } from '@/shared/types';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
 import { Check, Database, Plus, Search, Trash2, UploadCloud, X } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';
-import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
+import { EmptyStateCard, SectionCard, chipStyle, fuzzyMatch, mutedPanelStyle } from './styles';
 
 type Props = {
   T: Record<string, string>;
@@ -40,6 +40,7 @@ export function ModelsSection({ T, actions, view }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newModelId, setNewModelId] = useState('');
   const [newModelType, setNewModelType] = useState<ProjectModel['type']>('image');
+  const [modelConfigId, setModelConfigId] = useState<string>(view.activeConfigId);
 
   const toggleBatch = () => {
     setBatchMode((prev) => !prev);
@@ -55,7 +56,7 @@ export function ModelsSection({ T, actions, view }: Props) {
   };
 
   const selectAllBatch = () => {
-    setBatchSelected(new Set(view.filteredProjectModels.map((m) => m.modelId)));
+    setBatchSelected(new Set(localFilteredModels.map((m) => m.modelId)));
   };
 
   const deselectAllBatch = () => {
@@ -76,11 +77,28 @@ export function ModelsSection({ T, actions, view }: Props) {
     });
   };
 
+  const localProjectModels = useMemo(
+    () => normalizeProjectModels(view.apiConfigs.find((c) => c.id === modelConfigId)?.projectModels || []),
+    [view.apiConfigs, modelConfigId],
+  );
+  const localFilteredModels = useMemo(
+    () => localProjectModels.filter((m) => fuzzyMatch(m.modelId, view.projectModelSearch)),
+    [localProjectModels, view.projectModelSearch],
+  );
+  const localImportedIds = useMemo(
+    () => new Set(localProjectModels.map((m) => m.modelId)),
+    [localProjectModels],
+  );
+  const localImportableModels = useMemo(
+    () => view.discoveredModels.filter((m) => !localImportedIds.has(m.id)),
+    [view.discoveredModels, localImportedIds],
+  );
+
   const filteredImportableModels = useMemo(() => {
     const query = view.projectModelSearch.trim().toLowerCase();
-    if (!query) return view.importableModels;
-    return view.importableModels.filter((model) => model.id.toLowerCase().includes(query));
-  }, [view.importableModels, view.projectModelSearch]);
+    if (!query) return localImportableModels;
+    return localImportableModels.filter((model) => model.id.toLowerCase().includes(query));
+  }, [localImportableModels, view.projectModelSearch]);
 
   const importableGroups = useMemo(() => {
     const groups = new Map<string, ModelInfo[]>();
@@ -96,7 +114,7 @@ export function ModelsSection({ T, actions, view }: Props) {
 
   const projectGroups = useMemo(() => {
     const groups = new Map<string, ProjectModel[]>();
-    for (const model of view.filteredProjectModels) {
+    for (const model of localFilteredModels) {
       const type = model.type || 'other';
       if (!groups.has(type)) groups.set(type, []);
       groups.get(type)!.push(model);
@@ -104,7 +122,7 @@ export function ModelsSection({ T, actions, view }: Props) {
     return Array.from(groups.entries()).sort(
       (a, b) => (CATEGORY_ORDER[a[0]] ?? 99) - (CATEGORY_ORDER[b[0]] ?? 99),
     );
-  }, [view.filteredProjectModels]);
+  }, [localFilteredModels]);
 
   const allVisibleSelected =
     filteredImportableModels.length > 0 &&
@@ -139,6 +157,26 @@ export function ModelsSection({ T, actions, view }: Props) {
         description="管理当前工作室在对话、图像、视频等场景下可用的模型资产。"
         action={
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <select
+              value={modelConfigId}
+              onChange={(e) => setModelConfigId(e.target.value)}
+              style={{
+                padding: '5px 8px',
+                borderRadius: 8,
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg-tertiary)',
+                color: 'var(--color-text-secondary)',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                maxWidth: '8em',
+              }}
+            >
+              {view.apiConfigs.filter((c) => c.enabled !== false).map((c) => (
+                <option key={c.id} value={c.id}>{c.name || c.base || c.id}</option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={() => { setShowAddForm(!showAddForm); setNewModelId(''); setNewModelType('image'); }}
@@ -159,7 +197,7 @@ export function ModelsSection({ T, actions, view }: Props) {
               <Plus size={13} />
               添加模型
             </button>
-            {view.filteredProjectModels.length > 0 && (
+            {localFilteredModels.length > 0 && (
               <button
                 type="button"
                 onClick={toggleBatch}
@@ -642,7 +680,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                 })}
               </CategoryGroup>
             ))}
-            {view.filteredProjectModels.length === 0 && (
+            {localFilteredModels.length === 0 && (
               <EmptyStateCard
                 title="当前没有匹配的项目模型"
                 body="项目模型库里还没有符合当前筛选条件的模型。"
@@ -653,7 +691,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                 }
               />
             )}
-            {batchMode && view.filteredProjectModels.length > 0 && (
+            {batchMode && localFilteredModels.length > 0 && (
               <div
                 style={{
                   display: 'flex',
@@ -669,7 +707,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button
                     type="button"
-                    onClick={batchSelected.size === view.filteredProjectModels.length ? deselectAllBatch : selectAllBatch}
+                    onClick={batchSelected.size === localFilteredModels.length ? deselectAllBatch : selectAllBatch}
                     style={{
                       fontSize: 11,
                       fontWeight: 600,
@@ -680,7 +718,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                       padding: 0,
                     }}
                   >
-                    {batchSelected.size === view.filteredProjectModels.length ? '取消全选' : '全选'}
+                    {batchSelected.size === localFilteredModels.length ? '取消全选' : '全选'}
                   </button>
                   <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
                     已选 <strong style={{ color: 'var(--color-text-primary)' }}>{batchSelected.size}</strong> 个
