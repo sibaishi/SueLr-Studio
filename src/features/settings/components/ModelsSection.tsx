@@ -413,9 +413,10 @@ export function ModelsSection({ T, actions, view }: Props) {
                             <span
                               style={{
                                 display: 'block',
-                                fontFamily: 'var(--font-mono)',
+                                fontFamily: 'var(--font-sans)',
                                 fontSize: 13,
-                                lineHeight: 1.35,
+                                fontWeight: 500,
+                                lineHeight: 1.4,
                                 overflowWrap: 'anywhere',
                               }}
                             >
@@ -531,7 +532,9 @@ export function ModelsSection({ T, actions, view }: Props) {
                           <div
                             style={{
                               color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-mono)',
+                              fontFamily: 'var(--font-sans)',
+                              fontWeight: 500,
+                              lineHeight: 1.4,
                               overflowWrap: 'anywhere',
                             }}
                           >
@@ -745,8 +748,9 @@ function CategoryGroup({
           border: '1px solid var(--color-border)',
           background: 'var(--color-bg-tertiary)',
           cursor: 'pointer',
-          fontSize: 12,
-          fontWeight: 600,
+          fontFamily: 'var(--font-sans)',
+          fontSize: 13,
+          fontWeight: 500,
           color: 'var(--color-text-secondary)',
         }}
       >

@@ -3,6 +3,7 @@ import type { ParamDef } from '@/domains/workflow/lib/types';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { Bot, Clapperboard, Image, Palette } from 'lucide-react';
+
 import { useState } from 'react';
 import '../../node-v2.css';
 
@@ -24,6 +25,7 @@ export function AiV3Content({
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   const outputs = nodeId ? nodeOutputs[nodeId] : undefined;
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [fullscreenText, setFullscreenText] = useState<string | null>(null);
 
   const mode = (data.mode as string) || 'chat';
 
@@ -40,7 +42,7 @@ export function AiV3Content({
       <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
         <div className="node-gallery-frame-v2">
           {hasImage ? (
-            <img src={outputImages[0]} alt="" className="node-gallery-image-v2" onClick={() => setPreviewImage(outputImages[0])} />
+            <img src={outputImages[0]} alt="" className="node-gallery-image-v2" title="双击全屏查看" onDoubleClick={() => setPreviewImage(outputImages[0])} />
           ) : (
             <div className="node-gallery-empty-v2">
               <EmptyIcon size={32} strokeWidth={1.2} />
@@ -86,7 +88,9 @@ export function AiV3Content({
         {response ? (
           <div
             className="node-chat-response-v2"
-            style={{ width: '100%', fontSize: 11, lineHeight: 1.6, color: 'var(--node-card-ink)', overflow: 'auto', height: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            title="双击全屏查看"
+            onDoubleClick={() => setFullscreenText(response)}
+            style={{ width: '100%', fontSize: 11, lineHeight: 1.6, color: 'var(--node-card-ink)', overflow: 'auto', height: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', cursor: 'default' }}
           >
             {response}
           </div>
@@ -97,6 +101,14 @@ export function AiV3Content({
           </div>
         )}
       </div>
+      {fullscreenText && (
+        <ImagePreviewModal
+          src=""
+          textContent={fullscreenText}
+          title="AI 回复"
+          onClose={() => setFullscreenText(null)}
+        />
+      )}
     </div>
   );
 }

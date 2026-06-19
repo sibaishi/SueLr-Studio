@@ -1768,8 +1768,9 @@ body {
   color: var(--color-text-primary);
   padding: 0 12px;
   outline: none;
-  font-size: 12px;
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .agent-workspace__model-tab select:focus {

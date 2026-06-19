@@ -270,7 +270,8 @@ export function IoContent({
                       background: 'var(--node-card-bg-soft)', cursor: 'pointer',
                       border: '1px solid var(--node-card-line)',
                     }}
-                    onClick={() => setPreviewIdx(previewIndex)}
+                    title="双击全屏查看"
+                    onDoubleClick={() => setPreviewIdx(previewIndex)}
                   >
                     <img src={String(img)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
