@@ -42,6 +42,7 @@ export class WorkflowsService {
         description: workflow.description,
         nodeCount: workflow.nodes?.length || 0,
         updatedAt: workflow.updatedAt,
+        coverUrl: typeof workflow.coverUrl === 'string' ? workflow.coverUrl : undefined,
       }))
       .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
   }

@@ -183,6 +183,10 @@ export function normalizePersistedWorkflow(payload: DynamicValue, options: Workf
     settings: isPlainObject(body.settings) ? body.settings : {},
   };
 
+  if (typeof body.coverUrl === 'string' && body.coverUrl) {
+    normalized.coverUrl = body.coverUrl;
+  }
+
   if (isPlainObject(body.metadata)) {
     normalized.metadata = body.metadata;
   }
