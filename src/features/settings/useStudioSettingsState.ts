@@ -49,6 +49,14 @@ export function useStudioSettingsState() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [workflowConcurrency, setWorkflowConcurrency] =
     useState<WorkflowConcurrencySettingsPayload>(DEFAULT_WORKFLOW_CONCURRENCY);
+  const [edgeStyle, setEdgeStyleRaw] = useState<'bezier' | 'smoothstep'>(
+    loadJSON<'bezier' | 'smoothstep'>('ui_edge_style', 'bezier'),
+  );
+
+  const setEdgeStyle = useCallback((style: 'bezier' | 'smoothstep') => {
+    setEdgeStyleRaw(style);
+    debouncedSaveJSON('ui_edge_style', style);
+  }, []);
   const [imageStreamingMode, setImageStreamingMode] = useState<StreamMode>(() =>
     mapLegacyStreamingMode(loadJSON('ai_image_streaming_mode', 'stream')),
   );
@@ -148,10 +156,12 @@ export function useStudioSettingsState() {
     setImageStreamingMode,
     setModels,
     setWorkflowConcurrency,
+    setEdgeStyle,
     setVideoStreamingMode,
     toggleConfigEnabled,
     videoStreamingMode,
     workflowConcurrency,
+    edgeStyle,
   };
 }
 

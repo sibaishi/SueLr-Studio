@@ -57,6 +57,8 @@ export function SettingsPanel({
   onClearLogs,
   themeMode,
   setThemeMode,
+  edgeStyle,
+  setEdgeStyle,
   workflowConcurrency,
   setWorkflowConcurrency,
   projectBusy,
@@ -598,6 +600,7 @@ export function SettingsPanel({
     connectionResult,
     themeMode,
     themeOptions,
+    edgeStyle,
     workflowConcurrency,
   };
 
@@ -633,6 +636,7 @@ export function SettingsPanel({
     setSelectedImports,
     setStoragePathDraft,
     setThemeMode,
+    setEdgeStyle,
     testConnection,
     toggleConfigEnabled,
     updateConfig,

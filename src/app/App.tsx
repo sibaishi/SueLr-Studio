@@ -150,6 +150,10 @@ export default function App() {
     useWorkflowStore.setState({ workflowRuntimeConfigs: settings.apiConfigs });
   }, [settings.apiConfigs, settings.configuredProjectModels]);
 
+  useEffect(() => {
+    useWorkflowStore.setState({ edgeStyle: settings.edgeStyle });
+  }, [settings.edgeStyle]);
+
   return (
     <TCtx.Provider value={colors}>
       <ToastProvider>
@@ -229,6 +233,8 @@ export default function App() {
                       onClearLogs={settings.clearLogs}
                       themeMode={themeMode}
                       setThemeMode={setThemeMode}
+                      edgeStyle={settings.edgeStyle}
+                      setEdgeStyle={settings.setEdgeStyle}
                       workflowConcurrency={settings.workflowConcurrency}
                       setWorkflowConcurrency={settings.setWorkflowConcurrency}
                       projectBusy={projectBusy}

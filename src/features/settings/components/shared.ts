@@ -42,6 +42,7 @@ export type SettingsActions = {
   setStoragePathDraft: (value: string) => void;
   clearClientDownloadDirectory: () => Promise<void>;
   setThemeMode: (value: ThemeMode) => void;
+  setEdgeStyle: (value: 'bezier' | 'smoothstep') => void;
   pickStoragePath: () => Promise<void>;
   saveStoragePath: () => Promise<void>;
   resetStoragePath: () => Promise<void>;
@@ -97,5 +98,6 @@ export type SettingsViewModel = {
   connectionResult: string;
   themeMode: ThemeMode;
   themeOptions: Array<{ l: string; v: string }>;
+  edgeStyle: 'bezier' | 'smoothstep';
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
 };

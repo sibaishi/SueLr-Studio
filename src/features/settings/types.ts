@@ -98,6 +98,8 @@ export type SettingsPanelProps = {
   onClearLogs: () => void;
   themeMode: ThemeMode;
   setThemeMode: (theme: ThemeMode) => void;
+  edgeStyle: 'bezier' | 'smoothstep';
+  setEdgeStyle: (style: 'bezier' | 'smoothstep') => void;
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
   projectBusy: boolean;

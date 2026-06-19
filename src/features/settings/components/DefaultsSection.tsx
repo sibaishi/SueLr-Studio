@@ -54,17 +54,26 @@ export function DefaultsSection({ actions, view }: Props) {
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
-      <SectionCard title="主题与界面偏好" description="切换当前工作室的颜色主题。">
-        <div className="flex-col" style={{ gap: 12 }}>
-          <div>
+      <SectionCard title="主题与界面偏好" description="切换当前工作室的颜色主题和连线风格。">
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 180px', minWidth: 160 }}>
             <IOSLabel>颜色主题</IOSLabel>
-            <div style={{ maxWidth: 360 }}>
-              <IOSSegmentedControl
-                options={view.themeOptions}
-                value={view.themeMode}
-                onChange={(value) => actions.setThemeMode(value as ThemeMode)}
-              />
-            </div>
+            <IOSSegmentedControl
+              options={view.themeOptions}
+              value={view.themeMode}
+              onChange={(value) => actions.setThemeMode(value as ThemeMode)}
+            />
+          </div>
+          <div style={{ flex: '1 1 160px', minWidth: 140 }}>
+            <IOSLabel>连线风格</IOSLabel>
+            <IOSSegmentedControl
+              options={[
+                { l: '贝塞尔', v: 'bezier' },
+                { l: '平滑阶梯', v: 'smoothstep' },
+              ]}
+              value={view.edgeStyle}
+              onChange={(value) => actions.setEdgeStyle(value as 'bezier' | 'smoothstep')}
+            />
           </div>
         </div>
       </SectionCard>
@@ -73,24 +82,22 @@ export function DefaultsSection({ actions, view }: Props) {
         title="工作流执行"
         description="控制工作流节点、逐项执行和多图生成是否并发，以及同一时间最多启动多少个任务。"
       >
-        <div className="flex-col" style={{ gap: 14 }}>
-          <div>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ flex: '1 1 140px', minWidth: 120 }}>
             <IOSLabel>并发执行</IOSLabel>
-            <div style={{ maxWidth: 260 }}>
-              <IOSSegmentedControl
-                options={concurrencyModeOptions}
-                value={view.workflowConcurrency.enabled ? 'on' : 'off'}
-                onChange={(value) =>
-                  actions.setWorkflowConcurrency({
-                    ...view.workflowConcurrency,
-                    enabled: value === 'on',
-                  })
-                }
-              />
-            </div>
+            <IOSSegmentedControl
+              options={concurrencyModeOptions}
+              value={view.workflowConcurrency.enabled ? 'on' : 'off'}
+              onChange={(value) =>
+                actions.setWorkflowConcurrency({
+                  ...view.workflowConcurrency,
+                  enabled: value === 'on',
+                })
+              }
+            />
           </div>
 
-          <div style={{ maxWidth: 260 }}>
+          <div style={{ flex: '1 1 200px', minWidth: 160 }}>
             <IOSLabel>最大并发数</IOSLabel>
             <IOSInput
               value={String(view.workflowConcurrency.maxConcurrency)}
@@ -105,9 +112,7 @@ export function DefaultsSection({ actions, view }: Props) {
               }}
               placeholder="5"
             />
-            <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-              关闭并发时按 1 个任务顺序执行；开启后这个数值会同时限制工作流分支、逐项运行和 AI 生图张数请求。
-            </div>
+
           </div>
         </div>
       </SectionCard>
@@ -127,8 +132,8 @@ export function DefaultsSection({ actions, view }: Props) {
             />
           </div>
           {view.networkSearch.outboundProxy?.mode === 'custom' && (
-            <>
-              <div style={{ maxWidth: 400 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 180px', minWidth: 160 }}>
                 <IOSLabel>HTTP Proxy</IOSLabel>
                 <IOSInput
                   value={view.networkSearch.outboundProxy?.httpProxy || ''}
@@ -136,7 +141,7 @@ export function DefaultsSection({ actions, view }: Props) {
                   placeholder="http://127.0.0.1:7890"
                 />
               </div>
-              <div style={{ maxWidth: 400 }}>
+              <div style={{ flex: '1 1 180px', minWidth: 160 }}>
                 <IOSLabel>HTTPS Proxy</IOSLabel>
                 <IOSInput
                   value={view.networkSearch.outboundProxy?.httpsProxy || ''}
@@ -144,7 +149,7 @@ export function DefaultsSection({ actions, view }: Props) {
                   placeholder="http://127.0.0.1:7890"
                 />
               </div>
-            </>
+            </div>
           )}
           <div style={{ maxWidth: 400 }}>
             <IOSLabel>No Proxy</IOSLabel>
