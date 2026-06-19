@@ -63,7 +63,7 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
     if (Object.keys(inputOrder).length === 0) continue;
 
     // Build ordered edge list: type groups in fixed order, edges within each group by priority
-    const typeOrderKeys = ['text', 'image', 'video', 'audio', 'mask'];
+    const typeOrderKeys = ['text', 'image', 'video', 'audio'];
     const orderedEdgeIds: string[] = [];
     const seen = new Set<string>();
 

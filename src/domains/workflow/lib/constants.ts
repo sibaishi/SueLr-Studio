@@ -116,7 +116,6 @@ export const PORT_COMPATIBILITY: Record<string, string[]> = {
   'string[]': ['string', 'string[]', 'any', 'any[]'],
   image: ['image', 'image[]', 'any'],
   'image[]': ['image', 'image[]', 'any', 'any[]'],
-  mask: ['mask', 'any'],
   video: ['video', 'video[]', 'any'],
   'video[]': ['video', 'video[]', 'any', 'any[]'],
   audio: ['audio', 'audio[]', 'any'],

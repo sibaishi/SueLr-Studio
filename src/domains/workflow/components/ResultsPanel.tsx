@@ -18,7 +18,6 @@ import {
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import {
   AlertTriangle,
-  CheckCircle2,
   Clipboard,
   Clock3,
   FileText,
@@ -103,8 +102,8 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
 
   const handleClearGeneratedOutputs = useCallback(async () => {
     const confirmed = await confirm({
-      title: '清空历史输出？',
-      message: '此操作会直接删除后端当前保留的临时输出文件，且无法撤回。',
+      title: '清空历史输出�?,
+      message: '此操作会直接删除后端当前保留的临时输出文件，且无法撤回�?,
       confirmText: '清空',
       cancelText: '取消',
       tone: 'danger',
@@ -116,7 +115,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
     setIsClearingOutputs(false);
 
     if (!result.success) {
-      setOutputsError(result.error || '清除服务器输出失败');
+      setOutputsError(result.error || '清除服务器输出失�?);
       return;
     }
 
@@ -135,21 +134,6 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
         };
       });
   }, [nodeWarnings, nodes]);
-
-  const selectedMaskInfo = useMemo(() => {
-    if (!selectedNodeId) return null;
-    const node = nodes.find((item) => item.id === selectedNodeId);
-    if (!node || node.type !== 'io') return null;
-    const maskFileUrl = typeof node.data.maskFileUrl === 'string' ? node.data.maskFileUrl : '';
-    const maskPreviewUrl = typeof node.data.maskPreviewUrl === 'string' ? node.data.maskPreviewUrl : '';
-    const maskSrc =
-      maskPreviewUrl && !(maskPreviewUrl.startsWith('blob:') && maskFileUrl) ? maskPreviewUrl : maskFileUrl;
-    return {
-      label: getNodeDef(node.type || '')?.label || '图像输入',
-      src: maskSrc,
-      hasMask: Boolean(maskSrc),
-    };
-  }, [nodes, selectedNodeId]);
 
   const imageGallery = useMemo<PreviewImageItem[]>(() => {
     return generatedOutputs
@@ -213,21 +197,21 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
         <div>
           <div className="workflow-panel__eyebrow">执行观察</div>
           <div className="workflow-panel__title">结果面板</div>
-          <div className="workflow-panel__desc">查看 AI 输出、运行日志和启动前校验信息。</div>
+          <div className="workflow-panel__desc">查看 AI 输出、运行日志和启动前校验信息�?/div>
         </div>
       </div>
 
       <div className="workflow-results__summary">
         <SummaryCard
           icon={<PlayCircle size={15} />}
-          label="运行状态"
+          label="运行状�?
           value={getExecutionStatusLabel(isExecuting, lastExecutionStatus)}
           tone={isExecuting ? 'accent' : lastExecutionStatus === 'error' ? 'danger' : 'neutral'}
         />
         <SummaryCard
           icon={<Clock3 size={15} />}
           label="最近耗时"
-          value={formatDurationSeconds(lastExecutionTime) || '还没有运行记录'}
+          value={formatDurationSeconds(lastExecutionTime) || '还没有运行记�?}
           tone="neutral"
         />
       </div>
@@ -251,7 +235,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
             className="workflow-results__mini-action"
             disabled={isClearingOutputs}
           >
-            {isClearingOutputs ? '清除中...' : '清空服务器结果'}
+            {isClearingOutputs ? '清除�?..' : '清空服务器结�?}
           </button>
         </div>
       ) : null}
@@ -264,18 +248,9 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
           </div>
         )}
 
-        {selectedMaskInfo && (
-          <div className="workflow-results__banner workflow-results__banner--mask">
-            <CheckCircle2 size={14} />
-            <span>
-              {selectedMaskInfo.label}：{selectedMaskInfo.hasMask ? '当前节点已附带遮罩输出' : '当前节点还没有遮罩输出'}
-            </span>
-          </div>
-        )}
-
         {warningItems.length > 0 && (
           <div className="workflow-results__warning-list">
-            <div className="workflow-results__section-title">启动前校验</div>
+            <div className="workflow-results__section-title">启动前校�?/div>
             {warningItems.map((item) => (
               <div key={item.id} className="workflow-results__warning-item">
                 <span>{item.label}</span>
@@ -288,7 +263,6 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
         {tab === 'results' ? (
           <ResultsList
             files={generatedOutputs}
-            selectedMaskInfo={selectedMaskInfo}
             isLoading={isLoadingOutputs}
             error={outputsError}
             onPreviewImage={setPreviewImage}
@@ -312,7 +286,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
                 void handleBackfillImageToCanvas(activeImage);
               }}
             >
-              填回到画板
+              填回到画�?
             </button>
           )}
         />
@@ -357,14 +331,12 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
 
 function ResultsList({
   files,
-  selectedMaskInfo,
   isLoading,
   error,
   onPreviewImage,
   onBackfillText,
 }: {
   files: GeneratedOutputFile[];
-  selectedMaskInfo: { label: string; src: string; hasMask: boolean } | null;
   isLoading: boolean;
   error: string | null;
   onPreviewImage: (src: string) => void;
@@ -393,36 +365,25 @@ function ResultsList({
     return <EmptyState icon={<AlertTriangle size={20} />} title="结果读取失败" body={error} />;
   }
 
-  if (files.length === 0 && !selectedMaskInfo?.hasMask && isLoading) {
+  if (files.length === 0 && isLoading) {
     return (
-      <EmptyState icon={<ImageIcon size={20} />} title="正在读取生成文件" body="正在从外部文件存储生成目录同步结果。" />
+      <EmptyState icon={<ImageIcon size={20} />} title="正在读取生成文件" body="正在从外部文件存储生成目录同步结果�? />
     );
   }
 
-  if (files.length === 0 && !selectedMaskInfo?.hasMask) {
+  if (files.length === 0) {
     return (
       <EmptyState
         icon={<ImageIcon size={20} />}
-        title="还没有 AI 输出"
-        body="执行后，这里会集中显示文本、图片和视频结果。"
-        action="先运行一次工作流，或检查节点是否具备可输出内容。"
+        title="还没�?AI 输出"
+        body="执行后，这里会集中显示文本、图片和视频结果�?
+        action="先运行一次工作流，或检查节点是否具备可输出内容�?
       />
     );
   }
 
   return (
     <div className="workflow-results__stack">
-      {selectedMaskInfo?.hasMask && selectedMaskInfo.src && (
-        <div className="workflow-results__card workflow-results__card--mask-preview">
-          <div className="workflow-results__card-header">
-            <span className="workflow-results__node-badge workflow-results__node-badge--mask">MASK</span>
-            <span className="workflow-results__node-title" style={{ color: '#7C4DFF' }}>
-              当前选中节点的遮罩预览
-            </span>
-          </div>
-          <ImageResult src={selectedMaskInfo.src} onPreviewImage={onPreviewImage} />
-        </div>
-      )}
       {resultItems.map(
         (item) =>
           item && (
@@ -616,7 +577,7 @@ function TextResult({
           复制
         </button>
       </div>
-      <div className={`workflow-results__text ${mono ? 'workflow-results__text--mono' : ''}`}>{text || '(空内容)'}</div>
+      <div className={`workflow-results__text ${mono ? 'workflow-results__text--mono' : ''}`}>{text || '(空内�?'}</div>
     </div>
   );
 }
@@ -680,9 +641,9 @@ function LogsList({
     return (
       <EmptyState
         icon={<TerminalSquare size={20} />}
-        title="还没有运行日志"
-        body="工作流开始执行后，这里会显示节点级运行日志。"
-        action="先执行工作流；如果执行失败，也可以回到画布检查启动前校验。"
+        title="还没有运行日�?
+        body="工作流开始执行后，这里会显示节点级运行日志�?
+        action="先执行工作流；如果执行失败，也可以回到画布检查启动前校验�?
       />
     );
   }
@@ -694,8 +655,8 @@ function LogsList({
   return (
     <div className="workflow-results__stack">
       <div className="workflow-results__log-toolbar">
-        <span>显示 {readableLogs.length} 条摘要</span>
-        {compactedCount > 0 && <span>已精简 {compactedCount} 条过程日志</span>}
+        <span>显示 {readableLogs.length} 条摘�?/span>
+        {compactedCount > 0 && <span>已精简 {compactedCount} 条过程日�?/span>}
         <button type="button" onClick={onClear} className="workflow-results__mini-action">
           清空
         </button>
@@ -711,7 +672,7 @@ function LogsList({
           </div>
           {log.count > 1 && (
             <div className="workflow-results__log-meta">
-              合并 {log.count} 条节点事件{log.compactedCount > 0 ? `，隐藏 ${log.compactedCount} 条过程明细` : ''}
+              合并 {log.count} 条节点事件{log.compactedCount > 0 ? `，隐�?${log.compactedCount} 条过程明细` : ''}
             </div>
           )}
           {Boolean(log.detailSource?.details) && (
@@ -821,7 +782,7 @@ function TextFileResult({
   };
 
   const lines = text ? text.split(/\r\n|\r|\n/).length : 0;
-  const titleWithMeta = `${name}  ·  ${lines} 行  ·  ${text.length} 字符`;
+  const titleWithMeta = `${name}  ·  ${lines} �? ·  ${text.length} 字符`;
 
   return (
     <div>
@@ -849,7 +810,7 @@ function TextFileResult({
                       setIsPreviewOpen(false);
                     }}
                     className="workflow-image-preview-modal__icon-button"
-                    title="回填到画布"
+                    title="回填到画�?
                     disabled={!text}
                   >
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

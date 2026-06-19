@@ -19,7 +19,7 @@ type FileKind = 'image' | 'video' | 'audio' | 'other';
 const KIND_ORDER: Record<FileKind, number> = { image: 0, video: 1, audio: 2, other: 3 };
 
 interface FileThumb { _id: number; name: string; kind: FileKind; thumbnail: string; objectUrl: string; uploadedUrl?: string }
-type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio' | 'mask'; label: string; value: string; sourceNodeId: string; edgeId: string };
+type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio'; label: string; value: string; sourceNodeId: string; edgeId: string };
 
 function isPersistentFileUrl(value: unknown) {
   const str = String(value || '');
@@ -393,7 +393,7 @@ export default function IoStylePanel() {
       })
     : [];
 
-  const TYPE_ORDER_KEYS = ['text', 'image', 'video', 'audio', 'mask'] as const;
+  const TYPE_ORDER_KEYS = ['text', 'image', 'video', 'audio'] as const;
 
   // ── type-grouped per-file items (upstream mode) ──
   const inputGroups = useMemo(() => {

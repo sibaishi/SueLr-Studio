@@ -31,5 +31,5 @@ export function getWorkflowValidationInputNodeTypes(): string[];
 export function getWorkflowAgentInputNodeDefs(): Array<{
   type: string;
   aliases: string[];
-  adapter: 'text' | 'image' | 'video' | 'audio' | 'mask';
+  adapter: 'text' | 'image' | 'video' | 'audio';
 }>;

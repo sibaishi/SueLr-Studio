@@ -25,7 +25,7 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     title: 'IO 通用输入输出节点 io',
     content:
       'io 是通用输入输出节点，取代旧的 textInput/imageInput/videoInput/audioInput/maskInput/apiKeyInput。支持上传文件、录入文本、拖放素材，输出统一的结构化 content。可接收上游节点数据自动合并。',
-    tags: ['system-seed', 'node', 'input', 'io', 'text', 'image', 'video', 'audio', 'mask'],
+    tags: ['system-seed', 'node', 'input', 'io', 'text', 'image', 'video', 'audio'],
     structured: {
       nodeType: 'io',
       category: 'input',
@@ -68,7 +68,7 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
     id: 'seed_workflow_node_imageGen',
     title: '图片生成节点 imageGen',
     content:
-      'imageGen 调用图片生成/编辑模型，输入 prompt 字符串，可选 reference 图片和 mask 遮罩，输出 images 图片数组。它适合商品图、社媒图、品牌视觉、分镜图/storyboard sheet、三视图/reference sheet、图生图和局部编辑；不用于生成视频成片。',
+      'imageGen 调用图片生成/编辑模型，输入 prompt 字符串，可选 reference 图片，输出 images 图片数组。它适合商品图、社媒图、品牌视觉、分镜图/storyboard sheet、三视图/reference sheet、图生图和局部编辑；不用于生成视频成片。',
     tags: ['system-seed', 'node', 'ai', 'imageGen', 'image'],
     structured: {
       nodeType: 'imageGen',
@@ -77,7 +77,6 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       inputs: [
         { id: 'prompt', type: 'string', required: true },
         { id: 'reference', type: 'image', required: false },
-        { id: 'mask', type: 'mask', required: false },
         { id: 'apiKey', type: 'apiKey', required: false },
       ],
       outputs: [{ id: 'images', type: 'image[]' }],
@@ -127,7 +126,7 @@ const MANUAL_WORKFLOW_NODE_CAPABILITY_SEEDS: WorkflowNodeCapability[] = [
       ],
       params: ['model', 'mode'],
       useWhen: ['midjourney-image-generation', 'midjourney-style', 'async-image-task'],
-      avoidWhen: ['image-editing-with-mask', 'video-output', 'pure-text-output'],
+      avoidWhen: ['video-output', 'pure-text-output'],
       notes: ['首版仅支持 Imagine；task 输出保留 jobId 和 components，供后续 Action 节点使用。'],
     },
   },

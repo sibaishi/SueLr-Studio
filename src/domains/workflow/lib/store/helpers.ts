@@ -341,7 +341,6 @@ function classifyInputEdgeSource(edge: Edge, nodes: Node[]): string {
   const srcType = src.type || '';
   const handle = edge.sourceHandle || '';
 
-  if (handle.includes('mask') || srcType.toLowerCase().includes('mask')) return 'mask';
   if (
     handle.includes('video') ||
     (srcType.toLowerCase().includes('video') && !srcType.toLowerCase().includes('videogen'))
@@ -447,7 +446,6 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
       }
     } else {
       const type = classifyInputEdgeSource(edge, nodes);
-      if (type === 'mask') continue;
       slots.push({
         id: edge.id,
         edgeId: edge.id,
@@ -461,8 +459,8 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
   return slots;
 }
 
-// Fixed type display order (text → image → video → audio → mask)
-const TYPE_SORT_ORDER: Record<string, number> = { text: 0, image: 1, video: 2, audio: 3, mask: 4 };
+// Fixed type display order (text → image → video → audio)
+const TYPE_SORT_ORDER: Record<string, number> = { text: 0, image: 1, video: 2, audio: 3 };
 
 /** Per-type edge ID ordering: { image: ["edge_A", "edge_B"], text: ["edge_C"] } */
 export type InputOrderMap = Record<string, string[]>;
@@ -550,7 +548,7 @@ export function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: InputO
 
 /**
  * Expand IO nodes into individual slots and filter by mode-aware per-type caps.
- * Slots of types not in the mode's limits table (e.g. mask) are silently dropped.
+ * Slots of types not in the mode's limits table are silently dropped.
  * Within each type, slots are accepted in inputOrder priority; excess slots
  * beyond a type's cap are silently ignored.
  */

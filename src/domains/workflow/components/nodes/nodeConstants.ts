@@ -26,7 +26,6 @@ type NodeIconComponent = ComponentType<{ size?: number | string; strokeWidth?: n
 export const NODE_ICONS: Record<string, NodeIconComponent> = {
   pen: PenTool,
   image: FileImage,
-  mask: Scan,
   resize: ScanLine,
   film: Film,
   music: Music2,
@@ -49,7 +48,6 @@ export const PORT_TYPE_COLORS: Record<string, string> = {
   'string[]': '#007AFF',
   image: '#FF9500',
   'image[]': '#FF9500',
-  mask: '#7C4DFF',
   video: '#AF52DE',
   'video[]': '#AF52DE',
   audio: '#FF375F',
@@ -64,7 +62,6 @@ export const PORT_TYPE_LABELS: Record<string, string> = {
   'string[]': 'TEXT[]',
   image: 'IMG',
   'image[]': 'IMG[]',
-  mask: 'MASK',
   video: 'VID',
   'video[]': 'VID[]',
   audio: 'AUD',

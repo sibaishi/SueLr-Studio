@@ -3,9 +3,6 @@ export type PortDataType =
   | 'string[]'
   | 'image'
   | 'image[]'
-  | 'mask'
-  | 'video'
-  | 'video[]'
   | 'audio'
   | 'audio[]'
   | 'apiKey'
@@ -78,7 +75,7 @@ export interface NodeTypeDef {
   };
   agentInput?: {
     aliases: string[];
-    adapter: 'text' | 'image' | 'video' | 'audio' | 'mask';
+    adapter: 'text' | 'image' | 'video' | 'audio';
   };
   supportsDisabledPassthrough?: boolean;
   executable?: boolean;

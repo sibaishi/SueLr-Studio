@@ -2756,12 +2756,6 @@ body {
   border: 1px solid rgba(255, 149, 0, 0.22);
 }
 
-.workflow-results__banner--mask {
-  background: rgba(124, 77, 255, 0.1);
-  color: #7c4dff;
-  border: 1px solid rgba(124, 77, 255, 0.18);
-}
-
 .workflow-results__warning-list {
   border-radius: 18px;
   padding: 14px;
@@ -2802,11 +2796,6 @@ body {
   padding: 14px;
 }
 
-.workflow-results__card--mask-preview {
-  border-color: rgba(124, 77, 255, 0.18);
-  margin-bottom: 0;
-}
-
 .workflow-results__card-header {
   display: flex;
   align-items: center;
@@ -2829,11 +2818,6 @@ body {
 .workflow-results__node-title {
   font-size: 13px;
   font-weight: 700;
-}
-
-.workflow-results__node-badge--mask {
-  background: rgba(124, 77, 255, 0.12);
-  color: #7c4dff;
 }
 
 .workflow-results__group {

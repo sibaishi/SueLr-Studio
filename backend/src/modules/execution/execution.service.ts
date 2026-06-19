@@ -304,16 +304,12 @@ function resolveMediaOverride(value: DynamicValue, primaryKeys: string[]): Plain
     if (candidate) {
       return {
         fileUrl: candidate,
-        maskFileUrl: cleanString(value.maskFileUrl || value.maskUrl || value.mask, 4000),
-        maskPreviewUrl: cleanString(value.maskPreviewUrl || value.maskFileUrl || value.maskUrl || value.mask, 4000),
       };
     }
   }
 
   return {
     fileUrl: '',
-    maskFileUrl: cleanString(value.maskFileUrl || value.maskUrl || value.mask, 4000),
-    maskPreviewUrl: cleanString(value.maskPreviewUrl || value.maskFileUrl || value.maskUrl || value.mask, 4000),
   };
 }
 

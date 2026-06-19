@@ -212,11 +212,6 @@
   white-space: nowrap;
 }
 
-.flow-node-v2__state-chip--mask {
-  color: #7c4dff;
-  background: rgba(124, 77, 255, 0.12);
-}
-
 .flow-node-v2__status-icon--warning {
   color: #ff9500;
 }
@@ -1679,40 +1674,13 @@
   cursor: none;
 }
 
-.node-canvas-editor-modal__mask-base {
-  position: absolute;
-  inset: 0;
-  background: #000;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.node-canvas-editor-modal__mask-base.is-visible {
-  opacity: 1;
-}
-
 .node-canvas-editor-modal__canvas,
-.node-canvas-editor-modal__mask-tint {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
 .node-canvas-editor-modal__canvas {
   touch-action: none;
 }
 
 .node-canvas-editor-modal__base-canvas {
   pointer-events: none;
-}
-
-.node-canvas-editor-modal__base-canvas--mask {
-  mix-blend-mode: screen;
-}
-
-.node-canvas-editor-modal__mask-canvas--preview {
-  mix-blend-mode: screen;
 }
 
 .node-canvas-editor-modal__brush-cursor {
@@ -2731,8 +2699,8 @@
   letter-spacing: 0.04em;
 }
 
-/* Appendix buttons & status pills â€” V2 node shell palette */
-/* Appendix bar â€” unified button container */
+/* Appendix buttons & status pills â€?V2 node shell palette */
+/* Appendix bar â€?unified button container */
 .node-v2-appendix-bar {
   display: flex;
   align-items: center;

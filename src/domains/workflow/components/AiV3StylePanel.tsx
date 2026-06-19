@@ -56,7 +56,7 @@ function roundToNearest16(value: unknown) {
   return Math.round(numeric / 16) * 16;
 }
 
-type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio' | 'mask'; label: string; value: string; sourceNodeId: string; edgeId: string };
+type InputThumb = { id: string; type: 'text' | 'image' | 'video' | 'audio'; label: string; value: string; sourceNodeId: string; edgeId: string };
 
 export default function AiV3StylePanel() {
   const nodes = useWorkflowStore((s) => s.nodes);
@@ -150,8 +150,8 @@ export default function AiV3StylePanel() {
   }, [determineMode, setData]);
 
   // ── type labels (used in both rawInputs & typeGroups, hoist before early return) ──
-  const TYPE_ORDER_KEYS = ['text', 'image', 'video', 'audio', 'mask'] as const;
-  const TYPE_LABEL: Record<string, string> = { text: '文本', image: '图片', video: '视频', audio: '音频', mask: '遮罩' };
+  const TYPE_ORDER_KEYS = ['text', 'image', 'video', 'audio'] as const;
+  const TYPE_LABEL: Record<string, string> = { text: '文本', image: '图片', video: '视频', audio: '音频' };
   const getNodeTypeLabel = (type: string) => TYPE_LABEL[type] || type;
 
   // ── rawInputs (useMemo: must be before early return to keep hook count stable) ──

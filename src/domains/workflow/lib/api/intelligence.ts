@@ -176,7 +176,7 @@ export interface AgentPendingApproval {
 export interface WorkflowSuggestedInput {
   nodeId: string;
   nodeType: string;
-  kind: 'text' | 'image' | 'video' | 'audio' | 'mask';
+  kind: 'text' | 'image' | 'video' | 'audio';
   label: string;
   aliases: string[];
   currentValue?: string;

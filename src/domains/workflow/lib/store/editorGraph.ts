@@ -153,7 +153,7 @@ function computeIoMergedData(
 
   // Sort by inputOrder (per-type groups, then per-group edge priority)
   const inputOrder = readInputOrder(nodeMap.get(targetId));
-  const TYPE_ORDER = ['text', 'image', 'video', 'audio', 'mask'];
+  const TYPE_ORDER = ['text', 'image', 'video', 'audio'];
   const orderedEdges: Edge[] = [];
   const seen = new Set<string>();
 
@@ -605,11 +605,10 @@ export function createWorkflowGraphEditorActions(
       if (targetNode?.type === 'io' && targetHandle === 'input') {
         const sourceNode = get().nodes.find((n) => n.id === source);
         const sourceNodeType = sourceNode?.type || '';
-        const isMaskSource = sourceNodeType.toLowerCase().includes('mask');
         const isVideoSource = sourceNodeType && (sourceNodeType.toLowerCase().includes('video') && !sourceNodeType.toLowerCase().includes('videogen'));
         const isAudioSource = sourceNodeType && sourceNodeType.toLowerCase().includes('audio');
         const isImageSource =
-          !isMaskSource && !isVideoSource && !isAudioSource &&
+          !isVideoSource && !isAudioSource &&
           (sourceNodeType.includes('image') || sourceNodeType.includes('Image'));
 
         const existingEdgesToTarget = edges.filter((e) => e.target === target && e.targetHandle === 'input');
@@ -620,7 +619,6 @@ export function createWorkflowGraphEditorActions(
             return src?.type ? typeCheck(src.type) : false;
           }).length;
 
-        if (isMaskSource && countByType((t) => t.toLowerCase().includes('mask')) >= 1) return;
         if (isVideoSource && countByType((t) => t.includes('video') && !t.includes('videogen')) >= 1) return;
         if (isAudioSource && countByType((t) => t.includes('audio')) >= 1) return;
         if (isImageSource) {
