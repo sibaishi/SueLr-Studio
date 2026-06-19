@@ -148,6 +148,7 @@ export function createBaseWorkflowState(overrides: Partial<WorkflowState> = {}):
     restoreExecutionRun: createNoopAsync(undefined),
     syncExecutionRunStatus: createNoopAsync(undefined),
     saveWorkflowDetailed: createNoopAsync({ success: false, code: 'WORKFLOW_SAVE_FAILED', message: 'Save failed' }),
+    setWorkflowCover: createNoopAsync(false),
     duplicateCurrentWorkflow: createNoopAsync(false),
     duplicateCurrentWorkflowDetailed: createNoopAsync({
       success: false,

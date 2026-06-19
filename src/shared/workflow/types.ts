@@ -124,6 +124,7 @@ export interface Workflow {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   settings: WorkflowSettings;
+  coverUrl?: string;
 }
 
 export interface PersistedWorkflow extends Workflow {}

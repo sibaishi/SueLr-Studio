@@ -11,7 +11,7 @@ import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryM
 import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
 import { useWorkflowImport } from '@/domains/workflow/hooks/useWorkflowImport';
 import { useWorkflowPageCommands } from '@/domains/workflow/hooks/useWorkflowPageCommands';
-import { deleteWorkflow, fetchWorkflow, updateWorkflow } from '@/domains/workflow/lib/api';
+import { deleteWorkflow, duplicateWorkflow, fetchWorkflow, updateWorkflow } from '@/domains/workflow/lib/api';
 import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { useWorkflowPageStore } from '@/domains/workflow/lib/store/selectors';
@@ -331,6 +331,19 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
     }
   }, []);
 
+  const handleLibraryDuplicateWorkflow = useCallback(async (workflowId: string) => {
+    setWorkflowLibraryBusy(true);
+    try {
+      const result = await duplicateWorkflow(workflowId);
+      if (!result.success) return false;
+      await useWorkflowStore.getState().fetchWorkflowList();
+      setWorkflowErrorMessage(null);
+      return true;
+    } finally {
+      setWorkflowLibraryBusy(false);
+    }
+  }, []);
+
   return (
     <div className="workflow-page flex h-full w-full min-w-0 flex-col overflow-hidden" data-testid="workflow-page">
       <div className="workflow-canvas-surface relative min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -454,6 +467,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           onOpenWorkflow={handleLibraryOpenWorkflow}
           onRenameWorkflow={handleLibraryRenameWorkflow}
           onDeleteWorkflow={handleLibraryDeleteWorkflow}
+          onDuplicateWorkflow={handleLibraryDuplicateWorkflow}
         />
       )}
 

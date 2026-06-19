@@ -278,15 +278,26 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
           initialIndex={previewImageIndex >= 0 ? previewImageIndex : 0}
           onClose={() => setPreviewImage(null)}
           renderActions={(activeImage) => (
-            <button
-              type="button"
-              className="workflow-image-preview-modal__action"
-              onClick={() => {
-                void handleBackfillImageToCanvas(activeImage);
-              }}
-            >
-              填回到画板
-            </button>
+            <>
+              <button
+                type="button"
+                className="workflow-image-preview-modal__action"
+                onClick={() => {
+                  void useWorkflowStore.getState().setWorkflowCover(activeImage.src);
+                }}
+              >
+                设为封面
+              </button>
+              <button
+                type="button"
+                className="workflow-image-preview-modal__action"
+                onClick={() => {
+                  void handleBackfillImageToCanvas(activeImage);
+                }}
+              >
+                填回到画板
+              </button>
+            </>
           )}
         />
       )}

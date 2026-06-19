@@ -203,6 +203,7 @@ export interface WorkflowState {
   restoreExecutionRun: () => Promise<void>;
   syncExecutionRunStatus: () => Promise<void>;
   saveWorkflowDetailed: () => Promise<WorkflowOperationResult<{ workflowId: string }>>;
+  setWorkflowCover: (coverUrl: string) => Promise<boolean>;
   duplicateCurrentWorkflow: () => Promise<boolean>;
   duplicateCurrentWorkflowDetailed: () => Promise<WorkflowOperationResult<{ workflowId: string }>>;
   deleteCurrentWorkflow: () => Promise<boolean>;

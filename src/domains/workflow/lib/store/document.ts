@@ -35,6 +35,7 @@ type WorkflowStoreDocumentActions = Pick<
   | 'deleteCurrentWorkflow'
   | 'deleteCurrentWorkflowDetailed'
   | 'saveWorkflowDetailed'
+  | 'setWorkflowCover'
   | 'exportCurrentWorkflow'
   | 'importWorkflowDataWithMode'
   | 'importWorkflowData'
@@ -290,6 +291,23 @@ export function createWorkflowDocumentActions(
     deleteCurrentWorkflow: async () => {
       const result = await get().deleteCurrentWorkflowDetailed();
       return result.success;
+    },
+
+    setWorkflowCover: async (coverUrl) => {
+      const state = get();
+      const activeDocument = state.documents.find((d) => d.documentId === state.activeDocumentId);
+      const targetWorkflowId = activeDocument?.sourceWorkflowId || state.workflowId;
+      if (!targetWorkflowId) return false;
+
+      const fetched = await api.fetchWorkflow(targetWorkflowId);
+      if (!fetched.success || !fetched.data) return false;
+
+      const updated = { ...fetched.data, coverUrl };
+      const result = await api.updateWorkflow(targetWorkflowId, updated);
+      if (!result.success) return false;
+
+      await get().fetchWorkflowList();
+      return true;
     },
 
     exportCurrentWorkflow: () => {

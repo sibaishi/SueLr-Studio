@@ -13,6 +13,7 @@ export interface WorkflowListItem {
   description?: string;
   nodeCount: number;
   updatedAt: number;
+  coverUrl?: string;
 }
 
 export interface WorkflowImportResult {
