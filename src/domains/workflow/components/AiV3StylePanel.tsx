@@ -868,7 +868,7 @@ function PopoverButton({ icon, label, valueHint, open, direction, onToggle, chil
       {open && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 31 }} onClick={onToggle} />
-          <div className="nodrag" style={{
+          <div className="nodrag" onPointerDown={(e) => e.stopPropagation()} style={{
             position: 'absolute', ...(direction === 'up' ? { bottom: '100%', marginBottom: 8 } : { top: '100%', marginTop: 8 }),
             right: 0, minWidth: 260, borderRadius: 16,
             background: 'color-mix(in srgb, var(--t-card) 94%, transparent)',
