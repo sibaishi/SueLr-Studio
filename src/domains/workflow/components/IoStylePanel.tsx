@@ -63,7 +63,10 @@ export default function IoStylePanel() {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
 
-  const ioNode = nodes.find((n) => n.selected && n.type === 'io');
+  const ioNode = (() => {
+    const selected = nodes.filter((n) => n.selected && n.type === 'io');
+    return selected.length === 1 ? selected[0] : null;
+  })();
   const selectedNodeId = ioNode?.id;
   const nodeData = (ioNode?.data || {}) as Record<string, unknown>;
   const hasUpstream = !!selectedNodeId && edges.some((e) => e.target === selectedNodeId);

@@ -65,7 +65,10 @@ export default function AiV3StylePanel() {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const availableModels = useWorkflowStore((s) => s.availableModels);
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
-  const v3Node = nodes.find((n) => n.selected && n.type === 'aiV3');
+  const v3Node = (() => {
+    const selected = nodes.filter((n) => n.selected && n.type === 'aiV3');
+    return selected.length === 1 ? selected[0] : null;
+  })();
 
   // 取消选中节点时自动关闭 popover
   useEffect(() => {
