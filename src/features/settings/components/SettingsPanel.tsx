@@ -709,38 +709,25 @@ export function SettingsPanel({
                 项配置已启用
               </div>
             </div>
-            <div style={{ marginTop: 14 }}>
-              {apiConfigs.filter((c) => c.enabled !== false).slice(0, 5).map((config) => (
-                <div
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
+              {apiConfigs.filter((c) => c.enabled !== false).map((config) => (
+                <span
                   key={config.id}
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '6px 0',
-                    borderTop: '1px solid var(--color-border)',
+                    fontSize: 11,
+                    padding: '3px 8px',
+                    borderRadius: 999,
+                    border: '1px solid',
+                    borderColor: config.id === activeConfigId ? T.blue : 'var(--color-border)',
+                    background: config.id === activeConfigId ? `${T.blue}14` : 'var(--color-bg-secondary)',
+                    color: config.id === activeConfigId ? T.blue : 'var(--color-text-secondary)',
+                    fontWeight: config.id === activeConfigId ? 600 : 400,
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: config.id === activeConfigId ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                      fontWeight: config.id === activeConfigId ? 700 : 400,
-                    }}
-                  >
-                    {config.name || config.base || config.id}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
-                    {config.projectModels?.length || 0} 模型
-                  </span>
-                </div>
+                  {config.name || config.base || config.id}
+                </span>
               ))}
-              {apiConfigs.filter((c) => c.enabled !== false).length > 5 && (
-                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4, textAlign: 'right' }}>
-                  ...及其他 {configStats.total - 5} 项
-                </div>
-              )}
             </div>
           </div>
         </div>
