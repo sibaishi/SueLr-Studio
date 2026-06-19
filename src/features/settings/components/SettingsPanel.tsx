@@ -656,7 +656,7 @@ export function SettingsPanel({
               {base ? '已接入' : '待配置'}
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
-              {activeConfig?.name || '未命名配置'}
+              {configStats.total} 项配置
             </div>
           </div>
           <div style={{ ...mutedPanelStyle(), padding: 16 }}>
@@ -994,21 +994,11 @@ export function SettingsPanel({
               </div>
 
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>当前配置</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-                  {activeConfig?.name || '未命名配置'}
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>已启用配置</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {configStats.total}
                 </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    lineHeight: 1.6,
-                    color: 'var(--color-text-tertiary)',
-                    marginTop: 6,
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {base || '接口地址尚未配置'}
-                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>项 API 配置</div>
               </div>
 
             </div>
