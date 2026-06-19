@@ -63,9 +63,11 @@ export default function IoStylePanel() {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
 
+  // Only show panel when exactly one panel-capable node is selected across all types
   const ioNode = (() => {
-    const selected = nodes.filter((n) => n.selected && n.type === 'io');
-    return selected.length === 1 ? selected[0] : null;
+    const selectedPanelNodes = nodes.filter((n) => n.selected && (n.type === 'io' || n.type === 'aiV3'));
+    if (selectedPanelNodes.length !== 1) return null;
+    return selectedPanelNodes[0].type === 'io' ? selectedPanelNodes[0] : null;
   })();
   const selectedNodeId = ioNode?.id;
   const nodeData = (ioNode?.data || {}) as Record<string, unknown>;

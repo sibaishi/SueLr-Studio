@@ -65,9 +65,11 @@ export default function AiV3StylePanel() {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const availableModels = useWorkflowStore((s) => s.availableModels);
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
+  // Only show panel when exactly one panel-capable node is selected across all types
   const v3Node = (() => {
-    const selected = nodes.filter((n) => n.selected && n.type === 'aiV3');
-    return selected.length === 1 ? selected[0] : null;
+    const selectedPanelNodes = nodes.filter((n) => n.selected && (n.type === 'io' || n.type === 'aiV3'));
+    if (selectedPanelNodes.length !== 1) return null;
+    return selectedPanelNodes[0].type === 'aiV3' ? selectedPanelNodes[0] : null;
   })();
 
   // 取消选中节点时自动关闭 popover
