@@ -75,7 +75,7 @@ const PROMPT_SQUARE_REGEX = /(方图|方形|头像|正方形|square|avatar)/i;
 const ALLOWED_QUALITY = new Set(['low', 'medium', 'high', 'auto']);
 const ALLOWED_FORMAT = new Set(['png', 'jpeg', 'webp']);
 const ALLOWED_IMAGE_RESOLUTION = new Set(['auto', '512px', '1k', '2k', '4k']);
-const IMAGE_RESOLUTION_SUFFIX_REGEX = /-(512px|1k|2k|4k)$/i;
+
 const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 60_000;
 const REMOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const DEFAULT_IMAGE_ENDPOINT = '/v1/images/generations';
@@ -247,65 +247,23 @@ function normalizeImageResolution(value: DynamicValue): string {
   return ALLOWED_IMAGE_RESOLUTION.has(normalized) ? normalized : '';
 }
 
-function getImageResolutionFromModel(modelId: DynamicValue): string {
-  const match = cleanText(modelId).match(IMAGE_RESOLUTION_SUFFIX_REGEX);
-  return match ? match[1].toLowerCase() : '';
-}
 
-function stripImageResolutionSuffix(modelId: DynamicValue): string {
-  return cleanText(modelId).replace(IMAGE_RESOLUTION_SUFFIX_REGEX, '');
-}
-
-function isGeminiStyleImageModel(model: ProjectModel | null): boolean {
-  if (!model) return false;
-  if (model.endpointMode === 'custom') {
-    return cleanText(model.customEndpoint).toLowerCase().includes(':generatecontent');
-  }
-  return model.endpointCategory === 'gemini-generate-content';
-}
 
 function resolveImageResolutionModel(
   modelId: DynamicValue,
-  resolution: DynamicValue,
-  projectModels: DynamicValue = [],
+  _resolution: DynamicValue,
+  _projectModels: DynamicValue = [],
 ): string {
-  const requestedResolution = normalizeImageResolution(resolution) || getImageResolutionFromModel(modelId);
-  if (!requestedResolution || requestedResolution === 'auto') return modelId;
-
-  const currentResolution = getImageResolutionFromModel(modelId);
-  const baseModelId = stripImageResolutionSuffix(modelId);
-  const targetModelId = `${baseModelId}-${requestedResolution}`;
-  const currentModel = findProjectModel(projectModels, modelId);
-  const baseModel = findProjectModel(projectModels, baseModelId);
-  const targetModel = findProjectModel(projectModels, targetModelId);
-
-  if (currentResolution === requestedResolution && currentModel?.configured && isGeminiStyleImageModel(currentModel)) {
-    return currentModel.modelId;
-  }
-  if (isGeminiStyleImageModel(targetModel)) {
-    return targetModel?.modelId || targetModelId;
-  }
-  if (isGeminiStyleImageModel(baseModel)) {
-    return targetModelId;
-  }
-
-  if (currentResolution === requestedResolution && baseModel?.configured && baseModel.type === 'image') {
-    return baseModel.modelId;
-  }
-
-  return baseModelId || modelId;
+  return cleanText(modelId);
 }
 
-function getImageResolutionFallbackModel(modelId: DynamicValue, resolution?: DynamicValue): string {
-  const requestedResolution = normalizeImageResolution(resolution) || getImageResolutionFromModel(modelId);
-  if (!requestedResolution || requestedResolution === 'auto') return '';
-  const fallbackModel = stripImageResolutionSuffix(modelId);
-  return fallbackModel && fallbackModel !== modelId ? fallbackModel : '';
+function getImageResolutionFallbackModel(_modelId: DynamicValue, _resolution?: DynamicValue): string {
+  return '';
 }
 
-function shouldSendResolutionInBody(modelId: DynamicValue, resolution: DynamicValue): boolean {
+function shouldSendResolutionInBody(_modelId: DynamicValue, resolution: DynamicValue): boolean {
   const requestedResolution = normalizeImageResolution(resolution);
-  return Boolean(requestedResolution && requestedResolution !== 'auto' && !getImageResolutionFromModel(modelId));
+  return Boolean(requestedResolution && requestedResolution !== 'auto');
 }
 
 function resolveModelRuntimeAllowingResolutionSuffix(
@@ -313,33 +271,7 @@ function resolveModelRuntimeAllowingResolutionSuffix(
   modelId: DynamicValue,
   options: LooseRecord = {},
 ) {
-  try {
-    return resolveModelRuntime(runtimeConfig, modelId, options);
-  } catch (error) {
-    const requestedResolution = normalizeImageResolution(options.resolution);
-    if (requestedResolution && requestedResolution !== 'auto' && !getImageResolutionFromModel(modelId)) {
-      const suffixModel = `${stripImageResolutionSuffix(modelId)}-${requestedResolution}`;
-      const resolvedSuffix = resolveModelRuntime(runtimeConfig, suffixModel, options);
-      if (resolvedSuffix.endpoint?.includes(encodeURIComponent(suffixModel))) {
-        return {
-          ...resolvedSuffix,
-          endpoint: resolvedSuffix.endpoint.replace(encodeURIComponent(suffixModel), encodeURIComponent(modelId)),
-        };
-      }
-      return resolvedSuffix;
-    }
-
-    const fallbackModel = getImageResolutionFallbackModel(modelId);
-    if (!fallbackModel) throw error;
-    const resolved = resolveModelRuntime(runtimeConfig, fallbackModel, options);
-    if (resolved.endpoint?.includes(encodeURIComponent(fallbackModel))) {
-      return {
-        ...resolved,
-        endpoint: resolved.endpoint.replace(encodeURIComponent(fallbackModel), encodeURIComponent(modelId)),
-      };
-    }
-    return resolved;
-  }
+  return resolveModelRuntime(runtimeConfig, modelId, options);
 }
 
 function parseInteger(value: DynamicValue): number | null {
@@ -737,7 +669,7 @@ export async function generateImages(
   }
 
   const normalized = normalizeImageGenerationRequest(request);
-  normalized.resolution = normalized.resolution || getImageResolutionFromModel(normalized.model) || undefined;
+
   normalized.model = resolveImageGenerationModel(normalized, runtimeConfig);
   const timeoutMs = getImageTimeoutMs(providerConfig);
 

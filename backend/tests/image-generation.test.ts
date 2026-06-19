@@ -601,7 +601,7 @@ test('generateImages sends unlisted resolution through base model body', async (
   }
 });
 
-test('generateImages infers non-Gemini suffix resolution and sends it in request body', async () => {
+test('generateImages keeps model name as-is without extracting resolution from suffix', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;
 
@@ -636,16 +636,17 @@ test('generateImages infers non-Gemini suffix resolution and sends it in request
     }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(result.request.model, 'gemini-3.1-flash-image-preview');
-    assert.equal(result.request.resolution, '512px');
-    assert.equal(requestBody.model, 'gemini-3.1-flash-image-preview');
-    assert.equal(requestBody.resolution, '512px');
+    // Model name stays as-is — no suffix stripping
+    assert.equal(result.request.model, 'gemini-3.1-flash-image-preview-512px');
+    assert.equal(result.request.resolution, undefined);
+    assert.equal(requestBody.model, 'gemini-3.1-flash-image-preview-512px');
+    assert.equal(requestBody.resolution, undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('generateImages sends explicit non-Gemini suffix model as base model with resolution body', async () => {
+test('generateImages keeps model name as-is without stripping suffix for non-Gemini models', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;
 
@@ -688,10 +689,11 @@ test('generateImages sends explicit non-Gemini suffix model as base model with r
     }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(result.request.model, 'gpt-image-2-flatfee');
-    assert.equal(result.request.resolution, '2k');
-    assert.equal(requestBody.model, 'gpt-image-2-flatfee');
-    assert.equal(requestBody.resolution, '2k');
+    // Model name stays as-is — no suffix stripping
+    assert.equal(result.request.model, 'gpt-image-2-flatfee-2k');
+    assert.equal(result.request.resolution, undefined);
+    assert.equal(requestBody.model, 'gpt-image-2-flatfee-2k');
+    assert.equal(requestBody.resolution, undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1072,6 +1074,7 @@ test('generateImages supports Gemini generateContent image endpoints without cha
       model: 'gemini-3-pro-image-preview-4k',
       prompt: 'poster 1080x1920 neon city',
       ratio: 'auto',
+      resolution: '4k',
     }, createRuntimeConfig({
       projectModels: [
         {
@@ -1138,6 +1141,7 @@ test('generateImages sends one official Gemini request without url response prob
     const result = await generateImages({
       model: 'gemini-3-pro-image-preview-4k',
       prompt: 'poster',
+      resolution: '4k',
     }, createRuntimeConfig({
       projectModels: [
         {
@@ -1410,7 +1414,7 @@ test('generateImages maps 1k resolution to Gemini native imageSize', async () =>
   }
 });
 
-test('generateImages routes Gemini resolution through model suffix endpoint', async () => {
+test('generateImages sends Gemini request without model suffix in endpoint URL', async () => {
   const originalFetch = globalThis.fetch;
   const requestUrls = [];
   const requestBodies = [];
@@ -1460,7 +1464,8 @@ test('generateImages routes Gemini resolution through model suffix endpoint', as
 
     assertGeneratedPngOutput(result);
     assert.equal(requestUrls.length, 1);
-    assert.equal(requestUrls[0], 'https://example.com/v1beta/models/gemini-3-pro-image-preview-4k:generateContent?key=demo-key');
+    // Model suffix is NOT appended to the endpoint URL — resolution goes in body only
+    assert.equal(requestUrls[0], 'https://example.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=demo-key');
     assert.deepEqual(requestBodies[0].generationConfig, {
       responseModalities: ['TEXT', 'IMAGE'],
       imageConfig: {
