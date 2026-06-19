@@ -69,7 +69,6 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
   const isExecuting = useWorkflowStore((s) => s.isExecuting);
   const workflowWarningMessage = useWorkflowStore((s) => s.workflowWarningMessage);
   const nodeWarnings = useWorkflowStore((s) => s.nodeWarnings);
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const clearExecutionLogs = useWorkflowStore((s) => s.clearExecutionLogs);
   const addNode = useWorkflowStore((s) => s.addNode);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);

@@ -13,7 +13,6 @@ import {
   Music2,
   PenTool,
   Repeat,
-  Scan,
   ScanLine,
   Search,
   Sparkles,
