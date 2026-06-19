@@ -714,13 +714,14 @@ export function SettingsPanel({
                 <span
                   key={config.id}
                   style={{
+                    display: 'inline-block',
                     fontSize: 11,
                     padding: '3px 8px',
                     borderRadius: 999,
                     border: '1px solid var(--color-border)',
                     background: 'var(--color-bg-secondary)',
                     color: 'var(--color-text-secondary)',
-                    maxWidth: '3em',
+                    maxWidth: '3.5em',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
