@@ -44,7 +44,32 @@ export default function WorkflowLibraryModal({
   const [draftName, setDraftName] = useState('');
   const [pendingWorkflowId, setPendingWorkflowId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [coverDarkness, setCoverDarkness] = useState<Record<string, boolean>>({});
   const openIds = useMemo(() => new Set(openDocumentWorkflowIds), [openDocumentWorkflowIds]);
+
+  /* precompute cover luminance so text color adapts to image brightness */
+  useMemo(() => {
+    for (const w of workflows) {
+      const cover = w.coverUrl
+      if (!cover || coverDarkness[cover] !== undefined) continue
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const c = document.createElement('canvas')
+        c.width = 32; c.height = 32
+        const ctx = c.getContext('2d')
+        if (!ctx) return
+        ctx.drawImage(img, 0, 0, 32, 32)
+        const d = ctx.getImageData(0, 0, 32, 32).data
+        let sum = 0
+        for (let i = 0; i < d.length; i += 4) sum += d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114
+        setCoverDarkness(prev => ({ ...prev, [cover]: sum / (32 * 32) < 140 }))
+      }
+      img.onerror = () => setCoverDarkness(prev => ({ ...prev, [cover]: false }))
+      img.src = cover
+      setCoverDarkness(prev => ({ ...prev, [cover]: false })) // placeholder
+    }
+  }, [workflows])
   const filteredWorkflows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return workflows;
@@ -158,7 +183,13 @@ export default function WorkflowLibraryModal({
                   data-testid={`workflow-library-row-${workflow.id}`}
                   title={`${workflow.nodeCount ?? 0} 个节点 · ${formatUpdatedAt(workflow.updatedAt)} 创建`}
                   style={{
-                    ...(workflow.coverUrl ? { backgroundImage: `url(${workflow.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}),
+                    ...(workflow.coverUrl ? {
+                      backgroundImage: `url(${workflow.coverUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      color: coverDarkness[workflow.coverUrl] ? '#fff' : '#0f0f0f',
+                      textShadow: coverDarkness[workflow.coverUrl] ? '0 1px 4px rgba(0,0,0,0.6)' : '0 1px 2px rgba(255,255,255,0.4)',
+                    } : {}),
                   }}
                   onClick={() => onOpenWorkflow(workflow.id)}
                 >
@@ -196,7 +227,7 @@ export default function WorkflowLibraryModal({
                     <Workflow size={48} strokeWidth={1.5} />
                   </div>
 
-                  <div style={{ paddingTop: 8, background: workflow.coverUrl ? 'linear-gradient(transparent, rgba(0,0,0,0.55))' : 'transparent', borderRadius: workflow.coverUrl ? '0 0 20px 20px' : 0, color: workflow.coverUrl ? '#fff' : undefined }}>
+                  <div style={{ paddingTop: 8, background: workflow.coverUrl ? `linear-gradient(transparent, ${coverDarkness[workflow.coverUrl] ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.25)'})` : 'transparent', borderRadius: workflow.coverUrl ? '0 0 20px 20px' : 0 }}>
 
                   <div className="workflow-library-modal__card-actions" style={{ marginTop: 0 }}>
                     {isEditing ? (

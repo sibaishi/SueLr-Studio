@@ -3532,7 +3532,7 @@ body {
   min-width: 0;
   border: 0;
   background: transparent;
-  color: var(--color-text-primary);
+  color: inherit;
   font-size: 14px;
   font-weight: 750;
   text-align: left;
