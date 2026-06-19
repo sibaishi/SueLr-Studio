@@ -1089,15 +1089,15 @@ test('generateImages supports Gemini generateContent image endpoints without cha
     assert.equal(requestUrl, 'https://example.com/v1beta/models/gemini-3-pro-image-preview-4k:generateContent?key=demo-key');
     assert.equal(requestHeaders.Authorization, undefined);
     assert.equal(requestHeaders['Content-Type'], 'application/json');
-    assert.equal(requestBody.contents[0].parts[0].text.includes('Generate an image from this prompt:'), true);
-    assert.equal(requestBody.contents[0].parts[0].text.includes('Size: 1088x1920'), true);
-    assert.equal(requestBody.contents[0].parts[0].text.includes('1080x1920'), false);
+    assert.equal(requestBody.contents[0].role, 'user');
+    assert.equal(requestBody.contents[0].parts[0].text, 'poster neon city');
     assert.deepEqual(requestBody.generationConfig, {
+      responseModalities: ['TEXT', 'IMAGE'],
       imageConfig: {
         imageSize: '4K',
       },
     });
-    assert.equal(requestBody.response_format, 'url');
+    assert.equal(requestBody.response_format, undefined);
     assert.equal(requestBody.model, undefined);
     assert.equal(requestBody.messages, undefined);
   } finally {
@@ -1105,12 +1105,13 @@ test('generateImages supports Gemini generateContent image endpoints without cha
   }
 });
 
-test('generateImages can disable Gemini url response probing via provider config', async () => {
+test('generateImages sends one official Gemini request without url response probing', async () => {
   const originalFetch = globalThis.fetch;
-  let requestBody = null;
+  const requestBodies = [];
 
   globalThis.fetch = async (_url, options = {}) => {
-    requestBody = JSON.parse(String(options.body));
+    const requestBody = JSON.parse(String(options.body));
+    requestBodies.push(requestBody);
 
     return new Response(JSON.stringify({
       candidates: [
@@ -1138,9 +1139,6 @@ test('generateImages can disable Gemini url response probing via provider config
       model: 'gemini-3-pro-image-preview-4k',
       prompt: 'poster',
     }, createRuntimeConfig({
-      providerConfig: {
-        geminiImageResponseFormat: 'default',
-      },
       projectModels: [
         {
           id: 'demo-image-model',
@@ -1154,73 +1152,14 @@ test('generateImages can disable Gemini url response probing via provider config
     }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(requestBody.response_format, undefined);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('generateImages falls back when Gemini url response format is unsupported', async () => {
-  const originalFetch = globalThis.fetch;
-  const requestBodies = [];
-  const progress = [];
-
-  globalThis.fetch = async (_url, options = {}) => {
-    const requestBody = JSON.parse(String(options.body));
-    requestBodies.push(requestBody);
-
-    if (requestBodies.length === 1) {
-      return new Response(JSON.stringify({
-        error: { message: 'Unknown parameter: response_format' },
-      }), {
-        status: 400,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-
-    return new Response(JSON.stringify({
-      candidates: [
-        {
-          content: {
-            parts: [
-              {
-                inlineData: {
-                  mimeType: 'image/png',
-                  data: 'YWJj',
-                },
-              },
-            ],
-          },
-        },
-      ],
-    }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].response_format, undefined);
+    assert.deepEqual(requestBodies[0].generationConfig, {
+      responseModalities: ['TEXT', 'IMAGE'],
+      imageConfig: {
+        imageSize: '4K',
+      },
     });
-  };
-
-  try {
-    const result = await generateImages({
-      model: 'gemini-3-pro-image-preview-4k',
-      prompt: 'poster',
-    }, createRuntimeConfig({
-      projectModels: [
-        {
-          id: 'demo-image-model',
-          modelId: 'gemini-3-pro-image-preview-4k',
-          type: 'image',
-          enabled: true,
-          endpointMode: 'category',
-          endpointCategory: 'gemini-generate-content',
-        },
-      ],
-    }), (message) => progress.push(message));
-
-    assertGeneratedPngOutput(result);
-    assert.equal(requestBodies.length, 2);
-    assert.equal(requestBodies[0].response_format, 'url');
-    assert.equal(requestBodies[1].response_format, undefined);
-    assert.match(progress.join('\n'), /Gemini endpoint retry: drop response_format/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1275,6 +1214,7 @@ test('generateImages sends Gemini imageConfig for native aspect ratio and resolu
 
     assertGeneratedPngOutput(result);
     assert.deepEqual(requestBody.generationConfig, {
+      responseModalities: ['TEXT', 'IMAGE'],
       imageConfig: {
         aspectRatio: '9:16',
         imageSize: '2K',
@@ -1285,7 +1225,64 @@ test('generateImages sends Gemini imageConfig for native aspect ratio and resolu
   }
 });
 
-test('generateImages keeps aspect ratio and resolution in the prompt when editing an image', async () => {
+test('generateImages maps JPEG output to the official Gemini response format', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: 'YWJj',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    await generateImages({
+      model: 'gemini-3-pro-image-preview',
+      prompt: 'poster',
+      output_format: 'jpeg',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gemini-3-pro-image-preview',
+          modelId: 'gemini-3-pro-image-preview',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'gemini-generate-content',
+        },
+      ],
+    }));
+
+    assert.equal(requestBody.contents[0].parts[0].text, 'poster');
+    assert.deepEqual(requestBody.generationConfig.responseFormat, {
+      image: {
+        mimeType: 'IMAGE_JPEG',
+      },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('generateImages uses the official Gemini body for image editing', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;
 
@@ -1334,9 +1331,22 @@ test('generateImages keeps aspect ratio and resolution in the prompt when editin
     }));
 
     assertGeneratedPngOutput(result);
-    assert.equal(requestBody.generationConfig, undefined);
-    assert.equal(requestBody.contents[0].parts[0].text.includes('Output aspect ratio: 9:16'), true);
-    assert.equal(requestBody.contents[0].parts[0].text.includes('Output resolution: 4k'), true);
+    assert.equal(requestBody.contents[0].role, 'user');
+    assert.equal(requestBody.contents[0].parts[0].text, 'convert to manga panels');
+    assert.deepEqual(requestBody.contents[0].parts[1], {
+      inlineData: {
+        mimeType: 'image/png',
+        data: 'YWJj',
+      },
+    });
+    assert.deepEqual(requestBody.generationConfig, {
+      responseModalities: ['TEXT', 'IMAGE'],
+      imageConfig: {
+        aspectRatio: '9:16',
+        imageSize: '4K',
+      },
+    });
+    assert.equal(requestBody.response_format, undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1390,6 +1400,7 @@ test('generateImages maps 1k resolution to Gemini native imageSize', async () =>
 
     assertGeneratedPngOutput(result);
     assert.deepEqual(requestBody.generationConfig, {
+      responseModalities: ['TEXT', 'IMAGE'],
       imageConfig: {
         imageSize: '1K',
       },
@@ -1451,6 +1462,7 @@ test('generateImages routes Gemini resolution through model suffix endpoint', as
     assert.equal(requestUrls.length, 1);
     assert.equal(requestUrls[0], 'https://example.com/v1beta/models/gemini-3-pro-image-preview-4k:generateContent?key=demo-key');
     assert.deepEqual(requestBodies[0].generationConfig, {
+      responseModalities: ['TEXT', 'IMAGE'],
       imageConfig: {
         imageSize: '4K',
       },

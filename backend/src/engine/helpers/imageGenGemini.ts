@@ -16,28 +16,8 @@ const GEMINI_IMAGE_SIZE_BY_RESOLUTION = {
   '4k': '4K',
 };
 
-function buildGeminiImagePromptText(prompt: DynamicValue, payload: LooseRecord = {}, hasInputImage = false): string {
-  const lines: string[] = [];
-  if (cleanText(prompt)) {
-    if (hasInputImage) {
-      lines.push('Edit the provided image according to this instruction:');
-    } else {
-      lines.push('Generate an image from this prompt:');
-    }
-    lines.push(cleanText(prompt));
-  }
-  if (!hasInputImage) {
-    if (payload.size) lines.push(`Size: ${payload.size}`);
-    if (payload.aspect_ratio) lines.push(`Aspect ratio: ${payload.aspect_ratio}`);
-  }
-  if (hasInputImage) {
-    const ratio = payload.ratio !== 'auto' ? payload.ratio : payload.aspect_ratio;
-    if (ratio) lines.push(`Output aspect ratio: ${ratio}`);
-    if (payload.resolution) lines.push(`Output resolution: ${payload.resolution}`);
-  }
-  if (payload.quality) lines.push(`Quality: ${payload.quality}`);
-  if (payload.output_format) lines.push(`Output format: ${payload.output_format}`);
-  return lines.join('\n');
+function buildGeminiImagePromptText(prompt: DynamicValue): string {
+  return cleanText(prompt);
 }
 
 function dataUrlToGeminiInlineData(dataUrl: DynamicValue): { mimeType: string; data: string } | null {
@@ -51,8 +31,7 @@ function dataUrlToGeminiInlineData(dataUrl: DynamicValue): { mimeType: string; d
 
 export function buildGeminiImageParts(prompt: DynamicValue, images: DynamicValue, payload: LooseRecord = {}) {
   const parts: DynamicValue[] = [];
-  const hasInputImage = Array.isArray(images) && images.some((img) => !!img);
-  const promptText = buildGeminiImagePromptText(prompt, payload, hasInputImage);
+  const promptText = buildGeminiImagePromptText(prompt);
   if (promptText) parts.push({ text: promptText });
   for (const image of images || []) {
     if (!image) continue;
@@ -66,9 +45,9 @@ export function buildGeminiImageParts(prompt: DynamicValue, images: DynamicValue
   return parts;
 }
 
-export function buildGeminiImageGenerationConfig(payload: LooseRecord = {}, supportedRatios: Set<string>, hasInputImage = false) {
-  if (hasInputImage) return undefined;
+export function buildGeminiImageGenerationConfig(payload: LooseRecord = {}, supportedRatios: Set<string>) {
   const imageConfig: LooseRecord = {};
+  const outputFormat = cleanText(payload.output_format || payload.outputFormat).toLowerCase();
   const aspectRatio = payload.ratio && payload.ratio !== 'auto' ? payload.ratio : payload.aspect_ratio;
   const imageSize = GEMINI_IMAGE_SIZE_BY_RESOLUTION[payload.resolution as keyof typeof GEMINI_IMAGE_SIZE_BY_RESOLUTION];
 
@@ -79,7 +58,19 @@ export function buildGeminiImageGenerationConfig(payload: LooseRecord = {}, supp
     imageConfig.imageSize = imageSize;
   }
 
-  return Object.keys(imageConfig).length > 0 ? { imageConfig } : undefined;
+  return {
+    responseModalities: ['TEXT', 'IMAGE'],
+    ...(Object.keys(imageConfig).length > 0 ? { imageConfig } : {}),
+    ...(outputFormat === 'jpeg'
+      ? {
+          responseFormat: {
+            image: {
+              mimeType: 'IMAGE_JPEG',
+            },
+          },
+        }
+      : {}),
+  };
 }
 
 function buildGeminiGenerateContentUrl(

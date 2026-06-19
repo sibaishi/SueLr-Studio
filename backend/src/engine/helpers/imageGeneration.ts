@@ -79,7 +79,6 @@ const IMAGE_RESOLUTION_SUFFIX_REGEX = /-(512px|1k|2k|4k)$/i;
 const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 60_000;
 const REMOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const DEFAULT_IMAGE_ENDPOINT = '/v1/images/generations';
-const GEMINI_URL_RESPONSE_FORMAT = 'url';
 const DEFAULT_IMAGE_GENERATION_CONCURRENCY = {
   enabled: false,
   maxConcurrency: 5,
@@ -237,14 +236,6 @@ function normalizeProviderImageSizing(payload: ImagePayload, runtimeConfig: Runt
 function getImageTimeoutMs(providerConfig: LooseRecord | undefined): number {
   const timeout = Number(providerConfig?.imageTimeoutMs);
   return Number.isFinite(timeout) && timeout > 0 ? Math.round(timeout) : 300000;
-}
-
-function shouldRequestGeminiUrlResponse(providerConfig: LooseRecord | undefined): boolean {
-  const configured = cleanText(
-    providerConfig?.geminiImageResponseFormat || providerConfig?.imageResponseFormat,
-  ).toLowerCase();
-  if (!configured) return true;
-  return !['default', 'inline', 'none', 'off', 'false'].includes(configured);
 }
 
 function getSizeFromRatio(ratio: DynamicValue): string | undefined {
@@ -846,19 +837,15 @@ export async function generateImages(
             const endpoint = imageEndpoint;
 
             if (usesGeminiGenerateContent) {
-              const buildRequestBody = (options: LooseRecord = {}) => {
-                const hasInputImage = Array.isArray(payload.image) && payload.image.some((img: DynamicValue) => !!img);
-                const generationConfig = buildGeminiConfig({ ...payload, model: activeModel }, SUPPORTED_RATIOS, hasInputImage);
-                return {
-                  contents: [
-                    {
-                      parts: buildGeminiParts(payload.prompt, payload.image, payload),
-                    },
-                  ],
-                  ...(generationConfig ? { generationConfig } : {}),
-                  ...(options.includeResponseFormat ? { response_format: GEMINI_URL_RESPONSE_FORMAT } : {}),
-                };
-              };
+              const buildRequestBody = () => ({
+                contents: [
+                  {
+                    role: 'user',
+                    parts: buildGeminiParts(payload.prompt, payload.image, payload),
+                  },
+                ],
+                generationConfig: buildGeminiConfig({ ...payload, model: activeModel }, SUPPORTED_RATIOS),
+              });
               const callWithRequestBody = (model: string, requestBody: LooseRecord) =>
                 callGeminiApi(
                   adapter,
@@ -870,16 +857,7 @@ export async function generateImages(
                   sendProgress,
                   abortSignal,
                 );
-              const includeResponseFormat = shouldRequestGeminiUrlResponse(providerConfig);
-              try {
-                return await callWithRequestBody(activeModel, buildRequestBody({ includeResponseFormat }));
-              } catch (error) {
-                if (includeResponseFormat && shouldRetryWithoutResponseFormat(error)) {
-                  sendProgress?.('Gemini endpoint retry: drop response_format after first failure');
-                  return callWithRequestBody(activeModel, buildRequestBody({ includeResponseFormat: false }));
-                }
-                throw error;
-              }
+              return callWithRequestBody(activeModel, buildRequestBody());
             }
 
             if (usesChatPayload) {
