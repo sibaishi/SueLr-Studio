@@ -12,7 +12,7 @@ import { useAppBootstrap } from './bootstrap/useAppBootstrap';
 import { useThemeState } from './theme/useThemeState';
 import '@/domains/workflow/index.css';
 
-const WorkflowPage = lazy(() => import('@/domains/workflow/App'));
+import WorkflowPage from '@/domains/workflow/App';
 const SettingsPanel = lazy(() =>
   import('@/features/settings/components/SettingsPanel').then((module) => ({ default: module.SettingsPanel })),
 );
@@ -21,17 +21,6 @@ const FirstRunOnboarding = lazy(() =>
     default: module.FirstRunOnboarding,
   })),
 );
-
-function WorkspaceLoading() {
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, padding: 24 }}>
-      <div className="loading-shimmer" style={{ height: 40, width: '35%', borderRadius: 12 }} />
-      <div className="loading-shimmer" style={{ height: 16, width: '80%', borderRadius: 6 }} />
-      <div className="loading-shimmer" style={{ height: 16, width: '60%', borderRadius: 6 }} />
-      <div className="loading-shimmer" style={{ height: 140, width: '100%', borderRadius: 14 }} />
-    </div>
-  );
-}
 
 function BootstrapBlocker({ message, onRetry }: { message: string | null; onRetry: () => void }) {
   return (
@@ -106,7 +95,8 @@ export default function App() {
   );
   const projectBusy = workflowBusy;
 
-  const { bootstrapError, bootstrapMode, runtimeCapabilities, splashFading, splashHidden } = useAppBootstrap({
+  const [splashHidden, setSplashHidden] = useState(false);
+  const { bootstrapError, bootstrapMode, runtimeCapabilities, splashDone } = useAppBootstrap({
     hydratedRef,
     setThemeMode,
     settings,
@@ -157,7 +147,7 @@ export default function App() {
   return (
     <TCtx.Provider value={colors}>
       <ToastProvider>
-        {!splashHidden && <SplashScreen fading={splashFading} />}
+        {!splashHidden && <SplashScreen done={splashDone} onHidden={() => setSplashHidden(true)} />}
         {showBootstrapBlocker && (
           <BootstrapBlocker
             message={bootstrapError}
@@ -167,7 +157,7 @@ export default function App() {
           />
         )}
         {showOnboarding && (
-          <Suspense fallback={<WorkspaceLoading />}>
+          <Suspense fallback={null}>
             <FirstRunOnboarding
               activeConfigId={settings.activeConfigId}
               addLog={settings.addLog}
@@ -199,20 +189,18 @@ export default function App() {
             }}
           >
             <ErrorBoundary>
-              <Suspense fallback={<WorkspaceLoading />}>
-                <WorkflowPage
-                  onOpenStudioSettings={() => setSettingsOpen(true)}
-                  onOpenAgent={() => setAgentOpen(true)}
-                  onToggleTheme={handleToggleTheme}
-                  themeMode={themeMode}
-                />
-              </Suspense>
+              <WorkflowPage
+                onOpenStudioSettings={() => setSettingsOpen(true)}
+                onOpenAgent={() => setAgentOpen(true)}
+                onToggleTheme={handleToggleTheme}
+                themeMode={themeMode}
+              />
             </ErrorBoundary>
 
             {settingsOpen && (
               <SettingsModal onClose={() => setSettingsOpen(false)}>
                 <ErrorBoundary>
-                  <Suspense fallback={<WorkspaceLoading />}>
+                  <Suspense fallback={null}>
                     <SettingsPanel
                       apiConfigs={settings.apiConfigs}
                       setApiConfigs={settings.setApiConfigs}

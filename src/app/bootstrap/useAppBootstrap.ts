@@ -50,8 +50,7 @@ function buildStudioSettingsPayload(params: {
 
 export function useAppBootstrap(params: UseAppBootstrapParams) {
   const { settings } = params;
-  const [splashFading, setSplashFading] = useState(false);
-  const [splashHidden, setSplashHidden] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilities | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapMode, setBootstrapMode] = useState<'pending' | 'server' | 'browser-only' | 'blocked'>('pending');
@@ -59,8 +58,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
   const activeRuntimeRef = useRef<RuntimeCapabilities | null>(null);
 
   const finishSplash = useCallback(() => {
-    setSplashFading(true);
-    window.setTimeout(() => setSplashHidden(true), 500);
+    setSplashDone(true);
   }, []);
 
   const applyActiveConfig = useCallback(
@@ -242,7 +240,6 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
     bootstrapMode,
     refreshRuntimeCapabilities,
     runtimeCapabilities,
-    splashFading,
-    splashHidden,
+    splashDone,
   };
 }

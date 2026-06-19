@@ -1,8 +1,33 @@
 import { useT } from '@/providers/ThemeContext';
 import { Bot } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
-export function SplashScreen({ fading }: { fading: boolean }) {
+export function SplashScreen({ done, onHidden }: { done: boolean; onHidden: () => void }) {
   const T = useT();
+  const [fading, setFading] = useState(false);
+  const hiddenRef = useRef(false);
+  const mountTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (done && !hiddenRef.current) {
+      hiddenRef.current = true;
+      const elapsed = Date.now() - mountTimeRef.current;
+      const minDisplay = 800;
+      const delay = Math.max(0, minDisplay - elapsed);
+
+      const startFade = () => {
+        setFading(true);
+        const timer = window.setTimeout(onHidden, 500);
+        return () => clearTimeout(timer);
+      };
+
+      if (delay > 0) {
+        const delayTimer = window.setTimeout(startFade, delay);
+        return () => clearTimeout(delayTimer);
+      }
+      return startFade();
+    }
+  }, [done, onHidden]);
 
   return (
     <div
