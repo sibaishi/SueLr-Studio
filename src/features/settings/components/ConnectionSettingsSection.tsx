@@ -29,8 +29,8 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
                     gap: 6,
                     padding: '4px 6px 4px 10px',
                     borderRadius: 20,
-                    background: isActive ? `${T.purple}16` : 'var(--color-bg-secondary)',
-                    border: isActive ? `1px solid ${T.purple}30` : '1px solid var(--color-border-primary)',
+                    background: isActive ? `${T.purple}16` : `${T.purple}08`,
+                    border: isActive ? `1px solid ${T.purple}30` : `1px solid ${T.purple}18`,
                     opacity: isEnabled ? 1 : 0.6,
                     transition: 'opacity 0.2s, background 0.2s',
                   }}
