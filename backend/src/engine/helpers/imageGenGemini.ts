@@ -30,8 +30,12 @@ function buildGeminiImagePromptText(prompt: DynamicValue, payload: LooseRecord =
     if (payload.size) lines.push(`Size: ${payload.size}`);
     if (payload.aspect_ratio) lines.push(`Aspect ratio: ${payload.aspect_ratio}`);
   }
+  if (hasInputImage) {
+    const ratio = payload.ratio !== 'auto' ? payload.ratio : payload.aspect_ratio;
+    if (ratio) lines.push(`Output aspect ratio: ${ratio}`);
+    if (payload.resolution) lines.push(`Output resolution: ${payload.resolution}`);
+  }
   if (payload.quality) lines.push(`Quality: ${payload.quality}`);
-  if (payload.resolution) lines.push(`Resolution tier: ${payload.resolution}`);
   if (payload.output_format) lines.push(`Output format: ${payload.output_format}`);
   return lines.join('\n');
 }
@@ -63,8 +67,8 @@ export function buildGeminiImageParts(prompt: DynamicValue, images: DynamicValue
 }
 
 export function buildGeminiImageGenerationConfig(payload: LooseRecord = {}, supportedRatios: Set<string>, hasInputImage = false) {
-  const imageConfig: LooseRecord = {};
   if (hasInputImage) return undefined;
+  const imageConfig: LooseRecord = {};
   const aspectRatio = payload.ratio && payload.ratio !== 'auto' ? payload.ratio : payload.aspect_ratio;
   const imageSize = GEMINI_IMAGE_SIZE_BY_RESOLUTION[payload.resolution as keyof typeof GEMINI_IMAGE_SIZE_BY_RESOLUTION];
 

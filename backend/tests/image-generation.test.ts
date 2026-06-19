@@ -1285,6 +1285,63 @@ test('generateImages sends Gemini imageConfig for native aspect ratio and resolu
   }
 });
 
+test('generateImages keeps aspect ratio and resolution in the prompt when editing an image', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requestBody = JSON.parse(String(options.body));
+
+    return new Response(JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'YWJj',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await generateImages({
+      model: 'gemini-3-pro-image-preview',
+      prompt: 'convert to manga panels',
+      image: ['data:image/png;base64,YWJj'],
+      ratio: '9:16',
+      resolution: '4k',
+    }, createRuntimeConfig({
+      projectModels: [
+        {
+          id: 'gemini-3-pro-image-preview',
+          modelId: 'gemini-3-pro-image-preview',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'gemini-generate-content',
+        },
+      ],
+    }));
+
+    assertGeneratedPngOutput(result);
+    assert.equal(requestBody.generationConfig, undefined);
+    assert.equal(requestBody.contents[0].parts[0].text.includes('Output aspect ratio: 9:16'), true);
+    assert.equal(requestBody.contents[0].parts[0].text.includes('Output resolution: 4k'), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('generateImages maps 1k resolution to Gemini native imageSize', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = null;
