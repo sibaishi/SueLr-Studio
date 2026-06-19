@@ -8,6 +8,8 @@ interface RemoteUrlValidationOptions {
   fieldName?: string;
   allowHttp?: boolean;
   allowPrivate?: boolean;
+  /** 允许公网 HTTP 下载（下载后将通过内容 magic bytes 验证兜底） */
+  allowPublicHttp?: boolean;
 }
 
 interface DnsCacheEntry {
@@ -120,9 +122,10 @@ function assertIpAddressAllowed(
   }
 }
 
-function assertHttpAllowedForTarget(url: URL, fieldName: string, isPrivateTarget: boolean): void {
+function assertHttpAllowedForTarget(url: URL, fieldName: string, isPrivateTarget: boolean, allowPublicHttp = false): void {
   if (url.protocol !== 'http:') return;
   if (isPrivateTarget) return;
+  if (allowPublicHttp) return;
   throw new ValidationError(
     'INVALID_REMOTE_URL',
     `${fieldName} 仅允许公网使用 HTTPS 地址，HTTP 仅可用于本机或内网服务`,
@@ -144,7 +147,7 @@ async function resolveHostname(hostname: string): Promise<string[]> {
 }
 
 export async function validateRemoteUrl(rawUrl: string | URL, options: RemoteUrlValidationOptions = {}): Promise<URL> {
-  const { fieldName = '远程地址', allowHttp = false, allowPrivate = false } = options;
+  const { fieldName = '远程地址', allowHttp = false, allowPrivate = false, allowPublicHttp = false } = options;
 
   let parsed: URL;
   try {
@@ -163,12 +166,12 @@ export async function validateRemoteUrl(rawUrl: string | URL, options: RemoteUrl
   if (net.isIP(parsed.hostname)) {
     const isPrivateTarget = isPrivateOrBlockedIp(parsed.hostname);
     assertIpAddressAllowed(parsed.hostname, fieldName, { allowPrivate });
-    assertHttpAllowedForTarget(parsed, fieldName, isPrivateTarget);
+    assertHttpAllowedForTarget(parsed, fieldName, isPrivateTarget, allowPublicHttp);
     return parsed;
   }
 
   if (allowPrivate && isLoopbackHostname(parsed.hostname)) {
-    assertHttpAllowedForTarget(parsed, fieldName, true);
+    assertHttpAllowedForTarget(parsed, fieldName, true, allowPublicHttp);
     return parsed;
   }
 
@@ -187,7 +190,7 @@ export async function validateRemoteUrl(rawUrl: string | URL, options: RemoteUrl
   for (const address of addresses) {
     assertIpAddressAllowed(address, fieldName, { allowPrivate });
   }
-  assertHttpAllowedForTarget(parsed, fieldName, isPrivateTarget);
+  assertHttpAllowedForTarget(parsed, fieldName, isPrivateTarget, allowPublicHttp);
 
   return parsed;
 }
@@ -199,5 +202,47 @@ export async function assertSafeProviderBaseUrl(baseUrl: string | URL, fieldName
 
 export async function assertSafeRemoteDownloadUrl(url: string | URL, fieldName = '远程资源地址'): Promise<URL> {
   const allowPrivate = allowsPrivateRemoteDownloadUrls();
-  return validateRemoteUrl(url, { fieldName, allowHttp: true, allowPrivate });
+  return validateRemoteUrl(url, { fieldName, allowHttp: true, allowPrivate, allowPublicHttp: true });
+}
+
+// ── 图片内容安全验证 ──────────────────────────────────────────
+
+const IMAGE_MAGIC_SIGNATURES: Array<{ signature: number[]; label: string }> = [
+  { signature: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], label: 'PNG' },
+  { signature: [0xFF, 0xD8, 0xFF], label: 'JPEG' },
+  { signature: [0x47, 0x49, 0x46, 0x38], label: 'GIF' },
+  { signature: [0x52, 0x49, 0x46, 0x46], label: 'WebP' },
+  { signature: [0x00, 0x00, 0x01, 0x00], label: 'ICO' },
+  { signature: [0x42, 0x4D], label: 'BMP' },
+];
+
+function matchMagic(buffer: Buffer, signature: number[], minLen: number): boolean {
+  if (buffer.byteLength < minLen) return false;
+  return signature.every((byte, i) => buffer[i] === byte);
+}
+
+/**
+ * 验证二进制内容是否为合法图片格式（基于文件头 magic bytes）。
+ * 作为 HTTP 明文下载的内容安全兜底：即使攻击者替换了响应体，
+ * 非图片数据也无法通过此检查。
+ */
+export function validateImageBuffer(buffer: Buffer): void {
+  if (buffer.byteLength < 8) {
+    throw new ValidationError('INVALID_IMAGE_CONTENT', '下载内容过小，不是合法图片');
+  }
+
+  for (const { signature, label } of IMAGE_MAGIC_SIGNATURES) {
+    if (label === 'WebP') {
+      // RIFF 容器需额外验证偏移 8 处的 WEBP 标识
+      if (matchMagic(buffer, signature, 12) &&
+          buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+        return;
+      }
+      continue;
+    }
+    if (matchMagic(buffer, signature, signature.length)) return;
+  }
+
+  const hex = buffer.slice(0, 16).toString('hex');
+  throw new ValidationError('INVALID_IMAGE_CONTENT', `下载内容不是合法图片格式（文件头: ${hex}）`);
 }

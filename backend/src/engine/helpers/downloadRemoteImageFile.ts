@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
+import { assertSafeRemoteDownloadUrl, validateImageBuffer } from '../../platform/security/network-guards.ts';
 import { getScopedStoragePaths } from '../../platform/storage/index.ts';
 import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 
-const DOWNLOAD_TIMEOUT_MS = 30_000;
+const DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_BYTES = 20 * 1024 * 1024;
 
 function describeFetchError(error: unknown): string {
@@ -56,6 +56,7 @@ export async function fetchImageBuffer(
   if (buffer.byteLength > MAX_BYTES) {
     throw new Error('下载远程图片失败: 文件超过大小限制');
   }
+  validateImageBuffer(buffer);
 
   return { buffer, mimeType: response.headers.get('content-type') || 'image/png' };
 }

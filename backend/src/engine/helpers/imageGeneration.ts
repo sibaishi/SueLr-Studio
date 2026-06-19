@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ValidationError } from '../../app/errors/index.ts';
 import { getProviderAdapter } from '../../platform/providers/index.ts';
-import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
+import { assertSafeRemoteDownloadUrl, validateImageBuffer } from '../../platform/security/network-guards.ts';
 import { getScopedStoragePaths } from '../../platform/storage/index.ts';
 import { resolveModelRuntime } from './apiConfig.ts';
 import { fileToBase64 } from './fileHelper.ts';
@@ -76,7 +76,7 @@ const ALLOWED_QUALITY = new Set(['low', 'medium', 'high', 'auto']);
 const ALLOWED_FORMAT = new Set(['png', 'jpeg', 'webp']);
 const ALLOWED_IMAGE_RESOLUTION = new Set(['auto', '512px', '1k', '2k', '4k']);
 const IMAGE_RESOLUTION_SUFFIX_REGEX = /-(512px|1k|2k|4k)$/i;
-const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 30_000;
+const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 60_000;
 const REMOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const DEFAULT_IMAGE_ENDPOINT = '/v1/images/generations';
 const GEMINI_URL_RESPONSE_FORMAT = 'url';
@@ -728,6 +728,7 @@ async function downloadRemoteImage(
   if (buffer.byteLength > REMOTE_IMAGE_MAX_BYTES) {
     throw new Error('下载图片失败: 文件超过大小限制');
   }
+  validateImageBuffer(buffer);
   return `data:${contentType};base64,${buffer.toString('base64')}`;
 }
 
