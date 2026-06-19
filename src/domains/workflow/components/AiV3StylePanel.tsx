@@ -133,12 +133,15 @@ export default function AiV3StylePanel() {
   // ── mode detection (all hooks before early return) ──
   const selectedModel = v3Node ? String(((v3Node.data || {}) as Record<string, unknown>).model || '') : '';
 
+  const isModelMatch = (m: { value: string; modelId: string }, modelValue: string) =>
+    String(m.value) === modelValue || String(m.modelId) === modelValue;
+
   const determineMode = useCallback((modelValue: string) => {
     if (!modelValue) return 'chat';
-    if ((availableModels.image || []).some((m) => String(m.value) === modelValue)) return 'image';
-    if ((availableModels.video || []).some((m) => String(m.value) === modelValue)) return 'video';
-    if ((availableModels.chat || []).some((m) => String(m.value) === modelValue)) return 'chat';
-    if ((availableModels.midjourney || []).some((m) => String(m.value) === modelValue)) return 'midjourney';
+    if ((availableModels.image || []).some((m) => isModelMatch(m, modelValue))) return 'image';
+    if ((availableModels.video || []).some((m) => isModelMatch(m, modelValue))) return 'video';
+    if ((availableModels.chat || []).some((m) => isModelMatch(m, modelValue))) return 'chat';
+    if ((availableModels.midjourney || []).some((m) => isModelMatch(m, modelValue))) return 'midjourney';
     return 'chat';
   }, [availableModels]);
 
@@ -334,7 +337,7 @@ export default function AiV3StylePanel() {
   const modelLabel = useMemo(() => {
     for (const cfg of modelTree) {
       for (const cat of cfg.cats) {
-        const found = cat.models.find((m) => m.value === selectedModel);
+        const found = cat.models.find((m) => m.value === selectedModel || m.modelId === selectedModel);
         if (found) return found.label;
       }
     }
@@ -811,9 +814,9 @@ function ModelTreeSelector({
                               display: 'block', width: '100%', textAlign: 'left',
                               padding: '5px 9px 5px 16px', borderRadius: 6,
                               border: 'none', cursor: 'pointer',
-                              background: m.value === selectedModel ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'transparent',
-                              color: m.value === selectedModel ? 'var(--node-color)' : 'var(--t-text)',
-                              fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: m.value === selectedModel ? 500 : 400,
+                              background: (m.value === selectedModel || m.modelId === selectedModel) ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'transparent',
+                              color: (m.value === selectedModel || m.modelId === selectedModel) ? 'var(--node-color)' : 'var(--t-text)',
+                              fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: (m.value === selectedModel || m.modelId === selectedModel) ? 500 : 400,
                             }}
                           >
                             {m.label}

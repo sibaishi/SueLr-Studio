@@ -178,7 +178,7 @@ export function createWorkflowEditorSessionActions(
 
         const enrichConfigName = (item: { label: string; value: string; modelId: string; configId: string; configName: string }) => ({
           label: item.label,
-          value: item.value,
+          value: item.configId ? `${item.configId}::${item.modelId}` : item.value,
           modelId: item.modelId,
           configId: item.configId,
           configName: localNameMap.get(item.configId) || item.configName || item.configId,

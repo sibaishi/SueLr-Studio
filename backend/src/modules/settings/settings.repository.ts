@@ -712,7 +712,7 @@ export class SettingsRepository {
         const pairKey = `${configId}::${model.modelId}`;
         if (seenPairs.has(pairKey)) continue;
         seenPairs.add(pairKey);
-        const opt = { label: model.modelId, value: model.modelId, modelId: model.modelId, configId, configName };
+        const opt = { label: model.modelId, value: `${configId}::${model.modelId}`, modelId: model.modelId, configId, configName };
         configModels.all.push(opt);
         if (model.type === 'chat') configModels.chat.push(opt);
         if (model.type === 'image') configModels.image.push(opt);
