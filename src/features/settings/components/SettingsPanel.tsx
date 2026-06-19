@@ -115,6 +115,13 @@ export function SettingsPanel({
     () => normalizeProjectModels(activeConfig?.projectModels || []),
     [activeConfig?.projectModels],
   );
+  const configStats = useMemo(() => {
+    const enabled = apiConfigs.filter((c) => c.enabled !== false);
+    return {
+      total: enabled.length,
+      totalModels: enabled.reduce((sum, c) => sum + (c.projectModels?.length || 0), 0),
+    };
+  }, [apiConfigs]);
   const importedIds = useMemo(() => new Set(projectModels.map((model) => model.modelId)), [projectModels]);
   const importableModels = useMemo(
     () => discoveredModels.filter((model) => !importedIds.has(model.id)),
@@ -514,7 +521,7 @@ export function SettingsPanel({
       desc: '设置健康度与常用入口',
       icon: Layers3,
       accent: T.blue,
-      stat: activeConfig?.name || '默认',
+      stat: `${configStats.total} 项配置`,
     },
     {
       id: 'connection',
@@ -947,11 +954,19 @@ export function SettingsPanel({
             </div>
             <div className="flex-col" style={{ gap: 10, marginTop: 14, flex: 1 }}>
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>已启用配置</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {configStats.total}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>项 API 配置</div>
+              </div>
+
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>已配置模型</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-                  {projectModels.length}
+                  {configStats.totalModels}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>已纳入项目模型库</div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>跨全部配置</div>
               </div>
 
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
