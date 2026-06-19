@@ -717,11 +717,9 @@ export function SettingsPanel({
                     fontSize: 11,
                     padding: '3px 8px',
                     borderRadius: 999,
-                    border: '1px solid',
-                    borderColor: config.id === activeConfigId ? T.blue : 'var(--color-border)',
-                    background: config.id === activeConfigId ? `${T.blue}14` : 'var(--color-bg-secondary)',
-                    color: config.id === activeConfigId ? T.blue : 'var(--color-text-secondary)',
-                    fontWeight: config.id === activeConfigId ? 600 : 400,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-secondary)',
                     whiteSpace: 'nowrap',
                   }}
                 >
