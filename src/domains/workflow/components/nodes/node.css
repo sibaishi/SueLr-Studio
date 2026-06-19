@@ -1684,7 +1684,13 @@
   cursor: none;
 }
 
-.node-canvas-editor-modal__canvas,
+.node-canvas-editor-modal__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .node-canvas-editor-modal__canvas {
   touch-action: none;
 }

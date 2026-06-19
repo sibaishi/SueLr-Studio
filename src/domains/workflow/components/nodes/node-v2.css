@@ -1674,7 +1674,13 @@
   cursor: none;
 }
 
-.node-canvas-editor-modal__canvas,
+.node-canvas-editor-modal__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .node-canvas-editor-modal__canvas {
   touch-action: none;
 }
@@ -2699,8 +2705,8 @@
   letter-spacing: 0.04em;
 }
 
-/* Appendix buttons & status pills â€?V2 node shell palette */
-/* Appendix bar â€?unified button container */
+/* Appendix buttons & status pills â€” V2 node shell palette */
+/* Appendix bar â€” unified button container */
 .node-v2-appendix-bar {
   display: flex;
   align-items: center;
