@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
             padding: 32,
             background: T.bg,
             color: T.text,
-            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            fontFamily: 'var(--font-sans)',
           }}
         >
           <div style={{ fontSize: 48, marginBottom: 16 }}>!</div>

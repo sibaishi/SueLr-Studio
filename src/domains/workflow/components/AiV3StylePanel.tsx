@@ -764,7 +764,7 @@ function ModelTreeSelector({
                           border: 'none', cursor: 'pointer',
                           background: m.value === selectedModel ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'transparent',
                           color: m.value === selectedModel ? 'var(--node-color)' : 'var(--t-text)',
-                          fontSize: 12, fontFamily: 'monospace', fontWeight: m.value === selectedModel ? 600 : 400,
+                          fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: m.value === selectedModel ? 600 : 400,
                         }}
                       >
                         {m.label}

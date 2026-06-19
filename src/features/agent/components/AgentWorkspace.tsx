@@ -485,7 +485,7 @@ function renderStructuredTextBlock(value: string, label?: string) {
         overflowX: 'auto',
         fontSize: 12,
         lineHeight: 1.6,
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        fontFamily: 'var(--font-mono)',
       }}
     >
       <code>{formatJsonText(trimmed)}</code>

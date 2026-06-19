@@ -189,8 +189,7 @@ export default function App() {
               display: 'flex',
               flexDirection: 'column',
               height: '100vh',
-              fontFamily:
-                '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
+              fontFamily: 'var(--font-sans)',
               background: 'transparent',
               color: colors.text,
               minWidth: 1280,

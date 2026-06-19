@@ -16,14 +16,20 @@ const GEMINI_IMAGE_SIZE_BY_RESOLUTION = {
   '4k': '4K',
 };
 
-function buildGeminiImagePromptText(prompt: DynamicValue, payload: LooseRecord = {}): string {
+function buildGeminiImagePromptText(prompt: DynamicValue, payload: LooseRecord = {}, hasInputImage = false): string {
   const lines: string[] = [];
   if (cleanText(prompt)) {
-    lines.push('Generate an image from this prompt:');
+    if (hasInputImage) {
+      lines.push('Edit the provided image according to this instruction:');
+    } else {
+      lines.push('Generate an image from this prompt:');
+    }
     lines.push(cleanText(prompt));
   }
-  if (payload.size) lines.push(`Size: ${payload.size}`);
-  if (payload.aspect_ratio) lines.push(`Aspect ratio: ${payload.aspect_ratio}`);
+  if (!hasInputImage) {
+    if (payload.size) lines.push(`Size: ${payload.size}`);
+    if (payload.aspect_ratio) lines.push(`Aspect ratio: ${payload.aspect_ratio}`);
+  }
   if (payload.quality) lines.push(`Quality: ${payload.quality}`);
   if (payload.resolution) lines.push(`Resolution tier: ${payload.resolution}`);
   if (payload.output_format) lines.push(`Output format: ${payload.output_format}`);
@@ -41,7 +47,8 @@ function dataUrlToGeminiInlineData(dataUrl: DynamicValue): { mimeType: string; d
 
 export function buildGeminiImageParts(prompt: DynamicValue, images: DynamicValue, payload: LooseRecord = {}) {
   const parts: DynamicValue[] = [];
-  const promptText = buildGeminiImagePromptText(prompt, payload);
+  const hasInputImage = Array.isArray(images) && images.some((img) => !!img);
+  const promptText = buildGeminiImagePromptText(prompt, payload, hasInputImage);
   if (promptText) parts.push({ text: promptText });
   for (const image of images || []) {
     if (!image) continue;
@@ -55,8 +62,9 @@ export function buildGeminiImageParts(prompt: DynamicValue, images: DynamicValue
   return parts;
 }
 
-export function buildGeminiImageGenerationConfig(payload: LooseRecord = {}, supportedRatios: Set<string>) {
+export function buildGeminiImageGenerationConfig(payload: LooseRecord = {}, supportedRatios: Set<string>, hasInputImage = false) {
   const imageConfig: LooseRecord = {};
+  if (hasInputImage) return undefined;
   const aspectRatio = payload.ratio && payload.ratio !== 'auto' ? payload.ratio : payload.aspect_ratio;
   const imageSize = GEMINI_IMAGE_SIZE_BY_RESOLUTION[payload.resolution as keyof typeof GEMINI_IMAGE_SIZE_BY_RESOLUTION];
 

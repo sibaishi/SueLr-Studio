@@ -80,7 +80,7 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -1200,7 +1200,7 @@ body {
   min-height: 0;
   overflow-y: auto;
   margin: 0;
-  font-family: "SF Mono", "JetBrains Mono", "Menlo", "Monaco", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.7;
   color: var(--color-text-primary);
@@ -2857,7 +2857,7 @@ body {
 }
 
 .workflow-results__text--mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
 }
 
@@ -3206,7 +3206,7 @@ body {
 .workflow-import-modal__meta-row strong {
   min-width: 0;
   color: var(--color-text-primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   overflow-wrap: anywhere;
   text-align: right;

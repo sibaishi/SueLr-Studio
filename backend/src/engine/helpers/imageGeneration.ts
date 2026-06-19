@@ -847,7 +847,8 @@ export async function generateImages(
 
             if (usesGeminiGenerateContent) {
               const buildRequestBody = (options: LooseRecord = {}) => {
-                const generationConfig = buildGeminiConfig({ ...payload, model: activeModel }, SUPPORTED_RATIOS);
+                const hasInputImage = Array.isArray(payload.image) && payload.image.some((img: DynamicValue) => !!img);
+                const generationConfig = buildGeminiConfig({ ...payload, model: activeModel }, SUPPORTED_RATIOS, hasInputImage);
                 return {
                   contents: [
                     {

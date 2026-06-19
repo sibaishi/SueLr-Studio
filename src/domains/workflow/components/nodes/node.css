@@ -441,7 +441,7 @@
   color: var(--port-color);
   background: color-mix(in srgb, var(--port-color) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--port-color) 16%, transparent);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 8px;
   font-weight: 700;
 }
@@ -2293,7 +2293,7 @@
 
 .node-param__value {
   color: var(--node-color);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
 }
@@ -2403,7 +2403,7 @@
 }
 
 .node-value-card__body--mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
 }
 

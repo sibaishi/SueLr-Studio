@@ -413,7 +413,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                             <span
                               style={{
                                 display: 'block',
-                                fontFamily: 'monospace',
+                                fontFamily: 'var(--font-mono)',
                                 fontSize: 13,
                                 lineHeight: 1.35,
                                 overflowWrap: 'anywhere',
@@ -531,7 +531,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                           <div
                             style={{
                               color: 'var(--color-text-primary)',
-                              fontFamily: 'monospace',
+                              fontFamily: 'var(--font-mono)',
                               overflowWrap: 'anywhere',
                             }}
                           >

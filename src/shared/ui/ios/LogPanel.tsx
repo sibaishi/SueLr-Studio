@@ -42,7 +42,7 @@ export function LogPanel({
         overflowY: 'auto',
         ...glass(0.02),
         padding: 12,
-        fontFamily: 'monospace',
+        fontFamily: 'var(--font-mono)',
         fontSize: 11,
         display: 'flex',
         flexDirection: 'column',
