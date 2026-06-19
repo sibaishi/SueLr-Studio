@@ -720,7 +720,7 @@ export function SettingsPanel({
                     border: '1px solid var(--color-border)',
                     background: 'var(--color-bg-secondary)',
                     color: 'var(--color-text-secondary)',
-                    maxWidth: '3em',
+                    maxWidth: '2em',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
