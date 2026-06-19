@@ -1,5 +1,5 @@
 import type { RuntimeCapabilities } from '@/shared/runtime';
-import type { ApiConfig, LogEntry, Memory, ModelInfo, ThemeMode } from '@/shared/types';
+import type { ApiConfig, LogEntry, ModelInfo, ThemeMode } from '@/shared/types';
 import type { Dispatch, SetStateAction } from 'react';
 
 export type StreamMode = 'stream' | 'non-stream';

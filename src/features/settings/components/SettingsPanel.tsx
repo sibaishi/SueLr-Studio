@@ -35,7 +35,7 @@ import { DefaultsSection } from './DefaultsSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
 import { ModelsSection } from './ModelsSection';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
-import { chipStyle, eyebrowStyle, mutedPanelStyle, panelStyle, sectionTitleStyle } from './styles';
+import { chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, panelStyle, sectionTitleStyle } from './styles';
 
 export function SettingsPanel({
   apiConfigs,
@@ -727,16 +727,6 @@ export function SettingsPanel({
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>整理项目模型库</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
                 导入、启用、禁用并标记对话、图像、视频模型能力。
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveModule('agent')}
-              style={{ ...mutedPanelStyle(), padding: 14, textAlign: 'left', cursor: 'pointer' }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>维护 Agent 行为</div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
-                在同一模块中管理 Persona 与长期记忆，减少设置入口跳转。
               </div>
             </button>
           </div>

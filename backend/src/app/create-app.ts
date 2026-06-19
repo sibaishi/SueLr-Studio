@@ -4,7 +4,6 @@ import path, { resolve } from 'node:path';
 import cors from 'cors';
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import express from 'express';
-import agentRoutes from '../modules/agent/agent.routes.ts';
 import assistantRoutes from '../modules/assistant/assistant.routes.ts';
 import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.ts';
 import executeRoutes from '../modules/execution/execution.routes.ts';
