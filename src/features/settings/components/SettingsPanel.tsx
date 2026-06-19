@@ -657,34 +657,55 @@ export function SettingsPanel({
           <div style={{ ...mutedPanelStyle(), padding: 16 }}>
             <div style={eyebrowStyle()}>模型</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-              {projectModels.length}
+              {configStats.totalModels}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>项目模型库条目</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>跨全部配置</div>
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 0.9fr)', gap: 12 }}>
           <div style={{ ...mutedPanelStyle(), padding: 18 }}>
-            <div style={eyebrowStyle()}>能力分布</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Chat</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-                  {projectModels.filter((model) => model.type === 'chat' && model.enabled).length}
-                </div>
+            <div style={eyebrowStyle()}>已启用配置</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 12 }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                {configStats.total}
               </div>
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Image</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-                  {projectModels.filter((model) => model.type === 'image' && model.enabled).length}
-                </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                项配置已启用
               </div>
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Video</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-                  {projectModels.filter((model) => model.type === 'video' && model.enabled).length}
+            </div>
+            <div style={{ marginTop: 14 }}>
+              {apiConfigs.filter((c) => c.enabled !== false).slice(0, 5).map((config) => (
+                <div
+                  key={config.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '6px 0',
+                    borderTop: '1px solid var(--color-border)',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: config.id === activeConfigId ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                      fontWeight: config.id === activeConfigId ? 700 : 400,
+                    }}
+                  >
+                    {config.name || config.base || config.id}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+                    {config.projectModels?.length || 0} 模型
+                  </span>
                 </div>
-              </div>
+              ))}
+              {apiConfigs.filter((c) => c.enabled !== false).length > 5 && (
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4, textAlign: 'right' }}>
+                  ...及其他 {configStats.total - 5} 项
+                </div>
+              )}
             </div>
           </div>
 
@@ -733,7 +754,7 @@ export function SettingsPanel({
             >
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>整理项目模型库</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
-                导入、启用、禁用并标记对话、图像、视频模型能力。
+                导入、启用、禁用并标记对话、图像、视频、MJ 模型能力。
               </div>
             </button>
           </div>
@@ -953,14 +974,6 @@ export function SettingsPanel({
               <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>系统概览</h2>
             </div>
             <div className="flex-col" style={{ gap: 10, marginTop: 14, flex: 1 }}>
-              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>已启用配置</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-                  {configStats.total}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>项 API 配置</div>
-              </div>
-
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>已配置模型</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
