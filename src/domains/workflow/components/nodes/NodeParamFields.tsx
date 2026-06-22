@@ -356,9 +356,7 @@ function ParamEditor({
             onBlur={handleBlur}
           >
             <option value="" disabled>
-              {selectOptions.length === 0
-                ? '还没有可用模型，请先配置或检测'
-                : '请选择...'}
+              {selectOptions.length === 0 ? '还没有可用模型，请先配置或检测' : '请选择...'}
             </option>
             {displayedValue && !hasValidOption && <option value={displayedValue}>{displayedValue}</option>}
             {Object.entries(
@@ -386,11 +384,7 @@ function ParamEditor({
               ),
             )}
           </select>
-          {isModelParam && !suppressModelHint && (
-            <div className="node-param__hint">
-              配置来源：全局设置。
-            </div>
-          )}
+          {isModelParam && !suppressModelHint && <div className="node-param__hint">配置来源：全局设置。</div>}
         </div>
       );
     }

@@ -122,7 +122,12 @@ function assertIpAddressAllowed(
   }
 }
 
-function assertHttpAllowedForTarget(url: URL, fieldName: string, isPrivateTarget: boolean, allowPublicHttp = false): void {
+function assertHttpAllowedForTarget(
+  url: URL,
+  fieldName: string,
+  isPrivateTarget: boolean,
+  allowPublicHttp = false,
+): void {
   if (url.protocol !== 'http:') return;
   if (isPrivateTarget) return;
   if (allowPublicHttp) return;
@@ -208,12 +213,12 @@ export async function assertSafeRemoteDownloadUrl(url: string | URL, fieldName =
 // ── 图片内容安全验证 ──────────────────────────────────────────
 
 const IMAGE_MAGIC_SIGNATURES: Array<{ signature: number[]; label: string }> = [
-  { signature: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], label: 'PNG' },
-  { signature: [0xFF, 0xD8, 0xFF], label: 'JPEG' },
+  { signature: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], label: 'PNG' },
+  { signature: [0xff, 0xd8, 0xff], label: 'JPEG' },
   { signature: [0x47, 0x49, 0x46, 0x38], label: 'GIF' },
   { signature: [0x52, 0x49, 0x46, 0x46], label: 'WebP' },
   { signature: [0x00, 0x00, 0x01, 0x00], label: 'ICO' },
-  { signature: [0x42, 0x4D], label: 'BMP' },
+  { signature: [0x42, 0x4d], label: 'BMP' },
 ];
 
 function matchMagic(buffer: Buffer, signature: number[], minLen: number): boolean {
@@ -234,8 +239,13 @@ export function validateImageBuffer(buffer: Buffer): void {
   for (const { signature, label } of IMAGE_MAGIC_SIGNATURES) {
     if (label === 'WebP') {
       // RIFF 容器需额外验证偏移 8 处的 WEBP 标识
-      if (matchMagic(buffer, signature, 12) &&
-          buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+      if (
+        matchMagic(buffer, signature, 12) &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+      ) {
         return;
       }
       continue;

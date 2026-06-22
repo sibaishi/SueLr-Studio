@@ -49,6 +49,7 @@ const allowedRootFiles = new Set([
   '.env.example',
   '.codex-dev.err.log',
   '.codex-dev.log',
+  '.gitattributes',
   '.gitignore',
   'AGENTS.md',
   'biome.json',
@@ -72,6 +73,7 @@ const requiredFiles = [
   'docs/developer-guide.md',
   'start.bat',
   'start.sh',
+  '.gitattributes',
   '.gitignore',
   '.github/workflows/ci.yml',
   'package.json',
@@ -95,6 +97,7 @@ if (failures.length === 0) {
   const userGuide = readUtf8('docs/user-guide.md');
   const releaseSop = readUtf8('docs/release-sop.md');
   const ciWorkflow = readUtf8('.github/workflows/ci.yml');
+  const gitattributes = readUtf8('.gitattributes');
   const gitignore = readUtf8('.gitignore');
   const windowsLauncher = readUtf8('start.bat');
   const unixLauncher = readUtf8('start.sh');
@@ -273,6 +276,12 @@ if (failures.length === 0) {
   ]) {
     if (!gitignore.includes(entry)) {
       failures.push(`.gitignore is missing required generated-path entry: ${entry}`);
+    }
+  }
+
+  for (const entry of ['* text=auto eol=lf', '*.bat text eol=crlf', '*.cmd text eol=crlf']) {
+    if (!gitattributes.includes(entry)) {
+      failures.push(`.gitattributes is missing required line-ending rule: ${entry}`);
     }
   }
 }

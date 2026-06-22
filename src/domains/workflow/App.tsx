@@ -26,7 +26,12 @@ interface WorkflowPageProps {
   themeMode: ThemeMode;
 }
 
-export default function WorkflowPage({ onOpenStudioSettings, onOpenAgent, onToggleTheme, themeMode }: WorkflowPageProps) {
+export default function WorkflowPage({
+  onOpenStudioSettings,
+  onOpenAgent,
+  onToggleTheme,
+  themeMode,
+}: WorkflowPageProps) {
   return (
     <WorkflowConfirmProvider>
       <WorkflowPageContent
@@ -241,39 +246,42 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
     window.dispatchEvent(new Event('workflow:open-node-catalog'));
   }, []);
 
-  const handleCloseDocument = useCallback((documentId: string) => {
-    void (async () => {
-      const target = useWorkflowStore.getState().documents.find((document) => document.documentId === documentId);
-      if (target?.hasUnsavedChanges) {
-        const shouldSave = await confirm({
-          title: '关闭前保存修改？',
-          message: '这个标签页有未保存修改。可以先保存再关闭，或继续选择是否放弃修改。',
-          confirmText: '先保存',
-          cancelText: '继续关闭',
-        });
-        if (shouldSave) {
-          if (target.documentId !== useWorkflowStore.getState().activeDocumentId) {
-            useWorkflowStore.getState().setActiveWorkflowDocument(target.documentId);
+  const handleCloseDocument = useCallback(
+    (documentId: string) => {
+      void (async () => {
+        const target = useWorkflowStore.getState().documents.find((document) => document.documentId === documentId);
+        if (target?.hasUnsavedChanges) {
+          const shouldSave = await confirm({
+            title: '关闭前保存修改？',
+            message: '这个标签页有未保存修改。可以先保存再关闭，或继续选择是否放弃修改。',
+            confirmText: '先保存',
+            cancelText: '继续关闭',
+          });
+          if (shouldSave) {
+            if (target.documentId !== useWorkflowStore.getState().activeDocumentId) {
+              useWorkflowStore.getState().setActiveWorkflowDocument(target.documentId);
+            }
+            const saved = await useWorkflowStore.getState().saveWorkflow();
+            if (!saved) return;
+            await useWorkflowStore.getState().closeWorkflowDocument(target.documentId, { discardUnsaved: true });
+            return;
           }
-          const saved = await useWorkflowStore.getState().saveWorkflow();
-          if (!saved) return;
-          await useWorkflowStore.getState().closeWorkflowDocument(target.documentId, { discardUnsaved: true });
+          const discard = await confirm({
+            title: '放弃未保存修改？',
+            message: '关闭后，这个标签页里的未保存修改会被丢弃。',
+            confirmText: '放弃并关闭',
+            cancelText: '返回编辑',
+            tone: 'danger',
+          });
+          if (!discard) return;
+          await useWorkflowStore.getState().closeWorkflowDocument(documentId, { discardUnsaved: true });
           return;
         }
-        const discard = await confirm({
-          title: '放弃未保存修改？',
-          message: '关闭后，这个标签页里的未保存修改会被丢弃。',
-          confirmText: '放弃并关闭',
-          cancelText: '返回编辑',
-          tone: 'danger',
-        });
-        if (!discard) return;
-        await useWorkflowStore.getState().closeWorkflowDocument(documentId, { discardUnsaved: true });
-        return;
-      }
-      await useWorkflowStore.getState().closeWorkflowDocument(documentId);
-    })();
-  }, [confirm]);
+        await useWorkflowStore.getState().closeWorkflowDocument(documentId);
+      })();
+    },
+    [confirm],
+  );
   handleCloseDocumentRef.current = handleCloseDocument;
 
   const handleLibraryOpenWorkflow = useCallback(
@@ -372,9 +380,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
           onAutoArrange={store.autoArrangeWorkflow}
         />
 
-        {shouldRenderResultsPanel && (
-          <ResultsPanel motionState={rightPanelCollapsed ? 'leaving' : 'entering'} />
-        )}
+        {shouldRenderResultsPanel && <ResultsPanel motionState={rightPanelCollapsed ? 'leaving' : 'entering'} />}
 
         <StatusBar
           documents={store.documents}

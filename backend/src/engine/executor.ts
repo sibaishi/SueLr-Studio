@@ -129,11 +129,18 @@ async function runWithConcurrency<T, R>(
 }
 
 function isIterateControlNodeType(type?: string): boolean {
-  return type === ITERATE_RUN_NODE_TYPE || type === ITERATE_IMAGE_RUN_NODE_TYPE || type === ITERATE_RUN_V2_NODE_TYPE || type === ITERATE_IMAGE_RUN_V2_NODE_TYPE;
+  return (
+    type === ITERATE_RUN_NODE_TYPE ||
+    type === ITERATE_IMAGE_RUN_NODE_TYPE ||
+    type === ITERATE_RUN_V2_NODE_TYPE ||
+    type === ITERATE_IMAGE_RUN_V2_NODE_TYPE
+  );
 }
 
 function getIterateMissingInputError(type?: string): string {
-  return type === ITERATE_IMAGE_RUN_NODE_TYPE || type === ITERATE_IMAGE_RUN_V2_NODE_TYPE ? '图像逐项运行没有可用的图片输入' : '逐项运行没有可用的文本输入';
+  return type === ITERATE_IMAGE_RUN_NODE_TYPE || type === ITERATE_IMAGE_RUN_V2_NODE_TYPE
+    ? '图像逐项运行没有可用的图片输入'
+    : '逐项运行没有可用的文本输入';
 }
 
 function getReachableNodeIds(sourceId: string, edges: WorkflowEdge[]): Set<string> {

@@ -66,7 +66,8 @@ interface FlowCanvasProps {
 
 function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const store = useWorkflowCanvasStore();
-  const animatedEdgeType = store.edgeStyle === 'smoothstep' ? ('animatedSvgSmoothstep' as const) : ('animatedSvg' as const);
+  const animatedEdgeType =
+    store.edgeStyle === 'smoothstep' ? ('animatedSvgSmoothstep' as const) : ('animatedSvg' as const);
   const reactFlow = useReactFlow();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
@@ -941,7 +942,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
             </div>
           </div>
         ))}
-
     </div>
   );
 }

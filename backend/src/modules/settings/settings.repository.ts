@@ -402,15 +402,18 @@ function sanitizeSettingsShape(input: DynamicValue) {
     imageStreamingMode: normalizeStreamingMode(value.ui?.imageStreamingMode, DEFAULT_SETTINGS.ui.imageStreamingMode),
     videoStreamingMode: normalizeStreamingMode(value.ui?.videoStreamingMode, DEFAULT_SETTINGS.ui.videoStreamingMode),
   };
-  settings.runtime = mergeRuntimeSections({
-    activeConfigId: cleanOptionalString(value.runtime?.activeConfigId, 120),
-    tavilyApiKey: cleanOptionalString(value.runtime?.tavilyApiKey, 4000),
-    searchEnabled: value.runtime?.searchEnabled,
-    outboundProxy: sanitizeOutboundProxy(value.runtime?.outboundProxy),
-    configs: sanitizeApiConfigList(value.runtime?.configs),
-  }, {
-    configs: sanitizeApiConfigList(value.ai_configs),
-  });
+  settings.runtime = mergeRuntimeSections(
+    {
+      activeConfigId: cleanOptionalString(value.runtime?.activeConfigId, 120),
+      tavilyApiKey: cleanOptionalString(value.runtime?.tavilyApiKey, 4000),
+      searchEnabled: value.runtime?.searchEnabled,
+      outboundProxy: sanitizeOutboundProxy(value.runtime?.outboundProxy),
+      configs: sanitizeApiConfigList(value.runtime?.configs),
+    },
+    {
+      configs: sanitizeApiConfigList(value.ai_configs),
+    },
+  );
   settings.workflow = {
     snapToGrid: validateBoolean(value.workflow?.snapToGrid, DEFAULT_SETTINGS.workflow.snapToGrid),
     concurrency: sanitizeWorkflowConcurrency(value.workflow?.concurrency),
@@ -699,7 +702,10 @@ export class SettingsRepository {
     const { outboundProxy: _legacyOutboundProxy, ...publicRuntime } = currentSettings.runtime;
 
     // 从所有 enabled 配置中收集模型，附上 configId 和 configName
-    const configModels: Record<string, Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>> = { all: [], chat: [], image: [], video: [] };
+    const configModels: Record<
+      string,
+      Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>
+    > = { all: [], chat: [], image: [], video: [] };
     const seenPairs = new Set<string>();
     const allConfigs: DynamicValue[] = currentSettings.runtime.configs || [];
     for (const config of allConfigs) {
@@ -712,7 +718,13 @@ export class SettingsRepository {
         const pairKey = `${configId}::${model.modelId}`;
         if (seenPairs.has(pairKey)) continue;
         seenPairs.add(pairKey);
-        const opt = { label: model.modelId, value: `${configId}::${model.modelId}`, modelId: model.modelId, configId, configName };
+        const opt = {
+          label: model.modelId,
+          value: `${configId}::${model.modelId}`,
+          modelId: model.modelId,
+          configId,
+          configName,
+        };
         configModels.all.push(opt);
         if (model.type === 'chat') configModels.chat.push(opt);
         if (model.type === 'image') configModels.image.push(opt);

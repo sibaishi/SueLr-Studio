@@ -1,7 +1,15 @@
 .react-flow__edge.selected .react-flow__edge-path,
-.react-flow__edge:hover .react-flow__edge-path { filter: none; }
-.react-flow__edge.selected .react-flow__edge-path { stroke-width: 2.5; }
+.react-flow__edge:hover .react-flow__edge-path {
+  filter: none;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 2.5;
+}
 
 .react-flow__node.dragging,
-.react-flow__node.dragging * { transition: none !important; }
-.react-flow__node.dragging { will-change: transform; }
+.react-flow__node.dragging * {
+  transition: none !important;
+}
+.react-flow__node.dragging {
+  will-change: transform;
+}

@@ -15,13 +15,7 @@ interface AiV3ContentProps {
   onChange: (paramId: string, value: unknown) => void;
 }
 
-export function AiV3Content({
-  params: _params,
-  nodeId,
-  data,
-  outerStyle,
-  onChange: _onChange,
-}: AiV3ContentProps) {
+export function AiV3Content({ params: _params, nodeId, data, outerStyle, onChange: _onChange }: AiV3ContentProps) {
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   const outputs = nodeId ? nodeOutputs[nodeId] : undefined;
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -42,7 +36,13 @@ export function AiV3Content({
       <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
         <div className="node-gallery-frame-v2">
           {hasImage ? (
-            <img src={outputImages[0]} alt="" className="node-gallery-image-v2" title="双击全屏查看" onDoubleClick={() => setPreviewImage(outputImages[0])} />
+            <img
+              src={outputImages[0]}
+              alt=""
+              className="node-gallery-image-v2"
+              title="双击全屏查看"
+              onDoubleClick={() => setPreviewImage(outputImages[0])}
+            />
           ) : (
             <div className="node-gallery-empty-v2">
               <EmptyIcon size={32} strokeWidth={1.2} />
@@ -63,12 +63,22 @@ export function AiV3Content({
   }
 
   if (mode === 'video') {
-    const videoUrl = typeof (outputs as Record<string, unknown>)?.result === 'string' ? (outputs as Record<string, unknown>).result as string : typeof outputs?.video === 'string' ? outputs.video : null;
+    const videoUrl =
+      typeof (outputs as Record<string, unknown>)?.result === 'string'
+        ? ((outputs as Record<string, unknown>).result as string)
+        : typeof outputs?.video === 'string'
+          ? outputs.video
+          : null;
     return (
       <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
         <div className="node-gallery-frame-v2">
           {videoUrl ? (
-            <video src={videoUrl} controls className="node-gallery-video-v2" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <video
+              src={videoUrl}
+              controls
+              className="node-gallery-video-v2"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
           ) : (
             <div className="node-gallery-empty-v2">
               <Clapperboard size={32} strokeWidth={1.2} />
@@ -81,7 +91,12 @@ export function AiV3Content({
   }
 
   // chat (default)
-  const response = typeof (outputs as Record<string, unknown>)?.result === 'string' ? (outputs as Record<string, unknown>).result as string : typeof outputs?.response === 'string' ? outputs.response : null;
+  const response =
+    typeof (outputs as Record<string, unknown>)?.result === 'string'
+      ? ((outputs as Record<string, unknown>).result as string)
+      : typeof outputs?.response === 'string'
+        ? outputs.response
+        : null;
   return (
     <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
       <div className="node-gallery-frame-v2" style={{ padding: 10 }}>
@@ -90,7 +105,17 @@ export function AiV3Content({
             className="node-chat-response-v2"
             title="双击全屏查看"
             onDoubleClick={() => setFullscreenText(response)}
-            style={{ width: '100%', fontSize: 11, lineHeight: 1.6, color: 'var(--node-card-ink)', overflow: 'auto', height: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', cursor: 'default' }}
+            style={{
+              width: '100%',
+              fontSize: 11,
+              lineHeight: 1.6,
+              color: 'var(--node-card-ink)',
+              overflow: 'auto',
+              height: '100%',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              cursor: 'default',
+            }}
           >
             {response}
           </div>

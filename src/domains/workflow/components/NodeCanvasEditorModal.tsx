@@ -47,12 +47,7 @@ function loadImage(src: string) {
   });
 }
 
-export function NodeCanvasEditorModal({
-  src,
-  nodeLabel = '画板',
-  onClose,
-  onSavePaint,
-}: NodeCanvasEditorModalProps) {
+export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSavePaint }: NodeCanvasEditorModalProps) {
   const confirm = useWorkflowConfirm();
   const [tool, setTool] = useState<ToolMode>('brush');
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
@@ -232,9 +227,7 @@ export function NodeCanvasEditorModal({
 
       if (event.key.toLowerCase() === 'z' && !event.shiftKey) {
         event.preventDefault();
-        setHistory((current) =>
-          current.index <= 0 ? current : { ...current, index: current.index - 1 },
-        );
+        setHistory((current) => (current.index <= 0 ? current : { ...current, index: current.index - 1 }));
         return;
       }
 
@@ -491,9 +484,7 @@ export function NodeCanvasEditorModal({
             <button
               type="button"
               onClick={() =>
-                setHistory((current) =>
-                  current.index <= 0 ? current : { ...current, index: current.index - 1 },
-                )
+                setHistory((current) => (current.index <= 0 ? current : { ...current, index: current.index - 1 }))
               }
               disabled={history.index <= 0}
             >
@@ -554,7 +545,9 @@ export function NodeCanvasEditorModal({
           </div>
         </div>
 
-        <div className="node-canvas-editor-modal__note">画板会把笔触合成到当前大图预览中，保存后沿用大图窗口的回写链路。</div>
+        <div className="node-canvas-editor-modal__note">
+          画板会把笔触合成到当前大图预览中，保存后沿用大图窗口的回写链路。
+        </div>
 
         <div ref={viewportRef} className="node-canvas-editor-modal__viewport" onWheel={handleViewportWheel}>
           {!hasSourceImage ? (
@@ -656,7 +649,9 @@ export function NodeCanvasEditorModal({
         </div>
 
         <div className="node-canvas-editor-modal__footer">
-          <div className="node-canvas-editor-modal__status">{error || (isDirty ? '有未保存修改' : '当前内容已同步')}</div>
+          <div className="node-canvas-editor-modal__status">
+            {error || (isDirty ? '有未保存修改' : '当前内容已同步')}
+          </div>
           <div className="node-canvas-editor-modal__actions">
             <button
               type="button"

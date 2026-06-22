@@ -104,9 +104,7 @@ export default function Toolbar({
         aria-label="打开工作流库"
       >
         <Workflow size={18} />
-        {workflows.length > 0 && (
-          <span className="workflow-library-fab__badge">{workflows.length}</span>
-        )}
+        {workflows.length > 0 && <span className="workflow-library-fab__badge">{workflows.length}</span>}
       </button>
 
       <div

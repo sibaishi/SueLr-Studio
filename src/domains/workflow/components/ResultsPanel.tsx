@@ -16,16 +16,7 @@ import {
   uploadIoImageFileEntry,
 } from '@/domains/workflow/lib/ioImageFiles';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import {
-  AlertTriangle,
-  Clipboard,
-  Clock3,
-  FileText,
-  ImageIcon,
-  PlayCircle,
-  TerminalSquare,
-  Video,
-} from 'lucide-react';
+import { AlertTriangle, Clipboard, Clock3, FileText, ImageIcon, PlayCircle, TerminalSquare, Video } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type PanelTab = 'results' | 'logs';
@@ -149,10 +140,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
     async (image: PreviewImageItem) => {
       let entry;
       try {
-        entry = await createIoImageFileEntryFromUrl(
-          image.src,
-          image.name || imageFileNameFromUrl(image.src),
-        );
+        entry = await createIoImageFileEntryFromUrl(image.src, image.name || imageFileNameFromUrl(image.src));
       } catch (error) {
         console.warn('Failed to backfill image to IO node', error);
         return;
@@ -823,7 +811,16 @@ function TextFileResult({
                     title="回填到画布"
                     disabled={!text}
                   >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M12 2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z" />
                       <polyline points="8 6 8 12" />
                       <polyline points="5 9 8 12 11 9" />

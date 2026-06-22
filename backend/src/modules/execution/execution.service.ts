@@ -570,7 +570,10 @@ export class ExecutionService {
     throw new Error(`Workflow "${workflowName}" was not found.`);
   }
 
-  resolveWorkflowExecutionSource({ workflowId, workflowName, workflowSnapshot }: PlainObject, _options: PlainObject = {}) {
+  resolveWorkflowExecutionSource(
+    { workflowId, workflowName, workflowSnapshot }: PlainObject,
+    _options: PlainObject = {},
+  ) {
     if (isPlainObject(workflowSnapshot)) {
       return cloneWorkflow(workflowSnapshot);
     }
@@ -588,7 +591,10 @@ export class ExecutionService {
     onRunStarted = undefined,
     scope = undefined,
   }: PlainObject) {
-    const sourceWorkflow = this.resolveWorkflowExecutionSource({ workflowId, workflowName, workflowSnapshot }, { scope });
+    const sourceWorkflow = this.resolveWorkflowExecutionSource(
+      { workflowId, workflowName, workflowSnapshot },
+      { scope },
+    );
     const overridden = applyAgentInputOverrides(sourceWorkflow, inputs);
     const draftWorkflow = overridden.workflow === sourceWorkflow ? undefined : overridden.workflow;
     const snapshot = createExecutionSnapshot({ persistedWorkflow: sourceWorkflow, draftWorkflow });

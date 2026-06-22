@@ -9,13 +9,9 @@ export const AI_V3_NODE = {
   icon: 'bot',
   color: '#0A84FF',
   category: 'ai',
-  inputs: [
-    { id: 'input', label: '输入', type: 'any', required: false },
-  ],
+  inputs: [{ id: 'input', label: '输入', type: 'any', required: false }],
   outputs: [{ id: 'result', label: '结果', type: 'any' }],
-  params: [
-    { id: 'model', label: '模型', type: 'select', options: EMPTY_OPTIONS, default: '' },
-  ],
+  params: [{ id: 'model', label: '模型', type: 'select', options: EMPTY_OPTIONS, default: '' }],
   architect: { enabled: true, order: 21, defaults: { model: '' } },
   supportsDisabledPassthrough: true,
 };

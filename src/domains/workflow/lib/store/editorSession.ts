@@ -171,12 +171,17 @@ export function createWorkflowEditorSessionActions(
       if (result.success && result.data) {
         // 从前端 localStorage 直接取配置名，后端字段仅做 fallback
         const localConfigs: ApiConfig[] = loadJSON('ai_configs', []);
-        const localNameMap = new Map(localConfigs.map((c, i) => [
-          c.id,
-          c.name?.trim() || c.base?.trim() || `API 配置 ${i + 1}`,
-        ]));
+        const localNameMap = new Map(
+          localConfigs.map((c, i) => [c.id, c.name?.trim() || c.base?.trim() || `API 配置 ${i + 1}`]),
+        );
 
-        const enrichConfigName = (item: { label: string; value: string; modelId: string; configId: string; configName: string }) => ({
+        const enrichConfigName = (item: {
+          label: string;
+          value: string;
+          modelId: string;
+          configId: string;
+          configName: string;
+        }) => ({
           label: item.label,
           value: item.configId ? `${item.configId}::${item.modelId}` : item.value,
           modelId: item.modelId,

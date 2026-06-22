@@ -80,11 +80,7 @@ export function createApp() {
         callback(new Error('CORS origin not allowed'));
       },
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Request-Id',
-      ],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
     }),
   );
   app.use(express.json({ limit: '50mb' }));

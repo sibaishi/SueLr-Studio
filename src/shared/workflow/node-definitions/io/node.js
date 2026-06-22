@@ -8,9 +8,7 @@ export const IO_NODE = {
   icon: 'layers',
   color: '#5E5CE6',
   category: 'input',
-  inputs: [
-    { id: 'input', label: '输入', type: 'any', required: false },
-  ],
+  inputs: [{ id: 'input', label: '输入', type: 'any', required: false }],
   outputs: [{ id: 'result', label: '输出', type: 'any' }],
   params: [],
   architect: { enabled: true, order: 1, defaults: { text: '', content: [], _fileIds: [], _fileKinds: [] } },

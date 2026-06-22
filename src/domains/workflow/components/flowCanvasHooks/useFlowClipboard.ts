@@ -197,8 +197,8 @@ export function useFlowClipboard({
         return;
       }
 
-      const pastedFiles = Array.from(event.clipboardData?.files || []).filter((file) =>
-        getDroppedFileNodeType(file) === 'io',
+      const pastedFiles = Array.from(event.clipboardData?.files || []).filter(
+        (file) => getDroppedFileNodeType(file) === 'io',
       );
       if (pastedFiles.length === 0) {
         Array.from(event.clipboardData?.items || []).forEach((item) => {

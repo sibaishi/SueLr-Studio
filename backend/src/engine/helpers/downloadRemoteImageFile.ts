@@ -62,11 +62,7 @@ export async function fetchImageBuffer(
 }
 
 /** Write an image buffer to the generated files directory and return its API URL. */
-export function persistImageBuffer(
-  buffer: Buffer,
-  mimeType: string,
-  scope: RequestScope,
-): string {
+export function persistImageBuffer(buffer: Buffer, mimeType: string, scope: RequestScope): string {
   const ext = mimeType.split('/').pop() || 'png';
   const fileName = `images/${randomUUID()}.${ext}`;
   const filePath = path.join(getScopedStoragePaths(scope).generatedDir, fileName);

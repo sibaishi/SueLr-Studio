@@ -183,7 +183,8 @@ function createAgentConversation(): AgentConversation {
 }
 
 function isAgentMessage(value: unknown): value is AgentMessage {
-  const record = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  const record =
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
   return Boolean(
     record &&
       typeof record.id === 'string' &&
@@ -199,7 +200,8 @@ function loadAgentConversations(): AgentConversation[] {
     if (!Array.isArray(parsed)) return [createAgentConversation()];
     const conversations = parsed
       .map((item): AgentConversation | null => {
-        const record = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : null;
+        const record =
+          item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : null;
         if (!record || typeof record.id !== 'string' || !Array.isArray(record.messages)) return null;
         const messages = record.messages.filter(isAgentMessage);
         if (messages.length === 0) return null;
@@ -207,7 +209,8 @@ function loadAgentConversations(): AgentConversation[] {
         const updatedAt = typeof record.updatedAt === 'number' ? record.updatedAt : createdAt;
         return {
           id: record.id,
-          title: typeof record.title === 'string' && record.title.trim() ? record.title : getConversationTitle(messages),
+          title:
+            typeof record.title === 'string' && record.title.trim() ? record.title : getConversationTitle(messages),
           messages,
           createdAt,
           updatedAt,
@@ -1706,7 +1709,12 @@ export default function AgentWorkspace({
                   </option>
                 ))}
               </select>
-              <button type="button" className="agent-workspace__icon-button" onClick={createConversation} aria-label="新建会话">
+              <button
+                type="button"
+                className="agent-workspace__icon-button"
+                onClick={createConversation}
+                aria-label="新建会话"
+              >
                 <Plus size={16} />
               </button>
               <button

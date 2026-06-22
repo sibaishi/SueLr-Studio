@@ -82,18 +82,8 @@ export default function StatusBar({
         </div>
 
         <div className="workflow-statusbar__actions">
-          <StatusbarIconButton
-            icon={<Undo2 size={15} />}
-            label="撤销"
-            onClick={onUndo}
-            disabled={!canUndo}
-          />
-          <StatusbarIconButton
-            icon={<Redo2 size={15} />}
-            label="重做"
-            onClick={onRedo}
-            disabled={!canRedo}
-          />
+          <StatusbarIconButton icon={<Undo2 size={15} />} label="撤销" onClick={onUndo} disabled={!canUndo} />
+          <StatusbarIconButton icon={<Redo2 size={15} />} label="重做" onClick={onRedo} disabled={!canRedo} />
           <span className="workflow-statusbar__sep" />
           <StatusbarIconButton
             icon={<Upload size={15} />}

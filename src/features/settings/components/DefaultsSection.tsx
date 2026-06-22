@@ -112,7 +112,6 @@ export function DefaultsSection({ actions, view }: Props) {
               }}
               placeholder="5"
             />
-
           </div>
         </div>
       </SectionCard>

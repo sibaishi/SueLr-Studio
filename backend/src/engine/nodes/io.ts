@@ -48,10 +48,10 @@ export async function execute(
 
         if (aiItems.length > 0) {
           sendProgress?.('正在保存...');
-          const savedResult = await materializeContentForOutput(
-            aiItems.length === 1 ? aiItems[0] : aiItems,
-            { prefix: 'io', scope: apiConfig.scope },
-          );
+          const savedResult = await materializeContentForOutput(aiItems.length === 1 ? aiItems[0] : aiItems, {
+            prefix: 'io',
+            scope: apiConfig.scope,
+          });
           // Rebuild result in original order: AI items → saved URLs, others → passthrough
           let aiIdx = 0;
           const aiResult = Array.isArray(savedResult.content) ? savedResult.content : [savedResult.content];
@@ -77,9 +77,8 @@ export async function execute(
 
     // Fallback: no per-item type info — check aggregate _inputTypes
     const sourceTypes: unknown = (inputs as Record<string, unknown>)._inputTypes;
-    const hasAiSource = Array.isArray(sourceTypes) && sourceTypes.some(
-      (t) => typeof t === 'string' && AI_NODE_TYPES.test(t),
-    );
+    const hasAiSource =
+      Array.isArray(sourceTypes) && sourceTypes.some((t) => typeof t === 'string' && AI_NODE_TYPES.test(t));
     if (!hasAiSource) {
       sendProgress?.('正在展示...');
       return { result: raw };

@@ -403,7 +403,11 @@ export function extractImagesFromResponse(data: DynamicValue): string[] {
 
     for (const [nestedKey, nestedValue] of Object.entries(value)) {
       // When url is present in the same object, b64_json is a mirror — skip it
-      if (nestedKey === 'b64_json' && typeof (value as Record<string, unknown>).url === 'string' && (value as Record<string, unknown>).url) {
+      if (
+        nestedKey === 'b64_json' &&
+        typeof (value as Record<string, unknown>).url === 'string' &&
+        (value as Record<string, unknown>).url
+      ) {
         continue;
       }
       collectNestedImages(nestedValue, nestedKey);

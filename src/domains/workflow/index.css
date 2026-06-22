@@ -154,10 +154,7 @@ body {
   color: var(--color-text-secondary);
   background: transparent;
   cursor: pointer;
-  transition:
-    color var(--transition-fast),
-    background var(--transition-fast),
-    border-color var(--transition-fast),
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast),
     transform var(--transition-fast);
 }
 
@@ -337,7 +334,8 @@ body {
   -webkit-backdrop-filter: var(--glass-blur);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  transition: color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .workflow-library-fab:hover {
@@ -999,8 +997,8 @@ body {
 }
 
 .workflow-image-preview-modal__slot-toggle.is-active {
-  background: color-mix(in srgb, var(--color-accent, #0A84FF) 20%, transparent);
-  border-color: var(--color-accent, #0A84FF);
+  background: color-mix(in srgb, var(--color-accent, #0a84ff) 20%, transparent);
+  border-color: var(--color-accent, #0a84ff);
 }
 
 .workflow-image-preview-modal__swap-btn {
@@ -1062,13 +1060,14 @@ body {
 }
 
 .workflow-image-preview-modal__thumb.is-compare-a {
-  border-color: var(--color-accent, #0A84FF);
-  box-shadow: 0 0 0 1px var(--color-accent, #0A84FF), 0 0 8px color-mix(in srgb, var(--color-accent, #0A84FF) 36%, transparent);
+  border-color: var(--color-accent, #0a84ff);
+  box-shadow: 0 0 0 1px var(--color-accent, #0a84ff), 0 0 8px
+    color-mix(in srgb, var(--color-accent, #0a84ff) 36%, transparent);
 }
 
 .workflow-image-preview-modal__thumb.is-compare-b {
-  border-color: #FF9500;
-  box-shadow: 0 0 0 1px #FF9500, 0 0 8px color-mix(in srgb, #FF9500 36%, transparent);
+  border-color: #ff9500;
+  box-shadow: 0 0 0 1px #ff9500, 0 0 8px color-mix(in srgb, #ff9500 36%, transparent);
 }
 
 .workflow-image-preview-modal__thumb-badge {
@@ -1186,7 +1185,7 @@ body {
 }
 
 .workflow-image-preview-modal__text-mode::before {
-  content: '';
+  content: "";
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -1419,7 +1418,11 @@ body {
 
 .agent-workspace__mark {
   color: #fff;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 78%, #fff), color-mix(in srgb, var(--t-green) 46%, var(--color-accent)) 86%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 78%, #fff),
+    color-mix(in srgb, var(--t-green) 46%, var(--color-accent)) 86%
+  );
   box-shadow: 0 8px 18px color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
@@ -2216,7 +2219,7 @@ body {
     color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
 }
 
- .agent-workspace__message-text {
+.agent-workspace__message-text {
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -2511,7 +2514,7 @@ body {
 .agent-workspace__composer button:hover:not(:disabled) {
   transform: translateY(-1px);
   background: color-mix(in srgb, var(--color-bg-tertiary) 88%, transparent);
-  box-shadow: 0 10px 20px rgba(4, 10, 28, 0.10);
+  box-shadow: 0 10px 20px rgba(4, 10, 28, 0.1);
 }
 
 .agent-workspace__composer button:disabled {
@@ -3102,7 +3105,6 @@ body {
     flex-basis: 180px;
     min-width: 0;
   }
-
 }
 
 @media (max-width: 1160px) {
@@ -3318,9 +3320,7 @@ body {
   background: var(--color-bg-primary);
   overflow: hidden;
   color: var(--color-text-primary);
-  box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.26),
-    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.26), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
 .workflow-confirm-modal__dialog--danger {
@@ -3380,10 +3380,7 @@ body {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition:
-    background 140ms ease,
-    border-color 140ms ease,
-    transform 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 
 .workflow-confirm-modal__button:hover {

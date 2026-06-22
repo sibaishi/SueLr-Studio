@@ -136,14 +136,8 @@ function restoreOwnData(nodeData: Record<string, unknown>): Record<string, unkno
 }
 
 /** Merge data from all incoming IO source nodes into an IO target, respecting inputOrder. */
-function computeIoMergedData(
-  targetId: string,
-  nodes: Node[],
-  edges: Edge[],
-): Record<string, unknown> {
-  const incomingEdges = edges.filter(
-    (e) => e.target === targetId && (e.targetHandle === 'input' || !e.targetHandle),
-  );
+function computeIoMergedData(targetId: string, nodes: Node[], edges: Edge[]): Record<string, unknown> {
+  const incomingEdges = edges.filter((e) => e.target === targetId && (e.targetHandle === 'input' || !e.targetHandle));
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const ioIncomingEdges = incomingEdges.filter((e) => nodeMap.get(e.source)?.type === 'io');
 
@@ -163,12 +157,18 @@ function computeIoMergedData(
     if (typeEdges) {
       for (const eid of typeEdges) {
         const edge = ioIncomingEdges.find((e) => e.id === eid);
-        if (edge && !seen.has(eid)) { seen.add(eid); orderedEdges.push(edge); }
+        if (edge && !seen.has(eid)) {
+          seen.add(eid);
+          orderedEdges.push(edge);
+        }
       }
     }
   }
   for (const edge of ioIncomingEdges) {
-    if (!seen.has(edge.id)) { seen.add(edge.id); orderedEdges.push(edge); }
+    if (!seen.has(edge.id)) {
+      seen.add(edge.id);
+      orderedEdges.push(edge);
+    }
   }
 
   // Merge
@@ -324,14 +324,10 @@ export function createWorkflowGraphEditorActions(
         const changedNode = state.nodes.find((n) => n.id === nodeId);
         const ownUpdates = changedNode?.type === 'io' ? extractOwnUpdates(data) : {};
         const updatedNodes = state.nodes.map((node) =>
-          node.id === nodeId
-            ? { ...node, data: { ...node.data, ...data, ...ownUpdates } }
-            : node,
+          node.id === nodeId ? { ...node, data: { ...node.data, ...data, ...ownUpdates } } : node,
         );
         const withPropagation =
-          changedNode?.type === 'io'
-            ? propagateIoData(updatedNodes, state.edges, nodeId)
-            : updatedNodes;
+          changedNode?.type === 'io' ? propagateIoData(updatedNodes, state.edges, nodeId) : updatedNodes;
         return {
           nodes: normalizeEditorNodes(withPropagation, state.edges),
           nodeWarnings: {},
@@ -606,11 +602,13 @@ export function createWorkflowGraphEditorActions(
       if (targetNode?.type === 'io' && targetHandle === 'input') {
         const sourceNode = get().nodes.find((n) => n.id === source);
         const sourceNodeType = sourceNode?.type || '';
-        const isVideoSource = sourceNodeType && (sourceNodeType.toLowerCase().includes('video') && !sourceNodeType.toLowerCase().includes('videogen'));
+        const isVideoSource =
+          sourceNodeType &&
+          sourceNodeType.toLowerCase().includes('video') &&
+          !sourceNodeType.toLowerCase().includes('videogen');
         const isAudioSource = sourceNodeType && sourceNodeType.toLowerCase().includes('audio');
         const isImageSource =
-          !isVideoSource && !isAudioSource &&
-          (sourceNodeType.includes('image') || sourceNodeType.includes('Image'));
+          !isVideoSource && !isAudioSource && (sourceNodeType.includes('image') || sourceNodeType.includes('Image'));
 
         const existingEdgesToTarget = edges.filter((e) => e.target === target && e.targetHandle === 'input');
 
@@ -623,7 +621,12 @@ export function createWorkflowGraphEditorActions(
         if (isVideoSource && countByType((t) => t.includes('video') && !t.includes('videogen')) >= 1) return;
         if (isAudioSource && countByType((t) => t.includes('audio')) >= 1) return;
         if (isImageSource) {
-          if (countByType((t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video')) >= 9) return;
+          if (
+            countByType(
+              (t) => t.includes('image') || t.includes('Image') || t.includes('video') || t.includes('Video'),
+            ) >= 9
+          )
+            return;
         }
       }
       const filteredEdges = isMultiInput
@@ -646,9 +649,7 @@ export function createWorkflowGraphEditorActions(
       set((state) => {
         const sourceNode = state.nodes.find((n) => n.id === source);
         const withPropagation =
-          sourceNode?.type === 'io'
-            ? propagateIoData(state.nodes, nextEdges, source)
-            : state.nodes;
+          sourceNode?.type === 'io' ? propagateIoData(state.nodes, nextEdges, source) : state.nodes;
         return {
           edges: nextEdges,
           nodes: normalizeEditorNodes(withPropagation, nextEdges),
@@ -680,7 +681,10 @@ export function createWorkflowGraphEditorActions(
           if (targetIdx >= 0 && withPropagation[targetIdx].type === 'io') {
             const targetId = removedEdge.target;
             const mergedData = computeIoMergedData(targetId, withPropagation, edges);
-            withPropagation[targetIdx] = { ...withPropagation[targetIdx], data: { ...withPropagation[targetIdx].data, ...mergedData } };
+            withPropagation[targetIdx] = {
+              ...withPropagation[targetIdx],
+              data: { ...withPropagation[targetIdx].data, ...mergedData },
+            };
             withPropagation = propagateIoData(withPropagation, edges, targetId);
           }
         }

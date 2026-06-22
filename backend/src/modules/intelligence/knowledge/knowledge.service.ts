@@ -218,13 +218,23 @@ function scoreRecord(record: KnowledgeRecord, query: string) {
     ['保存', 'save', '落盘', '存档'],
   ];
   const synonymScore = tagSynonymScore.reduce((score, group) => {
-    if (group.some((keyword) => loweredQuery.includes(keyword)) && group.some((keyword) => haystack.includes(keyword))) {
+    if (
+      group.some((keyword) => loweredQuery.includes(keyword)) &&
+      group.some((keyword) => haystack.includes(keyword))
+    ) {
       return score + 2;
     }
     return score;
   }, 0);
 
-  return phrase + termScore + Math.min(bigramOverlap * 2, 3) + Math.min(characterOverlap, 2) + synonymScore + record.confidence;
+  return (
+    phrase +
+    termScore +
+    Math.min(bigramOverlap * 2, 3) +
+    Math.min(characterOverlap, 2) +
+    synonymScore +
+    record.confidence
+  );
 }
 
 function normalizeRecord(

@@ -71,7 +71,9 @@ export function getDroppedFileNodeType(file: File) {
     mime.startsWith('audio/') ||
     mime.startsWith('text/') ||
     mime === 'application/json' ||
-    /\.(txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml|png|jpg|jpeg|gif|webp|avif|bmp|svg|mp4|webm|mov|mkv|mp3|wav|ogg|aac|flac)$/i.test(name)
+    /\.(txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml|png|jpg|jpeg|gif|webp|avif|bmp|svg|mp4|webm|mov|mkv|mp3|wav|ogg|aac|flac)$/i.test(
+      name,
+    )
   ) {
     return 'io';
   }

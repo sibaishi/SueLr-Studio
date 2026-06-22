@@ -100,9 +100,7 @@ function uploadDroppedMediaFile(nodeId: string, mediaFile: DroppedMediaFile) {
       if (index < 0) return;
 
       const newName = result.fileName || mediaFile.name;
-      const fileNames = Array.isArray(nodeData._fileNames)
-        ? [...(nodeData._fileNames as string[])]
-        : [];
+      const fileNames = Array.isArray(nodeData._fileNames) ? [...(nodeData._fileNames as string[])] : [];
       while (fileNames.length < fileIds.length) fileNames.push('');
       if (fileNames[index] === newName) return;
 
@@ -169,9 +167,9 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
         const currentFileOrder = Array.isArray(currentData._fileOrder) ? (currentData._fileOrder as number[]) : [];
         const currentFileNames = Array.isArray(currentData._fileNames) ? (currentData._fileNames as string[]) : [];
         const currentThumbnails =
-          (typeof currentData._thumbnails === 'object' && currentData._thumbnails !== null
+          typeof currentData._thumbnails === 'object' && currentData._thumbnails !== null
             ? (currentData._thumbnails as Record<number, string>)
-            : {});
+            : {};
 
         // Content URLs: write empty initially (no blob URLs).
         // Rendering falls back to fileRawStore.objectUrl until upload completes.

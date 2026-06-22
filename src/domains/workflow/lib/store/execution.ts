@@ -71,7 +71,10 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
       const typeEdges = inputOrder[type];
       if (typeEdges) {
         for (const eid of typeEdges) {
-          if (!seen.has(eid)) { seen.add(eid); orderedEdgeIds.push(eid); }
+          if (!seen.has(eid)) {
+            seen.add(eid);
+            orderedEdgeIds.push(eid);
+          }
         }
       }
     }
@@ -79,7 +82,10 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
     const legacyEdges = inputOrder._legacy;
     if (legacyEdges) {
       for (const eid of legacyEdges) {
-        if (!seen.has(eid)) { seen.add(eid); orderedEdgeIds.push(eid); }
+        if (!seen.has(eid)) {
+          seen.add(eid);
+          orderedEdgeIds.push(eid);
+        }
       }
     }
 
@@ -204,7 +210,13 @@ function buildIoOutputMetadata(result: unknown): {
   _fileIds: number[];
   _fileNames: string[];
 } {
-  const empty = { content: [], text: '', _fileKinds: [] as string[], _fileIds: [] as number[], _fileNames: [] as string[] };
+  const empty = {
+    content: [],
+    text: '',
+    _fileKinds: [] as string[],
+    _fileIds: [] as number[],
+    _fileNames: [] as string[],
+  };
 
   if (typeof result === 'string') {
     if (/^(https?:\/\/|\/api\/|blob:)/.test(result)) {
@@ -503,7 +515,11 @@ export function createWorkflowExecutionActions(
             } else {
               // fileRawStore is empty after page refresh; fall back to server URL
               const url = content[idx];
-              if (url && typeof url === 'string' && (url.startsWith('/api/files/') || (url.startsWith('http') && !url.startsWith('blob:')))) {
+              if (
+                url &&
+                typeof url === 'string' &&
+                (url.startsWith('/api/files/') || (url.startsWith('http') && !url.startsWith('blob:')))
+              ) {
                 try {
                   const response = await fetch(url);
                   if (response.ok) {
@@ -516,17 +532,19 @@ export function createWorkflowExecutionActions(
                     });
                     rawFiles.push(fetchedB64);
                   }
-                } catch { /* fetch failed, skip this file */ }
+                } catch {
+                  /* fetch failed, skip this file */
+                }
               }
             }
           }
-        } catch { /* fileRawStore not available, skip */ }
+        } catch {
+          /* fileRawStore not available, skip */
+        }
       }
 
       // ── Detect passthrough IO nodes (have incoming edges from upstream) ──
-      const incomingEdges = payload.edges.filter(
-        (e) => e.target === pnode.id && e.targetHandle !== 'output',
-      );
+      const incomingEdges = payload.edges.filter((e) => e.target === pnode.id && e.targetHandle !== 'output');
       const isPassthrough = incomingEdges.length > 0;
 
       // Combine text + files into _rawContent for backend executor (text first)
@@ -588,18 +606,10 @@ export function createWorkflowExecutionActions(
                   assembledTextTypes.push(upType);
                 }
               } else {
-                const upFileKinds: string[] = Array.isArray(upData._fileKinds)
-                  ? (upData._fileKinds as string[])
-                  : [];
-                const upFileIds: number[] = Array.isArray(upData._fileIds)
-                  ? (upData._fileIds as number[])
-                  : [];
-                const upContent: string[] = Array.isArray(upData.content)
-                  ? (upData.content as string[])
-                  : [];
-                const upFileOrder: number[] = Array.isArray(upData._fileOrder)
-                  ? (upData._fileOrder as number[])
-                  : [];
+                const upFileKinds: string[] = Array.isArray(upData._fileKinds) ? (upData._fileKinds as string[]) : [];
+                const upFileIds: number[] = Array.isArray(upData._fileIds) ? (upData._fileIds as number[]) : [];
+                const upContent: string[] = Array.isArray(upData.content) ? (upData.content as string[]) : [];
+                const upFileOrder: number[] = Array.isArray(upData._fileOrder) ? (upData._fileOrder as number[]) : [];
 
                 const orderMap = new Map(upFileOrder.map((fid, i) => [fid, i]));
                 const matchingFiles = upFileIds
@@ -613,9 +623,7 @@ export function createWorkflowExecutionActions(
                   .sort((a, b) => a.order - b.order || a.idx - b.idx);
 
                 try {
-                  const { fileRawStore } = await import(
-                    '@/domains/workflow/components/nodes/io/fileRawStore'
-                  );
+                  const { fileRawStore } = await import('@/domains/workflow/components/nodes/io/fileRawStore');
                   for (const { fid, idx } of matchingFiles) {
                     const b64 = fileRawStore.getBase64(fid);
                     if (b64) {
@@ -626,22 +634,18 @@ export function createWorkflowExecutionActions(
                       if (
                         url &&
                         typeof url === 'string' &&
-                        (url.startsWith('/api/files/') ||
-                          (url.startsWith('http') && !url.startsWith('blob:')))
+                        (url.startsWith('/api/files/') || (url.startsWith('http') && !url.startsWith('blob:')))
                       ) {
                         try {
                           const response = await fetch(url);
                           if (response.ok) {
                             const blob = await response.blob();
-                            const fetchedB64 = await new Promise<string>(
-                              (resolve, reject) => {
-                                const reader = new FileReader();
-                                reader.onload = () => resolve(String(reader.result));
-                                reader.onerror = () =>
-                                  reject(new Error('read failed'));
-                                reader.readAsDataURL(blob);
-                              },
-                            );
+                            const fetchedB64 = await new Promise<string>((resolve, reject) => {
+                              const reader = new FileReader();
+                              reader.onload = () => resolve(String(reader.result));
+                              reader.onerror = () => reject(new Error('read failed'));
+                              reader.readAsDataURL(blob);
+                            });
                             assembledFiles.push(fetchedB64);
                             assembledFileTypes.push(upType);
                           }
@@ -921,10 +925,7 @@ export function createWorkflowExecutionActions(
           lastExecutionError: data.error || '未知错误',
           lastExecutionSummary: null,
         });
-        notifyWorkflowComplete(
-          '工作流执行失败',
-          typeof data.error === 'string' ? data.error : '发生未知错误',
-        );
+        notifyWorkflowComplete('工作流执行失败', typeof data.error === 'string' ? data.error : '发生未知错误');
       },
     };
     if (runtimeApiConfig) {

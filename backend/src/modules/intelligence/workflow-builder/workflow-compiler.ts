@@ -70,7 +70,9 @@ function normalizeCompiledWorkflow(workflow: PlainObject) {
     };
   });
 
-  const typeById = new Map(nodes.map((item) => [String((item as PlainObject).id || ''), String((item as PlainObject).type || '')]));
+  const typeById = new Map(
+    nodes.map((item) => [String((item as PlainObject).id || ''), String((item as PlainObject).type || '')]),
+  );
   const edges = (Array.isArray(workflow.edges) ? workflow.edges : []).map((item) => {
     const edgeItem = item as PlainObject;
     const sourceType = typeById.get(String(edgeItem.source || '')) || '';
@@ -98,7 +100,10 @@ function normalizeCompiledWorkflow(workflow: PlainObject) {
   };
 }
 
-function normalizeCurrentWorkflow(workflow: PlainObject, options: { preserveCreatedAt?: boolean; scope?: DynamicValue } = {}) {
+function normalizeCurrentWorkflow(
+  workflow: PlainObject,
+  options: { preserveCreatedAt?: boolean; scope?: DynamicValue } = {},
+) {
   return normalizePersistedWorkflow(normalizeCompiledWorkflow(workflow), options);
 }
 
@@ -136,7 +141,8 @@ function buildPrompt(intent: WorkflowIntent, knowledgeItems: CompilerKnowledgeIt
   if (intent.domain === 'chat-text') {
     basePrompt = '根据用户输入完成文本任务：回答问题、总结、改写、翻译或生成文案。要求结构清晰、直接可用。';
   } else if (intent.domain === 'storyboard-image') {
-    basePrompt = '你是分镜导演。把用户脚本拆成连续镜头，每行一个镜头。每行包含画面主体、景别、动作、构图、光线、情绪，不要输出解释。';
+    basePrompt =
+      '你是分镜导演。把用户脚本拆成连续镜头，每行一个镜头。每行包含画面主体、景别、动作、构图、光线、情绪，不要输出解释。';
   } else if (intent.domain === 'video-generation') {
     basePrompt = '根据用户的视频需求生成适合视频模型的提示词：主体清晰、镜头运动明确、节奏稳定、画面连续。';
   } else if (intent.domain === 'ecommerce-image') {

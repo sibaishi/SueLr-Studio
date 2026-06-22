@@ -40,7 +40,8 @@ export function FileUploadArea({
         padding: '18px 12px',
         textAlign: 'center',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease',
+        transition:
+          'transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease',
         background: drag ? `${T.blue}10` : 'var(--color-bg-secondary)',
         opacity: disabled ? 0.55 : 1,
       }}

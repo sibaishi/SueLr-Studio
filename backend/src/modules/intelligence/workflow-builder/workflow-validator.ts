@@ -230,7 +230,7 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
   }
 
   const imageGenNodes = nodes.filter(
-    (node) => (node.type === 'aiV3' && (node.data?.mode === 'image' || node.data?.mode === 'midjourney')),
+    (node) => node.type === 'aiV3' && (node.data?.mode === 'image' || node.data?.mode === 'midjourney'),
   );
   for (const node of imageGenNodes) {
     if (!String(node.data?.model || '').trim()) {
@@ -243,7 +243,9 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
     }
   }
 
-  const inputNodeIds = new Set(nodes.filter((node) => isExternalInputNode(node, edges)).map((node) => String(node.id || '')));
+  const inputNodeIds = new Set(
+    nodes.filter((node) => isExternalInputNode(node, edges)).map((node) => String(node.id || '')),
+  );
   for (const nodeId of inputNodeIds) {
     const hasOutgoing = hasOutgoingEdge(edges, nodeId);
     if (!hasOutgoing) {

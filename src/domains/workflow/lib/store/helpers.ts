@@ -319,13 +319,13 @@ const AI_V3_MODE_INPUT_LIMITS: Record<string, Record<string, number>> = {
 };
 
 export interface AiV3InputSlot {
-  id: string;         // unique slot id: edgeId or edgeId+'/text' or edgeId+'/f'+fileId
+  id: string; // unique slot id: edgeId or edgeId+'/text' or edgeId+'/f'+fileId
   edgeId: string;
   type: 'text' | 'image' | 'video' | 'audio';
   sourceNodeId: string;
   sourceNodeType: string;
-  fileIdx?: number;   // index in IO _fileIds array (only for IO file slots)
-  fileId?: number;    // raw fileId from IO _fileIds (only for IO file slots)
+  fileIdx?: number; // index in IO _fileIds array (only for IO file slots)
+  fileId?: number; // raw fileId from IO _fileIds (only for IO file slots)
 }
 
 export interface AiV3FilterResult {
@@ -489,7 +489,10 @@ export function readInputOrder(targetNode?: Node | null): InputOrderMap {
       if (typeof sid !== 'string') continue;
       const slash = sid.indexOf('/');
       const eid = slash === -1 ? sid : sid.slice(0, slash);
-      if (!seen.has(eid)) { seen.add(eid); edgeIds.push(eid); }
+      if (!seen.has(eid)) {
+        seen.add(eid);
+        edgeIds.push(eid);
+      }
     }
     // Put all edge IDs in a catch-all key; sortSlotsByInputOrder will apply
     // fixed type grouping, and within each type the edge priority is shared.
@@ -552,12 +555,7 @@ export function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: InputO
  * Within each type, slots are accepted in inputOrder priority; excess slots
  * beyond a type's cap are silently ignored.
  */
-export function filterAiV3InputSlots(
-  nodeId: string,
-  mode: string,
-  edges: Edge[],
-  nodes: Node[],
-): AiV3FilterResult {
+export function filterAiV3InputSlots(nodeId: string, mode: string, edges: Edge[], nodes: Node[]): AiV3FilterResult {
   const limits = AI_V3_MODE_INPUT_LIMITS[mode];
   const slots = expandAiV3InputSlots(nodeId, edges, nodes);
 
@@ -599,14 +597,7 @@ export function filterAiV3InputSlots(
  * Legacy wrapper: filter edges by mode, returning only accepted edges.
  * For IO nodes, the edge is accepted if at least one of its slots passes.
  */
-export function filterAiV3InputEdgesByMode(
-  nodeId: string,
-  mode: string,
-  edges: Edge[],
-  nodes: Node[],
-): Edge[] {
+export function filterAiV3InputEdgesByMode(nodeId: string, mode: string, edges: Edge[], nodes: Node[]): Edge[] {
   const { acceptedEdgeIds } = filterAiV3InputSlots(nodeId, mode, edges, nodes);
-  return edges.filter(
-    (e) => e.target === nodeId && e.targetHandle === 'input' && acceptedEdgeIds.has(e.id),
-  );
+  return edges.filter((e) => e.target === nodeId && e.targetHandle === 'input' && acceptedEdgeIds.has(e.id));
 }

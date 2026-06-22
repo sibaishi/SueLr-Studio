@@ -62,8 +62,13 @@ function inferDomain(text: string): WorkflowIntent['domain'] {
   const asksForStoryboardText = includesAny(text, ['分镜脚本', '镜头脚本', '分镜文案', '镜头文案', '脚本', '剧本']);
   if (asksForStoryboardText && !asksForStoryboardImage) return 'chat-text';
   if (asksForStoryboardImage) return 'storyboard-image';
-  if (includesAny(text, ['分镜文案', '逐条执行', '逐条运行', '分别输出']) && !includesAny(text, ['图片', '图', 'image', '视频', 'video'])) return 'chat-text';
-  if (includesAny(text, ['文本输入后直接输出', '直出', '直接输出展示', '最小流程', '输入后直接输出'])) return 'plain-text';
+  if (
+    includesAny(text, ['分镜文案', '逐条执行', '逐条运行', '分别输出']) &&
+    !includesAny(text, ['图片', '图', 'image', '视频', 'video'])
+  )
+    return 'chat-text';
+  if (includesAny(text, ['文本输入后直接输出', '直出', '直接输出展示', '最小流程', '输入后直接输出']))
+    return 'plain-text';
   if (includesAny(text, ['合并', '三个文本', '多个文本', '汇总'])) {
     if (includesAny(text, ['输出展示', '展示', '输出', '显示'])) return 'generic-image';
   }
@@ -165,7 +170,10 @@ function appendKnowledgeDescription(description: string, knowledge: ReturnType<t
 export function parseWorkflowIntent(request: WorkflowDraftRequest): WorkflowIntent {
   const text = request.input.trim();
   const domain = inferDomain(text);
-  const requiresImageInput = domain === 'storyboard-image' ? false : includesAny(text, ['产品图', '商品图', '参考图', '图片', '图生图', '图生视频', '首帧']);
+  const requiresImageInput =
+    domain === 'storyboard-image'
+      ? false
+      : includesAny(text, ['产品图', '商品图', '参考图', '图片', '图生图', '图生视频', '首帧']);
   const requiresVideoInput = includesAny(text, ['视频输入', '参考视频', '视频素材']);
   const requiresAudioInput = includesAny(text, ['音频', '配音', '旁白', '音乐']);
   const requiresTextInput = true;

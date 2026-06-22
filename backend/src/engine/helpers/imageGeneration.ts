@@ -247,8 +247,6 @@ function normalizeImageResolution(value: DynamicValue): string {
   return ALLOWED_IMAGE_RESOLUTION.has(normalized) ? normalized : '';
 }
 
-
-
 function resolveImageResolutionModel(
   modelId: DynamicValue,
   _resolution: DynamicValue,
@@ -763,7 +761,9 @@ export async function generateImages(
               return callDalleImageEditApiWithAdapter(requestConfig, requestBody, timeoutMs, sendProgress, abortSignal);
             };
 
-            return callWithRequestBody(buildRequestBody({ includeResolution: includeResolutionInBody }) as ImagePayload);
+            return callWithRequestBody(
+              buildRequestBody({ includeResolution: includeResolutionInBody }) as ImagePayload,
+            );
           })()
         : await (async () => {
             const endpoint = imageEndpoint;
@@ -867,9 +867,15 @@ export async function generateImages(
 
             try {
               return await callWithRequestBody(
-                buildGenericImageRequestBody({ ...payload, model: activeModel }, usesArkImageGenerationPayload, true, true, {
-                  includeResolution: includeResolutionInBody,
-                }),
+                buildGenericImageRequestBody(
+                  { ...payload, model: activeModel },
+                  usesArkImageGenerationPayload,
+                  true,
+                  true,
+                  {
+                    includeResolution: includeResolutionInBody,
+                  },
+                ),
               );
             } catch (error) {
               const canRetryOutputFormat =
@@ -879,9 +885,15 @@ export async function generateImages(
                 sendProgress?.('Image endpoint retry: drop output_format after first failure');
                 try {
                   return await callWithRequestBody(
-                    buildGenericImageRequestBody({ ...payload, model: activeModel }, usesArkImageGenerationPayload, true, false, {
-                      includeResolution: includeResolutionInBody,
-                    }),
+                    buildGenericImageRequestBody(
+                      { ...payload, model: activeModel },
+                      usesArkImageGenerationPayload,
+                      true,
+                      false,
+                      {
+                        includeResolution: includeResolutionInBody,
+                      },
+                    ),
                   );
                 } catch (retryError) {
                   if (
@@ -890,9 +902,15 @@ export async function generateImages(
                   ) {
                     sendProgress?.('Image endpoint retry: drop response_format after second failure');
                     return callWithRequestBody(
-                      buildGenericImageRequestBody({ ...payload, model: activeModel }, usesArkImageGenerationPayload, false, false, {
-                        includeResolution: includeResolutionInBody,
-                      }),
+                      buildGenericImageRequestBody(
+                        { ...payload, model: activeModel },
+                        usesArkImageGenerationPayload,
+                        false,
+                        false,
+                        {
+                          includeResolution: includeResolutionInBody,
+                        },
+                      ),
                     );
                   }
                   throw retryError;
@@ -901,9 +919,15 @@ export async function generateImages(
               if (shouldRetryWithoutResponseFormat(error) || shouldRetryOptionalImageParamsOnGatewayError(error)) {
                 sendProgress?.('Image endpoint retry: drop response_format after first failure');
                 return callWithRequestBody(
-                  buildGenericImageRequestBody({ ...payload, model: activeModel }, usesArkImageGenerationPayload, false, true, {
-                    includeResolution: includeResolutionInBody,
-                  }),
+                  buildGenericImageRequestBody(
+                    { ...payload, model: activeModel },
+                    usesArkImageGenerationPayload,
+                    false,
+                    true,
+                    {
+                      includeResolution: includeResolutionInBody,
+                    },
+                  ),
                 );
               }
               throw error;

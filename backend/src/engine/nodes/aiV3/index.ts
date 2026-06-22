@@ -20,7 +20,7 @@ export async function execute(
     else edgesData.push([item]);
   }
   const edgeIds: string[] = Array.isArray((inputs as Record<string, unknown>)._inputEdgeIds)
-    ? (inputs as Record<string, unknown>)._inputEdgeIds as string[]
+    ? ((inputs as Record<string, unknown>)._inputEdgeIds as string[])
     : [];
 
   // Per-edge: classify all items into type buckets
@@ -35,10 +35,18 @@ export async function execute(
     for (const item of data) {
       const t = classifyByValue(item);
       switch (t) {
-        case 'text': result.texts.push(String(item)); break;
-        case 'image': result.images.push(item); break;
-        case 'video': result.videos.push(item); break;
-        case 'audio': result.audios.push(item); break;
+        case 'text':
+          result.texts.push(String(item));
+          break;
+        case 'image':
+          result.images.push(item);
+          break;
+        case 'video':
+          result.videos.push(item);
+          break;
+        case 'audio':
+          result.audios.push(item);
+          break;
       }
     }
     return result;

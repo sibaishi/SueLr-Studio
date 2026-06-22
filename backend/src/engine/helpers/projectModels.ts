@@ -181,7 +181,13 @@ export function migrateProjectModels(settings: ProjectModelSettings = {}): Proje
 }
 
 export function groupConfiguredProjectModels(projectModels: unknown): Record<'all' | ProjectModelType, string[]> {
-  const groups: Record<'all' | ProjectModelType, string[]> = { all: [], chat: [], image: [], video: [], midjourney: [] };
+  const groups: Record<'all' | ProjectModelType, string[]> = {
+    all: [],
+    chat: [],
+    image: [],
+    video: [],
+    midjourney: [],
+  };
   for (const model of normalizeProjectModels(projectModels)) {
     if (!model.configured) continue;
     groups.all.push(model.modelId);

@@ -145,7 +145,9 @@ function getPromptHelperCardTags(data: PromptHelperData) {
   const template = getLayoutTemplatePreset(data.layoutConfig.template);
   tags.push(template.label);
   tags.push(`${data.layoutConfig.blocks.length} 块内容`);
-  tags.push(data.layoutConfig.subjectKind === 'product' ? '产品' : data.layoutConfig.subjectKind === 'object' ? '物体' : '角色');
+  tags.push(
+    data.layoutConfig.subjectKind === 'product' ? '产品' : data.layoutConfig.subjectKind === 'object' ? '物体' : '角色',
+  );
   return tags;
 }
 

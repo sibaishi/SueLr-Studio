@@ -18,7 +18,7 @@
   --color-success: var(--t-green);
   --color-danger: var(--t-red);
   --color-warning: var(--t-orange);
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-sans);
   --font-size-eyebrow: 11px;
   --font-size-body: 14px;
@@ -95,29 +95,36 @@
 /* ==================== Reset (Layer: reset) ==================== */
 
 @layer reset {
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
 
-body {
-  line-height: 1.6;
-}
+  body {
+    line-height: 1.6;
+  }
 
-h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.2; }
-p { line-height: 1.65; }
-
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  p {
+    line-height: 1.65;
+  }
 } /* end @layer reset */
 
 /* ==================== Gradient Backgrounds ==================== */
@@ -485,44 +492,44 @@ button:focus-visible {
 }
 
 @layer layout {
-/* ==================== Layout Utilities ==================== */
+  /* ==================== Layout Utilities ==================== */
 
-.panel {
-  display: flex;
-  height: 100%;
-  width: 100%;
-}
-.flex-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.flex-col {
-  display: flex;
-  flex-direction: column;
-}
-.flex-col-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-.flex-1-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.sidebar-panel {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-.truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .panel {
+    display: flex;
+    height: 100%;
+    width: 100%;
+  }
+  .flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .flex-col {
+    display: flex;
+    flex-direction: column;
+  }
+  .flex-col-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .flex-1-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 } /* end @layer layout */
 
 /* ==================== Component Patterns ==================== */

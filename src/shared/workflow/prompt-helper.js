@@ -606,14 +606,16 @@ function getCameraViewTerms(config) {
       english: 'back view',
       detail: 'camera behind the subject',
       visibility: 'show the back of the subject; face should not be visible',
-      structuralFocus: 'emphasize the back silhouette, back clothing details, rear structure, and back-facing composition',
+      structuralFocus:
+        'emphasize the back silhouette, back clothing details, rear structure, and back-facing composition',
     };
   }
   if (absAngle >= 112.5) {
     return {
       chinese: side === 'right' ? '后侧三分之四视角（偏右后）' : '后侧三分之四视角（偏左后）',
       english: side === 'right' ? 'rear three-quarter right view' : 'rear three-quarter left view',
-      detail: side === 'right' ? 'camera behind the subject on the right side' : 'camera behind the subject on the left side',
+      detail:
+        side === 'right' ? 'camera behind the subject on the right side' : 'camera behind the subject on the left side',
       visibility:
         side === 'right'
           ? 'mostly show the back and the right side of the subject; face should be hidden or only minimally visible'
@@ -638,7 +640,10 @@ function getCameraViewTerms(config) {
     return {
       chinese: side === 'right' ? '前侧三分之四视角（偏右前）' : '前侧三分之四视角（偏左前）',
       english: side === 'right' ? 'front three-quarter right view' : 'front three-quarter left view',
-      detail: side === 'right' ? 'camera in front of the subject on the right side' : 'camera in front of the subject on the left side',
+      detail:
+        side === 'right'
+          ? 'camera in front of the subject on the right side'
+          : 'camera in front of the subject on the left side',
       visibility:
         side === 'right'
           ? 'show the front of the subject with more of the right side visible'
@@ -651,7 +656,8 @@ function getCameraViewTerms(config) {
     english: 'front view',
     detail: 'camera directly in front of the subject',
     visibility: 'show the front of the subject clearly',
-    structuralFocus: 'emphasize frontal identity, facial visibility, front silhouette, and symmetrical front-facing composition',
+    structuralFocus:
+      'emphasize frontal identity, facial visibility, front silhouette, and symmetrical front-facing composition',
   };
 }
 
@@ -684,8 +690,7 @@ function getCameraShotTerms(config) {
             : '50mm natural perspective lens feel';
   const focus =
     focalLength >= 75 ? 'shallow depth of field' : focalLength <= 28 ? 'deep spatial perspective' : 'sharp focus';
-  const angle =
-    Math.abs(config.angle) <= 10 ? 'front-facing camera alignment' : 'three-quarter camera alignment';
+  const angle = Math.abs(config.angle) <= 10 ? 'front-facing camera alignment' : 'three-quarter camera alignment';
   return { shotType, lens, focus, angle };
 }
 
@@ -706,8 +711,10 @@ function getCameraVerticalTerms(config) {
       pitchLabel: '俯角',
       pitchDegrees: tiltDegrees,
       cameraPose: 'camera high above the subject looking steeply downward',
-      visibility: 'show the top planes of the subject and environment clearly; emphasize ground spread and suppress underside visibility',
-      structuralFocus: 'top silhouette, crown/shoulder top surfaces, floor layout, radial spatial spread, and a strong downward perspective',
+      visibility:
+        'show the top planes of the subject and environment clearly; emphasize ground spread and suppress underside visibility',
+      structuralFocus:
+        'top silhouette, crown/shoulder top surfaces, floor layout, radial spatial spread, and a strong downward perspective',
       instruction:
         'the image must read as a true top-down shot rather than a normal eye-level image with the subject merely tilted',
       avoid: ['不要保持平视镜头', '不要仍然像普通正面照', '不要缺失地面铺展和顶部可见面'],
@@ -723,8 +730,10 @@ function getCameraVerticalTerms(config) {
       pitchLabel: '俯角',
       pitchDegrees: tiltDegrees,
       cameraPose: 'camera above the subject looking downward',
-      visibility: 'show more top-facing surfaces and more ground behind or around the subject; reduce underside visibility',
-      structuralFocus: 'upper silhouette, shoulder/head top planes, floor perspective expansion, and a clearly lowered horizon',
+      visibility:
+        'show more top-facing surfaces and more ground behind or around the subject; reduce underside visibility',
+      structuralFocus:
+        'upper silhouette, shoulder/head top planes, floor perspective expansion, and a clearly lowered horizon',
       instruction:
         'the composition must feel like the camera moved upward and tilted down, not like the subject simply leaned backward',
       avoid: ['不要保持平视构图', '不要仍然像轻微角度变化的正面照', '不要忽略地面透视和顶部面'],
@@ -740,8 +749,10 @@ function getCameraVerticalTerms(config) {
       pitchLabel: '仰角',
       pitchDegrees: tiltDegrees,
       cameraPose: 'camera far below the subject looking steeply upward',
-      visibility: 'show the underside of forms clearly; emphasize sky or ceiling dominance and suppress top-down floor visibility',
-      structuralFocus: 'upward monumentality, underside planes, stretched vertical lines, towering scale, and strong upward perspective',
+      visibility:
+        'show the underside of forms clearly; emphasize sky or ceiling dominance and suppress top-down floor visibility',
+      structuralFocus:
+        'upward monumentality, underside planes, stretched vertical lines, towering scale, and strong upward perspective',
       instruction:
         'the image must read as an obvious worm-eye shot rather than an eye-level image with the subject enlarged',
       avoid: ['不要保持平视镜头', '不要仍然像普通视角只把主体放大', '不要缺失天空或上方背景占比'],
@@ -757,8 +768,10 @@ function getCameraVerticalTerms(config) {
       pitchLabel: '仰角',
       pitchDegrees: tiltDegrees,
       cameraPose: 'camera below the subject looking upward',
-      visibility: 'show more underside surfaces and more sky, ceiling, or upper background; reduce top-down floor visibility',
-      structuralFocus: 'lower silhouette dominance, underside planes, upward vertical convergence, and a clearly raised horizon',
+      visibility:
+        'show more underside surfaces and more sky, ceiling, or upper background; reduce top-down floor visibility',
+      structuralFocus:
+        'lower silhouette dominance, underside planes, upward vertical convergence, and a clearly raised horizon',
       instruction:
         'the composition must feel like the camera dropped lower and tilted up, not like the subject simply leaned forward',
       avoid: ['不要保持平视构图', '不要仍然像普通正面照', '不要忽略上方背景和底部可见面'],
@@ -805,10 +818,12 @@ function getCameraSceneTerms(config) {
     chinese: '摄像机旋转',
     english: 'camera rotates around the subject',
     intent: '保持主体身份一致，并让摄像机绕主体改变观察角度。',
-    sceneRule: '场景、背景、透视、遮挡、景深、阴影方向和环境可见面都必须随新机位一致变化，不要只让主体转过去而背景基本不变。',
+    sceneRule:
+      '场景、背景、透视、遮挡、景深、阴影方向和环境可见面都必须随新机位一致变化，不要只让主体转过去而背景基本不变。',
     structuralRule: '把这次变化理解为摄像机围绕主体移动后的重新拍摄结果，需要同步重建背景透视和空间关系。',
     avoid: ['不要让背景保持原样不动', '不要像剪贴拼接一样只旋转主体', '不要保留旧机位的透视和遮挡关系'],
-    keywords: 'camera orbit around subject, regenerated background perspective, scene parallax, updated occlusion, rebuilt environment viewpoint',
+    keywords:
+      'camera orbit around subject, regenerated background perspective, scene parallax, updated occlusion, rebuilt environment viewpoint',
   };
 }
 
@@ -821,7 +836,10 @@ function buildNanoPrompt(payload) {
 }
 
 function buildCameraPrompt(config, modelStyle) {
-  const mode = config.mode === PROMPT_HELPER_CAMERA_MODES.generate ? PROMPT_HELPER_CAMERA_MODES.generate : PROMPT_HELPER_CAMERA_MODES.edit;
+  const mode =
+    config.mode === PROMPT_HELPER_CAMERA_MODES.generate
+      ? PROMPT_HELPER_CAMERA_MODES.generate
+      : PROMPT_HELPER_CAMERA_MODES.edit;
   const terms = getCameraShotTerms(config);
   const viewTerms = getCameraViewTerms(config);
   const verticalTerms = getCameraVerticalTerms(config);
@@ -874,7 +892,9 @@ function buildCameraPrompt(config, modelStyle) {
       !isGenerateMode ? `Transformation strategy: ${sceneTerms.chinese} (${sceneTerms.english}).` : null,
       `Camera position: ${formatPoint(config.position)}. Target point: ${formatPoint(config.target)}. Focal length: ${config.focalLength}mm.`,
       `Avoid: ${avoid.join('; ')}.`,
-      isGenerateMode ? 'Generate a fresh image rather than editing an existing image.' : 'Edit the existing image rather than generating a different subject.',
+      isGenerateMode
+        ? 'Generate a fresh image rather than editing an existing image.'
+        : 'Edit the existing image rather than generating a different subject.',
     ].filter(Boolean);
   }
 
@@ -908,9 +928,7 @@ function buildCameraPrompt(config, modelStyle) {
       change,
       avoid,
       priority: {
-        highest: [
-          isGenerateMode ? '准确生成目标视角和镜头语言' : '保持主体身份、比例、材质和关键特征一致',
-        ],
+        highest: [isGenerateMode ? '准确生成目标视角和镜头语言' : '保持主体身份、比例、材质和关键特征一致'],
         medium: [
           isGenerateMode
             ? '遵循基础提示词完成新画面'

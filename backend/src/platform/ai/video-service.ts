@@ -615,8 +615,7 @@ export async function waitForVideoTask({
     timeoutMessage: '视频生成超时(超过 10 分钟)',
     onAttempt: (attempt) => sendProgress?.(`正在等待视频生成... (${attempt * 5}s)`),
     onProgress: (progress) => sendProgress?.(`视频生成进度: ${Math.round(progress * 100)}%`),
-    shouldRetryError: (error) =>
-      !String(error instanceof Error ? error.message : '').includes('视频生成失败'),
+    shouldRetryError: (error) => !String(error instanceof Error ? error.message : '').includes('视频生成失败'),
   });
 }
 

@@ -36,7 +36,7 @@ export function AutoTextarea({
   useEffect(adjust, [value, maxH]);
   return (
     <textarea
-        className="ios-textarea"
+      className="ios-textarea"
       ref={ref}
       value={value}
       disabled={disabled}

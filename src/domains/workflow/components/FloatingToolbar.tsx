@@ -31,7 +31,12 @@ export default function FloatingToolbar({
 }: FloatingToolbarProps) {
   return (
     <div className="workflow-floating-toolbar" aria-label="工作流工具">
-      <FloatingToolbarButton icon={<Plus size={16} />} label="添加节点" onClick={onAddNode} testId="workflow-add-node" />
+      <FloatingToolbarButton
+        icon={<Plus size={16} />}
+        label="添加节点"
+        onClick={onAddNode}
+        testId="workflow-add-node"
+      />
       <FloatingToolbarButton
         icon={rightPanelCollapsed ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
         label={rightPanelCollapsed ? '展开结果栏' : '收起结果栏'}

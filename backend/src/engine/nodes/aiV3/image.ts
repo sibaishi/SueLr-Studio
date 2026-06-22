@@ -26,7 +26,10 @@ export async function executeImageMode(
   };
 
   const imgConfig = { ...runtimeConfig, abortSignal: apiConfig?.abortSignal, persistGeneratedOutputs: false };
-  const result = (await runImageGeneration(request, imgConfig, sendProgress)) as { images: DynamicValue[]; request?: { model?: DynamicValue } };
+  const result = (await runImageGeneration(request, imgConfig, sendProgress)) as {
+    images: DynamicValue[];
+    request?: { model?: DynamicValue };
+  };
 
   const deduped = dedupePreferUrl(result.images);
   return { result: deduped, meta: { model: result.request?.model || request.model, count: deduped.length } };

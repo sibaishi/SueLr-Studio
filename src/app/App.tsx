@@ -76,9 +76,7 @@ function SettingsModal({ children, onClose }: { children: ReactNode; onClose: ()
   return (
     <div className="settings-modal" role="dialog" aria-modal="true" aria-label="工作室设置">
       <button type="button" className="settings-modal__backdrop" aria-label="关闭设置" onClick={onClose} />
-      <div className="settings-modal__panel">
-        {children}
-      </div>
+      <div className="settings-modal__panel">{children}</div>
     </div>
   );
 }

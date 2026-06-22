@@ -43,11 +43,7 @@ function buildToolInput(plan: AgentPlan): PlainObject {
       },
     };
   }
-  if (
-    plan.toolName === 'image.generate' ||
-    plan.toolName === 'image.edit' ||
-    plan.toolName === 'video.generate'
-  ) {
+  if (plan.toolName === 'image.generate' || plan.toolName === 'image.edit' || plan.toolName === 'video.generate') {
     const productionModel = plan.toolName === 'video.generate' ? plan.videoModel : plan.imageModel;
     return {
       ...toolInput,

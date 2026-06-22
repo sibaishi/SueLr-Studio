@@ -14,7 +14,10 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
 
   return (
     <div className="flex-col" style={{ gap: 16 }}>
-      <SectionCard title="配置身份" description="切换当前工作室使用的 API 配置，并管理配置生命周期。禁用的配置不会参与模型发现与工作流执行。">
+      <SectionCard
+        title="配置身份"
+        description="切换当前工作室使用的 API 配置，并管理配置生命周期。禁用的配置不会参与模型发现与工作流执行。"
+      >
         <div className="flex-col" style={{ gap: 14 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {view.apiConfigs.map((config) => {
@@ -234,7 +237,15 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
               />
             </div>
           )}
-          <span style={chipStyle(view.networkSearch.searchEnabled && view.networkSearch.tavilyApiKey ? 'var(--color-green)' : view.networkSearch.searchEnabled ? '#f59e0b' : undefined)}>
+          <span
+            style={chipStyle(
+              view.networkSearch.searchEnabled && view.networkSearch.tavilyApiKey
+                ? 'var(--color-green)'
+                : view.networkSearch.searchEnabled
+                  ? '#f59e0b'
+                  : undefined,
+            )}
+          >
             {view.networkSearch.searchEnabled && view.networkSearch.tavilyApiKey
               ? '已配置并启用'
               : view.networkSearch.searchEnabled
@@ -247,13 +258,34 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
   );
 }
 
-function ConnectionTestStatus({ status, result }: { status: 'idle' | 'testing' | 'success' | 'error'; result: string }) {
+function ConnectionTestStatus({
+  status,
+  result,
+}: { status: 'idle' | 'testing' | 'success' | 'error'; result: string }) {
   if (status === 'idle') return null;
 
   if (status === 'testing') {
     return (
-      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-        <span className="cn-spinner" style={{ width: 12, height: 12, border: '2px solid var(--color-border-primary)', borderTopColor: 'var(--color-text-secondary)', borderRadius: '50%', display: 'inline-block' }} />
+      <span
+        style={{
+          fontSize: 12,
+          color: 'var(--color-text-secondary)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+        }}
+      >
+        <span
+          className="cn-spinner"
+          style={{
+            width: 12,
+            height: 12,
+            border: '2px solid var(--color-border-primary)',
+            borderTopColor: 'var(--color-text-secondary)',
+            borderRadius: '50%',
+            display: 'inline-block',
+          }}
+        />
         检测中…
       </span>
     );
@@ -261,14 +293,25 @@ function ConnectionTestStatus({ status, result }: { status: 'idle' | 'testing' |
 
   if (status === 'success') {
     return (
-      <span style={{ fontSize: 12, color: 'var(--color-green)', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+      <span
+        style={{
+          fontSize: 12,
+          color: 'var(--color-green)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          fontWeight: 500,
+        }}
+      >
         ✓ {result}
       </span>
     );
   }
 
   return (
-    <span style={{ fontSize: 12, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+    <span
+      style={{ fontSize: 12, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}
+    >
       ✗ {result}
     </span>
   );

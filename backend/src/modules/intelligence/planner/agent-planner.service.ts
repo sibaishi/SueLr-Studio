@@ -202,14 +202,15 @@ function buildDirectProductionFallbackPlan(
   const latestUploadedImage = isPlainObject(input.context.latestUploadedImage)
     ? input.context.latestUploadedImage
     : null;
-  const latestUploadedMask = isPlainObject(input.context.latestUploadedMask)
-    ? input.context.latestUploadedMask
-    : null;
+  const latestUploadedMask = isPlainObject(input.context.latestUploadedMask) ? input.context.latestUploadedMask : null;
   const referenceImages = Array.isArray(input.context.referenceImages)
     ? input.context.referenceImages.filter(isPlainObject)
     : [];
 
-  if (includesAny(originalInput, ['提示词', 'prompt']) && includesAny(originalInput, ['优化', '改写', '润色', '增强'])) {
+  if (
+    includesAny(originalInput, ['提示词', 'prompt']) &&
+    includesAny(originalInput, ['优化', '改写', '润色', '增强'])
+  ) {
     return {
       id: gid(),
       source: 'local-fallback',
@@ -220,9 +221,7 @@ function buildDirectProductionFallbackPlan(
         prompt: originalInput,
         input: originalInput,
         ...(includesAny(originalInput, ['视频', 'video', '镜头', '运镜']) ? { target: 'video' } : {}),
-        ...(includesAny(originalInput, ['图片', '图像', '照片', '海报', '插画', 'image'])
-          ? { target: 'image' }
-          : {}),
+        ...(includesAny(originalInput, ['图片', '图像', '照片', '海报', '插画', 'image']) ? { target: 'image' } : {}),
       },
       reasoningSummary: reason || '输入是单次提示词优化请求，优先使用 prompt.optimize。',
       warnings: [],
@@ -258,7 +257,9 @@ function buildDirectProductionFallbackPlan(
         prompt: originalInput,
         input: originalInput,
         ...(extractRequestedRatio(originalInput) ? { ratio: extractRequestedRatio(originalInput) } : {}),
-        ...(latestUploadedImage && typeof latestUploadedImage.url === 'string' ? { reference: latestUploadedImage.url } : {}),
+        ...(latestUploadedImage && typeof latestUploadedImage.url === 'string'
+          ? { reference: latestUploadedImage.url }
+          : {}),
       },
       reasoningSummary: reason || '输入是单次视频生成请求，优先使用 video.generate。',
       warnings: [],
@@ -972,11 +973,7 @@ export class AgentPlannerService {
       }
       if (shouldInspectWorkflow(input)) {
         return attachModelSelection(
-          buildInspectFallbackPlan(
-            input,
-            knowledgeContext,
-            'Planner 返回内容不可用，已回退到当前工作流检查工具。',
-          ),
+          buildInspectFallbackPlan(input, knowledgeContext, 'Planner 返回内容不可用，已回退到当前工作流检查工具。'),
           input,
         );
       }
@@ -992,7 +989,10 @@ export class AgentPlannerService {
           input,
         );
       }
-      return attachModelSelection(fallbackPlan(input, 'Planner 返回内容不是可执行的结构化计划。', knowledgeContext), input);
+      return attachModelSelection(
+        fallbackPlan(input, 'Planner 返回内容不是可执行的结构化计划。', knowledgeContext),
+        input,
+      );
     } catch (error) {
       const normalizedError = error as DynamicValue;
       logger.warn('planner request failed, using fallback plan', {

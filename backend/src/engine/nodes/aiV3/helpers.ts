@@ -32,7 +32,15 @@ export function classifyBySourceType(sourceType: string): 'text' | 'image' | 'vi
   if (t.includes('video')) return 'video';
   if (t.includes('audio')) return 'audio';
   if (t.includes('image') || t === 'imageinput') return 'image';
-  if (t.includes('text') || t.includes('chat') || t.includes('prompt') || t === 'savefile' || t === 'output' || t.includes('iteraterun')) return 'text';
+  if (
+    t.includes('text') ||
+    t.includes('chat') ||
+    t.includes('prompt') ||
+    t === 'savefile' ||
+    t === 'output' ||
+    t.includes('iteraterun')
+  )
+    return 'text';
   return null;
 }
 
@@ -55,13 +63,22 @@ export function classifyByValue(value: unknown): 'text' | 'image' | 'video' | 'a
 export function stringifyForSearch(content: DynamicValue) {
   if (typeof content === 'string') return content.trim();
   if (!Array.isArray(content)) return '';
-  return content.filter((p) => p?.type === 'text' && p.text).map((p) => String(p.text).trim()).filter(Boolean).join('\n');
+  return content
+    .filter((p) => p?.type === 'text' && p.text)
+    .map((p) => String(p.text).trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 function formatDate(offset = 0) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + offset);
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
   const y = parts.find((p) => p.type === 'year')?.value || '';
   const m = parts.find((p) => p.type === 'month')?.value || '';
   const day = parts.find((p) => p.type === 'day')?.value || '';
@@ -75,7 +92,12 @@ export function buildSearchPlan(text: DynamicValue) {
   const normalized = clean.replace(/\s+/g, ' ').trim();
   if (/(今天|今日|当天)/.test(normalized)) {
     const d = formatDate(0);
-    return { query: normalized.replace(/今天|今日|当天/g, d), topic: isNews ? 'news' : undefined, days: 1, dateHint: d };
+    return {
+      query: normalized.replace(/今天|今日|当天/g, d),
+      topic: isNews ? 'news' : undefined,
+      days: 1,
+      dateHint: d,
+    };
   }
   if (/昨天/.test(normalized)) {
     const d = formatDate(-1);
@@ -106,5 +128,10 @@ export async function buildChatContent(text: string, images: DynamicValue[], sco
 export async function parseChatResult(response: Response) {
   const data = (await response.json()) as DynamicValue;
   const msg = data.choices?.[0]?.message || {};
-  return { data, message: msg, content: typeof msg.content === 'string' ? msg.content : '', toolCalls: Array.isArray(msg.tool_calls) ? msg.tool_calls : [] };
+  return {
+    data,
+    message: msg,
+    content: typeof msg.content === 'string' ? msg.content : '',
+    toolCalls: Array.isArray(msg.tool_calls) ? msg.tool_calls : [],
+  };
 }

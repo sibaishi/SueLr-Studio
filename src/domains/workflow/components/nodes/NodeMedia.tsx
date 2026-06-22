@@ -83,12 +83,7 @@ export function MediaCard({
         {kind === 'image' && <ActionButton label="查看大图" onClick={() => setPreviewOpen(true)} />}
         <ActionButton label="下载保存" onClick={() => downloadUrl(value)} />
       </div>
-      {previewOpen && (
-        <ImagePreviewModal
-          src={value}
-          onClose={() => setPreviewOpen(false)}
-        />
-      )}
+      {previewOpen && <ImagePreviewModal src={value} onClose={() => setPreviewOpen(false)} />}
     </div>
   );
 }

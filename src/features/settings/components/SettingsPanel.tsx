@@ -1,5 +1,9 @@
 import { THEME_LABELS } from '@/app/theme/constants';
-import { createImportedProjectModels, createManualProjectModel, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
+import {
+  createImportedProjectModels,
+  createManualProjectModel,
+  normalizeProjectModels,
+} from '@/domains/workflow/lib/projectModels';
 import {
   checkSettingsServer,
   getBackendStatus,
@@ -709,31 +713,31 @@ export function SettingsPanel({
               <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--color-text-primary)' }}>
                 {configStats.total}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                项配置已启用
-              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>项配置已启用</div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
-              {apiConfigs.filter((c) => c.enabled !== false).map((config) => (
-                <span
-                  key={config.id}
-                  style={{
-                    display: 'inline-block',
-                    fontSize: 11,
-                    padding: '3px 8px',
-                    borderRadius: 999,
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-secondary)',
-                    color: 'var(--color-text-secondary)',
-                    maxWidth: '5.2em',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {config.name || config.base || config.id}
-                </span>
-              ))}
+              {apiConfigs
+                .filter((c) => c.enabled !== false)
+                .map((config) => (
+                  <span
+                    key={config.id}
+                    style={{
+                      display: 'inline-block',
+                      fontSize: 11,
+                      padding: '3px 8px',
+                      borderRadius: 999,
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-secondary)',
+                      maxWidth: '5.2em',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {config.name || config.base || config.id}
+                  </span>
+                ))}
             </div>
           </div>
         </div>
@@ -972,7 +976,9 @@ export function SettingsPanel({
         </main>
 
         <aside style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-          <div style={{ ...panelStyle(), padding: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{ ...panelStyle(), padding: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+          >
             <div>
               <div style={eyebrowStyle()}>实时概览</div>
               <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>系统概览</h2>
@@ -993,7 +999,6 @@ export function SettingsPanel({
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>项 API 配置</div>
               </div>
-
             </div>
 
             <div style={{ ...mutedPanelStyle(), padding: 14, flexShrink: 0 }}>

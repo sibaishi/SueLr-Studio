@@ -17,7 +17,7 @@ const THINK_PAIRS: [RegExp | string, RegExp | string][] = [
   [/<thinking\s*>/gi, '</thinking>'],
   [/<思考\s*>/gi, '</思考>'],
   // DeepSeek R1 / Qwen3 类模型可能输出精简的  形式
-  [/<\s*think\s*>/gi, '<\/\s*think\s*>'],
+  [/<\s*think\s*>/gi, '</s*thinks*>'],
 ];
 
 function stripThinkPairs(text: string): string {
@@ -31,11 +31,7 @@ function stripThinkPairs(text: string): string {
 }
 
 /** 移除所有匹配的区间（与 textClean 的 removeDelimitedRanges 同语义，但接受正则）*/
-function removeAllDelimitedRanges(
-  text: string,
-  startRe: RegExp,
-  endRe: RegExp,
-): string {
+function removeAllDelimitedRanges(text: string, startRe: RegExp, endRe: RegExp): string {
   let output = '';
   let cursor = 0;
 

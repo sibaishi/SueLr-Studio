@@ -19,25 +19,27 @@ function getConfigLabel(config: ApiConfig, index: number) {
 }
 
 function buildConfiguredProjectModels(configs: ApiConfig[]): ModelInfo[] {
-  return configs.filter((config) => config.enabled !== false).flatMap((config, index) => {
-    const projectModels = normalizeProjectModels(config.projectModels || []);
-    const grouped = groupConfiguredProjectModels(projectModels);
-    const configName = getConfigLabel(config, index);
-    const decorate = (cat: ModelInfo['cat']) => (option: { modelId: string }) => ({
-      id: `${config.id}::${option.modelId}`,
-      modelId: option.modelId,
-      cat,
-      configId: config.id,
-      configName,
-    });
+  return configs
+    .filter((config) => config.enabled !== false)
+    .flatMap((config, index) => {
+      const projectModels = normalizeProjectModels(config.projectModels || []);
+      const grouped = groupConfiguredProjectModels(projectModels);
+      const configName = getConfigLabel(config, index);
+      const decorate = (cat: ModelInfo['cat']) => (option: { modelId: string }) => ({
+        id: `${config.id}::${option.modelId}`,
+        modelId: option.modelId,
+        cat,
+        configId: config.id,
+        configName,
+      });
 
-    return [
-      ...grouped.chat.map(decorate('chat')),
-      ...grouped.image.map(decorate('image')),
-      ...grouped.video.map(decorate('video')),
-      ...grouped.midjourney.map(decorate('midjourney')),
-    ];
-  });
+      return [
+        ...grouped.chat.map(decorate('chat')),
+        ...grouped.image.map(decorate('image')),
+        ...grouped.video.map(decorate('video')),
+        ...grouped.midjourney.map(decorate('midjourney')),
+      ];
+    });
 }
 
 export function useStudioSettingsState() {
@@ -95,7 +97,9 @@ export function useStudioSettingsState() {
   }, []);
 
   const toggleConfigEnabled = useCallback((id: string) => {
-    setApiConfigs((prev) => prev.map((config) => (config.id === id ? { ...config, enabled: !(config.enabled !== false) } : config)));
+    setApiConfigs((prev) =>
+      prev.map((config) => (config.id === id ? { ...config, enabled: !(config.enabled !== false) } : config)),
+    );
   }, []);
 
   const deleteConfig = useCallback(

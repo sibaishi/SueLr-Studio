@@ -20,9 +20,7 @@ export type AnimatedSvgEdgeData = {
 
 /* ----- built-in shape renderers (glow is handled by SVG filter) ----- */
 
-const circleBase = (size: number, color: string) => (
-  <circle r={size / 2} fill={color} />
-);
+const circleBase = (size: number, color: string) => <circle r={size / 2} fill={color} />;
 
 const boxBase = (size: number, color: string) => (
   <rect x={-size / 2} y={-size / 2} width={size} height={size} rx={2} fill={color} />
@@ -81,12 +79,7 @@ export function AnimatedSvgEdge({
 
   return (
     <>
-      <BaseEdge
-        id={id}
-        path={edgePath}
-        style={style}
-        markerEnd={markerEnd}
-      />
+      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
 
       <defs>
         <filter id={glowId} x="-200%" y="-200%" width="500%" height="500%">

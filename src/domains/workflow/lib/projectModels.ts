@@ -59,7 +59,9 @@ export function normalizeProjectModel(value: unknown): ProjectModel | null {
   if (!id || !modelId) return null;
 
   const type: ProjectModelType =
-    record.type === 'chat' || record.type === 'image' || record.type === 'video' || record.type === 'midjourney' ? record.type : '';
+    record.type === 'chat' || record.type === 'image' || record.type === 'video' || record.type === 'midjourney'
+      ? record.type
+      : '';
   const endpointMode: ProjectModelEndpointMode = record.endpointMode === 'custom' ? 'custom' : 'category';
   const endpointCategory: ProjectModelEndpointCategory =
     record.endpointCategory === 'chat' ||
