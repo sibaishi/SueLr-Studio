@@ -3621,6 +3621,14 @@ body {
 
 /* ==================== Grid Dots — mouse-proximity glow ==================== */
 
+.workflow-grid-glow-layer {
+  mix-blend-mode: normal; /* light theme default */
+}
+
+[data-theme="dark"] .workflow-grid-glow-layer {
+  mix-blend-mode: screen;
+}
+
 .react-flow__edge-path {
   stroke: var(--color-text-tertiary);
   stroke-width: 2;

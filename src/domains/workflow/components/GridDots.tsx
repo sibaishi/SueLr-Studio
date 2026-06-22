@@ -123,8 +123,8 @@ export function GridDots({
           <circle key={`b-${i}`} cx={dot.x} cy={dot.y} r={size} fill={color} opacity={1} />
         ))}
 
-        {/* layer 2: glow overlay — only when active, with SVG blur glow + screen blend */}
-        <g style={{ mixBlendMode: 'screen' }}>
+        {/* layer 2: glow overlay — only when active, with SVG blur glow */}
+        <g className="workflow-grid-glow-layer">
         {glowDots.map((dot, i) => (
           <circle
             key={`g-${i}`}
