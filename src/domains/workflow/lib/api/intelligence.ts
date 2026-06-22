@@ -1,5 +1,13 @@
 import { workflowApiFetch } from '@/domains/workflow/lib/api/base';
+import {
+  type AgentPlanViewModel,
+  type AgentPlanWire,
+  toAgentPlanViewModel,
+} from '@/domains/workflow/lib/api/intelligenceWire';
 import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
+import type { ApiResult } from '@/shared/api/types';
+
+export type { AgentPlanToolName } from '@/domains/workflow/lib/api/intelligenceWire';
 
 export type WorkflowIntentDomain =
   | 'ecommerce-image'
@@ -102,58 +110,7 @@ export interface WorkflowDraftAgentContext {
   plannerModel?: WorkflowDraftPlannerModel;
 }
 
-export type AgentPlanToolName =
-  | 'chat.respond'
-  | 'workflow.inspect'
-  | 'workflow.edit'
-  | 'workflow.applyDraft'
-  | 'workflow.createDraft'
-  | 'workflow.execute'
-  | 'workflow.diagnose'
-  | 'workflow.summarizeRun'
-  | 'image.generate'
-  | 'image.edit'
-  | 'image.compare'
-  | 'video.generate'
-  | 'copy.write'
-  | 'prompt.optimize'
-  | 'result.inspect';
-
-export interface AgentPlan {
-  id: string;
-  source: 'llm' | 'local-fallback' | 'user-approved';
-  plannerModel: WorkflowDraftPlannerModel & {
-    modelId: string;
-  };
-  imageModel?: WorkflowDraftPlannerModel | null;
-  videoModel?: WorkflowDraftPlannerModel | null;
-  summary: string;
-  toolName: AgentPlanToolName;
-  toolInput: {
-    input?: string;
-    plannerNotes?: string;
-    response?: string;
-    context?: Record<string, unknown>;
-    workflowId?: string;
-    workflowName?: string;
-    runId?: string;
-    inputs?: Record<string, unknown>;
-    confirmed?: boolean;
-    [key: string]: unknown;
-  };
-  reasoningSummary: string;
-  warnings: string[];
-  knowledgeContext: {
-    source: string;
-    items: Array<{
-      id: string;
-      title: string;
-      category: string;
-      sourceKind: string;
-      nodeType?: string;
-    }>;
-  };
-}
+export type AgentPlan = AgentPlanViewModel;
 
 export interface CreateAgentPlanInput {
   input: string;
@@ -410,18 +367,25 @@ export async function createWorkflowDraft(input: CreateWorkflowDraftInput) {
   });
 }
 
-export async function createAgentPlan(input: CreateAgentPlanInput) {
-  return workflowApiFetch<AgentPlan>('/intelligence/agent-plans', {
+export async function createAgentPlan(input: CreateAgentPlanInput): Promise<ApiResult<AgentPlan>> {
+  const result = await workflowApiFetch<AgentPlanWire>('/intelligence/agent-plans', {
     method: 'POST',
     body: JSON.stringify(input),
   });
+  if (!result.success || !result.data) return result as ApiResult<AgentPlan>;
+  return { ...result, data: toAgentPlanViewModel(result.data) };
 }
 
-export async function createAgentRun(input: CreateAgentPlanInput) {
-  return workflowApiFetch<AgentRunResponse>('/intelligence/agent-runs', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+export async function createAgentRun(input: CreateAgentPlanInput): Promise<ApiResult<AgentRunResponse>> {
+  const result = await workflowApiFetch<Omit<AgentRunResponse, 'plan'> & { plan: AgentPlanWire }>(
+    '/intelligence/agent-runs',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  if (!result.success || !result.data) return result as ApiResult<AgentRunResponse>;
+  return { ...result, data: { ...result.data, plan: toAgentPlanViewModel(result.data.plan) } };
 }
 
 export async function createIntelligenceRun(input: {

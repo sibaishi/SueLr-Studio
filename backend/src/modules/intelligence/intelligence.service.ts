@@ -1,5 +1,6 @@
 import { ValidationError } from '../../app/errors/index.ts';
 import type { DynamicValue } from '../types.ts';
+import { agentPlanWireSchema } from './contracts/agent-plan-wire.schema.ts';
 import type {
   AgentPlanRequest,
   AgentRunRequest,
@@ -47,11 +48,15 @@ export class IntelligenceService {
   }
 
   async createAgentPlan(input: AgentPlanRequest, options: { scope?: DynamicValue } = {}) {
-    return agentPlannerService.createPlan(input, { scope: options.scope });
+    return agentPlanWireSchema.parse(await agentPlannerService.createPlan(input, { scope: options.scope }));
   }
 
   async createAgentRun(input: AgentRunRequest, options: { scope?: DynamicValue } = {}) {
-    return agentRunner.run(input, { scope: options.scope });
+    const result = await agentRunner.run(input, { scope: options.scope });
+    return {
+      ...result,
+      plan: agentPlanWireSchema.parse(result.plan),
+    };
   }
 
   async createRun(input: IntelligenceRunRequest, options: { scope?: DynamicValue } = {}) {

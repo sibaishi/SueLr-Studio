@@ -1,5 +1,10 @@
-import { API_BASE, workflowApiFetch } from '@/domains/workflow/lib/api/base';
-import { apiRequest } from '@/shared/api';
+import { workflowApiFetch } from '@/domains/workflow/lib/api/base';
+import {
+  type UploadedFile,
+  fetchUploadedFileMetadata as fetchUploadedFileMetadataOrThrow,
+  getFilenameFromFileUrl,
+  uploadFile as uploadFileOrThrow,
+} from '@/shared/api/files';
 
 export interface UploadResult {
   success: boolean;
@@ -43,44 +48,8 @@ export async function clearGeneratedOutputs() {
 }
 
 export async function uploadFile(file: File): Promise<UploadResult> {
-  const formData = new FormData();
-  formData.append('file', file);
-
   try {
-    const result = await apiRequest<{
-      url: string;
-      thumbnailUrl?: string;
-      fileName: string;
-      fileSize: number;
-      mimeType: string;
-      width?: number;
-      height?: number;
-      processing?: boolean;
-      processingStatus?: 'processing' | 'completed' | 'failed';
-      processingError?: string;
-    }>(`${API_BASE}/files/upload`, {
-      method: 'POST',
-      body: formData,
-      skipJsonContentType: true,
-    });
-
-    if (result.success && result.data) {
-      return {
-        success: true,
-        url: result.data.url,
-        thumbnailUrl: result.data.thumbnailUrl,
-        fileName: result.data.fileName,
-        fileSize: result.data.fileSize,
-        mimeType: result.data.mimeType,
-        width: result.data.width,
-        height: result.data.height,
-        processing: result.data.processing,
-        processingStatus: result.data.processingStatus,
-        processingError: result.data.processingError,
-      };
-    }
-
-    return { success: false, error: result.error || '上传失败' };
+    return { success: true, ...(await uploadFileOrThrow(file)) };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '上传失败';
     if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
@@ -91,44 +60,12 @@ export async function uploadFile(file: File): Promise<UploadResult> {
 }
 
 export function getUploadedFilenameFromUrl(url: string) {
-  const match = String(url || '').match(/\/api\/files\/([^/?#]+)/);
-  return match ? decodeURIComponent(match[1]) : '';
+  return getFilenameFromFileUrl(url);
 }
 
 export async function fetchUploadedFileMetadata(filename: string): Promise<UploadedFileMetadataResult> {
   try {
-    const result = await apiRequest<{
-      url: string;
-      thumbnailUrl?: string;
-      fileName: string;
-      fileSize: number;
-      mimeType: string;
-      width?: number;
-      height?: number;
-      processing?: boolean;
-      processingStatus?: 'processing' | 'completed' | 'failed';
-      processingError?: string;
-    }>(`${API_BASE}/files/${encodeURIComponent(filename)}/metadata`, {
-      method: 'GET',
-    });
-
-    if (result.success && result.data) {
-      return {
-        success: true,
-        url: result.data.url,
-        thumbnailUrl: result.data.thumbnailUrl,
-        fileName: result.data.fileName,
-        fileSize: result.data.fileSize,
-        mimeType: result.data.mimeType,
-        width: result.data.width,
-        height: result.data.height,
-        processing: result.data.processing,
-        processingStatus: result.data.processingStatus,
-        processingError: result.data.processingError,
-      };
-    }
-
-    return { success: false, error: result.error || '读取上传文件元数据失败' };
+    return { success: true, ...(await fetchUploadedFileMetadataOrThrow(filename)) };
   } catch (error: unknown) {
     return {
       success: false,
@@ -136,3 +73,5 @@ export async function fetchUploadedFileMetadata(filename: string): Promise<Uploa
     };
   }
 }
+
+export type { UploadedFile };

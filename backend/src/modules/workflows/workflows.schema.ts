@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ValidationError } from '../../app/errors/index.ts';
+import { createPlainObjectSchema, createSafeIdSchema, isPlainObject } from '../../app/http/contract-schemas.ts';
 import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import { getNodeContract, getNodeDataDefaults } from '../../engine/contracts/node-registry.ts';
 import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
@@ -12,20 +13,9 @@ type WorkflowNormalizeOptions = {
   scope?: DynamicValue;
 };
 
-function isPlainObject(value: DynamicValue): value is PlainObject {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
+const workflowIdSchema = createSafeIdSchema('workflow.id', 120, /^[a-zA-Z0-9._-]+$/);
 
-const workflowIdSchema = z
-  .string()
-  .trim()
-  .min(1, 'workflow.id 不能为空')
-  .max(120, 'workflow.id 长度超限')
-  .regex(/^[a-zA-Z0-9._-]+$/, 'workflow.id 包含非法字符');
-
-const workflowBodySchema = z.custom<PlainObject>(isPlainObject, {
-  message: '工作流请求体必须为对象',
-});
+const workflowBodySchema = createPlainObjectSchema('工作流请求体必须为对象');
 
 export const workflowImportQuerySchema = z
   .object({

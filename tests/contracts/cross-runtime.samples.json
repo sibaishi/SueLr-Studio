@@ -1,0 +1,141 @@
+{
+  "runtimeCapabilities": {
+    "mode": "local-web",
+    "canSelectDirectory": true,
+    "canRestartBackend": true,
+    "hasEmbeddedShell": false,
+    "search": {
+      "enabled": false,
+      "provider": "tavily",
+      "disabledReason": "当前未启用联网搜索"
+    }
+  },
+  "projectModels": {
+    "input": [
+      {
+        "id": "video-model",
+        "modelId": "video-model",
+        "enabled": true,
+        "type": "video",
+        "endpointMode": "category",
+        "endpointCategory": "video",
+        "customEndpoint": "",
+        "source": "imported",
+        "createdAt": 100,
+        "updatedAt": 200
+      },
+      {
+        "id": "image-model",
+        "modelId": "image-model",
+        "enabled": true,
+        "type": "image",
+        "endpointMode": "custom",
+        "endpointCategory": "image",
+        "customEndpoint": "/v1/custom-images",
+        "source": "manual",
+        "createdAt": 300,
+        "updatedAt": 400
+      },
+      {
+        "id": "video-model-duplicate",
+        "modelId": "video-model",
+        "enabled": false,
+        "type": "video",
+        "endpointMode": "category",
+        "endpointCategory": "video",
+        "customEndpoint": "",
+        "source": "imported",
+        "createdAt": 500,
+        "updatedAt": 600
+      }
+    ],
+    "expected": [
+      {
+        "id": "image-model",
+        "modelId": "image-model",
+        "enabled": true,
+        "type": "image",
+        "endpointMode": "custom",
+        "endpointCategory": "",
+        "customEndpoint": "/v1/custom-images",
+        "source": "manual",
+        "configured": true,
+        "createdAt": 300,
+        "updatedAt": 400
+      },
+      {
+        "id": "video-model-duplicate",
+        "modelId": "video-model",
+        "enabled": false,
+        "type": "video",
+        "endpointMode": "category",
+        "endpointCategory": "video",
+        "customEndpoint": "",
+        "source": "imported",
+        "configured": false,
+        "createdAt": 500,
+        "updatedAt": 600
+      }
+    ]
+  },
+  "executionSnapshot": {
+    "persistedWorkflow": {
+      "id": "wf-contract",
+      "name": "Persisted Contract",
+      "version": 1,
+      "createdAt": 10,
+      "updatedAt": 20,
+      "nodes": [
+        {
+          "id": "io-1",
+          "type": "io",
+          "position": { "x": 0, "y": 0 },
+          "data": { "text": "persisted" }
+        }
+      ],
+      "edges": [],
+      "settings": {}
+    },
+    "draftWorkflow": {
+      "id": "wf-draft",
+      "name": "Draft Contract",
+      "version": 1,
+      "createdAt": 10,
+      "updatedAt": 20,
+      "nodes": [
+        {
+          "id": "io-1",
+          "type": "io",
+          "position": { "x": 28, "y": 56 },
+          "data": { "text": "draft" }
+        }
+      ],
+      "edges": [],
+      "settings": {}
+    },
+    "expected": {
+      "runId": "run-contract",
+      "workflowId": "wf-contract",
+      "workflowVersion": 1,
+      "snapshotVersion": 1,
+      "nodeContractVersion": 1,
+      "source": "draft",
+      "name": "Draft Contract"
+    }
+  },
+  "agentPlanWire": {
+    "id": "plan-contract",
+    "source": "llm",
+    "plannerModel": {
+      "id": "planner-model",
+      "modelId": "planner-model",
+      "label": "Planner"
+    },
+    "summary": "Inspect the workflow",
+    "toolName": "workflow.inspect",
+    "toolInput": {
+      "workflowId": "wf-contract"
+    },
+    "reasoningSummary": "The user asked for the current workflow state."
+  }
+}

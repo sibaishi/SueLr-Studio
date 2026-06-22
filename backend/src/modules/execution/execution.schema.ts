@@ -1,32 +1,14 @@
 import { z } from 'zod';
+import { createPlainObjectSchema, createSafeIdSchema, isPlainObject } from '../../app/http/contract-schemas.ts';
 import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 
-function isPlainObject(value: DynamicValue): value is PlainObject {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
+const workflowIdSchema = createSafeIdSchema('workflow.id', 120, /^[a-zA-Z0-9._-]+$/);
 
-const workflowIdSchema = z
-  .string()
-  .trim()
-  .min(1, 'workflow.id 不能为空')
-  .max(120, 'workflow.id 长度超限')
-  .regex(/^[a-zA-Z0-9._-]+$/, 'workflow.id 包含非法字符');
-
-const runIdSchema = z
-  .string()
-  .trim()
-  .min(1, 'runId 不能为空')
-  .max(200, 'runId 长度超限')
-  .regex(/^[a-zA-Z0-9._:-]+$/, 'runId 包含非法字符');
+const runIdSchema = createSafeIdSchema('runId', 200, /^[a-zA-Z0-9._:-]+$/);
 
 const executionBodySchema = z
-  .preprocess(
-    (value) => (value === undefined ? {} : value),
-    z.custom<PlainObject>(isPlainObject, {
-      message: '执行请求体必须为对象',
-    }),
-  )
+  .preprocess((value) => (value === undefined ? {} : value), createPlainObjectSchema('执行请求体必须为对象'))
   .superRefine((value, context) => {
     if (value.source !== 'draft') return;
     if (!Array.isArray(value.nodes)) {

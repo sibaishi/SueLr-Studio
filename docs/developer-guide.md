@@ -209,7 +209,9 @@ Current cleanup and ownership notes:
 - `src/domains/workflow/lib/api/execution.ts`
   - workflow execution SSE, cancellation, and run-status API helpers
 - `src/domains/workflow/lib/api/files.ts`
-  - generated output, upload, and uploaded-file metadata API helpers
+  - generated-output operations plus workflow-specific success/error adapters over the shared upload and metadata client
+- `src/domains/workflow/lib/api/intelligenceWire.ts`
+  - intelligence wire DTOs and normalization into stable Agent UI view models
 - `src/domains/workflow/lib/api/settings.ts`
   - settings, provider connection, model discovery, and available-model API helpers
 - `src/domains/workflow/lib/importExport.ts`
@@ -229,6 +231,8 @@ Current cleanup and ownership notes:
   - select-directory and save-path helpers
 - `src/shared/api/serverState.ts`
   - backend status and restart helpers
+- `src/shared/api/files.ts`
+  - canonical low-level upload, uploaded-file metadata, and uploaded-file URL parsing client
 - `src/shared/hooks/provider.ts`
   - provider-related shared selection helpers
 - `src/shared/hooks/useMemory.ts`
@@ -300,12 +304,16 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
 
 ## Backend Structure
 
+Cross-runtime contracts remain independently typed at each runtime boundary. Behavioral compatibility is fixed by shared samples in `tests/contracts/cross-runtime.samples.json`, exercised by both frontend Vitest and backend Node tests for runtime capabilities, project models, execution snapshots, and intelligence plan DTOs.
+
 ### Backend entry and HTTP app
 
 - `backend/server.ts`
   - process entry, server startup, and boot wiring
 - `backend/src/app/create-app.ts`
   - Express app composition, middleware registration, and route mounting
+- `backend/src/app/http/contract-schemas.ts`
+  - reusable Zod primitives for safe resource ids and plain-object request boundaries
 
 ### Feature modules
 
@@ -322,6 +330,8 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
   - run-state tracking, execution orchestration, and stop behavior
 - `backend/src/modules/execution/execution.schema.ts`
   - Zod schemas for execution params and request bodies
+- `backend/src/modules/intelligence/contracts/agent-plan-wire.schema.ts`
+  - output-boundary schema for Agent plan wire DTOs returned by plan and run endpoints
 - `backend/src/modules/images/images.routes.ts`
   - image generation endpoints
 - `backend/src/modules/images/images.service.ts`

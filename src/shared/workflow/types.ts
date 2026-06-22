@@ -141,7 +141,9 @@ export interface ExecutionSnapshot {
   workflowId: string;
   workflowVersion: number;
   snapshotVersion: number;
+  nodeContractVersion: number;
   source: 'persisted' | 'draft';
+  name: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   settings: WorkflowSettings;
