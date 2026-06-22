@@ -1,5 +1,6 @@
 import { getExpandedNodeOutputs, getNodeDef } from '@/domains/workflow/lib/constants';
 import { parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
+import { DEFAULT_WORKFLOW_EDGE_STYLE, WORKFLOW_PORT_TYPE_COLORS } from '@/shared/workflow/port-visuals';
 import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { getNodeRenderRect } from './flowCanvasClipboard';
@@ -13,24 +14,7 @@ import {
 import { getEdgeApproximateSegment, pointToSegmentDistance } from './flowCanvasGeometry';
 import type { ContextMenuKind, EdgeInsertionCandidate, MenuHorizontalDirection } from './flowCanvasTypes';
 
-export const PORT_TYPE_COLORS: Record<string, string> = {
-  string: '#007AFF',
-  'string[]': '#007AFF',
-  image: '#FF9500',
-  'image[]': '#FF9500',
-  video: '#AF52DE',
-  'video[]': '#AF52DE',
-  audio: '#FF375F',
-  'audio[]': '#FF375F',
-  apiKey: '#5856D6',
-  any: '#64D2FF',
-  'any[]': '#64D2FF',
-};
-
-export const DEFAULT_WORKFLOW_EDGE_STYLE = {
-  stroke: 'var(--color-text-tertiary)',
-  strokeWidth: 2,
-} as const;
+export { DEFAULT_WORKFLOW_EDGE_STYLE } from '@/shared/workflow/port-visuals';
 
 const GROUP_INTERNAL_EDGE_STYLE = {
   ...DEFAULT_WORKFLOW_EDGE_STYLE,
@@ -140,7 +124,9 @@ function canNodeBridgeEdge(node: FlowNodeType, edge: Edge, nodeMap: Map<string, 
 export function getEdgeDataTypeColor(edge: Edge, nodeMap: Map<string, FlowNodeType>) {
   const sourceType = getOutputType(nodeMap.get(edge.source), edge.sourceHandle);
   const targetType = getInputType(nodeMap.get(edge.target), edge.targetHandle);
-  return PORT_TYPE_COLORS[sourceType || ''] || PORT_TYPE_COLORS[targetType || ''] || 'var(--color-accent)';
+  return (
+    WORKFLOW_PORT_TYPE_COLORS[sourceType || ''] || WORKFLOW_PORT_TYPE_COLORS[targetType || ''] || 'var(--color-accent)'
+  );
 }
 
 export function findEdgeInsertionCandidate(draggedNode: FlowNodeType, nodes: FlowNodeType[], edges: Edge[]) {

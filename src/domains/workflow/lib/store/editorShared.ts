@@ -8,6 +8,10 @@ import {
 } from '@/domains/workflow/lib/constants';
 import { projectWorkflowToExecutionGraph } from '@/domains/workflow/lib/executionGraph';
 import {
+  expandNodeIdsWithDescendants,
+  getAbsoluteNodePosition as getAbsolutePosition,
+} from '@/domains/workflow/lib/graphHierarchy';
+import {
   GROUP_CONTENT_INSET_BOTTOM,
   GROUP_CONTENT_INSET_X,
   GROUP_SAFE_MARGIN,
@@ -208,64 +212,8 @@ export function normalizeEditorNodes(nodes: Node[], edges: Edge[]) {
   return normalizeGroupPortNodes(normalizeMergeNodeSizes(nodes, edges), edges);
 }
 
-export function getAbsolutePosition(
-  nodeId: string,
-  nodeMap: Map<string, Node>,
-  memo = new Map<string, { x: number; y: number }>(),
-) {
-  const cached = memo.get(nodeId);
-  if (cached) return cached;
-
-  const node = nodeMap.get(nodeId);
-  if (!node) {
-    const fallback = { x: 0, y: 0 };
-    memo.set(nodeId, fallback);
-    return fallback;
-  }
-
-  let position = { x: node.position.x, y: node.position.y };
-  const parentId = (node as Node & { parentId?: string }).parentId;
-  if (parentId && nodeMap.has(parentId)) {
-    const parentPosition = getAbsolutePosition(parentId, nodeMap, memo);
-    position = {
-      x: parentPosition.x + node.position.x,
-      y: parentPosition.y + node.position.y,
-    };
-  }
-
-  memo.set(nodeId, position);
-  return position;
-}
-
-function getDescendantNodeIds(nodes: Node[], rootIds: string[]) {
-  const byParent = new Map<string, string[]>();
-  for (const node of nodes) {
-    const parentId = (node as Node & { parentId?: string }).parentId;
-    if (!parentId) continue;
-    const current = byParent.get(parentId) || [];
-    current.push(node.id);
-    byParent.set(parentId, current);
-  }
-
-  const visited = new Set<string>();
-  const queue = [...rootIds];
-  while (queue.length > 0) {
-    const currentId = queue.shift();
-    if (!currentId) continue;
-    for (const childId of byParent.get(currentId) || []) {
-      if (visited.has(childId)) continue;
-      visited.add(childId);
-      queue.push(childId);
-    }
-  }
-
-  return [...visited];
-}
-
 export function expandNodeActionIds(nodes: Node[], nodeIds: string[]) {
-  const uniqueIds = [...new Set(nodeIds)].filter((id) => nodes.some((node) => node.id === id));
-  if (uniqueIds.length === 0) return [];
-  return [...new Set([...uniqueIds, ...getDescendantNodeIds(nodes, uniqueIds)])];
+  return expandNodeIdsWithDescendants(nodes, nodeIds);
 }
 
 export function isNodeLocked(node: Node | undefined) {

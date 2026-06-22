@@ -1,10 +1,10 @@
 import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
 import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
-import { createEmptyRuntimePatch } from '@/domains/workflow/lib/store/documents';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
 import { gid, normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
 import { loadLocalDraft } from '@/domains/workflow/lib/store/persistence';
+import { createClearedRuntimePatch } from '@/domains/workflow/lib/store/runtimeState';
 import type { WorkflowDocument, WorkflowState } from '@/domains/workflow/lib/store/types';
 import type { Edge, Node } from '@xyflow/react';
 
@@ -79,7 +79,7 @@ export function createInitialWorkflowState(): WorkflowStoreDataState {
         hasUnsavedChanges: Boolean(initialDraft),
         lastSavedAt: null,
         origin: 'new',
-        ...createEmptyRuntimePatch(),
+        ...createClearedRuntimePatch(),
       },
     ],
     activeDocumentId: initialDocumentId,

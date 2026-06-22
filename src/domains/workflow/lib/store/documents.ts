@@ -1,5 +1,6 @@
 import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { gid } from '@/domains/workflow/lib/store/helpers';
+import { createClearedRuntimePatch } from '@/domains/workflow/lib/store/runtimeState';
 import type {
   WorkflowDocument,
   WorkflowDocumentOrigin,
@@ -8,59 +9,6 @@ import type {
   WorkflowStoreSet,
 } from '@/domains/workflow/lib/store/types';
 import type { Edge, Node } from '@xyflow/react';
-
-export function createEmptyRuntimePatch() {
-  return {
-    isExecuting: false,
-    executionProgress: null,
-    executionMessage: null,
-    currentRunId: null,
-    lastExecutionRunId: null,
-    executingNodeId: null,
-    lastExecutionStatus: null,
-    lastExecutionTime: null,
-    lastExecutionError: null,
-    lastExecutionSummary: null,
-    nodeExecStatus: {},
-    nodeExecutionTime: {},
-    nodeExecutionStartedAt: {},
-    nodeExecutionActiveCounts: {},
-    nodeExecutionStartedCounts: {},
-    nodeExecutionCompletedCounts: {},
-    nodeExecutionExpectedCounts: {},
-    nodeErrors: {},
-    nodeWarnings: {},
-    nodeOutputs: {},
-    aiResultOutputs: {},
-    executionLogs: [],
-    workflowWarningMessage: null,
-  } satisfies Pick<
-    WorkflowDocument,
-    | 'isExecuting'
-    | 'executionProgress'
-    | 'executionMessage'
-    | 'currentRunId'
-    | 'lastExecutionRunId'
-    | 'executingNodeId'
-    | 'lastExecutionStatus'
-    | 'lastExecutionTime'
-    | 'lastExecutionError'
-    | 'lastExecutionSummary'
-    | 'nodeExecStatus'
-    | 'nodeExecutionTime'
-    | 'nodeExecutionStartedAt'
-    | 'nodeExecutionActiveCounts'
-    | 'nodeExecutionStartedCounts'
-    | 'nodeExecutionCompletedCounts'
-    | 'nodeExecutionExpectedCounts'
-    | 'nodeErrors'
-    | 'nodeWarnings'
-    | 'nodeOutputs'
-    | 'aiResultOutputs'
-    | 'executionLogs'
-    | 'workflowWarningMessage'
-  >;
-}
 
 export function createWorkflowDocumentSnapshot(
   state: WorkflowState,
@@ -168,7 +116,7 @@ export function createEmptyWorkflowDocument(
     hasUnsavedChanges: options.hasUnsavedChanges ?? false,
     lastSavedAt: null,
     origin: options.origin || 'new',
-    ...createEmptyRuntimePatch(),
+    ...createClearedRuntimePatch(),
   };
 }
 

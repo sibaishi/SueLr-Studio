@@ -5,6 +5,7 @@ import {
   getExpandedNodeOutputs,
   getNodeDef,
 } from '@/domains/workflow/lib/constants';
+import { getAbsoluteNodePosition } from '@/domains/workflow/lib/graphHierarchy';
 import {
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
@@ -34,7 +35,7 @@ import {
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
-import { getAbsoluteNodePosition, snapNodeBox } from './flowCanvasClipboard';
+import { snapNodeBox } from './flowCanvasClipboard';
 import {
   FLOW_CATEGORY_LABELS,
   FLOW_CATEGORY_ORDER,

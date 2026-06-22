@@ -1,4 +1,5 @@
 import { GRID_SIZE, getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import { expandNodeIdsWithDescendants, getAbsoluteNodePosition } from '@/domains/workflow/lib/graphHierarchy';
 import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import { getCenteredPosition } from './flowCanvasHelpers';
 import type { ClipboardSnapshot } from './flowCanvasTypes';
@@ -15,71 +16,12 @@ export function snapValue(value: number) {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
 }
 
-export function getAbsoluteNodePosition(
-  nodeId: string,
-  nodeMap: Map<string, FlowNodeType>,
-  memo = new Map<string, { x: number; y: number }>(),
-) {
-  const cached = memo.get(nodeId);
-  if (cached) return cached;
-
-  const node = nodeMap.get(nodeId);
-  if (!node) {
-    const fallback = { x: 0, y: 0 };
-    memo.set(nodeId, fallback);
-    return fallback;
-  }
-
-  let position = { x: node.position.x, y: node.position.y };
-  const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-  if (parentId && nodeMap.has(parentId)) {
-    const parentPosition = getAbsoluteNodePosition(parentId, nodeMap, memo);
-    position = {
-      x: parentPosition.x + node.position.x,
-      y: parentPosition.y + node.position.y,
-    };
-  }
-
-  memo.set(nodeId, position);
-  return position;
-}
-
-function getDescendantIds(nodes: FlowNodeType[], rootIds: string[]) {
-  const byParent = new Map<string, string[]>();
-  for (const node of nodes) {
-    const parentId = (node as FlowNodeType & { parentId?: string }).parentId;
-    if (!parentId) continue;
-    const current = byParent.get(parentId) || [];
-    current.push(node.id);
-    byParent.set(parentId, current);
-  }
-
-  const visited = new Set<string>();
-  const queue = [...rootIds];
-  while (queue.length > 0) {
-    const currentId = queue.shift();
-    if (!currentId) continue;
-    for (const childId of byParent.get(currentId) || []) {
-      if (visited.has(childId)) continue;
-      visited.add(childId);
-      queue.push(childId);
-    }
-  }
-
-  return [...visited];
-}
-
-function expandSelectionIds(nodes: FlowNodeType[], nodeIds: string[]) {
-  const uniqueIds = [...new Set(nodeIds)];
-  return [...new Set([...uniqueIds, ...getDescendantIds(nodes, uniqueIds)])];
-}
-
 export function buildClipboardSnapshot(
   nodes: FlowNodeType[],
   edges: Edge[],
   nodeIds: string[],
 ): ClipboardSnapshot | null {
-  const expandedIds = expandSelectionIds(nodes, nodeIds);
+  const expandedIds = expandNodeIdsWithDescendants(nodes, nodeIds);
   if (expandedIds.length === 0) return null;
 
   const selectedSet = new Set(expandedIds);

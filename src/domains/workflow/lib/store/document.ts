@@ -6,14 +6,11 @@ import type {
   WorkflowImportMode,
   WorkflowImportReport,
 } from '@/domains/workflow/lib/persistenceTypes';
-import {
-  createEmptyRuntimePatch,
-  getDocumentViewPatch,
-  patchActiveWorkflowDocument,
-} from '@/domains/workflow/lib/store/documents';
+import { getDocumentViewPatch, patchActiveWorkflowDocument } from '@/domains/workflow/lib/store/documents';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
 import { buildWorkflowPayload, gid, normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
 import { clearActiveRunSnapshot, type loadLocalDraft } from '@/domains/workflow/lib/store/persistence';
+import { createClearedRuntimePatch } from '@/domains/workflow/lib/store/runtimeState';
 import type {
   WorkflowDocument,
   WorkflowImportResult,
@@ -86,7 +83,7 @@ function createDocumentFromWorkflow(
     hasUnsavedChanges: options.hasUnsavedChanges,
     lastSavedAt: options.lastSavedAt,
     origin: options.origin,
-    ...createEmptyRuntimePatch(),
+    ...createClearedRuntimePatch(),
   };
 }
 

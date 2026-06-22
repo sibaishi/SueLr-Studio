@@ -6,6 +6,7 @@ import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared'
 import { normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
 import { formatLogDetails, gid, sanitizeLogMessage } from '@/domains/workflow/lib/store/helpers';
 import { clearActiveRunSnapshot, saveLocalDraft } from '@/domains/workflow/lib/store/persistence';
+import { createClearedNodeExecutionPatch, createClearedRuntimePatch } from '@/domains/workflow/lib/store/runtimeState';
 import type {
   WorkflowEditorSnapshot,
   WorkflowState,
@@ -60,16 +61,7 @@ export function createWorkflowEditorSessionActions(
 
     clearAllExecStatus: () =>
       set({
-        nodeExecStatus: {},
-        nodeExecutionTime: {},
-        nodeExecutionStartedAt: {},
-        nodeExecutionActiveCounts: {},
-        nodeExecutionStartedCounts: {},
-        nodeExecutionCompletedCounts: {},
-        nodeExecutionExpectedCounts: {},
-        nodeErrors: {},
-        nodeWarnings: {},
-        workflowWarningMessage: null,
+        ...createClearedNodeExecutionPatch(),
       }),
 
     setExecuting: (executing, progress) => {
@@ -129,29 +121,7 @@ export function createWorkflowEditorSessionActions(
         edges,
         selectedNodeId: snapshot.selectedNodeId,
         hasUnsavedChanges: markDirty,
-        isExecuting: false,
-        executionProgress: null,
-        executionMessage: null,
-        currentRunId: null,
-        lastExecutionRunId: null,
-        executingNodeId: null,
-        lastExecutionStatus: null,
-        lastExecutionTime: null,
-        lastExecutionError: null,
-        lastExecutionSummary: null,
-        nodeExecStatus: {},
-        nodeExecutionTime: {},
-        nodeExecutionStartedAt: {},
-        nodeExecutionActiveCounts: {},
-        nodeExecutionStartedCounts: {},
-        nodeExecutionCompletedCounts: {},
-        nodeExecutionExpectedCounts: {},
-        nodeErrors: {},
-        nodeWarnings: {},
-        nodeOutputs: {},
-        aiResultOutputs: {},
-        executionLogs: [],
-        workflowWarningMessage: null,
+        ...createClearedRuntimePatch(),
       });
     },
 

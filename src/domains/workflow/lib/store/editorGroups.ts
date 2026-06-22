@@ -1,3 +1,4 @@
+import { getAbsoluteNodePosition } from '@/domains/workflow/lib/graphHierarchy';
 import { enforceGroupLayout, pushRootNodeOutsideGroupAreas } from '@/domains/workflow/lib/groupLayout';
 import { findGroupPort, parseGroupHandleId, pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
 import {
@@ -5,7 +6,6 @@ import {
   buildGroupForNodes,
   duplicateNodesWithGroups,
   expandNodeActionIds,
-  getAbsolutePosition,
   normalizeEditorNodes,
   ungroupGroupNodes,
 } from '@/domains/workflow/lib/store/editorShared';
@@ -206,7 +206,7 @@ export function createWorkflowGroupEditorActions(
         if (!targetSet.has(node.id)) return node;
         const parentId = (node as Node & { parentId?: string }).parentId;
         if (!parentId) return node;
-        const absolutePosition = getAbsolutePosition(node.id, nodeMap, positionMemo);
+        const absolutePosition = getAbsoluteNodePosition(node.id, nodeMap, positionMemo);
         return pushRootNodeOutsideGroupAreas(
           {
             ...node,

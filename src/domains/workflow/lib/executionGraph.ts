@@ -1,39 +1,7 @@
+import { getAbsoluteNodePosition } from '@/domains/workflow/lib/graphHierarchy';
 import { findGroupPort, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { getNodeDef, supportsDisabledPassthrough } from '@/domains/workflow/nodes/registry';
 import type { Edge, Node } from '@xyflow/react';
-
-function getNodeParentId(node: Node) {
-  return (node as Node & { parentId?: string }).parentId;
-}
-
-function getAbsoluteNodePosition(
-  nodeId: string,
-  nodeMap: Map<string, Node>,
-  memo = new Map<string, { x: number; y: number }>(),
-) {
-  const cached = memo.get(nodeId);
-  if (cached) return cached;
-
-  const node = nodeMap.get(nodeId);
-  if (!node) {
-    const fallback = { x: 0, y: 0 };
-    memo.set(nodeId, fallback);
-    return fallback;
-  }
-
-  let position = { x: node.position.x, y: node.position.y };
-  const parentId = getNodeParentId(node);
-  if (parentId && nodeMap.has(parentId)) {
-    const parentPosition = getAbsoluteNodePosition(parentId, nodeMap, memo);
-    position = {
-      x: parentPosition.x + node.position.x,
-      y: parentPosition.y + node.position.y,
-    };
-  }
-
-  memo.set(nodeId, position);
-  return position;
-}
 
 type ResolvedEndpoint = {
   nodeId: string;

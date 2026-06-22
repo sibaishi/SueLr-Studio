@@ -166,6 +166,8 @@ Current cleanup and ownership notes:
   - group sizing, collapsed group size, child constraints, and root-node placement around groups
 - `src/domains/workflow/lib/groupPorts.ts`
   - group input/output port normalization, boundary-handle ids, compatibility, and transit-port routing
+- `src/domains/workflow/lib/graphHierarchy.ts`
+  - canonical parent lookup, absolute canvas coordinates, descendant collection, and action-selection expansion shared by clipboard, editor, grouping, and execution projection
 - `src/domains/workflow/lib/executionGraph.ts`
   - projection from editable grouped canvas graph to executable flat graph
 - `src/domains/workflow/lib/store.ts`
@@ -192,6 +194,8 @@ Current cleanup and ownership notes:
   - shared editor helpers for layout, locking, disabling, group movement, and related graph updates
 - `src/domains/workflow/lib/store/execution.ts`
   - run lifecycle and execution status
+- `src/domains/workflow/lib/store/runtimeState.ts`
+  - explicit runtime reset contracts for node-status clearing, full document replacement, and new-run initialization
 - `src/domains/workflow/hooks/useWorkflowHistory.ts`
   - local undo/redo history orchestration backed by React refs, not Zustand
 - `src/domains/workflow/hooks/useWorkflowImport.ts`
@@ -217,6 +221,8 @@ Current cleanup and ownership notes:
 
 - `src/shared/ui/AnimatedEdgePath.tsx`
   - common animated SVG edge-path renderer; Bezier and smooth-step edge wrappers retain only path construction and their path-specific options
+- `src/shared/workflow/port-visuals.ts`
+  - canonical workflow port colors, labels, and default edge style used by node handles and canvas edges
 - `src/shared/api/capabilities.ts`
   - capability discovery client
 - `src/shared/api/pathPicker.ts`

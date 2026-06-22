@@ -20,6 +20,7 @@ import {
   loadActiveRunSnapshot,
   saveActiveRunSnapshot,
 } from '@/domains/workflow/lib/store/persistence';
+import { createExecutionStartPatch } from '@/domains/workflow/lib/store/runtimeState';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
 import { notifyWorkflowComplete } from '@/shared/providers/notification';
 import type { Edge, Node } from '@xyflow/react';
@@ -407,25 +408,8 @@ export function createWorkflowExecutionActions(
       return;
     }
 
-    set({
-      executionProgress: null,
-      isExecuting: true,
-      executionMessage: options.targetNodeId ? '正在准备运行到节点...' : '准备执行工作流...',
-      currentRunId: null,
-      lastExecutionRunId: null,
-      executingNodeId: null,
-      nodeExecStatus: {},
-      nodeExecutionTime: {},
-      nodeExecutionStartedAt: {},
-      nodeExecutionActiveCounts: {},
-      nodeExecutionStartedCounts: {},
-      nodeExecutionCompletedCounts: {},
-      nodeExecutionExpectedCounts: {},
-      nodeErrors: {},
-      nodeWarnings: {},
-      nodeOutputs: {},
-      workflowWarningMessage: null,
-      executionLogs: [
+    set(
+      createExecutionStartPatch(options.targetNodeId ? '正在准备运行到节点...' : '准备执行工作流...', [
         {
           id: `log_${gid()}`,
           timestamp: Date.now(),
@@ -439,12 +423,8 @@ export function createWorkflowExecutionActions(
             ...(options.targetNodeId ? { targetNodeId: options.targetNodeId } : {}),
           },
         },
-      ],
-      lastExecutionStatus: null,
-      lastExecutionTime: null,
-      lastExecutionError: null,
-      lastExecutionSummary: null,
-    });
+      ]),
+    );
 
     // Reorder edges for multi-input nodes (aiV3) based on inputOrder
     const sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);

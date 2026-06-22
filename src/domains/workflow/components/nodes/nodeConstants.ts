@@ -1,5 +1,6 @@
 import type { NodeExecStatus } from '@/domains/workflow/lib/store';
 import type { ProviderConfig } from '@/shared/providers';
+import { WORKFLOW_PORT_TYPE_COLORS, WORKFLOW_PORT_TYPE_LABELS } from '@/shared/workflow/port-visuals';
 import {
   Bot,
   Clapperboard,
@@ -42,33 +43,8 @@ export const NODE_ICONS: Record<string, NodeIconComponent> = {
   save: FolderDown,
 };
 
-export const PORT_TYPE_COLORS: Record<string, string> = {
-  string: '#007AFF',
-  'string[]': '#007AFF',
-  image: '#FF9500',
-  'image[]': '#FF9500',
-  video: '#AF52DE',
-  'video[]': '#AF52DE',
-  audio: '#FF375F',
-  'audio[]': '#FF375F',
-  apiKey: '#5856D6',
-  any: '#8E8E93',
-  'any[]': '#8E8E93',
-};
-
-export const PORT_TYPE_LABELS: Record<string, string> = {
-  string: 'TEXT',
-  'string[]': 'TEXT[]',
-  image: 'IMG',
-  'image[]': 'IMG[]',
-  video: 'VID',
-  'video[]': 'VID[]',
-  audio: 'AUD',
-  'audio[]': 'AUD[]',
-  apiKey: 'KEY',
-  any: 'ANY',
-  'any[]': 'ANY[]',
-};
+export const PORT_TYPE_COLORS = WORKFLOW_PORT_TYPE_COLORS;
+export const PORT_TYPE_LABELS = WORKFLOW_PORT_TYPE_LABELS;
 
 export const NODE_API_PROVIDER_CONFIG: Partial<ProviderConfig> = {
   authType: 'bearer',
