@@ -123,7 +123,8 @@ export function GridDots({
           <circle key={`b-${i}`} cx={dot.x} cy={dot.y} r={size} fill={color} opacity={1} />
         ))}
 
-        {/* layer 2: glow overlay — only when active, with SVG blur glow */}
+        {/* layer 2: glow overlay — only when active, with SVG blur glow + screen blend */}
+        <g style={{ mixBlendMode: 'screen' }}>
         {glowDots.map((dot, i) => (
           <circle
             key={`g-${i}`}
@@ -135,6 +136,7 @@ export function GridDots({
             filter="url(#grid-dot-glow)"
           />
         ))}
+        </g>
       </g>
     </svg>
   );
