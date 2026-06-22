@@ -18,8 +18,6 @@ import { useWorkflowCanvasStore } from '@/domains/workflow/lib/store/selectors';
 import { AnimatedSvgEdge } from '@/shared/ui/AnimatedSvgEdge';
 import { AnimatedSvgSmoothStepEdge } from '@/shared/ui/AnimatedSvgSmoothStepEdge';
 import {
-  Background,
-  BackgroundVariant,
   ConnectionMode,
   Controls,
   type EdgeChange,
@@ -35,6 +33,8 @@ import {
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
+import { GridDots } from './GridDots';
+import { GridGlow } from './GridGlow';
 import { snapNodeBox } from './flowCanvasClipboard';
 import {
   FLOW_CATEGORY_LABELS,
@@ -73,7 +73,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [edgeInsertionCandidate, setEdgeInsertionCandidate] = useState<EdgeInsertionCandidate | null>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const lastPointerFlowPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const [lastMouseFlow, setLastMouseFlow] = useState<{ x: number; y: number } | null>(null);
+  const [mouseScreenPos, setMouseScreenPos] = useState<{ x: number; y: number } | null>(null);
+  const lastMoveTimeRef = useRef(Date.now());
+  const [fadeOut, setFadeOut] = useState(0);
   const ctxMenu = useFlowContextMenu({ store, reactFlow, containerRef });
 
   const reportViewportCenter = useCallback(() => {
@@ -106,6 +111,8 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
       frameId = window.requestAnimationFrame(() => {
         frameId = null;
+        const rect = container.getBoundingClientRect();
+        setContainerSize({ width: rect.width, height: rect.height });
         window.dispatchEvent(new Event('resize'));
         reportViewportCenter();
       });
@@ -213,6 +220,19 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       window.removeEventListener('click', closeMenuOnWindowClick);
     };
   }, [ctxMenu, store]);
+
+  // grid glow fade-out: 5s idle → 1.5s fade
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - lastMoveTimeRef.current;
+      if (elapsed < 5000) {
+        setFadeOut(0);
+      } else {
+        setFadeOut(Math.min(1, (elapsed - 5000) / 1500));
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, []);
 
   const renderModel = useMemo(
     () =>
@@ -433,12 +453,16 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         return;
       }
 
-      lastPointerFlowPositionRef.current = reactFlow.screenToFlowPosition({
+      const pos = reactFlow.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
+      lastPointerFlowPositionRef.current = pos;
+      setLastMouseFlow(pos);
+      setMouseScreenPos({ x: event.clientX - rect.left, y: event.clientY - rect.top });
+      lastMoveTimeRef.current = Date.now();
     },
-    [reactFlow],
+  [reactFlow],
   );
 
   const fileDrop = useFlowFileDrop({ store, reactFlow, closeContextMenu: ctxMenu.closeContextMenu });
@@ -719,6 +743,25 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       onPointerUpCapture={edgeCut.onCanvasPointerUpCapture}
       onPointerCancelCapture={edgeCut.onCanvasPointerUpCapture}
     >
+      <GridDots
+        gap={GRID_SIZE}
+        size={1.5}
+        hoverSize={2}
+        color="var(--color-grid-dot)"
+        glowColor="rgba(10, 132, 255, 0.7)"
+        glowRadius={GRID_SIZE * 4}
+        containerWidth={containerSize.width}
+        containerHeight={containerSize.height}
+        mouseFlowPos={lastMouseFlow}
+        fadeOut={fadeOut}
+      />
+      <GridGlow
+        radius={GRID_SIZE * 4}
+        containerWidth={containerSize.width}
+        containerHeight={containerSize.height}
+        mouseScreenPos={mouseScreenPos}
+        fadeOut={fadeOut}
+      />
       <ReactFlow
         nodes={renderNodes}
         edges={renderEdges}
@@ -780,13 +823,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         selectionOnDrag={!spaceHeld && !edgeCut.edgeCuttingActive}
         selectNodesOnDrag={!spaceHeld && !edgeCut.edgeCuttingActive}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={GRID_SIZE}
-          size={2.5}
-          color="var(--color-grid-dot)"
-          style={{ opacity: 1 }}
-        />
         <Panel position="bottom-left" className="workflow-minimap-group">
           <Controls showInteractive={false} />
           <MiniMap

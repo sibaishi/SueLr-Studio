@@ -3615,9 +3615,11 @@ body {
   background: var(--color-bg-canvas) !important;
 }
 
-.react-flow__background {
+.workflow-grid-dots {
   opacity: 1;
 }
+
+/* ==================== Grid Dots — mouse-proximity glow ==================== */
 
 .react-flow__edge-path {
   stroke: var(--color-text-tertiary);
