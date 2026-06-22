@@ -783,7 +783,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         <Background
           variant={BackgroundVariant.Dots}
           gap={GRID_SIZE}
-          size={1.25}
+          size={2.5}
           color="var(--color-grid-dot)"
           style={{ opacity: 1 }}
         />
