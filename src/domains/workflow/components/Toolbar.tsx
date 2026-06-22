@@ -119,7 +119,7 @@ export default function Toolbar({
           className="workflow-toolbar__primary-action"
           data-testid="workflow-execute"
         >
-          <Play size={14} fill="currentColor" />
+          <Play size={14} weight="fill" />
           执行
         </button>
 
@@ -130,7 +130,7 @@ export default function Toolbar({
           className="workflow-toolbar__danger-action"
           data-testid="workflow-cancel-execution"
         >
-          <Stop size={13} fill="currentColor" />
+          <Stop size={13} weight="fill" />
           停止
         </button>
       </div>
