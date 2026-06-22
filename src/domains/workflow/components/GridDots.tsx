@@ -108,13 +108,22 @@ export function GridDots({
         height: containerHeight,
       }}
     >
+      <defs>
+        <filter id="grid-dot-glow" x="-200%" y="-200%" width="500%" height="500%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
       <g transform={`translate(${vpX}, ${vpY}) scale(${zoom})`}>
         {/* layer 1: baseline — always present */}
         {baseDots.map((dot, i) => (
           <circle key={`b-${i}`} cx={dot.x} cy={dot.y} r={size} fill={color} opacity={1} />
         ))}
 
-        {/* layer 2: glow overlay — only when active */}
+        {/* layer 2: glow overlay — only when active, with SVG blur glow */}
         {glowDots.map((dot, i) => (
           <circle
             key={`g-${i}`}
@@ -123,6 +132,7 @@ export function GridDots({
             r={dot.r}
             fill={glowColor}
             opacity={dot.opacity}
+            filter="url(#grid-dot-glow)"
           />
         ))}
       </g>
