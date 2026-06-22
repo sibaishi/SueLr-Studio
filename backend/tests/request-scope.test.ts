@@ -3,60 +3,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
+import { createTestServer as createRuntimeTestServer, requestJson } from './helpers/runtime-test.ts';
 
-function createStorageDir(name) {
-  const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `scope-${name}-${Date.now()}`);
-  fs.mkdirSync(root, { recursive: true });
-  return root;
-}
-
-async function createTestServer(name, env = {}) {
-  const root = createStorageDir(name);
-  const previousEnv = {};
-  for (const [key, value] of Object.entries({
-    APP_CONFIG_DIR: root,
-    APP_STORAGE_BOOTSTRAP_FILE: path.join(root, 'config', 'bootstrap.json'),
-    APP_DISABLE_LEGACY_STORAGE_MIGRATION: '1',
-    ...env,
-  })) {
-    previousEnv[key] = process.env[key];
-    process.env[key] = value;
-  }
-
-  const { createApp } = await import(`../src/app/create-app.ts?scope=${Date.now()}-${Math.random()}`);
-  const app = createApp();
-
-  return await new Promise((resolve, reject) => {
-    const server = app.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      resolve({
-        server,
-        baseUrl: `http://127.0.0.1:${address.port}`,
-        restoreEnv() {
-          for (const [key, value] of Object.entries(previousEnv)) {
-            if (value === undefined) delete process.env[key];
-            else process.env[key] = value;
-          }
-        },
-      });
-    });
-    server.on('error', reject);
-  });
-}
-
-async function requestJson(baseUrl, pathname, options = {}) {
-  const response = await fetch(`${baseUrl}${pathname}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  return {
-    status: response.status,
-    body: await response.json(),
-  };
-}
+const createTestServer = (name, env = {}) =>
+  createRuntimeTestServer(name, { prefix: 'request-scope', queryKey: 'scope', env });
 
 test('request scope defaults to local single-user behavior', async () => {
   const { createRequestScope, summarizeScopeFoundation } = await import('../src/platform/runtime/request-scope.ts');

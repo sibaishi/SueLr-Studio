@@ -4,55 +4,14 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 import { ConflictError } from '../src/app/errors/app-error.ts';
+import {
+  assertEnvelopeShape,
+  createTestServer as createRuntimeTestServer,
+  requestJson,
+} from './helpers/runtime-test.ts';
 
-function createStorageDir(name) {
-  const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `phase2-http-${name}-${Date.now()}`);
-  fs.mkdirSync(root, { recursive: true });
-  return root;
-}
-
-async function createTestServer(name, options = {}) {
-  const root = createStorageDir(name);
-  if (typeof options.prepareStorage === 'function') {
-    options.prepareStorage(root);
-  }
-  process.env.APP_CONFIG_DIR = root;
-  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
-  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
-  const { createApp } = await import(`../src/app/create-app.ts?test=${Date.now()}`);
-  const app = createApp();
-
-  return await new Promise((resolve, reject) => {
-    const server = app.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      resolve({
-        server,
-        baseUrl: `http://127.0.0.1:${address.port}`,
-      });
-    });
-    server.on('error', reject);
-  });
-}
-
-async function requestJson(baseUrl, pathname, options = {}) {
-  const response = await fetch(`${baseUrl}${pathname}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  return {
-    status: response.status,
-    body: await response.json(),
-  };
-}
-
-function assertEnvelopeShape(body) {
-  assert.equal(typeof body?.success, 'boolean');
-  const allowedKeys = body.success ? ['data', 'success'] : ['error', 'success'];
-  assert.deepEqual(Object.keys(body).sort(), allowedKeys);
-}
+const createTestServer = (name, options = {}) =>
+  createRuntimeTestServer(name, { prefix: 'http-contract', queryKey: 'httpContract', ...options });
 
 test('HTTP contract: settings endpoints use unified envelope', async () => {
   const { server, baseUrl } = await createTestServer('settings');

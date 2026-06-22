@@ -3,8 +3,8 @@ import type { ProviderConfig } from '@/shared/providers';
 import { debouncedSaveJSON, ftime, gid, loadJSON } from '@/shared/runtime';
 import type { ApiConfig, LogEntry, ModelInfo } from '@/shared/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { StreamMode, WorkflowConcurrencySettingsPayload } from './types';
 import { mapLegacyStreamingMode } from './streamingMode';
+import type { StreamMode, WorkflowConcurrencySettingsPayload } from './types';
 
 const MAX_LOGS = 500;
 const DEFAULT_WORKFLOW_CONCURRENCY: WorkflowConcurrencySettingsPayload = {

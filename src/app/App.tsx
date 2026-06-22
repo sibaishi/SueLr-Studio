@@ -7,6 +7,7 @@ import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
 import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
 import { SplashScreen } from '@/shared/ui/ios';
+import { ModalSurface } from '@/ui/ModalSurface';
 import { type ReactNode, Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useAppBootstrap } from './bootstrap/useAppBootstrap';
 import { useThemeState } from './theme/useThemeState';
@@ -74,10 +75,16 @@ function BootstrapBlocker({ message, onRetry }: { message: string | null; onRetr
 
 function SettingsModal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return (
-    <div className="settings-modal" role="dialog" aria-modal="true" aria-label="工作室设置">
-      <button type="button" className="settings-modal__backdrop" aria-label="关闭设置" onClick={onClose} />
-      <div className="settings-modal__panel">{children}</div>
-    </div>
+    <ModalSurface
+      ariaLabel="工作室设置"
+      rootClassName="settings-modal"
+      panelClassName="settings-modal__panel"
+      backdropClassName="settings-modal__backdrop"
+      backdropLabel="关闭设置"
+      onClose={onClose}
+    >
+      {children}
+    </ModalSurface>
   );
 }
 

@@ -17,8 +17,8 @@ import {
   safeResolveWithin,
 } from '../../platform/storage/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
-import type { ListGeneratedOutputsOptions, ScopeOptions } from './types.ts';
 import { readImageDimensions } from './image-metadata.ts';
+import type { ListGeneratedOutputsOptions, ScopeOptions } from './types.ts';
 
 const OUTPUT_FILE_TYPES = new Map([
   ['.png', { type: 'image', mimeType: 'image/png' }],

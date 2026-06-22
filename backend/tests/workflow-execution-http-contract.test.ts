@@ -3,46 +3,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
+import { createTestServer as createRuntimeTestServer, requestJson } from './helpers/runtime-test.ts';
 
-function createStorageDir(name) {
-  const root = path.resolve('.tmp-tests', `workflow-execution-http-${name}-${Date.now()}`);
-  fs.mkdirSync(root, { recursive: true });
-  return root;
-}
-
-async function createTestServer(name) {
-  const root = createStorageDir(name);
-  process.env.APP_CONFIG_DIR = root;
-  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
-  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
-  const { createApp } = await import(`../src/app/create-app.ts?workflowExecutionHttp=${Date.now()}-${Math.random()}`);
-  const app = createApp();
-
-  return await new Promise((resolve, reject) => {
-    const server = app.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      resolve({
-        server,
-        baseUrl: `http://127.0.0.1:${address.port}`,
-      });
-    });
-    server.on('error', reject);
-  });
-}
-
-async function requestJson(baseUrl, pathname, options = {}) {
-  const response = await fetch(`${baseUrl}${pathname}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  return {
-    status: response.status,
-    body: await response.json(),
-  };
-}
+const createTestServer = (name) =>
+  createRuntimeTestServer(name, { prefix: 'workflow-execution-http', queryKey: 'workflowExecutionHttp' });
 
 function deferred() {
   let resolve;

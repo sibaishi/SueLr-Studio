@@ -10,12 +10,9 @@ import { sanitizeNodeOutputsForLogs } from '../src/platform/logging/workflow-log
 import { ensureScopedStorageDirectories } from '../src/platform/storage/scoped-storage.ts';
 import fs from 'fs';
 import path from 'path';
+import { createStorageDir as createRuntimeStorageDir } from './helpers/runtime-test.ts';
 
-function createStorageDir(name) {
-  const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `executor-${name}-${Date.now()}`);
-  fs.mkdirSync(root, { recursive: true });
-  return root;
-}
+const createStorageDir = (name) => createRuntimeStorageDir('executor', name);
 
 function createDeferred() {
   let resolve;

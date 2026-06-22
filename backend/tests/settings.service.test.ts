@@ -4,12 +4,9 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 import { ConflictError } from '../src/app/errors/app-error.ts';
+import { createStorageDir as createRuntimeStorageDir } from './helpers/runtime-test.ts';
 
-function createStorageDir(name) {
-  const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `phase2-${name}-${Date.now()}`);
-  fs.mkdirSync(root, { recursive: true });
-  return root;
-}
+const createStorageDir = (name) => createRuntimeStorageDir('settings', name);
 
 test('settings service reads and updates studio settings', async () => {
   const root = createStorageDir('settings');

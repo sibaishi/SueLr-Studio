@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { RequestScope } from '../runtime/request-scope.ts';
 import { ensureDir } from '../storage/ensure-dir.ts';
 import { STORAGE_PATHS } from '../storage/index.ts';
+import { logDatePart, logTimePart, sanitizeLogFilePart } from './log-file-names.ts';
 import { getProcessInstanceId } from './runtime-observability.ts';
 
 const MAX_STRING_LENGTH = 2000;
@@ -30,21 +31,6 @@ export interface AgentRunLogger {
   directory: string;
   log(event: string, data?: LogData): void;
   close(status: AgentRunStatus, extra?: LogData): void;
-}
-
-function safeName(value: unknown): string {
-  return String(value || 'agent')
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
-    .replace(/\s+/g, '_')
-    .slice(0, 80);
-}
-
-function datePart(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function timePart(date: Date): string {
-  return date.toISOString().replace(/[:.]/g, '-');
 }
 
 function sanitizeValue(value: JsonLike, depth = 0): JsonLike {
@@ -82,12 +68,12 @@ export function createAgentRunLogger({
 }: AgentRunLoggerOptions = {}): AgentRunLogger {
   const now = new Date();
   const dirs = ensureAgentLogDirectories();
-  const dayDir = path.join(dirs.root, datePart(now));
+  const dayDir = path.join(dirs.root, logDatePart(now));
   ensureDir(dayDir);
 
-  const safeSessionId = safeName(sessionId || 'session');
-  const runId = sessionId || `${timePart(now)}_${safeSessionId}`;
-  const filePath = path.join(dayDir, `${timePart(now)}_${safeSessionId}.jsonl`);
+  const safeSessionId = sanitizeLogFilePart(sessionId, 'session');
+  const runId = sessionId || `${logTimePart(now)}_${safeSessionId}`;
+  const filePath = path.join(dayDir, `${logTimePart(now)}_${safeSessionId}.jsonl`);
 
   const write = (event: string, data: LogData = {}) => {
     const entry = {

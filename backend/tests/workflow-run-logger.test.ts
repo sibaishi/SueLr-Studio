@@ -3,12 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
+import { createStorageDir as createRuntimeStorageDir } from './helpers/runtime-test.ts';
 
-function createStorageDir(name) {
-  const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `phase4-runlog-${name}-${Date.now()}`);
-  fs.mkdirSync(root, { recursive: true });
-  return root;
-}
+const createStorageDir = (name) => createRuntimeStorageDir('workflow-run-log', name);
 
 test('workflow run logger writes stable run metadata and lifecycle events', async () => {
   const root = createStorageDir('run-logger');

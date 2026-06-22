@@ -4,52 +4,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import {
+  assertEnvelopeShape,
+  createTestServer as createRuntimeTestServer,
+  requestJson,
+} from './helpers/runtime-test.ts';
 
-function createStorageDir(name) {
-  const root = path.join(os.tmpdir(), 'suelr-studio-tests', `intelligence-${name}-${Date.now()}`);
-  fs.mkdirSync(root, { recursive: true });
-  return root;
-}
-
-async function createTestServer(name) {
-  const root = createStorageDir(name);
-  process.env.APP_CONFIG_DIR = root;
-  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
-  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
-  const { createApp } = await import(`../src/app/create-app.ts?test=${Date.now()}`);
-  const app = createApp();
-
-  return await new Promise((resolve, reject) => {
-    const server = app.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      resolve({
-        server,
-        baseUrl: `http://127.0.0.1:${address.port}`,
-      });
-    });
-    server.on('error', reject);
-  });
-}
-
-async function requestJson(baseUrl, pathname, options = {}) {
-  const response = await fetch(`${baseUrl}${pathname}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  return {
-    status: response.status,
-    body: await response.json(),
-  };
-}
-
-function assertEnvelopeShape(body) {
-  assert.equal(typeof body?.success, 'boolean');
-  const allowedKeys = body.success ? ['data', 'success'] : ['error', 'success'];
-  assert.deepEqual(Object.keys(body).sort(), allowedKeys);
-}
+const createTestServer = (name) =>
+  createRuntimeTestServer(name, { prefix: 'intelligence', queryKey: 'intelligence' });
 
 test('intelligence routes expose read-only skills and local knowledge baseline', async () => {
   const { server, baseUrl } = await createTestServer('baseline');

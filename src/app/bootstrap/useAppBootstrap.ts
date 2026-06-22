@@ -1,8 +1,8 @@
 import {
-  mapLegacyStreamingMode,
   type StreamMode,
   type StudioSettingsPayload,
   type WorkflowConcurrencySettingsPayload,
+  mapLegacyStreamingMode,
 } from '@/features/settings';
 import type { StudioSettingsState } from '@/features/settings';
 import {

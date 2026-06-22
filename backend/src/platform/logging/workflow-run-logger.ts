@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { RequestScope } from '../runtime/request-scope.ts';
 import { ensureDir } from '../storage/ensure-dir.ts';
 import { STORAGE_PATHS } from '../storage/index.ts';
+import { logDatePart, logTimePart, sanitizeLogFilePart } from './log-file-names.ts';
 import { getProcessInstanceId } from './runtime-observability.ts';
 
 type WorkflowRunStatus = 'completed' | 'cancelled' | 'failed' | string;
@@ -42,21 +43,6 @@ export interface WorkflowRunLogger {
   close(status: WorkflowRunStatus, extra?: LogData): void;
 }
 
-function safeName(value: unknown): string {
-  return String(value || 'workflow')
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
-    .replace(/\s+/g, '_')
-    .slice(0, 80);
-}
-
-function datePart(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function timePart(date: Date): string {
-  return date.toISOString().replace(/[:.]/g, '-');
-}
-
 export function ensureLogDirectories(): LogDirectories {
   const startupDir = path.join(STORAGE_PATHS.appLogsDir, 'startup');
   [STORAGE_PATHS.logsDir, STORAGE_PATHS.appLogsDir, STORAGE_PATHS.workflowRunsDir, startupDir].forEach(ensureDir);
@@ -75,12 +61,12 @@ export function createWorkflowRunLogger(
 ): WorkflowRunLogger {
   const now = new Date();
   const dirs = ensureLogDirectories();
-  const dayDir = path.join(dirs.workflows, datePart(now));
+  const dayDir = path.join(dirs.workflows, logDatePart(now));
   ensureDir(dayDir);
 
-  const workflowId = safeName(workflow?.id || workflow?.workflowId || 'unsaved');
-  const workflowName = safeName(workflow?.name || workflow?.workflowName || 'workflow');
-  const runId = `${timePart(now)}_${workflowId}`;
+  const workflowId = sanitizeLogFilePart(workflow?.id || workflow?.workflowId, 'unsaved');
+  const workflowName = sanitizeLogFilePart(workflow?.name || workflow?.workflowName, 'workflow');
+  const runId = `${logTimePart(now)}_${workflowId}`;
   const filePath = path.join(dayDir, `${workflowName}_${runId}.jsonl`);
 
   const write = (event: string, data: LogData = {}) => {
@@ -115,7 +101,7 @@ export function createWorkflowRunLogger(
     directory: dayDir,
     log: write,
     writeTextFile(name: string, content: unknown, extension = 'txt') {
-      const filename = `${workflowName}_${runId}_${safeName(name)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${extension}`;
+      const filename = `${workflowName}_${runId}_${sanitizeLogFilePart(name, 'artifact')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${extension}`;
       const targetPath = path.join(dayDir, filename);
       fs.writeFileSync(targetPath, String(content || ''), 'utf8');
       return targetPath;

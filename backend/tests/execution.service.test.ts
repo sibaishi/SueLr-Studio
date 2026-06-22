@@ -7,15 +7,9 @@ import test from 'node:test';
 
 import { ExecutionService } from '../src/modules/execution/execution.service.ts';
 import { STORAGE_PATHS } from '../src/platform/storage/index.ts';
+import { createStorageDir as createRuntimeStorageDir } from './helpers/runtime-test.ts';
 
-function createStorageDir(name) {
-  const root = path.resolve(
-    'C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode',
-    `execution-service-${name}-${Date.now()}`,
-  );
-  fs.mkdirSync(root, { recursive: true });
-  return root;
-}
+const createStorageDir = (name) => createRuntimeStorageDir('execution-service', name);
 
 function createMockSseResponse() {
   const chunks = [];
