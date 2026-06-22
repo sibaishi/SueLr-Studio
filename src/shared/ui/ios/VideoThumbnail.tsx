@@ -1,4 +1,4 @@
-import { Play } from 'lucide-react';
+import { Play } from '@phosphor-icons/react';
 import { glass } from './glass';
 
 export function VideoThumbnail({ src, onClick }: { src: string; onClick?: () => void }) {

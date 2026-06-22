@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeSlash } from '@phosphor-icons/react';
 import type React from 'react';
 import { useState } from 'react';
 import { glass } from './glass';
@@ -53,7 +53,7 @@ export function IOSInput({ value, onChange, placeholder, type = 'text', style = 
             padding: 4,
           }}
         >
-          {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+          {showPw ? <EyeSlash size={16} /> : <Eye size={16} />}
         </button>
       )}
     </div>

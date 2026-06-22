@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import { Folder } from 'lucide-react';
+import { Folder } from '@phosphor-icons/react';
 import { type DragEvent, useRef, useState } from 'react';
 
 export function FileUploadArea({

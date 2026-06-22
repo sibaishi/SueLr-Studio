@@ -1,5 +1,5 @@
 import { IOSButton, IOSInput, IOSLabel, IOSSegmentedControl, IOSSelect } from '@/shared/ui/ios';
-import { Settings } from 'lucide-react';
+import { Gear } from '@phosphor-icons/react';
 import type { SettingsActions, SettingsViewModel } from './shared';
 import { EmptyStateCard, SectionCard, chipStyle, mutedPanelStyle } from './styles';
 
@@ -166,7 +166,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
       <SectionCard
         title="Provider 适配"
         description="对接非标准 OpenAI 兼容接口时，在这里微调请求协议。"
-        action={<Settings size={14} color={T.text3} />}
+        action={<Gear size={14} color={T.text3} />}
       >
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>

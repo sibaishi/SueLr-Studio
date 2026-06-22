@@ -14,7 +14,7 @@ import {
   normalizePromptHelperData,
   summarizePromptHelper,
 } from '@/shared/workflow/prompt-helper';
-import { Camera, Lightbulb, Plus, Rows3, SquareMousePointer, Trash2, X } from 'lucide-react';
+import { Camera, CursorClick, Lightbulb, Plus, Rows, Trash, X } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as THREE from 'three';
@@ -25,8 +25,8 @@ type PromptHelperPoint = PromptHelperData['cameraConfig']['position'];
 const TOOL_ITEMS: Array<{ id: PromptHelperTool; label: string; icon: typeof Camera }> = [
   { id: PROMPT_HELPER_TOOLS.camera, label: '转换视角', icon: Camera },
   { id: PROMPT_HELPER_TOOLS.lighting, label: '调整光照', icon: Lightbulb },
-  { id: PROMPT_HELPER_TOOLS.storyboard, label: '生成分镜图', icon: Rows3 },
-  { id: PROMPT_HELPER_TOOLS.layout, label: '生成三视图', icon: SquareMousePointer },
+  { id: PROMPT_HELPER_TOOLS.storyboard, label: '生成分镜图', icon: Rows },
+  { id: PROMPT_HELPER_TOOLS.layout, label: '生成三视图', icon: CursorClick },
 ];
 
 const LIGHT_TYPE_LABELS: Record<string, string> = {
@@ -515,7 +515,7 @@ function LightingTool({ data, onPatch }: { data: PromptHelperData; onPatch: (pat
                     patchLighting({ lights: config.lights.filter((_, lightIndex) => lightIndex !== index) })
                   }
                 >
-                  <Trash2 size={14} />
+                  <Trash size={14} />
                 </button>
               </div>
               <div className="prompt-helper-light-card__grid">
@@ -879,7 +879,7 @@ function LayoutTool({ data, onPatch }: { data: PromptHelperData; onPatch: (patch
                 type="button"
                 onClick={() => patchLayout({ blocks: config.blocks.filter((_, blockIndex) => blockIndex !== index) })}
               >
-                <Trash2 size={14} />
+                <Trash size={14} />
               </button>
             </div>
             <div className="prompt-helper-light-card__grid">

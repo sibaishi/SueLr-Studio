@@ -1,6 +1,6 @@
 import { APP_VERSION } from '@/domains/workflow/lib/constants';
 import type { WorkflowDocument } from '@/domains/workflow/lib/store';
-import { Copy, Download, Plus, Redo2, Save, Trash2, Undo2, Upload, X } from 'lucide-react';
+import { ArrowClockwise, ArrowCounterClockwise, Copy, Download, FloppyDisk, Plus, Trash, Upload, X } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 interface StatusBarProps {
@@ -82,8 +82,8 @@ export default function StatusBar({
         </div>
 
         <div className="workflow-statusbar__actions">
-          <StatusbarIconButton icon={<Undo2 size={15} />} label="撤销" onClick={onUndo} disabled={!canUndo} />
-          <StatusbarIconButton icon={<Redo2 size={15} />} label="重做" onClick={onRedo} disabled={!canRedo} />
+          <StatusbarIconButton icon={<ArrowCounterClockwise size={15} />} label="撤销" onClick={onUndo} disabled={!canUndo} />
+          <StatusbarIconButton icon={<ArrowClockwise size={15} />} label="重做" onClick={onRedo} disabled={!canRedo} />
           <span className="workflow-statusbar__sep" />
           <StatusbarIconButton
             icon={<Upload size={15} />}
@@ -106,13 +106,13 @@ export default function StatusBar({
             testId="workflow-duplicate"
           />
           <StatusbarIconButton
-            icon={<Trash2 size={15} />}
+            icon={<Trash size={15} />}
             label="删除"
             onClick={onDeleteWorkflow}
             testId="workflow-delete"
           />
           <StatusbarIconButton
-            icon={<Save size={15} />}
+            icon={<FloppyDisk size={15} />}
             label="保存"
             onClick={onSave}
             disabled={isSavingWorkflow}

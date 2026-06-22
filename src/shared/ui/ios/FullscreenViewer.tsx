@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import { ImagePlus, X } from 'lucide-react';
+import { Image, X } from '@phosphor-icons/react';
 import { glass, lightOverlay } from './glass';
 
 export function FullscreenViewer({
@@ -86,7 +86,7 @@ export function FullscreenViewer({
             fontWeight: 700,
           }}
         >
-          <ImagePlus size={16} />
+          <Image size={16} />
           {actionLabel}
         </button>
       )}

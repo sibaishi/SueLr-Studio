@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import { ChevronDown } from 'lucide-react';
+import { CaretDown } from '@phosphor-icons/react';
 import React, { useRef, useState } from 'react';
 
 interface DropdownOption {
@@ -65,7 +65,7 @@ export function CustomDropdown({
         >
           {label}
         </span>
-        <ChevronDown
+        <CaretDown
           size={12}
           color={T.text3}
           style={{ flexShrink: 0, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0)' }}

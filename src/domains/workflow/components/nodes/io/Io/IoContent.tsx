@@ -12,7 +12,7 @@ import {
   sortSlotsByInputOrder,
 } from '@/domains/workflow/lib/store/helpers';
 import type { ParamDef } from '@/domains/workflow/lib/types';
-import { FileText, Layers } from 'lucide-react';
+import { FileText, Stack } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 import { useMemo, useState } from 'react';
 import { fileRawStore } from '../fileRawStore';
@@ -260,7 +260,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
       {!hasContent ? (
         <div className="node-gallery-frame-v2">
           <div className="node-gallery-empty-v2">
-            <Layers size={32} strokeWidth={1.2} />
+            <Stack size={32} strokeWidth={1.2} />
             <span>待输入</span>
           </div>
         </div>

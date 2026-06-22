@@ -21,7 +21,7 @@ import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorSh
 import type { PortDef } from '@/domains/workflow/lib/types';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
 import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
-import { Ban, ChevronDown, ChevronRight, Copy, Lock, Play, Unlock } from 'lucide-react';
+import { CaretDown, CaretRight, Copy, LockOpen, LockSimple, Play, Prohibit } from '@phosphor-icons/react';
 import { type CSSProperties, memo, useEffect, useMemo, useState } from 'react';
 import { NodeContent } from './NodeContent';
 import { GroupPortRow, InputPort, OutputPort } from './NodePorts';
@@ -216,7 +216,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
               }}
               title={isDisabled ? '启用' : '禁用'}
             >
-              <Ban size={15} style={{ color: isDisabled ? 'var(--t-red)' : undefined }} />
+              <Prohibit size={15} style={{ color: isDisabled ? 'var(--t-red)' : undefined }} />
             </button>
             <button
               type="button"
@@ -240,7 +240,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
               }}
               title={isLocked ? '解锁' : '锁定'}
             >
-              {isLocked ? <Lock size={15} /> : <Unlock size={15} />}
+              {isLocked ? <LockSimple size={15} /> : <LockOpen size={15} />}
             </button>
             <button
               type="button"
@@ -435,7 +435,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
               title={isDirectlyLocked ? '解锁节点' : '锁定节点'}
               aria-label={isDirectlyLocked ? '解锁节点' : '锁定节点'}
             >
-              {isLocked ? <Lock size={14} strokeWidth={2.2} /> : <Unlock size={14} strokeWidth={2.2} />}
+              {isLocked ? <LockSimple size={14} strokeWidth={2.2} /> : <LockOpen size={14} strokeWidth={2.2} />}
             </button>
             {isGroupNode && (
               <button
@@ -450,9 +450,9 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                 aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
               >
                 {isCollapsed ? (
-                  <ChevronRight size={14} strokeWidth={2.2} />
+                  <CaretRight size={14} />
                 ) : (
-                  <ChevronDown size={14} strokeWidth={2.2} />
+                  <CaretDown size={14} />
                 )}
               </button>
             )}

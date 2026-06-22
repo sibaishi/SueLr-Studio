@@ -1,6 +1,6 @@
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
-import { Check, Eraser, Hand, Pencil, RotateCcw, RotateCw, Trash2, X } from 'lucide-react';
+import { ArrowClockwise, ArrowCounterClockwise, Check, Eraser, Hand, NotePencil, Trash, X } from '@phosphor-icons/react';
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -438,7 +438,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
       <div className="node-canvas-editor-modal__dialog glass" onClick={(event) => event.stopPropagation()}>
         <div className="node-canvas-editor-modal__header">
           <div className="workflow-toolbar__badge">
-            <Pencil size={16} />
+            <NotePencil size={16} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="node-canvas-editor-modal__eyebrow">Canvas</div>
@@ -457,7 +457,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
         <div className="node-canvas-editor-modal__toolbar">
           <div className="node-canvas-editor-modal__tool-group">
             <button type="button" className={tool === 'brush' ? 'is-active' : ''} onClick={() => setTool('brush')}>
-              <Pencil size={14} /> 画笔
+              <NotePencil size={14} /> 画笔
             </button>
             <button type="button" className={tool === 'eraser' ? 'is-active' : ''} onClick={() => setTool('eraser')}>
               <Eraser size={14} /> 橡皮
@@ -479,7 +479,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
               }
               disabled={history.index <= 0}
             >
-              <RotateCcw size={14} /> 撤销
+              <ArrowCounterClockwise size={14} /> 撤销
             </button>
             <button
               type="button"
@@ -490,10 +490,10 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
               }
               disabled={history.index >= history.entries.length - 1}
             >
-              <RotateCw size={14} /> 重做
+              <ArrowClockwise size={14} /> 重做
             </button>
             <button type="button" onClick={clearCanvas}>
-              <Trash2 size={14} /> 清空
+              <Trash size={14} /> 清空
             </button>
           </div>
 

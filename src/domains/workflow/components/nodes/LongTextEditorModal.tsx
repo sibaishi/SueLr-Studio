@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { X } from '@phosphor-icons/react';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 

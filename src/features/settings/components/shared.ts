@@ -7,14 +7,14 @@ import type {
 } from '@/features/settings';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { ApiConfig, LogEntry, ModelInfo, ProjectModel, ProviderConfig, ThemeMode } from '@/shared/types';
-import type { LucideIcon } from 'lucide-react';
+import type { Icon } from '@phosphor-icons/react';
 import type { Dispatch, SetStateAction } from 'react';
 
 export type SettingsModuleMeta = {
   id: 'overview' | 'connection' | 'models' | 'workspace' | 'diagnostics';
   label: string;
   desc: string;
-  icon: LucideIcon;
+  icon: Icon;
   accent: string;
   stat: string;
 };

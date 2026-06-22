@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import { Bot } from 'lucide-react';
+import { Robot } from '@phosphor-icons/react';
 import { glass } from './glass';
 
 export function TypingIndicator() {
@@ -17,7 +17,7 @@ export function TypingIndicator() {
           justifyContent: 'center',
         }}
       >
-        <Bot size={14} color={T.blue} />
+        <Robot size={14} color={T.blue} />
       </div>
       <div style={{ display: 'flex', gap: 4 }}>
         {[0, 1, 2].map((i) => (

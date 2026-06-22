@@ -1,7 +1,7 @@
 import { buildImportReportSections } from '@/domains/workflow/lib/importExport';
 import type { WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
 import { ModalSurface } from '@/ui/ModalSurface';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { CheckCircle, Warning } from '@phosphor-icons/react';
 
 interface WorkflowImportReportModalProps {
   fileName: string;
@@ -30,7 +30,7 @@ export default function WorkflowImportReportModal({ fileName, report, onClose }:
         <div
           className={`workflow-import-modal__status ${hasWarnings ? 'workflow-import-modal__status--warning' : 'workflow-import-modal__status--success'}`}
         >
-          {hasWarnings ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+          {hasWarnings ? <Warning size={14} /> : <CheckCircle size={14} />}
           <span>{hasWarnings ? '已导入，含提示' : '导入成功'}</span>
         </div>
       </div>

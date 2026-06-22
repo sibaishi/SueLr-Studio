@@ -16,7 +16,7 @@ import { resolveWorkflowShortcutAction } from '@/domains/workflow/lib/hotkeys';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { useWorkflowPageStore } from '@/domains/workflow/lib/store/selectors';
 import type { ThemeMode } from '@/shared/types';
-import { Boxes } from 'lucide-react';
+import { Cube } from '@phosphor-icons/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface WorkflowPageProps {
@@ -493,7 +493,7 @@ function EmptyCanvasHint() {
     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
       <div className="workflow-empty-state" data-testid="workflow-empty-canvas">
         <div className="workflow-empty-state__icon">
-          <Boxes size={28} />
+          <Cube size={28} />
         </div>
         <div className="workflow-empty-state__title">从这里开始搭建你的工作流</div>
         <div className="workflow-empty-state__body">

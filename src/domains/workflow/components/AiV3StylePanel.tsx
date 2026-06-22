@@ -5,7 +5,7 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { type InputOrderMap, filterAiV3InputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import { loadJSON } from '@/shared/runtime';
 import type { ApiConfig } from '@/shared/types';
-import { BoxSelect, Clock, Gauge, Globe, Grid3X3, Image, Ruler, SlidersHorizontal } from 'lucide-react';
+import { Clock, Crosshair, Gauge, Globe, GridNine, Image, Ruler, SlidersHorizontal } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const MIN_H = 150;
@@ -578,7 +578,7 @@ export default function AiV3StylePanel() {
               <Globe size={14} />
             </button>
             <PopoverButton
-              icon={<BoxSelect size={14} />}
+              icon={<Crosshair size={14} />}
               label="模型"
               valueHint={modelLabel}
               open={openPopover === 'model'}
@@ -624,7 +624,7 @@ export default function AiV3StylePanel() {
           />
           <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
             <PopoverButton
-              icon={<BoxSelect size={14} />}
+              icon={<Crosshair size={14} />}
               label="模型"
               valueHint={modelLabel}
               open={openPopover === 'model'}
@@ -638,7 +638,7 @@ export default function AiV3StylePanel() {
               />
             </PopoverButton>
             <PopoverButton
-              icon={<Grid3X3 size={14} />}
+              icon={<GridNine size={14} />}
               label="比例"
               valueHint={ratioHint}
               open={openPopover === 'ratio'}
@@ -798,7 +798,7 @@ export default function AiV3StylePanel() {
           />
           <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
             <PopoverButton
-              icon={<BoxSelect size={14} />}
+              icon={<Crosshair size={14} />}
               label="模型"
               valueHint={modelLabel}
               open={openPopover === 'model'}
@@ -912,7 +912,7 @@ export default function AiV3StylePanel() {
           />
           <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
             <PopoverButton
-              icon={<BoxSelect size={14} />}
+              icon={<Crosshair size={14} />}
               label="模型"
               valueHint={modelLabel}
               open={openPopover === 'model'}

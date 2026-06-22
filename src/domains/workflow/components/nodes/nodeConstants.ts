@@ -2,45 +2,44 @@ import type { NodeExecStatus } from '@/domains/workflow/lib/store';
 import type { ProviderConfig } from '@/shared/providers';
 import { WORKFLOW_PORT_TYPE_COLORS, WORKFLOW_PORT_TYPE_LABELS } from '@/shared/workflow/port-visuals';
 import {
-  Bot,
-  Clapperboard,
+  ArrowsMerge,
+  DownloadSimple,
   Eraser,
   Eye,
   FileImage,
-  Film,
-  FolderDown,
-  KeyRound,
-  Merge,
-  Music2,
-  PenTool,
+  FilmStrip,
+  Key,
+  MagnifyingGlass,
+  MusicNotes,
+  Pen,
   Repeat,
-  ScanLine,
-  Search,
-  Sparkles,
-  SplitSquareVertical,
-} from 'lucide-react';
+  Robot,
+  Scan,
+  Sparkle,
+  SplitVertical,
+} from '@phosphor-icons/react';
 import type { ComponentType } from 'react';
 
 type NodeIconComponent = ComponentType<{ size?: number | string; strokeWidth?: number; className?: string }>;
 
 export const NODE_ICONS: Record<string, NodeIconComponent> = {
-  pen: PenTool,
+  pen: Pen,
   image: FileImage,
-  resize: ScanLine,
-  film: Film,
-  music: Music2,
-  key: KeyRound,
+  resize: Scan,
+  film: FilmStrip,
+  music: MusicNotes,
+  key: Key,
   repeat: Repeat,
   eraser: Eraser,
-  merge: Merge,
-  split: SplitSquareVertical,
-  bot: Bot,
+  merge: ArrowsMerge,
+  split: SplitVertical,
+  bot: Robot,
   palette: FileImage,
-  clapperboard: Clapperboard,
-  search: Search,
+  clapperboard: FilmStrip,
+  search: MagnifyingGlass,
   eye: Eye,
-  promptHelper: Sparkles,
-  save: FolderDown,
+  promptHelper: Sparkle,
+  save: DownloadSimple,
 };
 
 export const PORT_TYPE_COLORS = WORKFLOW_PORT_TYPE_COLORS;

@@ -2,17 +2,17 @@ import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasEditorModal';
 import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
 import {
-  ArrowLeftRight,
-  Brush,
+  ArrowsLeftRight,
+  CaretLeft,
+  CaretRight,
   Check,
-  ChevronLeft,
-  ChevronRight,
-  Columns2,
+  Columns,
   Copy,
   Download,
-  Maximize2,
+  ArrowsOut,
+  PaintBrush,
   X,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -428,7 +428,7 @@ export function ImagePreviewModal({
                   className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--prev"
                   aria-label="上一张"
                 >
-                  <ChevronLeft size={26} />
+                  <CaretLeft size={26} />
                 </button>
                 <button
                   type="button"
@@ -436,7 +436,7 @@ export function ImagePreviewModal({
                   className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--next"
                   aria-label="下一张"
                 >
-                  <ChevronRight size={26} />
+                  <CaretRight size={26} />
                 </button>
               </>
             )}
@@ -448,7 +448,7 @@ export function ImagePreviewModal({
 
                 {canCompare && (
                   <ImagePreviewActionButton
-                    icon={<Columns2 size={14} />}
+                    icon={<Columns size={14} />}
                     label="对比"
                     active={false}
                     onClick={enterCompareMode}
@@ -516,13 +516,13 @@ export function ImagePreviewModal({
                 {canEditImage && (
                   <>
                     <ImagePreviewActionButton
-                      icon={<Maximize2 size={14} />}
+                      icon={<ArrowsOut size={14} />}
                       label="缩放"
                       active={showResize}
                       onClick={() => setShowResize((prev) => !prev)}
                     />
                     <ImagePreviewActionButton
-                      icon={<Brush size={14} />}
+                      icon={<PaintBrush size={14} />}
                       label="画板"
                       onClick={() => setCanvasEditorOpen(true)}
                     />
@@ -600,7 +600,7 @@ export function ImagePreviewModal({
                       onClick={swapCompare}
                       title="交换A/B"
                     >
-                      <ArrowLeftRight size={12} />
+                      <ArrowsLeftRight size={12} />
                     </button>
                   </div>
                   <div className="workflow-image-preview-modal__thumb-strip">

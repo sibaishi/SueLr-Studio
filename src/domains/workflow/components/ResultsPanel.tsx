@@ -17,7 +17,7 @@ import {
   uploadIoImageFileEntry,
 } from '@/domains/workflow/lib/ioImageFiles';
 import { type ExecutionLogEntry, useWorkflowStore } from '@/domains/workflow/lib/store';
-import { AlertTriangle, Clipboard, Clock3, FileText, ImageIcon, PlayCircle, TerminalSquare, Video } from 'lucide-react';
+import { Clock, Clipboard, FileText, Image, PlayCircle, TerminalWindow, VideoCamera, Warning } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type PanelTab = 'results' | 'logs';
@@ -188,7 +188,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
           tone={isExecuting ? 'accent' : lastExecutionStatus === 'error' ? 'danger' : 'neutral'}
         />
         <SummaryCard
-          icon={<Clock3 size={15} />}
+          icon={<Clock size={15} />}
           label="最近耗时"
           value={formatDurationSeconds(lastExecutionTime) || '还没有运行记录'}
           tone="neutral"
@@ -222,7 +222,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
       <div className="workflow-panel__body workflow-results__body">
         {workflowWarningMessage && (
           <div className="workflow-results__banner workflow-results__banner--warning">
-            <AlertTriangle size={14} />
+            <Warning size={14} />
             <span>{workflowWarningMessage}</span>
           </div>
         )}
@@ -352,19 +352,19 @@ function ResultsList({
   }));
 
   if (error) {
-    return <EmptyState icon={<AlertTriangle size={20} />} title="结果读取失败" body={error} />;
+    return <EmptyState icon={<Warning size={20} />} title="结果读取失败" body={error} />;
   }
 
   if (files.length === 0 && isLoading) {
     return (
-      <EmptyState icon={<ImageIcon size={20} />} title="正在读取生成文件" body="正在从外部文件存储生成目录同步结果。" />
+      <EmptyState icon={<Image size={20} />} title="正在读取生成文件" body="正在从外部文件存储生成目录同步结果。" />
     );
   }
 
   if (files.length === 0) {
     return (
       <EmptyState
-        icon={<ImageIcon size={20} />}
+        icon={<Image size={20} />}
         title="还没有 AI 输出"
         body="执行后，这里会集中显示文本、图片和视频结果。"
         action="先运行一次工作流，或检查节点是否具备可输出内容。"
@@ -613,7 +613,7 @@ function VideoResult({ src, compact = false }: { src: string; compact?: boolean 
     <div className={`workflow-results__video ${compact ? 'workflow-results__video--compact' : ''}`}>
       <video src={src} controls className="h-full w-full rounded-[inherit] object-cover" />
       <div className="workflow-results__video-label">
-        <Video size={12} />
+        <VideoCamera size={12} />
         视频输出
       </div>
     </div>
@@ -630,7 +630,7 @@ function LogsList({
   if (logs.length === 0) {
     return (
       <EmptyState
-        icon={<TerminalSquare size={20} />}
+        icon={<TerminalWindow size={20} />}
         title="还没有记录"
         body="跑一次画布，每一步的进度和结果会在这里展开。"
         action="如果没跑通，回画布检查启动前校验。"

@@ -1,7 +1,7 @@
 import { THEME_ICONS, THEME_LABELS } from '@/app/theme/constants';
 import type { ThemeMode } from '@/shared/types';
 import { Icon } from '@/shared/ui/icons';
-import { AlignStartVertical, Grid3x3, PanelRightClose, PanelRightOpen, Plus, Settings2, Sparkles } from 'lucide-react';
+import { AlignTop, Gear, GridNine, Plus, Sidebar, SidebarSimple, Sparkle } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 interface FloatingToolbarProps {
@@ -38,32 +38,32 @@ export default function FloatingToolbar({
         testId="workflow-add-node"
       />
       <FloatingToolbarButton
-        icon={rightPanelCollapsed ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
+        icon={rightPanelCollapsed ? <Sidebar size={16} /> : <SidebarSimple size={16} />}
         label={rightPanelCollapsed ? '展开结果栏' : '收起结果栏'}
         onClick={onToggleRightPanel}
         testId="workflow-toggle-right-panel"
       />
       <FloatingToolbarButton
-        icon={<Grid3x3 size={16} />}
+        icon={<GridNine size={16} />}
         label={snapToGridEnabled ? '关闭网格吸附' : '开启网格吸附'}
         onClick={onToggleSnapToGrid}
         active={snapToGridEnabled}
         testId="workflow-toggle-snap-grid"
       />
       <FloatingToolbarButton
-        icon={<AlignStartVertical size={16} />}
+        icon={<AlignTop size={16} />}
         label="自动整理"
         onClick={onAutoArrange}
         testId="workflow-auto-arrange"
       />
       <FloatingToolbarButton
-        icon={<Sparkles size={16} />}
+        icon={<Sparkle size={16} />}
         label="打开Agent"
         onClick={onOpenAgent}
         testId="workflow-open-agent"
       />
       <FloatingToolbarButton
-        icon={<Settings2 size={16} />}
+        icon={<Gear size={16} />}
         label="打开设置"
         onClick={onOpenSettings}
         testId="workflow-open-settings"

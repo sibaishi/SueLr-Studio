@@ -4,7 +4,7 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
 import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
-import { Ban, Copy, Lock, Play, Unlock } from 'lucide-react';
+import { Copy, LockOpen, LockSimple, Play, Prohibit } from '@phosphor-icons/react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeContent } from './NodeContent';
 import { STATUS_BADGE } from './nodeConstants';
@@ -169,7 +169,7 @@ export function V2WorkflowNodeShell({
             }}
             title={isDisabled ? '启用' : '禁用'}
           >
-            <Ban size={15} style={{ color: isDisabled ? '#ff3b30' : undefined }} />
+            <Prohibit size={15} style={{ color: isDisabled ? '#ff3b30' : undefined }} />
           </button>
           <div className="node-v2-appendix-divider" />
           <button
@@ -181,7 +181,7 @@ export function V2WorkflowNodeShell({
             }}
             title={isLocked ? '解锁' : '锁定'}
           >
-            {isLocked ? <Lock size={15} /> : <Unlock size={15} />}
+            {isLocked ? <LockSimple size={15} /> : <LockOpen size={15} />}
           </button>
           <div className="node-v2-appendix-divider" />
           <button

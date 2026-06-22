@@ -1,5 +1,5 @@
 import type { WorkflowListItem } from '@/domains/workflow/lib/api';
-import { Play, Square, Workflow } from 'lucide-react';
+import { Play, ShareNetwork, Stop } from '@phosphor-icons/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface ToolbarProps {
@@ -67,7 +67,7 @@ export default function Toolbar({
     <>
       <div className="workflow-canvas-identity">
         <div className="workflow-toolbar__badge">
-          <Workflow size={16} />
+          <ShareNetwork size={16} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="workflow-toolbar__eyebrow">Workflow Studio</div>
@@ -103,7 +103,7 @@ export default function Toolbar({
         title={`工作流库 · ${workflows.length}`}
         aria-label="打开工作流库"
       >
-        <Workflow size={18} />
+        <ShareNetwork size={18} />
         {workflows.length > 0 && <span className="workflow-library-fab__badge">{workflows.length}</span>}
       </button>
 
@@ -130,7 +130,7 @@ export default function Toolbar({
           className="workflow-toolbar__danger-action"
           data-testid="workflow-cancel-execution"
         >
-          <Square size={13} fill="currentColor" />
+          <Stop size={13} fill="currentColor" />
           停止
         </button>
       </div>

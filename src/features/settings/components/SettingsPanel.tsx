@@ -32,7 +32,7 @@ import { getRuntimeCapabilities } from '@/shared/api/capabilities';
 import { apiRequest } from '@/shared/api/client';
 import { setCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
-import { CircleDot, Database, Gauge, KeyRound, Layers3 } from 'lucide-react';
+import { Target, Database, Gauge, Key, Stack } from '@phosphor-icons/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
 import { DefaultsSection } from './DefaultsSection';
@@ -530,7 +530,7 @@ export function SettingsPanel({
       id: 'overview',
       label: '总览',
       desc: '设置健康度与常用入口',
-      icon: Layers3,
+      icon: Stack,
       accent: T.blue,
       stat: `${configStats.total} 项配置`,
     },
@@ -538,7 +538,7 @@ export function SettingsPanel({
       id: 'connection',
       label: '连接',
       desc: 'Provider、鉴权与接口地址',
-      icon: KeyRound,
+      icon: Key,
       accent: T.purple,
       stat: base ? '已配置' : '待配置',
     },
@@ -554,7 +554,7 @@ export function SettingsPanel({
       id: 'workspace',
       label: '工作室',
       desc: '主题与工作室基础偏好',
-      icon: CircleDot,
+      icon: Target,
       accent: T.orange,
       stat: themeMode,
     },
@@ -797,7 +797,7 @@ export function SettingsPanel({
         >
           <div className="workflow-toolbar__identity" style={{ minWidth: 260, alignItems: 'flex-start' }}>
             <div className="workflow-toolbar__badge">
-              <Layers3 size={20} />
+              <Stack size={20} />
             </div>
             <div>
               <div style={eyebrowStyle()}>Agent 设置</div>

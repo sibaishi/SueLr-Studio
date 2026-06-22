@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import { ChevronDown } from 'lucide-react';
+import { CaretDown } from '@phosphor-icons/react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -49,7 +49,7 @@ export function CollapsibleSection({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {extra}
-          <ChevronDown
+          <CaretDown
             size={12}
             color={T.text3}
             style={{ transition: 'transform 0.25s', transform: open ? 'rotate(0)' : 'rotate(-90deg)' }}

@@ -1,7 +1,7 @@
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ParamDef } from '@/domains/workflow/lib/types';
-import { Bot, Clapperboard, Image, Palette } from 'lucide-react';
+import { FilmSlate, Image, Palette, Robot } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 
 import { useState } from 'react';
@@ -81,7 +81,7 @@ export function AiV3Content({ params: _params, nodeId, data, outerStyle, onChang
             />
           ) : (
             <div className="node-gallery-empty-v2">
-              <Clapperboard size={32} strokeWidth={1.2} />
+              <FilmSlate size={32} strokeWidth={1.2} />
               <span>待生成</span>
             </div>
           )}
@@ -121,7 +121,7 @@ export function AiV3Content({ params: _params, nodeId, data, outerStyle, onChang
           </div>
         ) : (
           <div className="node-gallery-empty-v2">
-            <Bot size={32} strokeWidth={1.2} />
+            <Robot size={32} strokeWidth={1.2} />
             <span>待生成</span>
           </div>
         )}

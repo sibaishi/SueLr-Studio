@@ -1,6 +1,6 @@
 import { useT } from '@/providers/ThemeContext';
 import type { LogEntry } from '@/shared/types';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardText } from '@phosphor-icons/react';
 import type React from 'react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { glass } from './glass';
@@ -112,7 +112,7 @@ export function LogPanel({
         }}
       >
         <span style={{ fontSize: 13, color: T.text2, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <ClipboardList size={14} /> 日志
+          <ClipboardText size={14} /> 日志
         </span>
         <div style={{ display: 'flex', gap: 12 }}>
           <button

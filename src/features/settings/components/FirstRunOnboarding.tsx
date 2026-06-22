@@ -15,7 +15,7 @@ import { useT } from '@/providers/ThemeContext';
 import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
 import type { ApiConfig, ModelInfo } from '@/shared/types';
 import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
-import { ArrowRight, CheckCircle2, Database, FolderOpen, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle, Database, FolderOpen, Key, ShieldCheck, Spinner } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 type Props = {
   activeConfigId: string;
@@ -395,7 +395,7 @@ export function FirstRunOnboarding({
 
           <section style={{ ...panelStyle, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <KeyRound size={18} color={T.green} />
+              <Key size={18} color={T.green} />
               <h2 style={{ margin: 0, fontSize: 18, letterSpacing: 0 }}>模型服务配置</h2>
             </div>
 
@@ -455,7 +455,7 @@ export function FirstRunOnboarding({
                 small
                 style={{ width: 'auto' }}
               />
-              {testing && <Loader2 size={16} color={T.text2} />}
+              {testing && <Spinner size={16} color={T.text2} />}
               {message && (
                 <span style={{ fontSize: 12, color: message.includes('成功') ? T.green : T.orange }}>{message}</span>
               )}
@@ -516,7 +516,7 @@ export function FirstRunOnboarding({
                   color: canComplete ? T.green : T.text3,
                 }}
               >
-                {canComplete ? <CheckCircle2 size={16} /> : <Database size={16} />}
+                {canComplete ? <CheckCircle size={16} /> : <Database size={16} />}
                 {canComplete ? '连接信息已保存，进入后请到设置里手动启用模型。' : '完成连接测试后即可进入工作台。'}
               </div>
               <IOSButton

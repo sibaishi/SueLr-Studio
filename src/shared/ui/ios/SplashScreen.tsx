@@ -1,5 +1,5 @@
 import { useT } from '@/providers/ThemeContext';
-import { Bot } from 'lucide-react';
+import { Robot } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 
 export function SplashScreen({ done, onHidden }: { done: boolean; onHidden: () => void }) {
@@ -35,7 +35,7 @@ export function SplashScreen({ done, onHidden }: { done: boolean; onHidden: () =
       style={{ background: T.bg, opacity: fading ? 0 : 1, pointerEvents: fading ? 'none' : 'auto' }}
     >
       <div className="splash-logo" style={{ background: T.blue, boxShadow: `0 12px 40px ${T.blue}50` }}>
-        <Bot size={36} color="#fff" />
+        <Robot size={36} color="#fff" />
       </div>
       <div className="splash-title" style={{ color: T.text }}>
         AI 多模态助手

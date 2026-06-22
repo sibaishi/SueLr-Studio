@@ -20,25 +20,25 @@ import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProce
 import type { ModelInfo } from '@/shared/types';
 import type { Edge, Node } from '@xyflow/react';
 import {
-  Bot,
-  ChevronDown,
-  ChevronRight,
+  ArrowsIn,
+  ArrowsOut,
+  CaretDown,
+  CaretRight,
   Circle,
   Download,
-  ImagePlus,
-  Loader2,
-  Maximize2,
-  Minimize2,
+  Gear,
+  Image,
+  PaperPlaneTilt,
   Paperclip,
   Play,
   Plus,
-  Send,
-  Settings2,
-  Sparkles,
-  Trash2,
+  Robot,
+  Sparkle,
+  Spinner,
+  Trash,
   Wrench,
   X,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 
@@ -1686,7 +1686,7 @@ export default function AgentWorkspace({
           <div className="agent-workspace__header-main">
             <div className="agent-workspace__identity">
               <span className="agent-workspace__mark">
-                <Bot size={18} />
+                <Robot size={18} />
               </span>
               <div>
                 <div className="agent-workspace__eyebrow">Project Agent</div>
@@ -1694,7 +1694,7 @@ export default function AgentWorkspace({
               </div>
             </div>
             <div className={`agent-workspace__status-pill agent-workspace__status-pill--${workspaceStatusTone}`}>
-              <Sparkles size={13} />
+              <Sparkle size={13} />
               <span>{workspaceStatus}</span>
             </div>
             <div className="agent-workspace__conversation-switcher">
@@ -1724,7 +1724,7 @@ export default function AgentWorkspace({
                 disabled={conversations.length <= 1}
                 aria-label="删除当前会话"
               >
-                <Trash2 size={16} />
+                <Trash size={16} />
               </button>
             </div>
             <button
@@ -1733,7 +1733,7 @@ export default function AgentWorkspace({
               onClick={() => setIsFullscreen((previous) => !previous)}
               aria-label={panelFullscreen ? '退出全屏' : '全屏显示'}
             >
-              {panelFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+              {panelFullscreen ? <ArrowsIn size={17} /> : <ArrowsOut size={17} />}
             </button>
             <button type="button" className="agent-workspace__icon-button" onClick={onClose} aria-label="关闭 Agent">
               <X size={17} />
@@ -1745,7 +1745,7 @@ export default function AgentWorkspace({
             >
               <div className="agent-workspace__model-tab-head">
                 <div className="agent-workspace__model-tab-copy">
-                  <Settings2 size={15} />
+                  <Gear size={15} />
                   <div>
                     <strong>对话</strong>
                     <span>{hasPlannerModel ? '负责理解需求与调度工具' : '需要先启用对话模型'}</span>
@@ -1780,7 +1780,7 @@ export default function AgentWorkspace({
             >
               <div className="agent-workspace__model-tab-head">
                 <div className="agent-workspace__model-tab-copy">
-                  <Settings2 size={15} />
+                  <Gear size={15} />
                   <div>
                     <strong>图像</strong>
                     <span>用于图片生成和编辑</span>
@@ -1815,7 +1815,7 @@ export default function AgentWorkspace({
             >
               <div className="agent-workspace__model-tab-head">
                 <div className="agent-workspace__model-tab-copy">
-                  <Settings2 size={15} />
+                  <Gear size={15} />
                   <div>
                     <strong>视频</strong>
                     <span>用于视频生成</span>
@@ -1853,7 +1853,7 @@ export default function AgentWorkspace({
           >
             <div className="agent-workspace__hero-copy">
               <div className="agent-workspace__hero-badge">
-                <Sparkles size={14} />
+                <Sparkle size={14} />
                 <span>需求理解 · 草案生成 · 应用确认</span>
               </div>
               <h2 className="agent-workspace__hero-title">把一句需求，整理成可编辑工作流</h2>
@@ -1881,7 +1881,7 @@ export default function AgentWorkspace({
             className={`agent-workspace__scope ${hasUserStartedConversation ? 'agent-workspace__scope--engaged' : ''}`}
           >
             <div>
-              <Sparkles size={16} />
+              <Sparkle size={16} />
               <strong>需求梳理</strong>
               <span>先理解你的目标、限制和交付格式</span>
             </div>
@@ -1891,7 +1891,7 @@ export default function AgentWorkspace({
               <span>根据上下文挑选检查、生成或应用动作</span>
             </div>
             <div>
-              <Bot size={16} />
+              <Robot size={16} />
               <strong>结果交付</strong>
               <span>保留草案、审批和后续迭代入口</span>
             </div>
@@ -1916,7 +1916,7 @@ export default function AgentWorkspace({
                 >
                   <div className="agent-workspace__message-meta">
                     <span className="agent-workspace__message-avatar">
-                      {message.role === 'assistant' ? <Bot size={14} /> : '你'}
+                      {message.role === 'assistant' ? <Robot size={14} /> : '你'}
                     </span>
                     <div className="agent-workspace__message-meta-copy">
                       <strong>{message.role === 'assistant' ? '项目 Agent' : '你'}</strong>
@@ -1973,7 +1973,7 @@ export default function AgentWorkspace({
                               className={`agent-workspace__tool agent-workspace__tool--${record.status}`}
                             >
                               <button type="button" onClick={() => toggleToolRecord(record.id)}>
-                                {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                {expanded ? <CaretDown size={14} /> : <CaretRight size={14} />}
                                 <span>{record.label}</span>
                                 <small>
                                   {record.status === 'running'
@@ -2007,7 +2007,7 @@ export default function AgentWorkspace({
                           onClick={() => applyWorkflowDraft(message.draft as WorkflowDraftResponse)}
                           disabled={!message.draft.validation.valid}
                         >
-                          <Maximize2 size={14} />
+                          <ArrowsOut size={14} />
                           新建画布
                         </button>
                       </div>
@@ -2126,7 +2126,7 @@ export default function AgentWorkspace({
                                         onClick={() => setPreviewImage(image)}
                                         className="workflow-results__mini-action"
                                       >
-                                        <Maximize2 size={12} />
+                                        <ArrowsOut size={12} />
                                         查看大图
                                       </button>
                                       <button
@@ -2149,7 +2149,7 @@ export default function AgentWorkspace({
                                           }
                                           className="workflow-results__mini-action"
                                         >
-                                          <ImagePlus size={12} />
+                                          <Image size={12} />
                                           回填到画布
                                         </button>
                                       )}
@@ -2229,7 +2229,7 @@ export default function AgentWorkspace({
                                     }
                                     className="workflow-results__mini-action"
                                   >
-                                    <ImagePlus size={12} />
+                                    <Image size={12} />
                                     回填到画布
                                   </button>
                                 )}
@@ -2337,7 +2337,7 @@ export default function AgentWorkspace({
                 <article className="agent-workspace__message agent-workspace__message--assistant">
                   <div className="agent-workspace__message-meta">
                     <span className="agent-workspace__message-avatar">
-                      <Bot size={14} />
+                      <Robot size={14} />
                     </span>
                     <div className="agent-workspace__message-meta-copy">
                       <strong>项目 Agent</strong>
@@ -2346,7 +2346,7 @@ export default function AgentWorkspace({
                   </div>
                   <div className="agent-workspace__message-body">
                     <div className="agent-workspace__working">
-                      <Loader2 size={15} className="agent-workspace__spin" />
+                      <Spinner size={15} className="agent-workspace__spin" />
                       正在判断任务并调用可用工具...
                     </div>
                   </div>
@@ -2531,7 +2531,7 @@ export default function AgentWorkspace({
               }}
               title={isUploadingImage ? '图片上传中' : '上传图片'}
             >
-              {isUploadingImage ? <Loader2 size={16} className="agent-workspace__spin" /> : <Paperclip size={16} />}
+              {isUploadingImage ? <Spinner size={16} className="agent-workspace__spin" /> : <Paperclip size={16} />}
             </button>
             <button
               type="button"
@@ -2568,7 +2568,7 @@ export default function AgentWorkspace({
                 event.currentTarget.style.boxShadow = canSubmit ? '0 5px 14px rgba(0, 0, 0, 0.08)' : 'none';
               }}
             >
-              {isWorking ? <Loader2 size={17} className="agent-workspace__spin" /> : <Send size={17} />}
+              {isWorking ? <Spinner size={17} className="agent-workspace__spin" /> : <PaperPlaneTilt size={17} />}
             </button>
           </div>
         </footer>

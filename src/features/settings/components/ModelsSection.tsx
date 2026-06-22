@@ -1,7 +1,7 @@
 import { inferEndpointCategory, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import type { ModelInfo, ProjectModel } from '@/shared/types';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { Check, Database, Plus, Search, Trash2, UploadCloud, X } from 'lucide-react';
+import { Check, Database, MagnifyingGlass, Plus, Trash, X, CloudArrowUp } from '@phosphor-icons/react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';
@@ -234,7 +234,7 @@ export function ModelsSection({ T, actions, view }: Props) {
       >
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ position: 'relative' }}>
-            <Search
+            <MagnifyingGlass
               size={15}
               style={{
                 position: 'absolute',
@@ -536,7 +536,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                     cursor: view.selectedImports.length > 0 ? 'pointer' : 'not-allowed',
                   }}
                 >
-                  <UploadCloud size={15} />
+                  <CloudArrowUp size={15} />
                   导入选中模型
                 </button>
               </div>
@@ -768,7 +768,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                     cursor: batchSelected.size > 0 ? 'pointer' : 'not-allowed',
                   }}
                 >
-                  <Trash2 size={14} />
+                  <Trash size={14} />
                   批量移除
                 </button>
               </div>

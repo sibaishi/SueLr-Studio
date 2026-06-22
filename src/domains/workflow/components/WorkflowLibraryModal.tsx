@@ -7,7 +7,7 @@ import {
   panelStyle,
   sectionTitleStyle,
 } from '@/features/settings/components/styles';
-import { Copy, Edit3, FolderOpen, Search, Trash2, Workflow, X } from 'lucide-react';
+import { Copy, FolderOpen, MagnifyingGlass, NotePencil, ShareNetwork, Trash, X } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -164,7 +164,7 @@ export default function WorkflowLibraryModal({
 
         <div className="workflow-library-modal__toolbar">
           <div className="workflow-library-modal__search">
-            <Search size={14} />
+            <MagnifyingGlass size={14} />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称或 ID" />
           </div>
           <span style={{ ...chipStyle(), height: 40, padding: '0 14px', fontSize: 12, fontWeight: 700 }}>
@@ -270,7 +270,7 @@ export default function WorkflowLibraryModal({
                       opacity: workflow.coverUrl ? 0 : 0.16,
                     }}
                   >
-                    <Workflow size={48} strokeWidth={1.5} />
+                    <ShareNetwork size={48} strokeWidth={1.5} />
                   </div>
 
                   <div
@@ -323,7 +323,7 @@ export default function WorkflowLibraryModal({
                             title="重命名"
                             aria-label="重命名"
                           >
-                            <Edit3 size={14} />
+                            <NotePencil size={14} />
                           </button>
                           <button
                             type="button"
@@ -349,7 +349,7 @@ export default function WorkflowLibraryModal({
                             title="删除"
                             aria-label="删除"
                           >
-                            <Trash2 size={14} />
+                            <Trash size={14} />
                           </button>
                         </>
                       )}
