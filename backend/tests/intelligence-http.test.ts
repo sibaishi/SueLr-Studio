@@ -1,11 +1,12 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 function createStorageDir(name) {
-  const root = path.resolve('C:/Users/ADMINI~1.WIN/AppData/Local/Temp/opencode', `intelligence-${name}-${Date.now()}`);
+  const root = path.join(os.tmpdir(), 'suelr-studio-tests', `intelligence-${name}-${Date.now()}`);
   fs.mkdirSync(root, { recursive: true });
   return root;
 }
@@ -3191,12 +3192,12 @@ test('intelligence local team run creates role outputs, review, and workflow dra
   }
 });
 
-test('intelligence run creates and reads a trace without affecting legacy agent route', async () => {
+test('intelligence run creates and reads a trace without affecting assistant route', async () => {
   const { server, baseUrl } = await createTestServer('run');
   try {
-    const agentStatus = await requestJson(baseUrl, '/api/agent/status');
-    assert.equal(agentStatus.status, 200);
-    assertEnvelopeShape(agentStatus.body);
+    const assistantStatus = await requestJson(baseUrl, '/api/assistant/status');
+    assert.equal(assistantStatus.status, 200);
+    assertEnvelopeShape(assistantStatus.body);
 
     const created = await requestJson(baseUrl, '/api/intelligence/runs', {
       method: 'POST',

@@ -48,6 +48,21 @@ function buildStudioSettingsPayload(params: {
   };
 }
 
+export function mergePersistedApiConfigs(frontendConfigs: ApiConfig[], backendConfigs: ApiConfig[]): ApiConfig[] {
+  const backendById = new Map(backendConfigs.map((config) => [config.id, config]));
+  const merged = frontendConfigs.map((frontendConfig) => {
+    const backendConfig = backendById.get(frontendConfig.id);
+    if (!backendConfig) return frontendConfig;
+    backendById.delete(frontendConfig.id);
+    return {
+      ...frontendConfig,
+      ...backendConfig,
+    };
+  });
+
+  return [...merged, ...backendById.values()];
+}
+
 export function useAppBootstrap(params: UseAppBootstrapParams) {
   const { settings } = params;
   const [splashDone, setSplashDone] = useState(false);
@@ -113,22 +128,7 @@ export function useAppBootstrap(params: UseAppBootstrapParams) {
 
       if (loadedSettings) {
         if (loadedSettings.runtime?.configs?.length) {
-          // 合并后端配置到前端：用后端数据补全字段，但保留前端手动设置的 name
-          const backendById = new Map(
-            (loadedSettings.runtime.configs as ApiConfig[]).map((c) => [c.id, c]),
-          );
-          cfgs = cfgs.map((frontConfig) => {
-            const backend = backendById.get(frontConfig.id);
-            if (!backend) return frontConfig;
-            return {
-              ...backend,
-              name: frontConfig.name?.trim() || backend.name || '',
-            };
-          });
-          // 追加后端独有的配置
-          for (const bc of loadedSettings.runtime.configs as ApiConfig[]) {
-            if (!cfgs.find((c) => c.id === bc.id)) cfgs.push(bc);
-          }
+          cfgs = mergePersistedApiConfigs(cfgs, loadedSettings.runtime.configs as ApiConfig[]);
           params.settings.setApiConfigs(cfgs);
         }
         if (loadedSettings.runtime?.activeConfigId) {

@@ -258,8 +258,12 @@ test('aiV3 image output flows into io and materializes generated files', async (
   }
 });
 
-test('midjourneyGen accepts new io input and its unified result is materialized by new io output', async () => {
+test('aiV3 midjourney mode accepts io input and its unified result is materialized by io output', async () => {
   const originalFetch = globalThis.fetch;
+  const previousConfigDir = process.env.APP_CONFIG_DIR;
+  const storageRoot = createStorageDir('ai-v3-midjourney');
+  process.env.APP_CONFIG_DIR = storageRoot;
+  const scope = { userId: 'midjourney-test', workspaceId: 'default', runtimeMode: 'local-web' };
   const events = [];
   const requests = [];
 
@@ -277,15 +281,15 @@ test('midjourneyGen accepts new io input and its unified result is materialized 
     if (requestUrl.includes('/midjourney/v1/fetch')) {
       return new Response(JSON.stringify({
         status: 'SUCCESS',
-        cdnImage: 'https://cdn.example.com/midjourney-grid.png',
+        cdnImage: 'https://93.184.216.34/midjourney-grid.png',
         components: ['U1', 'U2', 'V1', 'V2'],
       }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     }
-    if (requestUrl === 'https://cdn.example.com/midjourney-grid.png') {
-      return new Response(Buffer.from('ABC'), {
+    if (requestUrl === 'https://93.184.216.34/midjourney-grid.png') {
+      return new Response(Buffer.from('89504e470d0a1a0a', 'hex'), {
         status: 200,
         headers: { 'content-type': 'image/png' },
       });
@@ -304,8 +308,8 @@ test('midjourneyGen accepts new io input and its unified result is materialized 
           },
           {
             id: 'midjourney',
-            type: 'midjourneyGen',
-            data: { model: 'midjourney', mode: 'turbo' },
+            type: 'aiV3',
+            data: { model: 'midjourney', mode: 'midjourney', mjMode: 'turbo' },
           },
           {
             id: 'output',
@@ -352,6 +356,7 @@ test('midjourneyGen accepts new io input and its unified result is materialized 
             source: 'manual',
           },
         ],
+        scope,
       },
       (event, data) => events.push({ event, data }),
     );
@@ -366,7 +371,8 @@ test('midjourneyGen accepts new io input and its unified result is materialized 
     ));
 
     assert.ok(midjourneyEvent);
-    assert.deepEqual(midjourneyEvent.data.outputs.result, ['data:image/png;base64,QUJD']);
+    assert.equal(Array.isArray(midjourneyEvent.data.outputs.result), true);
+    assert.match(midjourneyEvent.data.outputs.result[0], /^\/api\/outputs\/images\/.+\.png$/);
     assert.equal(midjourneyEvent.data.outputs.meta.task.jobId, 'job-workflow');
     assert.ok(outputEvent);
     assert.equal(typeof outputEvent.data.outputs.result, 'string');
@@ -379,6 +385,12 @@ test('midjourneyGen accepts new io input and its unified result is materialized 
     });
   } finally {
     globalThis.fetch = originalFetch;
+    if (previousConfigDir === undefined) {
+      delete process.env.APP_CONFIG_DIR;
+    } else {
+      process.env.APP_CONFIG_DIR = previousConfigDir;
+    }
+    fs.rmSync(storageRoot, { recursive: true, force: true });
   }
 });
 

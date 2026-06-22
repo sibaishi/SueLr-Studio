@@ -20,7 +20,6 @@ const EXPECTED_ARCHITECT_NODE_TYPES = [
   'promptHelper',
   'textSplit',
   'aiV3',
-  'midjourneyGen',
 ];
 
 test('workflow node catalog preserves the architect node allowlist and dynamic port contracts', () => {
@@ -58,19 +57,11 @@ test('workflow node catalog preserves the architect node allowlist and dynamic p
     inputs: { input: { type: 'any' } },
     outputs: { result: { type: 'any' } },
   });
-  assert.deepEqual(ports.midjourneyGen, {
-    inputs: { input: { type: 'any' } },
-    outputs: { result: { type: 'any' } },
-  });
 });
 
 test('workflow node catalog preserves architect defaults and agent knowledge coverage', () => {
   assert.deepEqual(getWorkflowArchitectDefaultData('aiV3'), {
     model: '',
-  });
-  assert.deepEqual(getWorkflowArchitectDefaultData('midjourneyGen'), {
-    model: '',
-    mode: 'fast',
   });
   assert.deepEqual(getWorkflowArchitectDefaultData('io'), { text: '', content: [], _fileIds: [], _fileKinds: [] });
   assert.deepEqual(getWorkflowArchitectDefaultData('textSplit'), {
@@ -81,6 +72,9 @@ test('workflow node catalog preserves architect defaults and agent knowledge cov
 
   const capabilityNodeTypes = WORKFLOW_NODE_CAPABILITY_SEEDS.map((seed) => seed.structured.nodeType).sort();
   assert.deepEqual(capabilityNodeTypes, [...EXPECTED_ARCHITECT_NODE_TYPES].sort());
+  const aiV3Capability = WORKFLOW_NODE_CAPABILITY_SEEDS.find((seed) => seed.structured.nodeType === 'aiV3');
+  assert.equal(aiV3Capability?.id, 'seed_workflow_node_aiV3');
+  assert.equal(aiV3Capability?.structured.params?.includes('mjMode'), true);
 });
 
 test('workflow node registry declares agent input adapters and iterative runtime modes', () => {

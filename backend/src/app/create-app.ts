@@ -177,6 +177,16 @@ export function createApp() {
     );
   });
 
+  app.use('/api', (req: RequestLike, res: ResponseLike) => {
+    const requestPath = String(req.originalUrl || req.path || '').split('?', 1)[0];
+    res.status(404).json(
+      errorEnvelope({
+        code: 'API_ROUTE_NOT_FOUND',
+        message: `API 路由不存在：${String(req.method || 'GET')} ${requestPath}`,
+      }),
+    );
+  });
+
   const frontendDist = process.env.APP_FRONTEND_DIST ? resolve(process.env.APP_FRONTEND_DIST) : '';
   if (frontendDist && existsSync(resolve(frontendDist, 'index.html'))) {
     app.use(express.static(frontendDist));

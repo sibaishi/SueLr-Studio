@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import { NODE_EXECUTORS } from '../src/engine/nodes/index.ts';
 import { executeMidjourneyImagine } from '../src/platform/ai/midjourney-service.ts';
@@ -123,8 +126,11 @@ test('executeMidjourneyImagine reports terminal provider failure', async () => {
   }
 });
 
-test('midjourneyGen executor uses the unified input/result contract and keeps task data in metadata', async () => {
+test('aiV3 midjourney mode uses the unified input/result contract and keeps task data in metadata', async () => {
   const originalFetch = globalThis.fetch;
+  const previousConfigDir = process.env.APP_CONFIG_DIR;
+  const storageRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'suelr-midjourney-ai-v3-'));
+  process.env.APP_CONFIG_DIR = storageRoot;
   let submittedBody: Record<string, unknown> = {};
   globalThis.fetch = async (url, options = {}) => {
     if (String(options.method) === 'POST') {
@@ -134,26 +140,28 @@ test('midjourneyGen executor uses the unified input/result contract and keeps ta
         headers: { 'content-type': 'application/json' },
       });
     }
-    if (String(url) === 'https://cdn.example.com/grid.png') {
-      return new Response(Buffer.from('ABC'), {
+    if (String(url) === 'https://93.184.216.34/grid.png') {
+      return new Response(Buffer.from('89504e470d0a1a0a', 'hex'), {
         status: 200,
         headers: { 'content-type': 'image/png' },
       });
     }
     return new Response(
-      JSON.stringify({ status: 'SUCCESS', cdnImage: 'https://cdn.example.com/grid.png', components: ['U1'] }),
+      JSON.stringify({ status: 'SUCCESS', cdnImage: 'https://93.184.216.34/grid.png', components: ['U1'] }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
   };
 
   try {
-    const result = await NODE_EXECUTORS.midjourneyGen(
+    const result = await NODE_EXECUTORS.aiV3(
       {
-        type: 'midjourneyGen',
-        data: { model: 'midjourney', mode: 'relax', prompt: 'local detail' },
+        type: 'aiV3',
+        data: { model: 'midjourney', mode: 'midjourney', mjMode: 'relax', prompt: 'local detail' },
       },
-      { input: ['upstream prompt', { type: 'text', text: 'second prompt' }] },
-      createRuntime(),
+      { input: ['upstream prompt', 'second prompt'] },
+      createRuntime({
+        scope: { userId: 'midjourney-test', workspaceId: 'default', runtimeMode: 'local-web' },
+      }),
       () => {},
     );
 
@@ -161,9 +169,21 @@ test('midjourneyGen executor uses the unified input/result contract and keeps ta
       prompt: 'upstream prompt\nsecond prompt\nlocal detail',
       mode: 'relax',
     });
-    assert.deepEqual(result.result, ['data:image/png;base64,QUJD']);
-    assert.equal(result.meta.task.jobId, 'job-node');
+    assert.equal(Array.isArray(result.result), true);
+    assert.match(result.result[0], /^\/api\/outputs\/images\/.+\.png$/);
+    assert.equal('meta' in result, true);
+    if (!('meta' in result)) assert.fail('aiV3 midjourney result must include metadata');
+    assert.equal('task' in result.meta, true);
+    if (!('task' in result.meta)) assert.fail('aiV3 midjourney metadata must include task details');
+    const task = result.meta.task as { jobId?: unknown };
+    assert.equal(task.jobId, 'job-node');
   } finally {
     globalThis.fetch = originalFetch;
+    if (previousConfigDir === undefined) {
+      delete process.env.APP_CONFIG_DIR;
+    } else {
+      process.env.APP_CONFIG_DIR = previousConfigDir;
+    }
+    fs.rmSync(storageRoot, { recursive: true, force: true });
   }
 });

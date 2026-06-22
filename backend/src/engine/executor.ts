@@ -8,7 +8,7 @@ import {
   validateWorkflow,
 } from './executor-helpers.ts';
 import { NODE_EXECUTORS } from './nodes/index.ts';
-import type { DynamicValue, RuntimeApiConfig, WorkflowNode } from './nodes/types.ts';
+import type { DynamicValue, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './nodes/types.ts';
 
 const ITERATE_RUN_NODE_TYPE = 'iterateRun';
 const ITERATE_IMAGE_RUN_NODE_TYPE = 'iterateImageRun';
@@ -35,7 +35,6 @@ type Workflow = {
 
 type WorkflowOutputs = Record<string, Record<string, DynamicValue> | undefined>;
 type SendSSE = (event: string, data: Record<string, DynamicValue>) => unknown;
-type ProgressCallback = (message: string) => void;
 type NodeExecutor = (
   node: WorkflowNode,
   inputs: Record<string, DynamicValue>,

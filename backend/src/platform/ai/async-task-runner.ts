@@ -50,6 +50,7 @@ export async function waitForAsyncTask<TData, TResult>({
   timeoutMessage = '异步任务等待超时',
   onAttempt,
   onProgress,
+  onPreview,
   shouldRetryError = () => true,
 }: AsyncTaskRunnerOptions<TData, TResult>): Promise<TResult> {
   let lastProgress = Number.NEGATIVE_INFINITY;

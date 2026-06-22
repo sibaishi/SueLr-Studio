@@ -10,20 +10,23 @@ function buildUrl(path: string) {
   return path.startsWith('http://') || path.startsWith('https://') ? path : path;
 }
 
-async function parseJson<T>(response: Response): Promise<T | null> {
-  try {
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
 function parseJsonText<T>(text: string): T | null {
   try {
     return text ? (JSON.parse(text) as T) : null;
   } catch {
     return null;
   }
+}
+
+function summarizeResponseText(text: string): string {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  if (!compact) return '空响应';
+  return compact.length > 160 ? `${compact.slice(0, 160)}…` : compact;
+}
+
+function buildNonJsonResponseError(path: string, response: Response, responseText: string): string {
+  const contentType = response.headers.get('content-type') || '未知内容类型';
+  return `接口返回了非 JSON 响应（HTTP ${response.status}，${path}，${contentType}）：${summarizeResponseText(responseText)}`;
 }
 
 function extractErrorPayload(error: ApiEnvelope<unknown>['error']): ApiErrorPayload | undefined {
@@ -59,9 +62,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       signal: rest.signal ?? (timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined),
     });
 
+    const responseText = await response.text().catch(() => '');
+    const payload = parseJsonText<ApiEnvelope<T>>(responseText);
+
     if (!response.ok) {
-      const responseText = await response.text().catch(() => '');
-      const payload = parseJsonText<ApiEnvelope<T>>(responseText);
       if (payload) {
         const normalized = normalizeEnvelope(payload);
         return {
@@ -73,12 +77,19 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       }
       return {
         success: false,
-        error: `HTTP ${response.status}: ${responseText || '未知错误'}`,
+        error: buildNonJsonResponseError(path, response, responseText),
         status: response.status,
       };
     }
 
-    const payload = await parseJson<ApiEnvelope<T>>(response);
+    if (!payload) {
+      return {
+        success: false,
+        error: buildNonJsonResponseError(path, response, responseText),
+        status: response.status,
+      };
+    }
+
     return { ...normalizeEnvelope(payload), status: response.status };
   } catch (error) {
     const apiError = toApiError(error, '网络请求失败');
@@ -101,5 +112,6 @@ export async function apiRequestOrThrow<T>(path: string, options: RequestOptions
 }
 
 export async function parseEnvelopeResponse<T>(response: Response): Promise<ApiEnvelope<T> | null> {
-  return parseJson<ApiEnvelope<T>>(response);
+  const responseText = await response.text().catch(() => '');
+  return parseJsonText<ApiEnvelope<T>>(responseText);
 }

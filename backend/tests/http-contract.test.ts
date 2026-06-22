@@ -104,6 +104,43 @@ test('HTTP contract: settings endpoints use unified envelope', async () => {
   }
 });
 
+test('HTTP contract: SPA fallback keeps unknown API routes on JSON errors', async () => {
+  const previousFrontendDist = process.env.APP_FRONTEND_DIST;
+  let frontendDist = '';
+  const { server, baseUrl } = await createTestServer('unknown-api-route', {
+    prepareStorage(root) {
+      frontendDist = path.join(root, 'frontend-dist');
+      fs.mkdirSync(frontendDist, { recursive: true });
+      fs.writeFileSync(path.join(frontendDist, 'index.html'), '<!DOCTYPE html><title>SueLr Studio</title>');
+      process.env.APP_FRONTEND_DIST = frontendDist;
+    },
+  });
+  try {
+    const response = await fetch(`${baseUrl}/api/route-that-does-not-exist`);
+    const contentType = response.headers.get('content-type') || '';
+    const body = await response.json();
+    const pageResponse = await fetch(`${baseUrl}/workflow/demo`);
+    const pageBody = await pageResponse.text();
+
+    assert.equal(response.status, 404);
+    assert.match(contentType, /application\/json/);
+    assertEnvelopeShape(body);
+    assert.equal(body.success, false);
+    assert.equal(body.error.code, 'API_ROUTE_NOT_FOUND');
+    assert.match(body.error.message, /GET \/api\/route-that-does-not-exist/);
+    assert.equal(pageResponse.status, 200);
+    assert.match(pageResponse.headers.get('content-type') || '', /text\/html/);
+    assert.match(pageBody, /SueLr Studio/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    if (previousFrontendDist === undefined) {
+      delete process.env.APP_FRONTEND_DIST;
+    } else {
+      process.env.APP_FRONTEND_DIST = previousFrontendDist;
+    }
+  }
+});
+
 test('HTTP contract: restart backend endpoint uses unified envelopes', async () => {
   const { server, baseUrl } = await createTestServer('settings-restart');
   try {

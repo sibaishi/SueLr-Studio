@@ -28,6 +28,28 @@ test('waitForAsyncTask polls until completion and emits increasing progress', as
   assert.deepEqual(progress, [0.25]);
 });
 
+test('waitForAsyncTask emits preview payloads while polling', async () => {
+  const previews: unknown[] = [];
+  const responses = [
+    { status: 'pending', preview: { url: 'https://example.com/preview.png' } },
+    { status: 'success', value: 'done' },
+  ];
+
+  const result = await waitForAsyncTask({
+    poll: async () => responses.shift()!,
+    inspect: (data) =>
+      data.status === 'success'
+        ? { state: 'completed', result: data.value }
+        : { state: 'pending', preview: data.preview },
+    intervalMs: 0,
+    maxAttempts: 2,
+    onPreview: (preview) => previews.push(preview),
+  });
+
+  assert.equal(result, 'done');
+  assert.deepEqual(previews, [{ url: 'https://example.com/preview.png' }]);
+});
+
 test('waitForAsyncTask surfaces terminal failures without retrying', async () => {
   let pollCount = 0;
 

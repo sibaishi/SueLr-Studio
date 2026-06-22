@@ -263,10 +263,12 @@ test.describe('studio smoke', () => {
     expect(typeof duplicatedId).toBe('string');
     await expect(page.locator('.workflow-toolbar__title')).toHaveText((duplicated as { name: string }).name);
 
-    page.once('dialog', async (dialog) => {
-      await dialog.accept();
-    });
     await page.getByTestId('workflow-delete').click();
+    const deleteDialog = page.getByRole('dialog', {
+      name: `删除“${(duplicated as { name: string }).name}”？`,
+    });
+    await expect(deleteDialog).toBeVisible();
+    await deleteDialog.getByRole('button', { name: '删除', exact: true }).click();
 
     await expect
       .poll(
@@ -446,9 +448,10 @@ test.describe('studio smoke', () => {
   test('settings exposes the reorganized primary modules', async ({ page }) => {
     await clearLocalState(page);
     await openSettings(page);
-    await expect(page.getByTestId('settings-module-overview')).toBeVisible();
-    await expect(page.getByTestId('settings-module-agent')).toBeVisible();
-    await expect(page.getByTestId('settings-module-workspace')).toBeVisible();
+    for (const moduleId of ['overview', 'connection', 'models', 'workspace', 'diagnostics']) {
+      await expect(page.getByTestId(`settings-module-${moduleId}`)).toBeVisible();
+    }
+    await expect(page.getByTestId('settings-module-agent')).toHaveCount(0);
     await expect(page.getByTestId('settings-module-account_details')).toHaveCount(0);
   });
 
