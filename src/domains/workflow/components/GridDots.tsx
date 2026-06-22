@@ -28,7 +28,8 @@ export function GridDots({
 }: GridDotsProps) {
   const { x: vpX, y: vpY, zoom } = useViewport();
 
-  const dots = useMemo(() => {
+  // layer 1: static baseline grid — never changes
+  const baseDots = useMemo(() => {
     if (!containerWidth || !containerHeight) return [];
 
     const visibleLeft = -vpX / zoom - gap;
@@ -41,57 +42,57 @@ export function GridDots({
     const endX = Math.ceil(visibleRight / gap) * gap;
     const endY = Math.ceil(visibleBottom / gap) * gap;
 
+    const result: Array<{ x: number; y: number }> = [];
+    for (let gx = startX; gx <= endX; gx += gap) {
+      for (let gy = startY; gy <= endY; gy += gap) {
+        result.push({ x: gx, y: gy });
+      }
+    }
+    return result;
+  }, [vpX, vpY, zoom, gap, containerWidth, containerHeight]);
+
+  // layer 2: glow overlay — only dots within glow radius, affected by fadeOut
+  const glowDots = useMemo(() => {
+    if (!containerWidth || !containerHeight || !mouseFlowPos || fadeOut >= 1) return [];
+
     const glowInFlow = glowRadius / zoom;
+    const visibleLeft = -vpX / zoom - gap;
+    const visibleTop = -vpY / zoom - gap;
+    const visibleRight = visibleLeft + containerWidth / zoom + gap * 2;
+    const visibleBottom = visibleTop + containerHeight / zoom + gap * 2;
+
+    const startX = Math.floor(visibleLeft / gap) * gap;
+    const startY = Math.floor(visibleTop / gap) * gap;
+    const endX = Math.ceil(visibleRight / gap) * gap;
+    const endY = Math.ceil(visibleBottom / gap) * gap;
 
     const result: Array<{
       x: number;
       y: number;
       r: number;
-      fill: string;
       opacity: number;
     }> = [];
 
     for (let gx = startX; gx <= endX; gx += gap) {
       for (let gy = startY; gy <= endY; gy += gap) {
-        if (!mouseFlowPos) {
-          result.push({ x: gx, y: gy, r: size, fill: color, opacity: 1 });
-          continue;
-        }
-
         const dist = Math.hypot(gx - mouseFlowPos.x, gy - mouseFlowPos.y);
-        const rawT = 1 - dist / glowInFlow;
-        const glowIntensity = Math.max(0, rawT) * (1 - fadeOut);
+        if (dist >= glowInFlow) continue;
 
-        if (glowIntensity <= 0.01) {
-          result.push({ x: gx, y: gy, r: size, fill: color, opacity: 1 });
-        } else {
-          result.push({
-            x: gx,
-            y: gy,
-            r: size + (hoverSize - size) * glowIntensity,
-            fill: glowColor,
-            opacity: glowIntensity,
-          });
-        }
+        const t = 1 - dist / glowInFlow;
+        const intensity = t * (1 - fadeOut);
+        if (intensity <= 0.01) continue;
+
+        result.push({
+          x: gx,
+          y: gy,
+          r: size + (hoverSize - size) * intensity,
+          opacity: intensity,
+        });
       }
     }
 
     return result;
-  }, [
-    vpX,
-    vpY,
-    zoom,
-    gap,
-    size,
-    hoverSize,
-    color,
-    glowColor,
-    glowRadius,
-    containerWidth,
-    containerHeight,
-    mouseFlowPos,
-    fadeOut,
-  ]);
+  }, [vpX, vpY, zoom, gap, size, hoverSize, glowRadius, containerWidth, containerHeight, mouseFlowPos, fadeOut]);
 
   if (!containerWidth || !containerHeight) return null;
 
@@ -108,17 +109,20 @@ export function GridDots({
       }}
     >
       <g transform={`translate(${vpX}, ${vpY}) scale(${zoom})`}>
-        {dots.map((dot, i) => (
+        {/* layer 1: baseline — always present */}
+        {baseDots.map((dot, i) => (
+          <circle key={`b-${i}`} cx={dot.x} cy={dot.y} r={size} fill={color} opacity={1} />
+        ))}
+
+        {/* layer 2: glow overlay — only when active */}
+        {glowDots.map((dot, i) => (
           <circle
-            key={i}
+            key={`g-${i}`}
             cx={dot.x}
             cy={dot.y}
             r={dot.r}
-            fill={dot.fill}
+            fill={glowColor}
             opacity={dot.opacity}
-            className={
-              dot.fill === glowColor ? 'workflow-grid-dot--glow' : undefined
-            }
           />
         ))}
       </g>
