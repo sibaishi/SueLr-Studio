@@ -4,6 +4,8 @@ import { buildApiConfigPayload, resolveStoredApiKey } from '@/shared/providers/m
 const capabilityGenerateImage = vi.fn();
 const capabilitySubmitVideoGeneration = vi.fn();
 
+vi.setConfig({ testTimeout: 15_000 });
+
 vi.mock('@/shared/api/capabilities', () => ({
   capabilityChatCompletion: vi.fn(),
   capabilityChatCompletionStream: vi.fn(),

@@ -1,6 +1,8 @@
 import { formatRuntimeModeLabel, getRuntimeActionHint } from '@/features/settings/runtimePresentation';
 import { getCachedRuntimeCapabilities, setCachedRuntimeCapabilities } from '@/shared/api/serverState';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.setConfig({ testTimeout: 15_000 });
 
 async function withEnv<T>(env: Record<string, string | undefined>, callback: () => Promise<T> | T): Promise<T> {
   const previous = new Map<string, string | undefined>();

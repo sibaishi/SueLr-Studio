@@ -18,6 +18,14 @@ async function addTextInputNode(page: import('@playwright/test').Page) {
   await page.getByTestId('workflow-node-catalog-item-io').click();
 }
 
+async function addWorkflowNode(page: import('@playwright/test').Page, nodeType: 'aiV3' | 'io') {
+  await page.getByTestId('workflow-add-node').click();
+  if (nodeType === 'aiV3') {
+    await page.getByRole('button', { name: /AI 能力/ }).click();
+  }
+  await page.getByTestId(`workflow-node-catalog-item-${nodeType}`).click();
+}
+
 async function openSettings(page: import('@playwright/test').Page) {
   await page.getByTestId('workflow-open-settings').click();
   await expect(page.getByTestId('settings-page')).toBeVisible();
@@ -183,6 +191,52 @@ test.describe('studio smoke', () => {
     await addTextInputNode(page);
 
     await expect(page.locator('.react-flow__node')).toHaveCount(beforeCount + 1);
+  });
+
+  test('AI V3 and IO nodes preserve their shared shell behavior and distinct types', async ({ page }) => {
+    const workflowName = `E2E Shared Node Shell ${Date.now().toString(36)}`;
+
+    await clearLocalState(page);
+    await page.getByTestId('workflow-new').click();
+    await page.locator('.workflow-toolbar__title--editable').click();
+    await page.locator('.workflow-toolbar__title-input').fill(workflowName);
+    await page.keyboard.press('Enter');
+
+    await addWorkflowNode(page, 'io');
+    await addWorkflowNode(page, 'aiV3');
+
+    const ioNode = page.locator('.react-flow__node').filter({ hasText: 'IO' }).last();
+    const aiNode = page.locator('.react-flow__node').filter({ hasText: 'AI 能力 V3' }).last();
+    await expect(ioNode).toBeVisible();
+    await expect(aiNode).toBeVisible();
+
+    await aiNode.locator('.node-v2-appendix-label').click();
+    await page.locator('.node-v2-appendix-label-input').fill('AI 审查节点');
+    await page.keyboard.press('Enter');
+    const renamedAiNode = page.locator('.react-flow__node').filter({ hasText: 'AI 审查节点' }).last();
+    await expect(renamedAiNode.locator('.node-v2-appendix-label-text')).toHaveText('AI 审查节点');
+
+    await renamedAiNode.getByTitle('锁定').click();
+    await expect(renamedAiNode.getByTitle('解锁')).toBeVisible();
+
+    await page.getByTestId('workflow-save').click();
+    await expect
+      .poll(async () => Boolean(await readWorkflowByName(page, workflowName)), {
+        timeout: 10_000,
+        intervals: [250, 500, 1_000],
+      })
+      .toBe(true);
+
+    const savedWorkflow = await readWorkflowByName(page, workflowName);
+    const savedDocument = await readWorkflowDocument(page, (savedWorkflow as { id: string }).id);
+    const savedNodes = Array.isArray(savedDocument?.nodes) ? savedDocument.nodes : [];
+    expect(savedNodes.some((node: { type?: string }) => node.type === 'io')).toBe(true);
+    expect(
+      savedNodes.some(
+        (node: { type?: string; data?: { label?: string; locked?: boolean } }) =>
+          node.type === 'aiV3' && node.data?.label === 'AI 审查节点' && node.data?.locked === true,
+      ),
+    ).toBe(true);
   });
 
   test('workflow can save and reload a created workflow', async ({ page }) => {
