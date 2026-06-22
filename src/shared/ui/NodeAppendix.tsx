@@ -23,7 +23,7 @@ export const NodeAppendix = memo(function NodeAppendix({
   return (
     <div
       className={cn(
-        'absolute left-1/2 -translate-x-1/2',
+        'absolute left-1/2 -translate-x-1/2 w-max',
         'flex items-center gap-1',
         showOnHover && 'opacity-0 group-hover:opacity-100 transition-opacity duration-150',
         className,

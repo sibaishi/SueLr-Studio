@@ -305,6 +305,8 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                     border: '1px solid var(--t-border)',
                     color: 'var(--t-text3)',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}
                 >
                   已禁用
@@ -322,6 +324,8 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                     border: '1px solid var(--t-border)',
                     color: 'var(--t-orange)',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}
                   title={warningMessage}
                 >
@@ -340,6 +344,8 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                     border: '1px solid var(--t-border)',
                     color: badge.color || 'var(--t-text)',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}
                   title={badge.label + (execError ? `: ${execError}` : '')}
                 >
