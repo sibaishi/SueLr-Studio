@@ -88,12 +88,22 @@
 }
 
 .flow-node:hover {
-  box-shadow: var(--node-card-shadow-lift);
+  box-shadow: 0 0 12px 4px color-mix(in srgb, var(--node-color) 15%, transparent), var(--node-card-shadow-lift);
 }
 
 .flow-node--selected {
   border-color: color-mix(in srgb, var(--node-color) 74%, var(--node-card-line));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-color) 20%, transparent), var(--node-card-shadow-lift);
+  box-shadow: 0 0 16px 6px color-mix(in srgb, var(--node-color) 22%, transparent), var(--node-card-shadow-lift);
+  animation: nodeGlowBreathe 3s ease-in-out infinite;
+}
+
+@keyframes nodeGlowBreathe {
+  0%, 100% {
+    box-shadow: 0 0 12px 4px color-mix(in srgb, var(--node-color) 16%, transparent), var(--node-card-shadow-lift);
+  }
+  50% {
+    box-shadow: 0 0 22px 10px color-mix(in srgb, var(--node-color) 28%, transparent), var(--node-card-shadow-lift);
+  }
 }
 
 .flow-node--group {
