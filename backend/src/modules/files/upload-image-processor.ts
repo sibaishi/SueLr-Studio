@@ -1,24 +1,12 @@
 import fs from 'node:fs';
-import sharp from 'sharp';
 import { createLogger } from '../../platform/logging/logger.ts';
 import { ensureUploadThumbnail } from '../../platform/media/image-thumbnails.ts';
+import { readImageDimensions } from './image-metadata.ts';
 import type { UploadRecord } from './types.ts';
 import { uploadMetadataRepository } from './upload-metadata.repository.ts';
 
 const logger = createLogger({ module: 'upload-image-processor' });
 const activeJobs = new Map<string, Promise<void>>();
-
-async function readImageDimensions(filePath: string) {
-  try {
-    const metadata = await sharp(filePath, { failOn: 'none' }).metadata();
-    const width = Number(metadata.width || 0);
-    const height = Number(metadata.height || 0);
-    if (!width || !height) return null;
-    return { width, height };
-  } catch {
-    return null;
-  }
-}
 
 async function processImage(filename: string, filePath: string, mimeType: string, scope?: UploadRecord['scope']) {
   const startedAt = Date.now();

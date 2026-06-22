@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
 import {
@@ -19,6 +18,7 @@ import {
 } from '../../platform/storage/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import type { ListGeneratedOutputsOptions, ScopeOptions } from './types.ts';
+import { readImageDimensions } from './image-metadata.ts';
 
 const OUTPUT_FILE_TYPES = new Map([
   ['.png', { type: 'image', mimeType: 'image/png' }],
@@ -204,15 +204,3 @@ export class FilesRepository {
 }
 
 export const filesRepository = new FilesRepository();
-
-async function readImageDimensions(filePath: string) {
-  try {
-    const metadata = await sharp(filePath, { failOn: 'none' }).metadata();
-    const width = Number(metadata.width || 0);
-    const height = Number(metadata.height || 0);
-    if (!width || !height) return null;
-    return { width, height };
-  } catch {
-    return null;
-  }
-}

@@ -16,7 +16,7 @@ import {
   imageFileNameFromUrl,
   uploadIoImageFileEntry,
 } from '@/domains/workflow/lib/ioImageFiles';
-import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import { type ExecutionLogEntry, useWorkflowStore } from '@/domains/workflow/lib/store';
 import { AlertTriangle, Clipboard, Clock3, FileText, ImageIcon, PlayCircle, TerminalSquare, Video } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -28,21 +28,12 @@ interface ResultsPanelProps {
   motionState?: 'entering' | 'leaving';
 }
 
-type WorkflowResultLog = {
-  id: string;
-  level: 'info' | 'success' | 'error';
-  message: string;
-  timestamp: number;
-  nodeId?: string;
-  details?: unknown;
-};
-
-type ReadableLog = WorkflowResultLog & {
+type ReadableLog = ExecutionLogEntry & {
   count: number;
   compactedCount: number;
   startedAt: number;
   endedAt: number;
-  detailSource?: WorkflowResultLog;
+  detailSource?: ExecutionLogEntry;
 };
 
 export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelProps) {
@@ -633,7 +624,7 @@ function LogsList({
   logs,
   onClear,
 }: {
-  logs: WorkflowResultLog[];
+  logs: ExecutionLogEntry[];
   onClear: () => void;
 }) {
   if (logs.length === 0) {
@@ -685,8 +676,8 @@ function LogsList({
   );
 }
 
-function buildReadableLogs(logs: WorkflowResultLog[]): ReadableLog[] {
-  const nodeGroups = new Map<string, WorkflowResultLog[]>();
+function buildReadableLogs(logs: ExecutionLogEntry[]): ReadableLog[] {
+  const nodeGroups = new Map<string, ExecutionLogEntry[]>();
   const directLogs: ReadableLog[] = [];
 
   logs.forEach((log, index) => {
@@ -706,7 +697,7 @@ function buildReadableLogs(logs: WorkflowResultLog[]): ReadableLog[] {
   return [...directLogs, ...groupedLogs].sort((left, right) => left.startedAt - right.startedAt);
 }
 
-function toReadableDirectLog(log: WorkflowResultLog): ReadableLog {
+function toReadableDirectLog(log: ExecutionLogEntry): ReadableLog {
   return {
     ...log,
     count: 1,
@@ -717,7 +708,7 @@ function toReadableDirectLog(log: WorkflowResultLog): ReadableLog {
   };
 }
 
-function toReadableNodeLog(nodeLogs: WorkflowResultLog[]): ReadableLog {
+function toReadableNodeLog(nodeLogs: ExecutionLogEntry[]): ReadableLog {
   const ordered = [...nodeLogs].sort((left, right) => left.timestamp - right.timestamp);
   const first = ordered[0];
   const errors = ordered.filter((log) => log.level === 'error');

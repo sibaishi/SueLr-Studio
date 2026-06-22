@@ -1,4 +1,9 @@
-import type { StreamMode, StudioSettingsPayload, WorkflowConcurrencySettingsPayload } from '@/features/settings';
+import {
+  mapLegacyStreamingMode,
+  type StreamMode,
+  type StudioSettingsPayload,
+  type WorkflowConcurrencySettingsPayload,
+} from '@/features/settings';
 import type { StudioSettingsState } from '@/features/settings';
 import {
   checkSettingsServer,
@@ -19,10 +24,6 @@ type UseAppBootstrapParams = {
   settings: StudioSettingsState;
   themeMode: ThemeMode;
 };
-
-function mapLegacyStreamingMode(value: unknown): StreamMode {
-  return value === 'real' || value === 'stream' ? 'stream' : 'non-stream';
-}
 
 function buildStudioSettingsPayload(params: {
   activeConfigId: string;

@@ -257,6 +257,12 @@ if (failures.length === 0) {
     failures.push('development/ must stay drained; move durable content into scripts/, docs/, or .private-docs/.');
   }
 
+  if (existsSync(resolve('src/domains/workflow/lib/providers'))) {
+    failures.push(
+      'src/domains/workflow/lib/providers/ is retired; workflow provider routing must use src/shared/providers/.',
+    );
+  }
+
   for (const file of sourceFiles) {
     if (file.startsWith('src/lib/')) continue;
     const source = readUtf8(file);

@@ -4,15 +4,13 @@ import { debouncedSaveJSON, ftime, gid, loadJSON } from '@/shared/runtime';
 import type { ApiConfig, LogEntry, ModelInfo } from '@/shared/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { StreamMode, WorkflowConcurrencySettingsPayload } from './types';
+import { mapLegacyStreamingMode } from './streamingMode';
 
 const MAX_LOGS = 500;
 const DEFAULT_WORKFLOW_CONCURRENCY: WorkflowConcurrencySettingsPayload = {
   enabled: false,
   maxConcurrency: 5,
 };
-
-export const mapLegacyStreamingMode = (value: unknown): StreamMode =>
-  value === 'real' || value === 'stream' ? 'stream' : 'non-stream';
 
 function getConfigLabel(config: ApiConfig, index: number) {
   return config.name?.trim() || config.base?.trim() || `API 配置 ${index + 1}`;
