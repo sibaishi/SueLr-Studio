@@ -2,6 +2,8 @@
 
 Thanks for taking a look at SueLr Studio.
 
+> Documentation baseline: 2026-06-22.
+
 This project is maintained as a local-first multimodal studio. The main contribution goal is to improve product behavior without making the repository harder to understand or operate.
 
 ## Branch Model
@@ -143,6 +145,10 @@ At this stage, the maintained project docs are:
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
+- `docs/imageGenV2-changes.md` as an archived migration record
+- `docs/intelligence/` for the maintained Agent, Skills, knowledge, governance, and acceptance program
+
+Every public document must identify whether it is a current operating guide, an active plan, or a historical migration record. Do not silently rewrite historical decisions; add a dated status note and update the current-state sections.
 
 Weekly execution notes, scratch plans, private rollout checklists, and similar process artifacts should stay outside the public documentation surface shipped with the repository.
 

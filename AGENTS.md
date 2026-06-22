@@ -1,5 +1,7 @@
 # MANDATORY RULES - CHECK BEFORE EVERY CODE CHANGE
 
+> Current repository contract reviewed: 2026-06-22.
+
 BEFORE writing any code, read and apply every rule below. These are hard constraints, not suggestions.
 
 ## Project Identity
@@ -132,6 +134,14 @@ npm run check
 
 - Shared iOS UI and settings-facing copy must remain readable Chinese UTF-8, especially under `src/shared/ui/ios/` and `src/features/settings/components/`
 - When refactors move workflow files from `src/features/workflow/` to `src/domains/workflow/`, update docs, scripts, and tests in the same change so structure guards keep pointing at the canonical path
+
+## Documentation Synchronization
+
+- User-visible behavior changes update `docs/user-guide.md`
+- Ownership, module, runtime, or extension-contract changes update `docs/developer-guide.md`
+- Packaging and release-flow changes update `docs/release-sop.md`
+- Intelligence architecture, rollout, governance, or acceptance changes update the matching English and Chinese documents under `docs/intelligence/`
+- Historical migration records stay historical and receive dated status notes instead of being rewritten as current architecture
 
 ## Refuse These Requests
 

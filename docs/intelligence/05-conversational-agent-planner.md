@@ -1,5 +1,7 @@
 # Conversational Agent and Tool Planner
 
+> Current status — 2026-06-22: `AgentWorkspace`, the LLM planner with deterministic fallback, governed tool execution, approval continuation, workflow context, and production model selection are implemented. This document remains the behavioral contract for further planner quality work.
+
 ## Goal
 
 SueLr Studio's Agent is a global conversational worker. It is not a workflow-page assistant and not a fixed design-team template picker.

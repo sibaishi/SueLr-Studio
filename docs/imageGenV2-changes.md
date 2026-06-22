@@ -1,5 +1,9 @@
 # imageGenV2 节点改动全录
 
+> 历史迁移记录，状态更新于 2026-06-22。
+>
+> `imageGenV2` 及同期 V2 专用节点已经退出当前主节点目录。当前产品使用统一 `aiV3` 节点，根据所选项目模型切换聊天、图像、视频或 Midjourney 执行模式；通用输入输出由 `io` 节点承担。本文仅用于追溯 2026-06-13 至 2026-06-14 的 V2 设计实验，不应作为新增节点或当前运行时实现指南。当前扩展契约以 `AGENTS.md`、`docs/developer-guide.md`、共享 node registry/catalog 和实际测试为准。
+
 > 分支：`refactor/ImageGenV2-node-styles`  
 > 日期：2026-06-13  
 > 最后更新：2026-06-14  

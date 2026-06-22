@@ -2,6 +2,8 @@
 
 `workflows/` is a version-controlled samples directory.
 
+> Status checked: 2026-06-22. No acceptance sample is currently committed.
+
 Rules:
 
 1. Only keep demonstrable example workflows here.
@@ -10,4 +12,6 @@ Rules:
 4. When a sample depends on files, replace them with safe example assets before committing.
 
 Current acceptance-oriented samples:
+
+- None. Add a sample only when it is portable, contains no runtime file IDs or personal data, and passes current workflow normalization.
 

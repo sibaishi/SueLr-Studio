@@ -2,6 +2,16 @@
 
 SueLr Studio 是一个本地优先的多模态 AI 工作台，用于对话、Agent、工作流，以及由这些入口调用的图像和视频生成任务。
 
+> 文档基线：2026-06-22。本文与 `main` 当前实现同步。
+
+## 当前产品基线
+
+- 主界面以工作流画布为中心，Agent、设置和工作流库均从该工作区进入。
+- 当前核心节点为通用 `IO`、按模型能力切换的 `AI 能力 V3`、提示词助手、文本拆分、图像拆分和分组节点。
+- 模型配置支持多连接同时启用；项目模型按连接隔离，并支持 `chat`、`image`、`video`、`midjourney` 能力分类。
+- Agent 使用 `/api/intelligence` 的规划、工具调用、审批、执行和诊断链路；旧 `/api/agent` persona/memory 体系已经移除。
+- 工作流库支持封面、复制、导入、导出和卡片式浏览。
+
 它当前围绕一套共享代码主干加两个交付版本演进：
 
 - `local-web`：本地前后端 + 浏览器访问
@@ -95,6 +105,8 @@ npm.cmd run check:encoding
 - [User Guide](docs/user-guide.md)
 - [Developer Guide](docs/developer-guide.md)
 - [Release SOP](docs/release-sop.md)
+- [Intelligence Program](docs/intelligence/README.md)
+- [Workflow Samples Policy](workflows/README.md)
 
 ## 本地生成物
 

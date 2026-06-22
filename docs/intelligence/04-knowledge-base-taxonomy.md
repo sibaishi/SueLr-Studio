@@ -1,5 +1,7 @@
 # Knowledge Base Taxonomy
 
+> Current status — 2026-06-22: local JSON knowledge storage, seed rebuilding, search, writes, legacy-memory import, asset links, run summaries, preference extraction, and template promotion are implemented under `/api/intelligence/knowledge*`. SQLite and embedding stages remain future options.
+
 ## Goal
 
 The knowledge base is long-term context for the LLM planner and tool runtime. It is not a team-template database and not a bag of unsourced memory snippets.

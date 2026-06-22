@@ -2,6 +2,8 @@
 
 This document defines the standard release workflow for SueLr Studio. The active delivery variants are `desktop` and `local-web`; remote server deployment is no longer part of the supported release surface.
 
+> Current release baseline: 2026-06-22.
+
 ## Branching
 
 - `main` is the shared long-lived source branch in this repository.
@@ -29,12 +31,11 @@ This document defines the standard release workflow for SueLr Studio. The active
 4. Run validation:
 
    ```powershell
-   npm.cmd run typecheck
-   npm.cmd run test --prefix backend
-   npm.cmd run check:encoding
-   npm.cmd run check:repo-hygiene
-   npm.cmd run check:docs
+   npm.cmd run check
+   npm.cmd run test:e2e
    ```
+
+   `npm run check` includes workflow-store structure, documentation, runtime baseline, test-surface, repository hygiene, encoding, typecheck, frontend unit tests, frontend build, and backend tests. Run the individual scripts only while diagnosing a failed gate.
 
 5. Build the target release artifact.
 
@@ -64,6 +65,10 @@ This document defines the standard release workflow for SueLr Studio. The active
    - A second desktop launch focuses the existing instance instead of opening a second main window.
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
+   - `io -> aiV3 -> io` executes with at least one configured project model.
+   - Agent can inspect the current canvas and presents approval before applying a workflow draft.
+   - Enabled provider configurations remain independently selectable and their project models do not overwrite each other.
+   - Workflow library covers create, save, duplicate, cover assignment, import, export, and delete.
    - Local-web serves the main app through the backend on port `3001`.
 
 7. Commit and push source changes:

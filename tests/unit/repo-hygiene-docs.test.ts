@@ -117,7 +117,7 @@ describe('repository documentation and branch hygiene', () => {
     expect(readme).toContain('SueLr Studio 是一个本地优先的多模态 AI 工作台');
     expect(readme).toContain('运行时数据默认存放在系统配置目录');
     expect(userGuide).toContain('centered on the workflow workspace');
-    expect(userGuide).toContain('Image and video generation are available through Agent and Workflow tools');
+    expect(userGuide).toContain('Image, video, chat, and Midjourney generation are routed through enabled project models');
     expect(floatingToolbar).toContain('workflow-add-node');
     expect(floatingToolbar).toContain('workflow-open-settings');
     expect(floatingToolbar).toContain('workflow-open-agent');

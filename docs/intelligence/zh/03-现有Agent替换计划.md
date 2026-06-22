@@ -1,5 +1,7 @@
 # 现有 Agent 替换计划
 
+> 完成状态（2026-06-22）：旧 `modules/agent` persona/profile/memory 后端和 `/api/agent` 路由已经删除，当前前端 Agent 使用 `/api/intelligence`。下文兼容阶段用于解释迁移过程，不代表当前路由结构。
+
 ## 当前旧 Agent 范围
 
 当前旧 Agent 相关代码主要在：

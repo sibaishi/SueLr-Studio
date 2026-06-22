@@ -1,5 +1,7 @@
 # SueLr Studio Intelligence Program
 
+> Status refresh: 2026-06-22. The governed `/api/intelligence` planner/tool runtime is the active Agent backend. The old `/api/agent` persona/profile/memory implementation has been removed. These documents combine current operating contracts with preserved rollout history.
+
 This directory contains the public plan for replacing the immature legacy Agent with a global conversational Agent powered by an LLM planner and governed tool calls.
 
 The product direction has changed: the first-class experience is not a design-team template system and not a workflow-page assistant. Users talk to a global Agent. The Agent selects a planner model inside the Agent window, creates a structured plan, calls controlled tools, and returns final results while keeping tool records collapsed by default.

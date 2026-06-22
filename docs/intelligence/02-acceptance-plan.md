@@ -1,5 +1,7 @@
 # Acceptance Plan
 
+> Status refresh — 2026-06-22: automated coverage exists for planner normalization, governed approvals, workflow draft application, execution, knowledge operations, model routing, and HTTP contracts. Manual UI acceptance still uses the companion local MVP kit and must be repeated for release candidates.
+
 ## Acceptance Philosophy
 
 The new intelligence system must be accepted as a real tool-calling loop, not as a model demo.

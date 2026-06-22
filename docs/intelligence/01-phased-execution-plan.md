@@ -1,5 +1,7 @@
 # Phased Execution Plan
 
+> Status refresh — 2026-06-22: Phases 0–9 have implementation coverage in the active intelligence runtime, including legacy Agent removal. Phase headings are retained as rollout history. Phase 10+ remains the active direction for reusable templates, review, and quality improvements.
+
 ## Execution Rules
 
 - Keep the app usable at the end of every phase.

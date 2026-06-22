@@ -1,5 +1,7 @@
 # SueLr Studio Developer Guide
 
+> Current architecture baseline: 2026-06-22.
+
 ## Overview
 
 SueLr Studio is a local-first multimodal workspace made of:
@@ -108,7 +110,8 @@ Current cleanup and ownership notes:
 ### Agent
 
 - `src/features/agent/components/AgentWorkspace.tsx`
-  - workflow-launched Agent workspace, conversation state, and workflow/tool orchestration surface
+  - workflow-launched Agent workspace, local conversation state, planner model selection, attachments, governed approvals, and workflow/tool orchestration
+  - uses `/api/intelligence`; the retired backend `modules/agent` persona/profile/memory stack and `/api/agent` route must not be recreated
 
 ### Settings
 
@@ -117,13 +120,9 @@ Current cleanup and ownership notes:
 - `src/features/settings/components/ConnectionSettingsSection.tsx`
   - upstream base URL, API key, auth mode, connection test, and model discovery
 - `src/features/settings/components/ModelsSection.tsx`
-  - discovered-model import, capability tagging, enablement
+  - per-configuration discovered-model import, manual model creation, capability tagging, and enablement for chat/image/video/Midjourney
 - `src/features/settings/components/DefaultsSection.tsx`
   - theme mode, external data path, restart backend action, and runtime-aware gating for host-only controls
-- `src/features/settings/components/RolesSection.tsx`
-  - role presets and assistant-role editing
-- `src/features/settings/components/MemorySection.tsx`
-  - memory browsing and management
 - `src/features/settings/components/DiagnosticsSection.tsx`
   - diagnostics, logs, search, runtime mode display, and capability inspection
 - `src/features/settings/useSettingsPanelController.ts`
@@ -138,9 +137,15 @@ Current cleanup and ownership notes:
 - `src/domains/workflow/App.tsx`
   - workflow workspace shell
 - `src/domains/workflow/components/Toolbar.tsx`
-  - canvas overlays for workflow identity, centered workflow actions, save/import/export controls, and bottom-right execute/stop
+  - canvas overlays for workflow identity and document actions
 - `src/domains/workflow/components/FloatingToolbar.tsx`
-  - workflow-edge floating actions for adding nodes, opening settings, opening Agent, and cycling theme
+  - workflow-edge actions for node access, settings, Agent, and theme
+- `src/domains/workflow/components/WorkflowLibraryModal.tsx`
+  - card-based workflow library, covers, save/open/duplicate/import/export/delete flows
+- `src/domains/workflow/components/AiV3StylePanel.tsx`
+  - capability-aware controls for the unified `aiV3` node
+- `src/domains/workflow/components/IoStylePanel.tsx`
+  - text/file/media editing for the unified `io` node
 - `src/domains/workflow/components/DocumentTabs.tsx`
   - canvas-floating document tabs for switching and closing open workflow drafts
 - `src/domains/workflow/components/FlowCanvas.tsx`
@@ -326,16 +331,14 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
 - `backend/src/modules/workflows/`
   - workflow persistence, import/export, migration chain, and Zod route-boundary schemas
 
-### Agent memory governance
+### Intelligence knowledge governance
 
-Agent memory is allowed to improve conversational continuity, but it is not a source of truth. Current repository state, current settings, and explicit user input always win.
+The active Agent runtime uses governed knowledge under `backend/src/modules/intelligence/knowledge/`, not the removed persona/profile memory service.
 
-- `search_memory` returns a structured `memory_search_result` with governance metadata. Callers should treat results as hints that require verification.
-- Malformed memories, object-like fragments, empty values, and duplicate semantic entries are filtered before list/search results are returned.
-- Automatic memory writes are limited to stable long-term user preferences or facts. Temporary run data, debug output, errors, guesses, and workflow execution details should not be stored as memory.
-- When `workflow_execute` is available, `AgentRuntime` does not inject memory context into the model prompt.
-- Workflow execution must be grounded in the current user request. The workflow ID/name and any input override strings must come from the current request, not from memory, prior conversation context, or retrieved hints.
-- Future `memory_write` tools must preserve the same policy: explicit, limited writes only, and no memory content may select workflow targets or supply workflow inputs.
+- knowledge entries carry category, scope, source, and trace metadata
+- planner context may use verified system seeds and local knowledge, but the current canvas, enabled project models, and explicit user input remain authoritative
+- writes, seed rebuilds, legacy-memory imports, asset links, run summaries, preference extraction, and template promotion use explicit intelligence APIs and tool approval rules
+- knowledge must not silently select a workflow target or provide execution inputs that were not grounded in the current request
 
 ### Workflow engine
 
@@ -347,16 +350,18 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
   - backend node contract registry
 - `backend/src/engine/nodes/index.ts`
   - backend node module aggregation
-- `backend/src/engine/nodes/iterateRun.ts`
-  - fallback executor contract for the `文本逐项` control node; the main repeated-downstream behavior lives in `executor.js`
-- `backend/src/engine/nodes/iterateImageRun.ts`
-  - fallback executor contract for the `图像逐项` control node; repeated downstream execution also lives in `executor.js`
-- `backend/src/engine/nodes/textClean.ts`
-  - deterministic removal of text ranges between user-configured start and end tokens
-- `backend/src/engine/nodes/imageGen.ts`
-  - image generation node behavior
-- `backend/src/engine/nodes/saveFile.ts`
-  - save-to-disk workflow node behavior
+- `backend/src/engine/nodes/io.ts`
+  - unified general-purpose input/output behavior
+- `backend/src/engine/nodes/aiV3/`
+  - capability-routed chat, image, video, and Midjourney execution
+- `backend/src/engine/nodes/promptHelper.ts`
+  - prompt structuring and optimization
+- `backend/src/engine/nodes/textSplit.ts`
+  - text item splitting
+- `backend/src/engine/nodes/imageSplit.ts`
+  - image item splitting
+- `backend/src/engine/nodes/cleanModelText.ts`
+  - model-output cleanup used by the maintained execution chain
 - `backend/src/engine/helpers/imageGeneration.ts`
   - image-node request and output helpers; generated image URLs use `/api/outputs/images/...`
 - `backend/src/engine/helpers/saveHelper.ts`
@@ -423,7 +428,7 @@ Agent memory is allowed to improve conversational continuity, but it is not a so
 
 The active app data root owns runtime files. Under that root, generated media uses these canonical directories:
 
-- `files/generated/images/`: raw outputs from image generation, including Agent and workflow `imageGen`
+- `files/generated/images/`: raw outputs from Agent and workflow image generation
 - `files/generated/videos/`: raw video outputs produced synchronously or downloaded by `executeVideoGeneration`
 - `files/generated/assistant-images/`: legacy assistant image gallery compatibility assets
 - `files/generated/assistant-videos/`: legacy assistant video gallery compatibility assets
@@ -452,8 +457,8 @@ For the product-facing external data path entry, `desktop` and `local-web` may u
 
 1. frontend workflow store submits an execution request
 2. backend execution service starts a run
-3. engine executor traverses nodes; with a control node such as `文本逐项` or `图像逐项`, it executes upstream once and then sequentially replays the downstream subgraph once per non-empty item
-4. `imageGen.js` calls platform image service
+3. engine executor traverses the normalized graph and invokes the registered node executor
+4. `aiV3/image.ts` routes the selected project model to the image-generation helper and provider path
 5. result is normalized and written into node outputs
 6. workflow run logger stores sanitized logs and artifacts
 7. frontend results panel renders outputs and logs
@@ -474,6 +479,15 @@ Current test layers:
 - frontend unit coverage under `tests/`
 - backend tests under `backend/tests/`
 - release doc guard through `npm run check:docs`
+
+Current canonical node surface:
+
+- `io`: general input/output and Agent input adapter
+- `aiV3`: chat, image, video, and Midjourney execution selected by project-model capability
+- `promptHelper`, `textSplit`, and `imageSplit`: maintained transformation nodes
+- `group`: canvas organization
+
+Older V2-specific node documents and definitions are migration history, not templates for new work.
 
 When changing behavior:
 
@@ -506,6 +520,7 @@ Only these public markdown docs and approved public documentation directories be
 - `docs/user-guide.md`
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
+- `docs/imageGenV2-changes.md` as a clearly marked historical migration record
 - `docs/intelligence/`
 
 The `docs/intelligence/` directory is the public home for the Agent + Skills + Knowledge Base intelligence program. It contains the engineering execution version and a separate Chinese reading version under `docs/intelligence/zh/`.
@@ -586,3 +601,5 @@ Use `npm start`, `start.bat`, or `start.sh` for normal local startup. The launch
 Use `npm run dev` when you explicitly want the raw concurrently-based command. Use `npm run dev:frontend` and `npm run dev:backend` only when debugging one side of the app in isolation.
 
 When isolating the frontend, remember that workflow, settings, and other local app requests still use the Vite `/api` proxy. If the backend is running on a non-default port, set `VITE_DEV_PROXY_TARGET` so the frontend talks to the intended backend instance.
+
+The launcher may choose the next free frontend or backend port. Treat `5173` and `3001` as preferred defaults, and use the URLs printed by the launcher as authoritative for that run.

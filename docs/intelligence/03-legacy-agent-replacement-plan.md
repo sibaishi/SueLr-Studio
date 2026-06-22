@@ -1,5 +1,7 @@
 # Legacy Agent Replacement Plan
 
+> Completed-state note — 2026-06-22: the legacy backend `modules/agent` persona/profile/memory runtime and `/api/agent` route have been removed. The active frontend Agent uses `/api/intelligence`. Compatibility references below are retained to explain the migration sequence, not the current route surface.
+
 ## Current Legacy Surface
 
 ```text

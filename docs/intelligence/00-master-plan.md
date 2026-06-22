@@ -1,5 +1,7 @@
 # Conversational Agent + LLM Planner Master Plan
 
+> Current status — 2026-06-22: the planner, governed tool registry, approvals, workflow inspect/edit/apply/execute/diagnose loop, local JSON knowledge, production media tools, and Agent workspace are implemented. Remaining statements in future tense describe follow-up quality, governance, or productization work.
+
 ## Purpose
 
 SueLr Studio should evolve into a local-first conversational AI work system.

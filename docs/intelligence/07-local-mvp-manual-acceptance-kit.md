@@ -1,5 +1,7 @@
 # Local MVP Manual Acceptance Kit
 
+> Refreshed for the 2026-06-22 baseline. Use enabled project models and the current `io -> aiV3 -> io` node chain. Ignore any step that assumes the removed persona/profile Agent settings.
+
 This guide prepares the manual acceptance pass for the current local MVP closure work.
 
 Scope:

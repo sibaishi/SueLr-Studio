@@ -1,11 +1,14 @@
 # SueLr Studio User Guide
 
+> Current product baseline: 2026-06-22.
+
 ## Overview
 
 SueLr Studio is a local-first multimodal studio centered on the workflow workspace:
 
 - `Workflow`: build node-based automation flows on a canvas and run them locally
-- `Settings`: open from the workflow toolbar to configure providers, models, roles, memory, diagnostics, and storage
+- `Settings`: configure provider connections, project models, appearance, network behavior, diagnostics, and storage
+- `Agent`: inspect, plan, edit, execute, and diagnose work against the current workflow canvas
 
 The app is split into:
 
@@ -15,8 +18,9 @@ The app is split into:
 Current product status:
 
 - Agent is available from the workflow workspace
-- Image and video generation are available through Agent and Workflow tools
-- Workflow is available
+- Image, video, chat, and Midjourney generation are routed through enabled project models
+- The workflow canvas and workflow library are the primary product surfaces
+- The retired persona/profile Agent and memory settings pages are no longer part of the current UI
 
 ## Install
 
@@ -139,10 +143,12 @@ After onboarding, open `Settings` and complete this order:
    - Fill in `API Key`
    - Adjust provider auth mode only if your upstream requires it
    - Run connection test and model discovery
+   - Multiple connection configurations may be enabled at the same time
 2. `Models`
    - Import the discovered models into the project model library
-   - Mark each model with the right capability type such as `chat`, `image`, or `video`
+   - Mark each model with the right capability type: `chat`, `image`, `video`, or `midjourney`
    - Enable only the models you actually want to use
+   - Use the configuration switcher to inspect models belonging to each connection
 3. `Defaults`
    - Choose theme mode
    - Optionally set an external data path
@@ -160,10 +166,12 @@ Agent conversations live inside the workflow workspace. Open `Workflow`, then us
 In Agent, you can:
 
 - create and switch conversations
-- choose a role
-- choose a chat model
+- choose a planner/chat model
 - upload attachments
-- optionally enable web search when supported
+- inspect the current canvas
+- create or edit workflow drafts, with approval before applying changes
+- execute and diagnose workflows
+- invoke image, video, copy, prompt, result-inspection, and asset-packaging tools
 - reuse assets produced by workflow runs
 
 Typical flow:
@@ -181,11 +189,12 @@ Typical flow:
 
 Main areas:
 
-- top toolbar: workflow switching, save, import/export, execute, stop
+- top toolbar: workflow identity and document actions
 - floating toolbar: add nodes, open settings, open Agent, adjust theme
 - center canvas: nodes and edges
 - right results panel: outputs, logs, preflight issues
 - bottom status bar: graph and execution summary
+- workflow library: card grid with workflow covers and management actions
 
 Typical flow:
 
@@ -214,30 +223,20 @@ Execution behavior:
 
 Common node groups:
 
-- input nodes
-- AI nodes
-- merge nodes
-- output nodes
-- group nodes
+- `IO`: accepts text, images, files, or upstream values and exposes a general-purpose output
+- `AI 能力 V3`: switches execution mode from the selected project model capability
+- `提示词助手`: structures and optimizes prompt content
+- `文本拆分`: splits text into downstream items
+- `图像拆分`: separates image collections into downstream items
+- `分组`: organizes canvas nodes without changing the saved child-node semantics
 
-Text input:
+`AI 能力 V3` behavior:
 
-- `文本输入` can also accept an optional upstream text connection; when connected with non-empty text, that upstream value replaces the text written inside the node for that run
-
-Text cleanup:
-
-- use `文本清理` to remove content between custom start and end keywords before passing model output to the next AI node
-- the default range is `<think>` through `</think>`, which is useful for stripping explicit thinking blocks from upstream responses
-- if the end keyword is missing, the node leaves that unmatched section unchanged instead of guessing what to remove
-
-Itemized runs:
-
-- use `文本逐项` when several text inputs should drive the same downstream chain one by one
-- the node uses dynamic text inputs like merge nodes: it starts with one input and adds the next input as connections are made
-- each run exposes only the current text to downstream nodes; downstream nodes stay ordinary single-input nodes
-- execution is sequential, empty text inputs are skipped, and the first failed item stops later items while preserving earlier completed outputs
-- use `图像逐项` when several image inputs should drive the same downstream chain one by one
-- the image variant follows the same sequential replay model, but exposes only the current image to downstream nodes on each pass
+- chat models return text
+- image models return normalized local image outputs
+- video models may submit and poll asynchronous generation tasks
+- Midjourney models use the dedicated asynchronous service path
+- remote image URLs are downloaded and materialized before final workflow output where required
 
 Workflow node organization notes:
 
@@ -264,6 +263,14 @@ Canvas interaction notes:
 - use `Ctrl+Shift+Enter` to start workflow execution from the keyboard
 - use `Ctrl+C` to copy selected nodes or groups
 - use `Ctrl+V` to paste near the current mouse position on the canvas
+- use `Ctrl+S` to save
+- use `Ctrl+W` to close the active workflow tab
+- use `Ctrl+Shift+T` to reopen the most recently closed tab
+- use `Ctrl+Tab` / `Ctrl+Shift+Tab` to cycle workflow tabs
+- use `Ctrl+B` to toggle the results panel
+- use `Ctrl+P` to toggle the node panel
+
+Connection appearance can be switched between Bézier and smooth-step styles in `Settings -> Defaults`; the preference is persisted locally.
 
 ### 5. Use Save File in Workflow
 

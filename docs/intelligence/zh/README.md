@@ -1,5 +1,7 @@
 # SueLr Studio Intelligence 计划
 
+> 状态更新：2026-06-22。当前 Agent 后端统一使用受治理的 `/api/intelligence` planner/tool runtime；旧 `/api/agent` persona/profile/memory 实现已经删除。本目录同时保留当前契约与阶段演进记录。
+
 这一套文档记录 SueLr Studio 新 Agent 体系的产品方向、阶段计划、验收标准和治理规则。
 
 当前方向已经调整：不再把“AI 设计团队”或“工作流助手”作为主产品形态。新的目标是一个全局对话式 Agent：用户通过对话提出需求，Agent 使用 LLM planner 理解任务、选择工具、执行工具，并把最终结果交付给用户。工作流搭建、编辑、运行、诊断只是 Agent 可调用的工具之一。

@@ -1,5 +1,7 @@
 # Intelligence Governance and Gates
 
+> Current status — 2026-06-22: approval metadata, run traces, knowledge provenance, shared node catalog enforcement, API boundary validation, and repository gates are active. Release acceptance still requires the full `npm run check` plus relevant E2E/manual flows.
+
 ## Public Documentation Gate
 
 Durable public intelligence plans may live under:
