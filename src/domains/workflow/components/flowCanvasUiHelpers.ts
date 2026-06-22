@@ -168,6 +168,7 @@ export function buildEdgeInsertionPreviewEdges(
   candidate: EdgeInsertionCandidate | null,
   nodes: FlowNodeType[],
   edges: Edge[],
+  edgeStyle: 'bezier' | 'smoothstep',
 ) {
   if (!candidate) return [];
 
@@ -181,12 +182,13 @@ export function buildEdgeInsertionPreviewEdges(
   const typeColor = getEdgeDataTypeColor(sourceEdge, nodeMap);
 
   const common = {
-    type: 'default',
+    type: edgeStyle === 'smoothstep' ? 'smoothstep' : 'default',
     animated: false,
     selectable: false,
     deletable: false,
     focusable: false,
     className: 'workflow-edge-insertion-preview',
+    ...(edgeStyle === 'smoothstep' ? { pathOptions: { borderRadius: 15 } } : {}),
     style: {
       stroke: typeColor,
       strokeWidth: 5,

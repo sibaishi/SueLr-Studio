@@ -18,6 +18,7 @@ import { useWorkflowCanvasStore } from '@/domains/workflow/lib/store/selectors';
 import { AnimatedSvgEdge } from '@/shared/ui/AnimatedSvgEdge';
 import { AnimatedSvgSmoothStepEdge } from '@/shared/ui/AnimatedSvgSmoothStepEdge';
 import {
+  ConnectionLineType,
   ConnectionMode,
   Controls,
   type EdgeChange,
@@ -245,7 +246,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
   const renderNodes = renderModel.nodes;
   const renderEdges = useMemo(() => {
-    const previewEdges = buildEdgeInsertionPreviewEdges(edgeInsertionCandidate, renderNodes, renderModel.edges);
+    const previewEdges = buildEdgeInsertionPreviewEdges(edgeInsertionCandidate, renderNodes, renderModel.edges, store.edgeStyle);
     const renderNodeMap = new Map(renderNodes.map((node) => [node.id, node]));
     const selectedIds = new Set(renderNodes.filter((n) => n.selected).map((n) => n.id));
     return [
@@ -797,6 +798,11 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
           stroke: 'var(--color-accent)',
           strokeWidth: 2,
         }}
+        connectionLineType={
+          store.edgeStyle === 'smoothstep'
+            ? ConnectionLineType.SmoothStep
+            : ConnectionLineType.Bezier
+        }
         fitView
         fitViewOptions={{
           padding: 0.2,
