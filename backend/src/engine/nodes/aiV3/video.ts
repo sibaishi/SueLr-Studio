@@ -1,5 +1,5 @@
 import { executeVideoGeneration } from '../../../platform/ai/video-service.ts';
-import { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
+import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
 
 export async function executeVideoMode(

@@ -28,7 +28,7 @@ export function notifyWorkflowComplete(title: string, body: string) {
   if (window.electronAPI) {
     const n = new Notification(title, { body });
     n.onclick = () => {
-      window.electronAPI!.focusWindow();
+      window.electronAPI?.focusWindow();
     };
     return;
   }

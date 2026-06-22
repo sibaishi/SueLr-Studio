@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 import { assertSafeRemoteDownloadUrl, validateImageBuffer } from '../../platform/security/network-guards.ts';
 import { getScopedStoragePaths } from '../../platform/storage/index.ts';
-import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_BYTES = 20 * 1024 * 1024;

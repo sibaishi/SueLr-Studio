@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 type WorkflowConfirmTone = 'default' | 'danger';
@@ -109,7 +109,7 @@ function WorkflowConfirmDialog({
         {request.message && <div className="workflow-confirm-modal__body">{request.message}</div>}
 
         <div className="workflow-confirm-modal__footer">
-          <button type="button" className="workflow-confirm-modal__button" onClick={() => onClose(false)} autoFocus>
+          <button type="button" className="workflow-confirm-modal__button" onClick={() => onClose(false)}>
             {request.cancelText || '取消'}
           </button>
           <button

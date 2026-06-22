@@ -1,5 +1,5 @@
-import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
 import type { WorkflowConfirmRequest } from '@/domains/workflow/components/WorkflowConfirmDialog';
+import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
 import { serializeWorkflowExport } from '@/domains/workflow/lib/importExport';
 import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
 import type { NodeTypeDef } from '@/domains/workflow/lib/types';

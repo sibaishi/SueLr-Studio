@@ -1,4 +1,4 @@
-import { BaseEdge, getSmoothStepPath, type Edge, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, type Edge, type EdgeProps, getSmoothStepPath } from '@xyflow/react';
 
 /* ------------------------------------------------------------------ */
 /*  AnimatedSvgSmoothStepEdge — smooth-step edge with moving shapes   */

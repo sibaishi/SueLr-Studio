@@ -1,5 +1,5 @@
 import { runImageGeneration } from '../../../platform/ai/image-service.ts';
-import { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
+import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
 import { dedupePreferUrl } from './helpers.ts';
 

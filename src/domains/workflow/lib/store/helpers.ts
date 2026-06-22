@@ -313,9 +313,9 @@ export function getAiNodesMissingValidOutputs(nodes: Node[], edges: Edge[]) {
 // ── Mode-aware input slot filtering for aiV3 ──
 
 const AI_V3_MODE_INPUT_LIMITS: Record<string, Record<string, number>> = {
-  chat: { text: Infinity, image: 9 },
-  image: { text: Infinity, image: 9 },
-  video: { text: Infinity, image: 2, video: 1, audio: 1 },
+  chat: { text: Number.POSITIVE_INFINITY, image: 9 },
+  image: { text: Number.POSITIVE_INFINITY, image: 9 },
+  video: { text: Number.POSITIVE_INFINITY, image: 2, video: 1, audio: 1 },
 };
 
 export interface AiV3InputSlot {

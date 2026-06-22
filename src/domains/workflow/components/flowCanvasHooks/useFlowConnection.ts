@@ -1,7 +1,7 @@
 import { PORT_COMPATIBILITY, getExpandedNodeOutputs, getNodeDef } from '@/domains/workflow/lib/constants';
-import { createsCycle } from '@/domains/workflow/lib/store/editorGraph';
 import { findGroupPort, isGroupPortExternallyConnectable, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import { createsCycle } from '@/domains/workflow/lib/store/editorGraph';
 import type { Connection, Node as FlowNodeType } from '@xyflow/react';
 import { useCallback, useRef } from 'react';
 import {

@@ -383,9 +383,9 @@ function mergeSettingsPreservingSecrets(current: DynamicValue, patch: DynamicVal
     });
   }
   // 清理顶层 ai_configs 避免残留
-  delete (next as DynamicValue).ai_configs;
-
-  return next;
+  const { ai_configs: legacyAiConfigs, ...withoutLegacyConfigs } = next as DynamicValue;
+  void legacyAiConfigs;
+  return withoutLegacyConfigs;
 }
 
 function sanitizeSettingsShape(input: DynamicValue) {

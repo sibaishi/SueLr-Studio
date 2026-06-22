@@ -1,10 +1,10 @@
 import { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from '../types.ts';
-import { classifyByValue } from './helpers.ts';
 import { executeChatMode } from './chat.ts';
+import { classifyByValue } from './helpers.ts';
 import { executeImageMode } from './image.ts';
-import { executeVideoMode } from './video.ts';
 import { executeMidjourneyMode } from './midjourney.ts';
+import { executeVideoMode } from './video.ts';
 
 export async function execute(
   node: WorkflowNode,

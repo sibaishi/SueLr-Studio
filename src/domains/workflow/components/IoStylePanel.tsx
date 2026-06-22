@@ -1,9 +1,9 @@
+import { createThumbnailFromBlob } from '@/domains/workflow/components/flowCanvasHelpers';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { expandAiV3InputSlots, readInputOrder, type InputOrderMap } from '@/domains/workflow/lib/store/helpers';
-import { createThumbnailFromBlob } from '@/domains/workflow/components/flowCanvasHelpers';
+import { type InputOrderMap, expandAiV3InputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fileRawStore, uploadUrlStore } from './nodes/io/fileRawStore';
 
@@ -312,7 +312,7 @@ export default function IoStylePanel() {
         continue;
       if (isTextFile(file)) {
         const text = await file.text();
-        setTextValue((prev) => prev + (prev ? '\n' : '') + `[${file.name}]\n` + text + '\n');
+        setTextValue((prev) => `${prev}${prev ? '\n' : ''}[${file.name}]\n${text}\n`);
         continue;
       }
       const kind = classifyFile(file);
@@ -323,8 +323,13 @@ export default function IoStylePanel() {
         reader.readAsDataURL(file);
       });
       const id = fileRawStore.add(file, file.name, base64);
-      const rec = fileRawStore.get(id)!;
-      const entry: FileThumb = { _id: id, name: file.name, kind, thumbnail, objectUrl: rec.objectUrl };
+      const entry: FileThumb = {
+        _id: id,
+        name: file.name,
+        kind,
+        thumbnail,
+        objectUrl: fileRawStore.getObjectUrl(id) || '',
+      };
       newFiles.push(entry);
       // Upload to backend for persistence across page refreshes
       uploadFile(file)
@@ -482,7 +487,11 @@ export default function IoStylePanel() {
     for (const type of TYPE_ORDER_KEYS) {
       const typeInputs = rawInputs
         .filter((x) => x.type === type)
-        .sort((a, b) => (edgeOrderMap.get(a.edgeId) ?? Infinity) - (edgeOrderMap.get(b.edgeId) ?? Infinity));
+        .sort(
+          (a, b) =>
+            (edgeOrderMap.get(a.edgeId) ?? Number.POSITIVE_INFINITY) -
+            (edgeOrderMap.get(b.edgeId) ?? Number.POSITIVE_INFINITY),
+        );
       if (typeInputs.length === 0) continue;
 
       const nodeGroups: (typeof groups)[string] = [];
@@ -703,7 +712,7 @@ export default function IoStylePanel() {
                               textOverflow: 'ellipsis',
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical' as any,
+                              WebkitBoxOrient: 'vertical',
                             }}
                           >
                             {String(item.value || '').slice(0, 30)}
@@ -812,7 +821,7 @@ export default function IoStylePanel() {
                 )}
               </div>
               <span style={{ maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {f.name ? f.name.slice(0, 1) + '…' : '?'}
+                {f.name ? `${f.name.slice(0, 1)}…` : '?'}
               </span>
               <button
                 onPointerDown={(e) => {

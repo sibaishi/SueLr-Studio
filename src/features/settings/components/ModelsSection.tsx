@@ -2,7 +2,8 @@ import { inferEndpointCategory, normalizeProjectModels } from '@/domains/workflo
 import type { ModelInfo, ProjectModel } from '@/shared/types';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
 import { Check, Database, Plus, Search, Trash2, UploadCloud, X } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import type React from 'react';
+import { useMemo, useState } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';
 import { EmptyStateCard, SectionCard, chipStyle, fuzzyMatch, mutedPanelStyle } from './styles';
 
@@ -108,8 +109,9 @@ export function ModelsSection({ T, actions, view }: Props) {
     const groups = new Map<string, ModelInfo[]>();
     for (const model of filteredImportableModels) {
       const cat = model.cat || 'other';
-      if (!groups.has(cat)) groups.set(cat, []);
-      groups.get(cat)!.push(model);
+      const group = groups.get(cat) || [];
+      group.push(model);
+      groups.set(cat, group);
     }
     return Array.from(groups.entries()).sort((a, b) => (CATEGORY_ORDER[a[0]] ?? 99) - (CATEGORY_ORDER[b[0]] ?? 99));
   }, [filteredImportableModels]);
@@ -118,8 +120,9 @@ export function ModelsSection({ T, actions, view }: Props) {
     const groups = new Map<string, ProjectModel[]>();
     for (const model of localFilteredModels) {
       const type = model.type || 'other';
-      if (!groups.has(type)) groups.set(type, []);
-      groups.get(type)!.push(model);
+      const group = groups.get(type) || [];
+      group.push(model);
+      groups.set(type, group);
     }
     return Array.from(groups.entries()).sort((a, b) => (CATEGORY_ORDER[a[0]] ?? 99) - (CATEGORY_ORDER[b[0]] ?? 99));
   }, [localFilteredModels]);

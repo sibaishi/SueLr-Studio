@@ -1,12 +1,12 @@
-import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { filterAiV3InputSlots, readInputOrder, type InputOrderMap } from '@/domains/workflow/lib/store/helpers';
-import { fileRawStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
+import { fileRawStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
+import { getNodeDef } from '@/domains/workflow/lib/constants';
+import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import { type InputOrderMap, filterAiV3InputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import { loadJSON } from '@/shared/runtime';
 import type { ApiConfig } from '@/shared/types';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { BoxSelect, Clock, Gauge, Globe, Grid3X3, Image, Ruler, SlidersHorizontal } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const MIN_H = 150;
 const MAX_H = 300;
@@ -399,7 +399,9 @@ export default function AiV3StylePanel() {
       const configId = m.configId || '';
       if (!configs[configName]) configs[configName] = { configId, cats: {} };
       const cat = (m as typeof m & { _cat: string })._cat;
-      (configs[configName].cats[cat] ??= []).push(m);
+      const categoryModels = configs[configName].cats[cat] || [];
+      categoryModels.push(m);
+      configs[configName].cats[cat] = categoryModels;
     }
     const catOrder = ['chat', 'image', 'video', 'midjourney'];
     return Object.entries(configs).map(([configName, entry]) => ({
@@ -595,7 +597,7 @@ export default function AiV3StylePanel() {
                               textOverflow: 'ellipsis',
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical' as any,
+                              WebkitBoxOrient: 'vertical',
                             }}
                           >
                             {String(item.value || '').slice(0, 30)}
@@ -1302,39 +1304,36 @@ function ModelTreeSelector({
                         </span>
                         {catGroup.label}
                       </button>
-                      {!isCatCollapsed && (
-                        <>
-                          {catGroup.models.map((m) => (
-                            <button
-                              key={m.value}
-                              type="button"
-                              onClick={() => onSelect(m.value)}
-                              style={{
-                                display: 'block',
-                                width: '100%',
-                                textAlign: 'left',
-                                padding: '5px 9px 5px 16px',
-                                borderRadius: 6,
-                                border: 'none',
-                                cursor: 'pointer',
-                                background:
-                                  m.value === selectedModel || m.modelId === selectedModel
-                                    ? 'color-mix(in srgb, var(--node-color) 12%, transparent)'
-                                    : 'transparent',
-                                color:
-                                  m.value === selectedModel || m.modelId === selectedModel
-                                    ? 'var(--node-color)'
-                                    : 'var(--t-text)',
-                                fontSize: 13,
-                                fontFamily: 'var(--font-sans)',
-                                fontWeight: m.value === selectedModel || m.modelId === selectedModel ? 500 : 400,
-                              }}
-                            >
-                              {m.label}
-                            </button>
-                          ))}
-                        </>
-                      )}
+                      {!isCatCollapsed &&
+                        catGroup.models.map((m) => (
+                          <button
+                            key={m.value}
+                            type="button"
+                            onClick={() => onSelect(m.value)}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '5px 9px 5px 16px',
+                              borderRadius: 6,
+                              border: 'none',
+                              cursor: 'pointer',
+                              background:
+                                m.value === selectedModel || m.modelId === selectedModel
+                                  ? 'color-mix(in srgb, var(--node-color) 12%, transparent)'
+                                  : 'transparent',
+                              color:
+                                m.value === selectedModel || m.modelId === selectedModel
+                                  ? 'var(--node-color)'
+                                  : 'var(--t-text)',
+                              fontSize: 13,
+                              fontFamily: 'var(--font-sans)',
+                              fontWeight: m.value === selectedModel || m.modelId === selectedModel ? 500 : 400,
+                            }}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
                     </div>
                   );
                 })}

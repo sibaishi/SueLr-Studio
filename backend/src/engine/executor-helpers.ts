@@ -172,11 +172,17 @@ export function collectInputs(
         const directValue = sourceOutput[sourceHandle];
         const value = directValue !== undefined ? directValue : resolveLegacyOutputAlias(sourceOutput, sourceHandle);
         if (value !== undefined) {
-          (collected[targetHandle] = collected[targetHandle] || []).push(value);
+          const collectedValues = collected[targetHandle] || [];
+          collectedValues.push(value);
+          collected[targetHandle] = collectedValues;
           if (typeMap) {
-            (collectedTypes[targetHandle] = collectedTypes[targetHandle] || []).push(typeMap.get(edge.source) || '');
+            const sourceTypes = collectedTypes[targetHandle] || [];
+            sourceTypes.push(typeMap.get(edge.source) || '');
+            collectedTypes[targetHandle] = sourceTypes;
           }
-          (collectedEdgeIds[targetHandle] = collectedEdgeIds[targetHandle] || []).push(String(edge.id || ''));
+          const sourceEdgeIds = collectedEdgeIds[targetHandle] || [];
+          sourceEdgeIds.push(String(edge.id || ''));
+          collectedEdgeIds[targetHandle] = sourceEdgeIds;
         }
       }
     });

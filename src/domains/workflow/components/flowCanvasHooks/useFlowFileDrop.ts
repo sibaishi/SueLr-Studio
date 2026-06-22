@@ -1,5 +1,5 @@
-import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { uploadUrlStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
+import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { Node as FlowNodeType } from '@xyflow/react';
 import type { DragEvent } from 'react';

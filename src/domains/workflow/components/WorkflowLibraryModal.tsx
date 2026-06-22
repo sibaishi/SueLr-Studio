@@ -1,5 +1,5 @@
-import type { WorkflowListItem } from '@/domains/workflow/lib/api';
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
+import type { WorkflowListItem } from '@/domains/workflow/lib/api';
 import {
   chipStyle,
   eyebrowStyle,

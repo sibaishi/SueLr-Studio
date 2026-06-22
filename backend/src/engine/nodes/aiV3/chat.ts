@@ -1,6 +1,6 @@
 import { runChatCompletion } from '../../../platform/ai/chat-service.ts';
 import { formatWebSearchResult, runWebSearch } from '../../../platform/ai/search-service.ts';
-import { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
+import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import { cleanModelText } from '../cleanModelText.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
 import { buildChatContent, buildSearchPlan, parseChatResult, stringifyForSearch } from './helpers.ts';
@@ -21,7 +21,7 @@ export async function executeChatMode(
   const prependSystem = (userPart: DynamicValue): DynamicValue => {
     const sp = systemPrompt || '';
     if (typeof userPart === 'string') return sp ? `${sp}\n${userPart}` : userPart;
-    if (Array.isArray(userPart)) return sp ? [{ type: 'text', text: sp + '\n' }, ...userPart] : userPart;
+    if (Array.isArray(userPart)) return sp ? [{ type: 'text', text: `${sp}\n` }, ...userPart] : userPart;
     return userPart;
   };
 

@@ -3,8 +3,6 @@ import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
 import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
 import { groupConfiguredProjectModels, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
-import { loadJSON } from '@/shared/runtime';
-import type { ApiConfig } from '@/shared/types';
 import { normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
 import { formatLogDetails, gid, sanitizeLogMessage } from '@/domains/workflow/lib/store/helpers';
 import { clearActiveRunSnapshot, saveLocalDraft } from '@/domains/workflow/lib/store/persistence';
@@ -14,6 +12,8 @@ import type {
   WorkflowStoreGet,
   WorkflowStoreSet,
 } from '@/domains/workflow/lib/store/types';
+import { loadJSON } from '@/shared/runtime';
+import type { ApiConfig } from '@/shared/types';
 import { createEmptyWorkflowDocument, getDocumentViewPatch, patchActiveWorkflowDocument } from './documents';
 
 type WorkflowStoreEditorSessionActions = Pick<

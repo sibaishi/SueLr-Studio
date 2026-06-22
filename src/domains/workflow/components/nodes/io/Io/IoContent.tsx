@@ -1,21 +1,21 @@
-import type { CSSProperties } from 'react';
-import type { ParamDef } from '@/domains/workflow/lib/types';
-import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
-import {
-  expandAiV3InputSlots,
-  type AiV3InputSlot,
-  sortSlotsByInputOrder,
-  readInputOrder,
-} from '@/domains/workflow/lib/store/helpers';
-import { fileRawStore } from '../fileRawStore';
 import {
   createIoImageFileEntry,
   imageFileNameFromUrl,
   uploadIoImageFileEntry,
 } from '@/domains/workflow/lib/ioImageFiles';
+import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import {
+  type AiV3InputSlot,
+  expandAiV3InputSlots,
+  readInputOrder,
+  sortSlotsByInputOrder,
+} from '@/domains/workflow/lib/store/helpers';
+import type { ParamDef } from '@/domains/workflow/lib/types';
 import { FileText, Layers } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useMemo, useState } from 'react';
+import { fileRawStore } from '../fileRawStore';
 import '../../node-v2.css';
 
 interface IoContentProps {
@@ -117,7 +117,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
       const srcOutputs = nodeOutputs[slot.sourceNodeId];
 
       const values: string[] = [];
-      let type: string = slot.type;
+      const type: string = slot.type;
       if (slot.sourceNodeType === 'io') {
         if (slot.type === 'text') {
           values.push(String(srcData.text || ''));
@@ -222,20 +222,21 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
       : [];
   const hasContent = items.length > 0;
 
-  const useUpstreamTypes = upstreamItems && upstreamItems.length > 0;
+  const typedUpstreamItems = upstreamItems?.length ? upstreamItems : null;
+  const useUpstreamTypes = typedUpstreamItems !== null;
 
-  const imageItems: string[] = useUpstreamTypes
-    ? upstreamItems!.filter((s) => s.type === 'image').map((s) => s.value)
+  const imageItems: string[] = typedUpstreamItems
+    ? typedUpstreamItems.filter((s) => s.type === 'image').map((s) => s.value)
     : items.filter((item) => classifyItemValue(item) === 'image').map(String);
-  const textItems: string[] = useUpstreamTypes
-    ? upstreamItems!.filter((s) => s.type === 'text').map((s) => s.value)
+  const textItems: string[] = typedUpstreamItems
+    ? typedUpstreamItems.filter((s) => s.type === 'text').map((s) => s.value)
     : items.filter((item) => classifyItemValue(item) === 'text').map(String);
-  const videoItems: string[] = useUpstreamTypes
-    ? upstreamItems!.filter((s) => s.type === 'video').map((s) => s.value)
+  const videoItems: string[] = typedUpstreamItems
+    ? typedUpstreamItems.filter((s) => s.type === 'video').map((s) => s.value)
     : items.filter((item) => classifyItemValue(item) === 'video').map(String);
 
-  const previewable: { idx: number; value: string; type: string; fileId?: number }[] = useUpstreamTypes
-    ? upstreamItems!
+  const previewable: { idx: number; value: string; type: string; fileId?: number }[] = typedUpstreamItems
+    ? typedUpstreamItems
         .map((item, i) => ({ idx: i, value: item.value, type: item.type, fileId: item.fileId }))
         .filter((p) => p.type === 'image' || p.type === 'video')
     : (() => {
@@ -473,7 +474,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
           {textModalIdx !== null && textItems[textModalIdx] !== undefined && (
             <ImagePreviewModal
               src=""
-              textContent={String(textItems[textModalIdx!] || '')}
+              textContent={String(textItems[textModalIdx] || '')}
               onTextChange={
                 !upstreamSlots
                   ? (text) => {

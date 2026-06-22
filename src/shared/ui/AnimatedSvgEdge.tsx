@@ -1,4 +1,4 @@
-import { BaseEdge, getBezierPath, type Edge, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, type Edge, type EdgeProps, getBezierPath } from '@xyflow/react';
 
 /* ------------------------------------------------------------------ */
 /*  AnimatedSvgEdge — an edge that carries a moving shape via          */

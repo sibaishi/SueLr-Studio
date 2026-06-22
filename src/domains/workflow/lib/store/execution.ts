@@ -1,11 +1,11 @@
 import * as api from '@/domains/workflow/lib/api/execution';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
-import { notifyWorkflowComplete } from '@/shared/providers/notification';
 import {
   filterExecutionGraphToUpstreamTarget,
   projectWorkflowToExecutionGraph,
 } from '@/domains/workflow/lib/executionGraph';
 import {
+  type InputOrderMap,
   buildWorkflowPayload,
   filterAiV3InputSlots,
   formatLogDetails,
@@ -14,7 +14,6 @@ import {
   getNodeDisplayNameById,
   gid,
   readInputOrder,
-  type InputOrderMap,
 } from '@/domains/workflow/lib/store/helpers';
 import {
   clearActiveRunSnapshot,
@@ -22,6 +21,7 @@ import {
   saveActiveRunSnapshot,
 } from '@/domains/workflow/lib/store/persistence';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
+import { notifyWorkflowComplete } from '@/shared/providers/notification';
 import type { Edge, Node } from '@xyflow/react';
 
 type WorkflowStoreExecutionActions = Pick<
@@ -447,7 +447,7 @@ export function createWorkflowExecutionActions(
     });
 
     // Reorder edges for multi-input nodes (aiV3) based on inputOrder
-    let sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);
+    const sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);
 
     // Collect per-edge accepted IO file indices for _rawContent trimming.
     // IMPORTANT: Do NOT drop any edges here — dropping an edge breaks the
@@ -496,7 +496,7 @@ export function createWorkflowExecutionActions(
         }
       }
 
-      let rawFiles: string[] = [];
+      const rawFiles: string[] = [];
       if (fileIds?.length) {
         const fileOrder: number[] = (nd._fileOrder as number[]) || [];
         const content: string[] = Array.isArray(nd.content) ? (nd.content as string[]) : [];

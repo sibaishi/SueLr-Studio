@@ -1,4 +1,4 @@
-import { readJsonFile, STORAGE_PATHS } from '../storage/index.ts';
+import { STORAGE_PATHS, readJsonFile } from '../storage/index.ts';
 import { type RuntimeMode, getRuntimeMode } from './mode.ts';
 
 interface RuntimeCapabilities {

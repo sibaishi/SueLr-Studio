@@ -82,7 +82,8 @@ export function createsCycle(
   visited.add(targetId);
 
   while (queue.length > 0) {
-    const current = queue.shift()!;
+    const current = queue.shift();
+    if (current === undefined) break;
     for (const neighbor of adjacency.get(current) || []) {
       if (neighbor === sourceId) return true;
       if (!visited.has(neighbor)) {
@@ -227,7 +228,8 @@ function propagateIoData(nodes: Node[], edges: Edge[], sourceNodeId: string): No
   const queue = [sourceNodeId];
 
   while (queue.length > 0) {
-    const currentId = queue.shift()!;
+    const currentId = queue.shift();
+    if (currentId === undefined) break;
 
     for (const edge of edges) {
       if (edge.source !== currentId) continue;
@@ -602,11 +604,10 @@ export function createWorkflowGraphEditorActions(
       if (targetNode?.type === 'io' && targetHandle === 'input') {
         const sourceNode = get().nodes.find((n) => n.id === source);
         const sourceNodeType = sourceNode?.type || '';
+        const normalizedSourceNodeType = sourceNodeType.toLowerCase();
         const isVideoSource =
-          sourceNodeType &&
-          sourceNodeType.toLowerCase().includes('video') &&
-          !sourceNodeType.toLowerCase().includes('videogen');
-        const isAudioSource = sourceNodeType && sourceNodeType.toLowerCase().includes('audio');
+          normalizedSourceNodeType.includes('video') && !normalizedSourceNodeType.includes('videogen');
+        const isAudioSource = normalizedSourceNodeType.includes('audio');
         const isImageSource =
           !isVideoSource && !isAudioSource && (sourceNodeType.includes('image') || sourceNodeType.includes('Image'));
 

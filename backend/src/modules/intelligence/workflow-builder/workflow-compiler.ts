@@ -42,14 +42,14 @@ function normalizeCompiledNodeType(type: string) {
 }
 
 function normalizeCompiledNodeData(type: string, data: PlainObject = {}) {
-  const normalized: PlainObject = { ...data };
+  let normalized: PlainObject = { ...data };
   if (type === 'textInput' && normalized.text !== undefined) {
-    normalized.content = normalized.text;
-    delete normalized.text;
+    const { text, ...rest } = normalized;
+    normalized = { ...rest, content: text };
   }
   if (['imageInput', 'videoInput', 'audioInput'].includes(type) && normalized.fileUrl !== undefined) {
-    normalized.content = normalized.fileUrl;
-    delete normalized.fileUrl;
+    const { fileUrl, ...rest } = normalized;
+    normalized = { ...rest, content: fileUrl };
   }
   if (type === 'aiChat') normalized.mode = 'chat';
   if (type === 'imageGen') normalized.mode = 'image';

@@ -1,8 +1,8 @@
 import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
+import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { NODE_ICONS } from '@/domains/workflow/components/nodes/nodeConstants';
-import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import {
   type GeneratedOutputFile,
   clearGeneratedOutputs,
@@ -11,6 +11,7 @@ import {
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { formatDurationSeconds, getExecutionStatusLabel } from '@/domains/workflow/lib/executionFormat';
 import {
+  type IoImageFileEntry,
   createIoImageFileEntryFromUrl,
   imageFileNameFromUrl,
   uploadIoImageFileEntry,
@@ -138,7 +139,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
 
   const handleBackfillImageToCanvas = useCallback(
     async (image: PreviewImageItem) => {
-      let entry;
+      let entry: IoImageFileEntry;
       try {
         entry = await createIoImageFileEntryFromUrl(image.src, image.name || imageFileNameFromUrl(image.src));
       } catch (error) {
@@ -821,6 +822,7 @@ function TextFileResult({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
+                      <title>回填到画布</title>
                       <path d="M12 2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z" />
                       <polyline points="8 6 8 12" />
                       <polyline points="5 9 8 12 11 9" />

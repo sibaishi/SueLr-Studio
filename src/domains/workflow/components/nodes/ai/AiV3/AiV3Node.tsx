@@ -1,13 +1,13 @@
-import { getNodeDefaultSize, getNodeDef } from '@/domains/workflow/lib/constants';
+import { getNodeDef, getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
 import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
 import { Ban, Copy, Lock, Play, Unlock } from 'lucide-react';
 import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
-import { STATUS_BADGE } from '../../nodeConstants';
 import { NodeContent } from '../../NodeContent';
+import { STATUS_BADGE } from '../../nodeConstants';
 import '../../node-v2.css';
 import '../../nodeAnimations.css';
 
@@ -111,6 +111,8 @@ function AiV3Node({ id, data, selected, isConnectable }: AiV3NodeProps) {
   ]
     .filter(Boolean)
     .join(' ');
+
+  if (!def) return null;
 
   return (
     <div
@@ -288,7 +290,7 @@ function AiV3Node({ id, data, selected, isConnectable }: AiV3NodeProps) {
           type={type}
           data={data}
           nodeId={id}
-          def={def!}
+          def={def}
           updateNodeData={updateNodeData}
           outputs={nodeOutputs}
           showBottomBorder={false}

@@ -1,8 +1,8 @@
-import type { CSSProperties } from 'react';
-import type { ParamDef } from '@/domains/workflow/lib/types';
-import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
+import { useWorkflowStore } from '@/domains/workflow/lib/store';
+import type { ParamDef } from '@/domains/workflow/lib/types';
 import { Bot, Clapperboard, Image, Palette } from 'lucide-react';
+import type { CSSProperties } from 'react';
 
 import { useState } from 'react';
 import '../../node-v2.css';

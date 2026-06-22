@@ -1,5 +1,5 @@
-import { executeMidjourneyImagine, type MidjourneyMode } from '../../../platform/ai/midjourney-service.ts';
-import { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
+import { type MidjourneyMode, executeMidjourneyImagine } from '../../../platform/ai/midjourney-service.ts';
+import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import { fetchImageBuffer, persistImageBuffer } from '../../helpers/downloadRemoteImageFile.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
 
@@ -45,15 +45,18 @@ export async function executeMidjourneyMode(
   // Download all images, dedup by content fingerprint
   const dedupFingerprints = new Map<string, string>();
   const workflowImages: string[] = [];
+  const scope = apiConfig.scope;
+  if (!scope) throw new Error('Midjourney image persistence requires an execution scope');
 
   async function downloadUnique(image: string): Promise<string> {
-    const fetched = await fetchImageBuffer(image, apiConfig.scope!, apiConfig.abortSignal, sendProgress);
+    const fetched = await fetchImageBuffer(image, scope, apiConfig.abortSignal, sendProgress);
     const fingerprint = `${fetched.buffer.byteLength}:${fetched.buffer.slice(0, 64).toString('hex')}`;
-    if (dedupFingerprints.has(fingerprint)) {
+    const duplicatePath = dedupFingerprints.get(fingerprint);
+    if (duplicatePath) {
       sendProgress?.('跳过重复图片');
-      return dedupFingerprints.get(fingerprint)!;
+      return duplicatePath;
     }
-    const localPath = persistImageBuffer(fetched.buffer, fetched.mimeType, apiConfig.scope!);
+    const localPath = persistImageBuffer(fetched.buffer, fetched.mimeType, scope);
     dedupFingerprints.set(fingerprint, localPath);
     return localPath;
   }
