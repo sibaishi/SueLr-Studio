@@ -42,7 +42,6 @@ export function GridDots({
     const endY = Math.ceil(visibleBottom / gap) * gap;
 
     const glowInFlow = glowRadius / zoom;
-    const softEdge = gap / zoom;
 
     const result: Array<{
       x: number;
@@ -60,26 +59,18 @@ export function GridDots({
         }
 
         const dist = Math.hypot(gx - mouseFlowPos.x, gy - mouseFlowPos.y);
+        const rawT = 1 - dist / glowInFlow;
+        const glowIntensity = Math.max(0, rawT) * (1 - fadeOut);
 
-        if (dist >= glowInFlow + softEdge) {
-          result.push({
-            x: gx,
-            y: gy,
-            r: size,
-            fill: color,
-            opacity: 1,
-          });
+        if (glowIntensity <= 0.01) {
+          result.push({ x: gx, y: gy, r: size, fill: color, opacity: 1 });
         } else {
-          const t = 1 - Math.min(dist, glowInFlow) / glowInFlow;
-          const edgeBlend = dist > glowInFlow ? 1 - (dist - glowInFlow) / softEdge : 1;
-          const glowAlpha = t * (1 - fadeOut) * edgeBlend;
-
           result.push({
             x: gx,
             y: gy,
-            r: size + (hoverSize - size) * t * edgeBlend,
-            fill: edgeBlend > 0.3 ? glowColor : color,
-            opacity: edgeBlend > 0.3 ? glowAlpha : 1,
+            r: size + (hoverSize - size) * glowIntensity,
+            fill: glowColor,
+            opacity: glowIntensity,
           });
         }
       }
