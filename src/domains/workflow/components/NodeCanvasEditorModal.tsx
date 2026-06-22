@@ -1,4 +1,5 @@
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
+import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
 import { Check, Eraser, Hand, Pencil, RotateCcw, RotateCw, Trash2, X } from 'lucide-react';
 import {
   type CSSProperties,
@@ -35,16 +36,6 @@ const MAX_ZOOM = 4;
 function formatCanvasEditorError(message?: string | null) {
   const detail = String(message || '').trim();
   return detail ? `保存没有完成，请稍后重试。${detail}` : '保存没有完成，请稍后重试。';
-}
-
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = 'anonymous';
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('图片加载失败'));
-    image.src = src;
-  });
 }
 
 export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSavePaint }: NodeCanvasEditorModalProps) {
@@ -156,7 +147,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
   useEffect(() => {
     let cancelled = false;
 
-    void loadImage(src)
+    void loadWorkflowImage(src, { crossOrigin: 'anonymous' })
       .then((image) => {
         if (cancelled) return;
         setLoadedImage(image);

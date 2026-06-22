@@ -1,5 +1,7 @@
 import sharp from 'sharp';
+import { describeFetchError } from '../../platform/http/fetch-error.ts';
 import { proxyAwareFetch } from '../../platform/http/proxy-aware-fetch.ts';
+export { describeFetchError } from '../../platform/http/fetch-error.ts';
 
 // biome-ignore lint/suspicious/noExplicitAny: Provider payloads and upstream JSON are intentionally dynamic at this boundary.
 export type DynamicValue = any;
@@ -25,14 +27,6 @@ type ImageResponseReadResult = {
 
 export function cleanText(value: DynamicValue): string {
   return String(value || '').trim();
-}
-
-export function describeFetchError(error: DynamicValue): string {
-  const message = error?.message || String(error);
-  const causeMessage = error?.cause?.message ? `; cause=${error.cause.message}` : '';
-  const code = error?.cause?.code || error?.code;
-  const codeMessage = code ? `; code=${code}` : '';
-  return `${message}${causeMessage}${codeMessage}`;
 }
 
 function stringifyForLog(value: DynamicValue): string {

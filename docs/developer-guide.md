@@ -170,6 +170,8 @@ Current cleanup and ownership notes:
   - canonical parent lookup, absolute canvas coordinates, descendant collection, and action-selection expansion shared by clipboard, editor, grouping, and execution projection
 - `src/domains/workflow/lib/executionGraph.ts`
   - projection from editable grouped canvas graph to executable flat graph
+- `src/domains/workflow/lib/browserImage.ts`
+  - workflow-domain browser image loading and dimension-reading primitive shared by preview, canvas editing, and size labels
 - `src/domains/workflow/lib/store.ts`
   - main workflow state store
 - `src/domains/workflow/lib/store/document.ts`
@@ -383,7 +385,9 @@ The active Agent runtime uses governed knowledge under `backend/src/modules/inte
 - `backend/src/engine/nodes/cleanModelText.ts`
   - model-output cleanup used by the maintained execution chain
 - `backend/src/engine/helpers/imageGeneration.ts`
-  - image-node request and output helpers; generated image URLs use `/api/outputs/images/...`
+  - image-node request and output helpers; generated image URLs use `/api/outputs/images/...`; multi-image attempts use the settled concurrency primitive so partial successes remain available
+- `backend/src/engine/helpers/downloadRemoteImageFile.ts`
+  - bounded, abort-aware, network-guarded remote image retrieval shared by runtime nodes that require an in-memory image buffer
 - `backend/src/engine/helpers/saveHelper.ts`
   - save-file output handling; materialized workflow outputs are grouped by media type under `images/`, `videos/`, `audio/`, `text/`, and `data/`
 - `backend/src/engine/helpers/workflowLogger.ts`
@@ -401,6 +405,10 @@ The active Agent runtime uses governed knowledge under `backend/src/modules/inte
   - upstream video request handling; synchronous or downloaded video results are materialized under `files/generated/videos/`
 - `backend/src/platform/http/proxy-aware-fetch.ts`
   - shared fetch wrapper with proxy awareness; supports app-level outbound proxy settings, environment proxy variables, and Windows system proxy fallback
+- `backend/src/platform/http/fetch-error.ts`
+  - transport error description shared by remote image and provider request paths
+- `backend/src/platform/runtime/concurrency.ts`
+  - normalized workflow concurrency plus explicitly separated settled-result and settle-then-throw runners; callers choose semantics rather than reimplementing worker pools
 - `backend/src/platform/providers/`
   - provider adapter contracts, registry wiring, compatible provider support, and shared provider HTTP behavior
 - `backend/src/platform/security/network-guards.ts`

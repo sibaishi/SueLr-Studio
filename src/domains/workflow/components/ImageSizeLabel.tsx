@@ -1,13 +1,5 @@
+import { readWorkflowImageDimensions } from '@/domains/workflow/lib/browserImage';
 import { useEffect, useState } from 'react';
-
-function readImageDimensions(src: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    image.onerror = () => reject(new Error('Failed to load image dimensions'));
-    image.src = src;
-  });
-}
 
 export function useImageDimensions(src: string) {
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -16,7 +8,7 @@ export function useImageDimensions(src: string) {
     let cancelled = false;
     setDimensions(null);
 
-    void readImageDimensions(src)
+    void readWorkflowImageDimensions(src)
       .then((nextDimensions) => {
         if (!cancelled) setDimensions(nextDimensions);
       })

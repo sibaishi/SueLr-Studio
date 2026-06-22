@@ -4,6 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ValidationError } from '../../app/errors/index.ts';
 import { getProviderAdapter } from '../../platform/providers/index.ts';
+import {
+  type ConcurrentSettledResult,
+  mapConcurrentSettled,
+  normalizeConcurrencyConfig,
+} from '../../platform/runtime/concurrency.ts';
 import { assertSafeRemoteDownloadUrl, validateImageBuffer } from '../../platform/security/network-guards.ts';
 import { getScopedStoragePaths } from '../../platform/storage/index.ts';
 import { resolveModelRuntime } from './apiConfig.ts';
@@ -42,7 +47,6 @@ type ImagePayload = LooseRecord & {
   prompt: string;
   resolution?: string;
 };
-type SettledResult<T> = { status: 'fulfilled'; value: T } | { status: 'rejected'; reason: DynamicValue };
 type RejectedResult = { status: 'rejected'; reason: DynamicValue };
 type PromptImageSizing = {
   prompt: string;
@@ -79,86 +83,6 @@ const ALLOWED_IMAGE_RESOLUTION = new Set(['auto', '512px', '1k', '2k', '4k']);
 const REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS = 60_000;
 const REMOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const DEFAULT_IMAGE_ENDPOINT = '/v1/images/generations';
-const DEFAULT_IMAGE_GENERATION_CONCURRENCY = {
-  enabled: false,
-  maxConcurrency: 5,
-};
-
-function normalizeWorkflowConcurrency(value: LooseRecord | undefined) {
-  const enabled = value?.enabled === true;
-  const parsedMaxConcurrency = Number(value?.maxConcurrency);
-  const maxConcurrency =
-    Number.isFinite(parsedMaxConcurrency) && parsedMaxConcurrency > 0
-      ? Math.max(1, Math.round(parsedMaxConcurrency))
-      : DEFAULT_IMAGE_GENERATION_CONCURRENCY.maxConcurrency;
-  return {
-    enabled,
-    maxConcurrency: enabled ? maxConcurrency : 1,
-  };
-}
-
-async function runWithConcurrency<T, TResult>(
-  items: T[],
-  worker: (item: T, index: number) => Promise<TResult>,
-  maxConcurrency: number,
-): Promise<TResult[]> {
-  if (items.length === 0) return [];
-  if (maxConcurrency <= 1) {
-    const results = [];
-    for (let index = 0; index < items.length; index += 1) {
-      results.push(await worker(items[index], index));
-    }
-    return results;
-  }
-
-  const results = new Array<TResult>(items.length);
-  let nextIndex = 0;
-  const workers = Array.from({ length: Math.min(maxConcurrency, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await worker(items[index], index);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
-
-async function runSettledWithConcurrency<T, TResult>(
-  items: T[],
-  worker: (item: T, index: number) => Promise<TResult>,
-  maxConcurrency: number,
-): Promise<Array<SettledResult<TResult>>> {
-  if (items.length === 0) return [];
-  if (maxConcurrency <= 1) {
-    const results: Array<SettledResult<TResult>> = [];
-    for (let index = 0; index < items.length; index += 1) {
-      try {
-        results.push({ status: 'fulfilled', value: await worker(items[index], index) });
-      } catch (error) {
-        results.push({ status: 'rejected', reason: error });
-      }
-    }
-    return results;
-  }
-
-  const results = new Array<SettledResult<TResult>>(items.length);
-  let nextIndex = 0;
-  const workers = Array.from({ length: Math.min(maxConcurrency, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      try {
-        results[index] = { status: 'fulfilled', value: await worker(items[index], index) };
-      } catch (error) {
-        results[index] = { status: 'rejected', reason: error };
-      }
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
-
 function cleanText(value: DynamicValue): string {
   return String(value || '').trim();
 }
@@ -569,11 +493,11 @@ function isGeminiGenerateContentEndpoint(endpoint: DynamicValue): boolean {
     .includes(':generatecontent');
 }
 
-function isRejectedResult<T>(result: SettledResult<T>): result is RejectedResult {
+function isRejectedResult<T>(result: ConcurrentSettledResult<T>): result is RejectedResult {
   return result.status === 'rejected';
 }
 
-function isFulfilledResult<T>(result: SettledResult<T>): result is { status: 'fulfilled'; value: T } {
+function isFulfilledResult<T>(result: ConcurrentSettledResult<T>): result is { status: 'fulfilled'; value: T } {
   return result.status === 'fulfilled';
 }
 
@@ -660,7 +584,7 @@ export async function generateImages(
 ) {
   const { apiKey, baseUrl, providerConfig } = runtimeConfig;
   const abortSignal = runtimeConfig.abortSignal;
-  const workflowConcurrency = normalizeWorkflowConcurrency(runtimeConfig.workflowExecution);
+  const workflowConcurrency = normalizeConcurrencyConfig(runtimeConfig.workflowExecution);
   const adapter = getProviderAdapter();
   if (!apiKey) {
     throw new Error('Missing API key for image generation');
@@ -949,7 +873,7 @@ export async function generateImages(
     }
   };
 
-  const attemptResults = await runSettledWithConcurrency(
+  const attemptResults = await mapConcurrentSettled(
     Array.from({ length: requestCount }, (_item, index) => index),
     (index) => runImageGenerationAttempt(index),
     workflowConcurrency.maxConcurrency,
@@ -1024,7 +948,7 @@ export async function generateImages(
     }
   };
 
-  const outputImageResults = await runSettledWithConcurrency(
+  const outputImageResults = await mapConcurrentSettled(
     rawImages,
     (image) => processOutputImage(image),
     workflowConcurrency.maxConcurrency,

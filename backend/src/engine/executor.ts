@@ -1,4 +1,5 @@
 import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.ts';
+import { mapConcurrentAndThrowAfterSettled, normalizeConcurrencyConfig } from '../platform/runtime/concurrency.ts';
 import { getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.ts';
 import {
   collectInputs,
@@ -14,11 +15,6 @@ const ITERATE_RUN_NODE_TYPE = 'iterateRun';
 const ITERATE_IMAGE_RUN_NODE_TYPE = 'iterateImageRun';
 const ITERATE_RUN_V2_NODE_TYPE = 'iterateRunV2';
 const ITERATE_IMAGE_RUN_V2_NODE_TYPE = 'iterateImageRunV2';
-const DEFAULT_WORKFLOW_CONCURRENCY = {
-  enabled: false,
-  maxConcurrency: 5,
-};
-
 type WorkflowEdge = {
   id?: string;
   source: string;
@@ -41,11 +37,6 @@ type NodeExecutor = (
   apiConfig: RuntimeApiConfig,
   progress: ProgressCallback,
 ) => Promise<Record<string, DynamicValue>> | Record<string, DynamicValue>;
-
-type WorkflowConcurrency = {
-  enabled: boolean;
-  maxConcurrency: number;
-};
 
 type IterationItem = {
   value: DynamicValue;
@@ -76,57 +67,6 @@ type WorkflowError = Error & {
   workflowTerminated?: boolean;
   nodeErrorAlreadySent?: boolean;
 };
-
-function normalizeWorkflowConcurrency(value: DynamicValue): WorkflowConcurrency {
-  const enabled = value?.enabled === true;
-  const parsedMaxConcurrency = Number(value?.maxConcurrency);
-  const maxConcurrency =
-    Number.isFinite(parsedMaxConcurrency) && parsedMaxConcurrency > 0
-      ? Math.max(1, Math.round(parsedMaxConcurrency))
-      : DEFAULT_WORKFLOW_CONCURRENCY.maxConcurrency;
-  return {
-    enabled,
-    maxConcurrency: enabled ? maxConcurrency : 1,
-  };
-}
-
-async function runWithConcurrency<T, R>(
-  items: T[],
-  worker: (item: T, index: number) => Promise<R>,
-  maxConcurrency: number,
-): Promise<R[]> {
-  if (items.length === 0) return [];
-  const errors: unknown[] = [];
-  if (maxConcurrency <= 1) {
-    const results: R[] = [];
-    for (let index = 0; index < items.length; index += 1) {
-      try {
-        results.push(await worker(items[index], index));
-      } catch (error) {
-        errors.push(error);
-      }
-    }
-    if (errors.length > 0) throw errors[0];
-    return results;
-  }
-
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-  const workers = Array.from({ length: Math.min(maxConcurrency, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      try {
-        results[index] = await worker(items[index], index);
-      } catch (error) {
-        errors.push(error);
-      }
-    }
-  });
-  await Promise.all(workers);
-  if (errors.length > 0) throw errors[0];
-  return results;
-}
 
 function isIterateControlNodeType(type?: string): boolean {
   return (
@@ -209,7 +149,7 @@ export async function executeWorkflow(
   const nodes = workflow.nodes || [];
   const edges = workflow.edges || [];
   const abortSignal = apiConfig?.abortSignal;
-  const workflowConcurrency = normalizeWorkflowConcurrency(apiConfig?.workflowExecution);
+  const workflowConcurrency = normalizeConcurrencyConfig(apiConfig?.workflowExecution);
 
   if (!nodes || nodes.length === 0) {
     sendSSE(WORKFLOW_SSE_EVENTS.VALIDATION_FAILED, { error: '工作流中没有节点' });
@@ -420,7 +360,7 @@ export async function executeWorkflow(
         });
       }
 
-      await runWithConcurrency(
+      await mapConcurrentAndThrowAfterSettled(
         iterationItems,
         async (item, iterationIndex) => {
           const iteration: IterationContext = {

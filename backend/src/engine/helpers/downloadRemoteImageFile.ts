@@ -1,17 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { describeFetchError } from '../../platform/http/fetch-error.ts';
 import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 import { assertSafeRemoteDownloadUrl, validateImageBuffer } from '../../platform/security/network-guards.ts';
 import { getScopedStoragePaths } from '../../platform/storage/index.ts';
 
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_BYTES = 20 * 1024 * 1024;
-
-function describeFetchError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
 
 export type FetchedImage = { buffer: Buffer; mimeType: string };
 

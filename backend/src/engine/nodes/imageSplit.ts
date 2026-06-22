@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import sharp from 'sharp';
+import { fetchImageBuffer } from '../helpers/downloadRemoteImageFile.ts';
 import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
 
@@ -37,14 +38,7 @@ async function imageSourceToBuffer(imageSource: DynamicValue, apiConfig: Runtime
   }
 
   if (source.startsWith('http://') || source.startsWith('https://')) {
-    const response = await fetch(source);
-    if (!response.ok) {
-      throw new Error(`下载图片失败: HTTP ${response.status}`);
-    }
-    return {
-      buffer: Buffer.from(await response.arrayBuffer()),
-      mimeType: response.headers.get('content-type') || 'image/png',
-    };
+    return fetchImageBuffer(source, apiConfig.scope, apiConfig.abortSignal);
   }
 
   throw new Error('当前图片来源不支持拆分，请先使用已上传图片或 AI 生成结果');

@@ -1,5 +1,6 @@
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasEditorModal';
+import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
 import {
   ArrowLeftRight,
   Brush,
@@ -301,7 +302,7 @@ export function ImagePreviewModal({
 
   const handleApplyResize = useCallback(async () => {
     try {
-      const img = await loadImageElement(displaySrc);
+      const img = await loadWorkflowImage(displaySrc, { crossOrigin: 'anonymous' });
       const origW = img.naturalWidth || img.width;
       const origH = img.naturalHeight || img.height;
 
@@ -328,7 +329,7 @@ export function ImagePreviewModal({
 
   const handleCanvasSave = useCallback(
     async (file: File, previewUrl: string) => {
-      const img = await loadImageElement(previewUrl);
+      const img = await loadWorkflowImage(previewUrl, { crossOrigin: 'anonymous' });
       publishEditedBlob(previewUrl, img.naturalWidth || img.width, img.naturalHeight || img.height, file);
       setCanvasEditorOpen(false);
     },
@@ -698,18 +699,8 @@ async function imageBlobToPng(blob: Blob) {
 }
 
 async function imageElementToPng(src: string) {
-  const image = await loadImageElement(src);
+  const image = await loadWorkflowImage(src, { crossOrigin: 'anonymous' });
   return drawImageToPng(image, image.naturalWidth || image.width, image.naturalHeight || image.height);
-}
-
-function loadImageElement(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const nextImage = new Image();
-    nextImage.crossOrigin = 'anonymous';
-    nextImage.onload = () => resolve(nextImage);
-    nextImage.onerror = () => reject(new Error('image load failed'));
-    nextImage.src = src;
-  });
 }
 
 function drawImageToPng(image: CanvasImageSource, width: number, height: number) {
