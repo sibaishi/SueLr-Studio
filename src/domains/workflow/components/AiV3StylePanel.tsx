@@ -1,5 +1,5 @@
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
-import { fileRawStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
+import { resolveStylePanelInput } from '@/domains/workflow/components/stylePanelInputResolver';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { type InputOrderMap, filterAiV3InputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
@@ -225,92 +225,7 @@ export default function AiV3StylePanel() {
     if (!v3Node) return [];
     const filterResult = filterAiV3InputSlots(v3Node.id, currentMode, edges, nodes);
     return filterResult.acceptedSlots.map((slot) => {
-      const src = nodes.find((n) => n.id === slot.sourceNodeId);
-      const srcData = (src?.data || {}) as Record<string, unknown>;
-      const srcOutputs = nodeOutputs[slot.sourceNodeId];
-
-      // Determine value for thumbnail / tooltip
-      let value = '';
-      if (slot.sourceNodeType === 'io') {
-        if (slot.type === 'text') {
-          value = String(srcData.text || '');
-          // Fallback: text may be in content as a plain-text item (execution passthrough)
-          if (!value) {
-            const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
-            for (const item of content) {
-              const s = String(item);
-              if (!s || !s.trim()) continue;
-              if (/^(https?:\/\/|\/api\/|data:|blob:)/.test(s)) continue;
-              value = s;
-              break;
-            }
-          }
-        } else if (slot.fileId !== undefined) {
-          // fileRawStore is cleared on page refresh; fall back to data.content server URL
-          const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
-          const fileIds: number[] = Array.isArray(srcData._fileIds) ? (srcData._fileIds as number[]) : [];
-          const cIdx = fileIds.indexOf(slot.fileId);
-          value = fileRawStore.getObjectUrl(slot.fileId) || (cIdx >= 0 ? content[cIdx] : '') || '';
-        } else if (slot.fileIdx !== undefined) {
-          // Fallback: _fileIds is empty (execution passthrough), resolve by index in content
-          const content: string[] = Array.isArray(srcData.content) ? (srcData.content as string[]) : [];
-          value = content[slot.fileIdx] || '';
-        }
-      } else {
-        // Standard node: use actual edge sourceHandle, then common keys, then nodeOutputs
-        const edge = edges.find((e) => e.id === slot.edgeId);
-        const handle = edge?.sourceHandle || 'output';
-        value = String(srcData[handle] || '');
-        if (!value) {
-          for (const k of ['text', 'image', 'video', 'audio', 'value', 'fileUrl']) {
-            const v = srcData[k];
-            if (typeof v === 'string' && v) {
-              value = v;
-              break;
-            }
-          }
-        }
-        if (!value && srcOutputs) {
-          // Recursively flatten nested arrays (aiV3 image mode returns [prompt, base64])
-          const collect = (arr: unknown[]): string[] => {
-            const acc: string[] = [];
-            for (const v of arr) {
-              if (typeof v === 'string') acc.push(v);
-              else if (Array.isArray(v)) acc.push(...collect(v));
-            }
-            return acc;
-          };
-          let outVal: unknown = srcOutputs[handle];
-          if (Array.isArray(outVal)) {
-            const strings = collect(outVal);
-            outVal = strings[strings.length - 1];
-          }
-          if (typeof outVal !== 'string') {
-            const flatEntries = Object.entries(srcOutputs).flatMap(([_, v]) => {
-              if (typeof v === 'string') return [v];
-              if (Array.isArray(v)) return collect(v);
-              return [];
-            });
-            outVal = flatEntries.find((v) => typeof v === 'string') || undefined;
-          }
-          if (typeof outVal === 'string') value = outVal;
-        }
-      }
-
-      // Infer actual media type from value when slot classification is too broad
-      let finalType = slot.type;
-      if (finalType === 'text' && value) {
-        const str = String(value);
-        if (str.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(str)) finalType = 'video';
-        else if (str.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(str)) finalType = 'audio';
-        else if (
-          str.startsWith('blob:') ||
-          str.startsWith('data:image/') ||
-          str.startsWith('http') ||
-          str.startsWith('/api/')
-        )
-          finalType = 'image';
-      }
+      const { sourceNode, type: finalType, value } = resolveStylePanelInput(slot, nodes, edges, nodeOutputs);
 
       const label =
         finalType === 'text' && slot.sourceNodeType === 'io'
@@ -319,7 +234,7 @@ export default function AiV3StylePanel() {
             ? `文件${(slot.fileIdx ?? 0) + 1}`
             : finalType !== 'text'
               ? getNodeTypeLabel(finalType)
-              : src?.type || '?';
+              : sourceNode?.type || '?';
 
       return { id: slot.id, type: finalType, label, value, sourceNodeId: slot.sourceNodeId, edgeId: slot.edgeId };
     });

@@ -143,17 +143,19 @@ Current cleanup and ownership notes:
 - `src/domains/workflow/components/WorkflowLibraryModal.tsx`
   - card-based workflow library, covers, save/open/duplicate/import/export/delete flows
 - `src/domains/workflow/components/AiV3StylePanel.tsx`
-  - capability-aware controls for the unified `aiV3` node
+  - capability-aware controls for the unified `aiV3` node; delegates upstream value and media-type resolution to the shared style-panel input resolver
 - `src/domains/workflow/components/IoStylePanel.tsx`
-  - text/file/media editing for the unified `io` node
-- `src/domains/workflow/components/DocumentTabs.tsx`
-  - canvas-floating document tabs for switching and closing open workflow drafts
+  - text/file/media editing for the unified `io` node; delegates upstream value and media-type resolution to the shared style-panel input resolver
+- `src/domains/workflow/components/stylePanelInputResolver.ts`
+  - shared `aiV3`/`io` upstream input value resolution, persisted-file fallback, nested runtime-output flattening, and media-type inference
 - `src/domains/workflow/components/FlowCanvas.tsx`
   - canvas graph rendering, context menus, centered node-picker panel, keyboard shortcuts, grouping, connection, drag/drop, and editor interactions
 - `src/domains/workflow/components/flowCanvas*.ts*`
   - extracted canvas helpers for render-model building, clipboard behavior, geometry, connection rules, UI helpers, text handling, and catalog UI
 - `src/domains/workflow/components/nodes/FlowNode.tsx`
   - workflow node frame rendering, node chrome, group collapse controls, and node-level actions
+- `src/domains/workflow/components/nodes/V2WorkflowNode.tsx`
+  - shared `aiV3`/`io` node shell for rename, disable, lock, duplicate, execute-to-node, runtime status, resizing, and common handles; node-specific wrappers preserve type, label, color, ports, and content semantics
 - `src/domains/workflow/components/nodes/NodePorts.tsx`
   - regular node handles and group boundary port handles, including split internal and external group-port affordances
 - `src/domains/workflow/components/ResultsPanel.tsx`
@@ -213,6 +215,8 @@ Current cleanup and ownership notes:
 
 ### Shared frontend infrastructure
 
+- `src/shared/ui/AnimatedEdgePath.tsx`
+  - common animated SVG edge-path renderer; Bezier and smooth-step edge wrappers retain only path construction and their path-specific options
 - `src/shared/api/capabilities.ts`
   - capability discovery client
 - `src/shared/api/pathPicker.ts`
