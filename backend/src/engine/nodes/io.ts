@@ -3,6 +3,34 @@ import type { NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } fro
 
 const AI_NODE_TYPES = /^(aiV3|imageGenV2|videoGenV2|aiChatV2)$/;
 
+// Per-run accumulator for iterationAggregate IO nodes.
+// Keyed by runId, then by node id. Each iteration appends its upstream
+// items; the IO node returns the full accumulated list every round.
+const perRunAccumulators = new Map<string, Map<string, unknown[]>>();
+
+function getAccumulator(runId: string, nodeId: string): unknown[] {
+  if (!perRunAccumulators.has(runId)) {
+    perRunAccumulators.set(runId, new Map());
+  }
+  const runAcc = perRunAccumulators.get(runId)!;
+  if (!runAcc.has(nodeId)) {
+    runAcc.set(nodeId, []);
+  }
+  return runAcc.get(nodeId)!;
+}
+
+function pushToAccumulator(acc: unknown[], items: unknown): void {
+  if (Array.isArray(items)) {
+    for (const item of items) {
+      acc.push(item);
+    }
+  } else if (items !== undefined && items !== null) {
+    acc.push(items);
+  }
+}
+
+type IoResult = { result: unknown; savedFiles: unknown[]; savedPaths: string[] };
+
 function resolveSourceType(types: unknown[], idx: number): unknown {
   // When upstream data is a single array from one source node, sourceTypes has
   // one entry but the data array may have many items. Use index 0 for all items
@@ -24,11 +52,37 @@ export async function execute(
 ) {
   const nodeData = (node.data || {}) as Record<string, unknown>;
 
+  // Wrap every return through finalize so iterationAggregate nodes
+  // accumulate upstream items across iterations.
+  const finalize = (partial: { result: unknown; savedFiles?: unknown[]; savedPaths?: string[] }): IoResult => {
+    const normalized: IoResult = {
+      result: partial.result,
+      savedFiles: partial.savedFiles || [],
+      savedPaths: partial.savedPaths || [],
+    };
+    if (nodeData.iterationAggregate && apiConfig.runId) {
+      const acc = getAccumulator(apiConfig.runId, String(node.id || ''));
+      pushToAccumulator(acc, normalized.result);
+      return { result: [...acc], savedFiles: normalized.savedFiles, savedPaths: normalized.savedPaths };
+    }
+    return normalized;
+  };
+
   // _rawContent (pre-assembled upstream data in per-type order) takes priority
   // over live upstream inputs — enables per-type independent ordering.
   // _rawContentSourceTypes (set by frontend) marks each item's origin node type,
   // so only AI-generated items are materialized to disk; non-AI passthrough as-is.
   if (nodeData._rawContent !== undefined && nodeData._rawContent !== null) {
+    // When live upstream includes sources not covered by _rawContent's
+    // source types, _rawContent is incomplete — skip it and use live upstream.
+    const liveTypes = (inputs as Record<string, unknown>)._inputTypes;
+    const rawSourceTypes = nodeData._rawContentSourceTypes as string[] | undefined;
+    const rawIsIncomplete =
+      Array.isArray(liveTypes) &&
+      Array.isArray(rawSourceTypes) &&
+      liveTypes.some((t) => typeof t === 'string' && !new Set(rawSourceTypes).has(t));
+
+    if (!rawIsIncomplete) {
     const raw = nodeData._rawContent;
     const rawSourceTypes = nodeData._rawContentSourceTypes as string[] | undefined;
 
@@ -62,16 +116,16 @@ export async function execute(
               results.push(rawItems[i]);
             }
           }
-          return {
+          return finalize({
             result: results.length === 1 ? results[0] : results,
             savedFiles: savedResult.savedFiles,
             savedPaths: savedResult.savedPaths || [],
-          };
+          });
         }
 
         // No AI items at all — pass through without saving
         sendProgress?.('正在展示...');
-        return { result: raw };
+        return finalize({ result: raw });
       }
     }
 
@@ -81,15 +135,16 @@ export async function execute(
       Array.isArray(sourceTypes) && sourceTypes.some((t) => typeof t === 'string' && AI_NODE_TYPES.test(t));
     if (!hasAiSource) {
       sendProgress?.('正在展示...');
-      return { result: raw };
+      return finalize({ result: raw });
     }
     sendProgress?.('正在保存...');
-    const result = await materializeContentForOutput(raw, { prefix: 'io', scope: apiConfig.scope });
-    return {
-      result: result.content ?? raw,
-      savedFiles: result.savedFiles,
-      savedPaths: result.savedPaths || [],
-    };
+    const rawSaveResult = await materializeContentForOutput(raw, { prefix: 'io', scope: apiConfig.scope });
+    return finalize({
+      result: rawSaveResult.content ?? raw,
+      savedFiles: rawSaveResult.savedFiles,
+      savedPaths: rawSaveResult.savedPaths || [],
+    });
+    } // !rawIsIncomplete
   }
 
   const upstreamValue = inputs.input;
@@ -132,11 +187,12 @@ export async function execute(
           results.push(upstreamValue[i]);
         }
       }
-      return {
-        result: results.length === 1 ? results[0] : results,
+      const outputResult = results.length === 1 ? results[0] : results;
+      return finalize({
+        result: outputResult,
         savedFiles: savedResult.savedFiles,
         savedPaths: savedResult.savedPaths || [],
-      };
+      });
     }
 
     // Single input or no type info
@@ -145,27 +201,27 @@ export async function execute(
 
     if (isAi) {
       sendProgress?.('正在保存并展示...');
-      const result = await materializeContentForOutput(upstreamValue, {
+      const aiSingleResult = await materializeContentForOutput(upstreamValue, {
         prefix: 'io',
         scope: apiConfig.scope,
       });
-      return {
-        result: result.content ?? upstreamValue,
-        savedFiles: result.savedFiles,
-        savedPaths: result.savedPaths,
-      };
+      return finalize({
+        result: aiSingleResult.content ?? upstreamValue,
+        savedFiles: aiSingleResult.savedFiles,
+        savedPaths: aiSingleResult.savedPaths,
+      });
     }
 
     // Non-AI upstream: pass through without saving
     sendProgress?.('正在展示...');
-    return { result: upstreamValue };
+    return finalize({ result: upstreamValue });
   }
 
   // No upstream: serve own content (prefer _rawContent for execution, fallback to content)
   const selfContent = nodeData._rawContent ?? nodeData.content;
   if (selfContent !== undefined && selfContent !== null) {
-    return { result: selfContent };
+    return finalize({ result: selfContent });
   }
 
-  return { result: null };
+  return finalize({ result: null });
 }

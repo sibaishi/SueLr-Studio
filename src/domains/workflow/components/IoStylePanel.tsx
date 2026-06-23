@@ -450,6 +450,47 @@ export default function IoStylePanel() {
   // ═══ PANEL ═══
   return (
     <WorkflowStylePanelShell>
+      {/* ── 迭代汇总 ── */}
+      {hasUpstream && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            zIndex: 1,
+          }}
+        >
+          <button
+            type="button"
+            className="nodrag"
+            onClick={() => setData({ iterationAggregate: !(nodeData.iterationAggregate === true) })}
+            title={nodeData.iterationAggregate === true ? '迭代汇总：已开启' : '迭代汇总：已关闭'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 22,
+              height: 22,
+              borderRadius: 6,
+              border: 'none',
+              background: nodeData.iterationAggregate === true
+                ? 'color-mix(in srgb, #5E5CE6 18%, transparent)'
+                : 'color-mix(in srgb, var(--t-text3) 8%, transparent)',
+              color: nodeData.iterationAggregate === true ? '#5E5CE6' : 'var(--t-text3)',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 500,
+              fontFamily: 'var(--font-sans)',
+              transition: 'background 0.2s, color 0.2s',
+            }}
+          >
+            Σ
+          </button>
+        </div>
+      )}
       {/* ── UPSTREAM FILE ITEMS (compact horizontal, all types one line) ── */}
       {hasUpstream &&
         rawInputs.length > 0 &&
