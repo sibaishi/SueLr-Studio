@@ -461,19 +461,19 @@ test('aiV3 resolves image inputs from request-scoped upload storage', async () =
 });
 
 test('independent ready workflow nodes execute concurrently when enabled', async () => {
-  const originalTextSplit = NODE_EXECUTORS.textSplit;
+  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
   const bothCleanNodesStarted = createDeferred();
   const releaseCleanNodes = createDeferred();
   const cleanStarted = [];
   const events = [];
 
-  NODE_EXECUTORS.textSplit = async (_node, inputs) => {
+  NODE_EXECUTORS.materialProcess = async (_node, inputs) => {
     cleanStarted.push(_node.id);
     if (cleanStarted.length === 2) {
       bothCleanNodesStarted.resolve();
     }
     await releaseCleanNodes.promise;
-    return { text: inputs.text };
+    return { result: inputs.input };
   };
 
   try {
@@ -482,15 +482,15 @@ test('independent ready workflow nodes execute concurrently when enabled', async
         nodes: [
           { id: 'source-a', type: 'io', data: { content: 'alpha' } },
           { id: 'source-b', type: 'io', data: { content: 'beta' } },
-          { id: 'clean-a', type: 'textSplit', data: {} },
-          { id: 'clean-b', type: 'textSplit', data: {} },
+          { id: 'clean-a', type: 'materialProcess', data: { splitEnabled: true, iterateEnabled: false } },
+          { id: 'clean-b', type: 'materialProcess', data: { splitEnabled: true, iterateEnabled: false } },
           { id: 'merge', type: 'io', data: {} },
         ],
         edges: [
-          { id: 'source-a-clean-a', source: 'source-a', sourceHandle: 'result', target: 'clean-a', targetHandle: 'text' },
-          { id: 'source-b-clean-b', source: 'source-b', sourceHandle: 'result', target: 'clean-b', targetHandle: 'text' },
-          { id: 'clean-a-merge', source: 'clean-a', sourceHandle: 'text', target: 'merge', targetHandle: 'input' },
-          { id: 'clean-b-merge', source: 'clean-b', sourceHandle: 'text', target: 'merge', targetHandle: 'input' },
+          { id: 'source-a-clean-a', source: 'source-a', sourceHandle: 'result', target: 'clean-a', targetHandle: 'input' },
+          { id: 'source-b-clean-b', source: 'source-b', sourceHandle: 'result', target: 'clean-b', targetHandle: 'input' },
+          { id: 'clean-a-merge', source: 'clean-a', sourceHandle: 'result', target: 'merge', targetHandle: 'input' },
+          { id: 'clean-b-merge', source: 'clean-b', sourceHandle: 'result', target: 'merge', targetHandle: 'input' },
         ],
       },
       { workflowExecution: { enabled: true, maxConcurrency: 16 } },
@@ -523,7 +523,7 @@ test('independent ready workflow nodes execute concurrently when enabled', async
     assert.equal(cleanCompletionIndexes.length, 2);
     assert.ok(cleanCompletionIndexes.every((index) => index < mergeStartedIndex));
   } finally {
-    NODE_EXECUTORS.textSplit = originalTextSplit;
+    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
   }
 });
 

@@ -223,12 +223,15 @@ Execution behavior:
 
 Common node groups:
 
-- `IO`: accepts text, images, files, or upstream values and exposes a general-purpose output
+- `IO`: accepts text, images, files, or upstream values and exposes a general-purpose output. Image cards render only the actual images and do not append synthetic `+N` items.
 - `AI 能力 V3`: switches execution mode from the selected project model capability
 - `提示词助手`: structures and optimizes prompt content
-- `文本拆分`: splits text into downstream items
-- `图像拆分`: separates image collections into downstream items
+- `素材处理`: handles text or image material through one `input -> result` contract. It can split only, iterate only, or split and then execute downstream once per item.
 - `分组`: organizes canvas nodes without changing the saved child-node semantics
+
+`素材处理` directly reuses the same V2 card dimensions, resizable bottom-panel shell, compact input preview, and popover controls as the current IO and AiV3 nodes. Its card follows the IO material-preview style without extra counters, adoption labels, leading text icons, image-count limits, or `+N` placeholders. Text keeps its original line breaks, and every image is rendered as a real thumbnail. The card previews the input items that will be processed or the latest result. Choosing `文本` or `图像` filters a mixed upstream array and processes only matching items; unsupported and non-selected items are ignored. `自动识别` accepts a single recognizable material type and asks you to choose a type when text and images are mixed. Text splitting uses a separator and output limit; image splitting uses a rows-by-columns grid. Enable at least one of `拆分` or `逐项`. A single directed execution path may contain only one `素材处理` node with `逐项` enabled, while separate parallel branches may each use one.
+
+The former `文本拆分`, `图像拆分`, `文本逐项`, and `图像逐项` node types are no longer supported. Workflows containing those historical node types are reported as incompatible instead of being silently converted.
 
 `AI 能力 V3` behavior:
 

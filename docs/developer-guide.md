@@ -378,10 +378,8 @@ The active Agent runtime uses governed knowledge under `backend/src/modules/inte
   - capability-routed chat, image, video, and Midjourney execution
 - `backend/src/engine/nodes/promptHelper.ts`
   - prompt structuring and optimization
-- `backend/src/engine/nodes/textSplit.ts`
-  - text item splitting
-- `backend/src/engine/nodes/imageSplit.ts`
-  - image item splitting
+- `backend/src/engine/nodes/materialProcess.ts`
+  - unified text/image material splitting and per-item execution preparation
 - `backend/src/engine/nodes/cleanModelText.ts`
   - model-output cleanup used by the maintained execution chain
 - `backend/src/engine/helpers/imageGeneration.ts`
@@ -512,8 +510,10 @@ Current canonical node surface:
 
 - `io`: general input/output and Agent input adapter
 - `aiV3`: chat, image, video, and Midjourney execution selected by project-model capability
-- `promptHelper`, `textSplit`, and `imageSplit`: maintained transformation nodes
+- `promptHelper` and `materialProcess`: maintained transformation nodes
 - `group`: canvas organization
+
+`materialProcess` owns the unified `input:any -> result:any` contract. It uses `V2WorkflowNodeShell` with the same default dimensions as `io` and `aiV3`, plus the shared `WorkflowStylePanelShell`, compact input preview, and `StylePanelPopoverButton` controls. Its card-level text/image rendering lives in `NodeCardMaterialPreview` and follows the IO visual style. Both cards render only actual images: synthetic image-count entries such as `+N` are forbidden. The material card must not introduce thumbnail limits, counters, adoption labels, or media-type icons. Its isolated node metadata declares text/image selection, split parameters, and iteration mode. An explicit `materialType` filters mixed upstream arrays before splitting or iteration; `auto` remains strict and accepts only one recognizable type. The executor treats `iterateEnabled` nodes as scheduling controls, and shared graph validation rejects more than one enabled iterator on the same directed path. Historical `textSplit`, `imageSplit`, `iterateRun`, and `iterateImageRun` workflows are intentionally incompatible.
 
 Older V2-specific node documents and definitions are migration history, not templates for new work.
 

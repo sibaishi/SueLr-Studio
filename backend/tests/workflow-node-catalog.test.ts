@@ -12,46 +12,22 @@ import {
 import { getNodeDef } from '../../src/shared/workflow/node-registry.js';
 import { WORKFLOW_NODE_CAPABILITY_SEEDS } from '../src/modules/intelligence/workflow-builder/node-capabilities.ts';
 
-const EXPECTED_ARCHITECT_NODE_TYPES = [
-  'io',
-  'iterateRun',
-  'iterateImageRun',
-  'imageSplit',
-  'promptHelper',
-  'textSplit',
-  'aiV3',
-];
+const EXPECTED_ARCHITECT_NODE_TYPES = ['io', 'materialProcess', 'promptHelper', 'aiV3'];
 
 test('workflow node catalog preserves the architect node allowlist and dynamic port contracts', () => {
   assert.deepEqual(getWorkflowArchitectNodeTypes(), EXPECTED_ARCHITECT_NODE_TYPES);
   assert.deepEqual(getWorkflowValidationInputNodeTypes(), ['io']);
-  assert.deepEqual(getWorkflowArchitectVariableInputNodeTypes(), [
-    'iterateRun',
-    'iterateImageRun',
-  ]);
-  assert.deepEqual(getWorkflowArchitectVariableOutputNodeTypes(), ['imageSplit', 'textSplit']);
+  assert.deepEqual(getWorkflowArchitectVariableInputNodeTypes(), []);
+  assert.deepEqual(getWorkflowArchitectVariableOutputNodeTypes(), []);
 
   const ports = getWorkflowValidationNodePortDefs();
   assert.deepEqual(ports.io, {
     inputs: { input: { type: 'any' } },
     outputs: { result: { type: 'any' } },
   });
-  assert.deepEqual(ports.textSplit, {
-    inputs: { text: { type: 'string', required: true } },
-    outputs: {},
-    dynamicOutputs: { prefix: 'part', type: 'string', countDataKey: 'outputCount', min: 1, max: 9 },
-  });
-  assert.deepEqual(ports.imageSplit, {
-    inputs: { image: { type: 'image', required: true } },
-    outputs: {},
-    dynamicOutputs: {
-      prefix: 'part',
-      type: 'image',
-      countDataKeys: ['rows', 'columns'],
-      countOperation: 'multiply',
-      min: 1,
-      max: 9,
-    },
+  assert.deepEqual(ports.materialProcess, {
+    inputs: { input: { type: 'any', required: true } },
+    outputs: { result: { type: 'any' } },
   });
   assert.deepEqual(ports.aiV3, {
     inputs: { input: { type: 'any' } },
@@ -64,11 +40,15 @@ test('workflow node catalog preserves architect defaults and agent knowledge cov
     model: '',
   });
   assert.deepEqual(getWorkflowArchitectDefaultData('io'), { text: '', content: [], _fileIds: [], _fileKinds: [] });
-  assert.deepEqual(getWorkflowArchitectDefaultData('textSplit'), {
+  assert.deepEqual(getWorkflowArchitectDefaultData('materialProcess'), {
+    materialType: 'auto',
+    splitEnabled: true,
+    iterateEnabled: false,
     separator: '\n',
     outputCount: 2,
+    rows: 3,
+    columns: 3,
   });
-  assert.deepEqual(getWorkflowArchitectDefaultData('imageSplit'), { rows: 3, columns: 3 });
 
   const capabilityNodeTypes = WORKFLOW_NODE_CAPABILITY_SEEDS.map((seed) => seed.structured.nodeType).sort();
   assert.deepEqual(capabilityNodeTypes, [...EXPECTED_ARCHITECT_NODE_TYPES].sort());
@@ -77,11 +57,10 @@ test('workflow node catalog preserves architect defaults and agent knowledge cov
   assert.equal(aiV3Capability?.structured.params?.includes('mjMode'), true);
 });
 
-test('workflow node registry declares agent input adapters and iterative runtime modes', () => {
+test('workflow node registry declares agent input adapters and material runtime mode', () => {
   assert.deepEqual(
     getWorkflowAgentInputNodeDefs().map(({ type, adapter }) => ({ type, adapter })),
     [{ type: 'io', adapter: 'text' }],
   );
-  assert.equal(getNodeDef('iterateRun')?.runtime?.mode, 'iterate-text');
-  assert.equal(getNodeDef('iterateImageRun')?.runtime?.mode, 'iterate-image');
+  assert.equal(getNodeDef('materialProcess')?.runtime?.mode, 'material-process');
 });

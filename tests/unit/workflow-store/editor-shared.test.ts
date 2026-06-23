@@ -4,28 +4,25 @@ import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
 import { autoArrangeNodes, isNodeLockedWithAncestors, normalizeMergeNodeSizes } from '@/domains/workflow/lib/store/editorShared';
 
 describe('workflow store shared editor helpers', () => {
-  it('grows merge nodes to match the highest connected input handle', () => {
-    const minimumSize = getNodeDefaultSize('iterateRun', 4);
+  it('keeps the unified material processor at its declared minimum size', () => {
+    const minimumSize = getNodeDefaultSize('materialProcess');
     const nodes = [
       {
-        id: 'merge',
-        type: 'iterateRun',
+        id: 'material',
+        type: 'materialProcess',
         position: { x: 0, y: 0 },
         width: minimumSize.w - 56,
         height: minimumSize.h - 56,
-        data: { inputCount: 1 },
+        data: {},
       },
     ];
-    const edges = [
-      { id: 'edge0', source: 'source0', sourceHandle: 'result', target: 'merge', targetHandle: 'item0' },
-      { id: 'edge3', source: 'source3', sourceHandle: 'result', target: 'merge', targetHandle: 'item3' },
-    ];
+    const edges: never[] = [];
 
-    const [mergeNode] = normalizeMergeNodeSizes(nodes, edges);
+    const [materialNode] = normalizeMergeNodeSizes(nodes, edges);
 
-    expect(mergeNode?.data.inputCount).toBe(4);
-    expect(mergeNode?.width).toBe(minimumSize.w);
-    expect(mergeNode?.height).toBe(minimumSize.h);
+    expect(materialNode?.data).toEqual({});
+    expect(materialNode?.width).toBe(minimumSize.w - 56);
+    expect(materialNode?.height).toBe(minimumSize.h - 56);
   });
 
   it('treats children of locked groups as locked', () => {

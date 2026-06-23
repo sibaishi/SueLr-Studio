@@ -70,7 +70,15 @@ function normalizeNodeData(node: WorkflowArchitectDsl['nodes'][number], edges: W
     data.model = typeof data.model === 'string' ? data.model : '';
     data.mjMode = ['fast', 'relax', 'turbo'].includes(String(data.mjMode)) ? data.mjMode : 'fast';
   }
-  if (node.type === 'imageSplit') {
+  if (node.type === 'materialProcess') {
+    data.materialType = ['auto', 'text', 'image'].includes(String(data.materialType))
+      ? data.materialType
+      : 'auto';
+    data.splitEnabled = data.splitEnabled !== false;
+    data.iterateEnabled = data.iterateEnabled === true;
+    if (!data.splitEnabled && !data.iterateEnabled) data.splitEnabled = true;
+    data.separator = typeof data.separator === 'string' && data.separator.length > 0 ? data.separator : '\n';
+    data.outputCount = clampInteger(data.outputCount, 2, 1, 9);
     data.rows = clampInteger(data.rows, 3, 1, 3);
     data.columns = clampInteger(data.columns, 3, 1, 3);
   }

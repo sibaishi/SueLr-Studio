@@ -1589,7 +1589,7 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
     },
     async chatCompletion(request) {
       assert.match(request.messages[0].content, /Workflow Architect/);
-      assert.match(request.messages[1].content, /iterateRun/);
+      assert.match(request.messages[1].content, /materialProcess/);
       return {
         ok: true,
         async json() {
@@ -1613,12 +1613,17 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
                         position: { x: 440, y: 160 },
                       },
                       {
-                        id: 'split',
-                        type: 'textSplit',
-                        data: { separator: '\n', outputCount: 4 },
+                        id: 'process',
+                        type: 'materialProcess',
+                        data: {
+                          materialType: 'text',
+                          splitEnabled: true,
+                          iterateEnabled: true,
+                          separator: '\n',
+                          outputCount: 4,
+                        },
                         position: { x: 800, y: 260 },
                       },
-                      { id: 'iterate', type: 'iterateRun', data: {}, position: { x: 1160, y: 260 } },
                       { id: 'mainImage', type: 'aiV3', data: { mode: 'image', n: 2, ratio: '1:1' }, position: { x: 800, y: 40 } },
                       {
                         id: 'shotImage',
@@ -1645,12 +1650,8 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
                       { source: 'reference', sourceHandle: 'result', target: 'planner', targetHandle: 'input' },
                       { source: 'planner', sourceHandle: 'result', target: 'mainImage', targetHandle: 'input' },
                       { source: 'reference', sourceHandle: 'result', target: 'mainImage', targetHandle: 'input' },
-                      { source: 'planner', sourceHandle: 'result', target: 'split', targetHandle: 'text' },
-                      { source: 'split', sourceHandle: 'part1', target: 'iterate', targetHandle: 'item1' },
-                      { source: 'split', sourceHandle: 'part2', target: 'iterate', targetHandle: 'item2' },
-                      { source: 'split', sourceHandle: 'part3', target: 'iterate', targetHandle: 'item3' },
-                      { source: 'split', sourceHandle: 'part4', target: 'iterate', targetHandle: 'item4' },
-                      { source: 'iterate', sourceHandle: 'text', target: 'shotImage', targetHandle: 'input' },
+                      { source: 'planner', sourceHandle: 'result', target: 'process', targetHandle: 'input' },
+                      { source: 'process', sourceHandle: 'result', target: 'shotImage', targetHandle: 'input' },
                       { source: 'mainImage', sourceHandle: 'result', target: 'mainSave', targetHandle: 'input' },
                       { source: 'shotImage', sourceHandle: 'result', target: 'shotSave', targetHandle: 'input' },
                       { source: 'mainSave', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
@@ -1691,10 +1692,11 @@ test('workflow architect compiles an LLM DSL into a validated workflow', async (
   assert.equal(result.attempt.used, true);
   assert.equal(result.workflow.metadata.source, 'intelligence.workflowArchitectDsl');
   assert.equal(
-    result.workflow.nodes.some((node) => node.type === 'iterateRun'),
+    result.workflow.nodes.some((node) => node.type === 'materialProcess'),
     true,
   );
-  assert.equal(result.workflow.nodes.find((node) => node.id === 'iterate').data.inputCount, 4);
+  assert.equal(result.workflow.nodes.find((node) => node.id === 'process').data.outputCount, 4);
+  assert.equal(result.workflow.nodes.find((node) => node.id === 'process').data.iterateEnabled, true);
   assert.equal(result.workflow.settings.workflowExecution.enabled, true);
 });
 
@@ -1943,8 +1945,17 @@ test('workflow architect rejects an oversimplified complex DSL and repairs it in
       },
       { id: 'mainImage', type: 'aiV3', data: { mode: 'image', ratio: '1:1', resolution: '1k', n: 4, output_format: 'png' } },
       { id: 'detailHero', type: 'aiV3', data: { mode: 'image', ratio: '16:9', resolution: '1k', n: 2, output_format: 'png' } },
-      { id: 'shotSplit', type: 'textSplit', data: { separator: '\n', outputCount: 6 } },
-      { id: 'shotIterate', type: 'iterateRun', data: {} },
+      {
+        id: 'shotProcess',
+        type: 'materialProcess',
+        data: {
+          materialType: 'text',
+          splitEnabled: true,
+          iterateEnabled: true,
+          separator: '\n',
+          outputCount: 6,
+        },
+      },
       { id: 'shotImage', type: 'aiV3', data: { mode: 'image', ratio: '16:9', resolution: '1k', n: 1, output_format: 'png' } },
       { id: 'mainSave', type: 'io', data: { filenamePrefix: 'main-visual' } },
       { id: 'detailSave', type: 'io', data: { filenamePrefix: 'detail-hero' } },
@@ -1960,14 +1971,8 @@ test('workflow architect rejects an oversimplified complex DSL and repairs it in
       { source: 'designer', sourceHandle: 'result', target: 'detailHero', targetHandle: 'input' },
       { source: 'reference', sourceHandle: 'result', target: 'detailHero', targetHandle: 'input' },
       { source: 'designer', sourceHandle: 'result', target: 'copywriter', targetHandle: 'input' },
-      { source: 'designer', sourceHandle: 'result', target: 'shotSplit', targetHandle: 'text' },
-      { source: 'shotSplit', sourceHandle: 'part1', target: 'shotIterate', targetHandle: 'item1' },
-      { source: 'shotSplit', sourceHandle: 'part2', target: 'shotIterate', targetHandle: 'item2' },
-      { source: 'shotSplit', sourceHandle: 'part3', target: 'shotIterate', targetHandle: 'item3' },
-      { source: 'shotSplit', sourceHandle: 'part4', target: 'shotIterate', targetHandle: 'item4' },
-      { source: 'shotSplit', sourceHandle: 'part5', target: 'shotIterate', targetHandle: 'item5' },
-      { source: 'shotSplit', sourceHandle: 'part6', target: 'shotIterate', targetHandle: 'item6' },
-      { source: 'shotIterate', sourceHandle: 'text', target: 'shotImage', targetHandle: 'input' },
+      { source: 'designer', sourceHandle: 'result', target: 'shotProcess', targetHandle: 'input' },
+      { source: 'shotProcess', sourceHandle: 'result', target: 'shotImage', targetHandle: 'input' },
       { source: 'mainImage', sourceHandle: 'result', target: 'mainSave', targetHandle: 'input' },
       { source: 'detailHero', sourceHandle: 'result', target: 'detailSave', targetHandle: 'input' },
       { source: 'copywriter', sourceHandle: 'result', target: 'copySave', targetHandle: 'input' },
@@ -2030,14 +2035,13 @@ test('workflow architect rejects an oversimplified complex DSL and repairs it in
   assert.equal(result.attempt.used, true);
   assert.equal(result.workflow.nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'chat').length, 2);
   assert.equal(result.workflow.nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'image').length, 3);
-  assert.equal(nodeTypes.includes('textSplit'), true);
-  assert.equal(nodeTypes.includes('iterateRun'), true);
+  assert.equal(nodeTypes.includes('materialProcess'), true);
   assert.equal(result.workflow.settings.workflowExecution.enabled, true);
-  assert.equal(result.workflow.nodes.find((node) => node.id === 'shotIterate').data.inputCount, 6);
+  assert.equal(result.workflow.nodes.find((node) => node.id === 'shotProcess').data.outputCount, 6);
   assert.equal(result.workflow.nodes.find((node) => node.id === 'mainImage').data.n, 4);
 });
 
-test('workflow architect requires textSplit separator and matching upstream aiChat output format', async () => {
+test('workflow architect requires materialProcess separator and matching upstream aiChat output format', async () => {
   const { WorkflowArchitectService } = await import(
     `../src/modules/intelligence/workflow-builder/workflow-architect.service.ts?test=${Date.now()}`
   );
@@ -2074,21 +2078,19 @@ test('workflow architect requires textSplit separator and matching upstream aiCh
           systemPrompt: 'Act as a storyboard director. Split the script into 5 shots.',
         },
       },
-      { id: 'split', type: 'textSplit', data: { outputCount: 5 } },
-      { id: 'iterate', type: 'iterateRun', data: {} },
+      {
+        id: 'process',
+        type: 'materialProcess',
+        data: { materialType: 'text', splitEnabled: true, iterateEnabled: true, outputCount: 5 },
+      },
       { id: 'image', type: 'aiV3', data: { mode: 'image', ratio: '16:9', resolution: '1k', n: 1, output_format: 'png' } },
       { id: 'save', type: 'io', data: { filenamePrefix: 'shot' } },
       { id: 'result', type: 'io', data: {} },
     ],
     edges: [
       { source: 'script', sourceHandle: 'result', target: 'planner', targetHandle: 'input' },
-      { source: 'planner', sourceHandle: 'result', target: 'split', targetHandle: 'text' },
-      { source: 'split', sourceHandle: 'part1', target: 'iterate', targetHandle: 'item1' },
-      { source: 'split', sourceHandle: 'part2', target: 'iterate', targetHandle: 'item2' },
-      { source: 'split', sourceHandle: 'part3', target: 'iterate', targetHandle: 'item3' },
-      { source: 'split', sourceHandle: 'part4', target: 'iterate', targetHandle: 'item4' },
-      { source: 'split', sourceHandle: 'part5', target: 'iterate', targetHandle: 'item5' },
-      { source: 'iterate', sourceHandle: 'text', target: 'image', targetHandle: 'input' },
+      { source: 'planner', sourceHandle: 'result', target: 'process', targetHandle: 'input' },
+      { source: 'process', sourceHandle: 'result', target: 'image', targetHandle: 'input' },
       { source: 'image', sourceHandle: 'result', target: 'save', targetHandle: 'input' },
       { source: 'save', sourceHandle: 'result', target: 'result', targetHandle: 'input' },
     ],
@@ -2108,7 +2110,7 @@ test('workflow architect requires textSplit separator and matching upstream aiCh
           },
         };
       }
-      if (node.id === 'split') return { ...node, data: { separator: '\n', outputCount: 5 } };
+      if (node.id === 'process') return { ...node, data: { ...node.data, separator: '\n' } };
       return node;
     }),
   };
@@ -2126,7 +2128,7 @@ test('workflow architect requires textSplit separator and matching upstream aiCh
     },
     async chatCompletion(request) {
       calls += 1;
-      assert.match(request.messages[0].content, /textSplit.*separator/s);
+      assert.match(request.messages[0].content, /materialProcess.*separator/s);
       if (calls === 2) {
         assert.match(
           request.messages.at(-1).content,
@@ -2164,7 +2166,7 @@ test('workflow architect requires textSplit separator and matching upstream aiCh
 
   assert.equal(calls, 2);
   assert.equal(result.attempt.used, true);
-  assert.equal(result.workflow.nodes.find((node) => node.id === 'split').data.separator, '\n');
+  assert.equal(result.workflow.nodes.find((node) => node.id === 'process').data.separator, '\n');
   assert.match(
     result.workflow.nodes.find((node) => node.id === 'planner').data.systemPrompt,
     /one shot per line|newline/,
@@ -2283,13 +2285,14 @@ test('intelligence workflow draft treats storyboard images as image generation, 
     assert.equal(response.body.data.intent.domain, 'storyboard-image');
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['io', 'aiV3', 'textSplit', 'iterateRun', 'aiV3', 'io', 'io'],
+      ['io', 'aiV3', 'materialProcess', 'aiV3', 'io', 'io'],
     );
     assert.equal(
       response.body.data.workflow.nodes.some((node) => node.type === 'aiV3' && node.data?.mode === 'video'),
       false,
     );
-    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_split').data.outputCount, 6);
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_material').data.outputCount, 6);
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_material').data.iterateEnabled, true);
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_image_gen').data.n, 1);
     assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
   } finally {
@@ -2348,13 +2351,12 @@ test('intelligence workflow draft builds a multi-branch ecommerce asset pack wor
     const nodeTypes = response.body.data.workflow.nodes.map((node) => node.type);
     assert.equal(response.body.data.workflow.nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'chat').length >= 2, true);
     assert.equal(response.body.data.workflow.nodes.filter((node) => node.type === 'aiV3' && node.data?.mode === 'image').length >= 3, true);
-    assert.equal(nodeTypes.includes('textSplit'), true);
-    assert.equal(nodeTypes.includes('iterateRun'), true);
+    assert.equal(nodeTypes.includes('materialProcess'), true);
     assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
     assert.equal(response.body.data.workflow.settings.workflowExecution.maxConcurrency, 4);
     assert.equal(
       response.body.data.workflow.edges.some(
-        (edge) => edge.source === 'storyboard_iterate' && edge.target === 'storyboard_image_gen',
+        (edge) => edge.source === 'storyboard_material' && edge.target === 'storyboard_image_gen',
       ),
       true,
     );
@@ -2365,7 +2367,7 @@ test('intelligence workflow draft builds a multi-branch ecommerce asset pack wor
   }
 });
 
-test('intelligence workflow draft builds a batch storyboard workflow with iterateRun', async () => {
+test('intelligence workflow draft builds a batch storyboard workflow with materialProcess iteration', async () => {
   const { server, baseUrl } = await createTestServer('workflow-draft-batch-storyboard');
   try {
     const response = await requestJson(baseUrl, '/api/intelligence/workflow-drafts', {
@@ -2380,14 +2382,16 @@ test('intelligence workflow draft builds a batch storyboard workflow with iterat
     assert.equal(response.body.data.validation.valid, true);
     assert.deepEqual(
       response.body.data.workflow.nodes.map((node) => node.type),
-      ['io', 'aiV3', 'textSplit', 'iterateRun', 'aiV3', 'io', 'io'],
+      ['io', 'aiV3', 'materialProcess', 'aiV3', 'io', 'io'],
     );
-    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_split').data.outputCount, 8);
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_material').data.outputCount, 8);
+    assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_material').data.iterateEnabled, true);
     assert.equal(response.body.data.workflow.nodes.find((node) => node.id === 'shot_image_gen').data.n, 1);
     assert.equal(
-      response.body.data.workflow.edges.filter((edge) => edge.source === 'shot_split' && edge.target === 'shot_iterate')
-        .length,
-      8,
+      response.body.data.workflow.edges.filter(
+        (edge) => edge.source === 'shot_material' && edge.target === 'shot_image_gen',
+      ).length,
+      1,
     );
     assert.equal(response.body.data.workflow.settings.workflowExecution.enabled, true);
   } finally {
@@ -2508,7 +2512,7 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     assert.equal(rebuilt.status, 200);
     assertEnvelopeShape(rebuilt.body);
     assert.equal(rebuilt.body.data.status, 'rebuilt');
-    assert.equal(rebuilt.body.data.categories['workflow-knowledge'].added >= 8, true);
+    assert.equal(rebuilt.body.data.categories['workflow-knowledge'].added >= 4, true);
 
     const searchNode = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
@@ -2547,50 +2551,30 @@ test('intelligence knowledge rebuilds traceable seed records from system and sav
     );
     assert.equal(Boolean(aiV3Seed), true);
 
-    const searchTextSplit = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
+    const searchMaterialProcess = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',
-      body: JSON.stringify({ query: 'textSplit 拆分脚本 多段提示词', categories: ['workflow-knowledge'], limit: 10 }),
+      body: JSON.stringify({
+        query: 'materialProcess 素材处理 拆分 逐项',
+        categories: ['workflow-knowledge'],
+        limit: 10,
+      }),
     });
-    assert.equal(searchTextSplit.status, 200);
-    const textSplitSeed = searchTextSplit.body.data.items.find(
-      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'textSplit',
+    assert.equal(searchMaterialProcess.status, 200);
+    const materialProcessSeed = searchMaterialProcess.body.data.items.find(
+      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'materialProcess',
     );
-    assert.equal(Boolean(textSplitSeed), true);
+    assert.equal(Boolean(materialProcessSeed), true);
     assert.equal(
-      textSplitSeed.structured.inputs.some((input) => input.id === 'text' && input.type === 'string'),
+      materialProcessSeed.structured.inputs.some((input) => input.id === 'input' && input.type === 'any'),
       true,
     );
-    assert.equal(textSplitSeed.structured.useWhen.includes('split-script'), true);
-
-    const searchIterateRun = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
-      method: 'POST',
-      body: JSON.stringify({ query: 'iterateRun 逐项 并行 下游', categories: ['workflow-knowledge'], limit: 10 }),
-    });
-    assert.equal(searchIterateRun.status, 200);
-    const iterateRunSeed = searchIterateRun.body.data.items.find(
-      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'iterateRun',
-    );
-    assert.equal(Boolean(iterateRunSeed), true);
-    assert.match(iterateRunSeed.content, /为每个非空文本创建一次下游段执行/);
-    assert.equal(iterateRunSeed.structured.maturity, 'stable');
-    assert.equal(iterateRunSeed.structured.useWhen.includes('batch-text-processing'), true);
+    assert.equal(materialProcessSeed.structured.maturity, 'stable');
+    assert.equal(materialProcessSeed.structured.useWhen.includes('split-script'), true);
+    assert.equal(materialProcessSeed.structured.useWhen.includes('batch-image-processing'), true);
     assert.equal(
-      iterateRunSeed.structured.notes.some((note) => note.includes('workflow executor')),
+      materialProcessSeed.structured.notes.some((note) => note.includes('workflow executor')),
       true,
     );
-
-    const searchIterateImageRun = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
-      method: 'POST',
-      body: JSON.stringify({ query: 'iterateImageRun 图片数组 逐项', categories: ['workflow-knowledge'], limit: 10 }),
-    });
-    assert.equal(searchIterateImageRun.status, 200);
-    const iterateImageRunSeed = searchIterateImageRun.body.data.items.find(
-      (item) => item.source.kind === 'system_seed' && item.structured.nodeType === 'iterateImageRun',
-    );
-    assert.equal(Boolean(iterateImageRunSeed), true);
-    assert.match(iterateImageRunSeed.content, /展开图片数组/);
-    assert.equal(iterateImageRunSeed.structured.maturity, 'stable');
-    assert.equal(iterateImageRunSeed.structured.useWhen.includes('batch-image-processing'), true);
 
     const searchWorkflow = await requestJson(baseUrl, '/api/intelligence/knowledge/search', {
       method: 'POST',

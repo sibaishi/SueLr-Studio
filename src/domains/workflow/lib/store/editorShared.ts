@@ -4,7 +4,6 @@ import {
   NODE_REGISTRY,
   getNodeAutoExpandedSize,
   getNodeDefaultSize,
-  getNodeOutputCount,
 } from '@/domains/workflow/lib/constants';
 import { projectWorkflowToExecutionGraph } from '@/domains/workflow/lib/executionGraph';
 import {
@@ -163,26 +162,6 @@ export function compactDynamicInputEdges(nodes: Node[], edges: Edge[]) {
 
 export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
   return nodes.map((node) => {
-    if (node.type === 'textSplit' || node.type === 'imageSplit') {
-      const minSize = getNodeAutoExpandedSize(
-        node.type || '',
-        1,
-        getNodeOutputCount(node.type || '', node.data as Record<string, unknown> | undefined),
-      );
-      const nextWidth = typeof node.width === 'number' ? Math.max(minSize.w, node.width) : minSize.w;
-      const nextHeight = typeof node.height === 'number' ? Math.max(minSize.h, node.height) : minSize.h;
-
-      if (nextWidth === node.width && nextHeight === node.height) {
-        return node;
-      }
-
-      return {
-        ...node,
-        width: nextWidth,
-        height: nextHeight,
-      };
-    }
-
     const nextInputCount = getMergeInputCount(node, edges);
     if (nextInputCount === null) return node;
 
@@ -208,8 +187,19 @@ export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
   });
 }
 
+function normalizeV2PanelNodeDefaults(nodes: Node[]) {
+  const legacyMaterialWidth = 12 * GRID_SIZE;
+  const legacyMaterialHeight = 18 * GRID_SIZE;
+  return nodes.map((node) => {
+    if (node.type !== 'materialProcess' || node.width !== legacyMaterialWidth || node.height !== legacyMaterialHeight) {
+      return node;
+    }
+    return { ...node, width: undefined, height: undefined };
+  });
+}
+
 export function normalizeEditorNodes(nodes: Node[], edges: Edge[]) {
-  return normalizeGroupPortNodes(normalizeMergeNodeSizes(nodes, edges), edges);
+  return normalizeGroupPortNodes(normalizeMergeNodeSizes(normalizeV2PanelNodeDefaults(nodes), edges), edges);
 }
 
 export function expandNodeActionIds(nodes: Node[], nodeIds: string[]) {

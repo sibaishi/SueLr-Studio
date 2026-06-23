@@ -1,4 +1,8 @@
 import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.ts';
+import {
+  findNestedMaterialProcessPath,
+  isIteratingMaterialProcessNode,
+} from '../../../src/shared/workflow/material-process-graph.js';
 import { mapConcurrentAndThrowAfterSettled, normalizeConcurrencyConfig } from '../platform/runtime/concurrency.ts';
 import { getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.ts';
 import {
@@ -9,12 +13,9 @@ import {
   validateWorkflow,
 } from './executor-helpers.ts';
 import { NODE_EXECUTORS } from './nodes/index.ts';
+import { processMaterial } from './nodes/materialProcess.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './nodes/types.ts';
 
-const ITERATE_RUN_NODE_TYPE = 'iterateRun';
-const ITERATE_IMAGE_RUN_NODE_TYPE = 'iterateImageRun';
-const ITERATE_RUN_V2_NODE_TYPE = 'iterateRunV2';
-const ITERATE_IMAGE_RUN_V2_NODE_TYPE = 'iterateImageRunV2';
 type WorkflowEdge = {
   id?: string;
   source: string;
@@ -40,7 +41,7 @@ type NodeExecutor = (
 
 type IterationItem = {
   value: DynamicValue;
-  outputKey: 'image' | 'text';
+  outputKey: 'result';
   inputHandle: string;
   sourceNodeId: string;
   sourceHandle: string;
@@ -68,19 +69,12 @@ type WorkflowError = Error & {
   nodeErrorAlreadySent?: boolean;
 };
 
-function isIterateControlNodeType(type?: string): boolean {
-  return (
-    type === ITERATE_RUN_NODE_TYPE ||
-    type === ITERATE_IMAGE_RUN_NODE_TYPE ||
-    type === ITERATE_RUN_V2_NODE_TYPE ||
-    type === ITERATE_IMAGE_RUN_V2_NODE_TYPE
-  );
+function isIterateControlNode(node?: WorkflowNode): boolean {
+  return isIteratingMaterialProcessNode(node);
 }
 
-function getIterateMissingInputError(type?: string): string {
-  return type === ITERATE_IMAGE_RUN_NODE_TYPE || type === ITERATE_IMAGE_RUN_V2_NODE_TYPE
-    ? '图像逐项运行没有可用的图片输入'
-    : '逐项运行没有可用的文本输入';
+function getIterateMissingInputError(): string {
+  return '素材逐项运行没有可用输入';
 }
 
 function getReachableNodeIds(sourceId: string, edges: WorkflowEdge[]): Set<string> {
@@ -99,11 +93,6 @@ function getReachableNodeIds(sourceId: string, edges: WorkflowEdge[]): Set<strin
   return reachable;
 }
 
-function getIterateInputIndex(handleId?: string): number {
-  const match = String(handleId || '').match(/^item(\d+)$/);
-  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
-}
-
 function normalizeIterationItems(value: DynamicValue): DynamicValue[] {
   if (Array.isArray(value)) {
     return value.flatMap((item) => normalizeIterationItems(item));
@@ -119,25 +108,24 @@ function normalizeIterationItems(value: DynamicValue): DynamicValue[] {
   return [value];
 }
 
-function collectIterationItems(
+async function collectIterationItems(
   iterateNode: WorkflowNode,
   edges: WorkflowEdge[],
   outputs: WorkflowOutputs,
-): IterationItem[] {
-  return edges
-    .filter((edge) => edge.target === iterateNode.id)
-    .sort((edgeA, edgeB) => getIterateInputIndex(edgeA.targetHandle) - getIterateInputIndex(edgeB.targetHandle))
-    .flatMap((edge) => {
-      const sourceOutput = outputs[edge.source];
-      const value = sourceOutput?.[edge.sourceHandle || ''];
-      return normalizeIterationItems(value).map((item) => ({
-        value: item,
-        outputKey: iterateNode.type === ITERATE_IMAGE_RUN_NODE_TYPE ? 'image' : 'text',
-        inputHandle: edge.targetHandle || '',
-        sourceNodeId: edge.source,
-        sourceHandle: edge.sourceHandle || '',
-      }));
-    });
+  nodes: WorkflowNode[],
+  apiConfig: RuntimeApiConfig,
+): Promise<IterationItem[]> {
+  const inputEdges = edges.filter((edge) => edge.target === iterateNode.id);
+  const inputs = collectInputs(iterateNode, edges, outputs, nodes);
+  const processed = await processMaterial(iterateNode, inputs.input, apiConfig);
+  const sourceEdge = inputEdges[0];
+  return normalizeIterationItems(processed).map((item) => ({
+    value: item,
+    outputKey: 'result',
+    inputHandle: sourceEdge?.targetHandle || 'input',
+    sourceNodeId: sourceEdge?.source || '',
+    sourceHandle: sourceEdge?.sourceHandle || '',
+  }));
 }
 
 export async function executeWorkflow(
@@ -161,6 +149,14 @@ export async function executeWorkflow(
   const executableEdges = edges.filter(
     (edge) => executableNodeIds.has(edge.source) && executableNodeIds.has(edge.target),
   );
+
+  const nestedMaterialPath = findNestedMaterialProcessPath(executableNodes, executableEdges);
+  if (nestedMaterialPath) {
+    sendSSE(WORKFLOW_SSE_EVENTS.VALIDATION_FAILED, {
+      error: `同一条执行路径只能有一个启用逐项的素材处理节点：${nestedMaterialPath.sourceId} -> ${nestedMaterialPath.targetId}`,
+    });
+    return;
+  }
 
   if (executableNodes.length === 0) {
     sendSSE(WORKFLOW_SSE_EVENTS.VALIDATION_FAILED, { error: '工作流中没有可执行节点' });
@@ -303,7 +299,7 @@ export async function executeWorkflow(
     const controlledDownstreamByNodeId = new Map<string, Set<string>>();
 
     for (const node of segmentNodes) {
-      if (!isIterateControlNodeType(String(node.type || ''))) continue;
+      if (!isIterateControlNode(node)) continue;
       const downstreamIds = new Set(
         [...getReachableNodeIds(String(node.id || ''), executableEdges)].filter((nodeId) => segmentNodeIds.has(nodeId)),
       );
@@ -325,7 +321,7 @@ export async function executeWorkflow(
         executableEdges.filter((edge) => edge.target === node.id).map((edge) => edge.source),
       );
 
-      if (isIterateControlNodeType(String(node.type || ''))) {
+      if (isIterateControlNode(node)) {
         const controlledDownstreamIds = controlledDownstreamByNodeId.get(String(node.id || '')) || new Set();
         for (const edge of executableEdges) {
           if (!controlledDownstreamIds.has(edge.target)) continue;
@@ -347,7 +343,7 @@ export async function executeWorkflow(
       const index = getNodeIndex(node.id);
       const controlledDownstreamIds = controlledDownstreamByNodeId.get(String(node.id || '')) || new Set();
       const downstreamNodes = segmentNodes.filter((item) => controlledDownstreamIds.has(String(item.id || '')));
-      const iterationItems = collectIterationItems(node, executableEdges, scopedOutputs);
+      const iterationItems = await collectIterationItems(node, executableEdges, scopedOutputs, executableNodes, apiConfig);
       if (iterationItems.length === 0) {
         failCount += 1;
         failWorkflowAtNode({
@@ -355,7 +351,7 @@ export async function executeWorkflow(
           nodes: executableNodes,
           index,
           total: sorted.length,
-          error: getIterateMissingInputError(String(node.type || '')),
+          error: getIterateMissingInputError(),
           sendSSE,
         });
       }
@@ -399,7 +395,7 @@ export async function executeWorkflow(
     };
 
     const runOperation = async (node: WorkflowNode) => {
-      if (isIterateControlNodeType(String(node.type || ''))) {
+      if (isIterateControlNode(node)) {
         await runIterateNode(node);
         return;
       }

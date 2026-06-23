@@ -2,6 +2,7 @@ import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
 import IoStylePanel from '@/domains/workflow/components/IoStylePanel';
+import MaterialProcessStylePanel from '@/domains/workflow/components/MaterialProcessStylePanel';
 import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
@@ -403,6 +404,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
 
         <AiV3StylePanel />
         <IoStylePanel />
+        <MaterialProcessStylePanel />
       </div>
 
       {importErrorMessage && (

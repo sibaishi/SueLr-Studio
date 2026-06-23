@@ -1,4 +1,7 @@
-import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
+import {
+  StylePanelPopoverButton,
+  WorkflowStylePanelShell,
+} from '@/domains/workflow/components/WorkflowStylePanelShell';
 import { resolveStylePanelInput } from '@/domains/workflow/components/stylePanelInputResolver';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
@@ -7,9 +10,6 @@ import { loadJSON } from '@/shared/runtime';
 import type { ApiConfig } from '@/shared/types';
 import { Clock, Crosshair, Gauge, Globe, GridNine, Image, Ruler, SlidersHorizontal } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-const MIN_H = 150;
-const MAX_H = 300;
 
 const fieldStyle: React.CSSProperties = {
   border: '1px solid color-mix(in srgb, var(--t-border) 72%, transparent)',
@@ -102,7 +102,9 @@ export default function AiV3StylePanel() {
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   // Only show panel when exactly one panel-capable node is selected across all types
   const v3Node = (() => {
-    const selectedPanelNodes = nodes.filter((n) => n.selected && (n.type === 'io' || n.type === 'aiV3'));
+    const selectedPanelNodes = nodes.filter(
+      (n) => n.selected && (n.type === 'io' || n.type === 'aiV3' || n.type === 'materialProcess'),
+    );
     if (selectedPanelNodes.length !== 1) return null;
     return selectedPanelNodes[0].type === 'aiV3' ? selectedPanelNodes[0] : null;
   })();
@@ -112,10 +114,6 @@ export default function AiV3StylePanel() {
     if (!v3Node) setOpenPopover(null);
   }, [v3Node]);
 
-  const [height, setHeight] = useState(MIN_H);
-  const [dragging, setDragging] = useState(false);
-  const dragStartY = useRef(0);
-  const dragStartHeight = useRef(0);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [draggedGroupIdx, setDraggedGroupIdx] = useState<number | null>(null);
   const [dragOverGroupIdx, setDragOverGroupIdx] = useState<number | null>(null);
@@ -156,30 +154,6 @@ export default function AiV3StylePanel() {
     },
     [v3Node, setData],
   );
-
-  const handleDragStart = useCallback(
-    (event: React.PointerEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setDragging(true);
-      dragStartY.current = event.clientY;
-      dragStartHeight.current = height;
-    },
-    [height],
-  );
-
-  useEffect(() => {
-    if (!dragging) return;
-    const move = (event: PointerEvent) =>
-      setHeight(Math.min(MAX_H, Math.max(MIN_H, dragStartHeight.current + dragStartY.current - event.clientY)));
-    const up = () => setDragging(false);
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    return () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-  }, [dragging]);
 
   // sync prompt from nodeData when node changes
   useEffect(() => {
@@ -359,32 +333,7 @@ export default function AiV3StylePanel() {
   const webSearchEnabled = Boolean(nodeData.enableWebSearch);
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 80,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        maxWidth: 640,
-        width: 'calc(100% - 44px)',
-        height,
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 8,
-        gap: 10,
-        borderRadius: 25,
-        background: 'var(--t-card)',
-        backdropFilter: 'blur(40px)',
-        border: '1px solid var(--t-border)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-        zIndex: 30,
-        cursor: 'ns-resize',
-      }}
-      onPointerDown={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        if (e.clientY - rect.top <= 12) handleDragStart(e);
-      }}
-    >
+    <WorkflowStylePanelShell>
       {/* Input thumbnails — per-item preview (match IoStylePanel upstream style) */}
       {rawInputs.length > 0 &&
         (() => {
@@ -577,7 +526,7 @@ export default function AiV3StylePanel() {
             >
               <Globe size={14} />
             </button>
-            <PopoverButton
+            <StylePanelPopoverButton
               icon={<Crosshair size={14} />}
               label="模型"
               valueHint={modelLabel}
@@ -590,7 +539,7 @@ export default function AiV3StylePanel() {
                 selectedModel={selectedModel}
                 onSelect={(v) => handleModelChange(v)}
               />
-            </PopoverButton>
+            </StylePanelPopoverButton>
           </div>
         </div>
       )}
@@ -623,7 +572,7 @@ export default function AiV3StylePanel() {
             onPointerDown={(e) => e.stopPropagation()}
           />
           <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
-            <PopoverButton
+            <StylePanelPopoverButton
               icon={<Crosshair size={14} />}
               label="模型"
               valueHint={modelLabel}
@@ -636,8 +585,8 @@ export default function AiV3StylePanel() {
                 selectedModel={selectedModel}
                 onSelect={(v) => handleModelChange(v)}
               />
-            </PopoverButton>
-            <PopoverButton
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
               icon={<GridNine size={14} />}
               label="比例"
               valueHint={ratioHint}
@@ -675,8 +624,8 @@ export default function AiV3StylePanel() {
                   />
                 </div>
               </div>
-            </PopoverButton>
-            <PopoverButton
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
               icon={<Ruler size={14} />}
               label="尺寸"
               valueHint={sizeHint}
@@ -718,8 +667,8 @@ export default function AiV3StylePanel() {
                   />
                 </div>
               </div>
-            </PopoverButton>
-            <PopoverButton
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
               icon={<Image size={14} />}
               label="格式"
               valueHint={formatHint}
@@ -764,7 +713,7 @@ export default function AiV3StylePanel() {
                   ))}
                 </select>
               </div>
-            </PopoverButton>
+            </StylePanelPopoverButton>
           </div>
         </div>
       )}
@@ -797,7 +746,7 @@ export default function AiV3StylePanel() {
             onPointerDown={(e) => e.stopPropagation()}
           />
           <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
-            <PopoverButton
+            <StylePanelPopoverButton
               icon={<Crosshair size={14} />}
               label="模型"
               valueHint={modelLabel}
@@ -810,8 +759,8 @@ export default function AiV3StylePanel() {
                 selectedModel={selectedModel}
                 onSelect={(v) => handleModelChange(v)}
               />
-            </PopoverButton>
-            <PopoverButton
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
               icon={<Clock size={14} />}
               label="时长"
               valueHint={durationHint}
@@ -834,8 +783,8 @@ export default function AiV3StylePanel() {
                   </option>
                 ))}
               </select>
-            </PopoverButton>
-            <PopoverButton
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
               icon={<Ruler size={14} />}
               label="分辨率"
               valueHint={videoResHint}
@@ -878,7 +827,7 @@ export default function AiV3StylePanel() {
                   ))}
                 </select>
               </div>
-            </PopoverButton>
+            </StylePanelPopoverButton>
           </div>
         </div>
       )}
@@ -911,7 +860,7 @@ export default function AiV3StylePanel() {
             onPointerDown={(e) => e.stopPropagation()}
           />
           <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
-            <PopoverButton
+            <StylePanelPopoverButton
               icon={<Crosshair size={14} />}
               label="模型"
               valueHint={modelLabel}
@@ -924,8 +873,8 @@ export default function AiV3StylePanel() {
                 selectedModel={selectedModel}
                 onSelect={(v) => handleModelChange(v)}
               />
-            </PopoverButton>
-            <PopoverButton
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
               icon={<Gauge size={14} />}
               label="模式"
               valueHint={mjModeHint}
@@ -946,8 +895,8 @@ export default function AiV3StylePanel() {
                 <option value="relax">Relax</option>
                 <option value="turbo">Turbo</option>
               </select>
-            </PopoverButton>
-            <PopoverButton
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
               icon={<Ruler size={14} />}
               label="比例"
               valueHint={mjArHint}
@@ -973,8 +922,8 @@ export default function AiV3StylePanel() {
                 <option value="3:2">3:2</option>
                 <option value="2:3">2:3</option>
               </select>
-            </PopoverButton>
-            <PopoverButton
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
               icon={<SlidersHorizontal size={14} />}
               label="参数"
               open={openPopover === 'mjParams'}
@@ -1088,11 +1037,11 @@ export default function AiV3StylePanel() {
                   </div>
                 </div>
               </div>
-            </PopoverButton>
+            </StylePanelPopoverButton>
           </div>
         </div>
       )}
-    </div>
+    </WorkflowStylePanelShell>
   );
 }
 
@@ -1260,113 +1209,4 @@ function ModelTreeSelector({
     </div>
   );
 }
-
-function PopoverButton({
-  icon,
-  label,
-  valueHint,
-  open,
-  direction,
-  onToggle,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  valueHint?: string;
-  open: boolean;
-  direction: 'up' | 'down';
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  const displayValue = valueHint || label;
-  return (
-    <div style={{ position: 'relative' }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="nodrag"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 5,
-          height: 28,
-          padding: '0 8px 0 6px',
-          borderRadius: 9,
-          border: open
-            ? '1px solid color-mix(in srgb, var(--t-border) 80%, transparent)'
-            : '1px solid color-mix(in srgb, var(--t-border) 50%, transparent)',
-          background: open
-            ? 'color-mix(in srgb, var(--t-bg2) 72%, transparent)'
-            : 'color-mix(in srgb, var(--t-bg2) 55%, transparent)',
-          backdropFilter: open ? 'blur(14px)' : 'blur(8px)',
-          color: open ? 'var(--t-text)' : 'var(--t-text2)',
-          fontSize: 11,
-          fontWeight: 500,
-          fontFamily: 'var(--font-sans)',
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          transition: 'background 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
-          boxShadow: open ? '0 2px 12px rgba(0,0,0,0.08)' : 'none',
-        }}
-        title={label}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, opacity: 0.75 }}>{icon}</span>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 64 }}>{displayValue}</span>
-        <span
-          style={{
-            fontSize: 8,
-            opacity: 0.45,
-            flexShrink: 0,
-            marginLeft: 1,
-            transition: 'transform 0.2s',
-            transform: open ? 'rotate(180deg)' : '',
-          }}
-        >
-          ▾
-        </span>
-      </button>
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 31 }} onClick={onToggle} />
-          <div
-            className="nodrag"
-            onPointerDown={(e) => e.stopPropagation()}
-            style={{
-              position: 'absolute',
-              ...(direction === 'up' ? { bottom: '100%', marginBottom: 8 } : { top: '100%', marginTop: 8 }),
-              right: 0,
-              minWidth: 260,
-              borderRadius: 16,
-              background: 'color-mix(in srgb, var(--t-card) 94%, transparent)',
-              backdropFilter: 'blur(48px) saturate(180%)',
-              border: '1px solid color-mix(in srgb, var(--t-border) 72%, transparent)',
-              boxShadow:
-                direction === 'up'
-                  ? '0 -12px 48px rgba(0,0,0,0.14), 0 -1px 0 rgba(255,255,255,0.07) inset'
-                  : '0 16px 48px rgba(0,0,0,0.16), 0 1px 0 rgba(255,255,255,0.07) inset',
-              zIndex: 32,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '13px 16px 10px',
-                borderBottom: '1px solid color-mix(in srgb, var(--t-border) 28%, transparent)',
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', color: 'var(--t-text2)', opacity: 0.75 }}>
-                {icon}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t-text)', fontFamily: 'var(--font-sans)' }}>
-                {label}
-              </span>
-            </div>
-            <div style={{ padding: 12 }}>{children}</div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';

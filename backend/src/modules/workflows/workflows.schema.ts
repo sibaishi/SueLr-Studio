@@ -7,6 +7,8 @@ import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { CURRENT_WORKFLOW_SCHEMA_VERSION } from './workflow-migrations.ts';
 
+const LEGACY_MATERIAL_NODE_TYPES = new Set(['textSplit', 'imageSplit', 'iterateRun', 'iterateImageRun']);
+
 type WorkflowNormalizeOptions = {
   preserveCreatedAt?: boolean;
   updatedAt?: number;
@@ -58,6 +60,16 @@ function normalizeNode(node: DynamicValue, index: number) {
 
   const contract = getNodeContract(node.type);
   if (!contract) {
+    if (LEGACY_MATERIAL_NODE_TYPES.has(node.type)) {
+      throw new ValidationError(
+        'WORKFLOW_NODE_TYPE_UNSUPPORTED',
+        `不支持的旧版工作流节点: ${node.type}。请删除旧节点并使用“素材处理”节点重新连接。`,
+        {
+          path: `nodes[${index}].type`,
+          nodeId: node.id,
+        },
+      );
+    }
     throw new ValidationError('WORKFLOW_NODE_TYPE_UNSUPPORTED', `不支持的节点类型: ${node.type}`, {
       path: `nodes[${index}].type`,
       nodeId: node.id,

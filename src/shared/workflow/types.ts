@@ -71,7 +71,7 @@ export interface NodeTypeDef {
     defaults?: Record<string, unknown>;
   };
   runtime?: {
-    mode?: 'standard' | 'iterate-text' | 'iterate-image';
+    mode?: 'standard' | 'material-process';
   };
   agentInput?: {
     aliases: string[];

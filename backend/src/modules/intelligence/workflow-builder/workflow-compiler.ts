@@ -303,12 +303,14 @@ function compileComplexAssetPack(
       systemPrompt:
         '你是电商文案。基于设计 brief 输出主标题、利益点、副标题、详情页首屏文案和短视频字幕建议，结构化列出。',
     }),
-    node('storyboard_split', 'textSplit', 1180, 470, {
+    node('storyboard_material', 'materialProcess', 1180, 470, {
+      materialType: 'text',
+      splitEnabled: true,
+      iterateEnabled: true,
       separator: '\n',
       outputCount: Math.max(4, Math.min(9, extractFirstNumber(intent.sourceText) || 6)),
     }),
-    node('storyboard_iterate', 'iterateRun', 1520, 470),
-    node('storyboard_image_gen', 'imageGen', 1860, 430, {
+    node('storyboard_image_gen', 'imageGen', 1520, 430, {
       model: '',
       ratio: includesText(intent.sourceText, ['9:16', '竖版', '竖屏']) ? '9:16' : '16:9',
       resolution: '1k',
@@ -318,8 +320,8 @@ function compileComplexAssetPack(
     node('main_save', 'saveFile', 1180, 40, { filenamePrefix: 'main-visual' }),
     node('detail_save', 'saveFile', 1180, 250, { filenamePrefix: 'detail-hero' }),
     node('copy_save', 'saveFile', 1520, 250, { filenamePrefix: 'copywriting' }),
-    node('storyboard_save', 'saveFile', 2200, 430, { filenamePrefix: 'storyboard-shot' }),
-    node('asset_output', 'output', 2540, 250),
+    node('storyboard_save', 'saveFile', 1860, 430, { filenamePrefix: 'storyboard-shot' }),
+    node('asset_output', 'output', 2200, 250),
   ];
   const edges = [
     edge('brand-brief-to-architect', 'brand_brief', 'text', 'brief_architect', 'prompt'),
@@ -329,17 +331,8 @@ function compileComplexAssetPack(
     edge('architect-to-detail-image', 'brief_architect', 'response', 'detail_image_gen', 'prompt'),
     edge('product-image-to-detail-image', 'product_image', 'image', 'detail_image_gen', 'reference'),
     edge('architect-to-copy-writer', 'brief_architect', 'response', 'copy_writer', 'prompt'),
-    edge('architect-to-storyboard-split', 'brief_architect', 'response', 'storyboard_split', 'text'),
-    ...Array.from({ length: Math.max(4, Math.min(9, extractFirstNumber(intent.sourceText) || 6)) }, (_, index) =>
-      edge(
-        `storyboard-part-${index + 1}-to-iterate`,
-        'storyboard_split',
-        `part${index + 1}`,
-        'storyboard_iterate',
-        `item${index + 1}`,
-      ),
-    ),
-    edge('iterate-to-storyboard-image', 'storyboard_iterate', 'text', 'storyboard_image_gen', 'prompt'),
+    edge('architect-to-storyboard-material', 'brief_architect', 'response', 'storyboard_material', 'input'),
+    edge('material-to-storyboard-image', 'storyboard_material', 'result', 'storyboard_image_gen', 'prompt'),
     edge('main-image-to-save', 'main_image_gen', 'images', 'main_save', 'content'),
     edge('detail-image-to-save', 'detail_image_gen', 'images', 'detail_save', 'content'),
     edge('copy-to-save', 'copy_writer', 'response', 'copy_save', 'content'),
@@ -384,28 +377,27 @@ function compileBatchStoryboard(
       maxTokens: 4096,
       systemPrompt: `你是分镜导演。把用户脚本拆成 ${shotCount} 个连续镜头，每行一个镜头。每行包含画面主体、景别、动作、构图、光线、情绪，不要输出解释。`,
     }),
-    node('shot_split', 'textSplit', 800, 150, {
+    node('shot_material', 'materialProcess', 800, 150, {
+      materialType: 'text',
+      splitEnabled: true,
+      iterateEnabled: true,
       separator: '\n',
       outputCount: shotCount,
     }),
-    node('shot_iterate', 'iterateRun', 1140, 150),
-    node('shot_image_gen', 'imageGen', 1480, 130, {
+    node('shot_image_gen', 'imageGen', 1140, 130, {
       model: '',
       ratio: includesText(intent.sourceText, ['9:16', '竖版', '竖屏']) ? '9:16' : '16:9',
       resolution: '1k',
       n: 1,
       output_format: 'png',
     }),
-    node('shot_save', 'saveFile', 1840, 130, { filenamePrefix: 'storyboard-shot' }),
-    node('shot_output', 'output', 2180, 170),
+    node('shot_save', 'saveFile', 1480, 130, { filenamePrefix: 'storyboard-shot' }),
+    node('shot_output', 'output', 1820, 170),
   ];
   const edges = [
     edge('script-to-planner', 'script_input', 'text', 'shot_planner', 'prompt'),
-    edge('planner-to-split', 'shot_planner', 'response', 'shot_split', 'text'),
-    ...Array.from({ length: shotCount }, (_, index) =>
-      edge(`shot-part-${index + 1}-to-iterate`, 'shot_split', `part${index + 1}`, 'shot_iterate', `item${index + 1}`),
-    ),
-    edge('iterate-to-image-gen', 'shot_iterate', 'text', 'shot_image_gen', 'prompt'),
+    edge('planner-to-material', 'shot_planner', 'response', 'shot_material', 'input'),
+    edge('material-to-image-gen', 'shot_material', 'result', 'shot_image_gen', 'prompt'),
     edge('image-gen-to-save', 'shot_image_gen', 'images', 'shot_save', 'content'),
     edge('save-to-output', 'shot_save', 'content', 'shot_output', 'content'),
   ];
@@ -414,7 +406,7 @@ function compileBatchStoryboard(
     {
       id: workflowId,
       name: draft.name,
-      description: `${draft.description}\n复杂编排：AI 拆镜头、textSplit 拆分、iterateRun 逐项生成每个镜头画面。`,
+      description: `${draft.description}\n复杂编排：AI 拆镜头、素材处理节点拆分并逐项生成每个镜头画面。`,
       nodes,
       edges,
       settings: {

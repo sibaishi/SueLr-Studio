@@ -1,25 +1,20 @@
 import FlowNode from './nodes/FlowNode';
 import AiV3Node from './nodes/ai/AiV3/AiV3Node';
 import IoNode from './nodes/io/Io/IoNode';
+import MaterialProcessNode from './nodes/merge/MaterialProcess/MaterialProcessNode';
 
 export const FLOW_NODE_TYPES = {
   group: FlowNode,
-  imageSplit: FlowNode,
-  iterateRun: FlowNode,
-  iterateImageRun: FlowNode,
+  materialProcess: MaterialProcessNode,
   promptHelper: FlowNode,
-  textSplit: FlowNode,
   aiV3: AiV3Node,
   io: IoNode,
 } as const;
 
 export const FLOW_NODE_COLORS: Record<string, string> = {
   group: '#8E8E93',
-  imageSplit: '#FF9500',
-  iterateRun: '#007AFF',
-  iterateImageRun: '#FF9500',
+  materialProcess: '#AF52DE',
   promptHelper: '#00C7BE',
-  textSplit: '#0A84FF',
   aiV3: '#0A84FF',
   io: '#5E5CE6',
 };

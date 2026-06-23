@@ -300,23 +300,6 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
                   </div>
                 );
               })}
-              {imageItems.length > 8 && (
-                <div
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'var(--node-card-bg-soft)',
-                    fontSize: 12,
-                    color: 'var(--node-card-muted)',
-                  }}
-                >
-                  +{imageItems.length - 8}
-                </div>
-              )}
             </div>
           )}
 

@@ -1,3 +1,4 @@
+import { WorkflowStylePanelShell } from '@/domains/workflow/components/WorkflowStylePanelShell';
 import { createThumbnailFromBlob } from '@/domains/workflow/components/flowCanvasHelpers';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import { resolveStylePanelInput } from '@/domains/workflow/components/stylePanelInputResolver';
@@ -8,8 +9,6 @@ import { type InputOrderMap, expandAiV3InputSlots, readInputOrder } from '@/doma
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fileRawStore, uploadUrlStore } from './nodes/io/fileRawStore';
 
-const MIN_H = 150;
-const MAX_H = 300;
 const ALLOWED_EXTENSIONS =
   /\.(png|jpg|jpeg|gif|webp|avif|bmp|svg|mp4|webm|mov|mkv|mp3|wav|ogg|aac|flac|txt|md|markdown|json|csv|tsv|log|xml|html|css|js|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sh|bat|ps1|yaml|yml)$/i;
 const TEXT_EXTENSIONS =
@@ -82,7 +81,9 @@ export default function IoStylePanel() {
 
   // Only show panel when exactly one panel-capable node is selected across all types
   const ioNode = (() => {
-    const selectedPanelNodes = nodes.filter((n) => n.selected && (n.type === 'io' || n.type === 'aiV3'));
+    const selectedPanelNodes = nodes.filter(
+      (n) => n.selected && (n.type === 'io' || n.type === 'aiV3' || n.type === 'materialProcess'),
+    );
     if (selectedPanelNodes.length !== 1) return null;
     return selectedPanelNodes[0].type === 'io' ? selectedPanelNodes[0] : null;
   })();
@@ -90,15 +91,11 @@ export default function IoStylePanel() {
   const nodeData = (ioNode?.data || {}) as Record<string, unknown>;
   const hasUpstream = !!selectedNodeId && edges.some((e) => e.target === selectedNodeId);
 
-  const [height, setHeight] = useState(MIN_H);
-  const [dragging, setDragging] = useState(false);
   const [draggedGroupIdx, setDraggedGroupIdx] = useState<number | null>(null);
   const [dragOverGroupIdx, setDragOverGroupIdx] = useState<number | null>(null);
   const [draggedGroupType, setDraggedGroupType] = useState<string | null>(null);
   const [srcDraggedIdx, setSrcDraggedIdx] = useState<number | null>(null);
   const [srcDragOverIdx, setSrcDragOverIdx] = useState<number | null>(null);
-  const dragStartY = useRef(0);
-  const dragStartHeight = useRef(0);
   const typeGroupsRef = useRef<typeof inputGroups>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -272,30 +269,6 @@ export default function IoStylePanel() {
       if (syncTimerRef.current !== null) clearTimeout(syncTimerRef.current);
     };
   }, [textValue, files, persistentContentSignature, fileNamesSignature, fileIdsLen]);
-
-  // ── resize ──
-  const handleDragStart = useCallback(
-    (event: React.PointerEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setDragging(true);
-      dragStartY.current = event.clientY;
-      dragStartHeight.current = height;
-    },
-    [height],
-  );
-  useEffect(() => {
-    if (!dragging) return;
-    const move = (event: PointerEvent) =>
-      setHeight(Math.min(MAX_H, Math.max(MIN_H, dragStartHeight.current + dragStartY.current - event.clientY)));
-    const up = () => setDragging(false);
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    return () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-  }, [dragging]);
 
   // ── file ops ──
   const isTextFile = (file: File) =>
@@ -476,32 +449,7 @@ export default function IoStylePanel() {
 
   // ═══ PANEL ═══
   return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 80,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        maxWidth: 640,
-        width: 'calc(100% - 44px)',
-        height,
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 8,
-        gap: 10,
-        borderRadius: 25,
-        background: 'var(--t-card)',
-        backdropFilter: 'blur(40px)',
-        border: '1px solid var(--t-border)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-        zIndex: 30,
-        cursor: 'ns-resize',
-      }}
-      onPointerDown={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        if (e.clientY - rect.top <= 12) handleDragStart(e);
-      }}
-    >
+    <WorkflowStylePanelShell>
       {/* ── UPSTREAM FILE ITEMS (compact horizontal, all types one line) ── */}
       {hasUpstream &&
         rawInputs.length > 0 &&
@@ -843,6 +791,6 @@ export default function IoStylePanel() {
           上游 {rawInputs.length} 项数据，锁定中
         </div>
       )}
-    </div>
+    </WorkflowStylePanelShell>
   );
 }

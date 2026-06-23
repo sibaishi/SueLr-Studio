@@ -29,9 +29,10 @@
 | 需求理解 | 生成结果是否真的回应了用户原始需求，而不是只套用通用模板 |
 | 工作流结构 | 复杂需求是否被拆成多链路，而不是只有一条简单链路 |
 | 多 AI 协作 | 是否按职责使用多个 AI 节点，例如需求拆解、文案生成、分镜规划、质检总结 |
-| 逐项运行 | 批量/分镜/多输入任务是否使用 `textSplit + iterateRun` 或 `iterateImageRun` |
-| 文本拆分 | `textSplit` 是否显式设置 `separator` 和 `outputCount` |
-| 上游输出格式 | 连接到 `textSplit` 的上游 `aiChat.systemPrompt` 是否明确要求按同一分隔符输出，例如“每行一个片段，不要输出解释” |
+| 逐项运行 | 批量、分镜或多输入任务是否使用启用 `iterateEnabled` 的 `materialProcess` |
+| 素材拆分 | `materialProcess` 是否显式设置 `materialType`、`splitEnabled`、`separator/outputCount` 或 `rows/columns` |
+| 上游输出格式 | 文本 `materialProcess` 的上游 `aiChat.systemPrompt` 是否明确要求按同一分隔符输出，例如“每行一个片段，不要输出解释” |
+| 路径约束 | 同一条有向路径是否最多只有一个启用逐项的 `materialProcess`，并行分支是否保持独立 |
 | 参数填充 | `aiChat.systemPrompt`、`imageGen.ratio/resolution/n/output_format`、`videoGen.duration/resolution/ratio`、`saveFile.filenamePrefix` 等是否按需求设置 |
 | 节点选择 | 是否误用节点，例如分镜图错误使用 `videoGen`、普通提示词错误使用 `promptHelper` |
 | 输出链路 | 最终产物是否经过 `saveFile` 并汇总到 `output` |

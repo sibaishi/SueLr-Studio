@@ -59,120 +59,41 @@ describe('workflow store graph editor actions', () => {
     ]);
   });
 
-  it('replaces an existing connection on the same target handle', () => {
+  it('rejects a connection that would nest two iterating material processors', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'sourceB', type: 'io', position: { x: 0, y: 80 }, data: {} },
-        { id: 'merge', type: 'iterateRun', position: { x: 220, y: 0 }, data: { inputCount: 1 } },
+        { id: 'first', type: 'materialProcess', position: { x: 0, y: 0 }, data: { iterateEnabled: true } },
+        { id: 'middle', type: 'io', position: { x: 220, y: 0 }, data: {} },
+        { id: 'second', type: 'materialProcess', position: { x: 440, y: 0 }, data: { iterateEnabled: true } },
       ],
-      edges: [
-        {
-          id: 'edge_existing',
-          source: 'sourceA',
-          sourceHandle: 'result',
-          target: 'merge',
-          targetHandle: 'item2',
-        },
-      ],
+      edges: [{ id: 'existing', source: 'first', sourceHandle: 'result', target: 'middle', targetHandle: 'input' }],
     });
 
     const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
     harness.attachActions(actions);
 
-    actions.addEdge('sourceB', 'output', 'merge', 'item2');
+    actions.addEdge('middle', 'result', 'second', 'input');
 
-    const state = harness.getState();
-    expect(state.edges).toHaveLength(1);
-    expect(state.edges[0]?.source).toBe('sourceB');
-    expect(state.edges[0]?.target).toBe('merge');
-    expect(state.edges[0]?.targetHandle).toBe('item2');
-    expect(state.nodes.find((node) => node.id === 'merge')?.data.inputCount).toBe(3);
-    expect(state.hasUnsavedChanges).toBe(true);
+    expect(harness.getState().edges).toHaveLength(1);
   });
 
-  it('compacts iterate-run input handles after disconnecting a middle input', () => {
+  it('allows independent parallel branches to iterate separately', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'sourceB', type: 'io', position: { x: 0, y: 80 }, data: {} },
-        { id: 'sourceC', type: 'io', position: { x: 0, y: 160 }, data: {} },
-        { id: 'iterate', type: 'iterateRun', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
+        { id: 'sourceB', type: 'io', position: { x: 0, y: 120 }, data: {} },
+        { id: 'iterateA', type: 'materialProcess', position: { x: 220, y: 0 }, data: { iterateEnabled: true } },
+        { id: 'iterateB', type: 'materialProcess', position: { x: 220, y: 120 }, data: { iterateEnabled: true } },
       ],
-      edges: [
-        { id: 'edge_a', source: 'sourceA', sourceHandle: 'result', target: 'iterate', targetHandle: 'item1' },
-        { id: 'edge_b', source: 'sourceB', sourceHandle: 'result', target: 'iterate', targetHandle: 'item2' },
-        { id: 'edge_c', source: 'sourceC', sourceHandle: 'result', target: 'iterate', targetHandle: 'item3' },
-      ],
+      edges: [],
     });
 
     const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
     harness.attachActions(actions);
+    actions.addEdge('sourceA', 'result', 'iterateA', 'input');
+    actions.addEdge('sourceB', 'result', 'iterateB', 'input');
 
-    actions.removeEdge('edge_b');
-
-    const state = harness.getState();
-    expect(state.edges).toEqual([
-      expect.objectContaining({ id: 'edge_a', target: 'iterate', targetHandle: 'item1' }),
-      expect.objectContaining({ id: 'edge_c', target: 'iterate', targetHandle: 'item2' }),
-    ]);
-    expect(state.nodes.find((node) => node.id === 'iterate')?.data.inputCount).toBe(3);
-  });
-
-  it('compacts iterate-image-run input handles after disconnecting a middle input', () => {
-    const harness = createWorkflowStoreHarness({
-      nodes: [
-        { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'sourceB', type: 'io', position: { x: 0, y: 80 }, data: {} },
-        { id: 'sourceC', type: 'io', position: { x: 0, y: 160 }, data: {} },
-        { id: 'iterateImage', type: 'iterateImageRun', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
-      ],
-      edges: [
-        { id: 'edge_a', source: 'sourceA', sourceHandle: 'image', target: 'iterateImage', targetHandle: 'item1' },
-        { id: 'edge_b', source: 'sourceB', sourceHandle: 'image', target: 'iterateImage', targetHandle: 'item2' },
-        { id: 'edge_c', source: 'sourceC', sourceHandle: 'image', target: 'iterateImage', targetHandle: 'item3' },
-      ],
-    });
-
-    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
-    harness.attachActions(actions);
-
-    actions.removeEdge('edge_b');
-
-    const state = harness.getState();
-    expect(state.edges).toEqual([
-      expect.objectContaining({ id: 'edge_a', target: 'iterateImage', targetHandle: 'item1' }),
-      expect.objectContaining({ id: 'edge_c', target: 'iterateImage', targetHandle: 'item2' }),
-    ]);
-    expect(state.nodes.find((node) => node.id === 'iterateImage')?.data.inputCount).toBe(3);
-  });
-
-  it('compacts merge input handles after deleting a connected source node', () => {
-    const harness = createWorkflowStoreHarness({
-      nodes: [
-        { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'sourceB', type: 'io', position: { x: 0, y: 80 }, data: {} },
-        { id: 'sourceC', type: 'io', position: { x: 0, y: 160 }, data: {} },
-        { id: 'merge', type: 'iterateRun', position: { x: 220, y: 0 }, data: { inputCount: 4 } },
-      ],
-      edges: [
-        { id: 'edge_a', source: 'sourceA', sourceHandle: 'result', target: 'merge', targetHandle: 'item1' },
-        { id: 'edge_b', source: 'sourceB', sourceHandle: 'result', target: 'merge', targetHandle: 'item2' },
-        { id: 'edge_c', source: 'sourceC', sourceHandle: 'result', target: 'merge', targetHandle: 'item3' },
-      ],
-    });
-
-    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
-    harness.attachActions(actions);
-
-    actions.removeNodeWithoutReconnect('sourceB');
-
-    const state = harness.getState();
-    expect(state.edges).toEqual([
-      expect.objectContaining({ id: 'edge_a', target: 'merge', targetHandle: 'item1' }),
-      expect.objectContaining({ id: 'edge_c', target: 'merge', targetHandle: 'item2' }),
-    ]);
-    expect(state.nodes.find((node) => node.id === 'merge')?.data.inputCount).toBe(3);
+    expect(harness.getState().edges).toHaveLength(2);
   });
 
   it('keeps exactly one trailing empty group input slot after edge mutations', () => {
@@ -400,41 +321,15 @@ describe('workflow store graph editor actions', () => {
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
-  it('does not detach a middle node when no compatible bypass connection exists', () => {
-    const harness = createWorkflowStoreHarness({
-      nodes: [
-        { id: 'io', type: 'iterateImageRun', position: { x: 0, y: 0 }, data: {} },
-        { id: 'resize', type: 'imageSplit', position: { x: 240, y: 0 }, data: {} },
-        { id: 'chat', type: 'textSplit', position: { x: 520, y: 0 }, data: {} },
-      ],
-      edges: [
-        { id: 'edge_in', source: 'io', sourceHandle: 'image', target: 'resize', targetHandle: 'image' },
-        { id: 'edge_out', source: 'resize', sourceHandle: 'part1', target: 'chat', targetHandle: 'text' },
-      ],
-    });
-
-    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
-    harness.attachActions(actions);
-
-    actions.detachNodeFromChain('resize');
-
-    const state = harness.getState();
-    expect(state.edges).toEqual([
-      { id: 'edge_in', source: 'io', sourceHandle: 'image', target: 'resize', targetHandle: 'image' },
-      { id: 'edge_out', source: 'resize', sourceHandle: 'part1', target: 'chat', targetHandle: 'text' },
-    ]);
-    expect(state.hasUnsavedChanges).toBe(false);
-  });
-
   it('inserts a node onto an existing compatible edge', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'io', type: 'iterateImageRun', position: { x: 0, y: 0 }, data: {} },
-        { id: 'resize', type: 'imageSplit', position: { x: 240, y: 0 }, data: {} },
-        { id: 'merge', type: 'iterateImageRun', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
+        { id: 'io', type: 'io', position: { x: 0, y: 0 }, data: {} },
+        { id: 'resize', type: 'materialProcess', position: { x: 240, y: 0 }, data: { iterateEnabled: false } },
+        { id: 'merge', type: 'io', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
-        { id: 'edge_original', source: 'io', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
+        { id: 'edge_original', source: 'io', sourceHandle: 'result', target: 'merge', targetHandle: 'input' },
       ],
     });
 
@@ -448,29 +343,29 @@ describe('workflow store graph editor actions', () => {
     expect(state.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({
         source: 'io',
-        sourceHandle: 'image',
+        sourceHandle: 'result',
         target: 'resize',
-        targetHandle: 'image',
+        targetHandle: 'input',
       }),
       expect.objectContaining({
         source: 'resize',
-        sourceHandle: 'part1',
+        sourceHandle: 'result',
         target: 'merge',
-        targetHandle: 'item1',
+        targetHandle: 'input',
       }),
     ]));
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
-  it('does not insert a node when it cannot bridge the edge types', () => {
+  it('does not insert an iterator into an existing iterating path', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
-        { id: 'io', type: 'iterateImageRun', position: { x: 0, y: 0 }, data: {} },
-        { id: 'chat', type: 'textSplit', position: { x: 240, y: 0 }, data: {} },
-        { id: 'merge', type: 'iterateImageRun', position: { x: 520, y: 0 }, data: { inputCount: 1 } },
+        { id: 'io', type: 'materialProcess', position: { x: 0, y: 0 }, data: { iterateEnabled: true } },
+        { id: 'chat', type: 'materialProcess', position: { x: 240, y: 0 }, data: { iterateEnabled: true } },
+        { id: 'merge', type: 'io', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
-        { id: 'edge_original', source: 'io', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
+        { id: 'edge_original', source: 'io', sourceHandle: 'result', target: 'merge', targetHandle: 'input' },
       ],
     });
 
@@ -481,7 +376,7 @@ describe('workflow store graph editor actions', () => {
 
     const state = harness.getState();
     expect(state.edges).toEqual([
-      { id: 'edge_original', source: 'io', sourceHandle: 'image', target: 'merge', targetHandle: 'item1' },
+      { id: 'edge_original', source: 'io', sourceHandle: 'result', target: 'merge', targetHandle: 'input' },
     ]);
     expect(state.hasUnsavedChanges).toBe(false);
   });

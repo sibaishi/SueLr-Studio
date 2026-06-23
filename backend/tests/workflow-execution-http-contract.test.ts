@@ -90,13 +90,13 @@ test('execution HTTP boundary rejects invalid draft execution bodies with a vali
 
 test('execution SSE disconnect does not cancel the active run so polling can recover it', async () => {
   const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
-  const originalTextSplit = NODE_EXECUTORS.textSplit;
+  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
   const started = deferred();
   const release = deferred();
-  NODE_EXECUTORS.textSplit = async (_node, inputs) => {
+  NODE_EXECUTORS.materialProcess = async (_node, inputs) => {
     started.resolve();
     await release.promise;
-    return { text: String(inputs.text || '') };
+    return { result: String(inputs.input || '') };
   };
 
   const { server, baseUrl } = await createTestServer('execution-disconnect-recover');
@@ -109,7 +109,12 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
         name: 'Disconnect Recover Workflow',
         nodes: [
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'hello' } },
-          { id: 'clean', type: 'textSplit', position: { x: 160, y: 0 }, data: {} },
+          {
+            id: 'clean',
+            type: 'materialProcess',
+            position: { x: 160, y: 0 },
+            data: { splitEnabled: true, iterateEnabled: false },
+          },
         ],
         edges: [
           {
@@ -117,7 +122,7 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
             source: 'input',
             sourceHandle: 'result',
             target: 'clean',
-            targetHandle: 'text',
+            targetHandle: 'input',
           },
         ],
       }),
@@ -147,7 +152,7 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
     assert.equal(finalStatus, 'completed');
   } finally {
     release.resolve();
-    NODE_EXECUTORS.textSplit = originalTextSplit;
+    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
     await new Promise((resolve) => server.close(resolve));
   }
 });

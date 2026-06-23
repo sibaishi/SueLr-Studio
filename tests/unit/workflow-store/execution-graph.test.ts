@@ -187,28 +187,26 @@ describe('execution graph projection', () => {
     ]);
   });
 
-  it('passes a disabled imageSplit source image through part1 only', () => {
+  it('passes a disabled materialProcess input through result', () => {
     const nodes: Node[] = [
       { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: {} },
-      { id: 'split', type: 'imageSplit', position: { x: 100, y: 0 }, data: { disabled: true, rows: 3, columns: 3 } },
-      { id: 'part1-output', type: 'io', position: { x: 200, y: 0 }, data: {} },
-      { id: 'part2-output', type: 'io', position: { x: 200, y: 100 }, data: {} },
+      { id: 'process', type: 'materialProcess', position: { x: 100, y: 0 }, data: { disabled: true } },
+      { id: 'output', type: 'io', position: { x: 200, y: 0 }, data: {} },
     ];
     const edges = [
-      { id: 'source-split', source: 'source', sourceHandle: 'image', target: 'split', targetHandle: 'image' },
-      { id: 'split-part1', source: 'split', sourceHandle: 'part1', target: 'part1-output', targetHandle: 'content' },
-      { id: 'split-part2', source: 'split', sourceHandle: 'part2', target: 'part2-output', targetHandle: 'content' },
+      { id: 'source-process', source: 'source', sourceHandle: 'result', target: 'process', targetHandle: 'input' },
+      { id: 'process-output', source: 'process', sourceHandle: 'result', target: 'output', targetHandle: 'input' },
     ];
 
     const projected = projectWorkflowToExecutionGraph(nodes, edges);
 
-    expect(projected.nodes.map((node) => node.id)).toEqual(['source', 'part1-output', 'part2-output']);
+    expect(projected.nodes.map((node) => node.id)).toEqual(['source', 'output']);
     expect(projected.edges).toEqual([
       expect.objectContaining({
         source: 'source',
-        sourceHandle: 'image',
-        target: 'part1-output',
-        targetHandle: 'content',
+        sourceHandle: 'result',
+        target: 'output',
+        targetHandle: 'input',
       }),
     ]);
   });

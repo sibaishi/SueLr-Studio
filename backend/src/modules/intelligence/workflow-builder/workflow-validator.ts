@@ -3,6 +3,7 @@ import {
   getWorkflowValidationNodePortDefs,
 } from '../../../../../src/shared/workflow/node-catalog.js';
 import { resolveDynamicPortCount } from '../../../../../src/shared/workflow/node-registry.js';
+import { findNestedMaterialProcessPath } from '../../../../../src/shared/workflow/material-process-graph.js';
 import { ValidationError } from '../../../app/errors/index.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';
@@ -151,6 +152,14 @@ export function validateCompiledWorkflow(workflow: PlainObject, options: { scope
   const nodes = Array.isArray(normalized.nodes) ? (normalized.nodes as PlainObject[]) : [];
   const edges = Array.isArray(normalized.edges) ? (normalized.edges as PlainObject[]) : [];
   const nodeMap = new Map(nodes.map((node) => [String(node.id || ''), node]));
+  const nestedMaterialPath = findNestedMaterialProcessPath(nodes, edges);
+  if (nestedMaterialPath) {
+    pushIssue(issues, {
+      code: 'MATERIAL_PROCESS_ITERATION_NESTED',
+      message: `同一条执行路径只能有一个启用逐项的素材处理节点：${nestedMaterialPath.sourceId} -> ${nestedMaterialPath.targetId}`,
+      nodeId: nestedMaterialPath.targetId,
+    });
+  }
 
   for (const edge of edges) {
     const edgeId = String(edge.id || '');

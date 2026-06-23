@@ -227,14 +227,19 @@ describe('workflow store execution actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'a', type: 'io', position: { x: 0, y: 0 }, data: { text: 'a' } },
-        { id: 'b', type: 'iterateRun', position: { x: 200, y: 0 }, data: {} },
+        {
+          id: 'b',
+          type: 'materialProcess',
+          position: { x: 200, y: 0 },
+          data: { splitEnabled: false, iterateEnabled: true },
+        },
         { id: 'c', type: 'io', position: { x: 400, y: 0 }, data: {} },
         { id: 'd', type: 'io', position: { x: 600, y: 0 }, data: {} },
         { id: 'side', type: 'io', position: { x: 400, y: 160 }, data: {} },
         { id: 'other', type: 'io', position: { x: 0, y: 160 }, data: { text: 'other' } },
       ],
       edges: [
-        { id: 'ab', source: 'a', sourceHandle: 'result', target: 'b', targetHandle: 'item1' },
+        { id: 'ab', source: 'a', sourceHandle: 'result', target: 'b', targetHandle: 'input' },
         { id: 'bc', source: 'b', sourceHandle: 'result', target: 'c', targetHandle: 'input' },
         { id: 'cd', source: 'c', sourceHandle: 'result', target: 'd', targetHandle: 'input' },
         { id: 'b-side', source: 'b', sourceHandle: 'result', target: 'side', targetHandle: 'input' },
@@ -259,11 +264,11 @@ describe('workflow store execution actions', () => {
       nodes: [
         { id: 'prompt', type: 'io', position: { x: 0, y: 0 }, data: { text: 'hello' } },
         { id: 'ai_node', type: 'aiV3', position: { x: 200, y: 0 }, data: { disabled: false } },
-        { id: 'clean_node', type: 'textSplit', position: { x: 400, y: 0 }, data: {} },
+        { id: 'clean_node', type: 'materialProcess', position: { x: 400, y: 0 }, data: {} },
       ],
       edges: [
         { id: 'prompt-ai', source: 'prompt', sourceHandle: 'result', target: 'ai_node', targetHandle: 'input' },
-        { id: 'ai-clean', source: 'ai_node', sourceHandle: 'result', target: 'clean_node', targetHandle: 'text' },
+        { id: 'ai-clean', source: 'ai_node', sourceHandle: 'result', target: 'clean_node', targetHandle: 'input' },
       ],
     });
 
@@ -507,11 +512,11 @@ describe('workflow store execution actions', () => {
     expect(state.hasUnsavedChanges).toBe(true);
   });
 
-  it('writes upstream textSplit execution outputs back into node segments', async () => {
+  it('keeps materialProcess execution output in runtime results without mutating node configuration', async () => {
     vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
       callbacks.onNodeComplete?.({
         nodeId: 'split_node',
-        outputs: { part1: 'first', part2: 'second' },
+        outputs: { result: ['first', 'second'] },
         duration: 1,
       });
       callbacks.onWorkflowComplete?.({
@@ -532,12 +537,12 @@ describe('workflow store execution actions', () => {
         },
         {
           id: 'split_node',
-          type: 'textSplit',
+          type: 'materialProcess',
           position: { x: 300, y: 0 },
-          data: { outputCount: 2, segments: ['local first', 'local second'] },
+          data: { outputCount: 2, separator: '---', splitEnabled: true, iterateEnabled: false },
         },
       ],
-      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'result', target: 'split_node', targetHandle: 'text' }],
+      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'result', target: 'split_node', targetHandle: 'input' }],
       saveWorkflow: vi.fn(async () => false),
       addExecutionLog: vi.fn(),
     });
@@ -548,8 +553,12 @@ describe('workflow store execution actions', () => {
     await actions.executeWorkflow();
 
     const state = harness.getState();
-    expect(state.nodes.find((node) => node.id === 'split_node')?.data.segments).toEqual(['first', 'second']);
-    expect(state.hasUnsavedChanges).toBe(true);
+    expect(state.nodes.find((node) => node.id === 'split_node')?.data).toMatchObject({
+      outputCount: 2,
+      separator: '---',
+    });
+    expect(state.nodeOutputs.split_node).toEqual({ result: ['first', 'second'] });
+    expect(state.hasUnsavedChanges).toBe(false);
   });
 
   it('keeps a repeated node running until all concurrent iteration completions settle', async () => {
@@ -561,7 +570,7 @@ describe('workflow store execution actions', () => {
         nodes: [
           {
             id: 'repeated_node',
-            type: 'textSplit',
+            type: 'materialProcess',
             position: { x: 0, y: 0 },
             data: {},
           },
@@ -574,7 +583,7 @@ describe('workflow store execution actions', () => {
       vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
         callbacks.onNodeStart?.({
           nodeId: 'repeated_node',
-          nodeType: 'textSplit',
+          nodeType: 'materialProcess',
           index: 0,
           total: 1,
           iteration: { sourceNodeId: 'iter_node', index: 1, total: 2 },
@@ -582,7 +591,7 @@ describe('workflow store execution actions', () => {
         vi.setSystemTime(1200);
         callbacks.onNodeStart?.({
           nodeId: 'repeated_node',
-          nodeType: 'textSplit',
+          nodeType: 'materialProcess',
           index: 0,
           total: 1,
           iteration: { sourceNodeId: 'iter_node', index: 2, total: 2 },

@@ -321,19 +321,10 @@ export function planWorkflowDraft(intent: WorkflowIntent, context: WorkflowPlann
         ),
         stage(
           {
-            id: 'shot_split',
-            label: 'Shot Split',
-            nodeType: 'textSplit',
-            purpose: '按换行符拆分剧本为逐个镜头描述。',
-          },
-          knowledge,
-        ),
-        stage(
-          {
-            id: 'shot_iterate',
-            label: 'Shot Iterate',
-            nodeType: 'iterateRun',
-            purpose: '逐项把每个镜头文本传给下游图片生成节点。',
+            id: 'shot_material_process',
+            label: 'Material Process',
+            nodeType: 'materialProcess',
+            purpose: '按换行符拆分剧本，并逐项把每个镜头文本传给下游图片生成节点。',
           },
           knowledge,
         ),

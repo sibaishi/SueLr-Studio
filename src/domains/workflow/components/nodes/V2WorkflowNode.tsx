@@ -3,8 +3,8 @@ import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
-import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
 import { Copy, LockOpen, LockSimple, Play, Prohibit } from '@phosphor-icons/react';
+import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeContent } from './NodeContent';
 import { STATUS_BADGE } from './nodeConstants';
@@ -19,7 +19,7 @@ export interface V2WorkflowNodeProps {
 }
 
 interface V2WorkflowNodeShellProps extends V2WorkflowNodeProps {
-  type: 'aiV3' | 'io';
+  type: 'aiV3' | 'io' | 'materialProcess';
   fallbackLabel: string;
   fallbackColor: string;
 }

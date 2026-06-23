@@ -852,7 +852,7 @@ function buildPlannerMessages(
         'workflow.edit.toolInput.input 必须保持用户原始修改意图，不要把需求改写成提示词模板。',
         '可以把额外判断写入 toolInput.plannerNotes，但不要覆盖用户需求。',
         'plannerNotes 中应引用本地知识库上下文中的节点能力信息，帮助后续编译流程选择正确的节点。',
-        '例如：如果用户说“分镜图”，plannerNotes 应注明是 storyboard-image 领域，需要 aiChat → textSplit → iterateRun → imageGen 逐帧生成链路。',
+        '例如：如果用户说“分镜图”，plannerNotes 应注明是 storyboard-image 领域，需要 aiChat → materialProcess（文本拆分并逐项）→ imageGen 逐帧生成链路。',
         '例如：如果用户说“合并三段文本输出”，plannerNotes 应注明使用 textMerge 节点汇总多路文本，不需要 aiChat 参与语义合成。',
         '如果用户说分镜图、故事板图片、storyboard sheet，这是图片序列/图片生成任务，不是视频生成任务。',
         '如果用户说分镜脚本、镜头脚本、旁白脚本，这是文本/对话任务，不是视频生成任务。',

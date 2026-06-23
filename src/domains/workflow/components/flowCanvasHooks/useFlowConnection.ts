@@ -12,6 +12,7 @@ import {
   resolveDirectionalGroupConnection,
 } from '../flowCanvasConnections';
 import type { ContextMenuKind, ContextMenuState, PendingConnection } from '../flowCanvasTypes';
+import { wouldCreateNestedMaterialProcessPath } from '@/shared/workflow/material-process-graph.js';
 import { getNearestGroupAncestorId } from '../flowCanvasUiHelpers';
 import type { FlowHookDeps } from './types';
 
@@ -150,6 +151,13 @@ export function useFlowConnection({ openContextMenuAtPoint, renderNodeMap, store
       const sourceNode = renderNodeMap.get(connection.source);
       const targetNode = renderNodeMap.get(connection.target);
       if (!sourceNode || !targetNode) return false;
+      if (
+        wouldCreateNestedMaterialProcessPath(store.nodes, store.edges, {
+          source: connection.source,
+          target: connection.target,
+        })
+      )
+        return false;
 
       const resolvedConnection = resolveDirectionalGroupConnection(connection, renderNodeMap);
       if (!resolvedConnection) return false;

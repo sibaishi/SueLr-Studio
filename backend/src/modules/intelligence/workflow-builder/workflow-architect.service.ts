@@ -156,18 +156,23 @@ function buildArchitectDslQualityIssues(dsl: WorkflowArchitectDsl) {
   const issues: WorkflowValidationIssue[] = [];
   const nodeMap = new Map(dsl.nodes.map((node) => [node.id, node]));
 
-  for (const node of dsl.nodes.filter((item) => item.type === 'textSplit')) {
+  for (const node of dsl.nodes.filter(
+    (item) =>
+      item.type === 'materialProcess' &&
+      item.data?.splitEnabled !== false &&
+      ['auto', 'text', ''].includes(String(item.data?.materialType || '')),
+  )) {
     const separator = typeof node.data?.separator === 'string' ? node.data.separator : '';
     if (!separator) {
       issues.push({
         code: 'ARCHITECT_TEXT_SPLIT_SEPARATOR_MISSING',
-        message: `文本拆分节点 ${node.id} 必须显式设置 separator，不能依赖默认分隔符。`,
+        message: `素材处理节点 ${node.id} 进行文本拆分时必须显式设置 separator。`,
         severity: 'error',
         nodeId: node.id,
       });
     }
 
-    const upstreamAiEdges = dsl.edges.filter((edge) => edge.target === node.id && edge.targetHandle === 'text');
+    const upstreamAiEdges = dsl.edges.filter((edge) => edge.target === node.id && edge.targetHandle === 'input');
     for (const edge of upstreamAiEdges) {
       const sourceNode = nodeMap.get(edge.source);
       if (sourceNode?.type !== 'aiV3' || edge.sourceHandle !== 'result') continue;
@@ -175,7 +180,7 @@ function buildArchitectDslQualityIssues(dsl: WorkflowArchitectDsl) {
       if (!promptMentionsSeparator(systemPrompt, separator || '\n')) {
         issues.push({
           code: 'ARCHITECT_TEXT_SPLIT_UPSTREAM_PROMPT_MISSING_SEPARATOR',
-          message: `上游 AI 对话节点 ${sourceNode.id} 连接到 textSplit ${node.id}，systemPrompt 必须明确要求按 textSplit.separator 对齐输出。`,
+          message: `上游 AI 对话节点 ${sourceNode.id} 连接到素材处理节点 ${node.id}，systemPrompt 必须明确要求按 separator 对齐输出。`,
           severity: 'error',
           nodeId: sourceNode.id,
         });
@@ -227,18 +232,18 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
   }
 
   if (batch) {
-    const hasSplit = countType('textSplit') > 0;
-    const hasIterate = countType('iterateRun') > 0 || countType('iterateImageRun') > 0;
-    if (!hasSplit || !hasIterate) {
+    const materialNodes = nodes.filter((node) => node.type === 'materialProcess');
+    const hasIterate = materialNodes.some((node) => node.data?.iterateEnabled === true);
+    if (!hasIterate) {
       issues.push({
         code: 'ARCHITECT_BATCH_CONTROL_MISSING',
-        message: '批量/逐项需求应使用 textSplit + iterateRun 或 iterateImageRun 构成逐项运行链路。',
+        message: '批量/逐项需求应使用启用逐项的素材处理节点构成运行链路。',
         severity: 'error',
       });
     }
     const iterateIds = new Set(
-      nodes
-        .filter((node) => ['iterateRun', 'iterateImageRun'].includes(String(node.type || '')))
+      materialNodes
+        .filter((node) => node.data?.iterateEnabled === true)
         .map((node) => String(node.id || '')),
     );
     const hasIterateAiDownstream = edges.some((edge) => {
@@ -327,15 +332,15 @@ function buildArchitectMessages(input: {
         '你的任务是把用户需求设计成受控工作流 DSL，而不是写提示词教程。',
         '只能使用允许的节点类型和端口；输出必须是一个 JSON 对象，不要 Markdown。',
         '优先设计真实可运行的多节点链路：输入节点、规划/拆解 aiChat、生成节点、saveFile、output。',
-        '复杂任务可以使用多条并行链路、多个 aiChat/imageGen/videoGen、textSplit、iterateRun。',
+        '复杂任务可以使用多条并行链路、多个 aiChat/imageGen/videoGen 和 materialProcess。',
         '复杂素材包不要压成单链路：按结果拆成主图链路、详情页链路、文案链路、分镜/视频链路等，每条链路独立 saveFile 后汇总 output。',
         '多个 aiChat 应有不同职责：需求拆解/设计策略、分镜规划、文案生成、质检总结；不要把所有任务塞进一个通用提示词节点。',
         '分镜图、故事板图片、storyboard sheet 属于图片序列/图片生成任务，不要用 videoGen；最终成片或视频文件才用 videoGen。',
-        'iterateRun 是控制节点：把 textSplit 的 part1..partN 接到 item1..itemN，再把 iterateRun.text 接到下游生成节点。',
-        '批量任务必须显式使用 textSplit + iterateRun/iterateImageRun，把每个片段或素材逐项传给下游 AI 节点。',
-        '使用 textSplit 时必须显式设置 data.separator；如果上游是 aiChat，aiChat.systemPrompt 必须明确要求按同一个分隔符输出，例如 separator 为 "\\n" 时要求“每行一个片段，不要输出解释”。',
+        'materialProcess 使用 input/result 通用端口；可仅拆分、仅逐项或拆分后逐项。',
+        '批量任务必须显式使用 data.iterateEnabled=true 的 materialProcess，把每个片段或素材逐项传给下游 AI 节点；同一条有向路径只能有一个逐项素材处理节点。',
+        '使用 materialProcess 拆分文本时必须设置 data.materialType="text"、data.splitEnabled=true 和 data.separator；如果上游是 aiChat，systemPrompt 必须要求按同一分隔符输出。',
         'promptHelper 不是通用提示词优化器；除非需要本地参数化的镜头、光照、三视图或 storyboard sheet 控制，否则不要使用。',
-        '必须根据需求填好关键参数：aiChat.systemPrompt、imageGen.ratio/resolution/n/output_format、videoGen.duration/resolution/ratio、saveFile.filenamePrefix、textSplit.separator/outputCount。',
+        '必须根据需求填好关键参数：aiChat.systemPrompt、imageGen.ratio/resolution/n/output_format、videoGen.duration/resolution/ratio、saveFile.filenamePrefix、materialProcess 的类型、模式和拆分参数。',
         '每个最终产物链路都应该经过 saveFile，再汇总到 output。',
         'JSON 结构：{"name":"","description":"","nodes":[{"id":"","type":"textInput","data":{},"position":{"x":0,"y":0},"purpose":""}],"edges":[{"source":"","sourceHandle":"","target":"","targetHandle":""}],"settings":{"workflowExecution":{"enabled":true,"maxConcurrency":4}},"reasoningSummary":"","warnings":[]}',
       ].join('\n'),
@@ -365,8 +370,11 @@ function buildArchitectMessages(input: {
           aiChat: { inputs: ['prompt', 'image', 'apiKey'], outputs: ['response'] },
           imageGen: { inputs: ['prompt', 'reference', 'apiKey'], outputs: ['images'] },
           videoGen: { inputs: ['prompt', 'reference', 'video', 'audio', 'apiKey'], outputs: ['video'] },
-          textSplit: { inputs: ['text'], outputs: ['part1..part9'], params: ['separator', 'outputCount'] },
-          iterateRun: { inputs: ['item1..item9'], outputs: ['text'] },
+          materialProcess: {
+            inputs: ['input'],
+            outputs: ['result'],
+            params: ['materialType', 'splitEnabled', 'iterateEnabled', 'separator', 'outputCount', 'rows', 'columns'],
+          },
           saveFile: { inputs: ['content'], outputs: ['content'] },
           output: { inputs: ['content', 'content2', 'content3', 'content4', 'content5'] },
         })}`,
@@ -377,13 +385,12 @@ function buildArchitectMessages(input: {
             '策略 -> imageGen(主图参数: ratio 1:1, n 2-4) -> saveFile -> output.content',
             '策略 -> imageGen(详情页首屏参数: ratio 16:9) -> saveFile -> output.content2',
             '策略 -> aiChat(文案生成) -> saveFile -> output.content3',
-            '策略 -> textSplit(separator="\\n", outputCount=镜头数) -> iterateRun -> imageGen(分镜图) -> saveFile -> output.content4',
+            '策略 -> materialProcess(materialType="text", splitEnabled=true, iterateEnabled=true, separator="\\n", outputCount=镜头数) -> imageGen(分镜图) -> saveFile -> output.content4',
           ],
           batchStoryboard: [
             'textInput(脚本) -> aiChat(拆镜头；systemPrompt 必须写“每行一个镜头，不要输出解释”)',
-            'aiChat.response -> textSplit(separator="\\n", outputCount=镜头数)',
-            'textSplit.part1..partN -> iterateRun.item1..itemN',
-            'iterateRun.text -> imageGen(每个镜头图，n=1, ratio 按横/竖屏需求设置) -> saveFile -> output',
+            'aiChat.response -> materialProcess.input',
+            'materialProcess.result -> imageGen(每个镜头图，n=1, ratio 按横/竖屏需求设置) -> saveFile -> output',
           ],
         })}`,
         '',
@@ -424,11 +431,11 @@ function buildRepairMessages(input: {
         '',
         '修复要求：',
         '1. 所有边必须使用真实存在的节点和端口。',
-        '2. aiChat/imageGen/videoGen/textSplit/saveFile/output 的必需输入必须连接。',
-        '3. textSplit 只能输出 part1..partN；iterateRun/merge 节点只能接 item1..itemN。',
+        '2. aiChat/imageGen/videoGen/materialProcess/saveFile/output 的必需输入必须连接。',
+        '3. materialProcess 只能使用 input/result 端口；同一条有向路径只能有一个启用逐项的素材处理节点。',
         '4. 最终可见结果必须汇总到 output，最终产物链路优先经过 saveFile。',
         '5. 如果是复杂或批量需求，不能只修成“能连通”的简单链路；必须保留多链路、多 AI 节点、逐项运行和关键参数设置。',
-        '6. textSplit 必须显式设置 separator；上游 aiChat.systemPrompt 必须说明按同一个分隔符输出。',
+        '6. materialProcess 拆分文本时必须显式设置 separator；上游 aiChat.systemPrompt 必须说明按同一个分隔符输出。',
       ].join('\n'),
     },
   ];

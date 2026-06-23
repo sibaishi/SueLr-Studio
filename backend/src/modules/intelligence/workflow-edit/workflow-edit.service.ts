@@ -235,14 +235,20 @@ function buildEditPatchFromInstruction(workflow: PlainObject, instruction: strin
       changed =
         updateNodeField(node, 'n', requestedCount, operations, `调整图片生成数量为 ${requestedCount}`) || changed;
     }
-    for (const node of nodes.filter((item) => cleanText(item.type, 80) === 'textSplit')) {
+    for (const node of nodes.filter(
+      (item) =>
+        cleanText(item.type, 80) === 'materialProcess' &&
+        isPlainObject(item.data) &&
+        item.data.splitEnabled !== false &&
+        item.data.materialType !== 'image',
+    )) {
       changed =
         updateNodeField(node, 'outputCount', requestedCount, operations, `调整拆分输出数量为 ${requestedCount}`) ||
         changed;
     }
     if (!changed) {
       warnings.push(
-        `识别到“${requestedCount} 张”的数量要求，但当前工作流里没有可安全调整的 imageGen 或 textSplit 节点。`,
+        `识别到“${requestedCount} 张”的数量要求，但当前工作流里没有可安全调整的图像生成或文本素材处理节点。`,
       );
     }
   }
