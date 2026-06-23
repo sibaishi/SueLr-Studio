@@ -178,12 +178,6 @@ function shouldPersistIoOutput(state: WorkflowState, nodeId: string, outputs: Re
   const node = state.nodes.find((item) => item.id === nodeId);
   if (node?.type !== 'io') return false;
   if (!Object.prototype.hasOwnProperty.call(outputs, 'result')) return false;
-  const containsRuntimeAsset = (value: unknown): boolean => {
-    if (typeof value === 'string') return value.startsWith('/api/runtime/workflows/');
-    if (Array.isArray(value)) return value.some(containsRuntimeAsset);
-    return false;
-  };
-  if (containsRuntimeAsset(outputs.result)) return false;
   return state.edges.some((edge) => edge.target === nodeId && String(edge.targetHandle || '') === 'input');
 }
 
