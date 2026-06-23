@@ -612,8 +612,8 @@ export function createWorkflowGraphEditorActions(
 
       // Skip single-connection filter for node types that support multi-input
       const targetNode = get().nodes.find((n) => n.id === target);
-      const isUnifiedAiInput = targetNode?.type === 'aiV3';
-      const isMultiInput = isUnifiedAiInput || targetNode?.type === 'io';
+      const isMultiInput =
+        targetNode?.type === 'aiV3' || targetNode?.type === 'io' || targetNode?.type === 'materialProcess';
 
       // Enforce per-type connection limits for io nodes only (aiV3 limits are mode-aware, applied at execution)
       if (targetNode?.type === 'io' && targetHandle === 'input') {
