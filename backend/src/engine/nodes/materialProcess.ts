@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import sharp from 'sharp';
+import { writeWorkflowRuntimeAsset } from '../../platform/storage/workflow-runtime-assets.ts';
 import { fetchImageBuffer } from '../helpers/downloadRemoteImageFile.ts';
 import { getMimeType, urlToLocalPath } from '../helpers/fileHelper.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './types.ts';
@@ -183,6 +184,8 @@ async function exportPart(pipeline: sharp.Sharp, preferredFormat: string) {
 }
 
 async function splitImage(imageSource: DynamicValue, rows: number, columns: number, apiConfig: RuntimeApiConfig) {
+  const runId = String(apiConfig.runId || '').trim();
+  if (!runId) throw new Error('图片拆分缺少工作流运行上下文');
   const { buffer, mimeType } = await imageSourceToBuffer(imageSource, apiConfig);
   const sourceMetadata = await sharp(buffer, { failOn: 'none' }).metadata();
   const preferredFormat = normalizeFormat(sourceMetadata.format, mimeType);
@@ -211,7 +214,9 @@ async function splitImage(imageSource: DynamicValue, rows: number, columns: numb
         height: heights[row],
       });
       const output = await exportPart(pipeline, preferredFormat);
-      results.push(`data:${getMimeTypeForFormat(output.format)};base64,${output.buffer.toString('base64')}`);
+      results.push(
+        writeWorkflowRuntimeAsset(runId, output.buffer, getMimeTypeForFormat(output.format), apiConfig.scope),
+      );
     }
   }
   return results;

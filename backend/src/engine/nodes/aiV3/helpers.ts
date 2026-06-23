@@ -54,7 +54,7 @@ export function classifyByValue(value: unknown): 'text' | 'image' | 'video' | 'a
   if (/^https?:\/\/.+\.(mp3|wav|ogg|aac|flac)(\?|$)/i.test(str)) return 'audio';
   if (/^https?:\/\/.+\.(png|jpg|jpeg|gif|webp|avif|bmp)(\?|$)/i.test(str)) return 'image';
   if (str.startsWith('http://') || str.startsWith('https://')) return 'image';
-  if (/\/api\/files\//.test(str)) return 'image';
+  if (/\/api\/(?:files|outputs|assistant\/files|runtime\/workflows)\//.test(str)) return 'image';
   return 'text';
 }
 

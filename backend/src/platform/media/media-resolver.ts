@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { RequestScope } from '../runtime/request-scope.ts';
 import { getScopedStoragePaths, safeResolveWithin } from '../storage/index.ts';
+import { resolveWorkflowRuntimeUrl } from '../storage/workflow-runtime-assets.ts';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
 const DATA_URL_CACHE_LIMIT = 32;
@@ -74,6 +75,9 @@ export function getLocalApiPath(source: unknown): string {
 export function localApiPathToFilePath(apiPath: unknown, options: MediaResolveOptions = {}): string | null {
   const value = String(apiPath || '').trim();
   const storagePaths = getScopedStoragePaths(options.scope);
+  if (value.startsWith('/api/runtime/workflows/')) {
+    return resolveWorkflowRuntimeUrl(value, options.scope);
+  }
   if (value.startsWith('/api/files/')) {
     return resolveUrlPath(storagePaths.uploadsDir, value.slice('/api/files/'.length));
   }

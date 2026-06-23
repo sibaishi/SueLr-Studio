@@ -1,15 +1,30 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import sharp from 'sharp';
 import { execute, processMaterial } from '../src/engine/nodes/materialProcess.ts';
+import {
+  activateWorkflowRuntime,
+  cleanupWorkflowRuntime,
+  resolveWorkflowRuntimeUrl,
+} from '../src/platform/storage/workflow-runtime-assets.ts';
 
 function toDataUrl(buffer, mimeType = 'image/png') {
   return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
-function fromDataUrl(dataUrl) {
-  return Buffer.from(String(dataUrl).replace(/^data:[^;]+;base64,/, ''), 'base64');
+const TEST_RUN_ID = 'material-process-test';
+
+function runtimeConfig() {
+  activateWorkflowRuntime(TEST_RUN_ID, 'workflow-material-process-test');
+  return { runId: TEST_RUN_ID };
+}
+
+function fromRuntimeUrl(url) {
+  const filePath = resolveWorkflowRuntimeUrl(url);
+  assert.equal(typeof filePath, 'string');
+  return fs.readFileSync(filePath);
 }
 
 test('materialProcess splits text while preserving the final remainder', async () => {
@@ -103,15 +118,20 @@ test('materialProcess splits images in row-major order and preserves transparenc
       },
     },
     { input: toDataUrl(source) },
-    {},
+    runtimeConfig(),
     () => {},
   );
 
   assert.equal(result.result.length, 4);
+  assert.equal(
+    result.result.every((part) => part.startsWith(`/api/runtime/workflows/${TEST_RUN_ID}/`)),
+    true,
+  );
   const alphaValues = await Promise.all(
-    result.result.map(async (part) => (await sharp(fromDataUrl(part)).raw().toBuffer())[3]),
+    result.result.map(async (part) => (await sharp(fromRuntimeUrl(part)).raw().toBuffer())[3]),
   );
   assert.deepEqual(alphaValues, [0, 128, 255, 64]);
+  cleanupWorkflowRuntime(TEST_RUN_ID);
 });
 
 test('materialProcess applies EXIF orientation and rejects grids larger than the image', async () => {
@@ -124,9 +144,9 @@ test('materialProcess applies EXIF orientation and rejects grids larger than the
   const result = await processMaterial(
     { data: { materialType: 'image', splitEnabled: true, rows: 1, columns: 1 } },
     toDataUrl(oriented, 'image/jpeg'),
-    {},
+    runtimeConfig(),
   );
-  const metadata = await sharp(fromDataUrl(result[0])).metadata();
+  const metadata = await sharp(fromRuntimeUrl(result[0])).metadata();
   assert.deepEqual([metadata.width, metadata.height], [3, 2]);
 
   const tiny = await sharp({
@@ -136,11 +156,10 @@ test('materialProcess applies EXIF orientation and rejects grids larger than the
     .toBuffer();
   await assert.rejects(
     () =>
-      processMaterial(
-        { data: { materialType: 'image', splitEnabled: true, rows: 2, columns: 1 } },
-        toDataUrl(tiny),
-        {},
-      ),
+      processMaterial({ data: { materialType: 'image', splitEnabled: true, rows: 2, columns: 1 } }, toDataUrl(tiny), {
+        runId: TEST_RUN_ID,
+      }),
     /至少为 1px x 1px/,
   );
+  cleanupWorkflowRuntime(TEST_RUN_ID);
 });

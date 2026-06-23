@@ -1,17 +1,18 @@
 // @ts-nocheck
-import test from 'node:test';
+
 import assert from 'node:assert/strict';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
 import { createTestServer as createRuntimeTestServer, requestJson } from './helpers/runtime-test.ts';
 
 const createTestServer = (name) =>
   createRuntimeTestServer(name, { prefix: 'workflow-execution-http', queryKey: 'workflowExecutionHttp' });
 
 function deferred() {
-  let resolve;
-  let reject;
-  const promise = new Promise((promiseResolve, promiseReject) => {
+  let resolve: (value?: unknown) => void = () => {};
+  let reject: (reason?: unknown) => void = () => {};
+  const promise = new Promise<unknown>((promiseResolve, promiseReject) => {
     resolve = promiseResolve;
     reject = promiseReject;
   });
@@ -157,6 +158,295 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
   }
 });
 
+test('workflow runtime assets remain served after completion until the same workflow starts again', async () => {
+  const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
+  const { writeWorkflowRuntimeAsset } = await import('../src/platform/storage/workflow-runtime-assets.ts');
+  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const assetReady = deferred();
+  const release = deferred();
+  NODE_EXECUTORS.materialProcess = async (_node, _inputs, apiConfig) => {
+    const url = writeWorkflowRuntimeAsset(apiConfig.runId, Buffer.from('runtime-image'), 'image/png', apiConfig.scope);
+    assetReady.resolve(url);
+    await release.promise;
+    return { result: url };
+  };
+
+  const { server, baseUrl } = await createTestServer('runtime-asset-lifecycle');
+  try {
+    const response = await fetch(`${baseUrl}/api/execute/wf_runtime_asset_lifecycle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'draft',
+        name: 'Runtime Asset Lifecycle',
+        nodes: [
+          { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
+          {
+            id: 'split',
+            type: 'materialProcess',
+            position: { x: 160, y: 0 },
+            data: { splitEnabled: true, iterateEnabled: false },
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-input-split',
+            source: 'input',
+            sourceHandle: 'result',
+            target: 'split',
+            targetHandle: 'input',
+          },
+        ],
+      }),
+    });
+    assert.equal(response.status, 200);
+    const runId = await waitForRunIdFromSse(response);
+    assert.equal(typeof runId, 'string');
+
+    const runtimeUrl = await assetReady.promise;
+    const liveAsset = await fetch(`${baseUrl}${runtimeUrl}`);
+    assert.equal(liveAsset.status, 200);
+    assert.deepEqual(Buffer.from(await liveAsset.arrayBuffer()), Buffer.from('runtime-image'));
+
+    release.resolve();
+    const deadline = Date.now() + 1000;
+    let finalStatus = null;
+    while (Date.now() < deadline) {
+      const status = await requestJson(baseUrl, `/api/execute/runs/${runId}/status`);
+      finalStatus = status.body.data.status;
+      if (finalStatus === 'completed') break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(finalStatus, 'completed');
+
+    assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 200);
+
+    const nextResponse = await fetch(`${baseUrl}/api/execute/wf_runtime_asset_lifecycle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'draft',
+        name: 'Runtime Asset Lifecycle',
+        nodes: [
+          { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
+          {
+            id: 'split',
+            type: 'materialProcess',
+            position: { x: 160, y: 0 },
+            data: { splitEnabled: true, iterateEnabled: false },
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-input-split',
+            source: 'input',
+            sourceHandle: 'result',
+            target: 'split',
+            targetHandle: 'input',
+          },
+        ],
+      }),
+    });
+    await waitForRunIdFromSse(nextResponse);
+    assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 404);
+  } finally {
+    release.resolve();
+    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('failed workflow runtime assets remain served until the same workflow starts again', async () => {
+  const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
+  const { writeWorkflowRuntimeAsset } = await import('../src/platform/storage/workflow-runtime-assets.ts');
+  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const assetReady = deferred();
+  const release = deferred();
+  NODE_EXECUTORS.materialProcess = async (_node, _inputs, apiConfig) => {
+    const url = writeWorkflowRuntimeAsset(apiConfig.runId, Buffer.from('failed-runtime-image'), 'image/png');
+    assetReady.resolve(url);
+    await release.promise;
+    throw new Error('expected runtime failure');
+  };
+
+  const { server, baseUrl } = await createTestServer('runtime-asset-failure');
+  try {
+    const response = await fetch(`${baseUrl}/api/execute/wf_runtime_asset_failure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'draft',
+        name: 'Runtime Asset Failure',
+        nodes: [
+          { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
+          {
+            id: 'split',
+            type: 'materialProcess',
+            position: { x: 160, y: 0 },
+            data: { splitEnabled: true, iterateEnabled: false },
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-input-split',
+            source: 'input',
+            sourceHandle: 'result',
+            target: 'split',
+            targetHandle: 'input',
+          },
+        ],
+      }),
+    });
+    const runId = await waitForRunIdFromSse(response);
+    const runtimeUrl = await assetReady.promise;
+    assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 200);
+
+    release.resolve();
+    const deadline = Date.now() + 1000;
+    let finalStatus = null;
+    while (Date.now() < deadline) {
+      const status = await requestJson(baseUrl, `/api/execute/runs/${runId}/status`);
+      finalStatus = status.body.data.status;
+      if (finalStatus === 'failed') break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(finalStatus, 'failed');
+    assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 200);
+
+    const nextResponse = await fetch(`${baseUrl}/api/execute/wf_runtime_asset_failure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'draft',
+        name: 'Runtime Asset Failure',
+        nodes: [
+          { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
+          {
+            id: 'split',
+            type: 'materialProcess',
+            position: { x: 160, y: 0 },
+            data: { splitEnabled: true, iterateEnabled: false },
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-input-split',
+            source: 'input',
+            sourceHandle: 'result',
+            target: 'split',
+            targetHandle: 'input',
+          },
+        ],
+      }),
+    });
+    await waitForRunIdFromSse(nextResponse);
+    assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 404);
+  } finally {
+    release.resolve();
+    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('cancelled workflow runtime assets remain served until the same workflow starts again', async () => {
+  const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
+  const { writeWorkflowRuntimeAsset } = await import('../src/platform/storage/workflow-runtime-assets.ts');
+  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const assetReady = deferred();
+  NODE_EXECUTORS.materialProcess = async (_node, _inputs, apiConfig) => {
+    const url = writeWorkflowRuntimeAsset(apiConfig.runId, Buffer.from('cancelled-runtime-image'), 'image/png');
+    assetReady.resolve(url);
+    await new Promise((resolve, reject) => {
+      if (apiConfig.abortSignal?.aborted) {
+        reject(new Error('cancelled'));
+        return;
+      }
+      apiConfig.abortSignal?.addEventListener('abort', () => reject(new Error('cancelled')), { once: true });
+    });
+    return { result: url };
+  };
+
+  const { server, baseUrl } = await createTestServer('runtime-asset-cancellation');
+  try {
+    const response = await fetch(`${baseUrl}/api/execute/wf_runtime_asset_cancellation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'draft',
+        name: 'Runtime Asset Cancellation',
+        nodes: [
+          { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
+          {
+            id: 'split',
+            type: 'materialProcess',
+            position: { x: 160, y: 0 },
+            data: { splitEnabled: true, iterateEnabled: false },
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-input-split',
+            source: 'input',
+            sourceHandle: 'result',
+            target: 'split',
+            targetHandle: 'input',
+          },
+        ],
+      }),
+    });
+    const runId = await waitForRunIdFromSse(response);
+    const runtimeUrl = await assetReady.promise;
+    assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 200);
+
+    const cancelled = await requestJson(baseUrl, `/api/execute/runs/${runId}/cancel`, { method: 'POST' });
+    assert.equal(cancelled.status, 200);
+
+    const deadline = Date.now() + 1000;
+    let finalStatus = null;
+    while (Date.now() < deadline) {
+      const status = await requestJson(baseUrl, `/api/execute/runs/${runId}/status`);
+      finalStatus = status.body.data.status;
+      if (finalStatus === 'cancelled') break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(finalStatus, 'cancelled');
+    assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 200);
+
+    const nextResponse = await fetch(`${baseUrl}/api/execute/wf_runtime_asset_cancellation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'draft',
+        name: 'Runtime Asset Cancellation',
+        nodes: [
+          { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
+          {
+            id: 'split',
+            type: 'materialProcess',
+            position: { x: 160, y: 0 },
+            data: { splitEnabled: true, iterateEnabled: false },
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-input-split',
+            source: 'input',
+            sourceHandle: 'result',
+            target: 'split',
+            targetHandle: 'input',
+          },
+        ],
+      }),
+    });
+    const nextRunId = await waitForRunIdFromSse(nextResponse);
+    assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 404);
+    await requestJson(baseUrl, `/api/execute/runs/${nextRunId}/cancel`, { method: 'POST' });
+  } finally {
+    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('regular workflow execution caches output artifacts for intelligence summaries', async () => {
   const { server, baseUrl } = await createTestServer('execution-summary-artifacts');
   try {
@@ -207,7 +497,10 @@ test('regular workflow execution caches output artifacts for intelligence summar
     assert.equal(summary.status, 200);
     const report = summary.body.data.skillResults[0].output.report;
     assert.equal(Array.isArray(report.keyOutputs), true);
-    assert.equal(report.keyOutputs.some((item) => item.nodeId === 'output'), true);
+    assert.equal(
+      report.keyOutputs.some((item) => item.nodeId === 'output'),
+      true,
+    );
     assert.equal(Array.isArray(report.artifacts), true);
   } finally {
     await new Promise((resolve) => server.close(resolve));

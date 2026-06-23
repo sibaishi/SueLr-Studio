@@ -4,6 +4,7 @@ import path, { resolve } from 'node:path';
 import cors from 'cors';
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import express from 'express';
+import { z } from 'zod';
 import assistantRoutes from '../modules/assistant/assistant.routes.ts';
 import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.ts';
 import executeRoutes from '../modules/execution/execution.routes.ts';
@@ -32,10 +33,15 @@ import {
   migrateLegacyStorageIfNeeded,
   safeResolveWithin,
 } from '../platform/storage/index.ts';
+import {
+  initializeWorkflowRuntimeStorage,
+  resolveWorkflowRuntimeAsset,
+} from '../platform/storage/workflow-runtime-assets.ts';
 import { errorEnvelope, successEnvelope } from './http/envelope.ts';
 import { errorHandler } from './middleware/error-handler.ts';
 import { requestContextMiddleware } from './middleware/request-context.ts';
 import { requestLoggerMiddleware } from './middleware/request-logger.ts';
+import { zodValidator } from './middleware/zod-validator.ts';
 
 function buildAllowedOrigins(): string[] {
   const configured = String(process.env.APP_ALLOWED_ORIGINS || '')
@@ -59,8 +65,26 @@ function getWildcardParam(req: RequestLike): string {
   return String(req.params?.[0] || '');
 }
 
+const validateRuntimeAssetRunId = zodValidator(
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .regex(/^[a-zA-Z0-9._:-]+$/),
+);
+const validateRuntimeAssetFilename = zodValidator(
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .regex(/^[a-f0-9-]+\.[a-z0-9.+-]+$/i),
+);
+
 export function createApp() {
   ensureStorageDirectories();
+  initializeWorkflowRuntimeStorage();
   migrateLegacyStorageIfNeeded();
   ensureLogDirectories();
   ensureAgentLogDirectories();
@@ -145,6 +169,14 @@ export function createApp() {
     const relativePath = getWildcardParam(req);
     const filePath = safeResolveWithin(getScopedStoragePaths(req.scope).uploadsDir, relativePath);
     if (!filePath || !existsSync(filePath)) return next();
+    res.sendFile(filePath);
+  });
+  app.get('/api/runtime/workflows/:runId/*', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
+    const runId = validateRuntimeAssetRunId(String(req.params?.runId || ''));
+    const filename = validateRuntimeAssetFilename(getWildcardParam(req));
+    const filePath = resolveWorkflowRuntimeAsset(runId, filename, req.scope);
+    if (!filePath) return next();
+    res.setHeader('Cache-Control', 'no-store');
     res.sendFile(filePath);
   });
 

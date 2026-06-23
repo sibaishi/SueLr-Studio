@@ -1,8 +1,10 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import sharp from 'sharp';
 import { executeWorkflow } from '../src/engine/executor.ts';
 import { WORKFLOW_SSE_EVENTS } from '../src/platform/logging/workflow-events.ts';
+import { activateWorkflowRuntime, cleanupWorkflowRuntime } from '../src/platform/storage/workflow-runtime-assets.ts';
 
 function edge(id, source, target) {
   return {
@@ -43,8 +45,14 @@ test('iterating materialProcess splits text and executes downstream once per res
   const completions = events.filter(
     (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
   );
-  assert.deepEqual(completions.map((item) => item.data.outputs.result), ['alpha', 'beta', 'gamma']);
-  assert.deepEqual(completions.map((item) => item.data.iteration.index), [1, 2, 3]);
+  assert.deepEqual(
+    completions.map((item) => item.data.outputs.result),
+    ['alpha', 'beta', 'gamma'],
+  );
+  assert.deepEqual(
+    completions.map((item) => item.data.iteration.index),
+    [1, 2, 3],
+  );
 });
 
 test('iterate-only materialProcess expands an upstream array', async () => {
@@ -64,7 +72,57 @@ test('iterate-only materialProcess expands an upstream array', async () => {
   const completions = events.filter(
     (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'output',
   );
-  assert.deepEqual(completions.map((item) => item.data.outputs.result), ['alpha', 'beta']);
+  assert.deepEqual(
+    completions.map((item) => item.data.outputs.result),
+    ['alpha', 'beta'],
+  );
+});
+
+test('split image runtime URLs propagate through more than one downstream node', async () => {
+  const runId = 'material-process-multi-hop-image';
+  activateWorkflowRuntime(runId, 'workflow-material-process-iteration');
+  const source = await sharp({
+    create: { width: 2, height: 1, channels: 3, background: { r: 32, g: 64, b: 128 } },
+  })
+    .png()
+    .toBuffer();
+  const dataUrl = `data:image/png;base64,${source.toString('base64')}`;
+  const events = [];
+
+  try {
+    await executeWorkflow(
+      {
+        nodes: [
+          { id: 'source', type: 'io', data: { content: dataUrl } },
+          {
+            id: 'process',
+            type: 'materialProcess',
+            data: { materialType: 'image', splitEnabled: true, iterateEnabled: true, rows: 1, columns: 2 },
+          },
+          { id: 'hop-one', type: 'io', data: {} },
+          { id: 'hop-two', type: 'io', data: {} },
+        ],
+        edges: [
+          edge('source-process', 'source', 'process'),
+          edge('process-hop-one', 'process', 'hop-one'),
+          edge('hop-one-hop-two', 'hop-one', 'hop-two'),
+        ],
+      },
+      { runId },
+      (event, data) => events.push({ event, data }),
+    );
+
+    const completions = events.filter(
+      (item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && item.data.nodeId === 'hop-two',
+    );
+    assert.equal(completions.length, 2);
+    assert.equal(
+      completions.every((item) => String(item.data.outputs.result).startsWith(`/api/runtime/workflows/${runId}/`)),
+      true,
+    );
+  } finally {
+    cleanupWorkflowRuntime(runId);
+  }
 });
 
 test('parallel branches may each use an iterating materialProcess', async () => {
@@ -93,7 +151,10 @@ test('parallel branches may each use an iterating materialProcess', async () => 
     ],
   });
 
-  assert.equal(events.some((item) => item.event === WORKFLOW_SSE_EVENTS.VALIDATION_FAILED), false);
+  assert.equal(
+    events.some((item) => item.event === WORKFLOW_SSE_EVENTS.VALIDATION_FAILED),
+    false,
+  );
   assert.equal(
     events.filter((item) => item.event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED && /^output-/.test(item.data.nodeId))
       .length,

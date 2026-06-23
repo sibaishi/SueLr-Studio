@@ -21,6 +21,8 @@ export interface StoragePaths {
   filesDir: string;
   uploadsDir: string;
   generatedDir: string;
+  runtimeDir: string;
+  workflowRuntimeDir: string;
   logsDir: string;
   appLogsDir: string;
   workflowRunsDir: string;
@@ -48,6 +50,8 @@ export function getStoragePaths(): StoragePaths {
     filesDir: path.join(root, 'files'),
     uploadsDir: path.join(root, 'files', 'uploads'),
     generatedDir: path.join(root, 'files', 'generated'),
+    runtimeDir: path.join(root, 'runtime'),
+    workflowRuntimeDir: path.join(root, 'runtime', 'workflows'),
     logsDir: path.join(root, 'logs'),
     appLogsDir: path.join(root, 'logs', 'app'),
     workflowRunsDir: path.join(root, 'logs', 'workflow-runs'),

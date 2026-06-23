@@ -47,6 +47,8 @@ export function ensureStorageDirectories(): void {
     storagePaths.filesDir,
     storagePaths.uploadsDir,
     storagePaths.generatedDir,
+    storagePaths.runtimeDir,
+    storagePaths.workflowRuntimeDir,
     storagePaths.logsDir,
     storagePaths.appLogsDir,
     storagePaths.workflowRunsDir,

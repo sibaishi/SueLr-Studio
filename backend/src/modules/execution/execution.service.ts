@@ -7,6 +7,7 @@ import { WORKFLOW_SSE_EVENTS } from '../../platform/logging/workflow-events.ts';
 import { sanitizeNodeOutputsForLogs } from '../../platform/logging/workflow-log-sanitizer.ts';
 import { createWorkflowRunLogger } from '../../platform/logging/workflow-run-logger.ts';
 import { isResourceVisibleForScope } from '../../platform/storage/index.ts';
+import { activateWorkflowRuntime, retainWorkflowRuntime } from '../../platform/storage/workflow-runtime-assets.ts';
 import { settingsService } from '../settings/settings.service.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { workflowsRepository } from '../workflows/workflows.repository.ts';
@@ -127,6 +128,15 @@ function summarizeNodeOutputs(outputs: DynamicValue): string {
     .filter((item) => item && !item.endsWith(': '));
 
   return summaryParts.join('; ').slice(0, 500);
+}
+
+function removeRuntimeAssetUrls(value: DynamicValue): DynamicValue {
+  if (typeof value === 'string') {
+    return value.startsWith('/api/runtime/workflows/') ? '[temporary workflow asset]' : value;
+  }
+  if (Array.isArray(value)) return value.map(removeRuntimeAssetUrls);
+  if (!isPlainObject(value)) return value;
+  return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, removeRuntimeAssetUrls(nested)]));
 }
 
 function detectArtifactTypeFromUrl(value: DynamicValue): string {
@@ -600,6 +610,7 @@ export class ExecutionService {
     const runLogger = createWorkflowRunLogger(snapshot, { requestId, scope });
     const abortController = new AbortController();
     const completedNodes: PlainObject[] = [];
+    activateWorkflowRuntime(snapshot.runId, snapshot.workflowId, scope);
 
     this.runningExecutions.set(snapshot.runId, {
       runId: snapshot.runId,
@@ -628,8 +639,8 @@ export class ExecutionService {
         completedNodes.push({
           nodeId: data.nodeId,
           nodeType: node?.type || 'unknown',
-          summary: summarizeNodeOutputs(data.outputs),
-          outputs: data.outputs,
+          summary: summarizeNodeOutputs(removeRuntimeAssetUrls(data.outputs)),
+          outputs: removeRuntimeAssetUrls(data.outputs),
         });
       } else if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
         terminalStatus = {
@@ -673,11 +684,16 @@ export class ExecutionService {
 
     try {
       await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
-        await executeWorkflow(snapshot, { ...apiConfig, abortSignal: abortController.signal }, sendSSE, {
-          getNodeLogOutputs(outputs: DynamicValue) {
-            return sanitizeNodeOutputsForLogs(outputs, runLogger);
+        await executeWorkflow(
+          snapshot,
+          { ...apiConfig, runId: snapshot.runId, scope, abortSignal: abortController.signal },
+          sendSSE,
+          {
+            getNodeLogOutputs(outputs: DynamicValue) {
+              return sanitizeNodeOutputsForLogs(outputs, runLogger);
+            },
           },
-        });
+        );
       });
       if (!terminalStatus) {
         terminalStatus = {
@@ -710,6 +726,7 @@ export class ExecutionService {
     } finally {
       signal?.removeEventListener?.('abort', handleAbort);
       this.runningExecutions.delete(snapshot.runId);
+      retainWorkflowRuntime(snapshot.runId, scope);
       if (terminalStatus) {
         this.rememberRecentExecution(terminalStatus, scope, Date.now(), agentSummary || undefined);
       }
@@ -755,6 +772,7 @@ export class ExecutionService {
 
     const runLogger = createWorkflowRunLogger(snapshot, { requestId, scope });
     const abortController = new AbortController();
+    activateWorkflowRuntime(snapshot.runId, snapshot.workflowId, scope);
     this.runningExecutions.set(snapshot.runId, {
       runId: snapshot.runId,
       workflowId,
@@ -783,8 +801,8 @@ export class ExecutionService {
         completedNodes.push({
           nodeId: data.nodeId,
           nodeType: node?.type || 'unknown',
-          summary: summarizeNodeOutputs(data.outputs),
-          outputs: data.outputs,
+          summary: summarizeNodeOutputs(removeRuntimeAssetUrls(data.outputs)),
+          outputs: removeRuntimeAssetUrls(data.outputs),
         });
       } else if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
         terminalStatus = {
@@ -848,11 +866,16 @@ export class ExecutionService {
 
     try {
       await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
-        await executeWorkflow(snapshot, { ...apiConfig, scope, abortSignal: abortController.signal }, sendSSE, {
-          getNodeLogOutputs(outputs: DynamicValue) {
-            return sanitizeNodeOutputsForLogs(outputs, runLogger);
+        await executeWorkflow(
+          snapshot,
+          { ...apiConfig, runId: snapshot.runId, scope, abortSignal: abortController.signal },
+          sendSSE,
+          {
+            getNodeLogOutputs(outputs: DynamicValue) {
+              return sanitizeNodeOutputsForLogs(outputs, runLogger);
+            },
           },
-        });
+        );
       });
       runLogger.close('completed');
     } catch (error) {
@@ -865,6 +888,7 @@ export class ExecutionService {
       runLogger.close(abortController.signal.aborted ? 'cancelled' : 'error', { error: message });
     } finally {
       this.runningExecutions.delete(snapshot.runId);
+      retainWorkflowRuntime(snapshot.runId, scope);
       const completedStatus = terminalStatus as RunStatus | null;
       const runSummary = completedStatus
         ? buildAgentWorkflowSummary(snapshot, completedStatus, completedNodes)

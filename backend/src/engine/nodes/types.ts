@@ -14,6 +14,7 @@ export type NodeInputs = Record<string, DynamicValue>;
 
 export type RuntimeApiConfig = Record<string, DynamicValue> & {
   abortSignal?: AbortSignal;
+  runId?: string;
   tavilyApiKey?: string;
 };
 

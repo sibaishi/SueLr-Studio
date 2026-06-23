@@ -33,6 +33,13 @@ function createInlineDataArtifact({ keyPath, value, mimeType, runLogger }: Inlin
 
 function sanitizeValue(value: unknown, context: SanitizeContext): unknown {
   if (typeof value === 'string') {
+    if (value.startsWith('/api/runtime/workflows/')) {
+      return {
+        kind: 'workflow-runtime-asset',
+        storage: 'temporary',
+        lifecycle: 'current-run',
+      };
+    }
     const dataUrlMatch = value.match(DATA_URL_PREFIX);
     if (dataUrlMatch && value.length >= INLINE_DATA_URL_MIN_LENGTH) {
       return createInlineDataArtifact({

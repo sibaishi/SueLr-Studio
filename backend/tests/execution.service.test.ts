@@ -5,8 +5,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+import { NODE_EXECUTORS } from '../src/engine/nodes/index.ts';
 import { ExecutionService } from '../src/modules/execution/execution.service.ts';
 import { STORAGE_PATHS } from '../src/platform/storage/index.ts';
+import {
+  cleanupWorkflowRuntime,
+  resolveWorkflowRuntimeUrl,
+  writeWorkflowRuntimeAsset,
+} from '../src/platform/storage/workflow-runtime-assets.ts';
 import { createStorageDir as createRuntimeStorageDir } from './helpers/runtime-test.ts';
 
 const createStorageDir = (name) => createRuntimeStorageDir('execution-service', name);
@@ -235,6 +241,67 @@ test('ExecutionService.executeForAgent resolves saved workflows by name and retu
   assert.equal(result.keyOutputs.length > 0, true);
   assert.match(result.summary, /Agent Summary Workflow/);
   assert.match(result.summary, /runId:/);
+});
+
+test('ExecutionService.executeForAgent retains the latest runtime assets until the same workflow runs again', async () => {
+  const workflow = {
+    id: 'wf_agent_runtime_assets',
+    name: 'Agent Runtime Assets',
+    version: 1,
+    nodes: [
+      { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
+      {
+        id: 'split',
+        type: 'materialProcess',
+        position: { x: 100, y: 0 },
+        data: { splitEnabled: true, iterateEnabled: false },
+      },
+    ],
+    edges: [
+      {
+        id: 'edge-input-split',
+        source: 'input',
+        sourceHandle: 'result',
+        target: 'split',
+        targetHandle: 'input',
+      },
+    ],
+    settings: {},
+  };
+  const service = new ExecutionService({
+    read() {
+      return { workflow };
+    },
+    list() {
+      return [workflow];
+    },
+  });
+  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const runtimeUrls = [];
+  NODE_EXECUTORS.materialProcess = async (_node, _inputs, apiConfig) => {
+    const runtimeUrl = writeWorkflowRuntimeAsset(apiConfig.runId, Buffer.from('agent-runtime-image'), 'image/png');
+    runtimeUrls.push(runtimeUrl);
+    return { result: runtimeUrl };
+  };
+
+  try {
+    const firstResult = await service.executeForAgent({ workflowId: workflow.id, apiConfig: {} });
+    assert.match(runtimeUrls[0], /^\/api\/runtime\/workflows\//);
+    assert.equal(typeof resolveWorkflowRuntimeUrl(runtimeUrls[0]), 'string');
+    assert.equal(JSON.stringify(firstResult).includes(runtimeUrls[0]), false);
+    assert.equal(JSON.stringify(firstResult).includes('[temporary workflow asset]'), true);
+
+    const secondResult = await service.executeForAgent({ workflowId: workflow.id, apiConfig: {} });
+    assert.equal(resolveWorkflowRuntimeUrl(runtimeUrls[0]), null);
+    assert.equal(typeof resolveWorkflowRuntimeUrl(runtimeUrls[1]), 'string');
+    assert.equal(JSON.stringify(secondResult).includes(runtimeUrls[1]), false);
+  } finally {
+    for (const runtimeUrl of runtimeUrls) {
+      const runId = decodeURIComponent(runtimeUrl.split('/')[4] || '');
+      if (runId) cleanupWorkflowRuntime(runId);
+    }
+    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+  }
 });
 
 test('ExecutionService.executeForAgent applies input overrides as a draft run and emits run metadata', async () => {

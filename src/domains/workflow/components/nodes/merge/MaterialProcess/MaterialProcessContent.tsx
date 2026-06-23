@@ -49,7 +49,6 @@ export function MaterialProcessContent({
   const items = resultItems.length > 0 ? resultItems : filterMaterialProcessItems(inputItems, data.materialType);
   const imageItems = items.filter((item) => item.type === 'image');
   const textItems = items.filter((item) => item.type === 'text');
-
   return (
     <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
       <div
