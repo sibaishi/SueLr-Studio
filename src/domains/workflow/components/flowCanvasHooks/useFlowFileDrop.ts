@@ -1,4 +1,4 @@
-import { uploadUrlStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
+import { fileRawStore, uploadUrlStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
 import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { Node as FlowNodeType } from '@xyflow/react';
@@ -131,10 +131,6 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
         const textParts: string[] = [];
         const mediaFiles: DroppedMediaFile[] = [];
         const thumbnails: Record<number, string> = {};
-        const mediaFileInputs = acceptedFiles.filter((file) => !isTextFile(file));
-        const fileRawStoreModule =
-          mediaFileInputs.length > 0 ? await import('@/domains/workflow/components/nodes/io/fileRawStore') : null;
-
         for (const file of acceptedFiles) {
           if (isTextFile(file)) {
             const text = await readFileAsText(file);
@@ -142,10 +138,9 @@ export function useFlowFileDrop({ store, reactFlow, closeContextMenu }: UseFlowF
             continue;
           }
 
-          if (!fileRawStoreModule) continue;
           const kind = getFileKind(file);
           const base64 = await readFileAsDataUrl(file);
-          const id = fileRawStoreModule.fileRawStore.add(file, file.name, base64);
+          const id = fileRawStore.add(file, file.name, base64);
           const displayName = fallbackFileName(file, kind, id);
 
           // Generate thumbnail for images (aligned with IoStylePanel)

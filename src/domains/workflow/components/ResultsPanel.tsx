@@ -17,7 +17,16 @@ import {
   uploadIoImageFileEntry,
 } from '@/domains/workflow/lib/ioImageFiles';
 import { type ExecutionLogEntry, useWorkflowStore } from '@/domains/workflow/lib/store';
-import { Clock, Clipboard, FileText, Image, PlayCircle, TerminalWindow, VideoCamera, Warning } from '@phosphor-icons/react';
+import {
+  Clipboard,
+  Clock,
+  FileText,
+  Image,
+  PlayCircle,
+  TerminalWindow,
+  VideoCamera,
+  Warning,
+} from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type PanelTab = 'results' | 'logs';

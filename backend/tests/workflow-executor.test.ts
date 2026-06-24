@@ -112,7 +112,11 @@ test('io uses upstream content when connected', async () => {
   ));
 
   assert.ok(completedEvent);
-  assert.deepEqual(completedEvent.data.outputs, { result: 'from upstream' });
+  assert.deepEqual(completedEvent.data.outputs, {
+    result: 'from upstream',
+    savedFiles: [],
+    savedPaths: [],
+  });
 });
 
 test('io override flows to downstream io nodes', async () => {

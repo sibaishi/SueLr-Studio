@@ -1,6 +1,15 @@
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
-import { ArrowClockwise, ArrowCounterClockwise, Check, Eraser, Hand, NotePencil, Trash, X } from '@phosphor-icons/react';
+import {
+  ArrowClockwise,
+  ArrowCounterClockwise,
+  Check,
+  Eraser,
+  Hand,
+  NotePencil,
+  Trash,
+  X,
+} from '@phosphor-icons/react';
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,

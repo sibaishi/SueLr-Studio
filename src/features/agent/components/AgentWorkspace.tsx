@@ -18,7 +18,6 @@ import {
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { waitForUploadedImageMetadata } from '@/domains/workflow/lib/uploadProcessing';
 import type { ModelInfo } from '@/shared/types';
-import type { Edge, Node } from '@xyflow/react';
 import {
   ArrowsIn,
   ArrowsOut,
@@ -39,6 +38,7 @@ import {
   Wrench,
   X,
 } from '@phosphor-icons/react';
+import type { Edge, Node } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 

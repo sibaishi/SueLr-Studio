@@ -1,3 +1,4 @@
+import { fileRawStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
 import * as api from '@/domains/workflow/lib/api/execution';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import {
@@ -471,7 +472,6 @@ export function createWorkflowExecutionActions(
           .map((fid, idx) => ({ fid, idx, order: orderMap.get(fid) ?? 9999 }))
           .sort((a, b) => a.order - b.order || a.idx - b.idx);
         try {
-          const { fileRawStore } = await import('@/domains/workflow/components/nodes/io/fileRawStore');
           for (const { fid, idx } of sortedEntries) {
             // If trim map exists and this IO feeds aiV3 nodes, only include accepted file indices
             if (acceptedIndices && !acceptedIndices.has(idx)) continue;
@@ -589,7 +589,6 @@ export function createWorkflowExecutionActions(
                   .sort((a, b) => a.order - b.order || a.idx - b.idx);
 
                 try {
-                  const { fileRawStore } = await import('@/domains/workflow/components/nodes/io/fileRawStore');
                   for (const { fid, idx } of matchingFiles) {
                     const b64 = fileRawStore.getBase64(fid);
                     if (b64) {

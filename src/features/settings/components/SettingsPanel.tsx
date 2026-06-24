@@ -32,7 +32,7 @@ import { getRuntimeCapabilities } from '@/shared/api/capabilities';
 import { apiRequest } from '@/shared/api/client';
 import { setCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
-import { Target, Database, Gauge, Key, Stack } from '@phosphor-icons/react';
+import { Database, Gauge, Key, Stack, Target } from '@phosphor-icons/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
 import { DefaultsSection } from './DefaultsSection';

@@ -476,9 +476,10 @@ export default function IoStylePanel() {
               height: 22,
               borderRadius: 6,
               border: 'none',
-              background: nodeData.iterationAggregate === true
-                ? 'color-mix(in srgb, #5E5CE6 18%, transparent)'
-                : 'color-mix(in srgb, var(--t-text3) 8%, transparent)',
+              background:
+                nodeData.iterationAggregate === true
+                  ? 'color-mix(in srgb, #5E5CE6 18%, transparent)'
+                  : 'color-mix(in srgb, var(--t-text3) 8%, transparent)',
               color: nodeData.iterationAggregate === true ? '#5E5CE6' : 'var(--t-text3)',
               cursor: 'pointer',
               fontSize: 12,

@@ -1,7 +1,7 @@
 import { inferEndpointCategory, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import type { ModelInfo, ProjectModel } from '@/shared/types';
 import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { Check, Database, MagnifyingGlass, Plus, Trash, X, CloudArrowUp } from '@phosphor-icons/react';
+import { Check, CloudArrowUp, Database, MagnifyingGlass, Plus, Trash, X } from '@phosphor-icons/react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';

@@ -242,9 +242,7 @@ function buildArchitectQualityIssues(workflow: PlainObject, input: WorkflowDraft
       });
     }
     const iterateIds = new Set(
-      materialNodes
-        .filter((node) => node.data?.iterateEnabled === true)
-        .map((node) => String(node.id || '')),
+      materialNodes.filter((node) => node.data?.iterateEnabled === true).map((node) => String(node.id || '')),
     );
     const hasIterateAiDownstream = edges.some((edge) => {
       if (!iterateIds.has(String(edge.source || ''))) return false;

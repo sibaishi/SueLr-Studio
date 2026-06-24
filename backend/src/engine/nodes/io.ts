@@ -9,14 +9,17 @@ const AI_NODE_TYPES = /^(aiV3|imageGenV2|videoGenV2|aiChatV2)$/;
 const perRunAccumulators = new Map<string, Map<string, unknown[]>>();
 
 function getAccumulator(runId: string, nodeId: string): unknown[] {
-  if (!perRunAccumulators.has(runId)) {
-    perRunAccumulators.set(runId, new Map());
+  let runAcc = perRunAccumulators.get(runId);
+  if (!runAcc) {
+    runAcc = new Map();
+    perRunAccumulators.set(runId, runAcc);
   }
-  const runAcc = perRunAccumulators.get(runId)!;
-  if (!runAcc.has(nodeId)) {
-    runAcc.set(nodeId, []);
+  let accumulator = runAcc.get(nodeId);
+  if (!accumulator) {
+    accumulator = [];
+    runAcc.set(nodeId, accumulator);
   }
-  return runAcc.get(nodeId)!;
+  return accumulator;
 }
 
 function pushToAccumulator(acc: unknown[], items: unknown): void {
@@ -83,67 +86,67 @@ export async function execute(
       liveTypes.some((t) => typeof t === 'string' && !new Set(rawSourceTypes).has(t));
 
     if (!rawIsIncomplete) {
-    const raw = nodeData._rawContent;
-    const rawSourceTypes = nodeData._rawContentSourceTypes as string[] | undefined;
+      const raw = nodeData._rawContent;
+      const rawSourceTypes = nodeData._rawContentSourceTypes as string[] | undefined;
 
-    // Per-item type info available: split AI / non-AI precisely
-    if (Array.isArray(rawSourceTypes)) {
-      const rawItems: unknown[] = Array.isArray(raw) ? raw : [raw];
-      if (rawSourceTypes.length !== rawItems.length) {
-        // Mismatched lengths — fall through to aggregate check below
-      } else {
-        const aiItems: unknown[] = [];
-        const results: unknown[] = [];
-        for (let i = 0; i < rawItems.length; i++) {
-          if (typeof rawSourceTypes[i] === 'string' && AI_NODE_TYPES.test(rawSourceTypes[i])) {
-            aiItems.push(rawItems[i]);
-          }
-        }
-
-        if (aiItems.length > 0) {
-          sendProgress?.('正在保存...');
-          const savedResult = await materializeContentForOutput(aiItems.length === 1 ? aiItems[0] : aiItems, {
-            prefix: 'io',
-            scope: apiConfig.scope,
-          });
-          // Rebuild result in original order: AI items → saved URLs, others → passthrough
-          let aiIdx = 0;
-          const aiResult = Array.isArray(savedResult.content) ? savedResult.content : [savedResult.content];
+      // Per-item type info available: split AI / non-AI precisely
+      if (Array.isArray(rawSourceTypes)) {
+        const rawItems: unknown[] = Array.isArray(raw) ? raw : [raw];
+        if (rawSourceTypes.length !== rawItems.length) {
+          // Mismatched lengths — fall through to aggregate check below
+        } else {
+          const aiItems: unknown[] = [];
+          const results: unknown[] = [];
           for (let i = 0; i < rawItems.length; i++) {
             if (typeof rawSourceTypes[i] === 'string' && AI_NODE_TYPES.test(rawSourceTypes[i])) {
-              results.push(aiResult[aiIdx++] ?? rawItems[i]);
-            } else {
-              results.push(rawItems[i]);
+              aiItems.push(rawItems[i]);
             }
           }
-          return finalize({
-            result: results.length === 1 ? results[0] : results,
-            savedFiles: savedResult.savedFiles,
-            savedPaths: savedResult.savedPaths || [],
-          });
-        }
 
-        // No AI items at all — pass through without saving
+          if (aiItems.length > 0) {
+            sendProgress?.('正在保存...');
+            const savedResult = await materializeContentForOutput(aiItems.length === 1 ? aiItems[0] : aiItems, {
+              prefix: 'io',
+              scope: apiConfig.scope,
+            });
+            // Rebuild result in original order: AI items → saved URLs, others → passthrough
+            let aiIdx = 0;
+            const aiResult = Array.isArray(savedResult.content) ? savedResult.content : [savedResult.content];
+            for (let i = 0; i < rawItems.length; i++) {
+              if (typeof rawSourceTypes[i] === 'string' && AI_NODE_TYPES.test(rawSourceTypes[i])) {
+                results.push(aiResult[aiIdx++] ?? rawItems[i]);
+              } else {
+                results.push(rawItems[i]);
+              }
+            }
+            return finalize({
+              result: results.length === 1 ? results[0] : results,
+              savedFiles: savedResult.savedFiles,
+              savedPaths: savedResult.savedPaths || [],
+            });
+          }
+
+          // No AI items at all — pass through without saving
+          sendProgress?.('正在展示...');
+          return finalize({ result: raw });
+        }
+      }
+
+      // Fallback: no per-item type info — check aggregate _inputTypes
+      const sourceTypes: unknown = (inputs as Record<string, unknown>)._inputTypes;
+      const hasAiSource =
+        Array.isArray(sourceTypes) && sourceTypes.some((t) => typeof t === 'string' && AI_NODE_TYPES.test(t));
+      if (!hasAiSource) {
         sendProgress?.('正在展示...');
         return finalize({ result: raw });
       }
-    }
-
-    // Fallback: no per-item type info — check aggregate _inputTypes
-    const sourceTypes: unknown = (inputs as Record<string, unknown>)._inputTypes;
-    const hasAiSource =
-      Array.isArray(sourceTypes) && sourceTypes.some((t) => typeof t === 'string' && AI_NODE_TYPES.test(t));
-    if (!hasAiSource) {
-      sendProgress?.('正在展示...');
-      return finalize({ result: raw });
-    }
-    sendProgress?.('正在保存...');
-    const rawSaveResult = await materializeContentForOutput(raw, { prefix: 'io', scope: apiConfig.scope });
-    return finalize({
-      result: rawSaveResult.content ?? raw,
-      savedFiles: rawSaveResult.savedFiles,
-      savedPaths: rawSaveResult.savedPaths || [],
-    });
+      sendProgress?.('正在保存...');
+      const rawSaveResult = await materializeContentForOutput(raw, { prefix: 'io', scope: apiConfig.scope });
+      return finalize({
+        result: rawSaveResult.content ?? raw,
+        savedFiles: rawSaveResult.savedFiles,
+        savedPaths: rawSaveResult.savedPaths || [],
+      });
     } // !rawIsIncomplete
   }
 

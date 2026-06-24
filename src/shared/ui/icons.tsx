@@ -36,8 +36,8 @@ import {
   Moon,
   MusicNotes,
   Palette,
-  Paperclip,
   PaperPlaneTilt,
+  Paperclip,
   Pen,
   Play,
   Plus,
@@ -152,15 +152,7 @@ export function Icon({
       </span>
     );
   return (
-    <Comp
-      size={size}
-      style={style}
-      className={className}
-      weight={weight}
-      color={color}
-      mirrored={mirrored}
-      alt={alt}
-    />
+    <Comp size={size} style={style} className={className} weight={weight} color={color} mirrored={mirrored} alt={alt} />
   );
 }
 

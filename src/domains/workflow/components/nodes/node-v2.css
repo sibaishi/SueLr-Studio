@@ -88,25 +88,26 @@
 }
 
 .flow-node-v2:hover {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 24px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.1), 0 0 12px 4px
-    color-mix(in srgb, var(--node-color) 14%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 24px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.1), 0 0 12px
+    4px color-mix(in srgb, var(--node-color) 14%, transparent);
 }
 
 .flow-node-v2--selected {
   border-color: color-mix(in srgb, var(--node-color) 60%, var(--node-card-line));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 16px 6px
-    color-mix(in srgb, var(--node-color) 18%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 16px
+    6px color-mix(in srgb, var(--node-color) 18%, transparent);
   animation: nodeGlowBreatheV2 3s ease-in-out infinite;
 }
 
 @keyframes nodeGlowBreatheV2 {
-  0%, 100% {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 12px 4px
-      color-mix(in srgb, var(--node-color) 14%, transparent);
+  0%,
+  100% {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 12px
+      4px color-mix(in srgb, var(--node-color) 14%, transparent);
   }
   50% {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 22px 10px
-      color-mix(in srgb, var(--node-color) 24%, transparent);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 22px
+      10px color-mix(in srgb, var(--node-color) 24%, transparent);
   }
 }
 

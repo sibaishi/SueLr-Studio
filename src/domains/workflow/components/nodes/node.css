@@ -98,7 +98,8 @@
 }
 
 @keyframes nodeGlowBreathe {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 12px 4px color-mix(in srgb, var(--node-color) 16%, transparent), var(--node-card-shadow-lift);
   }
   50% {

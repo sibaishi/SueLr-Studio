@@ -14,11 +14,11 @@ const enableSingleFile = process.env.VITE_SINGLEFILE === '1';
 function manualChunks(id: string) {
   if (!id.includes('node_modules')) return undefined;
 
-  if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
-    return 'vendor-react';
-  }
   if (id.includes('@xyflow/react')) {
     return 'vendor-react-flow';
+  }
+  if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+    return 'vendor-react';
   }
   if (id.includes('/three/examples/') || id.includes('/three/addons/')) {
     return 'vendor-three-addons';

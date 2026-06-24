@@ -14,13 +14,11 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.0",
+    "express": "^4.22.2",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^8.0.9",
     "sharp": "^0.34.5",
-    "suelr-studio": "file:..",
-    "undici": "^7.25.0",
-    "uuid": "^14.0.0",
+    "undici": "^7.28.0",
+    "uuid": "^14.0.1",
     "zod": "^4.1.5"
   }
 }

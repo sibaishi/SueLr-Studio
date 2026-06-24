@@ -160,8 +160,6 @@ Current cleanup and ownership notes:
   - regular node handles and group boundary port handles, including split internal and external group-port affordances
 - `src/domains/workflow/components/ResultsPanel.tsx`
   - outputs, logs, and run diagnostics
-- `src/domains/workflow/components/nodes/NodeParamFields.tsx`
-  - node parameter editors
 - `src/domains/workflow/lib/groupLayout.ts`
   - group sizing, collapsed group size, child constraints, and root-node placement around groups
 - `src/domains/workflow/lib/groupPorts.ts`
@@ -235,8 +233,6 @@ Current cleanup and ownership notes:
   - backend status and restart helpers
 - `src/shared/api/files.ts`
   - canonical low-level upload, uploaded-file metadata, and uploaded-file URL parsing client
-- `src/shared/hooks/provider.ts`
-  - provider-related shared selection helpers
 - `src/shared/hooks/useMemory.ts`
   - reusable memory data hook
 - `src/shared/providers/`
@@ -388,9 +384,6 @@ The active Agent runtime uses governed knowledge under `backend/src/modules/inte
   - bounded, abort-aware, network-guarded remote image retrieval shared by runtime nodes that require an in-memory image buffer
 - `backend/src/engine/helpers/saveHelper.ts`
   - save-file output handling; materialized workflow outputs are grouped by media type under `images/`, `videos/`, `audio/`, `text/`, and `data/`
-- `backend/src/engine/helpers/workflowLogger.ts`
-  - workflow log shaping before persistence
-
 ### Platform layer
 
 - `backend/src/platform/ai/image-service.ts`
@@ -419,8 +412,6 @@ The active Agent runtime uses governed knowledge under `backend/src/modules/inte
   - app-data root bootstrap, environment override handling, and custom root persistence
 - `backend/src/platform/storage/storage-paths.ts`
   - canonical directories and files under the active app data root
-- `backend/src/platform/storage/file-store.ts`
-  - binary and generated-file storage helpers
 - `backend/src/platform/storage/json-store.ts`
   - JSON read/write helpers for persisted settings and records
 - `backend/src/platform/storage/safe-path.ts`

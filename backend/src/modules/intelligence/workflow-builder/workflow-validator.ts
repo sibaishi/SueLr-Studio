@@ -1,9 +1,9 @@
+import { findNestedMaterialProcessPath } from '../../../../../src/shared/workflow/material-process-graph.js';
 import {
   getWorkflowValidationInputNodeTypes,
   getWorkflowValidationNodePortDefs,
 } from '../../../../../src/shared/workflow/node-catalog.js';
 import { resolveDynamicPortCount } from '../../../../../src/shared/workflow/node-registry.js';
-import { findNestedMaterialProcessPath } from '../../../../../src/shared/workflow/material-process-graph.js';
 import { ValidationError } from '../../../app/errors/index.ts';
 import type { DynamicValue, PlainObject } from '../../types.ts';
 import { normalizePersistedWorkflow } from '../../workflows/workflows.schema.ts';

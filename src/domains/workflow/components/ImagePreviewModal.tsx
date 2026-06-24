@@ -3,13 +3,13 @@ import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasE
 import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
 import {
   ArrowsLeftRight,
+  ArrowsOut,
   CaretLeft,
   CaretRight,
   Check,
   Columns,
   Copy,
   Download,
-  ArrowsOut,
   PaintBrush,
   X,
 } from '@phosphor-icons/react';

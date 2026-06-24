@@ -1,6 +1,16 @@
 import { APP_VERSION } from '@/domains/workflow/lib/constants';
 import type { WorkflowDocument } from '@/domains/workflow/lib/store';
-import { ArrowClockwise, ArrowCounterClockwise, Copy, Download, FloppyDisk, Plus, Trash, Upload, X } from '@phosphor-icons/react';
+import {
+  ArrowClockwise,
+  ArrowCounterClockwise,
+  Copy,
+  Download,
+  FloppyDisk,
+  Plus,
+  Trash,
+  Upload,
+  X,
+} from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 interface StatusBarProps {
@@ -82,7 +92,12 @@ export default function StatusBar({
         </div>
 
         <div className="workflow-statusbar__actions">
-          <StatusbarIconButton icon={<ArrowCounterClockwise size={15} />} label="撤销" onClick={onUndo} disabled={!canUndo} />
+          <StatusbarIconButton
+            icon={<ArrowCounterClockwise size={15} />}
+            label="撤销"
+            onClick={onUndo}
+            disabled={!canUndo}
+          />
           <StatusbarIconButton icon={<ArrowClockwise size={15} />} label="重做" onClick={onRedo} disabled={!canRedo} />
           <span className="workflow-statusbar__sep" />
           <StatusbarIconButton

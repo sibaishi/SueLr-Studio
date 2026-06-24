@@ -2,6 +2,7 @@ import { PORT_COMPATIBILITY, getExpandedNodeOutputs, getNodeDef } from '@/domain
 import { findGroupPort, isGroupPortExternallyConnectable, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { createsCycle } from '@/domains/workflow/lib/store/editorGraph';
+import { wouldCreateNestedMaterialProcessPath } from '@/shared/workflow/material-process-graph.js';
 import type { Connection, Node as FlowNodeType } from '@xyflow/react';
 import { useCallback, useRef } from 'react';
 import {
@@ -12,7 +13,6 @@ import {
   resolveDirectionalGroupConnection,
 } from '../flowCanvasConnections';
 import type { ContextMenuKind, ContextMenuState, PendingConnection } from '../flowCanvasTypes';
-import { wouldCreateNestedMaterialProcessPath } from '@/shared/workflow/material-process-graph.js';
 import { getNearestGroupAncestorId } from '../flowCanvasUiHelpers';
 import type { FlowHookDeps } from './types';
 

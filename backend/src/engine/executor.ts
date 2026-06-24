@@ -1,8 +1,8 @@
-import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.ts';
 import {
   findNestedMaterialProcessPath,
   isIteratingMaterialProcessNode,
 } from '../../../src/shared/workflow/material-process-graph.js';
+import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.ts';
 import { mapConcurrentAndThrowAfterSettled, normalizeConcurrencyConfig } from '../platform/runtime/concurrency.ts';
 import { getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.ts';
 import {
@@ -343,7 +343,13 @@ export async function executeWorkflow(
       const index = getNodeIndex(node.id);
       const controlledDownstreamIds = controlledDownstreamByNodeId.get(String(node.id || '')) || new Set();
       const downstreamNodes = segmentNodes.filter((item) => controlledDownstreamIds.has(String(item.id || '')));
-      const iterationItems = await collectIterationItems(node, executableEdges, scopedOutputs, executableNodes, apiConfig);
+      const iterationItems = await collectIterationItems(
+        node,
+        executableEdges,
+        scopedOutputs,
+        executableNodes,
+        apiConfig,
+      );
       if (iterationItems.length === 0) {
         failCount += 1;
         failWorkflowAtNode({

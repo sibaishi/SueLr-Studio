@@ -71,9 +71,7 @@ function normalizeNodeData(node: WorkflowArchitectDsl['nodes'][number], edges: W
     data.mjMode = ['fast', 'relax', 'turbo'].includes(String(data.mjMode)) ? data.mjMode : 'fast';
   }
   if (node.type === 'materialProcess') {
-    data.materialType = ['auto', 'text', 'image'].includes(String(data.materialType))
-      ? data.materialType
-      : 'auto';
+    data.materialType = ['auto', 'text', 'image'].includes(String(data.materialType)) ? data.materialType : 'auto';
     data.splitEnabled = data.splitEnabled !== false;
     data.iterateEnabled = data.iterateEnabled === true;
     if (!data.splitEnabled && !data.iterateEnabled) data.splitEnabled = true;

@@ -20,8 +20,8 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import type { PortDef } from '@/domains/workflow/lib/types';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
-import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
 import { CaretDown, CaretRight, Copy, LockOpen, LockSimple, Play, Prohibit } from '@phosphor-icons/react';
+import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
 import { type CSSProperties, memo, useEffect, useMemo, useState } from 'react';
 import { NodeContent } from './NodeContent';
 import { GroupPortRow, InputPort, OutputPort } from './NodePorts';
@@ -449,11 +449,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                 title={isCollapsed ? 'Expand group' : 'Collapse group'}
                 aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
               >
-                {isCollapsed ? (
-                  <CaretRight size={14} />
-                ) : (
-                  <CaretDown size={14} />
-                )}
+                {isCollapsed ? <CaretRight size={14} /> : <CaretDown size={14} />}
               </button>
             )}
           </div>

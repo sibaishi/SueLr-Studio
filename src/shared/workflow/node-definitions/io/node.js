@@ -10,10 +10,12 @@ export const IO_NODE = {
   category: 'input',
   inputs: [{ id: 'input', label: '输入', type: 'any', required: false }],
   outputs: [{ id: 'result', label: '输出', type: 'any' }],
-  params: [
-    { id: 'iterationAggregate', label: '迭代汇总', type: 'toggle', default: false },
-  ],
-  architect: { enabled: true, order: 1, defaults: { text: '', content: [], _fileIds: [], _fileKinds: [], iterationAggregate: false } },
+  params: [{ id: 'iterationAggregate', label: '迭代汇总', type: 'toggle', default: false }],
+  architect: {
+    enabled: true,
+    order: 1,
+    defaults: { text: '', content: [], _fileIds: [], _fileKinds: [], iterationAggregate: false },
+  },
   agentInput: { aliases: ['io', 'input', 'prompt', 'text', 'content', 'image', 'file', 'media'], adapter: 'text' },
   supportsDisabledPassthrough: true,
 };

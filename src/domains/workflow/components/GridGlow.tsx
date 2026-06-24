@@ -6,13 +6,7 @@ interface GridGlowProps {
   fadeOut: number;
 }
 
-export function GridGlow({
-  radius,
-  containerWidth,
-  containerHeight,
-  mouseScreenPos,
-  fadeOut,
-}: GridGlowProps) {
+export function GridGlow({ radius, containerWidth, containerHeight, mouseScreenPos, fadeOut }: GridGlowProps) {
   if (!mouseScreenPos || !containerWidth || !containerHeight) return null;
 
   const alpha = 1 - fadeOut;
@@ -31,7 +25,7 @@ export function GridGlow({
         borderRadius: '50%',
         pointerEvents: 'none',
         opacity: alpha * 0.55,
-        background: `radial-gradient(circle, rgba(10,132,255,0.18) 0%, rgba(10,132,255,0.06) 40%, transparent 70%)`,
+        background: 'radial-gradient(circle, rgba(10,132,255,0.18) 0%, rgba(10,132,255,0.06) 40%, transparent 70%)',
       }}
     />
   );

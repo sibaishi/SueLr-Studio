@@ -33,9 +33,9 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
 import { GridDots } from './GridDots';
 import { GridGlow } from './GridGlow';
+import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
 import { snapNodeBox } from './flowCanvasClipboard';
 import {
   FLOW_CATEGORY_LABELS,
@@ -246,7 +246,12 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
   const renderNodes = renderModel.nodes;
   const renderEdges = useMemo(() => {
-    const previewEdges = buildEdgeInsertionPreviewEdges(edgeInsertionCandidate, renderNodes, renderModel.edges, store.edgeStyle);
+    const previewEdges = buildEdgeInsertionPreviewEdges(
+      edgeInsertionCandidate,
+      renderNodes,
+      renderModel.edges,
+      store.edgeStyle,
+    );
     const renderNodeMap = new Map(renderNodes.map((node) => [node.id, node]));
     const selectedIds = new Set(renderNodes.filter((n) => n.selected).map((n) => n.id));
     return [
@@ -463,7 +468,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       setMouseScreenPos({ x: event.clientX - rect.left, y: event.clientY - rect.top });
       lastMoveTimeRef.current = Date.now();
     },
-  [reactFlow],
+    [reactFlow],
   );
 
   const fileDrop = useFlowFileDrop({ store, reactFlow, closeContextMenu: ctxMenu.closeContextMenu });
@@ -799,9 +804,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
           strokeWidth: 2,
         }}
         connectionLineType={
-          store.edgeStyle === 'smoothstep'
-            ? ConnectionLineType.SmoothStep
-            : ConnectionLineType.Bezier
+          store.edgeStyle === 'smoothstep' ? ConnectionLineType.SmoothStep : ConnectionLineType.Bezier
         }
         fitView
         fitViewOptions={{

@@ -39,7 +39,13 @@ test('workflow node catalog preserves architect defaults and agent knowledge cov
   assert.deepEqual(getWorkflowArchitectDefaultData('aiV3'), {
     model: '',
   });
-  assert.deepEqual(getWorkflowArchitectDefaultData('io'), { text: '', content: [], _fileIds: [], _fileKinds: [] });
+  assert.deepEqual(getWorkflowArchitectDefaultData('io'), {
+    text: '',
+    content: [],
+    _fileIds: [],
+    _fileKinds: [],
+    iterationAggregate: false,
+  });
   assert.deepEqual(getWorkflowArchitectDefaultData('materialProcess'), {
     materialType: 'auto',
     splitEnabled: true,
