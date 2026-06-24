@@ -12,6 +12,9 @@ type ImageSource = {
   mimeType: string;
 };
 
+type SharpPipeline = ReturnType<typeof sharp>;
+type SharpFormat = Parameters<SharpPipeline['toFormat']>[0];
+
 const IMAGE_PATH_PATTERN = /\.(?:avif|gif|heic|heif|jpe?g|png|svg|webp)(?:[?#].*)?$/i;
 const IMAGE_URL_PATTERN = /^(?:https?:\/\/|\/api\/|blob:)/i;
 
@@ -169,12 +172,12 @@ function getMimeTypeForFormat(format: string) {
   return `image/${format}`;
 }
 
-async function exportPart(pipeline: sharp.Sharp, preferredFormat: string) {
+async function exportPart(pipeline: SharpPipeline, preferredFormat: string) {
   try {
     return {
       buffer: await pipeline
         .clone()
-        .toFormat(preferredFormat as keyof sharp.FormatEnum)
+        .toFormat(preferredFormat as SharpFormat)
         .toBuffer(),
       format: preferredFormat,
     };

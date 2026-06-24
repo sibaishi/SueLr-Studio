@@ -28,7 +28,16 @@ export function validateBody<TInput, TOutput>(validator: Validator<TInput, TOutp
 export function validateQuery<TInput, TOutput>(validator: Validator<TInput, TOutput>) {
   return (req: QueryRequest<TInput | TOutput>, _res: unknown, next: NextFunction): void => {
     try {
-      req.query = validator(req.query as TInput);
+      const validatedQuery = validator(req.query as TInput);
+
+      // Express 5 exposes req.query through a read-only getter. Shadow it on
+      // the request instance so downstream handlers keep using the validated
+      // and normalized value through the existing req.query contract.
+      Object.defineProperty(req, 'query', {
+        configurable: true,
+        enumerable: true,
+        value: validatedQuery,
+      });
       next();
     } catch (error) {
       next(error);

@@ -61,8 +61,9 @@ function buildAllowedOrigins(): string[] {
   ];
 }
 
-function getWildcardParam(req: RequestLike): string {
-  return String(req.params?.[0] || '');
+function getWildcardParam(req: RequestLike, name: string): string {
+  const value = req.params?.[name] ?? req.params?.[0];
+  return Array.isArray(value) ? value.join('/') : String(value || '');
 }
 
 const validateRuntimeAssetRunId = zodValidator(
@@ -135,9 +136,9 @@ export function createApp() {
     }
   });
 
-  app.get('/api/outputs/*', async (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
+  app.get('/api/outputs/*relativePath', async (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
     try {
-      const relativePath = getWildcardParam(req);
+      const relativePath = getWildcardParam(req, 'relativePath');
       const storagePaths = getScopedStoragePaths(req.scope);
       const absolutePath = safeResolveWithin(storagePaths.generatedDir, relativePath);
       if (!absolutePath) return next();
@@ -159,21 +160,21 @@ export function createApp() {
     }
   });
 
-  app.get('/api/outputs/*', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
-    const relativePath = getWildcardParam(req);
+  app.get('/api/outputs/*relativePath', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
+    const relativePath = getWildcardParam(req, 'relativePath');
     const filePath = safeResolveWithin(getScopedStoragePaths(req.scope).generatedDir, relativePath);
     if (!filePath || !existsSync(filePath)) return next();
     res.sendFile(filePath);
   });
-  app.get('/api/files/*', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
-    const relativePath = getWildcardParam(req);
+  app.get('/api/files/*relativePath', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
+    const relativePath = getWildcardParam(req, 'relativePath');
     const filePath = safeResolveWithin(getScopedStoragePaths(req.scope).uploadsDir, relativePath);
     if (!filePath || !existsSync(filePath)) return next();
     res.sendFile(filePath);
   });
-  app.get('/api/runtime/workflows/:runId/*', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
+  app.get('/api/runtime/workflows/:runId/*filename', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
     const runId = validateRuntimeAssetRunId(String(req.params?.runId || ''));
-    const filename = validateRuntimeAssetFilename(getWildcardParam(req));
+    const filename = validateRuntimeAssetFilename(getWildcardParam(req, 'filename'));
     const filePath = resolveWorkflowRuntimeAsset(runId, filename, req.scope);
     if (!filePath) return next();
     res.setHeader('Cache-Control', 'no-store');
@@ -218,7 +219,7 @@ export function createApp() {
   const frontendDist = process.env.APP_FRONTEND_DIST ? resolve(process.env.APP_FRONTEND_DIST) : '';
   if (frontendDist && existsSync(resolve(frontendDist, 'index.html'))) {
     app.use(express.static(frontendDist));
-    app.get('*', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
+    app.get('/{*splat}', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
       if (String(req.path || '').startsWith('/api/')) {
         next();
         return;

@@ -80,7 +80,7 @@ export class AssistantController {
 
   streamFile(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
-      const file = assistantService.openGeneratedFile(req.params[0], { scope: req.scope });
+      const file = assistantService.openGeneratedFile(req.params.filePath, { scope: req.scope });
       res.writeHead(200, { 'Content-Type': file.contentType });
       fs.createReadStream(file.filePath).pipe(res as DynamicValue);
     } catch (error) {

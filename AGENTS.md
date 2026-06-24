@@ -1,12 +1,12 @@
 # MANDATORY RULES - CHECK BEFORE EVERY CODE CHANGE
 
-> Current repository contract reviewed: 2026-06-22.
+> Current repository contract reviewed: 2026-06-24.
 
 BEFORE writing any code, read and apply every rule below. These are hard constraints, not suggestions.
 
 ## Project Identity
 
-SueLr-Studio: Electron 41 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4.1 + Zustand 5 + Express.js.
+SueLr-Studio: Electron 41 + React 19 + TypeScript 5.9 + Vite 8 + Tailwind CSS 4.3 + Zustand 5 + Express 5.
 
 - Chinese-first UI
 - All Chinese text must remain UTF-8

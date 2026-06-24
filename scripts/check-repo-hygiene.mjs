@@ -56,6 +56,7 @@ const allowedRootFiles = new Set([
   'CONTRIBUTING.md',
   'README.md',
   'index.html',
+  'knip.jsonc',
   'package-lock.json',
   'package.json',
   'playwright.config.ts',
@@ -120,6 +121,7 @@ if (failures.length === 0) {
     'test:e2e',
     'test:e2e:install',
     'check:repo-hygiene',
+    'check:dead-code',
     'check:encoding',
     'check:docs',
   ]) {

@@ -195,5 +195,3 @@ export function normalizePersistedWorkflow(payload: DynamicValue, options: Workf
 
   return ensureResourceOwnership(normalized, options.scope);
 }
-
-export const sanitizeWorkflowPayload = normalizePersistedWorkflow;

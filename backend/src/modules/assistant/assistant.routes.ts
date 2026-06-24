@@ -12,6 +12,10 @@ import {
 
 const router = Router();
 
+function joinWildcardParam(value: unknown) {
+  return Array.isArray(value) ? value.join('/') : String(value || '');
+}
+
 router.get('/status', assistantController.getStatus.bind(assistantController));
 router.get('/conversations', assistantController.getConversations.bind(assistantController));
 router.post(
@@ -43,8 +47,8 @@ router.delete(
 router.get('/settings', assistantController.getSettings.bind(assistantController));
 router.post('/settings', assistantController.updateSettings.bind(assistantController));
 router.get(
-  '/files/*',
-  validateParam('0', validateAssistantFilePath),
+  '/files/*filePath',
+  validateParam('filePath', validateAssistantFilePath, joinWildcardParam),
   assistantController.streamFile.bind(assistantController),
 );
 

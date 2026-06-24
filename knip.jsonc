@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "electron/preload.cjs",
+    "public/sw.js",
+    "scripts/**/*.mjs",
+    "tests/unit/**/*.test.ts",
+    "tests/e2e/**/*.ts"
+  ],
+  "project": [
+    "src/**/*.{js,ts,tsx}",
+    "electron/**/*.cjs",
+    "scripts/**/*.mjs",
+    "tests/**/*.{ts,tsx}"
+  ],
+  "ignoreDependencies": [
+    "@fontsource-variable/inter",
+    "@fontsource-variable/jetbrains-mono",
+    "tailwindcss"
+  ]
+}

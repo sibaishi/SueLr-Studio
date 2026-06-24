@@ -26,7 +26,7 @@ import {
   type Node as FlowNodeType,
   MiniMap,
   type NodeChange,
-  type NodeMouseHandler,
+  type OnNodeDrag,
   Panel,
   ReactFlow,
   ReactFlowProvider,
@@ -334,7 +334,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     [store],
   );
 
-  const onNodeDrag = useCallback<NodeMouseHandler>(
+  const onNodeDrag = useCallback<OnNodeDrag>(
     (_, node) => {
       if (isNodeLockedWithAncestors(node.id, store.nodes)) {
         setEdgeInsertionCandidate(null);
@@ -347,7 +347,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     [renderModel.edges, renderNodes, store.nodes],
   );
 
-  const onNodeDragStop = useCallback<NodeMouseHandler>(
+  const onNodeDragStop = useCallback<OnNodeDrag>(
     (_, node) => {
       if (isNodeLockedWithAncestors(node.id, store.nodes)) {
         setEdgeInsertionCandidate(null);

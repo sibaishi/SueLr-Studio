@@ -574,6 +574,7 @@ Working rules:
 Before opening or merging a maintenance change, run the repo quality gate:
 
 - `npm run check`
+- `npm run check:dead-code` when dependencies, entrypoints, exports, or source ownership change; root and backend Knip configurations stay separate so each package boundary is evaluated correctly
 - `npm run lint` for a quicker Biome lint pass while iterating
 - `npm run format:check` before committing formatting-only or broad structure changes
 - `npm run check:encoding` when the change touches user-visible text, persisted content, upload names, or file-path transport
