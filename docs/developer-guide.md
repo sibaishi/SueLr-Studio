@@ -625,3 +625,7 @@ Use `npm run dev` when you explicitly want the raw concurrently-based command. U
 When isolating the frontend, remember that workflow, settings, and other local app requests still use the Vite `/api` proxy. If the backend is running on a non-default port, set `VITE_DEV_PROXY_TARGET` so the frontend talks to the intended backend instance.
 
 The launcher may choose the next free frontend or backend port. Treat `5173` and `3001` as preferred defaults, and use the URLs printed by the launcher as authoritative for that run.
+
+## Local runtime boundaries
+
+The backend binds to loopback addresses only. Media downloads validate the destination at each redirect and enforce the byte limit while reading the response stream. JSON saves use a temporary file in the same directory followed by an atomic rename. The workflow library logs unreadable entries and preserves the original files for recovery.

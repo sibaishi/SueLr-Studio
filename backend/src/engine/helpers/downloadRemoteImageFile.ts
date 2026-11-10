@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describeFetchError } from '../../platform/http/fetch-error.ts';
 import type { RequestScope } from '../../platform/runtime/request-scope.ts';
-import { assertSafeRemoteDownloadUrl, validateImageBuffer } from '../../platform/security/network-guards.ts';
+import { fetchRemoteDownload, readDownloadBuffer } from '../../platform/http/remote-download.ts';
+import { validateImageBuffer } from '../../platform/security/network-guards.ts';
 import { getScopedStoragePaths } from '../../platform/storage/index.ts';
 
 const DOWNLOAD_TIMEOUT_MS = 60_000;
@@ -26,15 +27,13 @@ export async function fetchImageBuffer(
   }
 
   sendProgress?.('正在下载远程图片...');
-  await assertSafeRemoteDownloadUrl(source, '图片下载地址');
-
   const signal = abortSignal
     ? AbortSignal.any([abortSignal, AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS)])
     : AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS);
 
   let response: Response;
   try {
-    response = await fetch(source, { signal, redirect: 'follow' });
+    response = await fetchRemoteDownload(source, '图片下载地址', signal);
   } catch (error) {
     throw new Error(`下载远程图片失败: ${describeFetchError(error)}`);
   }
@@ -43,15 +42,7 @@ export async function fetchImageBuffer(
     throw new Error(`下载远程图片失败: HTTP ${response.status}`);
   }
 
-  const contentLength = Number(response.headers.get('content-length') || '0');
-  if (contentLength > MAX_BYTES) {
-    throw new Error('下载远程图片失败: 文件超过大小限制');
-  }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.byteLength > MAX_BYTES) {
-    throw new Error('下载远程图片失败: 文件超过大小限制');
-  }
+  const buffer = await readDownloadBuffer(response, MAX_BYTES, '下载远程图片失败: 文件超过大小限制');
   validateImageBuffer(buffer);
 
   return { buffer, mimeType: response.headers.get('content-type') || 'image/png' };

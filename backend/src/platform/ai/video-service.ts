@@ -7,7 +7,7 @@ import { fileToBase64 } from '../../engine/helpers/fileHelper.ts';
 import { createLogger } from '../logging/logger.ts';
 import { getProviderAdapter } from '../providers/index.ts';
 import type { RequestScope } from '../runtime/request-scope.ts';
-import { assertSafeRemoteDownloadUrl } from '../security/network-guards.ts';
+import { fetchRemoteDownload, readDownloadBuffer } from '../http/remote-download.ts';
 import { STORAGE_PATHS } from '../storage/index.ts';
 import { waitForAsyncTask } from './async-task-runner.ts';
 
@@ -371,26 +371,13 @@ async function buildVideoGenerationPayload(
 }
 
 async function downloadRemoteVideo(url: string): Promise<string> {
-  await assertSafeRemoteDownloadUrl(url, '视频下载地址');
-
-  const response = await fetch(url, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS),
-  });
+  const response = await fetchRemoteDownload(url, '视频下载地址', AbortSignal.timeout(REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS));
   if (!response.ok) {
     throw new Error(`下载视频失败: HTTP ${response.status}`);
   }
 
-  const contentLength = Number(response.headers.get('content-length') || '0');
-  if (contentLength > REMOTE_VIDEO_MAX_BYTES) {
-    throw new Error('下载视频失败: 文件超过大小限制');
-  }
-
   const contentType = response.headers.get('content-type') || 'video/mp4';
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.byteLength > REMOTE_VIDEO_MAX_BYTES) {
-    throw new Error('下载视频失败: 文件超过大小限制');
-  }
+  const buffer = await readDownloadBuffer(response, REMOTE_VIDEO_MAX_BYTES, '下载视频失败: 文件超过大小限制');
   return `data:${contentType};base64,${buffer.toString('base64')}`;
 }
 

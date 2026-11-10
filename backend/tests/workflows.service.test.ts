@@ -299,3 +299,32 @@ test('workflow import rejects future version and unknown node type with structur
     }, { mode: 'preserve_id' });
   }, /不支持的节点类型: unknownNode/);
 });
+
+test('workflow library preserves unreadable documents and lists healthy workflows', async () => {
+  const { workflowsRepository } = await import('../src/modules/workflows/workflows.repository.ts');
+  const { WorkflowsService } = await import('../src/modules/workflows/workflows.service.ts');
+  const service = new WorkflowsService(workflowsRepository);
+  const created = service.create({
+    id: 'wf_recovery_test',
+    name: 'Recovery Test',
+    nodes: [],
+    edges: [],
+  });
+  const corruptPath = workflowsRepository.getFilePath('wf_corrupt');
+  const invalidPath = workflowsRepository.getFilePath('wf_invalid');
+  const initialCount = service.list().length;
+  fs.writeFileSync(corruptPath, '{"incomplete":');
+  fs.writeFileSync(invalidPath, 'null');
+
+  try {
+    const entries = service.list();
+    assert.ok(entries.some((workflow) => workflow.id === created.id));
+    assert.equal(entries.length, initialCount);
+    assert.equal(fs.readFileSync(corruptPath, 'utf8'), '{"incomplete":');
+    assert.equal(fs.readFileSync(invalidPath, 'utf8'), 'null');
+  } finally {
+    fs.rmSync(corruptPath, { force: true });
+    fs.rmSync(invalidPath, { force: true });
+    service.delete(created.id);
+  }
+});

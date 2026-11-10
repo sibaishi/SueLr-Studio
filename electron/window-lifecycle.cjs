@@ -29,7 +29,9 @@ function createMainWindow({
   });
 
   window.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
-    shell.openExternal(targetUrl);
+    if (URL.canParse(targetUrl) && ['http:', 'https:'].includes(new URL(targetUrl).protocol)) {
+      shell.openExternal(targetUrl).catch((error) => console.warn('Unable to open external link:', error.message));
+    }
     return { action: 'deny' };
   });
 

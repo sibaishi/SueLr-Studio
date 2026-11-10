@@ -1,4 +1,4 @@
-import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
+import { fetchRemoteDownload, readDownloadBuffer } from '../../platform/http/remote-download.ts';
 import {
   type DynamicValue,
   type LooseRecord,
@@ -29,24 +29,12 @@ export async function imageSourceToBlob(imageSource: DynamicValue): Promise<Blob
     return dataUrlToBlob(imageSource);
   }
   if (String(imageSource).startsWith('http://') || String(imageSource).startsWith('https://')) {
-    await assertSafeRemoteDownloadUrl(imageSource, '编辑图片地址');
-    const response = await fetch(imageSource, {
-      signal: AbortSignal.timeout(REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS),
-      redirect: 'follow',
-    });
+    const response = await fetchRemoteDownload(imageSource, '编辑图片地址', AbortSignal.timeout(REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS));
     if (!response.ok) {
       throw new Error(`下载编辑图片失败: HTTP ${response.status}`);
     }
 
-    const contentLength = Number(response.headers.get('content-length') || '0');
-    if (contentLength > REMOTE_IMAGE_MAX_BYTES) {
-      throw new Error('下载编辑图片失败: 文件超过大小限制');
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.byteLength > REMOTE_IMAGE_MAX_BYTES) {
-      throw new Error('下载编辑图片失败: 文件超过大小限制');
-    }
+    const buffer = await readDownloadBuffer(response, REMOTE_IMAGE_MAX_BYTES, '下载编辑图片失败: 文件超过大小限制');
 
     return new Blob([buffer], {
       type: response.headers.get('content-type') || 'application/octet-stream',

@@ -7,7 +7,7 @@ import {
   ensureResourceOwnership,
   isResourceVisibleForRequestScope,
 } from '../../platform/runtime/index.ts';
-import { assertSafeRemoteDownloadUrl } from '../../platform/security/network-guards.ts';
+import { fetchRemoteDownload, readDownloadBuffer } from '../../platform/http/remote-download.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { assistantRepository } from './assistant.repository.ts';
 
@@ -80,12 +80,7 @@ function buildAssistantThumbnailUrl(directoryName: string, filename: string) {
 }
 
 async function downloadRemoteVideoCandidate(url: string) {
-  await assertSafeRemoteDownloadUrl(url, '视频下载地址');
-
-  const response = await fetch(url, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(REMOTE_VIDEO_TIMEOUT_MS),
-  });
+  const response = await fetchRemoteDownload(url, '视频下载地址', AbortSignal.timeout(REMOTE_VIDEO_TIMEOUT_MS));
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
@@ -95,15 +90,7 @@ async function downloadRemoteVideoCandidate(url: string) {
     throw new Error(`Unexpected content-type: ${contentType || 'unknown'}`);
   }
 
-  const contentLength = Number(response.headers.get('content-length') || '0');
-  if (contentLength > REMOTE_VIDEO_MAX_BYTES) {
-    throw new Error('Video exceeds size limit');
-  }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.byteLength > REMOTE_VIDEO_MAX_BYTES) {
-    throw new Error('Video exceeds size limit');
-  }
+  const buffer = await readDownloadBuffer(response, REMOTE_VIDEO_MAX_BYTES, 'Video exceeds size limit');
 
   return { buffer, contentType };
 }

@@ -383,3 +383,7 @@ If you are validating a local build or reviewing a text-handling change, run:
 ```bash
 npm run check:encoding
 ```
+
+## 本地访问与工作流恢复
+
+Local-Web 的 API 仅在本机回环地址监听。工作流库遇到损坏的 JSON 文件时仍会列出其他工作流，原文件会保留在工作流目录，可从备份恢复。

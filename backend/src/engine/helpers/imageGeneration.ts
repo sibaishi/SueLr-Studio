@@ -9,7 +9,8 @@ import {
   mapConcurrentSettled,
   normalizeConcurrencyConfig,
 } from '../../platform/runtime/concurrency.ts';
-import { assertSafeRemoteDownloadUrl, validateImageBuffer } from '../../platform/security/network-guards.ts';
+import { fetchRemoteDownload, readDownloadBuffer } from '../../platform/http/remote-download.ts';
+import { validateImageBuffer } from '../../platform/security/network-guards.ts';
 import { getScopedStoragePaths } from '../../platform/storage/index.ts';
 import { resolveModelRuntime } from './apiConfig.ts';
 import { fileToBase64 } from './fileHelper.ts';
@@ -546,15 +547,13 @@ async function downloadRemoteImage(
 ): Promise<string> {
   sendProgress?.('正在下载生成结果...');
 
-  await assertSafeRemoteDownloadUrl(url, '图片下载地址');
-
   const signal = externalSignal
     ? AbortSignal.any([externalSignal, AbortSignal.timeout(REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS)])
     : AbortSignal.timeout(REMOTE_IMAGE_DOWNLOAD_TIMEOUT_MS);
 
   let response: Response;
   try {
-    response = await fetch(url, { signal, redirect: 'follow' });
+    response = await fetchRemoteDownload(url, '图片下载地址', signal);
   } catch (error) {
     throw new Error(`下载图片失败: ${describeFetchError(error)}`);
   }
@@ -563,16 +562,8 @@ async function downloadRemoteImage(
     throw new Error(`下载图片失败: HTTP ${response.status}`);
   }
 
-  const contentLength = Number(response.headers.get('content-length') || '0');
-  if (contentLength > REMOTE_IMAGE_MAX_BYTES) {
-    throw new Error('下载图片失败: 文件超过大小限制');
-  }
-
   const contentType = response.headers.get('content-type') || 'image/png';
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.byteLength > REMOTE_IMAGE_MAX_BYTES) {
-    throw new Error('下载图片失败: 文件超过大小限制');
-  }
+  const buffer = await readDownloadBuffer(response, REMOTE_IMAGE_MAX_BYTES, '下载图片失败: 文件超过大小限制');
   validateImageBuffer(buffer);
   return `data:${contentType};base64,${buffer.toString('base64')}`;
 }

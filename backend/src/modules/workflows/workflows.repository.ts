@@ -2,8 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
 import { STORAGE_PATHS, ensureStorageDirectories, safeResolveWithin } from '../../platform/storage/index.ts';
+import { createLogger } from '../../platform/logging/logger.ts';
+import { writeJsonFile } from '../../platform/storage/json-store.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { BUILTIN_WORKFLOW_TEMPLATES } from './workflow-templates.ts';
+
+const logger = createLogger({ module: 'workflows-repository' });
 
 export class WorkflowsRepository {
   constructor() {
@@ -27,10 +31,20 @@ export class WorkflowsRepository {
 
   list(): PlainObject[] {
     const files = fs.readdirSync(STORAGE_PATHS.workflowsDir).filter((file) => file.endsWith('.json'));
-    return files.map((file) => {
-      const content = fs.readFileSync(path.join(STORAGE_PATHS.workflowsDir, file), 'utf-8');
-      return JSON.parse(content);
-    });
+    const workflows: PlainObject[] = [];
+    for (const file of files) {
+      try {
+        const workflow: unknown = JSON.parse(fs.readFileSync(path.join(STORAGE_PATHS.workflowsDir, file), 'utf8'));
+        if (!workflow || typeof workflow !== 'object' || Array.isArray(workflow)) {
+          logger.warn('skipping invalid workflow file', { file });
+          continue;
+        }
+        workflows.push(workflow as PlainObject);
+      } catch {
+        logger.warn('skipping unreadable workflow file', { file });
+      }
+    }
+    return workflows;
   }
 
   read(id: string) {
@@ -44,7 +58,7 @@ export class WorkflowsRepository {
 
   save(id: string, workflow: DynamicValue) {
     const filePath = this.getFilePath(id);
-    fs.writeFileSync(filePath, JSON.stringify(workflow, null, 2), 'utf8');
+    writeJsonFile(filePath, workflow);
     return workflow;
   }
 

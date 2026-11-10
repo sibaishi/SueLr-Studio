@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -8,7 +9,7 @@ const { createMainWindow, focusWindow, WINDOW_OPTIONS } = require('../../electro
       webContents: { setWindowOpenHandler: (handler: ({ url }: { url: string }) => { action: string }) => void };
       loadURL: (url: string) => void;
     };
-    shell: { openExternal: (url: string) => void };
+    shell: { openExternal: (url: string) => Promise<void> };
     url: string;
     iconPath: string;
     app: { getAppPath: () => string };
@@ -26,7 +27,7 @@ const { createMainWindow, focusWindow, WINDOW_OPTIONS } = require('../../electro
 
 describe('Electron window lifecycle helpers', () => {
   it('creates the main window with fixed shell options and external link handling', () => {
-    const openExternal = vi.fn();
+    const openExternal = vi.fn().mockResolvedValue(undefined);
     const loadURL = vi.fn();
     let capturedOptions: Record<string, unknown> | null = null;
     let openHandler: ((payload: { url: string }) => { action: string }) | undefined;
@@ -47,12 +48,13 @@ describe('Electron window lifecycle helpers', () => {
       }
     }
 
+    const appPath = path.resolve('SueLr-Studio');
     createMainWindow({
       BrowserWindow: BrowserWindowStub as never,
       shell: { openExternal },
       url: 'http://127.0.0.1:3001',
       iconPath: 'build/icon.ico',
-      app: { getAppPath: () => 'C:\\SueLr-Studio' },
+      app: { getAppPath: () => appPath },
     });
 
     expect(capturedOptions).toMatchObject({
@@ -62,13 +64,15 @@ describe('Electron window lifecycle helpers', () => {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
-        preload: 'C:\\SueLr-Studio\\electron\\preload.cjs',
+        preload: path.join(appPath, 'electron', 'preload.cjs'),
       },
     });
     expect(loadURL).toHaveBeenCalledWith('http://127.0.0.1:3001');
     const secondInstanceResult = openHandler?.({ url: 'https://example.com' }) ?? null;
     expect(secondInstanceResult).toEqual({ action: 'deny' });
     expect(openExternal).toHaveBeenCalledWith('https://example.com');
+    expect(openHandler?.({ url: 'file:///tmp/example' })).toEqual({ action: 'deny' });
+    expect(openExternal).toHaveBeenCalledTimes(1);
   });
 
   it('restores minimized windows before focusing them', () => {

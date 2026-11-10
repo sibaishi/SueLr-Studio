@@ -28,7 +28,7 @@ This document defines the standard release workflow for SueLr Studio. The active
    git pull origin release/desktop
    ```
 
-4. Run validation:
+4. Validate clean installs and the quality gate on Linux, macOS, and Windows. Run browser smoke tests before promoting either release variant:
 
    ```powershell
    npm.cmd run check

@@ -18,6 +18,9 @@ const logger = createLogger({ module: 'server' });
 installRuntimeObservability();
 
 export function startServer(port = PORT, host = HOST) {
+  if (!['127.0.0.1', '::1', 'localhost'].includes(host.trim().toLowerCase())) {
+    throw new Error('SueLr Studio only supports listening on a loopback address');
+  }
   const app = createApp();
   return app.listen(port, host, () => {
     logger.info('server started', {
