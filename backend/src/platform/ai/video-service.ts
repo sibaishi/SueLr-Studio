@@ -5,6 +5,7 @@ import { ProviderError } from '../../app/errors/index.ts';
 import { resolveModelRuntime } from '../../engine/helpers/apiConfig.ts';
 import { fileToBase64 } from '../../engine/helpers/fileHelper.ts';
 import { createLogger } from '../logging/logger.ts';
+import { formatVideoProviderStatus } from '../providers/provider-http.ts';
 import { getProviderAdapter } from '../providers/index.ts';
 import type { RequestScope } from '../runtime/request-scope.ts';
 import { fetchRemoteDownload, readDownloadBuffer } from '../http/remote-download.ts';
@@ -544,17 +545,12 @@ export async function pollVideoTask({
     errorCode: 'VIDEO_STATUS_FAILED',
   });
 
-  const data = await response.json().catch(() => ({}));
-  const dataRecord = asRecord(data);
-  const dataError = asRecord(dataRecord.error);
   if (!response.ok) {
-    throw new ProviderError(
-      'VIDEO_STATUS_FAILED',
-      getString(dataError.message) || getString(dataRecord.message) || `HTTP ${response.status}`,
-    );
+    await response.body?.cancel();
+    throw new ProviderError('VIDEO_STATUS_FAILED', formatVideoProviderStatus(response.status, 'poll'));
   }
 
-  return data;
+  return response.json().catch(() => ({}));
 }
 
 export async function waitForVideoTask({

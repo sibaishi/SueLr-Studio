@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import type { Dispatcher } from 'undici';
-import { EnvHttpProxyAgent, ProxyAgent } from 'undici';
+import { EnvHttpProxyAgent, fetch as undiciFetch, ProxyAgent } from 'undici';
 
 import { createLogger } from '../logging/logger.ts';
 
@@ -334,5 +334,9 @@ export async function proxyAwareFetch(targetUrl: string | URL, options: RequestI
     }
   }
 
+  if (requestOptions.dispatcher) {
+    // Keep the proxy dispatcher and fetch implementation on the same Undici version.
+    return (await undiciFetch(targetUrl, requestOptions as Parameters<typeof undiciFetch>[1])) as unknown as Response;
+  }
   return fetch(targetUrl, requestOptions);
 }

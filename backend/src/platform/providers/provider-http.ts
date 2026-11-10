@@ -74,6 +74,19 @@ export async function parseProviderErrorResponse(response: Response, fallbackPre
   return `${fallbackPrefix} (${response.status})`;
 }
 
+export function formatVideoProviderStatus(status: number, phase: 'submit' | 'poll'): string {
+  const action = phase === 'submit' ? '提交视频生成任务' : '查询视频生成状态';
+  const hint = new Map([
+    [400, '请核对供应商支持的模型、请求参数和素材格式'],
+    [401, '请核对连接的 API Key'],
+    [403, '请核对模型权限和账户状态'],
+    [404, '请核对视频接口路径和任务 ID'],
+    [422, '请核对素材与视频参数是否符合模型限制'],
+    [429, '请检查供应商限流或账户额度'],
+  ]).get(status);
+  return `${action}失败（上游 HTTP ${status}）${hint ? `，${hint}` : ''}。`;
+}
+
 export function toProviderError(error: unknown, code: string, url = ''): unknown {
   if (error && typeof error === 'object' && 'status' in error) return error;
   return new ProviderErrorCtor(code, formatProviderFetchError(error, url), undefined, error);

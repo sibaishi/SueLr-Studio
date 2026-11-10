@@ -3,7 +3,7 @@ import { proxyAwareFetch } from '../../http/proxy-aware-fetch.ts';
 import { createLogger } from '../../logging/logger.ts';
 import { assertSafeProviderBaseUrl } from '../../security/network-guards.ts';
 import type { ProviderConfig, ProviderHeaders } from '../base-adapter.ts';
-import { parseProviderErrorResponse, toProviderError } from '../provider-http.ts';
+import { formatVideoProviderStatus, parseProviderErrorResponse, toProviderError } from '../provider-http.ts';
 import { CompatibleProviderAdapter } from './compatible-adapter.ts';
 
 interface CompatibleRequestInput {
@@ -60,6 +60,10 @@ export class CompatibleHttpAdapter extends CompatibleProviderAdapter {
     }
 
     if (!response.ok) {
+      if (errorCode === 'VIDEO_SUBMIT_FAILED') {
+        await response.body?.cancel();
+        throw new ProviderError(errorCode, formatVideoProviderStatus(response.status, 'submit'));
+      }
       logger.warn('upstream provider response not ok', {
         status: response.status,
         errorCode,

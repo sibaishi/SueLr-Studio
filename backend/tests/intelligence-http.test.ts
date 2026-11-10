@@ -148,6 +148,21 @@ test('intelligence workflow draft endpoint compiles a preview-only ecommerce ima
   }
 });
 
+test('text-only ecommerce drafts omit the reference image node', async () => {
+  const { server, baseUrl } = await createTestServer('workflow-draft-text-only');
+  try {
+    const response = await requestJson(baseUrl, '/api/intelligence/workflow-drafts', {
+      method: 'POST',
+      body: JSON.stringify({ input: '输入文字卖点，生成一张白底商品图。' }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.data.workflow.nodes.some((node) => node.id === 'product_image'), false);
+    assert.equal(response.body.data.workflow.nodes.some((node) => node.id === 'image_gen'), true);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('intelligence workflow draft preserves agent planner model context', async () => {
   const { server, baseUrl } = await createTestServer('workflow-draft-agent-context');
   try {

@@ -425,3 +425,20 @@ test('executeVideoGeneration can leave generated video data unpersisted for work
     cleanupStorage();
   }
 });
+
+test('video submit and polling errors describe the failed phase without echoing upstream content', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('private upstream diagnostic', { status: 400 }));
+  const runtime = createRuntime({ baseUrl: 'http://127.0.0.1:3000/v1' });
+
+  for (const [call, phase] of [
+    [() => submitVideoGeneration({ ...runtime, model: 'doubao-seedance-2-0-260128', prompt: 'test' }), '提交视频生成任务'],
+    [() => pollVideoTask({ ...runtime, taskId: 'test-task' }), '查询视频生成状态'],
+  ]) {
+    await assert.rejects(call, (error) => {
+      assert.match(error.message, new RegExp(phase));
+      assert.match(error.message, /HTTP 400/);
+      assert.doesNotMatch(error.message, /private upstream diagnostic/);
+      return true;
+    });
+  }
+});

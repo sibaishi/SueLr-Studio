@@ -629,3 +629,5 @@ The launcher may choose the next free frontend or backend port. Treat `5173` and
 ## Local runtime boundaries
 
 The backend binds to loopback addresses only. Media downloads validate the destination at each redirect and enforce the byte limit while reading the response stream. JSON saves use a temporary file in the same directory followed by an atomic rename. The workflow library logs unreadable entries and preserves the original files for recovery.
+
+Agent and editor executions resolve model connections through the same scoped settings service. Proxied requests use the fetch implementation supplied by the same Undici package as the proxy dispatcher. Video submission and polling report phase-specific HTTP errors without surfacing raw upstream response bodies.

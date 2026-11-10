@@ -2,6 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -1754,42 +1756,38 @@ test('generateImages logs one ImageRequest entry for a single image edit request
 });
 
 test('generateImages sends image requests through outbound proxy configuration', async () => {
-  const originalFetch = globalThis.fetch;
   const requests = [];
-
-  configureOutboundProxy({
-    mode: 'custom',
-    httpsProxy: 'http://127.0.0.1:7897',
+  const sockets = new Set();
+  const upstream = createServer((request, response) => {
+    requests.push(request.url);
+    request.resume();
+    response.writeHead(200, { 'content-type': 'application/json', connection: 'close' });
+    response.end(JSON.stringify({ data: [{ b64_json: 'YWJj' }] }));
   });
-
-  globalThis.fetch = async (url, options = {}) => {
-    requests.push({
-      url: String(url),
-      dispatcher: options.dispatcher,
-    });
-
-    return new Response(JSON.stringify({
-      data: [
-        { b64_json: 'YWJj' },
-      ],
-    }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
-  };
+  const proxy = createServer();
+  proxy.on('connect', (request, socket, head) => {
+    assert.equal(request.url, '127.0.0.1:3000');
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
+    socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+    upstream.emit('connection', socket);
+    if (head.length) socket.unshift(head);
+  });
+  proxy.listen(0, '127.0.0.1');
+  await once(proxy, 'listening');
+  configureOutboundProxy({ mode: 'custom', httpProxy: `http://127.0.0.1:${proxy.address().port}` });
 
   try {
     const result = await generateImages({
       model: 'demo-image-model',
       prompt: 'draw a mountain',
-    }, createRuntimeConfig());
+    }, { ...createRuntimeConfig(), baseUrl: 'http://127.0.0.1:3000/v1' });
 
     assertGeneratedPngOutput(result);
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0].url, 'https://example.com/v1/images/generations');
-    assert.ok(requests[0].dispatcher);
+    assert.deepEqual(requests, ['/v1/images/generations']);
   } finally {
-    globalThis.fetch = originalFetch;
+    for (const socket of sockets) socket.destroy();
+    await new Promise((resolve) => proxy.close(resolve));
     configureOutboundProxy({ mode: 'system' });
   }
 });

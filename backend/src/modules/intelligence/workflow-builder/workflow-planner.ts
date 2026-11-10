@@ -170,8 +170,12 @@ function appendKnowledgeDescription(description: string, knowledge: ReturnType<t
 export function parseWorkflowIntent(request: WorkflowDraftRequest): WorkflowIntent {
   const text = request.input.trim();
   const domain = inferDomain(text);
+  const textOnlyImage = domain !== 'video-generation' && (
+    includesAny(text, ['文生图', '仅文字输入', '只用文字', '无需参考图']) ||
+    (text.includes('输入文字卖点') && !includesAny(text, ['参考图', '输入产品图', '输入商品图', '图生图']))
+  );
   const requiresImageInput =
-    domain === 'storyboard-image'
+    domain === 'storyboard-image' || textOnlyImage
       ? false
       : includesAny(text, ['产品图', '商品图', '参考图', '图片', '图生图', '图生视频', '首帧']);
   const requiresVideoInput = includesAny(text, ['视频输入', '参考视频', '视频素材']);

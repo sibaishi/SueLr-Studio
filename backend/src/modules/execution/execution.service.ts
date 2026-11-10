@@ -600,6 +600,7 @@ export class ExecutionService {
     onRunStarted = undefined,
     scope = undefined,
   }: PlainObject) {
+    const runtimeConfig = settingsService.buildRuntimeConfig(apiConfig, scope);
     const sourceWorkflow = this.resolveWorkflowExecutionSource(
       { workflowId, workflowName, workflowSnapshot },
       { scope },
@@ -686,7 +687,7 @@ export class ExecutionService {
       await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
         await executeWorkflow(
           snapshot,
-          { ...apiConfig, runId: snapshot.runId, scope, abortSignal: abortController.signal },
+          { ...runtimeConfig, runId: snapshot.runId, scope, abortSignal: abortController.signal },
           sendSSE,
           {
             getNodeLogOutputs(outputs: DynamicValue) {
