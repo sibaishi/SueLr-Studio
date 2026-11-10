@@ -14,7 +14,7 @@ export function DiagnosticsSection({ actions, view }: Props) {
     <div className="flex-col" style={{ gap: 16 }}>
       <SectionCard
         title="诊断"
-        description="查看模型覆盖情况、当前运行模式和最近运行反馈，方便快速定位 Agent 配置问题。"
+        description="查看模型覆盖情况、当前运行模式和最近运行反馈，方便快速定位 工作流配置问题。"
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
           <div style={{ ...mutedPanelStyle(), padding: 14 }}>

@@ -11,11 +11,9 @@ import executeRoutes from '../modules/execution/execution.routes.ts';
 import storageRoutes from '../modules/files/files.routes.ts';
 import { filesService } from '../modules/files/files.service.ts';
 import imageRoutes from '../modules/images/images.routes.ts';
-import intelligenceRoutes from '../modules/intelligence/intelligence.routes.ts';
 import settingsRoutes from '../modules/settings/settings.routes.ts';
 import type { NextFunctionLike, RequestLike, ResponseLike } from '../modules/types.ts';
 import workflowRoutes from '../modules/workflows/workflows.routes.ts';
-import { ensureAgentLogDirectories } from '../platform/logging/agent-run-logger.ts';
 import { getRequestContext } from '../platform/logging/request-context.ts';
 import { getProcessInstanceId } from '../platform/logging/runtime-observability.ts';
 import { ensureLogDirectories } from '../platform/logging/workflow-run-logger.ts';
@@ -88,7 +86,6 @@ export function createApp() {
   initializeWorkflowRuntimeStorage();
   migrateLegacyStorageIfNeeded();
   ensureLogDirectories();
-  ensureAgentLogDirectories();
   filesService.resumePendingUploadProcessingIfNeeded();
 
   const app = express();
@@ -184,7 +181,6 @@ export function createApp() {
   app.use('/api/workflows', workflowRoutes);
   app.use('/api/execute', executeRoutes);
   app.use('/api/assistant', assistantRoutes);
-  app.use('/api/intelligence', intelligenceRoutes);
   app.use('/api/images', imageRoutes);
   app.use('/api/capabilities', capabilitiesRoutes);
   app.use('/api/settings', settingsRoutes);

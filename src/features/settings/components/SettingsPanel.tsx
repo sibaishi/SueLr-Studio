@@ -800,12 +800,12 @@ export function SettingsPanel({
               <Stack size={20} />
             </div>
             <div>
-              <div style={eyebrowStyle()}>Agent 设置</div>
+              <div style={eyebrowStyle()}>工作室设置</div>
               <div className="workflow-toolbar__title" style={{ fontSize: 18 }}>
                 工作室设置
               </div>
               <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                集中管理连接、模型、Agent、工作室偏好与运行诊断。
+                集中管理连接、模型、工作室偏好与运行诊断。
               </div>
             </div>
           </div>

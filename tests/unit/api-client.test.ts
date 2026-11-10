@@ -17,7 +17,7 @@ describe('apiRequest', () => {
       ),
     );
 
-    const result = await apiRequest('/api/intelligence/runs');
+    const result = await apiRequest('/api/workflows');
 
     expect(result).toMatchObject({
       success: false,
@@ -25,7 +25,7 @@ describe('apiRequest', () => {
     });
     expect(result.error).toContain('非 JSON 响应');
     expect(result.error).toContain('HTTP 502');
-    expect(result.error).toContain('/api/intelligence/runs');
+    expect(result.error).toContain('/api/workflows');
     expect(result.error).toContain('text/html');
     expect(result.error).toContain('Proxy Error');
     expect(result.error).not.toContain("Unexpected token '<'");

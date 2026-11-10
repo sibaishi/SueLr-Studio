@@ -11,22 +11,6 @@ export interface ModelInfo {
   configName?: string;
 }
 
-export interface AgentRole {
-  id: string;
-  name: string;
-  icon: string;
-  systemPrompt: string;
-  tools: ('generate_image' | 'generate_video' | 'web_search')[];
-  isCustom?: boolean;
-}
-
-export interface Memory {
-  id: string;
-  content: string;
-  convId: string;
-  ts: number;
-}
-
 export interface LogEntry {
   time: string;
   level: string;

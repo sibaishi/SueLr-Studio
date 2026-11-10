@@ -213,7 +213,7 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
         </div>
       </SectionCard>
 
-      <SectionCard title="联网搜索" description="全局搜索能力的开关与 API Key。配置后 Agent 自动获得联网检索能力。">
+      <SectionCard title="联网搜索" description="全局搜索能力的开关与 API Key。配置后可在对话节点启用联网搜索。">
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ maxWidth: 360 }}>
             <IOSLabel>联网搜索</IOSLabel>

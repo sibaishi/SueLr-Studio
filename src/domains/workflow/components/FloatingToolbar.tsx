@@ -1,12 +1,11 @@
 import { THEME_ICONS, THEME_LABELS } from '@/app/theme/constants';
 import type { ThemeMode } from '@/shared/types';
 import { Icon } from '@/shared/ui/icons';
-import { AlignTop, Gear, GridNine, Plus, Sidebar, SidebarSimple, Sparkle } from '@phosphor-icons/react';
+import { AlignTop, Gear, GridNine, Plus, Sidebar, SidebarSimple } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 interface FloatingToolbarProps {
   onAddNode: () => void;
-  onOpenAgent?: () => void;
   onOpenSettings?: () => void;
   onToggleTheme?: () => void;
   themeMode: ThemeMode;
@@ -19,7 +18,6 @@ interface FloatingToolbarProps {
 
 export default function FloatingToolbar({
   onAddNode,
-  onOpenAgent,
   onOpenSettings,
   onToggleTheme,
   themeMode,
@@ -55,12 +53,6 @@ export default function FloatingToolbar({
         label="自动整理"
         onClick={onAutoArrange}
         testId="workflow-auto-arrange"
-      />
-      <FloatingToolbarButton
-        icon={<Sparkle size={16} />}
-        label="打开Agent"
-        onClick={onOpenAgent}
-        testId="workflow-open-agent"
       />
       <FloatingToolbarButton
         icon={<Gear size={16} />}

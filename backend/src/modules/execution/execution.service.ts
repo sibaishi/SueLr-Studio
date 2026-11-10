@@ -1,4 +1,3 @@
-import { getWorkflowAgentInputNodeDefs } from '../../../../src/shared/workflow/node-catalog.js';
 import { executeWorkflow } from '../../engine/executor.ts';
 import { createLogger } from '../../platform/logging/logger.ts';
 import { runWithRequestContext } from '../../platform/logging/request-context.ts';
@@ -15,34 +14,6 @@ import { createExecutionSnapshot } from './execution-snapshot.ts';
 
 const logger = createLogger({ module: 'execution-service' });
 const RECENT_RUN_TTL_MS = 5 * 60 * 1000;
-const AGENT_INPUT_NODE_DEFS = getWorkflowAgentInputNodeDefs();
-const AGENT_INPUT_NODE_DEFS_BY_TYPE = new Map(AGENT_INPUT_NODE_DEFS.map((node) => [node.type, node]));
-
-type WorkflowNode = PlainObject & {
-  id: string;
-  type: string;
-  data: PlainObject;
-};
-
-type WorkflowArtifact = {
-  type: string;
-  url: string;
-  name: string;
-  mimeType?: string;
-};
-
-type InputTarget = {
-  node: WorkflowNode;
-  ordinal: number;
-  aliases: Set<string>;
-};
-
-type AppliedInput = {
-  nodeId: string;
-  nodeType: string;
-  field: string;
-  matchedBy: string;
-};
 
 type RunStatus = PlainObject & {
   status: string;
@@ -59,7 +30,6 @@ type RunningExecution = {
 
 type RecentExecution = {
   status: RunStatus;
-  summary?: PlainObject;
   expiresAt: number;
 };
 
@@ -74,348 +44,9 @@ type SseResponse = {
   end: () => unknown;
 };
 
-function asWorkflowNode(value: DynamicValue): WorkflowNode {
-  const node = isPlainObject(value) ? value : {};
-  return {
-    ...node,
-    id: String(node.id || ''),
-    type: String(node.type || ''),
-    data: isPlainObject(node.data) ? node.data : {},
-  };
-}
-
 function cleanString(value: DynamicValue, maxLength = 5000): string {
   if (value === undefined || value === null) return '';
   return String(value).trim().slice(0, maxLength);
-}
-
-function normalizeForMatch(value: DynamicValue): string {
-  return cleanString(value, 500).toLowerCase();
-}
-
-function summarizeValue(value: DynamicValue, maxLength = 240): string {
-  if (value === undefined || value === null) return '';
-  if (typeof value === 'string') return cleanString(value, maxLength);
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (Array.isArray(value)) {
-    return cleanString(JSON.stringify(value.slice(0, 3)), maxLength);
-  }
-  if (typeof value === 'object') {
-    const preferred = [
-      (value as PlainObject).content,
-      (value as PlainObject).text,
-      (value as PlainObject).url,
-      Array.isArray((value as PlainObject).savedFiles) ? (value as PlainObject).savedFiles[0] : '',
-      Array.isArray((value as PlainObject).savedPaths) ? (value as PlainObject).savedPaths[0] : '',
-    ].find((item) => typeof item === 'string' && item.trim());
-    if (preferred) return cleanString(preferred, maxLength);
-    try {
-      return cleanString(JSON.stringify(value), maxLength);
-    } catch {
-      return '[object]';
-    }
-  }
-  return cleanString(String(value), maxLength);
-}
-
-function summarizeNodeOutputs(outputs: DynamicValue): string {
-  if (!outputs || typeof outputs !== 'object') {
-    return summarizeValue(outputs);
-  }
-  const summaryParts = Object.entries(outputs)
-    .slice(0, 3)
-    .map(([key, value]) => `${key}: ${summarizeValue(value, 160)}`)
-    .filter((item) => item && !item.endsWith(': '));
-
-  return summaryParts.join('; ').slice(0, 500);
-}
-
-function removeRuntimeAssetUrls(value: DynamicValue): DynamicValue {
-  if (typeof value === 'string') {
-    return value.startsWith('/api/runtime/workflows/') ? '[temporary workflow asset]' : value;
-  }
-  if (Array.isArray(value)) return value.map(removeRuntimeAssetUrls);
-  if (!isPlainObject(value)) return value;
-  return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, removeRuntimeAssetUrls(nested)]));
-}
-
-function detectArtifactTypeFromUrl(value: DynamicValue): string {
-  const source = cleanString(value, 4000).toLowerCase();
-  if (!source) return 'file';
-  if (/^data:image\//.test(source) || /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/.test(source)) return 'image';
-  if (/^data:video\//.test(source) || /\.(mp4|mov|webm|m4v)(\?.*)?$/.test(source)) return 'video';
-  if (/^data:audio\//.test(source) || /\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/.test(source)) return 'audio';
-  if (/\.(txt|md|markdown|json|jsonl|csv|log|xml|yaml|yml)(\?.*)?$/.test(source)) return 'text';
-  return 'file';
-}
-
-function isFinalArtifactUrl(value: DynamicValue): boolean {
-  const url = cleanString(value, 4000);
-  if (!url) return false;
-  if (url.includes('/.thumbnails/')) return false;
-  return (
-    url.startsWith('/api/outputs/') ||
-    url.startsWith('/api/files/') ||
-    url.startsWith('data:image/') ||
-    url.startsWith('data:video/') ||
-    url.startsWith('data:audio/')
-  );
-}
-
-function collectWorkflowArtifacts(
-  value: DynamicValue,
-  bucket: WorkflowArtifact[] = [],
-  seen: Set<string> = new Set(),
-): WorkflowArtifact[] {
-  if (value === undefined || value === null) return bucket;
-
-  if (typeof value === 'string') {
-    const url = cleanString(value, 4000);
-    if (!isFinalArtifactUrl(url) || seen.has(url)) return bucket;
-    seen.add(url);
-    bucket.push({
-      type: detectArtifactTypeFromUrl(url),
-      url,
-      name: url.split('/').pop() || url,
-    });
-    return bucket;
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) collectWorkflowArtifacts(item, bucket, seen);
-    return bucket;
-  }
-
-  if (!isPlainObject(value)) return bucket;
-
-  const url = cleanString(value.url, 4000);
-  if (isFinalArtifactUrl(url) && !seen.has(url)) {
-    seen.add(url);
-    bucket.push({
-      type: cleanString(value.type, 40) || detectArtifactTypeFromUrl(url),
-      url,
-      name: cleanString(value.name, 200) || url.split('/').pop() || url,
-      mimeType: cleanString(value.mimeType, 120) || undefined,
-    });
-  }
-
-  for (const [key, nested] of Object.entries(value)) {
-    if (key.toLowerCase().includes('thumbnail')) continue;
-    collectWorkflowArtifacts(nested, bucket, seen);
-  }
-  return bucket;
-}
-
-function cloneWorkflow(workflow: DynamicValue): PlainObject {
-  return {
-    ...workflow,
-    nodes: Array.isArray(workflow?.nodes)
-      ? workflow.nodes.map((node: DynamicValue) => ({
-          ...node,
-          data: node?.data && typeof node.data === 'object' ? { ...node.data } : {},
-        }))
-      : [],
-    edges: Array.isArray(workflow?.edges) ? workflow.edges.map((edge: DynamicValue) => ({ ...edge })) : [],
-    settings: workflow?.settings && typeof workflow.settings === 'object' ? { ...workflow.settings } : {},
-  };
-}
-
-function isPlainObject(value: DynamicValue): value is PlainObject {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function normalizeLookupKey(value: DynamicValue): string {
-  return cleanString(value, 500)
-    .toLowerCase()
-    .replace(/[\s\-_.:：、，,()[\]{}"'`]/g, '');
-}
-
-function getInputNodeAliases(node: WorkflowNode, ordinal = 1): Set<string> {
-  const normalizedOrdinal = Number.isFinite(ordinal) && ordinal > 0 ? Math.trunc(ordinal) : 1;
-  const aliases = new Set<string>();
-  const push = (value: DynamicValue) => {
-    const normalized = normalizeLookupKey(value);
-    if (normalized) aliases.add(normalized);
-  };
-
-  push(node.id);
-  push(node.data?.title);
-  push(node.data?.label);
-  push(node.data?.name);
-  push(node.data?.text);
-
-  const baseAliases = AGENT_INPUT_NODE_DEFS_BY_TYPE.get(node.type)?.aliases || [node.type];
-  for (const base of baseAliases) {
-    push(base);
-    push(`${base}${normalizedOrdinal}`);
-    push(`${base} ${normalizedOrdinal}`);
-  }
-
-  return aliases;
-}
-
-function collectAvailableInputTargets(nodes: DynamicValue[] = []): InputTarget[] {
-  const countsByType = new Map<string, number>();
-  return nodes
-    .filter(
-      (node): node is WorkflowNode =>
-        isPlainObject(node) &&
-        typeof node.id === 'string' &&
-        typeof node.type === 'string' &&
-        AGENT_INPUT_NODE_DEFS_BY_TYPE.has(node.type),
-    )
-    .map((node) => {
-      const nextOrdinal = (countsByType.get(node.type) || 0) + 1;
-      countsByType.set(node.type, nextOrdinal);
-      const aliases = getInputNodeAliases(node, nextOrdinal);
-      return {
-        node,
-        ordinal: nextOrdinal,
-        aliases,
-      };
-    });
-}
-
-function resolveInputTarget(availableTargets: InputTarget[], rawKey: DynamicValue): InputTarget | null {
-  const normalizedKey = normalizeLookupKey(rawKey);
-  if (!normalizedKey) return null;
-  return availableTargets.find((target) => target.aliases.has(normalizedKey)) || null;
-}
-
-function buildAvailableInputHint(availableTargets: InputTarget[]): string {
-  return availableTargets
-    .map(
-      (target) =>
-        `${target.node.id}${target.ordinal ? ` (候选别名: ${Array.from(target.aliases).slice(0, 4).join(', ')})` : ''}`,
-    )
-    .slice(0, 8)
-    .join('; ');
-}
-
-function stringifyWorkflowInput(value: DynamicValue): string {
-  if (value === undefined || value === null) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-
-function resolveMediaOverride(value: DynamicValue, primaryKeys: string[]): PlainObject {
-  if (typeof value === 'string') {
-    return { fileUrl: cleanString(value, 4000) };
-  }
-  if (!isPlainObject(value)) return {};
-
-  for (const key of primaryKeys) {
-    const candidate = cleanString(value[key], 4000);
-    if (candidate) {
-      return {
-        fileUrl: candidate,
-      };
-    }
-  }
-
-  return {
-    fileUrl: '',
-  };
-}
-
-function applyAgentInputOverrides(persistedWorkflow: PlainObject, rawInputs: DynamicValue) {
-  if (!isPlainObject(rawInputs) || Object.keys(rawInputs).length === 0) {
-    return { workflow: persistedWorkflow, appliedInputs: [], unmatchedInputs: [] };
-  }
-
-  const draftWorkflow = cloneWorkflow(persistedWorkflow);
-  const appliedInputs: AppliedInput[] = [];
-  const unmatchedInputs: string[] = [];
-  const availableTargets = collectAvailableInputTargets(draftWorkflow.nodes);
-  const nodeById = new Map<string, WorkflowNode>(
-    draftWorkflow.nodes.map((node: DynamicValue) => {
-      const normalizedNode = asWorkflowNode(node);
-      return [normalizedNode.id, normalizedNode];
-    }),
-  );
-
-  for (const [rawKey, value] of Object.entries(rawInputs)) {
-    const resolvedTarget = resolveInputTarget(availableTargets, rawKey);
-    if (!resolvedTarget) {
-      unmatchedInputs.push(String(rawKey));
-      continue;
-    }
-    const node = nodeById.get(resolvedTarget.node.id);
-    if (!node) {
-      unmatchedInputs.push(String(rawKey));
-      continue;
-    }
-
-    if (node.type === 'io') {
-      node.data.content = stringifyWorkflowInput(value);
-      appliedInputs.push({ nodeId: node.id, nodeType: node.type, field: 'content', matchedBy: String(rawKey) });
-    }
-  }
-
-  if (appliedInputs.length === 0 && unmatchedInputs.length > 0) {
-    throw new Error(
-      `workflow.execute inputs did not match any input nodes. Unmatched: ${unmatchedInputs.join(', ')}. Available inputs: ${buildAvailableInputHint(availableTargets)}`,
-    );
-  }
-
-  return {
-    workflow: appliedInputs.length > 0 ? draftWorkflow : persistedWorkflow,
-    appliedInputs,
-    unmatchedInputs,
-  };
-}
-
-function buildAgentWorkflowSummary(
-  snapshot: PlainObject,
-  terminalStatus: RunStatus,
-  completedNodes: PlainObject[],
-  extras: PlainObject = {},
-) {
-  const preferredNodes = completedNodes.filter((item) => item.nodeType === 'output');
-  const keyNodes = (preferredNodes.length > 0 ? preferredNodes : completedNodes).slice(-3);
-  const keyOutputs = keyNodes.map((item) => ({
-    nodeId: item.nodeId,
-    nodeType: item.nodeType,
-    summary: item.summary,
-    artifacts: collectWorkflowArtifacts(item.outputs).slice(0, 8),
-  }));
-  const artifacts = keyOutputs.flatMap((item) => item.artifacts || []).slice(0, 12);
-  const summary = [
-    `workflow "${snapshot.name || snapshot.workflowId}" finished with status ${terminalStatus.status}.`,
-    terminalStatus.runId ? `runId: ${terminalStatus.runId}.` : '',
-    Number.isFinite(terminalStatus.totalDuration) ? `durationMs: ${terminalStatus.totalDuration}.` : '',
-    Number.isFinite(terminalStatus.successCount) ? `successCount: ${terminalStatus.successCount}.` : '',
-    Number.isFinite(terminalStatus.failCount) ? `failCount: ${terminalStatus.failCount}.` : '',
-    Array.isArray(extras.appliedInputs) && extras.appliedInputs.length
-      ? `appliedInputs: ${extras.appliedInputs.map((item: DynamicValue) => item.nodeId).join(', ')}.`
-      : '',
-    keyOutputs.length > 0
-      ? `keyOutputs: ${keyOutputs.map((item) => `${item.nodeId} (${item.nodeType}) => ${item.summary}`).join(' | ')}.`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  return {
-    runId: terminalStatus.runId,
-    workflowId: snapshot.workflowId,
-    workflowName: snapshot.name,
-    status: terminalStatus.status,
-    source: snapshot.source,
-    totalDuration: terminalStatus.totalDuration,
-    successCount: terminalStatus.successCount,
-    failCount: terminalStatus.failCount,
-    error: terminalStatus.error,
-    appliedInputs: extras.appliedInputs || [],
-    keyOutputs,
-    artifacts,
-    summary,
-  };
 }
 
 function buildRunLogData(event: string, data: DynamicValue) {
@@ -525,213 +156,12 @@ export class ExecutionService {
     }
   }
 
-  rememberRecentExecution(status: RunStatus, scope: PlainObject = {}, now = Date.now(), summary?: PlainObject) {
+  rememberRecentExecution(status: RunStatus, scope: PlainObject = {}, now = Date.now()) {
     this.pruneRecentExecutions(now);
     this.recentExecutions.set(status.runId, {
       status,
-      summary,
       expiresAt: now + RECENT_RUN_TTL_MS,
     });
-  }
-
-  getRecentRunSummary(runId: string, _options: PlainObject = {}) {
-    this.pruneRecentExecutions();
-    const recentRun = this.recentExecutions.get(runId);
-    if (!recentRun || !isResourceVisibleForScope(recentRun, _options.scope)) return null;
-    return recentRun.summary || null;
-  }
-
-  resolveWorkflowReference({ workflowId, workflowName }: PlainObject, _options: PlainObject = {}) {
-    const normalizedId = cleanString(workflowId, 120);
-    if (normalizedId) {
-      const workflow = this.repository.read(normalizedId).workflow;
-      if (!isResourceVisibleForScope(workflow, _options.scope)) {
-        throw new Error(`Workflow "${workflowId}" was not found.`);
-      }
-      return workflow;
-    }
-
-    const normalizedName = normalizeForMatch(workflowName);
-    if (!normalizedName) {
-      throw new Error('workflow.execute requires workflowId or workflowName');
-    }
-
-    const workflows = this.repository.list().filter((workflow) => isResourceVisibleForScope(workflow, _options.scope));
-    const exactMatch = workflows.find((workflow) => normalizeForMatch(workflow.name) === normalizedName);
-    if (exactMatch) return exactMatch;
-
-    const partialMatches = workflows.filter((workflow) => {
-      const name = normalizeForMatch(workflow.name);
-      const id = normalizeForMatch(workflow.id);
-      return name.includes(normalizedName) || normalizedName.includes(name) || id === normalizedName;
-    });
-
-    if (partialMatches.length === 1) return partialMatches[0];
-    if (partialMatches.length > 1) {
-      throw new Error(
-        `Multiple workflows matched "${workflowName}". Candidates: ${partialMatches
-          .slice(0, 5)
-          .map((workflow) => workflow.name || workflow.id)
-          .join(', ')}`,
-      );
-    }
-
-    throw new Error(`Workflow "${workflowName}" was not found.`);
-  }
-
-  resolveWorkflowExecutionSource(
-    { workflowId, workflowName, workflowSnapshot }: PlainObject,
-    _options: PlainObject = {},
-  ) {
-    if (isPlainObject(workflowSnapshot)) {
-      return cloneWorkflow(workflowSnapshot);
-    }
-    return this.resolveWorkflowReference({ workflowId, workflowName }, _options);
-  }
-
-  async executeForAgent({
-    workflowId,
-    workflowName,
-    workflowSnapshot,
-    inputs,
-    apiConfig = {},
-    signal,
-    requestId = 'agent-workflow',
-    onRunStarted = undefined,
-    scope = undefined,
-  }: PlainObject) {
-    const runtimeConfig = settingsService.buildRuntimeConfig(apiConfig, scope);
-    const sourceWorkflow = this.resolveWorkflowExecutionSource(
-      { workflowId, workflowName, workflowSnapshot },
-      { scope },
-    );
-    const overridden = applyAgentInputOverrides(sourceWorkflow, inputs);
-    const draftWorkflow = overridden.workflow === sourceWorkflow ? undefined : overridden.workflow;
-    const snapshot = createExecutionSnapshot({ persistedWorkflow: sourceWorkflow, draftWorkflow });
-    const runLogger = createWorkflowRunLogger(snapshot, { requestId, scope });
-    const abortController = new AbortController();
-    const completedNodes: PlainObject[] = [];
-    activateWorkflowRuntime(snapshot.runId, snapshot.workflowId, scope);
-
-    this.runningExecutions.set(snapshot.runId, {
-      runId: snapshot.runId,
-      workflowId: snapshot.workflowId,
-      source: snapshot.source,
-      snapshotVersion: snapshot.snapshotVersion,
-      abortController,
-    });
-    onRunStarted?.({
-      runId: snapshot.runId,
-      workflowId: snapshot.workflowId,
-      workflowName: snapshot.name,
-      source: snapshot.source,
-      workflowVersion: snapshot.workflowVersion,
-      snapshotVersion: snapshot.snapshotVersion,
-      appliedInputs: overridden.appliedInputs,
-    });
-
-    let terminalStatus: RunStatus | null = null;
-    const sendSSE = (event: string, data: DynamicValue) => {
-      runLogger.log(event, buildRunLogData(event, data));
-      if (event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED) {
-        const node = Array.isArray(snapshot.nodes)
-          ? snapshot.nodes.find((item: DynamicValue) => item.id === data.nodeId)
-          : undefined;
-        completedNodes.push({
-          nodeId: data.nodeId,
-          nodeType: node?.type || 'unknown',
-          summary: summarizeNodeOutputs(removeRuntimeAssetUrls(data.outputs)),
-          outputs: removeRuntimeAssetUrls(data.outputs),
-        });
-      } else if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
-        terminalStatus = {
-          status: 'completed',
-          runId: snapshot.runId,
-          workflowId: snapshot.workflowId,
-          source: snapshot.source,
-          snapshotVersion: snapshot.snapshotVersion,
-          finishedAt: Date.now(),
-          totalDuration: data.totalDuration,
-          successCount: data.successCount,
-          failCount: data.failCount,
-        };
-      } else if (event === WORKFLOW_SSE_EVENTS.RUN_FAILED || event === WORKFLOW_SSE_EVENTS.VALIDATION_FAILED) {
-        terminalStatus = {
-          status: 'failed',
-          runId: snapshot.runId,
-          workflowId: snapshot.workflowId,
-          source: snapshot.source,
-          snapshotVersion: snapshot.snapshotVersion,
-          finishedAt: Date.now(),
-          error: data.error,
-        };
-      } else if (event === WORKFLOW_SSE_EVENTS.RUN_CANCELLED) {
-        terminalStatus = {
-          status: 'cancelled',
-          runId: snapshot.runId,
-          workflowId: snapshot.workflowId,
-          source: snapshot.source,
-          snapshotVersion: snapshot.snapshotVersion,
-          finishedAt: Date.now(),
-          error: data.error,
-        };
-      }
-      return true;
-    };
-
-    const handleAbort = () => abortController.abort();
-    signal?.addEventListener?.('abort', handleAbort, { once: true });
-    let agentSummary: PlainObject | null = null;
-
-    try {
-      await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
-        await executeWorkflow(
-          snapshot,
-          { ...runtimeConfig, runId: snapshot.runId, scope, abortSignal: abortController.signal },
-          sendSSE,
-          {
-            getNodeLogOutputs(outputs: DynamicValue) {
-              return sanitizeNodeOutputsForLogs(outputs, runLogger);
-            },
-          },
-        );
-      });
-      if (!terminalStatus) {
-        terminalStatus = {
-          status: 'completed',
-          runId: snapshot.runId,
-          workflowId: snapshot.workflowId,
-          source: snapshot.source,
-          snapshotVersion: snapshot.snapshotVersion,
-          finishedAt: Date.now(),
-        };
-      }
-      runLogger.close(terminalStatus.status);
-      agentSummary = buildAgentWorkflowSummary(snapshot, terminalStatus, completedNodes, {
-        appliedInputs: overridden.appliedInputs,
-      });
-      return agentSummary;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Workflow execution failed';
-      terminalStatus = {
-        status: abortController.signal.aborted ? 'cancelled' : 'failed',
-        runId: snapshot.runId,
-        workflowId: snapshot.workflowId,
-        source: snapshot.source,
-        snapshotVersion: snapshot.snapshotVersion,
-        finishedAt: Date.now(),
-        error: message,
-      };
-      runLogger.close(terminalStatus.status, { error: message });
-      throw error;
-    } finally {
-      signal?.removeEventListener?.('abort', handleAbort);
-      this.runningExecutions.delete(snapshot.runId);
-      retainWorkflowRuntime(snapshot.runId, scope);
-      if (terminalStatus) {
-        this.rememberRecentExecution(terminalStatus, scope, Date.now(), agentSummary || undefined);
-      }
-    }
   }
 
   async execute(
@@ -790,22 +220,11 @@ export class ExecutionService {
       runningExecutionCount: this.runningExecutions.size,
     });
     let terminalStatus: RunStatus | null = null;
-    const completedNodes: PlainObject[] = [];
 
     const sendSSE = (event: string, data: DynamicValue) => {
       runLogger.log(event, buildRunLogData(event, data));
       logger.info('workflow event', { runId: runLogger.runId, workflowId, event });
-      if (event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED) {
-        const node = Array.isArray(snapshot.nodes)
-          ? snapshot.nodes.find((item: DynamicValue) => item.id === data.nodeId)
-          : undefined;
-        completedNodes.push({
-          nodeId: data.nodeId,
-          nodeType: node?.type || 'unknown',
-          summary: summarizeNodeOutputs(removeRuntimeAssetUrls(data.outputs)),
-          outputs: removeRuntimeAssetUrls(data.outputs),
-        });
-      } else if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
+      if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
         terminalStatus = {
           status: 'completed',
           runId: snapshot.runId,
@@ -891,9 +310,6 @@ export class ExecutionService {
       this.runningExecutions.delete(snapshot.runId);
       retainWorkflowRuntime(snapshot.runId, scope);
       const completedStatus = terminalStatus as RunStatus | null;
-      const runSummary = completedStatus
-        ? buildAgentWorkflowSummary(snapshot, completedStatus, completedNodes)
-        : undefined;
       logger.info('execution run removed from active registry', {
         runId: snapshot.runId,
         workflowId,
@@ -902,7 +318,7 @@ export class ExecutionService {
         runningExecutionCount: this.runningExecutions.size,
       });
       if (completedStatus) {
-        this.rememberRecentExecution(completedStatus, scope, Date.now(), runSummary);
+        this.rememberRecentExecution(completedStatus, scope, Date.now());
         logger.info('execution terminal status cached', {
           runId: snapshot.runId,
           workflowId,

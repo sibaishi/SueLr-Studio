@@ -2,7 +2,7 @@
 
 This document defines the standard release workflow for SueLr Studio. The active delivery variants are `desktop` and `local-web`; remote server deployment is no longer part of the supported release surface.
 
-> Current release baseline: 2026-06-22.
+> Current release baseline: 2026-11-10.
 
 ## Branching
 
@@ -42,7 +42,7 @@ This document defines the standard release workflow for SueLr Studio. The active
    For desktop:
 
    ```powershell
-   npm.cmd run electron:dist
+   npm run electron:dist
    ```
 
    Desktop targets are Windows portable x64, macOS dmg/zip x64+arm64, and Linux AppImage/deb x64. Build macOS artifacts on macOS; Windows release hosts should produce Windows and Linux artifacts only.
@@ -50,8 +50,8 @@ This document defines the standard release workflow for SueLr Studio. The active
    For local-web:
 
    ```powershell
-   npm.cmd run build:local-web
-   npm.cmd run start:local-web
+   npm run build:local-web
+   npm run start:local-web
    ```
 
 6. Verify the packaged or locally served app manually.
@@ -66,10 +66,9 @@ This document defines the standard release workflow for SueLr Studio. The active
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
    - `io -> aiV3 -> io` executes with at least one configured project model.
-   - Agent can inspect the current canvas and presents approval before applying a workflow draft.
    - Enabled provider configurations remain independently selectable and their project models do not overwrite each other.
    - Workflow library covers create, save, duplicate, cover assignment, import, export, and delete.
-   - Local-web serves the main app through the backend on port `3001`.
+   - Verify the Local-Web homepage and `/api/health` at the address printed by the launcher.
 
 7. Commit and push source changes:
 

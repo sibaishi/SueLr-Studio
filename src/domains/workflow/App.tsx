@@ -22,14 +22,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface WorkflowPageProps {
   onOpenStudioSettings?: () => void;
-  onOpenAgent?: () => void;
   onToggleTheme?: () => void;
   themeMode: ThemeMode;
 }
 
 export default function WorkflowPage({
   onOpenStudioSettings,
-  onOpenAgent,
   onToggleTheme,
   themeMode,
 }: WorkflowPageProps) {
@@ -37,7 +35,6 @@ export default function WorkflowPage({
     <WorkflowConfirmProvider>
       <WorkflowPageContent
         onOpenStudioSettings={onOpenStudioSettings}
-        onOpenAgent={onOpenAgent}
         onToggleTheme={onToggleTheme}
         themeMode={themeMode}
       />
@@ -45,7 +42,7 @@ export default function WorkflowPage({
   );
 }
 
-function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme, themeMode }: WorkflowPageProps) {
+function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }: WorkflowPageProps) {
   const confirm = useWorkflowConfirm();
   const store = useWorkflowPageStore();
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
@@ -371,7 +368,6 @@ function WorkflowPageContent({ onOpenStudioSettings, onOpenAgent, onToggleTheme,
         <FloatingToolbar
           onAddNode={handleOpenNodeCatalog}
           onOpenSettings={onOpenStudioSettings}
-          onOpenAgent={onOpenAgent}
           onToggleTheme={onToggleTheme}
           themeMode={themeMode}
           onToggleRightPanel={() => setRightPanelCollapsed((value) => !value)}

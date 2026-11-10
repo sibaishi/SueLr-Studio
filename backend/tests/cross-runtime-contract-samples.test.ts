@@ -37,13 +37,3 @@ test('contract samples: runtime capabilities expose the frontend-consumed shape'
   assert.equal(typeof capabilities.search.enabled, 'boolean');
   assert.equal(typeof capabilities.search.disabledReason, 'string');
 });
-
-test('contract samples: intelligence wire schema fills stable optional fields', async () => {
-  const { agentPlanWireSchema } = await import(
-    '../src/modules/intelligence/contracts/agent-plan-wire.schema.ts'
-  );
-  const parsed = agentPlanWireSchema.parse(samples.agentPlanWire);
-
-  assert.deepEqual(parsed.warnings, []);
-  assert.deepEqual(parsed.knowledgeContext, { source: 'none', items: [] });
-});

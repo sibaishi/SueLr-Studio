@@ -122,20 +122,5 @@
       "source": "draft",
       "name": "Draft Contract"
     }
-  },
-  "agentPlanWire": {
-    "id": "plan-contract",
-    "source": "llm",
-    "plannerModel": {
-      "id": "planner-model",
-      "modelId": "planner-model",
-      "label": "Planner"
-    },
-    "summary": "Inspect the workflow",
-    "toolName": "workflow.inspect",
-    "toolInput": {
-      "workflowId": "wf-contract"
-    },
-    "reasoningSummary": "The user asked for the current workflow state."
   }
 }

@@ -1,6 +1,6 @@
 # SueLr Studio Developer Guide
 
-> Current architecture baseline: 2026-06-22.
+> Current architecture baseline: 2026-11-10.
 
 ## Overview
 
@@ -101,17 +101,11 @@ Current cleanup and ownership notes:
 
 - `src/app/App.tsx`
   - top-level application composition
-  - mounts the workflow-first surface, modal settings, Agent overlay, and shared providers
+  - mounts the workflow-first surface, modal settings, and shared providers
 - `src/app/bootstrap/useAppBootstrap.ts`
   - startup loading, capability bootstrap, and shell-ready state
 - `src/app/bootstrap/ErrorBoundary.tsx`
   - top-level render error isolation
-
-### Agent
-
-- `src/features/agent/components/AgentWorkspace.tsx`
-  - workflow-launched Agent workspace, local conversation state, planner model selection, attachments, governed approvals, and workflow/tool orchestration
-  - uses `/api/intelligence`; the retired backend `modules/agent` persona/profile/memory stack and `/api/agent` route must not be recreated
 
 ### Settings
 
@@ -139,7 +133,7 @@ Current cleanup and ownership notes:
 - `src/domains/workflow/components/Toolbar.tsx`
   - canvas overlays for workflow identity and document actions
 - `src/domains/workflow/components/FloatingToolbar.tsx`
-  - workflow-edge actions for node access, settings, Agent, and theme
+  - workflow-edge actions for node access, settings, and theme
 - `src/domains/workflow/components/WorkflowLibraryModal.tsx`
   - card-based workflow library, covers, save/open/duplicate/import/export/delete flows
 - `src/domains/workflow/components/AiV3StylePanel.tsx`
@@ -210,8 +204,6 @@ Current cleanup and ownership notes:
   - workflow execution SSE, cancellation, and run-status API helpers
 - `src/domains/workflow/lib/api/files.ts`
   - generated-output operations plus workflow-specific success/error adapters over the shared upload and metadata client
-- `src/domains/workflow/lib/api/intelligenceWire.ts`
-  - intelligence wire DTOs and normalization into stable Agent UI view models
 - `src/domains/workflow/lib/api/settings.ts`
   - settings, provider connection, model discovery, and available-model API helpers
 - `src/domains/workflow/lib/importExport.ts`
@@ -249,10 +241,6 @@ Current cleanup and ownership notes:
   - base workflow node-definition source of truth used by the editor, persistence normalization, and backend runtime contracts
 - `src/shared/workflow/node-registry-helpers.js`
   - helper composition for registry assembly and compatibility surfaces
-- `src/shared/workflow/node-catalog.js`
-  - intelligence-facing workflow node catalog derived from the base registry
-  - derives the shared Architect allowlist, Architect default data, validator port view, and Agent input adapter list
-  - keeps only intelligence-only compatibility overrides that cannot live in the base contract
 - `src/shared/workflow/node-definitions/`
   - compatibility-first node-definition tree grouped by category, with one folder per node and `node.js` owning the actual definition
 
@@ -263,23 +251,15 @@ Adding a workflow node is a cross-chain capability change, not only a canvas com
 The shared ownership model is:
 
 - `src/shared/workflow/node-registry.js` is the base source of truth for node definitions
-- `src/shared/workflow/node-catalog.js` derives the intelligence-facing catalog consumed by the workflow validator and Workflow Architect
-- each isolated node definition declares applicable Architect enablement, defaults, dynamic ports, runtime mode, and Agent input adapter metadata
-- `backend/src/modules/intelligence/workflow-builder/node-capabilities.ts` derives category and ports from the shared registry, while keeping semantic Agent knowledge such as use cases, avoid cases, maturity, parameter notes, and operational notes explicit because that guidance cannot be generated safely from ports alone
 - `backend/src/engine/nodes/index.ts` registers executable backend implementations
 
-For a normal Agent-buildable node:
 
 1. Add the isolated definition through `src/shared/workflow/node-definitions/<group>/index.js -> <node>/index.js -> <node>/node.js`.
 2. Register the backend executor in `backend/src/engine/nodes/index.ts`.
-3. Declare Architect defaults, dynamic ports, runtime mode, and any Agent input adapter on the isolated node definition. Add a `node-catalog.js` override only for an intelligence-only compatibility requirement.
-4. Add the matching semantic capability seed in `backend/src/modules/intelligence/workflow-builder/node-capabilities.ts`.
-5. Add a dedicated frontend renderer only when generic node rendering is insufficient.
-6. Add scheduler handling in `backend/src/engine/executor.ts` only when the node changes execution semantics, such as iterative downstream replay.
-7. Add Agent input override handling in `backend/src/modules/execution/execution.service.ts` only when the node introduces a new user-overridable input type.
-8. Update catalog and runtime tests, then run `npm run check:encoding` and `npm run check`.
+3. Add a dedicated frontend renderer only when generic node rendering is insufficient.
+4. Add scheduler handling in `backend/src/engine/executor.ts` only when the node changes execution semantics, such as iterative downstream replay.
+5. Update runtime and runtime tests, then run `npm run check:encoding` and `npm run check`.
 
-Do not add backend-local copies of the Architect allowlist, validator port map, or Architect default-data map. Catalog refactors must preserve node types, ports, defaults, persisted workflow JSON, required shortcuts, and runtime behavior.
 
 ## Frontend Build Shape
 
@@ -302,7 +282,7 @@ The chunk warning limit is set to 600 kB because the only expected near-threshol
 
 ## Backend Structure
 
-Cross-runtime contracts remain independently typed at each runtime boundary. Behavioral compatibility is fixed by shared samples in `tests/contracts/cross-runtime.samples.json`, exercised by both frontend Vitest and backend Node tests for runtime capabilities, project models, execution snapshots, and intelligence plan DTOs.
+Cross-runtime contracts remain independently typed at each runtime boundary. Behavioral compatibility is fixed by shared samples in `tests/contracts/cross-runtime.samples.json`, exercised by both frontend Vitest and backend Node tests for runtime capabilities, project models, and execution snapshots.
 
 ### Backend entry and HTTP app
 
@@ -319,17 +299,12 @@ Cross-runtime contracts remain independently typed at each runtime boundary. Beh
   - assistant conversation routes, service, schema, and persistence
 - `backend/src/modules/capabilities/`
   - feature capability reporting used by frontend bootstrap and diagnostics
-- `backend/src/modules/agent/`
-  - legacy/transitional agent profiles, chat runtime, tool registry, sessions, and long-term memory governance
-  - the long-term replacement direction is the Agent + Skills + Knowledge Base intelligence program documented under `docs/intelligence/`
 - `backend/src/modules/execution/execution.routes.ts`
   - workflow execution endpoints with Zod route-boundary validation
 - `backend/src/modules/execution/execution.service.ts`
   - run-state tracking, execution orchestration, and stop behavior
 - `backend/src/modules/execution/execution.schema.ts`
   - Zod schemas for execution params and request bodies
-- `backend/src/modules/intelligence/contracts/agent-plan-wire.schema.ts`
-  - output-boundary schema for Agent plan wire DTOs returned by plan and run endpoints
 - `backend/src/modules/images/images.routes.ts`
   - image generation endpoints
 - `backend/src/modules/images/images.service.ts`
@@ -348,15 +323,6 @@ Cross-runtime contracts remain independently typed at each runtime boundary. Beh
   - path resolution, file listing, and storage-facing operations
 - `backend/src/modules/workflows/`
   - workflow persistence, import/export, migration chain, and Zod route-boundary schemas
-
-### Intelligence knowledge governance
-
-The active Agent runtime uses governed knowledge under `backend/src/modules/intelligence/knowledge/`, not the removed persona/profile memory service.
-
-- knowledge entries carry category, scope, source, and trace metadata
-- planner context may use verified system seeds and local knowledge, but the current canvas, enabled project models, and explicit user input remain authoritative
-- writes, seed rebuilds, legacy-memory imports, asset links, run summaries, preference extraction, and template promotion use explicit intelligence APIs and tool approval rules
-- knowledge must not silently select a workflow target or provide execution inputs that were not grounded in the current request
 
 ### Workflow engine
 
@@ -445,7 +411,7 @@ The active Agent runtime uses governed knowledge under `backend/src/modules/inte
 
 The active app data root owns runtime files. Under that root, generated media uses these canonical directories:
 
-- `files/generated/images/`: raw outputs from Agent and workflow image generation
+- `files/generated/images/`: raw outputs from workflow image generation
 - `files/generated/videos/`: raw video outputs produced synchronously or downloaded by `executeVideoGeneration`
 - `files/generated/assistant-images/`: legacy assistant image gallery compatibility assets
 - `files/generated/assistant-videos/`: legacy assistant video gallery compatibility assets
@@ -499,7 +465,7 @@ Current test layers:
 
 Current canonical node surface:
 
-- `io`: general input/output and Agent input adapter
+- `io`: general input/output
 - `aiV3`: chat, image, video, and Midjourney execution selected by project-model capability
 - `promptHelper` and `materialProcess`: maintained transformation nodes
 - `group`: canvas organization
@@ -526,7 +492,6 @@ High-value regression areas:
 - centered node-picker panel, blank-canvas double-click open, and blank-canvas right-click paste menu
 - workflow keyboard shortcuts for copy, paste, grouping, execution, undo, and redo
 - workflow node registry compatibility after node-definition moves
-- workflow intelligence catalog compatibility for Architect node types, defaults, dynamic ports, and Agent knowledge coverage
 - per-node folder compatibility exports under `src/shared/workflow/node-definitions/`
 - editable grouped graph to executable flat graph projection
 - workflow execution state transitions
@@ -542,16 +507,13 @@ Only these public markdown docs and approved public documentation directories be
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
 - `docs/imageGenV2-changes.md` as a clearly marked historical migration record
-- `docs/intelligence/`
 
-The `docs/intelligence/` directory is the public home for the Agent + Skills + Knowledge Base intelligence program. It contains the engineering execution version and a separate Chinese reading version under `docs/intelligence/zh/`.
 
 Rules for future work:
 
 - every structural or behavior change that affects user flows must update `docs/user-guide.md`
 - every structural or ownership change that affects developer navigation must update `docs/developer-guide.md`
 - every desktop release workflow change must update `docs/release-sop.md`
-- every durable intelligence architecture, rollout, or acceptance-policy change must update the relevant file under `docs/intelligence/`
 - do not add private working notes, weekly scratch files, or internal-only plans under `docs/`
 - keep this guide aligned with the actual file layout so maintainers can jump directly to the right module instead of re-scanning the repo
 
@@ -630,4 +592,4 @@ The launcher may choose the next free frontend or backend port. Treat `5173` and
 
 The backend binds to loopback addresses only. Media downloads validate the destination at each redirect and enforce the byte limit while reading the response stream. JSON saves use a temporary file in the same directory followed by an atomic rename. The workflow library logs unreadable entries and preserves the original files for recovery.
 
-Agent and editor executions resolve model connections through the same scoped settings service. Proxied requests use the fetch implementation supplied by the same Undici package as the proxy dispatcher. Video submission and polling report phase-specific HTTP errors without surfacing raw upstream response bodies.
+Workflow executions resolve model connections through the same scoped settings service. Proxied requests use the fetch implementation supplied by the same Undici package as the proxy dispatcher. Video submission and polling report phase-specific HTTP errors without surfacing raw upstream response bodies.

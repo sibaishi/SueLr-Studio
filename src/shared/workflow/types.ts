@@ -58,24 +58,8 @@ export interface NodeTypeDef {
   dynamicInputs?: DynamicPortDef;
   dynamicOutputs?: DynamicPortDef;
   dynamicOutputInputs?: DynamicPortDef;
-  agent?: {
-    enabled: boolean;
-    maturity: 'stable' | 'limited' | 'experimental';
-    useWhen: string[];
-    avoidWhen?: string[];
-    notes?: string[];
-  };
-  architect?: {
-    enabled: boolean;
-    order?: number;
-    defaults?: Record<string, unknown>;
-  };
   runtime?: {
     mode?: 'standard' | 'material-process';
-  };
-  agentInput?: {
-    aliases: string[];
-    adapter: 'text' | 'image' | 'video' | 'audio';
   };
   supportsDisabledPassthrough?: boolean;
   executable?: boolean;

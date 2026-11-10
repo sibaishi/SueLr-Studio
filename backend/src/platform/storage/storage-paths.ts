@@ -10,14 +10,6 @@ export interface StoragePaths {
   conversationsFile: string;
   galleryFile: string;
   videosFile: string;
-  agentDir: string;
-  agentProfilesFile: string;
-  agentMemoriesFile: string;
-  agentSessionsDir: string;
-  agentLogsDir: string;
-  intelligenceDir: string;
-  intelligenceRunsDir: string;
-  intelligenceKnowledgeDir: string;
   filesDir: string;
   uploadsDir: string;
   generatedDir: string;
@@ -39,14 +31,6 @@ export function getStoragePaths(): StoragePaths {
     conversationsFile: path.join(root, 'assistant', 'conversations.json'),
     galleryFile: path.join(root, 'assistant', 'gallery.json'),
     videosFile: path.join(root, 'assistant', 'videos.json'),
-    agentDir: path.join(root, 'agent'),
-    agentProfilesFile: path.join(root, 'agent', 'profiles.json'),
-    agentMemoriesFile: path.join(root, 'agent', 'memories.json'),
-    agentSessionsDir: path.join(root, 'agent', 'sessions'),
-    agentLogsDir: path.join(root, 'agent', 'logs'),
-    intelligenceDir: path.join(root, 'intelligence'),
-    intelligenceRunsDir: path.join(root, 'intelligence', 'runs'),
-    intelligenceKnowledgeDir: path.join(root, 'intelligence', 'knowledge'),
     filesDir: path.join(root, 'files'),
     uploadsDir: path.join(root, 'files', 'uploads'),
     generatedDir: path.join(root, 'files', 'generated'),

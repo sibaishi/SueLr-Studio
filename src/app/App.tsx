@@ -1,7 +1,6 @@
 import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
 import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { AgentWorkspace } from '@/features/agent';
 import { useStudioSettingsState } from '@/features/settings';
 import { TCtx } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
@@ -93,7 +92,6 @@ export default function App() {
   const { colors, themeMode, setThemeMode } = useThemeState();
   const settings = useStudioSettingsState();
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
-  const [agentOpen, setAgentOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => localStorage.getItem('suelr_onboarding_dismissed') === 'true',
@@ -196,7 +194,6 @@ export default function App() {
             <ErrorBoundary>
               <WorkflowPage
                 onOpenStudioSettings={() => setSettingsOpen(true)}
-                onOpenAgent={() => setAgentOpen(true)}
                 onToggleTheme={handleToggleTheme}
                 themeMode={themeMode}
               />
@@ -237,14 +234,6 @@ export default function App() {
               </SettingsModal>
             )}
 
-            <AgentWorkspace
-              open={agentOpen}
-              onClose={() => setAgentOpen(false)}
-              onOpenWorkflow={() => setAgentOpen(false)}
-              plannerModels={settings.configuredProjectModels.filter((model) => model.cat === 'chat')}
-              imageModels={settings.configuredProjectModels.filter((model) => model.cat === 'image')}
-              videoModels={settings.configuredProjectModels.filter((model) => model.cat === 'video')}
-            />
           </div>
         )}
       </ToastProvider>

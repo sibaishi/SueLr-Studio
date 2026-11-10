@@ -2,7 +2,7 @@
 
 Thanks for taking a look at SueLr Studio.
 
-> Documentation baseline: 2026-06-22.
+> Documentation baseline: 2026-11-10.
 
 This project is maintained as a local-first multimodal studio. The main contribution goal is to improve product behavior without making the repository harder to understand or operate.
 
@@ -124,17 +124,12 @@ Please keep changes aligned with the existing architecture:
 
 ### Workflow Node Catalog
 
-Workflow nodes have a shared catalog so the canvas, backend runtime, Agent knowledge base, workflow builder, validator, editor, and execution paths do not drift apart.
+Workflow nodes have a shared catalog so the canvas, backend runtime, editor, and execution paths do not drift apart.
 
 - treat `src/shared/workflow/node-registry.js` as the base node-definition source of truth
-- treat `src/shared/workflow/node-catalog.js` as the shared intelligence-facing derivation layer
-- declare Architect enablement, defaults, dynamic ports, runtime mode, and optional Agent input adapters on the isolated node definition
-- do not add backend-local copies of Architect node allowlists, validator port maps, or Architect default-data maps
-- derive Agent knowledge category and ports from the shared registry; keep semantic usage guidance in `backend/src/modules/intelligence/workflow-builder/node-capabilities.ts`, with one capability seed for every Architect-enabled catalog node
 - keep special scheduling logic explicit in `backend/src/engine/executor.ts`; ordinary nodes must not add scheduler branches
-- keep new Agent-overridable input-node adapters explicit in `backend/src/modules/execution/execution.service.ts`
 
-When adding a workflow node, update the applicable definition export and metadata, backend executor registration, Agent capability seed, renderer, scheduling adapter, and Agent input adapter. Add catalog coverage and runtime tests in the same change. A catalog-only refactor must preserve existing node types, ports, defaults, saved workflow JSON, shortcuts, and runtime behavior.
+When adding a workflow node, update the applicable definition export and metadata, backend executor registration, renderer, and scheduling adapter. Add catalog coverage and runtime tests in the same change. A catalog-only refactor must preserve existing node types, ports, defaults, saved workflow JSON, shortcuts, and runtime behavior.
 
 ## Documentation Policy
 
@@ -146,7 +141,6 @@ At this stage, the maintained project docs are:
 - `docs/developer-guide.md`
 - `docs/release-sop.md`
 - `docs/imageGenV2-changes.md` as an archived migration record
-- `docs/intelligence/` for the maintained Agent, Skills, knowledge, governance, and acceptance program
 
 Every public document must identify whether it is a current operating guide, an active plan, or a historical migration record. Do not silently rewrite historical decisions; add a dated status note and update the current-state sections.
 

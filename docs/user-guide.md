@@ -1,6 +1,6 @@
 # SueLr Studio User Guide
 
-> Current product baseline: 2026-06-22.
+> Current product baseline: 2026-11-10.
 
 ## Overview
 
@@ -8,7 +8,6 @@ SueLr Studio is a local-first multimodal studio centered on the workflow workspa
 
 - `Workflow`: build node-based automation flows on a canvas and run them locally
 - `Settings`: configure provider connections, project models, appearance, network behavior, diagnostics, and storage
-- `Agent`: inspect, plan, edit, execute, and diagnose work against the current workflow canvas
 
 The app is split into:
 
@@ -17,10 +16,8 @@ The app is split into:
 
 Current product status:
 
-- Agent is available from the workflow workspace
 - Image, video, chat, and Midjourney generation are routed through enabled project models
 - The workflow canvas and workflow library are the primary product surfaces
-- The retired persona/profile Agent and memory settings pages are no longer part of the current UI
 
 ## Install
 
@@ -118,7 +115,7 @@ npm.cmd run start:local-web
 Desktop variant:
 
 ```bash
-npm.cmd run electron:dist
+npm run electron:dist
 ```
 
 - builds the portable desktop package
@@ -134,7 +131,7 @@ Default local addresses:
 
 ### 1. First-time setup
 
-On first launch, the onboarding page only saves connection info and discovers remote models. It does not auto-enable those models for Agent or Workflow use.
+On first launch, the onboarding page only saves connection info and discovers remote models. It does not auto-enable those models for Workflow use.
 
 After onboarding, open `Settings` and complete this order:
 
@@ -159,38 +156,14 @@ Important rule:
 - discovered models are not the same as enabled project models
 - product model pickers only show models that you explicitly imported and enabled in `Settings -> Models`
 
-### 2. Use Agent From Workflow
-
-Agent conversations live inside the workflow workspace. Open `Workflow`, then use the Agent entry in the workspace when you need conversational planning or execution help.
-
-In Agent, you can:
-
-- create and switch conversations
-- choose a planner/chat model
-- upload attachments
-- inspect the current canvas
-- create or edit workflow drafts, with approval before applying changes
-- execute and diagnose workflows
-- invoke image, video, copy, prompt, result-inspection, and asset-packaging tools
-- reuse assets produced by workflow runs
-
-Typical flow:
-
-1. Open `Workflow`
-2. Open Agent from the workflow workspace
-3. Create or switch to a conversation
-4. Choose role and model
-5. Enter your message
-6. Submit and continue the thread
-
-### 3. Use Workflow
+### 2. Use Workflow
 
 `Workflow` is the canvas-based automation studio.
 
 Main areas:
 
 - top toolbar: workflow identity and document actions
-- floating toolbar: add nodes, open settings, open Agent, adjust theme
+- floating toolbar: add nodes, open settings, adjust theme
 - center canvas: nodes and edges
 - right results panel: outputs, logs, preflight issues
 - bottom status bar: graph and execution summary
@@ -277,7 +250,7 @@ Canvas interaction notes:
 
 Connection appearance can be switched between Bézier and smooth-step styles in `Settings -> Defaults`; the preference is persisted locally.
 
-### 5. Use Save File in Workflow
+### 3. Use Save File in Workflow
 
 The `Save File` node writes output content to disk.
 
@@ -292,7 +265,7 @@ This is useful for:
 - generated images
 - other serialized outputs
 
-### 6. External data path
+### 4. External data path
 
 By default, runtime data does not need to live inside the repo itself.
 
@@ -319,7 +292,7 @@ What gets stored there:
 
 Generated media is organized under the app data root:
 
-- `files/generated/images/`: raw image-generation outputs from Agent and workflow image generation
+- `files/generated/images/`: raw image-generation outputs from workflow image generation
 - `files/generated/videos/`: raw synchronous or downloaded video-generation outputs from tool/workflow execution
 - `files/generated/assistant-images/`: legacy assistant gallery compatibility assets
 - `files/generated/assistant-videos/`: legacy assistant video gallery compatibility assets
@@ -330,7 +303,7 @@ All generated files are still served through `/api/outputs/...` or `/api/assista
 
 If `APP_CONFIG_DIR` is set in the environment, it overrides the in-app storage path setting.
 
-### 7. Restart backend from Settings
+### 5. Restart backend from Settings
 
 `Settings -> Defaults` includes a `Restart Backend` button.
 
@@ -388,4 +361,4 @@ npm run check:encoding
 
 Local-Web 的 API 仅在本机回环地址监听。工作流库遇到损坏的 JSON 文件时仍会列出其他工作流，原文件会保留在工作流目录，可从备份恢复。
 
-Agent 审批后执行工作流时，会使用设置中已保存的模型连接。视频请求失败时，节点会区分提交与查询阶段，并显示上游 HTTP 状态和排查提示。
+视频请求失败时，节点会区分提交与查询阶段，并显示上游 HTTP 状态和排查提示。

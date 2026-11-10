@@ -120,9 +120,8 @@ describe('repository documentation and branch hygiene', () => {
     expect(userGuide).toContain('Image, video, chat, and Midjourney generation are routed through enabled project models');
     expect(floatingToolbar).toContain('workflow-add-node');
     expect(floatingToolbar).toContain('workflow-open-settings');
-    expect(floatingToolbar).toContain('workflow-open-agent');
     expect(floatingToolbar).toContain('workflow-toggle-theme');
     expect(settingsPanel).toContain('工作室设置');
-    expect(developerGuide).toContain('workflow-first surface, modal settings, Agent overlay');
+    expect(developerGuide).toContain('workflow-first surface, modal settings');
   });
 });

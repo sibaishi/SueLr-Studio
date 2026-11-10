@@ -51,19 +51,6 @@ export const MATERIAL_PROCESS_NODE = {
       ],
     },
   ],
-  architect: {
-    enabled: true,
-    order: 12,
-    defaults: {
-      materialType: 'auto',
-      splitEnabled: true,
-      iterateEnabled: false,
-      separator: '\n',
-      outputCount: 2,
-      rows: 3,
-      columns: 3,
-    },
-  },
   runtime: { mode: 'material-process' },
   supportsDisabledPassthrough: true,
 };

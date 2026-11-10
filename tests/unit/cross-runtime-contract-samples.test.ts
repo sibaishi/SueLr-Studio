@@ -1,4 +1,3 @@
-import { type AgentPlanWire, toAgentPlanViewModel } from '@/domains/workflow/lib/api/intelligenceWire';
 import { normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import type { RuntimeCapabilities } from '@/shared/runtime';
 import type { ExecutionSnapshot } from '@/shared/workflow/types';
@@ -30,12 +29,5 @@ describe('cross-runtime contract samples', () => {
 
     expect(snapshot.nodeContractVersion).toBe(1);
     expect(snapshot.name).toBe('Draft Contract');
-  });
-
-  it('converts the optional wire fields into stable Agent UI fields', () => {
-    const viewModel = toAgentPlanViewModel(samples.agentPlanWire as AgentPlanWire);
-    expect(viewModel.warnings).toEqual([]);
-    expect(viewModel.knowledgeContext).toEqual({ source: 'none', items: [] });
-    expect(viewModel.toolInput.workflowId).toBe('wf-contract');
   });
 });

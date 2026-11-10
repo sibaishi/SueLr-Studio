@@ -426,6 +426,7 @@ test.describe('studio smoke', () => {
   });
 
   test('settings connection test syncs models into import list', async ({ page }) => {
+    const imageModelId = `gpt-image-1-import-fixture-${Date.now()}`;
     await clearLocalState(page);
     await openConnectionSettings(page);
 
@@ -437,10 +438,10 @@ test.describe('studio smoke', () => {
           success: true,
           data: {
             message: 'ok',
-            models: ['gpt-4.1-mini', 'gpt-image-1'],
+            models: ['gpt-4.1-mini', imageModelId],
             categorized: {
               chat: ['gpt-4.1-mini'],
-              image: ['gpt-image-1'],
+              image: [imageModelId],
               video: [],
             },
           },
@@ -457,10 +458,10 @@ test.describe('studio smoke', () => {
     await page.getByTestId('settings-module-models').click();
 
     await expect(page.getByTestId('settings-importable-models-panel')).toBeVisible();
-    await page.getByTestId('settings-importable-model-gpt-image-1').click();
+    await page.getByTestId(`settings-importable-model-${imageModelId}`).click();
     await page.getByTestId('settings-import-selected-models').click();
 
-    await expect(page.getByTestId('settings-project-model-card-gpt-image-1')).toBeVisible();
+    await expect(page.getByTestId(`settings-project-model-card-${imageModelId}`)).toBeVisible();
   });
 
   test('settings connection failure shows visible feedback and does not import phantom models', async ({ page }) => {

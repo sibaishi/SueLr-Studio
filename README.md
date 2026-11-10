@@ -1,15 +1,14 @@
 # SueLr Studio
 
-SueLr Studio 是一个本地优先的多模态 AI 工作台，用于对话、Agent、工作流，以及由这些入口调用的图像和视频生成任务。
+SueLr Studio 是一个本地优先的多模态 AI 工作台，用于对话、工作流，以及由这些入口调用的图像和视频生成任务。
 
-> 文档基线：2026-06-22。本文与 `main` 当前实现同步。
+> 文档基线：2026-11-10。
 
 ## 当前产品基线
 
-- 主界面以工作流画布为中心，Agent、设置和工作流库均从该工作区进入。
+- 主界面以工作流画布为中心，设置和工作流库均从该工作区进入。
 - 当前核心节点为通用 `IO`、按模型能力切换的 `AI 能力 V3`、提示词助手、文本拆分、图像拆分和分组节点。
 - 模型配置支持多连接同时启用；项目模型按连接隔离，并支持 `chat`、`image`、`video`、`midjourney` 能力分类。
-- Agent 使用 `/api/intelligence` 的规划、工具调用、审批、执行和诊断链路；旧 `/api/agent` persona/memory 体系已经移除。
 - 工作流库支持封面、复制、导入、导出和卡片式浏览。
 
 它当前围绕一套共享代码主干加两个交付版本演进：
@@ -48,7 +47,7 @@ npm run install:all
 npm start
 ```
 
-默认本地地址：
+以下是默认端口。如果端口被占用，以启动器打印的地址为准。
 
 - 前端：`http://localhost:5173`
 - 后端：`http://127.0.0.1:3001`
@@ -71,16 +70,16 @@ cmd /c npm start
 ### local-web
 
 ```bash
-npm.cmd run dev:local-web
-npm.cmd run build:local-web
-npm.cmd run start:local-web
+npm run dev:local-web
+npm run build:local-web
+npm run start:local-web
 ```
 
 ### desktop
 
 ```bash
-npm.cmd run electron:pack
-npm.cmd run electron:dist
+npm run electron:pack
+npm run electron:dist
 ```
 
 Desktop packaging targets are configured for Windows portable x64, macOS dmg/zip x64+arm64, and Linux AppImage/deb x64. Build on macOS when you need macOS artifacts; Windows can produce Windows and Linux artifacts.
@@ -90,14 +89,13 @@ Desktop packaging targets are configured for Windows portable x64, macOS dmg/zip
 ```bash
 npm run dev
 npm run check
-npm run test:e2e
 npm run test:e2e:install
-npm.cmd run typecheck
-npm.cmd run test:backend
-npm.cmd run test:unit -- runtime-capabilities
-npm.cmd run test:e2e
-npm.cmd run check:docs
-npm.cmd run check:encoding
+npm run test:e2e
+npm run typecheck
+npm run test:backend
+npm run test:unit -- runtime-capabilities
+npm run check:docs
+npm run check:encoding
 ```
 
 ## 文档入口
@@ -105,7 +103,6 @@ npm.cmd run check:encoding
 - [User Guide](docs/user-guide.md)
 - [Developer Guide](docs/developer-guide.md)
 - [Release SOP](docs/release-sop.md)
-- [Intelligence Program](docs/intelligence/README.md)
 - [Workflow Samples Policy](workflows/README.md)
 
 ## 本地生成物
