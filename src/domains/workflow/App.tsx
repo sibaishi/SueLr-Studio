@@ -1,4 +1,5 @@
 import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
+import AssetLibraryModal from '@/domains/workflow/components/AssetLibraryModal';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
 import IoStylePanel from '@/domains/workflow/components/IoStylePanel';
@@ -26,11 +27,7 @@ interface WorkflowPageProps {
   themeMode: ThemeMode;
 }
 
-export default function WorkflowPage({
-  onOpenStudioSettings,
-  onToggleTheme,
-  themeMode,
-}: WorkflowPageProps) {
+export default function WorkflowPage({ onOpenStudioSettings, onToggleTheme, themeMode }: WorkflowPageProps) {
   return (
     <WorkflowConfirmProvider>
       <WorkflowPageContent
@@ -47,6 +44,9 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
   const store = useWorkflowPageStore();
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [shouldRenderResultsPanel, setShouldRenderResultsPanel] = useState(!rightPanelCollapsed);
+  const assetPositionRef = useRef({ x: 300, y: 200 });
+  const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
+  const handleCloseAssets = useCallback(() => setAssetLibraryOpen(false), []);
   const [workflowLibraryOpen, setWorkflowLibraryOpen] = useState(false);
   const [workflowLibraryBusy, setWorkflowLibraryBusy] = useState(false);
   const [workflowErrorMessage, setWorkflowErrorMessage] = useState<string | null>(null);
@@ -125,6 +125,13 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
     setWorkflowErrorMessage,
     confirm,
   });
+  const handleCanvasCenterChange = useCallback(
+    (position: { x: number; y: number }) => {
+      assetPositionRef.current = position;
+      handleViewportCenterChange(position);
+    },
+    [handleViewportCenterChange],
+  );
   handleSelectWorkflowRef.current = handleSelectWorkflow;
 
   useEffect(() => {
@@ -363,10 +370,11 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
           rightPanelCollapsed={rightPanelCollapsed}
           isExecuting={store.isExecuting}
         />
-        <FlowCanvas onViewportCenterChange={handleViewportCenterChange} />
+        <FlowCanvas onViewportCenterChange={handleCanvasCenterChange} />
         {!store.isHydratingWorkflow && store.nodes.length === 0 && <EmptyCanvasHint />}
         <FloatingToolbar
           onAddNode={handleOpenNodeCatalog}
+          onOpenAssetLibrary={() => setAssetLibraryOpen(true)}
           onOpenSettings={onOpenStudioSettings}
           onToggleTheme={onToggleTheme}
           themeMode={themeMode}
@@ -458,6 +466,8 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
           onClose={() => setImportReport(null)}
         />
       )}
+
+      {assetLibraryOpen && <AssetLibraryModal position={assetPositionRef.current} onClose={handleCloseAssets} />}
 
       {workflowLibraryOpen && (
         <WorkflowLibraryModal

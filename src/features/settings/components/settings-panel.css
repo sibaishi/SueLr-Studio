@@ -1,0 +1,15 @@
+.settings-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px 24px;
+  flex-shrink: 0;
+  padding: 14px;
+  border-radius: 15px;
+}
+
+.settings-panel__identity { flex: 1 1 420px; min-width: 0; }
+.settings-panel__description { margin: 7px 0 0; color: var(--color-text-secondary); font-size: 12px; line-height: 1.6; }
+.settings-panel__status { display: flex; flex: 0 1 460px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; min-width: 0; margin-left: auto; }
+.settings-panel__active-config { flex: 0 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.settings-panel__badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

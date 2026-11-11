@@ -39,6 +39,15 @@ const OUTPUT_FILE_TYPES = new Map([
   ['.txt', { type: 'text', mimeType: 'text/plain' }],
 ]);
 
+export function getStoredFileType(filename: string) {
+  return (
+    OUTPUT_FILE_TYPES.get(path.extname(filename).toLowerCase()) || {
+      type: 'file',
+      mimeType: 'application/octet-stream',
+    }
+  );
+}
+
 function toOutputUrl(relativePath: string) {
   return `/api/outputs/${relativePath.split(path.sep).map(encodeURIComponent).join('/')}`;
 }
@@ -127,8 +136,7 @@ export class FilesRepository {
         const relativePath = path.relative(root, filePath);
         if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) continue;
 
-        const extension = path.extname(entry.name).toLowerCase();
-        const fileType = OUTPUT_FILE_TYPES.get(extension) || { type: 'file', mimeType: 'application/octet-stream' };
+        const fileType = getStoredFileType(entry.name);
         const thumbnailTarget =
           fileType.type === 'image'
             ? getGeneratedThumbnailPath(relativePath.split(path.sep).join('/'), { scope: options.scope })

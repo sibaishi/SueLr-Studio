@@ -1,11 +1,12 @@
 import { THEME_ICONS, THEME_LABELS } from '@/app/theme/constants';
 import type { ThemeMode } from '@/shared/types';
 import { Icon } from '@/shared/ui/icons';
-import { AlignTop, Gear, GridNine, Plus, Sidebar, SidebarSimple } from '@phosphor-icons/react';
+import { AlignTop, FolderOpen, Gear, GridNine, Plus, Sidebar, SidebarSimple } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 interface FloatingToolbarProps {
   onAddNode: () => void;
+  onOpenAssetLibrary?: () => void;
   onOpenSettings?: () => void;
   onToggleTheme?: () => void;
   themeMode: ThemeMode;
@@ -18,6 +19,7 @@ interface FloatingToolbarProps {
 
 export default function FloatingToolbar({
   onAddNode,
+  onOpenAssetLibrary,
   onOpenSettings,
   onToggleTheme,
   themeMode,
@@ -34,6 +36,12 @@ export default function FloatingToolbar({
         label="添加节点"
         onClick={onAddNode}
         testId="workflow-add-node"
+      />
+      <FloatingToolbarButton
+        icon={<FolderOpen size={16} />}
+        label="打开资产库"
+        onClick={onOpenAssetLibrary}
+        testId="workflow-open-assets"
       />
       <FloatingToolbarButton
         icon={rightPanelCollapsed ? <Sidebar size={16} /> : <SidebarSimple size={16} />}

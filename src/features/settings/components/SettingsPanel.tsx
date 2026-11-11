@@ -40,6 +40,7 @@ import { DiagnosticsSection } from './DiagnosticsSection';
 import { ModelsSection } from './ModelsSection';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
 import { chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, panelStyle, sectionTitleStyle } from './styles';
+import './settings-panel.css';
 
 export function SettingsPanel({
   apiConfigs,
@@ -790,43 +791,26 @@ export function SettingsPanel({
         padding: 10,
       }}
     >
-      <div className="workflow-toolbar glass" style={{ margin: 0, borderRadius: 15 }}>
-        <div
-          className="workflow-toolbar__frame"
-          style={{ alignItems: 'stretch', flexWrap: 'wrap', gap: 10, padding: 10, rowGap: 10 }}
-        >
-          <div className="workflow-toolbar__identity" style={{ minWidth: 260, alignItems: 'flex-start' }}>
-            <div className="workflow-toolbar__badge">
-              <Stack size={20} />
-            </div>
-            <div>
-              <div style={eyebrowStyle()}>工作室设置</div>
-              <div className="workflow-toolbar__title" style={{ fontSize: 18 }}>
-                工作室设置
-              </div>
-              <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                集中管理连接、模型、工作室偏好与运行诊断。
-              </div>
+      <div className="settings-panel__header glass">
+        <div className="settings-panel__identity">
+          <div style={eyebrowStyle()}>Studio Settings</div>
+          <h2 style={{ ...sectionTitleStyle(), marginTop: 6 }}>工作室设置</h2>
+          <p className="settings-panel__description">集中管理连接、模型、工作室偏好与运行诊断。</p>
+        </div>
+
+        <div className="settings-panel__status">
+          <div className="settings-panel__active-config">
+            <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>当前配置</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 4 }}>
+              {activeConfig?.name || '未命名配置'}
             </div>
           </div>
-
-          <div
-            className="workflow-toolbar__status"
-            style={{ minWidth: 260, flex: 1, justifyContent: 'space-between', padding: 10 }}
-          >
-            <div style={{ paddingLeft: 2 }}>
-              <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>当前配置</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 4 }}>
-                {activeConfig?.name || '未命名配置'}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', paddingRight: 4 }}>
-              <span style={chipStyle(base ? T.green : T.orange)}>{base ? '服务已接入' : '服务待配置'}</span>
-              <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
-              <span style={chipStyle(runtimeCapabilities?.search?.enabled ? T.purple : undefined)}>
-                {runtimeCapabilities?.search?.enabled ? '联网搜索可用' : '联网搜索未启用'}
-              </span>
-            </div>
+          <div className="settings-panel__badges">
+            <span style={chipStyle(base ? T.green : T.orange)}>{base ? '服务已接入' : '服务待配置'}</span>
+            <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
+            <span style={chipStyle(runtimeCapabilities?.search?.enabled ? T.purple : undefined)}>
+              {runtimeCapabilities?.search?.enabled ? '联网搜索可用' : '联网搜索未启用'}
+            </span>
           </div>
         </div>
       </div>

@@ -23,6 +23,10 @@ function writeStore(store: UploadMetadataStore) {
 }
 
 export class UploadMetadataRepository {
+  listRecords(): Record<string, UploadRecord> {
+    return readStore().items;
+  }
+
   get(filename: DynamicValue): UploadRecord | null {
     const store = readStore();
     return store.items[String(filename || '')] || null;

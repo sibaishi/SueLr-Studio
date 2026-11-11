@@ -511,3 +511,52 @@ test.describe('studio smoke', () => {
   });
 
 });
+
+test('资产库支持导入、整理、收藏、搜索和持久化回填', async ({ page }, testInfo) => {
+  await clearLocalState(page);
+  const initialNodes = await readStableNodeCount(page);
+  const filename = `资产测试-${Date.now()}.png`;
+  await page.getByTestId('workflow-open-assets').click();
+  const dialog = page.getByRole('dialog', { name: '资产库', exact: true });
+  await expect(dialog).toBeVisible();
+  await dialog.getByTestId('asset-import').setInputFiles({ name: filename, mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
+  await expect(dialog.getByRole('status')).toContainText('已导入 1 个素材');
+  await dialog.getByLabel('搜索资产', { exact: true }).fill(filename);
+  await dialog.getByRole('button', { name: `查看 ${filename}`, exact: true }).click();
+  await dialog.getByLabel('资产名称', { exact: true }).fill(`已整理-${filename}`);
+  await dialog.getByLabel('编辑分类', { exact: true }).fill('测试参考');
+  await dialog.getByLabel('资产标签', { exact: true }).fill('分镜，参考');
+  await dialog.getByRole('button', { name: '保存整理信息' }).click();
+  await expect(dialog.getByRole('status')).toHaveText('整理信息已保存');
+  await dialog.getByRole('button', { name: `收藏 已整理-${filename}`, exact: true }).click();
+  await expect(dialog.getByRole('button', { name: `取消收藏 已整理-${filename}`, exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByTestId('workflow-open-assets').click();
+  await dialog.getByLabel('搜索资产', { exact: true }).fill(`已整理-${filename}`);
+  await dialog.getByRole('button', { name: '仅收藏', exact: true }).click();
+  await dialog.getByLabel('资产分类', { exact: true }).selectOption('测试参考');
+  await dialog.getByRole('button', { name: `查看 已整理-${filename}`, exact: true }).click();
+  await expect(dialog.getByLabel('资产标签', { exact: true })).toHaveValue('分镜，参考');
+  await expect.poll(() => dialog.locator('.asset-library__thumbnail img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(() => dialog.locator('.asset-library__preview img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  await page.screenshot({ path: testInfo.outputPath('asset-library.png') });
+  await dialog.getByRole('button', { name: '回填画布', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator('.react-flow__node')).toHaveCount(initialNodes + 1);
+  await expect.poll(() => page.evaluate(() => {
+    const draft = JSON.parse(localStorage.getItem('suelr-studio-local-draft') || '{}');
+    return draft.nodes?.at(-1)?.data;
+  })).toMatchObject({ content: [expect.stringMatching(/^\/api\/files\//)], _fileKinds: ['image'], _fileNames: [`已整理-${filename}`] });
+  await page.reload();
+  await expect(page.locator('.react-flow__node')).toHaveCount(initialNodes + 1);
+  // Reopening the library should not create a duplicate upload during backfill.
+  await page.getByTestId('workflow-open-assets').click();
+  await dialog.getByLabel('搜索资产', { exact: true }).fill(filename);
+  await expect(dialog.locator('.asset-library__card')).toHaveCount(1);
+  await dialog.getByRole('button', { name: `查看 已整理-${filename}`, exact: true }).focus();
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.react-flow__node')).toHaveCount(initialNodes + 1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+});

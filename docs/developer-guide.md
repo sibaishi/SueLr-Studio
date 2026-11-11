@@ -1,6 +1,6 @@
 # SueLr Studio Developer Guide
 
-> Current architecture baseline: 2026-11-10.
+> Current architecture baseline: 2026-11-11.
 
 ## Overview
 
@@ -593,3 +593,17 @@ The launcher may choose the next free frontend or backend port. Treat `5173` and
 The backend binds to loopback addresses only. Media downloads validate the destination at each redirect and enforce the byte limit while reading the response stream. JSON saves use a temporary file in the same directory followed by an atomic rename. The workflow library logs unreadable entries and preserves the original files for recovery.
 
 Workflow executions resolve model connections through the same scoped settings service. Proxied requests use the fetch implementation supplied by the same Undici package as the proxy dispatcher. Video submission and polling report phase-specific HTTP errors without surfacing raw upstream response bodies.
+
+## Asset library
+
+The workflow-domain `AssetLibraryModal` owns library browsing, importing, organization and backfill. Fetched library data stays in component state. `lib/api/assets.ts` exposes typed library requests. Backfill stores persistent media URLs and media-kind metadata in IO nodes, without creating an upload or a raw-file cache entry.
+
+The files module owns `GET /api/assets` and `PATCH /api/assets/:id`. Zod validates filters, pagination, identifiers and metadata. `asset-library.ts` inventories runtime-resolved upload and generated directories, skips hidden entries and symlinks, includes historical outputs, and paginates at 48 items. Uploaded original names and MIME types come from upload metadata. IDs are SHA-256 of source and relative path.
+
+Organization metadata (display name, category, tags, favorite) is stored atomically in `files/asset-library.json` under the resolved runtime data root. Original media files remain unchanged. Corrupt organization metadata produces an explicit error and is never silently overwritten. Asset thumbnails use the existing lazy thumbnail endpoints. The initial implementation scans local files per request; very large libraries may require an indexed inventory later.
+
+Asset library modal materials reuse the existing `settings-modal`, `settings-modal__panel`, and `settings-modal__backdrop` classes directly. Inner library sections use the same `glass` surface class as settings. The asset stylesheet owns content layout only and must not add another backdrop or outer-shell blur layer. The fixed action card uses settings' `mutedPanelStyle` helper.
+
+WorkflowLibraryModal also reuses the settings modal classes through ModalSurface and renders its header, search and browser as glass sections. Its portal remains mounted under document.body. Search data stays local; the existing workflow callbacks continue to own mutations.
+
+Settings header layout lives in `src/features/settings/components/settings-panel.css`. It uses a flexible title column and a wrapping configuration/status column instead of inheriting the canvas toolbar's 220px identity width. Header typography continues to use the settings style helpers shared by the library dialogs.

@@ -101,7 +101,7 @@ export function createApp() {
         }
         callback(new Error('CORS origin not allowed'));
       },
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
     }),
   );
@@ -127,7 +127,7 @@ export function createApp() {
           scope: req.scope,
         });
       }
-      res.sendFile(targetPath);
+      res.sendFile(targetPath, { dotfiles: 'allow' });
     } catch (error) {
       next(error);
     }
@@ -139,7 +139,9 @@ export function createApp() {
       const storagePaths = getScopedStoragePaths(req.scope);
       const absolutePath = safeResolveWithin(storagePaths.generatedDir, relativePath);
       if (!absolutePath) return next();
-      if (!relativePath.includes('/.thumbnails/') || existsSync(absolutePath)) return next();
+      const isThumbnail = relativePath.startsWith('.thumbnails/') || relativePath.includes('/.thumbnails/');
+      if (!isThumbnail) return next();
+      if (existsSync(absolutePath)) return res.sendFile(absolutePath, { dotfiles: 'allow' });
 
       const original = resolveGeneratedOriginalFromThumbnailRelativePath(relativePath, { scope: req.scope });
       if (!original) return next();
@@ -151,7 +153,7 @@ export function createApp() {
       });
 
       if (!existsSync(absolutePath)) return next();
-      res.sendFile(absolutePath);
+      res.sendFile(absolutePath, { dotfiles: 'allow' });
     } catch (error) {
       next(error);
     }
@@ -161,13 +163,13 @@ export function createApp() {
     const relativePath = getWildcardParam(req, 'relativePath');
     const filePath = safeResolveWithin(getScopedStoragePaths(req.scope).generatedDir, relativePath);
     if (!filePath || !existsSync(filePath)) return next();
-    res.sendFile(filePath);
+    res.sendFile(relativePath, { root: getScopedStoragePaths(req.scope).generatedDir });
   });
   app.get('/api/files/*relativePath', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
     const relativePath = getWildcardParam(req, 'relativePath');
     const filePath = safeResolveWithin(getScopedStoragePaths(req.scope).uploadsDir, relativePath);
     if (!filePath || !existsSync(filePath)) return next();
-    res.sendFile(filePath);
+    res.sendFile(relativePath, { root: getScopedStoragePaths(req.scope).uploadsDir });
   });
   app.get('/api/runtime/workflows/:runId/*filename', (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
     const runId = validateRuntimeAssetRunId(String(req.params?.runId || ''));

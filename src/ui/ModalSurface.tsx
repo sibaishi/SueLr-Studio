@@ -1,4 +1,4 @@
-import { type MouseEvent, type ReactNode, useEffect, useRef } from 'react';
+import { type MouseEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useRef } from 'react';
 
 interface ModalSurfaceProps {
   ariaLabel: string;
@@ -9,6 +9,7 @@ interface ModalSurfaceProps {
   backdropClassName?: string;
   backdropLabel?: string;
   closeOnRootClick?: boolean;
+  isolateKeyboard?: boolean;
 }
 
 export function ModalSurface({
@@ -20,6 +21,7 @@ export function ModalSurface({
   backdropClassName,
   backdropLabel = '关闭',
   closeOnRootClick = false,
+  isolateKeyboard = false,
 }: ModalSurfaceProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -40,8 +42,40 @@ export function ModalSurface({
     if (closeOnRootClick && event.target === event.currentTarget) onClose();
   };
 
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!isolateKeyboard) return;
+    event.stopPropagation();
+    if (event.key === 'Escape') onClose();
+    if (event.key !== 'Tab') return;
+    const elements = Array.from(
+      panelRef.current?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled):not([hidden]), select:not(:disabled), a[href], video[controls], audio[controls], [tabindex="0"]',
+      ) || [],
+    ).filter((element) => element.getClientRects().length > 0);
+    const first = elements[0];
+    const last = elements.at(-1);
+    if (!first) {
+      event.preventDefault();
+      return;
+    }
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
-    <div className={rootClassName} role="dialog" aria-modal="true" aria-label={ariaLabel} onClick={handleRootClick}>
+    <div
+      className={rootClassName}
+      role="dialog"
+      aria-modal="true"
+      aria-label={ariaLabel}
+      onClick={handleRootClick}
+      onKeyDown={handleKeyDown}
+    >
       {backdropClassName && (
         <button type="button" className={backdropClassName} aria-label={backdropLabel} onClick={onClose} />
       )}

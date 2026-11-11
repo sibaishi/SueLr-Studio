@@ -1,12 +1,7 @@
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import type { WorkflowListItem } from '@/domains/workflow/lib/api';
-import {
-  chipStyle,
-  eyebrowStyle,
-  mutedPanelStyle,
-  panelStyle,
-  sectionTitleStyle,
-} from '@/features/settings/components/styles';
+import { chipStyle, eyebrowStyle, mutedPanelStyle, sectionTitleStyle } from '@/features/settings/components/styles';
+import { ModalSurface } from '@/ui/ModalSurface';
 import { Copy, FolderOpen, MagnifyingGlass, NotePencil, ShareNetwork, Trash, X } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -129,51 +124,50 @@ export default function WorkflowLibraryModal({
   };
 
   return createPortal(
-    <div
-      className="workflow-library-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label="工作流库"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <ModalSurface
+      ariaLabel="工作流库"
+      rootClassName="settings-modal workflow-library-modal"
+      panelClassName="settings-modal__panel workflow-library-modal__panel"
+      backdropClassName="settings-modal__backdrop"
+      backdropLabel="点击背景关闭工作流库"
+      onClose={onClose}
+      isolateKeyboard
     >
-      <div
-        style={{
-          ...panelStyle(),
-          display: 'flex',
-          flexDirection: 'column',
-          width: 'min(880px, 100%)',
-          maxHeight: 'min(86vh, 860px)',
-          overflow: 'hidden',
-        }}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="workflow-library-modal__header">
-          <div>
-            <div style={eyebrowStyle()}>Workflow Library</div>
-            <h2 style={{ ...sectionTitleStyle(), marginTop: 6 }}>工作流库</h2>
-            <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', margin: '7px 0 0' }}>
-              管理已保存的工作流记录，打开后会进入独立标签页编辑。
-            </p>
-          </div>
-          <button type="button" className="workflow-library-modal__close" onClick={onClose} aria-label="关闭工作流库">
-            <X size={17} />
-          </button>
+      <div className="workflow-library-modal__header glass">
+        <div>
+          <div style={eyebrowStyle()}>Workflow Library</div>
+          <h2 style={{ ...sectionTitleStyle(), marginTop: 6 }}>工作流库</h2>
+          <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', margin: '7px 0 0' }}>
+            管理已保存的工作流记录，打开后会进入独立标签页编辑。
+          </p>
         </div>
+        <button type="button" className="workflow-library-modal__close" onClick={onClose} aria-label="关闭工作流库">
+          <X size={17} />
+        </button>
+      </div>
 
-        <div className="workflow-library-modal__toolbar">
-          <div className="workflow-library-modal__search">
-            <MagnifyingGlass size={14} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称或 ID" />
-          </div>
-          <span style={{ ...chipStyle(), height: 40, padding: '0 14px', fontSize: 12, fontWeight: 700 }}>
-            {workflows.length} 个已保存
-          </span>
+      <div className="workflow-library-modal__toolbar glass">
+        <div className="workflow-library-modal__search">
+          <MagnifyingGlass size={14} />
+          <input
+            aria-label="搜索工作流"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜索名称或 ID"
+          />
         </div>
+        <span style={{ ...chipStyle(), height: 40, padding: '0 14px', fontSize: 12, fontWeight: 700 }}>
+          {workflows.length} 个已保存
+        </span>
+      </div>
 
-        {errorMessage && <div className="workflow-library-modal__error">{errorMessage}</div>}
+      {errorMessage && <div className="workflow-library-modal__error">{errorMessage}</div>}
 
+      <section className="workflow-library-modal__content glass" aria-label="已保存的工作流">
+        <div>
+          <div style={eyebrowStyle()}>工作流浏览</div>
+          <h3 style={{ ...sectionTitleStyle(), marginTop: 8 }}>已保存的工作流</h3>
+        </div>
         <div className="workflow-library-modal__body" data-testid="workflow-library-modal">
           {filteredWorkflows.length === 0 ? (
             <div
@@ -233,7 +227,9 @@ export default function WorkflowLibraryModal({
                         className="workflow-library-modal__rename-input"
                         value={draftName}
                         onChange={(event) => setDraftName(event.target.value)}
+                        onClick={(event) => event.stopPropagation()}
                         onKeyDown={(event) => {
+                          event.stopPropagation();
                           if (event.key === 'Enter') void commitRename(workflow.id);
                           if (event.key === 'Escape') {
                             setEditingWorkflowId(null);
@@ -360,8 +356,9 @@ export default function WorkflowLibraryModal({
             })
           )}
         </div>
-      </div>
-    </div>,
+        <div className="workflow-library-modal__summary">共 {filteredWorkflows.length} 个匹配工作流</div>
+      </section>
+    </ModalSurface>,
     document.body,
   );
 }
