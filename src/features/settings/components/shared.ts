@@ -27,11 +27,12 @@ export type SettingsActions = {
   addManualProjectModel: (modelId: string, type: ProjectModel['type']) => void;
   importSelectedModels: () => void;
   onClearLogs: () => void;
-  removeProjectModel: (modelId: string) => void;
+  removeProjectModels: (modelIds: string[]) => void;
   setActiveConfigName: (value: string) => void;
   setActiveModule: (id: SettingsModuleMeta['id']) => void;
   setConnectionApiKey: (value: string) => void;
   setConnectionBase: (value: string) => void;
+  updateProjectModels: (modelIds: string[], patch: Partial<ProjectModel>) => void;
   setProjectModelSearch: (value: string) => void;
   setProviderAuthType: (value: ProviderConfig['authType']) => void;
   setProviderCustomHeaderName: (value: string) => void;
@@ -72,7 +73,6 @@ export type SettingsViewModel = {
   apiConfigs: ApiConfig[];
   apiKey: string;
   base: string;
-  discoveredModels: ModelInfo[];
   filteredProjectModels: ProjectModel[];
   importableModels: ModelInfo[];
   logSummary: LogEntry[];

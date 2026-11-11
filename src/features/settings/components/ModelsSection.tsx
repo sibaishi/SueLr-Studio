@@ -1,11 +1,21 @@
-import { inferEndpointCategory, normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
+import { inferEndpointCategory } from '@/domains/workflow/lib/projectModels';
 import type { ModelInfo, ProjectModel } from '@/shared/types';
-import { IOSButton, IOSCard, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
-import { Check, CloudArrowUp, Database, MagnifyingGlass, Plus, Trash, X } from '@phosphor-icons/react';
+import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
+import {
+  CaretRight,
+  Check,
+  CloudArrowUp,
+  Database,
+  MagnifyingGlass,
+  Plus,
+  Square,
+  CheckSquare,
+} from '@phosphor-icons/react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';
-import { EmptyStateCard, SectionCard, chipStyle, fuzzyMatch, mutedPanelStyle } from './styles';
+import { EmptyStateCard, SectionCard, fuzzyMatch, mutedPanelStyle } from './styles';
+import './model-library.css';
 
 type Props = {
   T: Record<string, string>;
@@ -22,9 +32,32 @@ const CATEGORY_LABELS: Record<string, string> = {
   midjourney: 'Midjourney',
 };
 
-function modelTypeLabel(type?: ModelInfo['cat'] | ProjectModel['type'] | ProjectModel['endpointCategory']) {
-  if (!type) return '未分类';
-  return CATEGORY_LABELS[type] || type;
+const MODEL_TYPES = [
+  ['', '未设置'],
+  ['chat', '对话'],
+  ['image', '图像'],
+  ['video', '视频'],
+  ['midjourney', 'Midjourney'],
+] as const;
+const ENDPOINT_MODES = [
+  ['category', '按类别接口'],
+  ['custom', '自定义接口'],
+] as const;
+const ENDPOINT_CATEGORIES = [
+  ['', '按模型类型推断'],
+  ['chat', 'chat'],
+  ['image', 'image'],
+  ['image-edit', 'image-edit'],
+  ['gemini-generate-content', 'Gemini generateContent'],
+  ['video', 'video'],
+] as const;
+
+function ConfigOptions({ options }: { options: readonly (readonly [string, string])[] }) {
+  return options.map(([value, label]) => (
+    <option key={value} value={value}>
+      {label}
+    </option>
+  ));
 }
 
 function modelTypeColor(type: string | undefined, T: Record<string, string>) {
@@ -40,16 +73,22 @@ function isSelected(id: string, selected: string[]) {
 }
 
 export function ModelsSection({ T, actions, view }: Props) {
-  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
+  const [libraryView, setLibraryView] = useState<'project' | 'import' | null>(null);
+  const isImportView =
+    (libraryView ?? (view.projectModels.length === 0 && view.importableModels.length > 0 ? 'import' : 'project')) ===
+    'import';
+  const [activeType, setActiveType] = useState<string | null>(null);
   const [batchMode, setBatchMode] = useState(false);
+  const [showBatchConfig, setShowBatchConfig] = useState(false);
   const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
   const [showAddForm, setShowAddForm] = useState(false);
   const [newModelId, setNewModelId] = useState('');
   const [newModelType, setNewModelType] = useState<ProjectModel['type']>('image');
-  const [modelConfigId, setModelConfigId] = useState<string>(view.activeConfigId);
+  const [editingModelId, setEditingModelId] = useState<string | null>(null);
 
   const toggleBatch = () => {
     setBatchMode((prev) => !prev);
+    setShowBatchConfig(false);
     setBatchSelected(new Set());
   };
 
@@ -62,48 +101,11 @@ export function ModelsSection({ T, actions, view }: Props) {
     });
   };
 
-  const selectAllBatch = () => {
-    setBatchSelected(new Set(localFilteredModels.map((m) => m.modelId)));
-  };
-
-  const deselectAllBatch = () => {
-    setBatchSelected(new Set());
-  };
-
-  const removeSelectedBatch = () => {
-    batchSelected.forEach((id) => actions.removeProjectModel(id));
-    setBatchSelected(new Set());
-    setBatchMode(false);
-  };
-
-  const toggleCat = (cat: string) => {
-    setCollapsedCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return next;
-    });
-  };
-
-  const localProjectModels = useMemo(
-    () => normalizeProjectModels(view.apiConfigs.find((c) => c.id === modelConfigId)?.projectModels || []),
-    [view.apiConfigs, modelConfigId],
+  const localFilteredModels = view.filteredProjectModels;
+  const filteredImportableModels = useMemo(
+    () => view.importableModels.filter((model) => fuzzyMatch(model.id, view.projectModelSearch)),
+    [view.importableModels, view.projectModelSearch],
   );
-  const localFilteredModels = useMemo(
-    () => localProjectModels.filter((m) => fuzzyMatch(m.modelId, view.projectModelSearch)),
-    [localProjectModels, view.projectModelSearch],
-  );
-  const localImportedIds = useMemo(() => new Set(localProjectModels.map((m) => m.modelId)), [localProjectModels]);
-  const localImportableModels = useMemo(
-    () => view.discoveredModels.filter((m) => !localImportedIds.has(m.id)),
-    [view.discoveredModels, localImportedIds],
-  );
-
-  const filteredImportableModels = useMemo(() => {
-    const query = view.projectModelSearch.trim().toLowerCase();
-    if (!query) return localImportableModels;
-    return localImportableModels.filter((model) => model.id.toLowerCase().includes(query));
-  }, [localImportableModels, view.projectModelSearch]);
 
   const importableGroups = useMemo(() => {
     const groups = new Map<string, ModelInfo[]>();
@@ -127,13 +129,45 @@ export function ModelsSection({ T, actions, view }: Props) {
     return Array.from(groups.entries()).sort((a, b) => (CATEGORY_ORDER[a[0]] ?? 99) - (CATEGORY_ORDER[b[0]] ?? 99));
   }, [localFilteredModels]);
 
-  const allVisibleSelected =
-    filteredImportableModels.length > 0 &&
-    filteredImportableModels.every((model) => isSelected(model.id, view.selectedImports));
-  const selectedVisibleCount = filteredImportableModels.filter((model) =>
-    isSelected(model.id, view.selectedImports),
-  ).length;
+  const groups = isImportView ? importableGroups : projectGroups;
+  const activeImportGroup = importableGroups.find(([type]) => type === activeType) ?? importableGroups[0];
+  const visibleImports = activeImportGroup?.[1] ?? [];
+  const activeGroup = projectGroups.find(([type]) => type === activeType) ?? projectGroups[0];
+  const visibleModels = activeGroup?.[1] ?? [];
+  const editingModel = visibleModels.find((model) => model.modelId === editingModelId);
 
+  const selectedModels = view.projectModels.filter((model) => batchSelected.has(model.modelId));
+  const selectedIds = selectedModels.map((model) => model.modelId);
+  const allOfTypeSelected =
+    visibleModels.length > 0 && visibleModels.every((model) => batchSelected.has(model.modelId));
+  const allMatchesSelected =
+    localFilteredModels.length > 0 && localFilteredModels.every((model) => batchSelected.has(model.modelId));
+
+  const toggleBatchSelection = (models: ProjectModel[], allSelected: boolean) => {
+    setBatchSelected((previous) => {
+      const next = new Set(previous);
+      for (const { modelId } of models) {
+        if (allSelected) next.delete(modelId);
+        else next.add(modelId);
+      }
+      return next;
+    });
+  };
+
+  const switchChannel = (id: string) => {
+    if (id === view.activeConfigId) return;
+    actions.applyConfig(id);
+    actions.setSelectedImports([]);
+    setActiveType(null);
+    setBatchMode(false);
+    setShowBatchConfig(false);
+    setBatchSelected(new Set());
+    setEditingModelId(null);
+    setShowAddForm(false);
+  };
+
+  const allVisibleSelected =
+    visibleImports.length > 0 && visibleImports.every((model) => isSelected(model.id, view.selectedImports));
   const toggleImport = (id: string) => {
     actions.setSelectedImports(
       isSelected(id, view.selectedImports)
@@ -144,13 +178,11 @@ export function ModelsSection({ T, actions, view }: Props) {
 
   const toggleVisibleImports = () => {
     if (allVisibleSelected) {
-      const visible = new Set(filteredImportableModels.map((model) => model.id));
+      const visible = new Set(visibleImports.map((model) => model.id));
       actions.setSelectedImports(view.selectedImports.filter((id) => !visible.has(id)));
       return;
     }
-    actions.setSelectedImports([
-      ...new Set([...view.selectedImports, ...filteredImportableModels.map((model) => model.id)]),
-    ]);
+    actions.setSelectedImports([...new Set([...view.selectedImports, ...visibleImports.map((model) => model.id)])]);
   };
 
   return (
@@ -160,33 +192,10 @@ export function ModelsSection({ T, actions, view }: Props) {
         description="管理当前工作室在对话、图像、视频等场景下可用的模型资产。"
         action={
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <select
-              value={modelConfigId}
-              onChange={(e) => setModelConfigId(e.target.value)}
-              style={{
-                padding: '5px 8px',
-                borderRadius: 8,
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-bg-tertiary)',
-                color: 'var(--color-text-secondary)',
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                maxWidth: '8em',
-              }}
-            >
-              {view.apiConfigs
-                .filter((c) => c.enabled !== false)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name || c.base || c.id}
-                  </option>
-                ))}
-            </select>
             <button
               type="button"
               onClick={() => {
+                setLibraryView('project');
                 setShowAddForm(!showAddForm);
                 setNewModelId('');
                 setNewModelType('image');
@@ -208,10 +217,11 @@ export function ModelsSection({ T, actions, view }: Props) {
               <Plus size={13} />
               添加模型
             </button>
-            {localFilteredModels.length > 0 && (
+            {!isImportView && (batchMode || view.projectModels.length > 0) && (
               <button
                 type="button"
                 onClick={toggleBatch}
+                aria-pressed={batchMode}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -226,13 +236,31 @@ export function ModelsSection({ T, actions, view }: Props) {
                   cursor: 'pointer',
                 }}
               >
-                {batchMode ? '取消' : '批量管理'}
+                {batchMode ? '退出批量管理' : '批量管理'}
               </button>
             )}
           </div>
         }
       >
-        <div className="flex-col" style={{ gap: 12 }}>
+        <div className="flex-col model-library-content" style={{ gap: 12 }}>
+          <div className="model-library-views" role="group" aria-label="模型列表">
+            <button type="button" aria-pressed={!isImportView} onClick={() => setLibraryView('project')}>
+              已入库 <span>{view.projectModels.length}</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={isImportView}
+              onClick={() => {
+                setLibraryView('import');
+                setShowAddForm(false);
+                setBatchMode(false);
+                setShowBatchConfig(false);
+                setBatchSelected(new Set());
+              }}
+            >
+              待导入 <span>{view.importableModels.length}</span>
+            </button>
+          </div>
           <div style={{ position: 'relative' }}>
             <MagnifyingGlass
               size={15}
@@ -248,12 +276,13 @@ export function ModelsSection({ T, actions, view }: Props) {
             <IOSInput
               value={view.projectModelSearch}
               onChange={actions.setProjectModelSearch}
-              placeholder="搜索模型名称"
+              aria-label="搜索当前渠道的模型"
+              placeholder="搜索当前渠道的模型"
               style={{ paddingLeft: 38 }}
             />
           </div>
 
-          {showAddForm && (
+          {!isImportView && showAddForm && (
             <div
               style={{
                 ...mutedPanelStyle(),
@@ -339,374 +368,303 @@ export function ModelsSection({ T, actions, view }: Props) {
             </div>
           )}
 
-          {view.importableModels.length > 0 && (
-            <div
-              data-testid="settings-importable-models-panel"
-              style={{
-                ...mutedPanelStyle(),
-                overflow: 'hidden',
-                borderColor: `${T.blue}36`,
-                background: `linear-gradient(180deg, ${T.blue}12, var(--color-bg-secondary) 42%)`,
-              }}
-            >
-              <div
-                style={{
-                  padding: 14,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  borderBottom: '1px solid var(--color-border)',
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-                    <div
-                      style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: 10,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: `${T.blue}20`,
-                        color: T.blue,
-                      }}
-                    >
-                      <Database size={15} />
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' }}>待导入模型</div>
-                    <span style={chipStyle(T.blue)}>{filteredImportableModels.length} 个可见</span>
-                    {view.selectedImports.length > 0 && (
-                      <span style={chipStyle(T.green)}>已选择 {view.selectedImports.length}</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-                    从连接测试发现的模型中挑选要纳入当前项目模型库的条目。
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={toggleVisibleImports}
-                  disabled={filteredImportableModels.length === 0}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 7,
-                    flexShrink: 0,
-                    padding: '8px 11px',
-                    borderRadius: 10,
-                    border: '1px solid var(--color-border)',
-                    background: allVisibleSelected ? `${T.blue}22` : 'var(--color-bg-tertiary)',
-                    color: allVisibleSelected ? T.blue : 'var(--color-text-secondary)',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: filteredImportableModels.length === 0 ? 'not-allowed' : 'pointer',
-                    opacity: filteredImportableModels.length === 0 ? 0.55 : 1,
-                  }}
-                >
-                  {allVisibleSelected ? <X size={14} /> : <Check size={14} />}
-                  {allVisibleSelected ? '取消可见' : '全选可见'}
-                </button>
-              </div>
-
-              <div
-                style={{
-                  maxHeight: 380,
-                  overflow: 'auto',
-                  padding: 10,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                }}
-              >
-                {importableGroups.map(([cat, models]) => (
-                  <CategoryGroup
-                    key={cat}
-                    cat={cat}
-                    count={models.length}
-                    collapsed={collapsedCats.has(cat)}
-                    onToggle={() => toggleCat(cat)}
-                    T={T}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {!isImportView && batchMode && (
+              <div className="model-library-batch" role="group" aria-label="批量操作">
+                <div>
+                  <strong aria-live="polite">已选 {selectedIds.length} 个</strong>
+                  <button
+                    type="button"
+                    disabled={visibleModels.length === 0}
+                    onClick={() => toggleBatchSelection(visibleModels, allOfTypeSelected)}
                   >
-                    {models.map((model) => {
-                      const id = model.id;
-                      const selected = isSelected(id, view.selectedImports);
-                      const type = model.cat || 'chat';
+                    {allOfTypeSelected ? '取消全选本类型' : '全选本类型'}
+                  </button>
+                  {projectGroups.length > 1 && (
+                    <button type="button" onClick={() => toggleBatchSelection(localFilteredModels, allMatchesSelected)}>
+                      {allMatchesSelected ? '取消全选匹配模型' : '全选匹配模型'}
+                    </button>
+                  )}
+                  <button type="button" disabled={selectedIds.length === 0} onClick={() => setBatchSelected(new Set())}>
+                    清空选择
+                  </button>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    aria-expanded={showBatchConfig}
+                    disabled={selectedIds.length === 0}
+                    onClick={() => setShowBatchConfig((open) => !open)}
+                  >
+                    批量配置
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!selectedModels.some((model) => !model.enabled)}
+                    onClick={() => actions.updateProjectModels(selectedIds, { enabled: true })}
+                  >
+                    批量启用
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!selectedModels.some((model) => model.enabled)}
+                    onClick={() => actions.updateProjectModels(selectedIds, { enabled: false })}
+                  >
+                    批量停用
+                  </button>
+                  <button
+                    type="button"
+                    className="model-library-batch-remove"
+                    disabled={selectedIds.length === 0}
+                    onClick={() => {
+                      actions.removeProjectModels(selectedIds);
+                      setBatchSelected(new Set());
+                      setBatchMode(false);
+                      setShowBatchConfig(false);
+                    }}
+                  >
+                    批量移除
+                  </button>
+                </div>
+              </div>
+            )}
+            {!isImportView && batchMode && showBatchConfig && (
+              <BatchModelConfig
+                models={selectedModels}
+                onCancel={() => setShowBatchConfig(false)}
+                onApply={(patch) => {
+                  actions.updateProjectModels(selectedIds, patch);
+                  if (patch.type !== undefined) setActiveType(patch.type || 'other');
+                  setShowBatchConfig(false);
+                }}
+              />
+            )}
+            <div
+              className="model-library-browser"
+              data-testid={isImportView ? 'settings-importable-models-panel' : undefined}
+            >
+              <LibraryColumn label="渠道">
+                {view.apiConfigs
+                  .filter((config) => config.enabled !== false || config.id === view.activeConfigId)
+                  .map((config) => (
+                    <button
+                      key={config.id}
+                      type="button"
+                      aria-pressed={config.id === view.activeConfigId}
+                      className="model-library-option"
+                      onClick={() => switchChannel(config.id)}
+                    >
+                      <Database size={16} aria-hidden="true" />
+                      <span>{config.name || config.base || config.id}</span>
+                      <CaretRight size={12} aria-hidden="true" />
+                    </button>
+                  ))}
+              </LibraryColumn>
+              <LibraryColumn label="类型">
+                {groups.map(([type, models]) => (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={type === (isImportView ? activeImportGroup : activeGroup)?.[0]}
+                    className="model-library-option"
+                    onClick={() => setActiveType(type)}
+                  >
+                    <span className="model-library-dot" style={{ background: modelTypeColor(type, T) }} />
+                    <span>{CATEGORY_LABELS[type] || '未分类'}</span>
+                    <small>
+                      {!isImportView && batchMode
+                        ? `${models.filter((model) => 'modelId' in model && typeof model.modelId === 'string' && batchSelected.has(model.modelId)).length} / ${models.length}`
+                        : models.length}
+                    </small>
+                    <CaretRight size={12} aria-hidden="true" />
+                  </button>
+                ))}
+              </LibraryColumn>
+              <LibraryColumn label="模型">
+                {isImportView
+                  ? visibleImports.map(({ id }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        data-testid={`settings-importable-model-${id}`}
+                        aria-pressed={isSelected(id, view.selectedImports)}
+                        className="model-library-option"
+                        onClick={() => toggleImport(id)}
+                      >
+                        <span className="model-library-name">{id}</span>
+                        {isSelected(id, view.selectedImports) && <Check size={15} weight="bold" aria-hidden="true" />}
+                      </button>
+                    ))
+                  : visibleModels.map((model) => {
+                      const selected = batchMode ? batchSelected.has(model.modelId) : editingModelId === model.modelId;
                       return (
                         <button
-                          key={id}
+                          key={model.modelId}
                           type="button"
-                          data-testid={`settings-importable-model-${id}`}
-                          onClick={() => toggleImport(id)}
-                          style={{
-                            width: '100%',
-                            minHeight: 48,
-                            display: 'grid',
-                            gridTemplateColumns: '26px minmax(0, 1fr) auto',
-                            alignItems: 'center',
-                            gap: 10,
-                            padding: '10px 12px',
-                            borderRadius: 12,
-                            border: `1px solid ${selected ? `${T.blue}66` : 'var(--color-border)'}`,
-                            background: selected ? `${T.blue}18` : 'var(--color-bg-tertiary)',
-                            color: 'var(--color-text-primary)',
-                            cursor: 'pointer',
-                            textAlign: 'left',
+                          data-testid={`settings-project-model-card-${model.modelId}`}
+                          aria-pressed={selected}
+                          className="model-library-option"
+                          onClick={() => {
+                            if (batchMode) toggleBatchSelect(model.modelId);
+                            else setEditingModelId(selected ? null : model.modelId);
                           }}
                         >
-                          <span
-                            style={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: 7,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              border: `1px solid ${selected ? T.blue : 'var(--color-border)'}`,
-                              background: selected ? T.blue : 'transparent',
-                              color: '#fff',
-                            }}
-                          >
-                            {selected && <Check size={13} />}
+                          {batchMode &&
+                            (selected ? (
+                              <CheckSquare size={17} weight="fill" aria-hidden="true" />
+                            ) : (
+                              <Square size={17} aria-hidden="true" />
+                            ))}
+                          <span>
+                            <span className="model-library-name">{model.modelId}</span>
+                            <small>{!model.enabled ? '已停用' : model.configured ? '可用' : '待完善配置'}</small>
                           </span>
-                          <span style={{ minWidth: 0 }}>
-                            <span
-                              style={{
-                                display: 'block',
-                                fontFamily: 'var(--font-sans)',
-                                fontSize: 13,
-                                fontWeight: 500,
-                                lineHeight: 1.4,
-                                overflowWrap: 'anywhere',
-                              }}
-                            >
-                              {id}
-                            </span>
-                          </span>
-                          <span style={chipStyle(modelTypeColor(type, T))}>{modelTypeLabel(type)}</span>
+                          {!batchMode && selected && <Check size={15} weight="bold" aria-hidden="true" />}
                         </button>
                       );
                     })}
-                  </CategoryGroup>
-                ))}
-                {filteredImportableModels.length === 0 && (
-                  <EmptyStateCard
-                    title="没有匹配的待导入模型"
-                    body="当前搜索词没有命中已发现但尚未导入的模型。"
-                    action="清空搜索词后可以重新查看完整待导入列表。"
+              </LibraryColumn>
+            </div>
+            {isImportView && (
+              <div className="model-library-import-actions">
+                <IOSButton
+                  type="button"
+                  small
+                  label={allVisibleSelected ? '取消选择本类型' : '全选本类型可见模型'}
+                  disabled={visibleImports.length === 0}
+                  onClick={toggleVisibleImports}
+                  style={
+                    visibleImports.length > 0
+                      ? {
+                          background: 'var(--color-bg-secondary)',
+                          color: 'var(--color-text-primary)',
+                        }
+                      : undefined
+                  }
+                />
+                <div>
+                  <span aria-live="polite">已选 {view.selectedImports.length} 个</span>
+                  <button
+                    type="button"
+                    className="model-library-primary-button"
+                    data-testid="settings-import-selected-models"
+                    disabled={view.selectedImports.length === 0}
+                    onClick={() => {
+                      actions.importSelectedModels();
+                      if (view.selectedImports.length === view.importableModels.length) setLibraryView('project');
+                    }}
+                  >
+                    <CloudArrowUp size={15} aria-hidden="true" />
+                    导入选中模型
+                  </button>
+                </div>
+              </div>
+            )}
+            {isImportView && visibleImports.length === 0 && (
+              <div className="flex-col" style={{ gap: 8, alignItems: 'flex-start' }}>
+                <EmptyStateCard
+                  title={view.importableModels.length > 0 ? '没有匹配的待导入模型' : '暂无待导入模型'}
+                  body={
+                    view.importableModels.length > 0
+                      ? '可以调整搜索词或清空搜索。'
+                      : '连接测试发现的新模型会显示在这里。'
+                  }
+                />
+                {view.importableModels.length === 0 && (
+                  <IOSButton
+                    type="button"
+                    small
+                    label="前往连接设置"
+                    onClick={() => actions.setActiveModule('connection')}
                   />
                 )}
               </div>
-
-              <div
-                style={{
-                  padding: 12,
-                  borderTop: '1px solid var(--color-border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  flexWrap: 'wrap',
-                  background: 'var(--color-bg-secondary)',
-                }}
-              >
-                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                  当前视图已选择 <strong style={{ color: 'var(--color-text-primary)' }}>{selectedVisibleCount}</strong>{' '}
-                  个，全部已选择{' '}
-                  <strong style={{ color: 'var(--color-text-primary)' }}>{view.selectedImports.length}</strong> 个
-                </div>
-                <button
-                  type="button"
-                  data-testid="settings-import-selected-models"
-                  onClick={actions.importSelectedModels}
-                  disabled={view.selectedImports.length === 0}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '9px 13px',
-                    borderRadius: 11,
-                    border: 'none',
-                    background: view.selectedImports.length > 0 ? T.blue : 'var(--color-bg-tertiary)',
-                    color: view.selectedImports.length > 0 ? '#fff' : 'var(--color-text-tertiary)',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: view.selectedImports.length > 0 ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  <CloudArrowUp size={15} />
-                  导入选中模型
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {projectGroups.map(([type, models]) => (
-              <CategoryGroup
-                key={type}
-                cat={type}
-                count={models.length}
-                collapsed={collapsedCats.has(type)}
-                onToggle={() => toggleCat(type)}
-                T={T}
-              >
-                {models.map((model) => {
-                  const isBatchSelected = batchMode && batchSelected.has(model.modelId);
-                  return (
-                    <IOSCard
-                      key={model.modelId}
-                      data-testid={`settings-project-model-card-${model.modelId}`}
-                      style={{
-                        borderRadius: 18,
-                        boxShadow: 'none',
-                        background: isBatchSelected ? `${T.blue}14` : 'var(--color-bg-tertiary)',
-                        border: isBatchSelected ? `1px solid ${T.blue}40` : '1px solid var(--color-border)',
-                        cursor: batchMode ? 'pointer' : undefined,
+            )}
+            {!isImportView && !batchMode && editingModel && (
+              <section className="model-library-details" aria-label="模型配置">
+                <header>
+                  <strong>{editingModel.modelId}</strong>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={editingModel.enabled}
+                      onChange={(event) =>
+                        actions.updateProjectModel(editingModel.modelId, { enabled: event.target.checked })
+                      }
+                    />
+                    启用
+                  </label>
+                </header>
+                <div className="model-library-fields">
+                  <div>
+                    <IOSLabel>模型类型</IOSLabel>
+                    <IOSSelect
+                      value={editingModel.type}
+                      onChange={(value) => {
+                        const type = value as ProjectModel['type'];
+                        actions.updateProjectModel(editingModel.modelId, {
+                          type,
+                          endpointCategory: inferEndpointCategory(type),
+                        });
+                        setActiveType(type || 'other');
                       }}
-                      onClick={batchMode ? () => toggleBatchSelect(model.modelId) : undefined}
                     >
-                      <div className="flex-col" style={{ gap: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0, flex: 1 }}>
-                            {batchMode && (
-                              <span
-                                style={{
-                                  width: 20,
-                                  height: 20,
-                                  borderRadius: 7,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                  marginTop: 1,
-                                  border: `1px solid ${isBatchSelected ? T.blue : 'var(--color-border)'}`,
-                                  background: isBatchSelected ? T.blue : 'transparent',
-                                  color: '#fff',
-                                }}
-                              >
-                                {isBatchSelected && <Check size={13} />}
-                              </span>
-                            )}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div
-                                style={{
-                                  color: 'var(--color-text-primary)',
-                                  fontFamily: 'var(--font-sans)',
-                                  fontWeight: 500,
-                                  lineHeight: 1.4,
-                                  overflowWrap: 'anywhere',
-                                }}
-                              >
-                                {model.modelId}
-                              </div>
-                              <div style={{ fontSize: 11, color: model.configured ? T.green : T.orange, marginTop: 4 }}>
-                                {model.configured ? '已配置，可用' : '配置还不完整'}
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-                            <label
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                fontSize: 12,
-                                color: 'var(--color-text-secondary)',
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={model.enabled}
-                                onChange={(event) =>
-                                  actions.updateProjectModel(model.modelId, { enabled: event.target.checked })
-                                }
-                              />
-                              启用
-                            </label>
-                            <IOSButton
-                              small
-                              label="移除"
-                              color={T.red}
-                              onClick={() => actions.removeProjectModel(model.modelId)}
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-                          <div>
-                            <IOSLabel>模型类型</IOSLabel>
-                            <IOSSelect
-                              value={model.type}
-                              onChange={(value) => {
-                                const type = value as ProjectModel['type'];
-                                actions.updateProjectModel(model.modelId, {
-                                  type,
-                                  endpointCategory: inferEndpointCategory(type),
-                                });
-                              }}
-                            >
-                              <option value="">未设置</option>
-                              <option value="chat">对话</option>
-                              <option value="image">图像</option>
-                              <option value="video">视频</option>
-                              <option value="midjourney">Midjourney</option>
-                            </IOSSelect>
-                          </div>
-                          <div>
-                            <IOSLabel>接口模式</IOSLabel>
-                            <IOSSelect
-                              value={model.endpointMode}
-                              onChange={(value) =>
-                                actions.updateProjectModel(model.modelId, {
-                                  endpointMode: value as ProjectModel['endpointMode'],
-                                })
-                              }
-                            >
-                              <option value="category">按类别接口</option>
-                              <option value="custom">自定义接口</option>
-                            </IOSSelect>
-                          </div>
-                          {model.endpointMode === 'category' ? (
-                            <div>
-                              <IOSLabel>接口类别</IOSLabel>
-                              <IOSSelect
-                                value={model.endpointCategory}
-                                onChange={(value) =>
-                                  actions.updateProjectModel(model.modelId, {
-                                    endpointCategory: value as ProjectModel['endpointCategory'],
-                                  })
-                                }
-                              >
-                                <option value="">未设置</option>
-                                <option value="chat">chat</option>
-                                <option value="image">image</option>
-                                <option value="image-edit">image-edit</option>
-                                <option value="gemini-generate-content">Gemini generateContent</option>
-                                <option value="video">video</option>
-                              </IOSSelect>
-                            </div>
-                          ) : (
-                            <div>
-                              <IOSLabel>自定义接口路径</IOSLabel>
-                              <IOSInput
-                                value={model.customEndpoint}
-                                onChange={(value) =>
-                                  actions.updateProjectModel(model.modelId, { customEndpoint: value })
-                                }
-                                placeholder="/v1/your/custom/path"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </IOSCard>
-                  );
-                })}
-              </CategoryGroup>
-            ))}
-            {localFilteredModels.length === 0 && (
+                      <ConfigOptions options={MODEL_TYPES} />
+                    </IOSSelect>
+                  </div>
+                  <div>
+                    <IOSLabel>接口模式</IOSLabel>
+                    <IOSSelect
+                      value={editingModel.endpointMode}
+                      onChange={(value) =>
+                        actions.updateProjectModel(editingModel.modelId, {
+                          endpointMode: value as ProjectModel['endpointMode'],
+                        })
+                      }
+                    >
+                      <ConfigOptions options={ENDPOINT_MODES} />
+                    </IOSSelect>
+                  </div>
+                  {editingModel.endpointMode === 'category' ? (
+                    <div>
+                      <IOSLabel>接口类别</IOSLabel>
+                      <IOSSelect
+                        value={editingModel.endpointCategory}
+                        onChange={(value) =>
+                          actions.updateProjectModel(editingModel.modelId, {
+                            endpointCategory: value as ProjectModel['endpointCategory'],
+                          })
+                        }
+                      >
+                        <ConfigOptions options={ENDPOINT_CATEGORIES} />
+                      </IOSSelect>
+                    </div>
+                  ) : (
+                    <div>
+                      <IOSLabel>自定义接口路径</IOSLabel>
+                      <IOSInput
+                        value={editingModel.customEndpoint}
+                        onChange={(value) =>
+                          actions.updateProjectModel(editingModel.modelId, { customEndpoint: value })
+                        }
+                        placeholder="/v1/your/custom/path"
+                      />
+                    </div>
+                  )}
+                </div>
+                <IOSButton
+                  small
+                  type="button"
+                  label="移除模型"
+                  color={T.red}
+                  onClick={() => {
+                    actions.removeProjectModels([editingModel.modelId]);
+                    setEditingModelId(null);
+                  }}
+                />
+              </section>
+            )}
+            {!isImportView && localFilteredModels.length === 0 && (
               <EmptyStateCard
                 title="当前没有匹配的项目模型"
                 body="项目模型库里还没有符合当前筛选条件的模型。"
@@ -717,62 +675,6 @@ export function ModelsSection({ T, actions, view }: Props) {
                 }
               />
             )}
-            {batchMode && localFilteredModels.length > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-secondary)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={batchSelected.size === localFilteredModels.length ? deselectAllBatch : selectAllBatch}
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: T.blue,
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 0,
-                    }}
-                  >
-                    {batchSelected.size === localFilteredModels.length ? '取消全选' : '全选'}
-                  </button>
-                  <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                    已选 <strong style={{ color: 'var(--color-text-primary)' }}>{batchSelected.size}</strong> 个
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={removeSelectedBatch}
-                  disabled={batchSelected.size === 0}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '7px 12px',
-                    borderRadius: 9,
-                    border: 'none',
-                    background: batchSelected.size > 0 ? T.red : 'var(--color-bg-tertiary)',
-                    color: batchSelected.size > 0 ? '#fff' : 'var(--color-text-tertiary)',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: batchSelected.size > 0 ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  <Trash size={14} />
-                  批量移除
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </SectionCard>
@@ -780,68 +682,113 @@ export function ModelsSection({ T, actions, view }: Props) {
   );
 }
 
-function CategoryGroup({
-  cat,
-  count,
-  collapsed,
-  onToggle,
-  T,
-  children,
-}: {
-  cat: string;
-  count: number;
-  collapsed: boolean;
-  onToggle: () => void;
-  T: Record<string, string>;
-  children: React.ReactNode;
-}) {
-  if (count === 0) return null;
-  const label = CATEGORY_LABELS[cat] || '未分类';
-  const color = modelTypeColor(cat, T);
+function LibraryColumn({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: collapsed ? 0 : 8 }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '6px 10px',
-          borderRadius: 10,
-          border: '1px solid var(--color-border)',
-          background: 'var(--color-bg-tertiary)',
-          cursor: 'pointer',
-          fontFamily: 'var(--font-sans)',
-          fontSize: 13,
-          fontWeight: 500,
-          color: 'var(--color-text-secondary)',
-        }}
-      >
-        <span
-          style={{
-            display: 'inline-block',
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            flexShrink: 0,
-            background: color || 'var(--color-text-tertiary)',
-          }}
-        />
-        <span>{label}</span>
-        <span style={{ opacity: 0.5, fontSize: 11 }}>{count}</span>
-        <span
-          style={{
-            marginLeft: 'auto',
-            fontSize: 10,
-            transition: 'transform 0.2s',
-            transform: collapsed ? '' : 'rotate(90deg)',
-          }}
-        >
-          ▶
-        </span>
-      </button>
-      {!collapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>}
+    <div className="model-library-column" role="group" aria-label={label}>
+      <div className="model-library-column-label" aria-hidden="true">
+        {label}
+      </div>
+      <div className="model-library-options">{children}</div>
     </div>
+  );
+}
+
+const KEEP_CONFIG = 'keep';
+
+function BatchModelConfig({
+  models,
+  onApply,
+  onCancel,
+}: {
+  models: ProjectModel[];
+  onApply: (patch: Partial<ProjectModel>) => void;
+  onCancel: () => void;
+}) {
+  const [type, setType] = useState<ProjectModel['type'] | typeof KEEP_CONFIG>(KEEP_CONFIG);
+  const [mode, setMode] = useState<ProjectModel['endpointMode'] | typeof KEEP_CONFIG>(KEEP_CONFIG);
+  const [category, setCategory] = useState<ProjectModel['endpointCategory'] | typeof KEEP_CONFIG>(KEEP_CONFIG);
+  const [editPath, setEditPath] = useState(false);
+  const [path, setPath] = useState('');
+  const hasCategory =
+    mode === 'category' || (mode === KEEP_CONFIG && models.some((model) => model.endpointMode === 'category'));
+  const hasCustom =
+    mode === 'custom' || (mode === KEEP_CONFIG && models.some((model) => model.endpointMode === 'custom'));
+  const patch: Partial<ProjectModel> = {};
+  if (type !== KEEP_CONFIG) patch.type = type;
+  if (mode !== KEEP_CONFIG) patch.endpointMode = mode;
+  if (hasCategory && category !== KEEP_CONFIG) patch.endpointCategory = category;
+  if (hasCustom && editPath) patch.customEndpoint = path.trim();
+
+  return (
+    <form
+      className="model-library-details"
+      aria-label="批量配置"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (models.length > 0 && Object.keys(patch).length > 0) onApply(patch);
+      }}
+    >
+      <header>
+        <strong>配置已选的 {models.length} 个模型</strong>
+      </header>
+      <div className="model-library-fields">
+        <div>
+          <IOSLabel>模型类型</IOSLabel>
+          <IOSSelect aria-label="批量模型类型" value={type} onChange={(value) => setType(value as typeof type)}>
+            <option value={KEEP_CONFIG}>保持原值</option>
+            <ConfigOptions options={MODEL_TYPES} />
+          </IOSSelect>
+        </div>
+        <div>
+          <IOSLabel>接口模式</IOSLabel>
+          <IOSSelect aria-label="批量接口模式" value={mode} onChange={(value) => setMode(value as typeof mode)}>
+            <option value={KEEP_CONFIG}>保持原值</option>
+            <ConfigOptions options={ENDPOINT_MODES} />
+          </IOSSelect>
+        </div>
+        {hasCategory && (
+          <div>
+            <IOSLabel>接口类别</IOSLabel>
+            <IOSSelect
+              aria-label="批量接口类别"
+              value={category}
+              onChange={(value) => setCategory(value as typeof category)}
+            >
+              <option value={KEEP_CONFIG}>保持原值</option>
+              <ConfigOptions options={ENDPOINT_CATEGORIES} />
+            </IOSSelect>
+          </div>
+        )}
+        {hasCustom && (
+          <div>
+            <label className="model-library-edit-path">
+              <input type="checkbox" checked={editPath} onChange={(event) => setEditPath(event.target.checked)} />
+              更新自定义接口路径
+            </label>
+            <IOSInput
+              aria-label="批量自定义接口路径"
+              value={path}
+              onChange={setPath}
+              disabled={!editPath}
+              placeholder="留空可清除路径"
+            />
+          </div>
+        )}
+      </div>
+      {mode !== KEEP_CONFIG && models.some((model) => model.endpointMode !== mode) && (
+        <small>切换接口模式会清除旧模式对应的接口类别或路径。</small>
+      )}
+      {hasCategory && hasCustom && <small>接口类别和自定义路径分别应用到对应接口模式的模型。</small>}
+      <div className="model-library-config-actions">
+        <button
+          type="submit"
+          className="model-library-primary-button"
+          disabled={models.length === 0 || Object.keys(patch).length === 0}
+        >
+          应用配置
+        </button>
+        <IOSButton type="button" small label="取消" onClick={onCancel} />
+      </div>
+    </form>
   );
 }

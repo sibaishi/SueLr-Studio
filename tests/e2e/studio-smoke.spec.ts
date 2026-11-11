@@ -556,10 +556,58 @@ test.describe('studio smoke', () => {
     await page.getByTestId('settings-module-models').click();
 
     await expect(page.getByTestId('settings-importable-models-panel')).toBeVisible();
-    await page.getByTestId(`settings-importable-model-${imageModelId}`).click();
+    await page.getByRole('group', { name: '类型' }).getByRole('button', { name: /图像/ }).click();
+    await page.getByRole('button', { name: '全选本类型可见模型' }).click();
+    await expect(page.getByTestId(`settings-importable-model-${imageModelId}`)).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('group', { name: '类型' }).getByRole('button', { name: /对话/ }).click();
+    await page.getByTestId('settings-importable-model-gpt-4.1-mini').click();
+    await expect(page.getByText('已选 2 个')).toBeVisible();
     await page.getByTestId('settings-import-selected-models').click();
 
-    await expect(page.getByTestId(`settings-project-model-card-${imageModelId}`)).toBeVisible();
+    await page.getByRole('group', { name: '类型' }).getByRole('button', { name: /图像/ }).click();
+    const imageModel = page.getByTestId(`settings-project-model-card-${imageModelId}`);
+    await expect(imageModel).toBeVisible();
+    await expect(page.getByRole('region', { name: '模型配置' })).toBeHidden();
+    await imageModel.click();
+    await expect(page.getByRole('region', { name: '模型配置' }).getByText('接口模式')).toBeVisible();
+
+    await page.getByRole('button', { name: '批量管理' }).click();
+    const batch = page.getByRole('group', { name: '批量操作' });
+    await batch.getByRole('button', { name: '全选本类型', exact: true }).click();
+    await expect(batch.getByText('已选 1 个')).toBeVisible();
+    await batch.getByRole('button', { name: '全选匹配模型', exact: true }).click();
+    await expect(batch.getByText('已选 2 个')).toBeVisible();
+    await batch.getByRole('button', { name: '批量停用' }).click();
+    await expect(imageModel).toContainText('已停用');
+    await page.getByRole('group', { name: '类型' }).getByRole('button', { name: /对话/ }).click();
+    const chatModel = page.getByTestId('settings-project-model-card-gpt-4.1-mini');
+    await expect(chatModel).toContainText('已停用');
+    await batch.getByRole('button', { name: '批量启用' }).click();
+    await expect(chatModel).toContainText('可用');
+    await page.getByRole('group', { name: '类型' }).getByRole('button', { name: /图像/ }).click();
+    await expect(imageModel).toContainText('可用');
+    await batch.getByRole('button', { name: '批量配置' }).click();
+    const batchConfig = page.getByRole('form', { name: '批量配置' });
+    await expect(batchConfig.getByRole('button', { name: '应用配置' })).toBeDisabled();
+    await batchConfig.getByLabel('批量接口模式').selectOption('custom');
+    await batchConfig.getByRole('checkbox', { name: '更新自定义接口路径' }).check();
+    await batchConfig.getByLabel('批量自定义接口路径').fill('/v1/custom');
+    await batchConfig.getByRole('button', { name: '应用配置' }).click();
+    await expect(batchConfig).toBeHidden();
+    await expect(batch.getByText('已选 2 个')).toBeVisible();
+
+    await page.getByRole('button', { name: '退出批量管理' }).click();
+    // The image model was open before entering batch management.
+    const config = page.getByRole('region', { name: '模型配置' });
+    await expect(config.getByPlaceholder('/v1/your/custom/path')).toHaveValue('/v1/custom');
+    await page.getByRole('group', { name: '类型' }).getByRole('button', { name: /对话/ }).click();
+    await chatModel.click();
+    await expect(config.getByPlaceholder('/v1/your/custom/path')).toHaveValue('/v1/custom');
+
+    await page.getByRole('button', { name: '批量管理', exact: true }).click();
+    await batch.getByRole('button', { name: '全选匹配模型', exact: true }).click();
+    await batch.getByRole('button', { name: '批量移除' }).click();
+    await expect(page.locator('[data-testid^="settings-project-model-card-"]')).toHaveCount(0);
   });
 
   test('settings connection failure shows visible feedback and does not import phantom models', async ({ page }) => {

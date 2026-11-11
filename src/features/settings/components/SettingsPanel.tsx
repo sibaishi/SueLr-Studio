@@ -71,7 +71,7 @@ export function SettingsPanel({
   const T = useT();
   const toast = useToast();
   const [projectModelSearch, setProjectModelSearch] = useState('');
-  const [discoveredModels, setDiscoveredModels] = useState<ModelInfo[]>([]);
+  const [discoveries, setDiscoveries] = useState<Record<string, ModelInfo[]>>({});
   const [selectedImports, setSelectedImports] = useState<string[]>([]);
   const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>('overview');
   const [storageSettings, setStorageSettings] = useState<StorageSettingsPayload | null>(null);
@@ -105,7 +105,7 @@ export function SettingsPanel({
     setProviderImageTimeoutMs,
     setProviderModelsEndpoint,
     testConnectionAndSyncModels,
-    updateProjectModel,
+    updateProjectModels,
   } = useSettingsPanelController({
     activeConfigId,
     apiConfigs,
@@ -136,8 +136,8 @@ export function SettingsPanel({
   }, [apiConfigs]);
   const importedIds = useMemo(() => new Set(projectModels.map((model) => model.modelId)), [projectModels]);
   const importableModels = useMemo(
-    () => discoveredModels.filter((model) => !importedIds.has(model.id)),
-    [discoveredModels, importedIds],
+    () => (discoveries[activeConfigId] ?? []).filter((model) => !importedIds.has(model.id)),
+    [activeConfigId, discoveries, importedIds],
   );
   const filteredProjectModels = useMemo(
     () => projectModels.filter((model) => fuzzyMatch(model.modelId, projectModelSearch)),
@@ -258,7 +258,7 @@ export function SettingsPanel({
   };
 
   const updateProjectModelAction = (modelId: string, patch: Partial<ProjectModel>) => {
-    updateProjectModel(projectModels, modelId, patch);
+    updateProjectModels(projectModels, [modelId], patch);
   };
 
   const testConnection = async () => {
@@ -272,7 +272,8 @@ export function SettingsPanel({
       const nextModels = await testConnectionAndSyncModels();
       if (nextModels.length > 0) {
         const byId = new Map(nextModels.map((model) => [model.id, model]));
-        setDiscoveredModels(Array.from(byId.values()).sort((left, right) => left.id.localeCompare(right.id)));
+        const discoveredModels = Array.from(byId.values()).sort((left, right) => left.id.localeCompare(right.id));
+        setDiscoveries((previous) => ({ ...previous, [activeConfigId]: discoveredModels }));
         setConnectionStatus('success');
         setConnectionResult(`${nextModels.length} 个模型`);
       } else {
@@ -304,7 +305,7 @@ export function SettingsPanel({
     const selected = new Set(selectedImports);
     setProjectModels(
       createImportedProjectModels(
-        discoveredModels.filter((model) => selected.has(model.id)),
+        importableModels.filter((model) => selected.has(model.id)),
         projectModels,
       ),
     );
@@ -324,8 +325,9 @@ export function SettingsPanel({
     addLog('success', `已添加模型 ${trimmed}，请完善接口配置`);
   };
 
-  const removeProjectModel = (modelId: string) => {
-    setProjectModels(projectModels.filter((model) => model.modelId !== modelId));
+  const removeProjectModels = (modelIds: string[]) => {
+    const ids = new Set(modelIds);
+    setProjectModels(projectModels.filter((model) => !ids.has(model.modelId)));
   };
 
   const updateNetworkSearch = (patch: Partial<NetworkSearchSettingsPayload>) => {
@@ -579,7 +581,6 @@ export function SettingsPanel({
     apiConfigs,
     apiKey,
     base,
-    discoveredModels,
     filteredProjectModels,
     importableModels,
     logSummary: [],
@@ -619,7 +620,7 @@ export function SettingsPanel({
     onClearLogs,
     clearClientDownloadDirectory: resetStoragePathAction,
     pickStoragePath: pickStoragePathAction,
-    removeProjectModel,
+    removeProjectModels,
     resetStoragePath: resetStoragePathAction,
     restartBackend: restartBackendAction,
     saveStoragePath: saveStoragePathAction,
@@ -646,6 +647,7 @@ export function SettingsPanel({
     toggleConfigEnabled,
     updateConfig,
     updateProjectModel: updateProjectModelAction,
+    updateProjectModels: (ids, patch) => updateProjectModels(projectModels, ids, patch),
     updateProviderConfig,
     setNetworkSearchEnabled,
     setNetworkSearchTavilyApiKey,

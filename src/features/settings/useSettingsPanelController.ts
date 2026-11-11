@@ -140,12 +140,12 @@ export function useSettingsPanelController({
     [updateActiveConfig],
   );
 
-  const updateProjectModel = useCallback(
-    (projectModels: ProjectModel[], modelId: string, patch: Partial<ProjectModel>) => {
+  const updateProjectModels = useCallback(
+    (projectModels: ProjectModel[], modelIds: string[], patch: Partial<ProjectModel>) => {
+      const ids = new Set(modelIds);
+      const updatedAt = Date.now();
       setProjectModels(
-        projectModels.map((model) =>
-          model.modelId === modelId ? { ...model, ...patch, updatedAt: Date.now() } : model,
-        ),
+        projectModels.map((model) => (ids.has(model.modelId) ? { ...model, ...patch, updatedAt } : model)),
       );
     },
     [setProjectModels],
@@ -185,6 +185,6 @@ export function useSettingsPanelController({
     setProviderImageTimeoutMs,
     setProviderModelsEndpoint,
     testConnectionAndSyncModels,
-    updateProjectModel,
+    updateProjectModels,
   };
 }

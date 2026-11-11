@@ -142,10 +142,12 @@ After onboarding, open `Settings` and complete this order:
    - Run connection test and model discovery
    - Multiple connection configurations may be enabled at the same time
 2. `Models`
-   - Import the discovered models into the project model library
+   - Open `待导入` to browse discoveries by channel and type, select models across types, and import them into the project model library
+   - Browse by channel and type, then select a model to open its type and endpoint settings
    - Mark each model with the right capability type: `chat`, `image`, `video`, or `midjourney`
-   - Enable only the models you actually want to use
-   - Use the configuration switcher to inspect models belonging to each connection
+   - Use batch management to select models across types and enable, disable, remove, or configure the selection
+   - In batch configuration, choose which model type and endpoint fields to update. Fields set to keep their current value retain each model’s configuration where applicable.
+   - Use the connection selector to switch which connection you are managing
 3. `Defaults`
    - Choose theme mode
    - Optionally set an external data path
