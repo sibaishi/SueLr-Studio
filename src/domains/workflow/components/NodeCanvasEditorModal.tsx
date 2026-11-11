@@ -26,18 +26,39 @@ import { createPortal } from 'react-dom';
 type ToolMode = 'brush' | 'eraser';
 type ViewMode = 'draw' | 'pan';
 
+type BrushPoint = { x: number; y: number; radius: number };
+
+function brushMidpoint(a: BrushPoint, b: BrushPoint): BrushPoint {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, radius: (a.radius + b.radius) / 2 };
+}
+
 interface NodeCanvasEditorModalProps {
-  src: string;
+  src?: string;
   nodeLabel?: string;
   onClose: () => void;
   onSavePaint: (file: File, previewUrl: string) => Promise<void>;
 }
 
+type CanvasDimensions = { width: number; height: number };
+type CanvasSnapshot = CanvasDimensions & { src: string };
+
 type SnapshotHistory = {
-  entries: string[];
+  entries: CanvasSnapshot[];
   index: number;
 };
 
+const SKETCH_DIMENSIONS = { width: 768, height: 768 };
+const MIN_SKETCH_SIDE = 64;
+const MAX_SKETCH_SIDE = 2048;
+const SKETCH_RATIOS = [
+  [1, 1],
+  [4, 3],
+  [3, 4],
+  [3, 2],
+  [2, 3],
+  [16, 9],
+  [9, 16],
+] as const;
 const DEFAULT_BRUSH_SIZE = 26;
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 4;
@@ -49,13 +70,15 @@ function formatCanvasEditorError(message?: string | null) {
 
 export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSavePaint }: NodeCanvasEditorModalProps) {
   const confirm = useWorkflowConfirm();
+  const isSketch = src === undefined;
   const [tool, setTool] = useState<ToolMode>('brush');
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
-  const [paintColor, setPaintColor] = useState('#ff375f');
+  const [paintColor, setPaintColor] = useState(isSketch ? '#222222' : '#ff375f');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [loadedImage, setLoadedImage] = useState<HTMLImageElement | null>(null);
   const [history, setHistory] = useState<SnapshotHistory>({ entries: [], index: -1 });
   const [viewMode, setViewMode] = useState<ViewMode>('draw');
@@ -70,31 +93,43 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
   const panStartRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const paintCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const renderedSnapshotRef = useRef<CanvasSnapshot | null>(null);
   const previewUrlRef = useRef<string>('');
-  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const strokeRef = useRef<{ pointerId: number; last: BrushPoint; midpoint: BrushPoint } | null>(null);
   const brushPreviewTimerRef = useRef<number | null>(null);
 
   const brushCursorColor = tool === 'eraser' ? '#ffffff' : paintColor;
 
-  const imageDimensions = useMemo(() => {
+  const initialDimensions = useMemo(() => {
+    if (isSketch) return SKETCH_DIMENSIONS;
     if (!loadedImage) return null;
     return {
       width: loadedImage.naturalWidth || loadedImage.width,
       height: loadedImage.naturalHeight || loadedImage.height,
     };
-  }, [loadedImage]);
+  }, [isSketch, loadedImage]);
 
-  const clampZoom = useCallback((value: number) => {
-    return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
-  }, []);
+  const snapshot = history.entries[history.index];
+  const dimensions = isSketch && snapshot ? snapshot : initialDimensions;
+  const width = dimensions?.width;
+  const height = dimensions?.height;
+  const imageDimensions = useMemo(() => (width && height ? { width, height } : null), [width, height]);
 
   const getFitZoom = useCallback(() => {
-    if (!imageDimensions) return 1;
+    if (!imageDimensions || !viewportSize.width || !viewportSize.height) return 1;
     const { width, height } = imageDimensions;
     const nextWidth = Math.max(viewportSize.width - 24, 1);
     const nextHeight = Math.max(viewportSize.height - 24, 1);
-    return clampZoom(Math.min(nextWidth / width, nextHeight / height));
-  }, [clampZoom, imageDimensions, viewportSize.height, viewportSize.width]);
+    const fit = Math.min(MAX_ZOOM, nextWidth / width, nextHeight / height);
+    return isSketch ? fit : Math.max(MIN_ZOOM, fit);
+  }, [imageDimensions, isSketch, viewportSize.height, viewportSize.width]);
+
+  const clampZoom = useCallback(
+    (value: number) => {
+      return Math.min(MAX_ZOOM, Math.max(Math.min(MIN_ZOOM, getFitZoom()), value));
+    },
+    [getFitZoom],
+  );
 
   const resetViewport = useCallback(() => {
     setZoom(1);
@@ -107,6 +142,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
   }, [getFitZoom]);
 
   const handleClose = useCallback(async () => {
+    if (isSaving) return;
     if (dirtyRef.current) {
       const confirmed = await confirm({
         title: '关闭画板？',
@@ -118,7 +154,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
       if (!confirmed) return;
     }
     onClose();
-  }, [confirm, onClose]);
+  }, [confirm, isSaving, onClose]);
 
   useEffect(() => {
     dirtyRef.current = isDirty;
@@ -154,6 +190,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
   }, []);
 
   useEffect(() => {
+    if (src === undefined) return;
     let cancelled = false;
 
     void loadWorkflowImage(src, { crossOrigin: 'anonymous' })
@@ -174,10 +211,9 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
   }, [src]);
 
   useEffect(() => {
-    if (!loadedImage) return;
+    if (!initialDimensions) return;
 
-    const width = loadedImage.naturalWidth || loadedImage.width;
-    const height = loadedImage.naturalHeight || loadedImage.height;
+    const { width, height } = initialDimensions;
     const canvas = paintCanvasRef.current;
     if (!canvas) return;
 
@@ -190,26 +226,50 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
     }
 
     context.clearRect(0, 0, width, height);
-    context.drawImage(loadedImage, 0, 0, width, height);
-    setHistory({ entries: [canvas.toDataURL('image/png')], index: 0 });
+    if (loadedImage) context.drawImage(loadedImage, 0, 0, width, height);
+    else {
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, width, height);
+    }
+    const initialSnapshot = { width, height, src: canvas.toDataURL('image/png') };
+    renderedSnapshotRef.current = initialSnapshot;
+    setHistory({ entries: [initialSnapshot], index: 0 });
+    setIsRestoring(false);
     setIsDirty(false);
-    fitViewport();
-  }, [fitViewport, loadedImage]);
+  }, [initialDimensions, loadedImage]);
 
   useEffect(() => {
-    const snapshot = history.entries[history.index];
+    fitViewport();
+  }, [fitViewport]);
+
+  useLayoutEffect(() => {
     const canvas = paintCanvasRef.current;
     if (!canvas || !snapshot) return;
+    if (renderedSnapshotRef.current === snapshot) {
+      setIsRestoring(false);
+      return;
+    }
     const context = canvas.getContext('2d');
     if (!context) return;
 
+    setIsRestoring(true);
     const image = new Image();
     image.onload = () => {
+      if (canvas.width !== snapshot.width || canvas.height !== snapshot.height) {
+        canvas.width = snapshot.width;
+        canvas.height = snapshot.height;
+      }
+      context.globalCompositeOperation = 'source-over';
       context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0);
+      renderedSnapshotRef.current = snapshot;
+      setIsRestoring(false);
     };
-    image.src = snapshot;
-  }, [history.entries, history.index]);
+    image.src = snapshot.src;
+    return () => {
+      image.onload = null;
+    };
+  }, [snapshot]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -223,7 +283,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
       }
 
       const isModifierPressed = event.ctrlKey || event.metaKey;
-      if (!isModifierPressed) return;
+      if (!isModifierPressed || isDrawing || isSaving) return;
 
       if (event.key.toLowerCase() === 'z' && !event.shiftKey) {
         event.preventDefault();
@@ -241,7 +301,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleClose]);
+  }, [handleClose, isDrawing, isSaving]);
 
   const showBrushPreviewTemporarily = useCallback(() => {
     setShowBrushSizePreview(true);
@@ -255,7 +315,8 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
   const pushSnapshot = useCallback(() => {
     const canvas = paintCanvasRef.current;
     if (!canvas) return;
-    const snapshot = canvas.toDataURL('image/png');
+    const snapshot = { width: canvas.width, height: canvas.height, src: canvas.toDataURL('image/png') };
+    renderedSnapshotRef.current = snapshot;
     setHistory((current) => {
       const nextEntries = current.entries.slice(0, current.index + 1);
       nextEntries.push(snapshot);
@@ -308,41 +369,59 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
     };
   }, [imageDimensions, pan.x, pan.y, zoom]);
 
-  const drawSegment = useCallback(
-    (from: { x: number; y: number }, to: { x: number; y: number }) => {
-      const canvas = paintCanvasRef.current;
-      if (!canvas) return;
-      const context = canvas.getContext('2d');
-      if (!context) return;
+  function paintCurve(start: BrushPoint, control: BrushPoint, end: BrushPoint) {
+    const context = paintCanvasRef.current?.getContext('2d');
+    if (!context) return;
 
+    context.globalCompositeOperation = tool === 'eraser' && !isSketch ? 'destination-out' : 'source-over';
+    const color = isSketch && tool === 'eraser' ? '#ffffff' : paintColor;
+    context.fillStyle = color;
+    if (start.radius === control.radius && control.radius === end.radius && (start.x !== end.x || start.y !== end.y)) {
+      context.lineWidth = start.radius * 2;
       context.lineCap = 'round';
-      context.lineJoin = 'round';
-      context.lineWidth = brushSize;
-      context.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
-      context.strokeStyle = paintColor;
-      context.fillStyle = paintColor;
-
+      context.strokeStyle = color;
       context.beginPath();
-      context.moveTo(from.x, from.y);
-      context.lineTo(to.x, to.y);
+      context.moveTo(start.x, start.y);
+      context.quadraticCurveTo(control.x, control.y, end.x, end.y);
       context.stroke();
-      context.beginPath();
-      context.arc(to.x, to.y, brushSize / 2, 0, Math.PI * 2);
-      context.fill();
-    },
-    [brushSize, paintColor, tool],
-  );
+      return;
+    }
 
-  const getPointerPosition = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
-    const canvas = paintCanvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return null;
+    // Midpoints join consecutive quadratic curves with a shared tangent.
+    // Closely spaced circles follow the curve while interpolating the brush radius.
+    const length =
+      Math.hypot(control.x - start.x, control.y - start.y) + Math.hypot(end.x - control.x, end.y - control.y);
+    const steps = Math.max(1, Math.ceil(length / Math.max(0.5, Math.min(2, start.radius / 4, end.radius / 4))));
+    context.beginPath();
+    for (let step = 0; step <= steps; step++) {
+      const t = step / steps;
+      const a = (1 - t) ** 2;
+      const b = 2 * t * (1 - t);
+      const c = t ** 2;
+      const x = a * start.x + b * control.x + c * end.x;
+      const y = a * start.y + b * control.y + c * end.y;
+      const radius = a * start.radius + b * control.radius + c * end.radius;
+      context.moveTo(x + radius, y);
+      context.arc(x, y, radius, 0, Math.PI * 2);
+    }
+    context.fill();
+  }
+
+  function getBrushPoint(event: PointerEvent, rect: DOMRect, canvas: HTMLCanvasElement): BrushPoint {
+    const pressure = event.pointerType === 'pen' ? Math.max(0.12, Math.min(1, event.pressure)) : 1;
     return {
       x: ((event.clientX - rect.left) / rect.width) * canvas.width,
       y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+      radius: Math.max(0.5, (brushSize * pressure) / 2),
     };
-  }, []);
+  }
+
+  function appendBrushPoint(stroke: NonNullable<typeof strokeRef.current>, point: BrushPoint) {
+    const midpoint = brushMidpoint(stroke.last, point);
+    paintCurve(stroke.midpoint, stroke.last, midpoint);
+    stroke.midpoint = midpoint;
+    stroke.last = point;
+  }
 
   const handleViewportWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -374,25 +453,66 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
     [clampZoom, imageDimensions],
   );
 
-  const finishDrawing = useCallback(() => {
-    if (!isDrawing) return;
+  function finishDrawing(event: ReactPointerEvent<HTMLCanvasElement>, includeEndpoint = false) {
+    const stroke = strokeRef.current;
+    if (!stroke || stroke.pointerId !== event.pointerId) return;
+
+    if (includeEndpoint) {
+      const canvas = event.currentTarget;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width && rect.height) {
+        const endpoint = getBrushPoint(event.nativeEvent, rect, canvas);
+        if (endpoint.x !== stroke.last.x || endpoint.y !== stroke.last.y) {
+          appendBrushPoint(stroke, { ...endpoint, radius: stroke.last.radius });
+        }
+      }
+    }
+    paintCurve(stroke.midpoint, stroke.last, stroke.last);
+    strokeRef.current = null;
     setIsDrawing(false);
-    lastPointRef.current = null;
     pushSnapshot();
-    setIsDirty(true);
-  }, [isDrawing, pushSnapshot]);
+  }
 
   const clearCanvas = useCallback(() => {
     const canvas = paintCanvasRef.current;
-    if (!canvas || !loadedImage) return;
+    if (!canvas || !imageDimensions) return;
     const context = canvas.getContext('2d');
     if (!context) return;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(loadedImage, 0, 0, canvas.width, canvas.height);
+    context.globalCompositeOperation = 'source-over';
+    if (loadedImage) context.drawImage(loadedImage, 0, 0, canvas.width, canvas.height);
+    else {
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
     pushSnapshot();
     setIsDirty(true);
-  }, [loadedImage, pushSnapshot]);
+  }, [imageDimensions, loadedImage, pushSnapshot]);
+
+  function resizeSketch({ width, height }: CanvasDimensions) {
+    const canvas = paintCanvasRef.current;
+    if (!canvas || (canvas.width === width && canvas.height === height)) return;
+    const resized = document.createElement('canvas');
+    resized.width = width;
+    resized.height = height;
+    const context = resized.getContext('2d');
+    const paintContext = canvas.getContext('2d');
+    if (!context || !paintContext) return;
+
+    const scale = Math.min(1, width / canvas.width, height / canvas.height);
+    const contentWidth = canvas.width * scale;
+    const contentHeight = canvas.height * scale;
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(canvas, (width - contentWidth) / 2, (height - contentHeight) / 2, contentWidth, contentHeight);
+    canvas.width = width;
+    canvas.height = height;
+    paintContext.drawImage(resized, 0, 0);
+    setCursorPoint(null);
+    pushSnapshot();
+    setIsDirty(true);
+  }
 
   const exportCanvasToFile = useCallback(async () => {
     const canvas = paintCanvasRef.current;
@@ -404,9 +524,9 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
       }, 'image/png');
     });
     const previewUrl = URL.createObjectURL(blob);
-    const file = new File([blob], 'painted-image.png', { type: 'image/png' });
+    const file = new File([blob], isSketch ? 'sketch.png' : 'painted-image.png', { type: 'image/png' });
     return { file, previewUrl };
-  }, []);
+  }, [isSketch]);
 
   const save = useCallback(
     async (closeAfterSave: boolean) => {
@@ -437,8 +557,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
     [showBrushPreviewTemporarily],
   );
 
-  const isCanvasEditorAvailable = Boolean(loadedImage);
-  const hasSourceImage = Boolean(src);
+  const isCanvasEditorAvailable = Boolean(imageDimensions);
 
   if (typeof document === 'undefined') return null;
 
@@ -486,7 +605,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
               onClick={() =>
                 setHistory((current) => (current.index <= 0 ? current : { ...current, index: current.index - 1 }))
               }
-              disabled={history.index <= 0}
+              disabled={isDrawing || isSaving || history.index <= 0}
             >
               <ArrowCounterClockwise size={14} /> 撤销
             </button>
@@ -497,11 +616,11 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
                   current.index >= current.entries.length - 1 ? current : { ...current, index: current.index + 1 },
                 )
               }
-              disabled={history.index >= history.entries.length - 1}
+              disabled={isDrawing || isSaving || history.index >= history.entries.length - 1}
             >
               <ArrowClockwise size={14} /> 重做
             </button>
-            <button type="button" onClick={clearCanvas}>
+            <button type="button" onClick={clearCanvas} disabled={isRestoring}>
               <Trash size={14} /> 清空
             </button>
           </div>
@@ -545,14 +664,23 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
           </div>
         </div>
 
+        {isSketch && imageDimensions && (
+          <SketchSizeControls
+            key={`${imageDimensions.width}x${imageDimensions.height}`}
+            dimensions={imageDimensions}
+            disabled={isDrawing || isSaving || isRestoring}
+            onApply={resizeSketch}
+          />
+        )}
+
         <div className="node-canvas-editor-modal__note">
-          画板会把笔触合成到当前大图预览中，保存后沿用大图窗口的回写链路。
+          {isSketch ? '保存后，草图会作为图片填入当前 IO 节点。' : '保存后将笔触合成到当前图片。'}
         </div>
 
         <div ref={viewportRef} className="node-canvas-editor-modal__viewport" onWheel={handleViewportWheel}>
-          {!hasSourceImage ? (
+          {!isSketch && !src ? (
             <div className="node-canvas-editor-modal__loading">当前没有可编辑的图片。</div>
-          ) : loadedImage ? (
+          ) : isCanvasEditorAvailable ? (
             <div className="node-canvas-editor-modal__canvas-stack" style={canvasStyle}>
               {cursorPoint && viewMode === 'draw' && (
                 <div
@@ -586,6 +714,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
                 ref={paintCanvasRef}
                 className="node-canvas-editor-modal__canvas is-active"
                 onPointerDown={(event) => {
+                  if (isRestoring || isSaving || strokeRef.current || panPointerIdRef.current !== null) return;
                   const shouldPan = event.button === 1 || viewMode === 'pan';
                   if (shouldPan) {
                     event.preventDefault();
@@ -593,13 +722,16 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
                     return;
                   }
                   if (event.button !== 0) return;
-                  const point = getPointerPosition(event);
-                  if (!point) return;
-                  event.currentTarget.setPointerCapture(event.pointerId);
+                  const canvas = event.currentTarget;
+                  const rect = canvas.getBoundingClientRect();
+                  if (!rect.width || !rect.height) return;
+                  event.preventDefault();
+                  const point = getBrushPoint(event.nativeEvent, rect, canvas);
+                  canvas.setPointerCapture(event.pointerId);
+                  strokeRef.current = { pointerId: event.pointerId, last: point, midpoint: point };
                   setIsDrawing(true);
-                  lastPointRef.current = point;
                   setCursorPoint(point);
-                  drawSegment(point, point);
+                  paintCurve(point, point, point);
                   setIsDirty(true);
                 }}
                 onPointerMove={(event) => {
@@ -607,39 +739,31 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
                     updatePan(event);
                     return;
                   }
-                  const point = getPointerPosition(event);
-                  if (point) setCursorPoint(point);
-                  if (!isDrawing) return;
-                  const lastPoint = lastPointRef.current;
-                  if (!point || !lastPoint) return;
-                  drawSegment(lastPoint, point);
-                  lastPointRef.current = point;
-                }}
-                onPointerEnter={(event) => {
-                  const point = getPointerPosition(event);
-                  if (point) setCursorPoint(point);
+                  const stroke = strokeRef.current;
+                  if (stroke && stroke.pointerId !== event.pointerId) return;
+                  const canvas = event.currentTarget;
+                  const rect = canvas.getBoundingClientRect();
+                  if (!rect.width || !rect.height) return;
+                  const nativeEvent = event.nativeEvent;
+                  setCursorPoint(getBrushPoint(nativeEvent, rect, canvas));
+                  if (!stroke) return;
+                  const samples = nativeEvent.getCoalescedEvents?.();
+                  for (const sample of samples?.length ? samples : [nativeEvent]) {
+                    appendBrushPoint(stroke, getBrushPoint(sample, rect, canvas));
+                  }
                 }}
                 onPointerUp={(event) => {
-                  if (panPointerIdRef.current === event.pointerId) {
-                    endPan(event);
-                    return;
-                  }
-                  finishDrawing();
+                  if (panPointerIdRef.current === event.pointerId) endPan(event);
+                  else finishDrawing(event, true);
                 }}
-                onPointerLeave={(event) => {
-                  setCursorPoint(null);
-                  if (panPointerIdRef.current === event.pointerId) {
-                    endPan(event);
-                    return;
-                  }
-                  finishDrawing();
-                }}
+                onPointerLeave={() => setCursorPoint(null)}
                 onPointerCancel={(event) => {
-                  if (panPointerIdRef.current === event.pointerId) {
-                    endPan(event);
-                    return;
-                  }
-                  finishDrawing();
+                  if (panPointerIdRef.current === event.pointerId) endPan(event);
+                  else finishDrawing(event);
+                }}
+                onLostPointerCapture={(event) => {
+                  if (panPointerIdRef.current === event.pointerId) endPan();
+                  else finishDrawing(event);
                 }}
               />
             </div>
@@ -650,7 +774,7 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
 
         <div className="node-canvas-editor-modal__footer">
           <div className="node-canvas-editor-modal__status">
-            {error || (isDirty ? '有未保存修改' : '当前内容已同步')}
+            {error || (isDirty ? '有未保存修改' : isSketch ? '' : '当前内容已同步')}
           </div>
           <div className="node-canvas-editor-modal__actions">
             <button
@@ -661,30 +785,118 @@ export function NodeCanvasEditorModal({ src, nodeLabel = '画板', onClose, onSa
             >
               取消
             </button>
-            <button
-              type="button"
-              className="node-canvas-editor-modal__secondary"
-              onClick={() => {
-                void save(false);
-              }}
-              disabled={isSaving || !isCanvasEditorAvailable}
-            >
-              <Check size={14} /> 仅保存
-            </button>
+            {!isSketch && (
+              <button
+                type="button"
+                className="node-canvas-editor-modal__secondary"
+                onClick={() => {
+                  void save(false);
+                }}
+                disabled={isSaving || !isCanvasEditorAvailable}
+              >
+                <Check size={14} /> 仅保存
+              </button>
+            )}
             <button
               type="button"
               className="node-canvas-editor-modal__primary"
               onClick={() => {
                 void save(true);
               }}
-              disabled={isSaving || !isCanvasEditorAvailable}
+              disabled={isSaving || isRestoring || !isCanvasEditorAvailable || (isSketch && !isDirty)}
             >
-              {isSaving ? '保存中...' : '保存图片'}
+              {isSaving ? '保存中...' : isSketch ? '保存到 IO 节点' : '保存图片'}
             </button>
           </div>
         </div>
       </div>
     </div>,
     document.body,
+  );
+}
+
+function SketchSizeControls({
+  dimensions,
+  disabled,
+  onApply,
+}: {
+  dimensions: CanvasDimensions;
+  disabled: boolean;
+  onApply: (dimensions: CanvasDimensions) => void;
+}) {
+  const [width, setWidth] = useState(String(dimensions.width));
+  const [height, setHeight] = useState(String(dimensions.height));
+  const pixelWidth = Number(width);
+  const pixelHeight = Number(height);
+  const validSize = [pixelWidth, pixelHeight].every(
+    (side) => Number.isInteger(side) && side >= MIN_SKETCH_SIDE && side <= MAX_SKETCH_SIDE,
+  );
+  const ratio = SKETCH_RATIOS.find(([x, y]) => pixelWidth > 0 && pixelWidth * y === pixelHeight * x);
+
+  return (
+    <form
+      className="node-canvas-editor-modal__sketch-size"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!disabled && validSize) onApply({ width: pixelWidth, height: pixelHeight });
+      }}
+    >
+      <label>
+        画布比例
+        <select
+          value={ratio?.join(':') ?? ''}
+          disabled={disabled}
+          onChange={(event) => {
+            if (!event.target.value) return;
+            const [x, y] = event.target.value.split(':').map(Number);
+            const longest = Math.max(dimensions.width, dimensions.height);
+            const unit = Math.max(Math.ceil(MIN_SKETCH_SIDE / Math.min(x, y)), Math.floor(longest / Math.max(x, y)));
+            setWidth(String(unit * x));
+            setHeight(String(unit * y));
+          }}
+        >
+          <option value="">自定义</option>
+          {SKETCH_RATIOS.map(([x, y]) => (
+            <option key={`${x}:${y}`}>
+              {x}:{y}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        宽度 (px)
+        <input
+          type="number"
+          min={MIN_SKETCH_SIDE}
+          max={MAX_SKETCH_SIDE}
+          value={width}
+          disabled={disabled}
+          onChange={(event) => setWidth(event.target.value)}
+        />
+      </label>
+      <label>
+        高度 (px)
+        <input
+          type="number"
+          min={MIN_SKETCH_SIDE}
+          max={MAX_SKETCH_SIDE}
+          value={height}
+          disabled={disabled}
+          onChange={(event) => setHeight(event.target.value)}
+        />
+      </label>
+      <button
+        type="submit"
+        className="node-canvas-editor-modal__secondary"
+        disabled={disabled || !validSize || (pixelWidth === dimensions.width && pixelHeight === dimensions.height)}
+      >
+        应用尺寸
+      </button>
+      {!validSize && (
+        <span role="status">
+          宽高需为 {MIN_SKETCH_SIDE}–{MAX_SKETCH_SIDE} px 的整数
+        </span>
+      )}
+    </form>
   );
 }

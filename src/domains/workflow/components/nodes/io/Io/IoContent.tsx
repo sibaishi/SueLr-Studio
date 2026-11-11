@@ -1,4 +1,6 @@
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
+import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasEditorModal';
+import { uploadFile } from '@/domains/workflow/lib/api/files';
 import {
   createIoImageFileEntry,
   imageFileNameFromUrl,
@@ -62,6 +64,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
+  const [isSketchOpen, setIsSketchOpen] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number>(-1);
   const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
   const [textModalIdx, setTextModalIdx] = useState<number | null>(null);
@@ -255,14 +258,59 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
     .map((item) => ({ src: resizedSrcs[item.idx] || item.value }));
   const canEditSourceImages = !useUpstreamTypes && imagePreviewItems.length > 0;
 
+  const canDrawSketch = Boolean(nodeId && !upstreamSlots && !hasContent && !data.fileUrl);
+
+  const saveSketch = async (file: File) => {
+    const { activeDocumentId } = useWorkflowStore.getState();
+    const uploaded = await uploadFile(file);
+    if (!uploaded.success || !uploaded.url) throw new Error(uploaded.error || '草图上传失败。');
+
+    const entry = await createIoImageFileEntry(file);
+    const store = useWorkflowStore.getState();
+    const node = store.nodes.find((item) => item.id === nodeId);
+    const hasUpstream = store.edges.some((edge) => edge.target === nodeId && edge.targetHandle === 'input');
+    if (
+      !nodeId ||
+      !node ||
+      store.activeDocumentId !== activeDocumentId ||
+      hasUpstream ||
+      node.data.fileUrl ||
+      String(node.data.text ?? '').trim() ||
+      (Array.isArray(node.data.content) && node.data.content.length > 0)
+    ) {
+      fileRawStore.remove(entry.fileId);
+      throw new Error('当前 IO 节点已发生变化，请重新打开画板。');
+    }
+
+    store.updateNodeData(nodeId, {
+      content: [uploaded.url],
+      _fileIds: [entry.fileId],
+      _fileKinds: ['image'],
+      _fileOrder: [entry.fileId],
+      _fileNames: [uploaded.fileName || entry.fileName],
+    });
+  };
+
   return (
     <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
       {!hasContent ? (
-        <div className="node-gallery-frame-v2">
+        <div className="node-gallery-frame-v2" style={{ flexDirection: 'column', gap: 8 }}>
           <div className="node-gallery-empty-v2">
             <Stack size={32} strokeWidth={1.2} />
             <span>待输入</span>
           </div>
+          {canDrawSketch && (
+            <button
+              type="button"
+              className="node-v2-secondary-button nodrag nopan"
+              onClick={(event) => {
+                event.stopPropagation();
+                setIsSketchOpen(true);
+              }}
+            >
+              绘制草图
+            </button>
+          )}
         </div>
       ) : (
         <div
@@ -469,6 +517,13 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
             />
           )}
         </div>
+      )}
+      {isSketchOpen && (
+        <NodeCanvasEditorModal
+          nodeLabel="绘制草图"
+          onClose={() => setIsSketchOpen(false)}
+          onSavePaint={saveSketch}
+        />
       )}
     </div>
   );

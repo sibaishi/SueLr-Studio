@@ -179,6 +179,8 @@ Typical flow:
 6. Click `Execute`
 7. Read outputs and logs in the results panel
 
+To use a hand-drawn reference, click **绘制草图** on an empty IO node with no incoming connection. Choose a canvas ratio preset or enter a custom width and height (64–2048 px per side), then click **应用尺寸**. Resizing keeps the drawing centered and scales it down proportionally if needed. You can undo or redo a size change. Pressure-sensitive pens vary the brush width as you draw when the device supplies pressure to the app. Draw on the white canvas and click **保存到 IO 节点** to upload the PNG at the applied size. Connect that IO node and a prompt to an image generation node with a model that accepts reference images.
+
 Workflow management:
 
 - `New` starts a local draft. Save it before relying on it as a reusable workflow.

@@ -137,6 +137,104 @@ test.describe('studio smoke', () => {
     await expect(page.locator('body')).toContainText('release/desktop');
   });
 
+  test('an empty IO node resizes a sketch and saves it as an uploaded image', async ({ page }) => {
+    const workflowName = `E2E Sketch ${Date.now().toString(36)}`;
+    await clearLocalState(page);
+    await page.getByTestId('workflow-new').click();
+    await page.locator('.workflow-toolbar__title--editable').click();
+    await page.locator('.workflow-toolbar__title-input').fill(workflowName);
+    await page.keyboard.press('Enter');
+    await addWorkflowNode(page, 'io');
+
+    await page.getByRole('button', { name: '绘制草图' }).click();
+    const editor = page.locator('.node-canvas-editor-modal');
+    const save = editor.getByRole('button', { name: '保存到 IO 节点' });
+    await expect(save).toBeDisabled();
+    const canvas = editor.locator('canvas');
+    await canvas.click();
+    await expect(save).toBeEnabled();
+
+    const width = editor.getByRole('spinbutton', { name: '宽度 (px)' });
+    const height = editor.getByRole('spinbutton', { name: '高度 (px)' });
+    const apply = editor.getByRole('button', { name: '应用尺寸' });
+    await editor.getByRole('combobox', { name: '画布比例' }).selectOption('16:9');
+    await expect(width).toHaveValue('768');
+    await expect(height).toHaveValue('432');
+    await apply.click();
+    await expect(canvas).toHaveAttribute('height', '432');
+    await editor.getByRole('button', { name: '撤销' }).click();
+    await expect(canvas).toHaveAttribute('height', '768');
+    await editor.getByRole('button', { name: '重做' }).click();
+    await expect(canvas).toHaveAttribute('height', '432');
+    await width.fill('2049');
+    await expect(apply).toBeDisabled();
+    await width.fill('900');
+    await height.fill('500');
+    await apply.click();
+    await expect(canvas).toHaveAttribute('width', '900');
+    await expect(canvas).toHaveAttribute('height', '500');
+
+    const box = (await canvas.boundingBox())!;
+    const pen = await page.context().newCDPSession(page);
+    const y = box.y + box.height / 4;
+    await pen.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed', x: box.x + box.width * 0.2, y, button: 'left', buttons: 1, clickCount: 1,
+      pointerType: 'pen', force: 0.2,
+    });
+    for (const [offset, force] of [[0.3, 0.2], [0.4, 0.2], [0.6, 0.85], [0.7, 0.85], [0.8, 0.85]]) {
+      await pen.send('Input.dispatchMouseEvent', {
+        type: 'mouseMoved', x: box.x + box.width * offset, y, buttons: 1, pointerType: 'pen', force,
+      });
+    }
+    await pen.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased', x: box.x + box.width * 0.8, y, button: 'left', buttons: 0,
+      pointerType: 'pen', force: 0,
+    });
+    await pen.detach();
+
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.8);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.64);
+    await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.8);
+    await page.mouse.up();
+
+    await save.click();
+    await expect(editor).toHaveCount(0);
+    const image = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    await expect(image).toHaveAttribute('src', /^\/api\/files\//);
+    const imageUrl = await image.getAttribute('src');
+    await page.getByTestId('workflow-save').click();
+    await expect.poll(async () => Boolean(await readWorkflowByName(page, workflowName))).toBe(true);
+
+    await page.reload();
+    await expect(image).toHaveAttribute('src', imageUrl as string);
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => ({
+      width: element.naturalWidth,
+      height: element.naturalHeight,
+    }))).toEqual({ width: 900, height: 500 });
+    const pixels = await image.evaluate((element: HTMLImageElement) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = element.naturalWidth;
+      canvas.height = element.naturalHeight;
+      const context = canvas.getContext('2d')!;
+      context.drawImage(element, 0, 0);
+      return {
+        background: Array.from(context.getImageData(0, 0, 1, 1).data),
+        lightPressure: Array.from(context.getImageData(270, 133, 1, 1).data),
+        heavyPressure: Array.from(context.getImageData(630, 133, 1, 1).data),
+        roundedCurve: Array.from(context.getImageData(450, 340, 1, 1).data),
+        sharpCorner: Array.from(context.getImageData(450, 320, 1, 1).data),
+        stroke: Array.from(context.getImageData(canvas.width / 2, canvas.height / 2, 1, 1).data),
+      };
+    });
+    expect(pixels.background).toEqual([255, 255, 255, 255]);
+    expect(pixels.stroke).toEqual([34, 34, 34, 255]);
+    expect(pixels.lightPressure).toEqual([255, 255, 255, 255]);
+    expect(pixels.heavyPressure).toEqual([34, 34, 34, 255]);
+    expect(pixels.roundedCurve).toEqual([34, 34, 34, 255]);
+    expect(pixels.sharpCorner).toEqual([255, 255, 255, 255]);
+  });
+
   test('settings fields persist after reload', async ({ page }) => {
     const seed = Date.now().toString(36);
     const configName = `E2E Config ${seed}`;

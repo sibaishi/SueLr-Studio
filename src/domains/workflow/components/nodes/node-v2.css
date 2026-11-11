@@ -1647,6 +1647,40 @@
   cursor: pointer;
 }
 
+.node-canvas-editor-modal__sketch-size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 22px 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.node-canvas-editor-modal__sketch-size label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.node-canvas-editor-modal__sketch-size input,
+.node-canvas-editor-modal__sketch-size select {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.node-canvas-editor-modal__sketch-size input {
+  width: 78px;
+}
+
+.node-canvas-editor-modal__sketch-size [role="status"] {
+  color: var(--color-danger);
+}
+
 .node-canvas-editor-modal__note {
   padding: 12px 22px 0;
   color: var(--color-text-secondary);
