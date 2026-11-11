@@ -10,6 +10,7 @@ interface ModalSurfaceProps {
   backdropLabel?: string;
   closeOnRootClick?: boolean;
   isolateKeyboard?: boolean;
+  inactive?: boolean;
 }
 
 export function ModalSurface({
@@ -22,21 +23,24 @@ export function ModalSurface({
   backdropLabel = '关闭',
   closeOnRootClick = false,
   isolateKeyboard = false,
+  inactive = false,
 }: ModalSurfaceProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     panelRef.current?.focus();
+    return () => previouslyFocused?.focus();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (inactive) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      previouslyFocused?.focus();
-    };
-  }, [onClose]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [inactive, onClose]);
 
   const handleRootClick = (event: MouseEvent<HTMLDivElement>) => {
     if (closeOnRootClick && event.target === event.currentTarget) onClose();
@@ -73,6 +77,7 @@ export function ModalSurface({
       role="dialog"
       aria-modal="true"
       aria-label={ariaLabel}
+      inert={inactive}
       onClick={handleRootClick}
       onKeyDown={handleKeyDown}
     >

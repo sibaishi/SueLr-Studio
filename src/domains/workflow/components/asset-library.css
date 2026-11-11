@@ -1,4 +1,5 @@
 .asset-library-overlay { z-index: 1220; }
+.workflow-image-preview-modal.asset-library-image-preview { z-index: 1230; }
 
 /* The settings modal owns the backdrop, outer material and fixed dimensions. */
 .asset-library {
@@ -65,6 +66,15 @@
 .asset-library__details-heading button { width: 30px; min-height: 30px; padding: 0; }
 .asset-library__preview { display: flex; align-items: center; justify-content: center; min-height: 120px; max-height: 180px; overflow: hidden; border-radius: 12px; background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent); }
 .asset-library__preview img, .asset-library__preview video { width: 100%; max-height: 180px; object-fit: contain; }
+.asset-library .asset-library__preview-image,
+.asset-library .asset-library__preview-image:hover:not(:disabled) {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+.asset-library .asset-library__preview-image:focus-visible { outline-offset: -2px; }
 .asset-library__preview audio { width: 100%; }
 .asset-library__meta { font-size: 11px; color: var(--color-text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
 .asset-library__details form { display: flex; flex-direction: column; gap: 12px; }

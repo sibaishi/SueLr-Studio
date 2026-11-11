@@ -30,6 +30,8 @@ export function ImagePreviewModal({
   renderTextActions,
   alt = '查看大图',
   closeLabel = '关闭',
+  overlayClassName,
+  focusOnOpen = false,
   images,
   initialIndex,
   onClose,
@@ -45,6 +47,8 @@ export function ImagePreviewModal({
   renderTextActions?: () => ReactNode;
   alt?: string;
   closeLabel?: string;
+  overlayClassName?: string;
+  focusOnOpen?: boolean;
   images?: PreviewImageItem[];
   initialIndex?: number;
   onClose: () => void;
@@ -109,6 +113,12 @@ export function ImagePreviewModal({
   const [compareB, setCompareB] = useState(1);
   const [selectingSlot, setSelectingSlot] = useState<'A' | 'B'>('A');
   const [sliderPosition, setSliderPosition] = useState(50);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (focusOnOpen) dialogRef.current?.focus();
+  }, [focusOnOpen]);
 
   const resizedSrcsRef = useRef<Record<number, string>>({});
   const compareViewportRef = useRef<HTMLDivElement>(null);
@@ -222,26 +232,28 @@ export function ImagePreviewModal({
     setActiveIndex(resolvedInitialIndex);
   }, [resolvedInitialIndex]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (isCompareMode) {
-          exitCompareMode();
-          return;
-        }
-        onClose();
+  const handlePreviewKey = useCallback(
+    (key: string) => {
+      if (key === 'Escape') {
+        if (isCompareMode) exitCompareMode();
+        else onClose();
       }
-      if (event.key === 'ArrowLeft' && canNavigate) {
+      if (key === 'ArrowLeft' && canNavigate) {
         setActiveIndex((index) => (index - 1 + gallery.length) % gallery.length);
       }
-      if (event.key === 'ArrowRight' && canNavigate) {
+      if (key === 'ArrowRight' && canNavigate) {
         setActiveIndex((index) => (index + 1) % gallery.length);
       }
-    };
+    },
+    [canNavigate, gallery.length, onClose, isCompareMode, exitCompareMode],
+  );
 
+  useEffect(() => {
+    if (focusOnOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => handlePreviewKey(event.key);
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canNavigate, gallery.length, onClose, isCompareMode, exitCompareMode]);
+  }, [focusOnOpen, handlePreviewKey]);
 
   useEffect(() => {
     resizedSrcsRef.current = resizedSrcs;
@@ -358,8 +370,36 @@ export function ImagePreviewModal({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="workflow-image-preview-modal" onClick={onClose}>
-      <div className="workflow-image-preview-modal__dialog" onClick={(event) => event.stopPropagation()}>
+    <div className={['workflow-image-preview-modal', overlayClassName].filter(Boolean).join(' ')} onClick={onClose}>
+      <div
+        ref={dialogRef}
+        role={focusOnOpen ? 'dialog' : undefined}
+        aria-modal={focusOnOpen || undefined}
+        aria-label={focusOnOpen ? alt : undefined}
+        tabIndex={focusOnOpen ? -1 : undefined}
+        className="workflow-image-preview-modal__dialog"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={
+          focusOnOpen
+            ? (event) => {
+                event.stopPropagation();
+                handlePreviewKey(event.key);
+                if (event.key !== 'Tab') return;
+                const dialog = event.currentTarget;
+                const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), textarea'));
+                const first = controls[0];
+                const last = controls.at(-1);
+                if (event.shiftKey && (event.target === first || event.target === dialog)) {
+                  event.preventDefault();
+                  last?.focus();
+                } else if (!event.shiftKey && event.target === last) {
+                  event.preventDefault();
+                  first?.focus();
+                }
+              }
+            : undefined
+        }
+      >
         {textContent != null ? (
           <div className="workflow-image-preview-modal__text-viewer">
             <div className="workflow-image-preview-modal__text-card">

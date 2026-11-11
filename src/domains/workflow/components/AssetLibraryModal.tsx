@@ -1,7 +1,7 @@
 import { eyebrowStyle } from '@/features/settings/components/styles';
 import { ModalSurface } from '@/ui/ModalSurface';
 import { CaretDown, CheckSquare, FolderOpen, MagnifyingGlass, Square, Star, X } from '@phosphor-icons/react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type AssetBatchChange,
   type AssetPage,
@@ -13,6 +13,7 @@ import {
 } from '../lib/api/assets';
 import { uploadFile } from '../lib/api/files';
 import { useWorkflowStore } from '../lib/store';
+import { ImagePreviewModal } from './ImagePreviewModal';
 import './asset-library.css';
 
 const types = { image: '图片', video: '视频', audio: '音频', text: '文本', data: '数据', file: '文件' };
@@ -41,6 +42,21 @@ export default function AssetLibraryModal({
   const [page, setPage] = useState(1);
   const [data, setData] = useState(emptyPage);
   const [selected, setSelected] = useState<LibraryAsset | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const previewTrigger = useRef<HTMLButtonElement>(null);
+  const restorePreviewFocus = useRef(false);
+  const closePreview = useCallback(() => {
+    restorePreviewFocus.current = true;
+    setPreviewOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!previewOpen && restorePreviewFocus.current) {
+      restorePreviewFocus.current = false;
+      previewTrigger.current?.focus();
+    }
+  }, [previewOpen]);
+
   const [batchMode, setBatchMode] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
   const [revision, setRevision] = useState(0);
@@ -54,6 +70,7 @@ export default function AssetLibraryModal({
 
   const batchIds = data.items.filter((asset) => checkedIds.has(asset.id)).map((asset) => asset.id);
   const allChecked = batchIds.length > 0 && batchIds.length === data.items.length;
+  const previewAsset = previewOpen ? selected : null;
 
   useEffect(() => {
     setCheckedIds(new Set());
@@ -198,9 +215,10 @@ export default function AssetLibraryModal({
     }
   }
 
-  return (
+  const library = (
     <ModalSurface
       ariaLabel="资产库"
+      inactive={Boolean(previewAsset)}
       onClose={onClose}
       rootClassName="settings-modal asset-library-overlay"
       panelClassName="settings-modal__panel asset-library"
@@ -459,6 +477,8 @@ export default function AssetLibraryModal({
             <AssetDetails
               key={selected.id}
               asset={selected}
+              previewTrigger={previewTrigger}
+              onOpenPreview={() => setPreviewOpen(true)}
               busy={busy}
               categories={data.categories}
               onBackfill={() => void backfill(selected)}
@@ -492,6 +512,22 @@ export default function AssetLibraryModal({
         </aside>
       </div>
     </ModalSurface>
+  );
+
+  return (
+    <>
+      {library}
+      {previewAsset && (
+        <ImagePreviewModal
+          src={previewAsset.url}
+          alt={previewAsset.name}
+          closeLabel="关闭大图"
+          overlayClassName="asset-library-image-preview"
+          focusOnOpen
+          onClose={closePreview}
+        />
+      )}
+    </>
   );
 }
 
@@ -600,6 +636,8 @@ function AssetBatchDetails({
 
 function AssetDetails({
   asset,
+  previewTrigger,
+  onOpenPreview,
   busy,
   categories,
   onSave,
@@ -607,6 +645,8 @@ function AssetDetails({
   onDelete,
 }: {
   asset: LibraryAsset;
+  previewTrigger: React.Ref<HTMLButtonElement>;
+  onOpenPreview: () => void;
   busy: boolean;
   categories: string[];
   onSave: (name: string, category: string, tags: string[]) => Promise<void>;
@@ -622,7 +662,17 @@ function AssetDetails({
       <div className="asset-library__details-content">
         <div className="asset-library__preview">
           {asset.type === 'image' ? (
-            <img src={asset.url} alt={asset.name} />
+            <button
+              ref={previewTrigger}
+              type="button"
+              className="asset-library__preview-image"
+              aria-label="查看大图"
+              title="查看大图"
+              disabled={busy}
+              onClick={onOpenPreview}
+            >
+              <img src={asset.url} alt={asset.name} />
+            </button>
           ) : asset.type === 'video' ? (
             <video src={asset.url} controls preload="metadata">
               <track kind="captions" />
