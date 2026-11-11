@@ -213,7 +213,7 @@ The former `文本拆分`, `图像拆分`, `文本逐项`, and `图像逐项` no
 `AI 能力 V3` behavior:
 
 - chat models return text
-- image models return normalized local image outputs
+- image models return normalized local image outputs. The compact toolbar at the lower right of the image prompt shows the current model, aspect ratio, dimensions, and format. Choose an API channel, then a model type in the next column to see its enabled models. Search filters the same menu. Click an aspect ratio or file format to apply it, or leave either dimension blank for automatic sizing.
 - video models may submit and poll asynchronous generation tasks
 - Midjourney models use the dedicated asynchronous service path
 - remote image URLs are downloaded and materialized before final workflow output where required

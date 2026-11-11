@@ -1,3 +1,4 @@
+import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import {
   StylePanelPopoverButton,
   WorkflowStylePanelShell,
@@ -8,8 +9,26 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { type InputOrderMap, filterAiV3InputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import { loadJSON } from '@/shared/runtime';
 import type { ApiConfig } from '@/shared/types';
-import { Clock, Crosshair, Gauge, Globe, GridNine, Image, Ruler, SlidersHorizontal } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CaretRight,
+  ChatCircle,
+  Check,
+  Clock,
+  Crosshair,
+  Gauge,
+  Globe,
+  GridNine,
+  Image,
+  Ruler,
+  MagnifyingGlass,
+  SlidersHorizontal,
+  Sparkle,
+  Stack,
+  VideoCamera,
+} from '@phosphor-icons/react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import './ai-v3-parameters.css';
 
 const fieldStyle: React.CSSProperties = {
   border: '1px solid color-mix(in srgb, var(--t-border) 72%, transparent)',
@@ -109,12 +128,8 @@ export default function AiV3StylePanel() {
     return selectedPanelNodes[0].type === 'aiV3' ? selectedPanelNodes[0] : null;
   })();
 
-  // 取消选中节点时自动关闭 popover
-  useEffect(() => {
-    if (!v3Node) setOpenPopover(null);
-  }, [v3Node]);
-
   const [openPopover, setOpenPopover] = useState<string | null>(null);
+  useEffect(() => setOpenPopover(null), [v3Node?.id]);
   const [draggedGroupIdx, setDraggedGroupIdx] = useState<number | null>(null);
   const [dragOverGroupIdx, setDragOverGroupIdx] = useState<number | null>(null);
   const [draggedGroupType, setDraggedGroupType] = useState<string | null>(null);
@@ -282,20 +297,18 @@ export default function AiV3StylePanel() {
       localConfigs.map((c, i) => [c.id, c.name?.trim() || c.base?.trim() || `API 配置 ${i + 1}`]),
     );
 
-    const configs: Record<string, { configId: string; cats: Record<string, typeof allModelOptions> }> = {};
+    const configs = new Map<string, { configName: string; cats: Record<string, typeof allModelOptions> }>();
     for (const m of allModelOptions) {
       const configName = configLabelMap.get(m.configId || '') || m.configName || m.configId || '未命名';
       const configId = m.configId || '';
-      if (!configs[configName]) configs[configName] = { configId, cats: {} };
-      const cat = (m as typeof m & { _cat: string })._cat;
-      const categoryModels = configs[configName].cats[cat] || [];
-      categoryModels.push(m);
-      configs[configName].cats[cat] = categoryModels;
+      const config = configs.get(configId) || { configName, cats: {} };
+      (config.cats[m._cat] ??= []).push(m);
+      configs.set(configId, config);
     }
     const catOrder = ['chat', 'image', 'video', 'midjourney'];
-    return Object.entries(configs).map(([configName, entry]) => ({
-      configName,
-      configId: entry.configId,
+    return Array.from(configs, ([configId, entry]) => ({
+      configName: entry.configName,
+      configId,
       cats: catOrder
         .filter((cat) => entry.cats[cat]?.length)
         .map((cat) => ({ cat, label: catLabels[cat] || cat, models: entry.cats[cat] })),
@@ -314,11 +327,14 @@ export default function AiV3StylePanel() {
   }, [modelTree, selectedModel]);
 
   const ratioHint = nodeData.ratio && nodeData.ratio !== 'auto' ? String(nodeData.ratio) : undefined;
-  const sizeHint = nodeData.width && nodeData.height ? `${nodeData.width}x${nodeData.height}` : undefined;
+  const imageResolution = String(nodeData.resolution || 'auto');
+  const imageFormat = String(nodeData.output_format || 'png');
+  const sizeHint =
+    nodeData.width || nodeData.height ? `${nodeData.width || '自动'} × ${nodeData.height || '自动'}` : '自动';
   const formatHint =
-    nodeData.output_format || (nodeData.resolution && nodeData.resolution !== 'auto')
-      ? `${nodeData.resolution || ''} ${nodeData.output_format || 'png'}`.trim()
-      : undefined;
+    imageResolution === 'auto'
+      ? imageFormat.toUpperCase()
+      : `${imageResolution.toUpperCase()} · ${imageFormat.toUpperCase()}`;
   const durationHint = nodeData.duration ? `${nodeData.duration}s` : undefined;
   const videoResHint = nodeData.resolution && nodeData.resolution !== 'auto' ? String(nodeData.resolution) : undefined;
   const mjModeHint = nodeData.mjMode ? String(nodeData.mjMode) : undefined;
@@ -546,7 +562,7 @@ export default function AiV3StylePanel() {
 
       {/* ── IMAGE MODE ── */}
       {currentMode === 'image' && (
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div className="ai-image-composer">
           <textarea
             className="nodrag nowheel"
             value={promptValue}
@@ -556,163 +572,113 @@ export default function AiV3StylePanel() {
             }}
             style={{
               width: '100%',
-              height: '100%',
+              flex: 1,
+              minHeight: 0,
               resize: 'none',
-              border: '1px solid var(--t-border)',
+              border: 0,
               borderRadius: 15,
               outline: 'none',
-              background: 'var(--t-bg2)',
+              background: 'transparent',
               color: 'var(--t-text)',
               fontSize: 13,
               lineHeight: 1.6,
-              padding: '10px 14px 44px',
+              padding: '10px 14px',
               fontFamily: 'inherit',
             }}
             placeholder="输入提示词..."
             onPointerDown={(e) => e.stopPropagation()}
           />
-          <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
+          <div className="nodrag ai-parameter-toolbar" aria-label="图像生成参数" role="group">
             <StylePanelPopoverButton
-              icon={<Crosshair size={14} />}
+              showValue
+              icon={<Crosshair size={15} />}
               label="模型"
               valueHint={modelLabel}
               open={openPopover === 'model'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}
             >
-              <ModelTreeSelector
-                tree={modelTree}
-                selectedModel={selectedModel}
-                onSelect={(v) => handleModelChange(v)}
-              />
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={handleModelChange} />
             </StylePanelPopoverButton>
             <StylePanelPopoverButton
-              icon={<GridNine size={14} />}
+              showValue
+              icon={<GridNine size={15} />}
               label="比例"
-              valueHint={ratioHint}
+              valueHint={ratioHint || '自动'}
               open={openPopover === 'ratio'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'ratio' ? null : 'ratio')}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <select
-                  value={String(nodeData.ratio || 'auto')}
-                  onChange={(e) => {
-                    setData({ ratio: e.target.value });
-                    setOpenPopover(null);
-                  }}
-                  className="nodrag"
-                  style={{ ...fieldStyle, width: '100%' }}
-                >
-                  {RATIO_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>数量</div>
+              <ParameterChoices
+                label="画面比例"
+                options={RATIO_OPTIONS}
+                value={String(nodeData.ratio || 'auto')}
+                onChange={(ratio) => setData({ ratio })}
+                showRatio
+              />
+              <AiMenuModule label="生成数量">
+                <label className="ai-parameter-field ai-parameter-quantity">
+                  <span>1–8 张</span>
                   <input
+                    aria-label="生成数量"
                     type="number"
                     value={Number(nodeData.n ?? 1)}
                     min={1}
                     max={8}
                     onChange={(e) => setData({ n: Math.max(1, Math.min(8, Number(e.target.value) || 1)) })}
-                    onBlur={() => setOpenPopover(null)}
-                    className="nodrag"
-                    style={{ ...fieldStyle, width: '100%' }}
                   />
-                </div>
-              </div>
+                </label>
+              </AiMenuModule>
             </StylePanelPopoverButton>
             <StylePanelPopoverButton
-              icon={<Ruler size={14} />}
+              showValue
+              icon={<Ruler size={15} />}
               label="尺寸"
               valueHint={sizeHint}
               open={openPopover === 'size'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'size' ? null : 'size')}
             >
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>宽</div>
-                  <input
-                    type="number"
-                    value={Number(nodeData.width || 0) || ''}
-                    min={16}
-                    placeholder="auto"
-                    onChange={(e) => setData({ width: Number(e.target.value) || 0 })}
-                    onBlur={(e) => {
-                      setData({ width: roundToNearest16(e.target.value) });
-                      setOpenPopover(null);
-                    }}
-                    className="nodrag"
-                    style={{ ...fieldStyle, width: '100%' }}
-                  />
+              <AiMenuModule label="输出尺寸">
+                <div className="ai-parameter-dimensions">
+                  {(['width', 'height'] as const).map((axis) => (
+                    <label key={axis} className="ai-parameter-field">
+                      {axis === 'width' ? '宽度（px）' : '高度（px）'}
+                      <input
+                        type="number"
+                        value={Number(nodeData[axis] || 0) || ''}
+                        min={16}
+                        step={16}
+                        placeholder="自动"
+                        onChange={(e) => setData({ [axis]: Number(e.target.value) || 0 })}
+                        onBlur={(e) => setData({ [axis]: roundToNearest16(e.target.value) })}
+                      />
+                    </label>
+                  ))}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>高</div>
-                  <input
-                    type="number"
-                    value={Number(nodeData.height || 0) || ''}
-                    min={16}
-                    placeholder="auto"
-                    onChange={(e) => setData({ height: Number(e.target.value) || 0 })}
-                    onBlur={(e) => {
-                      setData({ height: roundToNearest16(e.target.value) });
-                      setOpenPopover(null);
-                    }}
-                    className="nodrag"
-                    style={{ ...fieldStyle, width: '100%' }}
-                  />
-                </div>
-              </div>
+                <p className="ai-parameter-note">留空使用自动尺寸，输入值会取整为 16 的倍数。</p>
+                <button type="button" className="ai-parameter-reset" onClick={() => setData({ width: 0, height: 0 })}>
+                  恢复自动尺寸
+                </button>
+              </AiMenuModule>
             </StylePanelPopoverButton>
             <StylePanelPopoverButton
-              icon={<Image size={14} />}
+              showValue
+              icon={<Image size={15} />}
               label="格式"
               valueHint={formatHint}
               open={openPopover === 'format'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'format' ? null : 'format')}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>
-                    输出档位
-                  </div>
-                  <select
-                    value={String(nodeData.resolution || 'auto')}
-                    onChange={(e) => {
-                      setData({ resolution: e.target.value });
-                      setOpenPopover(null);
-                    }}
-                    className="nodrag"
-                    style={{ ...fieldStyle, width: '100%' }}
-                  >
-                    {RESOLUTION_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <select
-                  value={String(nodeData.output_format || 'png')}
-                  onChange={(e) => {
-                    setData({ output_format: e.target.value });
-                    setOpenPopover(null);
-                  }}
-                  className="nodrag"
-                  style={{ ...fieldStyle, width: '100%' }}
-                >
-                  {FORMAT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <ParameterChoices
+                label="输出档位"
+                options={RESOLUTION_OPTIONS}
+                value={imageResolution}
+                onChange={(resolution) => setData({ resolution })}
+              />
+              <ParameterChoices
+                label="文件格式"
+                options={FORMAT_OPTIONS}
+                value={imageFormat}
+                onChange={(output_format) => setData({ output_format })}
+              />
             </StylePanelPopoverButton>
           </div>
         </div>
@@ -1045,6 +1011,13 @@ export default function AiV3StylePanel() {
   );
 }
 
+const MODEL_CATEGORY_ICONS = {
+  chat: ChatCircle,
+  image: Image,
+  video: VideoCamera,
+  midjourney: Sparkle,
+};
+
 function ModelTreeSelector({
   tree,
   selectedModel,
@@ -1058,155 +1031,180 @@ function ModelTreeSelector({
   selectedModel: string;
   onSelect: (value: string) => void;
 }) {
-  const [collapsedConfigs, setCollapsedConfigs] = useState<Set<string>>(() => new Set(tree.map((c) => c.configName)));
-  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(() => {
-    const s = new Set<string>();
-    for (const cfg of tree) {
-      for (const cat of cfg.cats) s.add(`${cfg.configName}:${cat.cat}`);
-    }
-    return s;
+  const [query, setQuery] = useState('');
+  const [channelId, setChannelId] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const search = query.trim().toLowerCase();
+  const models = tree.flatMap((channel) => channel.cats.flatMap((category) => category.models));
+  const currentModel =
+    models.find((model) => model.value === selectedModel) || models.find((model) => model.modelId === selectedModel);
+  const matchingChannels = tree.flatMap((channel) => {
+    const categories = channel.cats.flatMap((category) => {
+      const matchingModels = category.models.filter((model) =>
+        `${channel.configName} ${category.label} ${model.label} ${model.modelId}`.toLowerCase().includes(search),
+      );
+      return matchingModels.length ? [{ ...category, models: matchingModels }] : [];
+    });
+    return categories.length ? [{ ...channel, cats: categories }] : [];
   });
 
-  const toggleCat = (configName: string, cat: string) => {
-    setCollapsedCats((prev) => {
-      const next = new Set(prev);
-      const key = `${configName}:${cat}`;
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  const activeChannel =
+    matchingChannels.find((channel) => channel.configId === channelId) ?? (search ? matchingChannels[0] : undefined);
+  const activeCategory =
+    activeChannel?.cats.find((category) => category.cat === categoryId) ??
+    (search ? activeChannel?.cats[0] : undefined);
 
-  if (tree.length === 0) {
-    return <div style={{ fontSize: 12, color: 'var(--t-text3)', padding: 8, textAlign: 'center' }}>暂无可用模型</div>;
+  if (!tree.length) {
+    return <p className="ai-model-empty">暂无可用模型。请先在设置中启用模型。</p>;
   }
 
   return (
-    <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {tree.map((config) => {
-        const isCollapsed = collapsedConfigs.has(config.configName);
-        return (
-          <div key={config.configName}>
-            <button
-              type="button"
-              onClick={() =>
-                setCollapsedConfigs((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(config.configName)) next.delete(config.configName);
-                  else next.add(config.configName);
-                  return next;
-                })
-              }
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                width: '100%',
-                padding: '6px 8px',
-                borderRadius: 7,
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--t-text2)',
-                letterSpacing: '0.01em',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 9,
-                  transition: 'transform 0.15s',
-                  transform: isCollapsed ? '' : 'rotate(90deg)',
-                  flexShrink: 0,
-                  opacity: 0.8,
+    <div className="ai-model-picker">
+      <label className="ai-model-search">
+        <MagnifyingGlass size={15} aria-hidden="true" />
+        <input
+          type="search"
+          aria-label="搜索模型"
+          placeholder="搜索模型或配置"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+      {matchingChannels.length ? (
+        <div className="ai-model-cascade">
+          <ModelMenuColumn label="渠道">
+            {matchingChannels.map((channel) => (
+              <button
+                key={channel.configId}
+                type="button"
+                className="ai-model-option ai-model-branch"
+                aria-expanded={channel === activeChannel}
+                title={channel.configName}
+                onClick={() => {
+                  if (channel === activeChannel) return;
+                  setChannelId(channel.configId);
+                  setCategoryId(null);
                 }}
               >
-                ▶
-              </span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {config.configName}
-              </span>
-            </button>
-            {!isCollapsed && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingLeft: 12 }}>
-                {config.cats.map((catGroup) => {
-                  const catKey = `${config.configName}:${catGroup.cat}`;
-                  const isCatCollapsed = collapsedCats.has(catKey);
-                  return (
-                    <div key={catGroup.cat} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <button
-                        type="button"
-                        onClick={() => toggleCat(config.configName, catGroup.cat)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 5,
-                          width: '100%',
-                          padding: '3px 6px',
-                          borderRadius: 5,
-                          border: 'none',
-                          background: 'transparent',
-                          cursor: 'pointer',
-                          fontSize: 10,
-                          color: 'var(--t-text3)',
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: 8,
-                            transition: 'transform 0.15s',
-                            transform: isCatCollapsed ? '' : 'rotate(90deg)',
-                            flexShrink: 0,
-                            opacity: 0.6,
-                          }}
-                        >
-                          ▶
-                        </span>
-                        {catGroup.label}
-                      </button>
-                      {!isCatCollapsed &&
-                        catGroup.models.map((m) => (
-                          <button
-                            key={m.value}
-                            type="button"
-                            onClick={() => onSelect(m.value)}
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              textAlign: 'left',
-                              padding: '5px 9px 5px 16px',
-                              borderRadius: 6,
-                              border: 'none',
-                              cursor: 'pointer',
-                              background:
-                                m.value === selectedModel || m.modelId === selectedModel
-                                  ? 'color-mix(in srgb, var(--node-color) 12%, transparent)'
-                                  : 'transparent',
-                              color:
-                                m.value === selectedModel || m.modelId === selectedModel
-                                  ? 'var(--node-color)'
-                                  : 'var(--t-text)',
-                              fontSize: 13,
-                              fontFamily: 'var(--font-sans)',
-                              fontWeight: m.value === selectedModel || m.modelId === selectedModel ? 500 : 400,
-                            }}
-                          >
-                            {m.label}
-                          </button>
-                        ))}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+                <span className="ai-model-module-icon">
+                  <Stack size={14} aria-hidden="true" />
+                </span>
+                <span>{channel.configName}</span>
+                <CaretRight size={12} aria-hidden="true" />
+              </button>
+            ))}
+          </ModelMenuColumn>
+          {activeChannel && (
+            <ModelMenuColumn key={activeChannel.configId} label="类型">
+              {activeChannel.cats.map((category) => {
+                const Icon = MODEL_CATEGORY_ICONS[category.cat as keyof typeof MODEL_CATEGORY_ICONS] ?? Sparkle;
+                return (
+                  <button
+                    key={category.cat}
+                    type="button"
+                    className="ai-model-option ai-model-branch"
+                    aria-expanded={category === activeCategory}
+                    onClick={() => setCategoryId(category.cat)}
+                  >
+                    <span className="ai-model-module-icon">
+                      <Icon size={14} aria-hidden="true" />
+                    </span>
+                    <span>{category.label}</span>
+                    <CaretRight size={12} aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </ModelMenuColumn>
+          )}
+          {activeCategory && (
+            <ModelMenuColumn key={`${activeChannel?.configId}:${activeCategory.cat}`} label="模型">
+              {activeCategory.models.map((model) => (
+                <button
+                  key={model.value}
+                  type="button"
+                  aria-pressed={model === currentModel}
+                  className="ai-model-option"
+                  onClick={() => onSelect(model.value)}
+                  title={model.label}
+                >
+                  <span>{model.label}</span>
+                  {model === currentModel && <Check size={15} weight="bold" aria-hidden="true" />}
+                </button>
+              ))}
+            </ModelMenuColumn>
+          )}
+        </div>
+      ) : (
+        <p className="ai-model-empty" role="status">
+          没有匹配的模型
+        </p>
+      )}
     </div>
   );
 }
-import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
+
+function ModelMenuColumn({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="ai-model-column ai-menu-module" role="group" aria-label={label}>
+      <div className="ai-model-column-label ai-menu-module-label" aria-hidden="true">
+        {label}
+      </div>
+      <div className="ai-model-column-items ai-menu-module-body nowheel">{children}</div>
+    </div>
+  );
+}
+
+function AiMenuModule({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="ai-menu-module" role="group" aria-label={label}>
+      <div className="ai-menu-module-label" aria-hidden="true">
+        {label}
+      </div>
+      <div className="ai-menu-module-body">{children}</div>
+    </div>
+  );
+}
+
+function ParameterChoices({
+  label,
+  options,
+  value,
+  onChange,
+  showRatio = false,
+}: {
+  label: string;
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  showRatio?: boolean;
+}) {
+  return (
+    <AiMenuModule label={label}>
+      <div className={showRatio ? 'ai-parameter-options ai-ratio-options' : 'ai-parameter-options'}>
+        {options.map((option) => {
+          const [width, height] = option.value.split(':').map(Number);
+          const longestSide = Math.max(width, height);
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={value === option.value}
+              onClick={() => onChange(option.value)}
+            >
+              {showRatio && (
+                <span className="ai-ratio-preview" aria-hidden="true">
+                  {longestSide ? (
+                    <span style={{ width: (18 * width) / longestSide, height: (18 * height) / longestSide }} />
+                  ) : (
+                    <SlidersHorizontal size={17} />
+                  )}
+                </span>
+              )}
+              {option.value === 'auto' ? '自动' : option.label.toUpperCase()}
+            </button>
+          );
+        })}
+      </div>
+    </AiMenuModule>
+  );
+}

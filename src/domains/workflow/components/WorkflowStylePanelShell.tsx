@@ -1,4 +1,5 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { CaretDown } from '@phosphor-icons/react';
+import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 
 export const STYLE_PANEL_MIN_HEIGHT = 150;
 export const STYLE_PANEL_MAX_HEIGHT = 300;
@@ -93,8 +94,10 @@ export function StylePanelPopoverButton({
   direction = 'up',
   onToggle,
   children,
+  showValue = false,
 }: {
   icon: ReactNode;
+  showValue?: boolean;
   label: string;
   valueHint?: string;
   open: boolean;
@@ -103,73 +106,122 @@ export function StylePanelPopoverButton({
   children: ReactNode;
 }) {
   const displayValue = valueHint || label;
+  const popoverId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open || !showValue) return;
+    const closeOutside = (event: MouseEvent) => {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) onToggle();
+    };
+    document.addEventListener('click', closeOutside, true);
+    return () => document.removeEventListener('click', closeOutside, true);
+  }, [open, showValue, onToggle]);
   return (
-    <div style={{ position: 'relative' }}>
+    <div
+      ref={rootRef}
+      className={showValue ? 'ai-parameter' : undefined}
+      style={showValue ? undefined : { position: 'relative' }}
+      onKeyDown={(event) => {
+        if (!showValue || !open || event.key !== 'Escape') return;
+        event.stopPropagation();
+        triggerRef.current?.focus();
+        onToggle();
+      }}
+    >
       <button
+        ref={triggerRef}
+        aria-expanded={open}
+        aria-controls={open ? popoverId : undefined}
         type="button"
         onClick={onToggle}
-        className="nodrag"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 5,
-          height: 28,
-          padding: '0 8px 0 6px',
-          borderRadius: 9,
-          border: open
-            ? '1px solid color-mix(in srgb, var(--t-border) 80%, transparent)'
-            : '1px solid color-mix(in srgb, var(--t-border) 50%, transparent)',
-          background: open
-            ? 'color-mix(in srgb, var(--t-bg2) 72%, transparent)'
-            : 'color-mix(in srgb, var(--t-bg2) 55%, transparent)',
-          backdropFilter: open ? 'blur(14px)' : 'blur(8px)',
-          color: open ? 'var(--t-text)' : 'var(--t-text2)',
-          fontSize: 11,
-          fontWeight: 500,
-          fontFamily: 'var(--font-sans)',
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          transition: 'background 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
-          boxShadow: open ? '0 2px 12px rgba(0,0,0,0.08)' : 'none',
-        }}
-        title={label}
+        className={showValue ? 'nodrag ai-parameter-trigger' : 'nodrag'}
+        style={
+          showValue
+            ? undefined
+            : {
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                height: 28,
+                padding: '0 8px 0 6px',
+                borderRadius: 9,
+                border: open
+                  ? '1px solid color-mix(in srgb, var(--t-border) 80%, transparent)'
+                  : '1px solid color-mix(in srgb, var(--t-border) 50%, transparent)',
+                background: open
+                  ? 'color-mix(in srgb, var(--t-bg2) 72%, transparent)'
+                  : 'color-mix(in srgb, var(--t-bg2) 55%, transparent)',
+                backdropFilter: open ? 'blur(14px)' : 'blur(8px)',
+                color: open ? 'var(--t-text)' : 'var(--t-text2)',
+                fontSize: 11,
+                fontWeight: 500,
+                fontFamily: 'var(--font-sans)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'background 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
+                boxShadow: open ? '0 2px 12px rgba(0,0,0,0.08)' : 'none',
+              }
+        }
+        title={showValue ? `${label} · ${displayValue}` : label}
       >
-        <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, opacity: 0.75 }}>{icon}</span>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 64 }}>{displayValue}</span>
-        <span
-          style={{
-            fontSize: 8,
-            opacity: 0.45,
-            flexShrink: 0,
-            marginLeft: 1,
-            transition: 'transform 0.2s',
-            transform: open ? 'rotate(180deg)' : '',
-          }}
-        >
-          ▾
-        </span>
+        {showValue ? (
+          <>
+            <span className="ai-parameter-icon" aria-hidden="true">
+              {icon}
+            </span>
+            <span className="ai-parameter-caption">
+              <span className="sr-only">{label}</span>
+              <strong>{displayValue}</strong>
+            </span>
+            <CaretDown size={11} className="ai-parameter-chevron" aria-hidden="true" />
+          </>
+        ) : (
+          <>
+            <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, opacity: 0.75 }}>{icon}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 64 }}>{displayValue}</span>
+            <span
+              style={{
+                fontSize: 8,
+                opacity: 0.45,
+                flexShrink: 0,
+                marginLeft: 1,
+                transition: 'transform 0.2s',
+                transform: open ? 'rotate(180deg)' : '',
+              }}
+            >
+              ▾
+            </span>
+          </>
+        )}
       </button>
       {open && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 31 }} onClick={onToggle} />
+          {!showValue && <div style={{ position: 'fixed', inset: 0, zIndex: 31 }} onClick={onToggle} />}
           <div
-            className="nodrag"
+            id={popoverId}
+            className={showValue ? 'nodrag nowheel ai-parameter-popover' : 'nodrag'}
             onPointerDown={(event) => event.stopPropagation()}
-            style={{
-              position: 'absolute',
-              ...(direction === 'up' ? { bottom: '100%', marginBottom: 8 } : { top: '100%', marginTop: 8 }),
-              right: 0,
-              minWidth: 260,
-              borderRadius: 16,
-              background: 'color-mix(in srgb, var(--t-card) 94%, transparent)',
-              backdropFilter: 'blur(48px) saturate(180%)',
-              border: '1px solid color-mix(in srgb, var(--t-border) 72%, transparent)',
-              boxShadow:
-                direction === 'up'
-                  ? '0 -12px 48px rgba(0,0,0,0.14), 0 -1px 0 rgba(255,255,255,0.07) inset'
-                  : '0 16px 48px rgba(0,0,0,0.16), 0 1px 0 rgba(255,255,255,0.07) inset',
-              zIndex: 32,
-            }}
+            style={
+              showValue
+                ? undefined
+                : {
+                    position: 'absolute',
+                    ...(direction === 'up' ? { bottom: '100%', marginBottom: 8 } : { top: '100%', marginTop: 8 }),
+                    right: 0,
+                    minWidth: 260,
+                    borderRadius: 16,
+                    background: 'color-mix(in srgb, var(--t-card) 94%, transparent)',
+                    backdropFilter: 'blur(48px) saturate(180%)',
+                    border: '1px solid color-mix(in srgb, var(--t-border) 72%, transparent)',
+                    boxShadow:
+                      direction === 'up'
+                        ? '0 -12px 48px rgba(0,0,0,0.14), 0 -1px 0 rgba(255,255,255,0.07) inset'
+                        : '0 16px 48px rgba(0,0,0,0.16), 0 1px 0 rgba(255,255,255,0.07) inset',
+                    zIndex: 32,
+                  }
+            }
           >
             <div
               style={{
