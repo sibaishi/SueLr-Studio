@@ -338,6 +338,7 @@ Cross-runtime contracts remain independently typed at each runtime boundary. Beh
   - unified general-purpose input/output behavior
 - `backend/src/engine/nodes/aiV3/`
   - capability-routed chat, image, video, and Midjourney execution
+  - AI 能力节点将图像输出档位保存为 `imageResolution`，旧节点读取 `resolution` 时只接受有效的图像档位。视频能力接口忽略旧请求中的 `resolution`，视频适配器提交上游任务时省略该字段。
 - `backend/src/engine/nodes/promptHelper.ts`
   - prompt structuring and optimization
 - `backend/src/engine/nodes/materialProcess.ts`

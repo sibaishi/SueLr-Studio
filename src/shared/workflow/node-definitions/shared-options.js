@@ -27,12 +27,6 @@ export const VIDEO_DURATION_OPTIONS = [
   { label: '15秒', value: 15 },
 ];
 
-export const VIDEO_RESOLUTION_OPTIONS = [
-  { label: '480p', value: '480p' },
-  { label: '720p', value: '720p' },
-  { label: '1080p', value: '1080p' },
-];
-
 export const VIDEO_RATIO_OPTIONS = [
   { label: '自动', value: 'auto' },
   { label: '16:9', value: '16:9' },

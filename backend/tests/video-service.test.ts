@@ -74,7 +74,6 @@ test('submitVideoGeneration uses Ark contents generation tasks endpoint and payl
       prompt: 'a cinematic sunrise',
       duration: '10',
       aspect_ratio: '16:9',
-      resolution: '720p',
       image_url: 'data:image/png;base64,YWJj',
       sendProgress: (message) => progress.push(message),
     });
@@ -90,7 +89,7 @@ test('submitVideoGeneration uses Ark contents generation tasks endpoint and payl
     assert.equal(requestBody.ratio, '16:9');
     assert.equal(requestBody.duration, 10);
     assert.equal(typeof requestBody.duration, 'number');
-    assert.equal(requestBody.resolution, '720p');
+    assert.equal(Object.hasOwn(requestBody, 'resolution'), false);
     assert.deepEqual(requestBody.content, [
       { type: 'text', text: 'a cinematic sunrise' },
       { type: 'image_url', image_url: { url: 'data:image/png;base64,YWJj' }, role: 'reference_image' },
@@ -143,7 +142,6 @@ test('video generation progress messages remain readable Chinese UTF-8', async (
       prompt: 'a cinematic sunrise',
       duration: 10,
       aspect_ratio: '16:9',
-      resolution: '720p',
       sendProgress: (message) => progress.push(message),
     });
 
@@ -266,7 +264,6 @@ test('executeVideoGeneration prefers playable media url over provider result_url
       prompt: 'a cinematic sunrise',
       duration: 5,
       aspect_ratio: '16:9',
-      resolution: '720p',
     }, runtime);
 
     assert.match(result.video, /^\/api\/outputs\/videos\/.+\.mp4$/);
@@ -376,7 +373,6 @@ test('executeVideoGeneration stores synchronous video results under generated vi
       prompt: 'a cinematic sunrise',
       duration: 5,
       aspect_ratio: '16:9',
-      resolution: '720p',
     }, runtime);
 
     assert.match(result.video, /^\/api\/outputs\/videos\/.+\.mp4$/);
@@ -392,12 +388,14 @@ test('executeVideoGeneration can leave generated video data unpersisted for work
   const cleanupStorage = withTempStorage();
   const originalFetch = globalThis.fetch;
 
-  globalThis.fetch = async () => new Response(JSON.stringify({
-    video_url: 'data:video/mp4;base64,QUJD',
-  }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+  let requestBody = null;
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(String(options.body));
+    return new Response(JSON.stringify({ video_url: 'data:video/mp4;base64,QUJD' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
 
   try {
     const runtime = createRuntime({
@@ -414,9 +412,10 @@ test('executeVideoGeneration can leave generated video data unpersisted for work
       prompt: 'a cinematic sunrise',
       duration: 5,
       aspect_ratio: '16:9',
-      resolution: '720p',
     }, runtime);
 
+    assert.equal(requestBody.prompt, 'a cinematic sunrise');
+    assert.equal(Object.hasOwn(requestBody, 'resolution'), false);
     assert.equal(result.video, 'data:video/mp4;base64,QUJD');
     const videosDir = path.join(STORAGE_PATHS.generatedDir, 'videos');
     assert.equal(fs.existsSync(videosDir) ? fs.readdirSync(videosDir).length : 0, 0);

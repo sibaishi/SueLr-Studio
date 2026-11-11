@@ -167,7 +167,7 @@ function getSizeFromRatio(ratio: DynamicValue): string | undefined {
   return SIZE_BY_RATIO[ratio as keyof typeof SIZE_BY_RATIO] || undefined;
 }
 
-function normalizeImageResolution(value: DynamicValue): string {
+export function normalizeImageResolution(value: DynamicValue): string {
   const normalized = cleanText(value).toLowerCase();
   return ALLOWED_IMAGE_RESOLUTION.has(normalized) ? normalized : '';
 }

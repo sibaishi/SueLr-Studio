@@ -206,7 +206,6 @@ export function validateVideoBody(payload: DynamicValue) {
     prompt: cleanOptionalString(body.prompt, 12000),
     duration: validateVideoDuration(body.duration),
     aspect_ratio: cleanOptionalString(body.aspect_ratio, 40),
-    resolution: cleanOptionalString(body.resolution, 40),
     image_url: validateUrlOrEmpty(body.image_url, 'image_url', ['image/']),
     image_urls: validateUrlArray(body.image_urls, 'image_urls', ['image/']),
     video_url: validateUrlOrEmpty(body.video_url, 'video_url', ['video/']),

@@ -1,5 +1,6 @@
 import { runImageGeneration } from '../../../platform/ai/image-service.ts';
 import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
+import { normalizeImageResolution } from '../../helpers/imageGeneration.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
 import { dedupePreferUrl } from './helpers.ts';
 
@@ -18,7 +19,7 @@ export async function executeImageMode(
     width: nodeData.width,
     height: nodeData.height,
     quality: nodeData.quality,
-    resolution: nodeData.resolution,
+    resolution: nodeData.imageResolution ?? normalizeImageResolution(nodeData.resolution),
     n: nodeData.n,
     output_format: nodeData.output_format,
     image: images.length > 0 ? images : undefined,

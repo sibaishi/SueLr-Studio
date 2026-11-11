@@ -57,7 +57,6 @@ interface VideoGenerationRequest extends JsonRecord {
   prompt?: unknown;
   duration?: unknown;
   aspect_ratio?: string;
-  resolution?: string;
   image_url?: unknown;
   image_urls?: unknown[];
   video_url?: unknown;
@@ -403,7 +402,6 @@ export async function submitVideoGeneration({
   prompt,
   duration,
   aspect_ratio,
-  resolution,
   image_url,
   image_urls,
   video_url,
@@ -458,14 +456,12 @@ export async function submitVideoGeneration({
         }),
         ...(normalizedDuration !== undefined ? { duration: normalizedDuration } : {}),
         ...(aspect_ratio && aspect_ratio !== 'auto' ? { ratio: aspect_ratio } : {}),
-        ...(resolution ? { resolution } : {}),
       }
     : {
         model: resolvedModelId,
         ...(prompt ? { prompt } : {}),
         ...(normalizedDuration !== undefined ? { duration: normalizedDuration } : {}),
         ...(aspect_ratio && aspect_ratio !== 'auto' ? { aspect_ratio } : {}),
-        ...(resolution ? { resolution } : {}),
         ...(image_url ? { image_url } : {}),
         ...(image_urls?.length ? { image_urls } : {}),
         ...(video_url ? { video_url } : {}),
@@ -482,7 +478,6 @@ export async function submitVideoGeneration({
     promptLength: normalizeTextInput(prompt).length,
     duration: normalizedDuration,
     aspectRatio: aspect_ratio || '',
-    resolution: resolution || '',
     imageUrl: summarizeMedia(image_url),
     imageUrls: summarizeMediaList(image_urls),
     videoUrl: summarizeMedia(video_url),
@@ -626,7 +621,6 @@ export async function executeVideoGeneration(
     prompt,
     duration: request.duration || 5,
     aspect_ratio: request.aspect_ratio || 'auto',
-    resolution: request.resolution || '720p',
     image_url: payload.images[0] || null,
     image_urls: payload.images,
     video_url: payload.videos[0] || null,

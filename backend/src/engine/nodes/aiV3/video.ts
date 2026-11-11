@@ -28,7 +28,6 @@ export async function executeVideoMode(
       audio,
       duration: (nodeData.duration as number) || 5,
       aspect_ratio: String(nodeData.ratio || 'auto'),
-      resolution: String(nodeData.resolution || '720p'),
     },
     vConfig,
     sendProgress,

@@ -30,18 +30,6 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 
 import './ai-v3-parameters.css';
 
-const fieldStyle: React.CSSProperties = {
-  border: '1px solid color-mix(in srgb, var(--t-border) 72%, transparent)',
-  borderRadius: 9,
-  background: 'color-mix(in srgb, var(--t-bg2) 60%, transparent)',
-  color: 'var(--t-text)',
-  fontSize: 12,
-  padding: '6px 10px',
-  minHeight: 32,
-  outline: 'none',
-  fontFamily: 'var(--font-sans)',
-};
-
 const RATIO_OPTIONS = [
   { label: 'auto', value: 'auto' },
   { label: '1:1', value: '1:1' },
@@ -55,32 +43,32 @@ const RATIO_OPTIONS = [
 
 const RESOLUTION_OPTIONS = [
   { label: 'auto', value: 'auto' },
-  { label: '512px', value: '512px' },
-  { label: '1k', value: '1k' },
-  { label: '2k', value: '2k' },
-  { label: '4k', value: '4k' },
+  { label: '512PX', value: '512px' },
+  { label: '1K', value: '1k' },
+  { label: '2K', value: '2k' },
+  { label: '4K', value: '4k' },
 ];
 
 const FORMAT_OPTIONS = [
-  { label: 'png', value: 'png' },
-  { label: 'jpeg', value: 'jpeg' },
-  { label: 'webp', value: 'webp' },
+  { label: 'PNG', value: 'png' },
+  { label: 'JPEG', value: 'jpeg' },
+  { label: 'WEBP', value: 'webp' },
 ];
 
 const VIDEO_DURATION_OPTIONS = [
-  { label: '自动', value: -1 },
-  { label: '4 秒', value: 4 },
-  { label: '5 秒', value: 5 },
-  { label: '6 秒', value: 6 },
-  { label: '7 秒', value: 7 },
-  { label: '8 秒', value: 8 },
-  { label: '9 秒', value: 9 },
-  { label: '10 秒', value: 10 },
-  { label: '11 秒', value: 11 },
-  { label: '12 秒', value: 12 },
-  { label: '13 秒', value: 13 },
-  { label: '14 秒', value: 14 },
-  { label: '15 秒', value: 15 },
+  { label: '自动', value: '-1' },
+  { label: '4 秒', value: '4' },
+  { label: '5 秒', value: '5' },
+  { label: '6 秒', value: '6' },
+  { label: '7 秒', value: '7' },
+  { label: '8 秒', value: '8' },
+  { label: '9 秒', value: '9' },
+  { label: '10 秒', value: '10' },
+  { label: '11 秒', value: '11' },
+  { label: '12 秒', value: '12' },
+  { label: '13 秒', value: '13' },
+  { label: '14 秒', value: '14' },
+  { label: '15 秒', value: '15' },
 ];
 
 const VIDEO_RATIO_OPTIONS = [
@@ -92,10 +80,24 @@ const VIDEO_RATIO_OPTIONS = [
   { label: '3:4', value: '3:4' },
 ];
 
-const VIDEO_RESOLUTION_OPTIONS = [
-  { label: '480p', value: '480p' },
-  { label: '720p', value: '720p' },
-  { label: '1080p', value: '1080p' },
+const MIDJOURNEY_MODE_OPTIONS = [
+  { label: 'Fast', value: 'fast' },
+  { label: 'Relax', value: 'relax' },
+  { label: 'Turbo', value: 'turbo' },
+];
+
+const MIDJOURNEY_RATIO_OPTIONS = [
+  ...RATIO_OPTIONS.filter(({ value }) => value !== 'auto'),
+  { label: '21:9', value: '21:9' },
+];
+
+const MIDJOURNEY_VERSION_OPTIONS = [
+  { label: '默认', value: '' },
+  { label: 'V8.1', value: '8.1' },
+  { label: 'V7', value: '7' },
+  { label: 'V6.1', value: '6.1' },
+  { label: 'Niji7', value: 'niji 7' },
+  { label: 'Niji6', value: 'niji 6' },
 ];
 
 function roundToNearest16(value: unknown) {
@@ -327,7 +329,10 @@ export default function AiV3StylePanel() {
   }, [modelTree, selectedModel]);
 
   const ratioHint = nodeData.ratio && nodeData.ratio !== 'auto' ? String(nodeData.ratio) : undefined;
-  const imageResolution = String(nodeData.resolution || 'auto');
+  const storedImageResolution = String(nodeData.imageResolution ?? nodeData.resolution ?? '')
+    .trim()
+    .toLowerCase();
+  const imageResolution = RESOLUTION_OPTIONS.find(({ value }) => value === storedImageResolution)?.value || 'auto';
   const imageFormat = String(nodeData.output_format || 'png');
   const sizeHint =
     nodeData.width || nodeData.height ? `${nodeData.width || '自动'} × ${nodeData.height || '自动'}` : '自动';
@@ -335,10 +340,12 @@ export default function AiV3StylePanel() {
     imageResolution === 'auto'
       ? imageFormat.toUpperCase()
       : `${imageResolution.toUpperCase()} · ${imageFormat.toUpperCase()}`;
-  const durationHint = nodeData.duration ? `${nodeData.duration}s` : undefined;
-  const videoResHint = nodeData.resolution && nodeData.resolution !== 'auto' ? String(nodeData.resolution) : undefined;
-  const mjModeHint = nodeData.mjMode ? String(nodeData.mjMode) : undefined;
-  const mjArHint = nodeData.mjAr ? String(nodeData.mjAr) : undefined;
+  const videoDuration = String(nodeData.duration || 5);
+  const durationHint =
+    VIDEO_DURATION_OPTIONS.find(({ value }) => value === videoDuration)?.label || `${videoDuration} 秒`;
+  const mjMode = String(nodeData.mjMode || 'fast');
+  const mjModeHint = MIDJOURNEY_MODE_OPTIONS.find(({ value }) => value === mjMode)?.label || mjMode;
+  const mjAr = String(nodeData.mjAr || '1:1');
 
   // ── early exit ──
   if (!v3Node) return null;
@@ -498,63 +505,38 @@ export default function AiV3StylePanel() {
 
       {/* ── CHAT MODE ── */}
       {currentMode === 'chat' && (
-        <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex' }}>
+        <div className="ai-composer">
           <textarea
-            className="nodrag nowheel"
             value={String(nodeData.systemPrompt || '')}
             onChange={(e) => setData({ systemPrompt: e.target.value })}
-            style={{
-              width: '100%',
-              height: '100%',
-              resize: 'none',
-              border: '1px solid var(--t-border)',
-              borderRadius: 15,
-              outline: 'none',
-              background: 'var(--t-bg2)',
-              color: 'var(--t-text)',
-              fontSize: 13,
-              lineHeight: 1.6,
-              padding: '10px 14px 44px',
-              fontFamily: 'inherit',
-            }}
+            className="nodrag nowheel ai-composer-prompt"
             placeholder="系统提示词（如：你是一个有帮助的 AI 助手）"
             onPointerDown={(e) => e.stopPropagation()}
           />
-          <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
+          <div className="nodrag ai-parameter-toolbar" aria-label="文本参数" role="group">
             <button
               type="button"
               onClick={() => setData({ enableWebSearch: !webSearchEnabled })}
-              className="nodrag"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 30,
-                height: 30,
-                borderRadius: 10,
-                border: webSearchEnabled ? '1px solid var(--node-color)' : '1px solid transparent',
-                background: webSearchEnabled ? 'color-mix(in srgb, var(--node-color) 12%, transparent)' : 'transparent',
-                color: webSearchEnabled ? 'var(--node-color)' : 'var(--t-text3)',
-                cursor: 'pointer',
-                transition: 'background 140ms ease, border-color 140ms ease, color 140ms ease',
-              }}
+              className="nodrag ai-parameter-trigger ai-web-search"
+              aria-pressed={webSearchEnabled}
               title={webSearchEnabled ? '联网搜索已开启' : '联网搜索'}
             >
-              <Globe size={14} />
+              <span className="ai-parameter-icon" aria-hidden="true">
+                <Globe size={15} />
+              </span>
+              <span className="ai-parameter-caption">
+                <strong>联网搜索</strong>
+              </span>
             </button>
             <StylePanelPopoverButton
-              icon={<Crosshair size={14} />}
+              showValue
+              icon={<Crosshair size={15} />}
               label="模型"
               valueHint={modelLabel}
               open={openPopover === 'model'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}
             >
-              <ModelTreeSelector
-                tree={modelTree}
-                selectedModel={selectedModel}
-                onSelect={(v) => handleModelChange(v)}
-              />
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={handleModelChange} />
             </StylePanelPopoverButton>
           </div>
         </div>
@@ -562,29 +544,14 @@ export default function AiV3StylePanel() {
 
       {/* ── IMAGE MODE ── */}
       {currentMode === 'image' && (
-        <div className="ai-image-composer">
+        <div className="ai-composer">
           <textarea
-            className="nodrag nowheel"
             value={promptValue}
             onChange={(e) => {
               setPromptValue(e.target.value);
               setData({ prompt: e.target.value });
             }}
-            style={{
-              width: '100%',
-              flex: 1,
-              minHeight: 0,
-              resize: 'none',
-              border: 0,
-              borderRadius: 15,
-              outline: 'none',
-              background: 'transparent',
-              color: 'var(--t-text)',
-              fontSize: 13,
-              lineHeight: 1.6,
-              padding: '10px 14px',
-              fontFamily: 'inherit',
-            }}
+            className="nodrag nowheel ai-composer-prompt"
             placeholder="输入提示词..."
             onPointerDown={(e) => e.stopPropagation()}
           />
@@ -671,7 +638,7 @@ export default function AiV3StylePanel() {
                 label="输出档位"
                 options={RESOLUTION_OPTIONS}
                 value={imageResolution}
-                onChange={(resolution) => setData({ resolution })}
+                onChange={(imageResolution) => setData({ imageResolution })}
               />
               <ParameterChoices
                 label="文件格式"
@@ -686,113 +653,58 @@ export default function AiV3StylePanel() {
 
       {/* ── VIDEO MODE ── */}
       {currentMode === 'video' && (
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div className="ai-composer">
           <textarea
-            className="nodrag nowheel"
             value={promptValue}
             onChange={(e) => {
               setPromptValue(e.target.value);
               setData({ prompt: e.target.value });
             }}
-            style={{
-              width: '100%',
-              height: '100%',
-              resize: 'none',
-              border: '1px solid var(--t-border)',
-              borderRadius: 15,
-              outline: 'none',
-              background: 'var(--t-bg2)',
-              color: 'var(--t-text)',
-              fontSize: 13,
-              lineHeight: 1.6,
-              padding: '10px 14px 44px',
-              fontFamily: 'inherit',
-            }}
+            className="nodrag nowheel ai-composer-prompt"
             placeholder="输入提示词（描述视频画面和运镜）..."
             onPointerDown={(e) => e.stopPropagation()}
           />
-          <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
+          <div className="nodrag ai-parameter-toolbar" aria-label="视频生成参数" role="group">
             <StylePanelPopoverButton
-              icon={<Crosshair size={14} />}
+              showValue
+              icon={<Crosshair size={15} />}
               label="模型"
               valueHint={modelLabel}
               open={openPopover === 'model'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}
             >
-              <ModelTreeSelector
-                tree={modelTree}
-                selectedModel={selectedModel}
-                onSelect={(v) => handleModelChange(v)}
-              />
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={handleModelChange} />
             </StylePanelPopoverButton>
             <StylePanelPopoverButton
-              icon={<Clock size={14} />}
+              showValue
+              icon={<Clock size={15} />}
               label="时长"
               valueHint={durationHint}
               open={openPopover === 'duration'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'duration' ? null : 'duration')}
             >
-              <select
-                value={String(nodeData.duration || 5)}
-                onChange={(e) => {
-                  setData({ duration: Number(e.target.value) });
-                  setOpenPopover(null);
-                }}
-                className="nodrag"
-                style={{ ...fieldStyle, width: '100%' }}
-              >
-                {VIDEO_DURATION_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <ParameterChoices
+                label="视频时长"
+                options={VIDEO_DURATION_OPTIONS}
+                value={videoDuration}
+                onChange={(duration) => setData({ duration: Number(duration) })}
+              />
             </StylePanelPopoverButton>
             <StylePanelPopoverButton
-              icon={<Ruler size={14} />}
-              label="分辨率"
-              valueHint={videoResHint}
-              open={openPopover === 'resolution'}
-              direction="up"
-              onToggle={() => setOpenPopover(openPopover === 'resolution' ? null : 'resolution')}
+              showValue
+              icon={<GridNine size={15} />}
+              label="比例"
+              valueHint={ratioHint || '自动'}
+              open={openPopover === 'ratio'}
+              onToggle={() => setOpenPopover(openPopover === 'ratio' ? null : 'ratio')}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>比例</div>
-                  <select
-                    value={String(nodeData.ratio || 'auto')}
-                    onChange={(e) => {
-                      setData({ ratio: e.target.value });
-                      setOpenPopover(null);
-                    }}
-                    className="nodrag"
-                    style={{ ...fieldStyle, width: '100%' }}
-                  >
-                    {VIDEO_RATIO_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <select
-                  value={String(nodeData.resolution || '720p')}
-                  onChange={(e) => {
-                    setData({ resolution: e.target.value });
-                    setOpenPopover(null);
-                  }}
-                  className="nodrag"
-                  style={{ ...fieldStyle, width: '100%' }}
-                >
-                  {VIDEO_RESOLUTION_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <ParameterChoices
+                label="画面比例"
+                options={VIDEO_RATIO_OPTIONS}
+                value={String(nodeData.ratio || 'auto')}
+                onChange={(ratio) => setData({ ratio })}
+                showRatio
+              />
             </StylePanelPopoverButton>
           </div>
         </div>
@@ -800,158 +712,85 @@ export default function AiV3StylePanel() {
 
       {/* ── MIDJOURNEY MODE ── */}
       {currentMode === 'midjourney' && (
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div className="ai-composer">
           <textarea
-            className="nodrag nowheel"
             value={promptValue}
             onChange={(e) => {
               setPromptValue(e.target.value);
               setData({ prompt: e.target.value });
             }}
-            style={{
-              width: '100%',
-              height: '100%',
-              resize: 'none',
-              border: '1px solid var(--t-border)',
-              borderRadius: 15,
-              outline: 'none',
-              background: 'var(--t-bg2)',
-              color: 'var(--t-text)',
-              fontSize: 13,
-              lineHeight: 1.6,
-              padding: '10px 14px 44px',
-              fontFamily: 'inherit',
-            }}
+            className="nodrag nowheel ai-composer-prompt"
             placeholder="输入提示词..."
             onPointerDown={(e) => e.stopPropagation()}
           />
-          <div className="nodrag" style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 4 }}>
+          <div className="nodrag ai-parameter-toolbar" aria-label="Midjourney 参数" role="group">
             <StylePanelPopoverButton
-              icon={<Crosshair size={14} />}
+              showValue
+              icon={<Crosshair size={15} />}
               label="模型"
               valueHint={modelLabel}
               open={openPopover === 'model'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}
             >
-              <ModelTreeSelector
-                tree={modelTree}
-                selectedModel={selectedModel}
-                onSelect={(v) => handleModelChange(v)}
-              />
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={handleModelChange} />
             </StylePanelPopoverButton>
             <StylePanelPopoverButton
-              icon={<Gauge size={14} />}
+              showValue
+              icon={<Gauge size={15} />}
               label="模式"
               valueHint={mjModeHint}
               open={openPopover === 'mjMode'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'mjMode' ? null : 'mjMode')}
             >
-              <select
-                value={String(nodeData.mjMode || 'fast')}
-                onChange={(e) => {
-                  setData({ mjMode: e.target.value });
-                  setOpenPopover(null);
-                }}
-                className="nodrag"
-                style={{ ...fieldStyle, width: '100%' }}
-              >
-                <option value="fast">Fast</option>
-                <option value="relax">Relax</option>
-                <option value="turbo">Turbo</option>
-              </select>
+              <ParameterChoices
+                label="生成模式"
+                options={MIDJOURNEY_MODE_OPTIONS}
+                value={mjMode}
+                onChange={(mjMode) => setData({ mjMode })}
+              />
             </StylePanelPopoverButton>
             <StylePanelPopoverButton
-              icon={<Ruler size={14} />}
+              showValue
+              icon={<Ruler size={15} />}
               label="比例"
-              valueHint={mjArHint}
+              valueHint={mjAr}
               open={openPopover === 'mjAr'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'mjAr' ? null : 'mjAr')}
             >
-              <select
-                value={String(nodeData.mjAr || '1:1')}
-                onChange={(e) => {
-                  setData({ mjAr: e.target.value });
-                  setOpenPopover(null);
-                }}
-                className="nodrag"
-                style={{ ...fieldStyle, width: '100%' }}
-              >
-                <option value="1:1">1:1</option>
-                <option value="4:3">4:3</option>
-                <option value="3:4">3:4</option>
-                <option value="16:9">16:9</option>
-                <option value="9:16">9:16</option>
-                <option value="21:9">21:9</option>
-                <option value="3:2">3:2</option>
-                <option value="2:3">2:3</option>
-              </select>
+              <ParameterChoices
+                label="画面比例"
+                options={MIDJOURNEY_RATIO_OPTIONS}
+                value={mjAr}
+                onChange={(mjAr) => setData({ mjAr })}
+                showRatio
+              />
             </StylePanelPopoverButton>
             <StylePanelPopoverButton
-              icon={<SlidersHorizontal size={14} />}
+              showValue
+              icon={<SlidersHorizontal size={15} />}
               label="参数"
               open={openPopover === 'mjParams'}
-              direction="up"
               onToggle={() => setOpenPopover(openPopover === 'mjParams' ? null : 'mjParams')}
             >
-              <div
-                className="nodrag"
-                style={{ width: 200, display: 'flex', flexDirection: 'column', gap: 8 }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>
-                    版本 (--v)
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {['', '8.1', '7', '6.1', 'niji 7', 'niji 6'].map((v) => {
-                      const label = v === '' ? '默认' : v === 'niji 7' ? 'Niji7' : v === 'niji 6' ? 'Niji6' : `V${v}`;
-                      const active = (nodeData.mjVersion || '') === v;
-                      return (
-                        <button
-                          key={v}
-                          type="button"
-                          onClick={() => setData({ mjVersion: v || undefined })}
-                          style={{
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            border: active ? '1px solid var(--node-color)' : '1px solid var(--t-border)',
-                            background: active
-                              ? 'color-mix(in srgb, var(--node-color) 12%, transparent)'
-                              : 'var(--t-bg2)',
-                            color: active ? 'var(--node-color)' : 'var(--t-text3)',
-                            fontSize: 11,
-                            fontWeight: active ? 600 : 400,
-                            cursor: 'pointer',
-                            transition: 'background 120ms, border-color 120ms',
-                          }}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>
-                      种子 (--seed)
-                    </div>
+              <ParameterChoices
+                label="版本 (--v)"
+                options={MIDJOURNEY_VERSION_OPTIONS}
+                value={String(nodeData.mjVersion || '')}
+                onChange={(mjVersion) => setData({ mjVersion: mjVersion || undefined })}
+              />
+              <AiMenuModule label="生成参数">
+                <div className="ai-parameter-dimensions">
+                  <label className="ai-parameter-field">
+                    <span>种子 (--seed)</span>
                     <input
                       type="number"
                       value={String(nodeData.mjSeed ?? '')}
                       placeholder="随机"
                       onChange={(e) => setData({ mjSeed: e.target.value ? Number(e.target.value) : undefined })}
-                      className="nodrag"
-                      style={{ ...fieldStyle, width: '100%' }}
                     />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>
-                      风格化 (--s)
-                    </div>
+                  </label>
+                  <label className="ai-parameter-field">
+                    <span>风格化 (--s)</span>
                     <input
                       type="number"
                       min={0}
@@ -963,16 +802,12 @@ export default function AiV3StylePanel() {
                           mjStylize: e.target.value ? Math.max(0, Math.min(1000, Number(e.target.value))) : undefined,
                         })
                       }
-                      className="nodrag"
-                      style={{ ...fieldStyle, width: '100%' }}
                     />
-                  </div>
+                  </label>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>
-                      混乱度 (--c)
-                    </div>
+                <div className="ai-parameter-dimensions">
+                  <label className="ai-parameter-field">
+                    <span>混乱度 (--c)</span>
                     <input
                       type="number"
                       min={0}
@@ -984,25 +819,19 @@ export default function AiV3StylePanel() {
                           mjChaos: e.target.value ? Math.max(0, Math.min(100, Number(e.target.value))) : undefined,
                         })
                       }
-                      className="nodrag"
-                      style={{ ...fieldStyle, width: '100%' }}
                     />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: 'var(--t-text3)', marginBottom: 5, fontWeight: 500 }}>
-                      排除 (--no)
-                    </div>
+                  </label>
+                  <label className="ai-parameter-field">
+                    <span>排除 (--no)</span>
                     <input
                       type="text"
                       value={String(nodeData.mjNo || '')}
                       placeholder="text, watermark"
                       onChange={(e) => setData({ mjNo: e.target.value })}
-                      className="nodrag"
-                      style={{ ...fieldStyle, width: '100%' }}
                     />
-                  </div>
+                  </label>
                 </div>
-              </div>
+              </AiMenuModule>
             </StylePanelPopoverButton>
           </div>
         </div>
@@ -1200,7 +1029,7 @@ function ParameterChoices({
                   )}
                 </span>
               )}
-              {option.value === 'auto' ? '自动' : option.label.toUpperCase()}
+              {option.value === 'auto' ? '自动' : option.label}
             </button>
           );
         })}

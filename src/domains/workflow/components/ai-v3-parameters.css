@@ -1,4 +1,4 @@
-.ai-image-composer {
+.ai-composer {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -6,6 +6,22 @@
   border: 1px solid var(--t-border);
   border-radius: 15px;
   background: var(--t-bg);
+}
+
+.ai-composer-prompt {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  border: 0;
+  border-radius: 15px;
+  outline: none;
+  background: transparent;
+  color: var(--t-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 10px 14px;
 }
 
 .ai-parameter-toolbar {
@@ -36,6 +52,15 @@
   cursor: pointer;
 }
 
+.ai-web-search {
+  width: auto;
+}
+
+.ai-web-search[aria-pressed="true"] {
+  border-color: var(--t-blue);
+  background: color-mix(in srgb, var(--t-blue) 10%, var(--t-card));
+}
+
 .ai-parameter-icon {
   display: flex;
   flex: none;
@@ -63,7 +88,7 @@
   color: var(--t-text2);
 }
 
-.ai-parameter-trigger[aria-expanded='true'] .ai-parameter-chevron {
+.ai-parameter-trigger[aria-expanded="true"] .ai-parameter-chevron {
   transform: rotate(180deg);
 }
 
@@ -159,7 +184,7 @@
   background: color-mix(in srgb, var(--t-blue) 6%, var(--t-bg));
 }
 
-.ai-parameter-trigger[aria-expanded='true'] {
+.ai-parameter-trigger[aria-expanded="true"] {
   border-color: color-mix(in srgb, var(--t-blue) 48%, var(--t-border));
   background: color-mix(in srgb, var(--t-blue) 13%, var(--t-bg));
 }
@@ -332,9 +357,9 @@
   background: color-mix(in srgb, var(--t-blue) 6%, var(--ai-menu-card));
 }
 
-.ai-model-option[aria-pressed='true'],
-.ai-model-branch[aria-expanded='true'],
-.ai-parameter-options button[aria-pressed='true'] {
+.ai-model-option[aria-pressed="true"],
+.ai-model-branch[aria-expanded="true"],
+.ai-parameter-options button[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--t-blue) 28%, var(--t-border));
   background: color-mix(in srgb, var(--t-blue) 10%, var(--ai-menu-surface));
   color: color-mix(in srgb, var(--t-blue) 55%, var(--t-text));
@@ -372,8 +397,8 @@
   color: var(--ai-menu-muted);
 }
 
-.ai-model-option[aria-pressed='true'] > svg,
-.ai-model-branch[aria-expanded='true'] > svg {
+.ai-model-option[aria-pressed="true"] > svg,
+.ai-model-branch[aria-expanded="true"] > svg {
   color: var(--t-blue);
 }
 

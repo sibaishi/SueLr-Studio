@@ -119,7 +119,6 @@ export async function capabilitySubmitVideoGeneration(params: {
   prompt: string;
   duration?: number;
   aspect_ratio?: string;
-  resolution?: string;
   image_url?: string;
   image_urls?: string[];
   video_url?: string;
