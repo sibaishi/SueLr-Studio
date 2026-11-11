@@ -76,6 +76,20 @@
 }
 .asset-library .asset-library__preview-image:focus-visible { outline-offset: -2px; }
 .asset-library__preview audio { width: 100%; }
+.asset-library__preview-text {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 180px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.asset-library__preview-text:focus-visible { outline-offset: -2px; }
 .asset-library__meta { font-size: 11px; color: var(--color-text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
 .asset-library__details form { display: flex; flex-direction: column; gap: 12px; }
 .asset-library__details label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }

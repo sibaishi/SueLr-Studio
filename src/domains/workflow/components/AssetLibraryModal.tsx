@@ -17,6 +17,7 @@ import { ImagePreviewModal } from './ImagePreviewModal';
 import './asset-library.css';
 
 const types = { image: '图片', video: '视频', audio: '音频', text: '文本', data: '数据', file: '文件' };
+const maxTextAssetSize = 2 * 1024 * 1024;
 const emptyPage: AssetPage = { items: [], total: 0, page: 1, pageSize: 48, categories: [], libraryTotal: 0 };
 
 function parseTags(value: string) {
@@ -186,7 +187,7 @@ export default function AssetLibraryModal({
     try {
       let text = '';
       if (asset.type === 'text' || asset.type === 'data') {
-        if (asset.size > 2 * 1024 * 1024) throw new Error('文本超过 2 MB，请下载后选取需要的内容');
+        if (asset.size > maxTextAssetSize) throw new Error('文本超过 2 MB，请下载后选取需要的内容');
         const response = await fetch(asset.url);
         if (!response.ok) throw new Error('资产文件无法读取，请刷新后重试');
         text = await response.text();
@@ -634,6 +635,43 @@ function AssetBatchDetails({
   );
 }
 
+function TextAssetPreview({ url, size }: { url: string; size: number }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const tooLarge = size > maxTextAssetSize;
+
+  useEffect(() => {
+    if (tooLarge) return;
+    const controller = new AbortController();
+
+    async function load() {
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error('资产文件无法读取');
+        const text = await response.text();
+        if (!controller.signal.aborted) setContent(text);
+      } catch {
+        if (!controller.signal.aborted) setError(true);
+      }
+    }
+
+    void load();
+    return () => controller.abort();
+  }, [url, tooLarge]);
+
+  if (tooLarge) return <span>文件超过 2 MB，请下载查看</span>;
+  if (error) return <span role="alert">无法读取文件，请重新选择资产后重试</span>;
+  if (content === null) return <span role="status">正在读取文本…</span>;
+  if (content === '') return <span>文件为空</span>;
+
+  return (
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: The scrollable preview needs keyboard focus.
+    <pre className="asset-library__preview-text" aria-label="文本预览" role="region" tabIndex={0}>
+      {content}
+    </pre>
+  );
+}
+
 function AssetDetails({
   asset,
   previewTrigger,
@@ -681,6 +719,8 @@ function AssetDetails({
             <audio src={asset.url} controls preload="metadata">
               <track kind="captions" />
             </audio>
+          ) : asset.type === 'text' || asset.type === 'data' ? (
+            <TextAssetPreview key={asset.url} url={asset.url} size={asset.size} />
           ) : (
             <span>{types[asset.type]}</span>
           )}
