@@ -1,18 +1,27 @@
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import { Router } from 'express';
-import { z } from 'zod';
 import { ValidationError } from '../../app/errors/index.ts';
 import { successEnvelope } from '../../app/http/envelope.ts';
 import { validateBody, validateParam, validateQuery } from '../../app/middleware/validate-request.ts';
 import { zodValidator } from '../../app/middleware/zod-validator.ts';
 import type { DynamicValue, NextFunctionLike, RequestLike, ResponseLike } from '../types.ts';
-import { assetMetadataSchema, assetQuerySchema, listAssets, updateAsset } from './asset-library.ts';
+import {
+  assetBatchSchema,
+  assetIdSchema,
+  assetMetadataSchema,
+  assetQuerySchema,
+  listAssets,
+  mutateAssetBatch,
+  removeAsset,
+  updateAsset,
+} from './asset-library.ts';
 import { filesController } from './files.controller.ts';
 import { validateFilename, validateUploadFile, validateUploadMetadataQuery } from './files.schema.ts';
 import { filesService } from './files.service.ts';
 
 const router = Router();
 const upload = filesService.createUploader();
+const validateAssetId = validateParam('id', zodValidator(assetIdSchema));
 
 router.get(
   '/assets',
@@ -25,9 +34,21 @@ router.get(
     }
   },
 );
+router.post(
+  '/assets/batch',
+  validateBody(zodValidator(assetBatchSchema)),
+  (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
+    try {
+      res.json(successEnvelope(mutateAssetBatch(req.body, { scope: req.scope })));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 router.patch(
   '/assets/:id',
-  validateParam('id', zodValidator(z.string().regex(/^[a-f0-9]{64}$/))),
+  validateAssetId,
   validateBody(zodValidator(assetMetadataSchema)),
   (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
     try {
@@ -37,6 +58,14 @@ router.patch(
     }
   },
 );
+
+router.delete('/assets/:id', validateAssetId, (req: RequestLike, res: ResponseLike, next: NextFunctionLike) => {
+  try {
+    res.json(successEnvelope(removeAsset(req.params.id, { scope: req.scope })));
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get('/files/generated', filesController.listGenerated.bind(filesController));
 router.delete('/files/generated', filesController.clearGenerated.bind(filesController));

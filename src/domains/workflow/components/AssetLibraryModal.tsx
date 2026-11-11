@@ -1,14 +1,33 @@
-import { eyebrowStyle, mutedPanelStyle } from '@/features/settings/components/styles';
+import { eyebrowStyle } from '@/features/settings/components/styles';
 import { ModalSurface } from '@/ui/ModalSurface';
-import { CaretDown, FolderOpen, MagnifyingGlass, Star, X } from '@phosphor-icons/react';
+import { CaretDown, CheckSquare, FolderOpen, MagnifyingGlass, Square, Star, X } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
-import { type AssetPage, type LibraryAsset, fetchAssets, updateAsset } from '../lib/api/assets';
+import {
+  type AssetBatchChange,
+  type AssetPage,
+  type LibraryAsset,
+  fetchAssets,
+  mutateAssetBatch,
+  removeAsset,
+  updateAsset,
+} from '../lib/api/assets';
 import { uploadFile } from '../lib/api/files';
 import { useWorkflowStore } from '../lib/store';
 import './asset-library.css';
 
 const types = { image: '图片', video: '视频', audio: '音频', text: '文本', data: '数据', file: '文件' };
 const emptyPage: AssetPage = { items: [], total: 0, page: 1, pageSize: 48, categories: [], libraryTotal: 0 };
+
+function parseTags(value: string) {
+  return value
+    .split(/[,，]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function validTags(tags: string[]) {
+  return tags.length <= 20 && tags.every((tag) => tag.length <= 40);
+}
 
 export default function AssetLibraryModal({
   onClose,
@@ -22,6 +41,8 @@ export default function AssetLibraryModal({
   const [page, setPage] = useState(1);
   const [data, setData] = useState(emptyPage);
   const [selected, setSelected] = useState<LibraryAsset | null>(null);
+  const [batchMode, setBatchMode] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -30,6 +51,13 @@ export default function AssetLibraryModal({
   const [notice, setNotice] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const lastExecutionTime = useWorkflowStore((s) => s.lastExecutionTime);
+
+  const batchIds = data.items.filter((asset) => checkedIds.has(asset.id)).map((asset) => asset.id);
+  const allChecked = batchIds.length > 0 && batchIds.length === data.items.length;
+
+  useEffect(() => {
+    setCheckedIds(new Set());
+  }, [search, type, source, category, favorite, page]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -49,7 +77,11 @@ export default function AssetLibraryModal({
       if (controller.signal.aborted) return;
       setLoading(false);
       if (result.success && result.data) {
-        setData(result.data);
+        const nextPage = result.data;
+        setData(nextPage);
+        setCheckedIds(
+          (current) => new Set(nextPage.items.filter((asset) => current.has(asset.id)).map((asset) => asset.id)),
+        );
         setLoadError('');
       } else setLoadError(result.error || '读取资产库失败');
     }, 180);
@@ -87,6 +119,48 @@ export default function AssetLibraryModal({
     }
     if (selected?.id === asset.id && result.data) setSelected(result.data);
     setRevision((v) => v + 1);
+  }
+
+  async function deleteAsset(asset: LibraryAsset) {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    const result = await removeAsset(asset.id);
+    setBusy(false);
+    if (!result.success) {
+      setError(result.error || '删除资产失败');
+      return;
+    }
+    setSelected((current) => (current?.id === asset.id ? null : current));
+    setNotice('已从资产库删除');
+    setRevision((v) => v + 1);
+  }
+
+  function toggleBatchSelection(id: string) {
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function applyBatch(change: AssetBatchChange) {
+    if (!batchIds.length || busy || loading) return;
+    setBusy(true);
+    setNotice('');
+    setError('');
+    const result = await mutateAssetBatch(batchIds, change);
+    setBusy(false);
+    setRevision((value) => value + 1);
+    if (!result.success || !result.data) {
+      setError(result.error || '批量操作失败');
+      return;
+    }
+    setCheckedIds(new Set());
+    setNotice(
+      change.action === 'remove' ? `已从资产库删除 ${result.data.count} 个资产` : `已更新 ${result.data.count} 个资产`,
+    );
   }
 
   async function backfill(asset: LibraryAsset) {
@@ -134,7 +208,7 @@ export default function AssetLibraryModal({
       backdropLabel="关闭资产库"
       isolateKeyboard
     >
-      <header className="asset-library__header glass">
+      <header className="asset-library__header asset-library__panel">
         <div>
           <div className="asset-library__eyebrow">Asset Library</div>
           <h2>
@@ -166,7 +240,7 @@ export default function AssetLibraryModal({
           }}
         />
       </header>
-      <div className="asset-library__filters glass">
+      <div className="asset-library__filters asset-library__panel">
         <div className="asset-library__search workflow-library-modal__search">
           <MagnifyingGlass size={14} />
           <input
@@ -252,10 +326,34 @@ export default function AssetLibraryModal({
         </p>
       )}
       <div className="asset-library__body">
-        <main className="asset-library__results glass" aria-busy={loading}>
+        <main className="asset-library__results asset-library__panel" aria-busy={loading}>
           <div className="asset-library__section-heading">
-            <div className="asset-library__eyebrow">素材浏览</div>
-            <h3>全部资产</h3>
+            <div>
+              <div className="asset-library__eyebrow">素材浏览</div>
+              <h3>全部资产</h3>
+            </div>
+            <div className="asset-library__batch-controls">
+              {batchMode && (
+                <button
+                  type="button"
+                  disabled={loading || busy || !data.items.length}
+                  onClick={() => setCheckedIds(allChecked ? new Set() : new Set(data.items.map((asset) => asset.id)))}
+                >
+                  {allChecked ? '取消全选' : '全选本页'}
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setBatchMode(!batchMode);
+                  setCheckedIds(new Set());
+                  setSelected(null);
+                }}
+              >
+                {batchMode ? '退出多选' : '多选'}
+              </button>
+            </div>
           </div>
           {loading ? (
             <p className="asset-library__empty">正在读取资产…</p>
@@ -270,14 +368,21 @@ export default function AssetLibraryModal({
               {data.items.map((asset) => (
                 <article
                   key={asset.id}
-                  className={`asset-library__card ${selected?.id === asset.id ? 'is-selected' : ''}`}
+                  className={`asset-library__card ${(batchMode ? checkedIds.has(asset.id) : selected?.id === asset.id) ? 'is-selected' : ''}`}
                 >
                   <button
                     type="button"
                     className="asset-library__select"
-                    aria-label={`查看 ${asset.name}`}
-                    onClick={() => setSelected(asset)}
+                    aria-label={batchMode ? `选择 ${asset.name}` : `查看 ${asset.name}`}
+                    aria-pressed={batchMode ? checkedIds.has(asset.id) : undefined}
+                    disabled={batchMode && busy}
+                    onClick={() => (batchMode ? toggleBatchSelection(asset.id) : setSelected(asset))}
                   >
+                    {batchMode && (
+                      <span className="asset-library__batch-check" aria-hidden="true">
+                        {checkedIds.has(asset.id) ? <CheckSquare size={18} weight="fill" /> : <Square size={18} />}
+                      </span>
+                    )}
                     <div className="asset-library__thumbnail">
                       {asset.type === 'image' ? (
                         <img
@@ -297,16 +402,18 @@ export default function AssetLibraryModal({
                       {asset.source === 'uploaded' ? '上传素材' : '生成结果'} · {asset.category || '未分类'}
                     </small>
                   </button>
-                  <button
-                    type="button"
-                    className="asset-library__favorite"
-                    disabled={busy}
-                    aria-label={`${asset.favorite ? '取消收藏' : '收藏'} ${asset.name}`}
-                    aria-pressed={asset.favorite}
-                    onClick={() => void toggleFavorite(asset)}
-                  >
-                    <Star size={18} weight={asset.favorite ? 'fill' : 'regular'} />
-                  </button>
+                  {!batchMode && (
+                    <button
+                      type="button"
+                      className="asset-library__favorite"
+                      disabled={busy}
+                      aria-label={`${asset.favorite ? '取消收藏' : '收藏'} ${asset.name}`}
+                      aria-pressed={asset.favorite}
+                      onClick={() => void toggleFavorite(asset)}
+                    >
+                      <Star size={18} weight={asset.favorite ? 'fill' : 'regular'} />
+                    </button>
+                  )}
                 </article>
               ))}
             </div>
@@ -328,11 +435,11 @@ export default function AssetLibraryModal({
             </button>
           </footer>
         </main>
-        <aside className="asset-library__details glass">
+        <aside className="asset-library__details asset-library__panel">
           <div className="asset-library__details-heading">
             <div>
               <div className="asset-library__eyebrow">资产详情</div>
-              <h3>预览与整理</h3>
+              <h3>{batchMode ? '批量操作' : '预览与整理'}</h3>
             </div>
             {selected && (
               <button type="button" aria-label="清除资产选择" onClick={() => setSelected(null)}>
@@ -340,6 +447,14 @@ export default function AssetLibraryModal({
               </button>
             )}
           </div>
+          {batchMode && (
+            <AssetBatchDetails
+              key={batchIds.join(',')}
+              count={batchIds.length}
+              disabled={busy || loading}
+              onApply={(change) => void applyBatch(change)}
+            />
+          )}
           {selected && (
             <AssetDetails
               key={selected.id}
@@ -347,8 +462,9 @@ export default function AssetLibraryModal({
               busy={busy}
               categories={data.categories}
               onBackfill={() => void backfill(selected)}
+              onDelete={() => void deleteAsset(selected)}
               onSave={async (name, nextCategory, tags) => {
-                if (tags.length > 20 || tags.some((tag) => tag.length > 40)) {
+                if (!validTags(tags)) {
                   setError('标签最多 20 个，每个最多 40 字符');
                   return;
                 }
@@ -366,7 +482,7 @@ export default function AssetLibraryModal({
               }}
             />
           )}
-          {!selected && (
+          {!selected && !batchMode && (
             <div className="asset-library__details-empty">
               <FolderOpen size={32} />
               <strong>选择一个资产</strong>
@@ -379,22 +495,128 @@ export default function AssetLibraryModal({
   );
 }
 
+function AssetBatchDetails({
+  count,
+  disabled,
+  onApply,
+}: {
+  count: number;
+  disabled: boolean;
+  onApply: (change: AssetBatchChange) => void;
+}) {
+  const [editCategory, setEditCategory] = useState(false);
+  const [editTags, setEditTags] = useState(false);
+  const [category, setCategory] = useState('');
+  const [tags, setTags] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const nextTags = parseTags(tags);
+  const tagsInvalid = editTags && !validTags(nextTags);
+
+  return (
+    <div className="asset-library__details-content asset-library__batch-details">
+      <p>本页已选 {count} 项</p>
+      {count > 0 &&
+        (confirmDelete ? (
+          <div className="asset-library__delete-confirm" role="group" aria-label="确认批量删除">
+            <p>从资产库删除这 {count} 项？原文件和画布引用会保留。</p>
+            <div>
+              <button type="button" disabled={disabled} onClick={() => setConfirmDelete(false)}>
+                取消
+              </button>
+              <button
+                type="button"
+                className="asset-library__danger"
+                disabled={disabled}
+                onClick={() => onApply({ action: 'remove' })}
+              >
+                确认批量删除
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              onApply({
+                action: 'edit',
+                patch: { ...(editCategory && { category: category.trim() }), ...(editTags && { tags: nextTags }) },
+              });
+            }}
+          >
+            <label className="asset-library__batch-option">
+              <input
+                type="checkbox"
+                checked={editCategory}
+                disabled={disabled}
+                onChange={(event) => setEditCategory(event.target.checked)}
+              />
+              修改分类
+            </label>
+            {editCategory && (
+              <input
+                aria-label="批量分类"
+                placeholder="新分类，留空清除"
+                maxLength={60}
+                value={category}
+                disabled={disabled}
+                onChange={(event) => setCategory(event.target.value)}
+              />
+            )}
+            <label className="asset-library__batch-option">
+              <input
+                type="checkbox"
+                checked={editTags}
+                disabled={disabled}
+                onChange={(event) => setEditTags(event.target.checked)}
+              />
+              替换标签
+            </label>
+            {editTags && (
+              <input
+                aria-label="批量标签"
+                placeholder="逗号分隔，留空清除"
+                value={tags}
+                disabled={disabled}
+                onChange={(event) => setTags(event.target.value)}
+              />
+            )}
+            {tagsInvalid && <p role="alert">标签最多 20 个，每个最多 40 字符</p>}
+            <button type="submit" disabled={disabled || tagsInvalid || (!editCategory && !editTags)}>
+              保存批量编辑
+            </button>
+            <button
+              type="button"
+              className="asset-library__danger"
+              disabled={disabled}
+              onClick={() => setConfirmDelete(true)}
+            >
+              批量删除
+            </button>
+          </form>
+        ))}
+    </div>
+  );
+}
+
 function AssetDetails({
   asset,
   busy,
   categories,
   onSave,
   onBackfill,
+  onDelete,
 }: {
   asset: LibraryAsset;
   busy: boolean;
   categories: string[];
   onSave: (name: string, category: string, tags: string[]) => Promise<void>;
   onBackfill: () => void;
+  onDelete: () => void;
 }) {
   const [name, setName] = useState(asset.name);
   const [category, setCategory] = useState(asset.category);
   const [tags, setTags] = useState(asset.tags.join('，'));
+  const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <>
       <div className="asset-library__details-content">
@@ -423,14 +645,7 @@ function AssetDetails({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void onSave(
-              name.trim(),
-              category.trim(),
-              tags
-                .split(/[,，]/)
-                .map((s) => s.trim())
-                .filter(Boolean),
-            );
+            void onSave(name.trim(), category.trim(), parseTags(tags));
           }}
         >
           <label>
@@ -473,7 +688,7 @@ function AssetDetails({
           </button>
         </form>
       </div>
-      <div className="asset-library__detail-actions" style={{ ...mutedPanelStyle(), padding: 14, flexShrink: 0 }}>
+      <div className="asset-library__detail-actions">
         <div style={eyebrowStyle()}>资产操作</div>
         <button
           type="button"
@@ -486,6 +701,28 @@ function AssetDetails({
         <a className="asset-library__download" href={asset.url} download={asset.originalName}>
           下载原文件
         </a>
+        {confirmDelete ? (
+          <div className="asset-library__delete-confirm" role="group" aria-label="确认删除资产">
+            <p>从资产库删除「{asset.name}」？原文件和画布引用会保留。</p>
+            <div>
+              <button type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>
+                取消
+              </button>
+              <button type="button" className="asset-library__danger" disabled={busy} onClick={onDelete}>
+                确认删除
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="asset-library__danger"
+            disabled={busy}
+            onClick={() => setConfirmDelete(true)}
+          >
+            删除资产
+          </button>
+        )}
       </div>
     </>
   );

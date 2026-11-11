@@ -519,6 +519,15 @@ test('资产库支持导入、整理、收藏、搜索和持久化回填', async
   await page.getByTestId('workflow-open-assets').click();
   const dialog = page.getByRole('dialog', { name: '资产库', exact: true });
   await expect(dialog).toBeVisible();
+  const panelBackgrounds = await dialog.locator('.asset-library__panel').evaluateAll((panels) =>
+    panels.map((panel) => {
+      const context = document.createElement('canvas').getContext('2d')!;
+      context.fillStyle = getComputedStyle(panel).backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      return context.getImageData(0, 0, 1, 1).data[3];
+    }),
+  );
+  expect(panelBackgrounds).toEqual([255, 255, 255, 255]);
   await dialog.getByTestId('asset-import').setInputFiles({ name: filename, mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
   await expect(dialog.getByRole('status')).toContainText('已导入 1 个素材');
@@ -557,6 +566,55 @@ test('资产库支持导入、整理、收藏、搜索和持久化回填', async
   await dialog.getByRole('button', { name: `查看 已整理-${filename}`, exact: true }).focus();
   await page.keyboard.press('Delete');
   await expect(page.locator('.react-flow__node')).toHaveCount(initialNodes + 1);
+  await dialog.getByRole('button', { name: `查看 已整理-${filename}`, exact: true }).click();
+  await dialog.getByRole('button', { name: '删除资产', exact: true }).click();
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(dialog.locator('.asset-library__card')).toHaveCount(1);
+  await dialog.getByRole('button', { name: '删除资产', exact: true }).click();
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+  await expect(dialog.getByRole('status')).toHaveText('已从资产库删除');
+  await expect(dialog.getByText('选择一个资产')).toBeVisible();
+  await expect(dialog.locator('.asset-library__card')).toHaveCount(0);
+  await dialog.getByRole('button', { name: '刷新', exact: true }).click();
+  await expect(dialog.locator('.asset-library__results')).toHaveAttribute('aria-busy', 'false');
+  await expect(dialog.locator('.asset-library__card')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
+});
+
+test('资产库支持多选、批量编辑和批量删除', async ({ page }) => {
+  await clearLocalState(page);
+  const prefix = `批量资产-${Date.now()}`;
+  const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+  await page.getByTestId('workflow-open-assets').click();
+  const dialog = page.getByRole('dialog', { name: '资产库', exact: true });
+  const cards = dialog.locator('.asset-library__card');
+  await dialog.getByTestId('asset-import').setInputFiles([1, 2, 3].map((index) => ({
+    name: `${prefix}-${index}.png`, mimeType: 'image/png', buffer: image,
+  })));
+  await expect(dialog.getByRole('status')).toHaveText('已导入 3 个素材');
+  await dialog.getByRole('textbox', { name: '搜索资产' }).fill(prefix);
+  await expect(cards).toHaveCount(3);
+  await dialog.getByRole('button', { name: '多选', exact: true }).click();
+  await dialog.getByRole('button', { name: '全选本页' }).click();
+  await expect(dialog.getByText('本页已选 3 项')).toBeVisible();
+  await dialog.getByRole('button', { name: `选择 ${prefix}-3.png` }).click();
+  await dialog.getByRole('checkbox', { name: '修改分类' }).check();
+  await dialog.getByRole('textbox', { name: '批量分类' }).fill(prefix);
+  await dialog.getByRole('checkbox', { name: '替换标签' }).check();
+  await dialog.getByRole('textbox', { name: '批量标签' }).fill('分镜，参考');
+  await dialog.getByRole('button', { name: '保存批量编辑' }).click();
+  await expect(dialog.getByRole('status')).toHaveText('已更新 2 个资产');
+  await dialog.getByLabel('资产分类', { exact: true }).selectOption(prefix);
+  await expect(cards).toHaveCount(2);
+  await dialog.getByRole('button', { name: '全选本页' }).click();
+  await dialog.getByRole('button', { name: '批量删除', exact: true }).click();
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(cards).toHaveCount(2);
+  await dialog.getByRole('button', { name: '批量删除', exact: true }).click();
+  await dialog.getByRole('button', { name: '确认批量删除' }).click();
+  await expect(dialog.getByRole('status')).toHaveText('已从资产库删除 2 个资产');
+  await dialog.getByLabel('资产分类', { exact: true }).selectOption('');
+  await expect(cards).toHaveCount(1);
+  await expect(dialog.getByRole('button', { name: `选择 ${prefix}-3.png` })).toBeVisible();
 });

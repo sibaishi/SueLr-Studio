@@ -34,3 +34,19 @@ export function updateAsset(id: string, metadata: Partial<AssetMetadata>) {
     body: JSON.stringify(metadata),
   });
 }
+
+export function removeAsset(id: string) {
+  return workflowApiFetch<{ id: string }>(`/assets/${id}`, { method: 'DELETE' });
+}
+
+export type AssetBatchChange =
+  | { action: 'remove' }
+  | { action: 'edit'; patch: Partial<Pick<AssetMetadata, 'category' | 'tags'>> };
+
+export function mutateAssetBatch(ids: string[], change: AssetBatchChange) {
+  return workflowApiFetch<{ count: number }>('/assets/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, ...change }),
+  });
+}

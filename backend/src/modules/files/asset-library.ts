@@ -17,6 +17,22 @@ export const assetMetadataSchema = z
   })
   .strict();
 
+export const assetIdSchema = z.string().regex(/^[a-f0-9]{64}$/);
+const pageSize = 48;
+const batchIdsSchema = z.array(assetIdSchema).min(1).max(pageSize);
+export const assetBatchSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('remove'), ids: batchIdsSchema }).strict(),
+  z
+    .object({
+      action: z.literal('edit'),
+      ids: batchIdsSchema,
+      patch: assetMetadataSchema
+        .pick({ category: true, tags: true })
+        .refine(({ category, tags }) => category !== undefined || tags !== undefined, '请至少选择一个要修改的字段'),
+    })
+    .strict(),
+]);
+
 export const assetQuerySchema = z
   .object({
     search: z.string().trim().max(200).default(''),
@@ -28,7 +44,9 @@ export const assetQuerySchema = z
   })
   .strict();
 
+const storedMetadataSchema = assetMetadataSchema.extend({ removed: z.literal(true).optional() });
 type Metadata = z.infer<typeof assetMetadataSchema>;
+type StoredMetadata = z.infer<typeof storedMetadataSchema>;
 type Query = z.infer<typeof assetQuerySchema>;
 export type LibraryAsset = {
   id: string;
@@ -50,20 +68,19 @@ function metadataFile(options: ScopeOptions) {
   return path.join(getScopedStoragePaths(options.scope).filesDir, 'asset-library.json');
 }
 
-function readMetadata(options: ScopeOptions): Record<string, Metadata> {
+function readMetadata(options: ScopeOptions): Record<string, StoredMetadata> {
   const file = metadataFile(options);
   if (!fs.existsSync(file)) return {};
   try {
-    return z.record(z.string(), assetMetadataSchema).parse(JSON.parse(fs.readFileSync(file, 'utf8')));
+    return z.record(z.string(), storedMetadataSchema).parse(JSON.parse(fs.readFileSync(file, 'utf8')));
   } catch {
     throw new ValidationError('ASSET_METADATA_INVALID', '资产整理信息无法读取，请检查数据目录中的 asset-library.json');
   }
 }
 
-function inventory(options: ScopeOptions): LibraryAsset[] {
+function inventory(options: ScopeOptions, metadata = readMetadata(options)): LibraryAsset[] {
   const storage = getScopedStoragePaths(options.scope);
   const uploads = uploadMetadataRepository.listRecords();
-  const metadata = readMetadata(options);
   const items: LibraryAsset[] = [];
   for (const source of ['uploaded', 'generated'] as const) {
     const root = source === 'uploaded' ? storage.uploadsDir : storage.generatedDir;
@@ -87,6 +104,8 @@ function inventory(options: ScopeOptions): LibraryAsset[] {
         }
         const relativePath = path.relative(root, absolutePath).split(path.sep).join('/');
         const id = createHash('sha256').update(`${source}:${relativePath}`).digest('hex');
+        const saved = metadata[id];
+        if (saved?.removed) continue;
         const info = { ...getStoredFileType(entry.name) };
         const record = source === 'uploaded' ? uploads[entry.name] : undefined;
         const originalName = record?.fileName || entry.name;
@@ -94,7 +113,6 @@ function inventory(options: ScopeOptions): LibraryAsset[] {
           const mediaType = record.mimeType.split('/')[0];
           if (['image', 'video', 'audio'].includes(mediaType)) info.type = mediaType;
         }
-        const saved = metadata[id];
         const prefix = source === 'uploaded' ? '/api/files/' : '/api/outputs/';
         const url = prefix + relativePath.split('/').map(encodeURIComponent).join('/');
         const parsed = path.posix.parse(relativePath);
@@ -133,7 +151,6 @@ export function listAssets(query: Query, options: ScopeOptions = {}) {
       (!search ||
         [asset.name, asset.originalName, asset.category, ...asset.tags].join(' ').toLocaleLowerCase().includes(search)),
   );
-  const pageSize = 48;
   const total = filtered.length;
   const page = Math.min(query.page, Math.max(1, Math.ceil(total / pageSize)));
   return {
@@ -146,11 +163,36 @@ export function listAssets(query: Query, options: ScopeOptions = {}) {
   };
 }
 
+function mergeMetadata(current: Metadata | undefined, patch: Metadata) {
+  return { ...current, ...patch, ...(patch.tags ? { tags: [...new Set(patch.tags)] } : {}) };
+}
+
 export function updateAsset(id: string, patch: Metadata, options: ScopeOptions = {}) {
-  const asset = inventory(options).find((item) => item.id === id);
-  if (!asset) throw new NotFoundError('ASSET_NOT_FOUND', '资产文件不存在，请刷新资产库');
   const metadata = readMetadata(options);
-  metadata[id] = { ...metadata[id], ...patch, ...(patch.tags ? { tags: [...new Set(patch.tags)] } : {}) };
+  const asset = inventory(options, metadata).find((item) => item.id === id);
+  if (!asset) throw new NotFoundError('ASSET_NOT_FOUND', '资产文件不存在，请刷新资产库');
+  metadata[id] = mergeMetadata(metadata[id], patch);
   writeJsonFile(metadataFile(options), metadata);
   return { ...asset, ...metadata[id] };
+}
+
+export function mutateAssetBatch(request: z.infer<typeof assetBatchSchema>, options: ScopeOptions = {}) {
+  const ids = [...new Set(request.ids)];
+  const metadata = readMetadata(options);
+  const activeIds = new Set(inventory(options, metadata).map((asset) => asset.id));
+  for (const id of ids) {
+    if (!activeIds.has(id) && !(request.action === 'remove' && metadata[id]?.removed)) {
+      throw new NotFoundError('ASSET_NOT_FOUND', '部分资产已不存在，请刷新资产库后重试');
+    }
+  }
+  for (const id of ids) {
+    metadata[id] = request.action === 'remove' ? { removed: true } : mergeMetadata(metadata[id], request.patch);
+  }
+  writeJsonFile(metadataFile(options), metadata);
+  return { count: ids.length };
+}
+
+export function removeAsset(id: string, options: ScopeOptions = {}) {
+  mutateAssetBatch({ action: 'remove', ids: [id] }, options);
+  return { id };
 }

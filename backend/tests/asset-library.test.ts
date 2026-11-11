@@ -74,6 +74,38 @@ test('asset library indexes history, persists organization, validates requests a
     assert.match(thumbnail.headers.get('content-type'), /image\/jpeg/);
     assert.equal((await fetch(runtime.baseUrl + asset.thumbnailUrl)).status, 200);
   }
+  const batch = (body) => requestJson(runtime.baseUrl, '/api/assets/batch', {
+    method: 'POST', body: JSON.stringify(body),
+  });
+  const patch = { category: '批量分类', tags: ['共同标签', '共同标签'] };
+  const ids = [text.id, audio.id];
+  assert.equal((await batch({ action: 'edit', ids, patch: {} })).status, 400);
+  assert.equal((await batch({ action: 'edit', ids: [text.id, '0'.repeat(64)], patch })).status, 404);
+  assert.equal(listAssets(assetQuerySchema.parse({ search: '分镜参考' })).items[0].category, '参考素材');
+  assert.equal((await batch({ action: 'edit', ids, patch })).body.data.count, 2);
+  const edited = listAssets(assetQuerySchema.parse({ category: '批量分类' })).items;
+  assert.equal(edited.length, 2);
+  assert.ok(edited.every((asset) => asset.tags.join() === '共同标签'));
+  assert.equal(edited.find((asset) => asset.id === text.id).favorite, true);
+  assert.equal((await batch({ action: 'remove', ids: [text.id, '0'.repeat(64)] })).status, 404);
+  assert.equal(listAssets(assetQuerySchema.parse({ category: '批量分类' })).total, 2);
+  assert.equal((await batch({ action: 'remove', ids })).body.data.count, 2);
+  assert.equal((await batch({ action: 'remove', ids })).body.data.count, 2);
+  assert.equal((await requestJson(runtime.baseUrl, '/api/assets/invalid', { method: 'DELETE' })).status, 400);
+  assert.equal((await requestJson(runtime.baseUrl, `/api/assets/${'0'.repeat(64)}`, { method: 'DELETE' })).status, 404);
+  for (const asset of [text, audio]) {
+    const endpoint = `/api/assets/${asset.id}`;
+    assert.equal((await requestJson(runtime.baseUrl, endpoint, { method: 'DELETE' })).status, 200);
+    assert.equal((await requestJson(runtime.baseUrl, endpoint, { method: 'DELETE' })).status, 200);
+    assert.equal((await fetch(runtime.baseUrl + asset.url)).status, 200);
+  }
+  const afterRemoval = listAssets(assetQuerySchema.parse({}));
+  assert.equal(afterRemoval.libraryTotal, 53);
+  assert.deepEqual(afterRemoval.categories, []);
+  assert.ok(!afterRemoval.items.some((asset) => asset.id === text.id || asset.id === audio.id));
+  assert.equal((await requestJson(runtime.baseUrl, `/api/assets/${text.id}`, {
+    method: 'PATCH', body: '{"favorite":false}',
+  })).status, 404);
   const metadataPath = path.join(storage.filesDir, 'asset-library.json');
   fs.writeFileSync(metadataPath, '{broken');
   const corrupt = await requestJson(runtime.baseUrl, `/api/assets/${text.id}`, { method: 'PATCH', body: '{"favorite":false}' });
