@@ -98,6 +98,7 @@
       "!backend/package-lock.json",
       "!backend/node_modules/.package-lock.json",
       "!backend/tests/**/*",
+      "!backend/.playwright{,/**/*}",
       "!backend/node_modules/**/{test,tests,docs,.github}/**/*",
       "!backend/node_modules/**/test*.js",
       "!backend/node_modules/**/tests*.js",

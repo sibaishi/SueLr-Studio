@@ -45,7 +45,7 @@ This document defines the standard release workflow for SueLr Studio. The active
    npm run electron:dist
    ```
 
-   Desktop targets are Windows portable x64, macOS dmg/zip x64+arm64, and Linux AppImage/deb x64. Build macOS artifacts on macOS; Windows release hosts should produce Windows and Linux artifacts only.
+   Desktop targets are Windows portable x64, macOS dmg/zip x64+arm64, and Linux AppImage/deb x64. Build macOS artifacts on macOS; Windows release hosts should produce Windows and Linux artifacts only. The desktop package excludes Playwright runtime data under `backend/.playwright/`.
 
    For local-web:
 
