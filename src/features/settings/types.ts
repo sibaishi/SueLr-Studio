@@ -13,8 +13,6 @@ export type StudioSettingsPayload = {
   runtime: {
     configs: ApiConfig[];
     activeConfigId: string;
-    searchEnabled?: boolean;
-    tavilyApiKey?: string;
     outboundProxy?: OutboundProxySettingsPayload;
   };
   workflow?: {
@@ -22,9 +20,7 @@ export type StudioSettingsPayload = {
   };
 };
 
-export type NetworkSearchSettingsPayload = {
-  searchEnabled: boolean;
-  tavilyApiKey: string;
+export type OutboundProxyRuntimePatch = {
   outboundProxy: OutboundProxySettingsPayload;
 };
 

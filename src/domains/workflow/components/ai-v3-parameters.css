@@ -293,7 +293,7 @@
 }
 
 .ai-model-picker:has(.ai-model-column:nth-child(3)) {
-  width: min(540px, calc(100vw - 92px));
+  width: min(568px, calc(100vw - 92px));
 }
 
 .ai-model-cascade {
@@ -313,12 +313,17 @@
   flex: 0.75;
 }
 
+.ai-model-column:nth-child(2):has(+ .ai-model-column) {
+  flex: 1;
+}
+
 .ai-model-column:nth-child(3) {
   flex: 1.5;
 }
 
 .ai-model-column-items {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 4px;
   max-height: min(244px, 36vh);

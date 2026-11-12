@@ -15,8 +15,9 @@ export class CapabilitiesController {
 
   async chat(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
     try {
+      const options = { scope: req.scope, signal: createRequestAbortSignal(req, res) };
       if (req.query.stream === 'true' || req.body.stream === true) {
-        const upstream = await capabilitiesService.chatStream(req.body, { scope: req.scope });
+        const upstream = await capabilitiesService.chatStream(req.body, options);
         const contentType = upstream.headers.get('content-type') || '';
 
         res.writeHead(200, {
@@ -53,15 +54,7 @@ export class CapabilitiesController {
         return;
       }
 
-      res.json(successEnvelope(await capabilitiesService.chat(req.body, { scope: req.scope })));
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async search(req: RequestLike, res: ResponseLike, next: NextFunctionLike) {
-    try {
-      res.json(successEnvelope(await capabilitiesService.search(req.body, { scope: req.scope })));
+      res.json(successEnvelope(await capabilitiesService.chat(req.body, options)));
     } catch (error) {
       next(error);
     }

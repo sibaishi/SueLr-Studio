@@ -33,7 +33,4 @@ test('contract samples: runtime capabilities expose the frontend-consumed shape'
   assert.equal(capabilities.canSelectDirectory, samples.runtimeCapabilities.canSelectDirectory);
   assert.equal(capabilities.canRestartBackend, samples.runtimeCapabilities.canRestartBackend);
   assert.equal(capabilities.hasEmbeddedShell, samples.runtimeCapabilities.hasEmbeddedShell);
-  assert.equal(capabilities.search.provider, samples.runtimeCapabilities.search.provider);
-  assert.equal(typeof capabilities.search.enabled, 'boolean');
-  assert.equal(typeof capabilities.search.disabledReason, 'string');
 });

@@ -54,7 +54,6 @@ export async function fetchAvailableModels() {
 
 export interface SettingsPayload {
   apiKey?: string;
-  tavilyApiKey?: string;
   baseUrl?: string;
   projectModels?: ProjectModel[];
   providerConfig?: Record<string, unknown>;

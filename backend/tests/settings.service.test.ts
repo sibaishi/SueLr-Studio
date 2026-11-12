@@ -25,9 +25,6 @@ test('settings service reads and updates studio settings', async () => {
 
   const updated = settingsService.updateStudioSettings({
     ui: { theme: 'light' },
-    runtime: {
-      tavilyApiKey: 'demo-key',
-    },
     workflow: {
       concurrency: {
         enabled: true,
@@ -37,7 +34,6 @@ test('settings service reads and updates studio settings', async () => {
   });
 
   assert.equal(updated.ui.theme, 'light');
-  assert.equal(updated.runtime.tavilyApiKey, 'demo-key');
   assert.deepEqual(updated.workflow.concurrency, {
     enabled: true,
     maxConcurrency: 12,
@@ -101,7 +97,6 @@ test('settings response does not expose secrets in plaintext', async () => {
   settingsService.updateStudioSettings({
     runtime: {
       activeConfigId: 'default',
-      tavilyApiKey: 'tvly-secret',
       configs: [{ id: 'default', name: 'Default', base: 'https://api.openai.com/v1', apiKey: 'sk-secret', models: [] }],
     },
   });
@@ -109,8 +104,6 @@ test('settings response does not expose secrets in plaintext', async () => {
   const response = settingsService.getSettingsResponse();
   assert.equal(response.apiKeySet, true);
   assert.equal(response.apiKey, undefined);
-  assert.equal(response.tavilyApiKey, undefined);
-  assert.equal(response.tavilyApiKeySet, true);
   assert.equal(response.runtime.outboundProxy, undefined);
   assert.equal(response.activeConfig.apiKey, '');
   assert.equal(response.activeConfig.apiKeySet, true);

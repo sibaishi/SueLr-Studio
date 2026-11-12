@@ -7,8 +7,6 @@ import type { ChatCompletionResponse, ContentPart, ToolCallDef, ToolDefinition }
 export type ApiConfigPayload = {
   configId?: string;
   apiKey?: string;
-  tavilyApiKey?: string;
-  webSearchEnabled?: boolean;
   baseUrl?: string;
   projectModels?: ProjectModel[];
   providerConfig?: Partial<ProviderConfig>;
@@ -78,18 +76,6 @@ export async function capabilityChatCompletionStream(params: {
   }
 
   return response;
-}
-
-export async function capabilityWebSearch(params: {
-  query: string;
-  maxResults?: number;
-  includeAnswer?: boolean;
-  apiConfig?: ApiConfigPayload;
-}) {
-  return apiRequestOrThrow<{ raw: unknown; content: string; structured?: unknown }>(
-    '/api/capabilities/search',
-    createJsonRequestInit(params),
-  );
 }
 
 export async function capabilityGenerateImage(params: {

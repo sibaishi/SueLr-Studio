@@ -15,7 +15,6 @@ export type NodeInputs = Record<string, DynamicValue>;
 export type RuntimeApiConfig = Record<string, DynamicValue> & {
   abortSignal?: AbortSignal;
   runId?: string;
-  tavilyApiKey?: string;
 };
 
 export type ProgressCallback = ((message: string, data?: Record<string, unknown>) => void) | undefined;

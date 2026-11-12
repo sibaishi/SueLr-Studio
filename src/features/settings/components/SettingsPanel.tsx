@@ -21,16 +21,14 @@ import {
 } from '@/features/settings';
 import type {
   ClientDownloadDirectoryState,
-  NetworkSearchSettingsPayload,
+  OutboundProxyRuntimePatch,
   SettingsPanelProps,
   StorageSettingsPayload,
 } from '@/features/settings';
 import { loadStudioSettings } from '@/features/settings/api';
 import { useT } from '@/providers/ThemeContext';
 import { useToast } from '@/providers/ToastContext';
-import { getRuntimeCapabilities } from '@/shared/api/capabilities';
 import { apiRequest } from '@/shared/api/client';
-import { setCachedRuntimeCapabilities } from '@/shared/api/serverState';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
 import { Database, Gauge, Key, Stack, Target } from '@phosphor-icons/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -85,12 +83,10 @@ export function SettingsPanel({
   const [connectionResult, setConnectionResult] = useState('');
   const connectionDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [networkSearch, setNetworkSearch] = useState<NetworkSearchSettingsPayload>({
-    searchEnabled: false,
-    tavilyApiKey: '',
+  const [outboundProxySettings, setOutboundProxy] = useState<OutboundProxyRuntimePatch>({
     outboundProxy: { mode: 'system', httpProxy: '', httpsProxy: '', noProxy: '' },
   });
-  const networkSearchSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const outboundProxySettingsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     activeConfig,
@@ -144,8 +140,7 @@ export function SettingsPanel({
     [projectModelSearch, projectModels],
   );
   const themeOptions = Object.entries(THEME_LABELS).map(([value, label]) => ({ l: label, v: value }));
-  const runtimeCapabilitiesSnapshot = getRuntimeCapabilitiesSnapshot();
-  const [runtimeCapabilities, setRuntimeCapabilities] = useState(runtimeCapabilitiesSnapshot);
+  const runtimeCapabilities = getRuntimeCapabilitiesSnapshot();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? false;
   const canRestartBackend = runtimeCapabilities?.canRestartBackend ?? false;
   const isServerRuntime = false;
@@ -187,19 +182,14 @@ export function SettingsPanel({
     };
   }, [addLog]);
 
-  // Load network search settings from backend on mount
+  // Load outbound proxy settings from backend on mount
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
         const studio = await loadStudioSettings();
         if (cancelled || !studio) return;
-        const tavilyApiKey = studio.runtime?.tavilyApiKey || '';
-        const searchEnabled =
-          typeof studio.runtime?.searchEnabled === 'boolean' ? studio.runtime.searchEnabled : Boolean(tavilyApiKey);
-        setNetworkSearch({
-          searchEnabled,
-          tavilyApiKey,
+        setOutboundProxy({
           outboundProxy: {
             mode: studio.runtime?.outboundProxy?.mode || 'system',
             httpProxy: studio.runtime?.outboundProxy?.httpProxy || '',
@@ -219,32 +209,24 @@ export function SettingsPanel({
 
   useEffect(
     () => () => {
-      if (networkSearchSaveTimer.current) {
-        clearTimeout(networkSearchSaveTimer.current);
+      if (outboundProxySettingsSaveTimer.current) {
+        clearTimeout(outboundProxySettingsSaveTimer.current);
       }
     },
     [],
   );
 
-  // Debounced save for network search settings
-  const scheduleNetworkSearchSave = (payload: NetworkSearchSettingsPayload) => {
-    if (networkSearchSaveTimer.current) {
-      clearTimeout(networkSearchSaveTimer.current);
+  // Debounced save for outbound proxy settings
+  const scheduleOutboundProxySave = (payload: OutboundProxyRuntimePatch) => {
+    if (outboundProxySettingsSaveTimer.current) {
+      clearTimeout(outboundProxySettingsSaveTimer.current);
     }
-    networkSearchSaveTimer.current = setTimeout(() => {
-      networkSearchSaveTimer.current = null;
+    outboundProxySettingsSaveTimer.current = setTimeout(() => {
+      outboundProxySettingsSaveTimer.current = null;
       apiRequest('/api/settings/studio', {
         method: 'PUT',
         body: JSON.stringify({ runtime: payload }),
-      })
-        .then(async () => {
-          const fresh = await getRuntimeCapabilities().catch(() => null);
-          if (fresh) {
-            setCachedRuntimeCapabilities(fresh);
-            setRuntimeCapabilities(fresh);
-          }
-        })
-        .catch(() => {});
+      }).catch(() => {});
     }, 800);
   };
 
@@ -330,62 +312,46 @@ export function SettingsPanel({
     setProjectModels(projectModels.filter((model) => !ids.has(model.modelId)));
   };
 
-  const updateNetworkSearch = (patch: Partial<NetworkSearchSettingsPayload>) => {
-    setNetworkSearch((prev) => {
-      const next = { ...prev, ...patch };
-      scheduleNetworkSearchSave(next);
-      return next;
-    });
-  };
-
-  const setNetworkSearchEnabled = (value: boolean) => {
-    updateNetworkSearch({ searchEnabled: value });
-  };
-
-  const setNetworkSearchTavilyApiKey = (value: string) => {
-    updateNetworkSearch({ tavilyApiKey: value });
-  };
-
-  const setNetworkSearchProxyMode = (mode: NetworkSearchSettingsPayload['outboundProxy']['mode']) => {
-    setNetworkSearch((prev) => {
+  const setOutboundProxyMode = (mode: OutboundProxyRuntimePatch['outboundProxy']['mode']) => {
+    setOutboundProxy((prev) => {
       const next = {
         ...prev,
         outboundProxy: { ...prev.outboundProxy, mode },
       };
-      scheduleNetworkSearchSave(next);
+      scheduleOutboundProxySave(next);
       return next;
     });
   };
 
-  const setNetworkSearchHttpProxy = (value: string) => {
-    setNetworkSearch((prev) => {
+  const setOutboundProxyHttpProxy = (value: string) => {
+    setOutboundProxy((prev) => {
       const next = {
         ...prev,
         outboundProxy: { ...prev.outboundProxy, httpProxy: value },
       };
-      scheduleNetworkSearchSave(next);
+      scheduleOutboundProxySave(next);
       return next;
     });
   };
 
-  const setNetworkSearchHttpsProxy = (value: string) => {
-    setNetworkSearch((prev) => {
+  const setOutboundProxyHttpsProxy = (value: string) => {
+    setOutboundProxy((prev) => {
       const next = {
         ...prev,
         outboundProxy: { ...prev.outboundProxy, httpsProxy: value },
       };
-      scheduleNetworkSearchSave(next);
+      scheduleOutboundProxySave(next);
       return next;
     });
   };
 
-  const setNetworkSearchNoProxy = (value: string) => {
-    setNetworkSearch((prev) => {
+  const setOutboundProxyNoProxy = (value: string) => {
+    setOutboundProxy((prev) => {
       const next = {
         ...prev,
         outboundProxy: { ...prev.outboundProxy, noProxy: value },
       };
-      scheduleNetworkSearchSave(next);
+      scheduleOutboundProxySave(next);
       return next;
     });
   };
@@ -598,7 +564,7 @@ export function SettingsPanel({
     storageSettingsSaving,
     backendRestarting,
     projectBusy,
-    networkSearch,
+    outboundProxySettings,
     runtimeCapabilities,
     canRestartBackend,
     canSelectDirectory,
@@ -649,12 +615,10 @@ export function SettingsPanel({
     updateProjectModel: updateProjectModelAction,
     updateProjectModels: (ids, patch) => updateProjectModels(projectModels, ids, patch),
     updateProviderConfig,
-    setNetworkSearchEnabled,
-    setNetworkSearchTavilyApiKey,
-    setNetworkSearchProxyMode,
-    setNetworkSearchHttpProxy,
-    setNetworkSearchHttpsProxy,
-    setNetworkSearchNoProxy,
+    setOutboundProxyMode,
+    setOutboundProxyHttpProxy,
+    setOutboundProxyHttpsProxy,
+    setOutboundProxyNoProxy,
   };
 
   const workspaceContent = {
@@ -755,7 +719,7 @@ export function SettingsPanel({
             >
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>检查连接配置</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
-                管理 Provider、鉴权方式、模型端点和联网搜索代理。
+                管理 Provider、鉴权方式、模型端点和出站代理。
               </div>
             </button>
             <button
@@ -810,9 +774,6 @@ export function SettingsPanel({
           <div className="settings-panel__badges">
             <span style={chipStyle(base ? T.green : T.orange)}>{base ? '服务已接入' : '服务待配置'}</span>
             <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
-            <span style={chipStyle(runtimeCapabilities?.search?.enabled ? T.purple : undefined)}>
-              {runtimeCapabilities?.search?.enabled ? '联网搜索可用' : '联网搜索未启用'}
-            </span>
           </div>
         </div>
       </div>

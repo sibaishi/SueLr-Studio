@@ -30,14 +30,12 @@ test('HTTP contract: settings endpoints use unified envelope', async () => {
     assert.equal(initial.status, 200);
     assert.equal(initial.body.success, true);
     assert.equal(initial.body.data.ui.theme, 'dark');
-    assert.equal(initial.body.data.runtime.tavilyApiKey, '');
     assert.equal(initial.body.data.runtime.configs[0].apiKey, '');
     assert.equal(initial.body.data.runtime.configs[0].apiKeySet, true);
 
     const publicSettings = await requestJson(baseUrl, '/api/settings');
     assert.equal(publicSettings.status, 200);
     assert.equal(publicSettings.body.success, true);
-    assert.equal(publicSettings.body.data.tavilyApiKey, undefined);
     assert.equal(publicSettings.body.data.apiKey, undefined);
 
     const updated = await requestJson(baseUrl, '/api/settings/studio', {
@@ -168,11 +166,6 @@ test('HTTP contract: runtime capabilities endpoint returns envelope-only payload
       canSelectDirectory: true,
       canRestartBackend: true,
       hasEmbeddedShell: false,
-      search: {
-        enabled: false,
-        provider: 'tavily',
-        disabledReason: '当前未启用联网搜索',
-      },
     });
   } finally {
     await new Promise((resolve) => server.close(resolve));
@@ -647,54 +640,6 @@ test('HTTP contract: generated outputs listing does not expose absolute host pat
     assert.equal('filePath' in item, false);
     assert.equal(JSON.stringify(item).includes('/srv/'), false);
     assert.equal(JSON.stringify(item).includes('D:\\\\'), false);
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
-});
-
-test('HTTP contract: capabilities routes validate input and wrap success payloads', async () => {
-  const { server, baseUrl } = await createTestServer('capabilities');
-  try {
-    const { capabilitiesService } = await import('../src/modules/capabilities/capabilities.service.ts');
-    const originalSearch = capabilitiesService.search;
-    capabilitiesService.search = async (body) => ({
-      raw: { query: body.query },
-      content: 'stubbed search result',
-    });
-
-    try {
-      const success = await requestJson(baseUrl, '/api/capabilities/search', {
-        method: 'POST',
-        body: JSON.stringify({ query: 'phase 2 contract', maxResults: 3 }),
-      });
-      assert.equal(success.status, 200);
-      assert.deepEqual(success.body, {
-        success: true,
-        data: {
-          raw: { query: 'phase 2 contract' },
-          content: 'stubbed search result',
-        },
-      });
-
-      const invalid = await requestJson(baseUrl, '/api/capabilities/search', {
-        method: 'POST',
-        body: JSON.stringify([]),
-      });
-      assert.equal(invalid.status, 400);
-      assertEnvelopeShape(invalid.body);
-      assert.equal(invalid.body.success, false);
-      assert.equal(invalid.body.error.code, 'VALIDATION_ERROR');
-
-      const blankQuery = await requestJson(baseUrl, '/api/capabilities/search', {
-        method: 'POST',
-        body: JSON.stringify({ query: '   ' }),
-      });
-      assert.equal(blankQuery.status, 400);
-      assertEnvelopeShape(blankQuery.body);
-      assert.equal(blankQuery.body.error.code, 'VALIDATION_ERROR');
-    } finally {
-      capabilitiesService.search = originalSearch;
-    }
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

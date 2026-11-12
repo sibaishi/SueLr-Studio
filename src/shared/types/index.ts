@@ -84,8 +84,3 @@ export interface ToolDefinition {
 export interface ModelsResponse {
   data: { id: string }[];
 }
-
-export interface TavilySearchResponse {
-  results: { title: string; content: string; url: string }[];
-  answer?: string;
-}

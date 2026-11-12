@@ -5,7 +5,6 @@ import { capabilitiesController } from './capabilities.controller.ts';
 import {
   validateChatBody,
   validateImageBody,
-  validateSearchBody,
   validateTaskId,
   validateVideoBody,
   validateVideoStatusBody,
@@ -15,7 +14,6 @@ const router = Router();
 
 router.get('/runtime', capabilitiesController.runtime.bind(capabilitiesController));
 router.post('/chat', validateBody(validateChatBody), capabilitiesController.chat.bind(capabilitiesController));
-router.post('/search', validateBody(validateSearchBody), capabilitiesController.search.bind(capabilitiesController));
 router.post('/image', validateBody(validateImageBody), capabilitiesController.image.bind(capabilitiesController));
 router.post('/video', validateBody(validateVideoBody), capabilitiesController.submitVideo.bind(capabilitiesController));
 router.get(

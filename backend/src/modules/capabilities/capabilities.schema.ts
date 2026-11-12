@@ -36,19 +36,6 @@ function validateArray(value: DynamicValue, fieldName: string): DynamicValue[] {
   return value;
 }
 
-function validateNumber(
-  value: DynamicValue,
-  fallback: number,
-  min: number | undefined = undefined,
-  max: number | undefined = undefined,
-): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  if (min !== undefined && parsed < min) return fallback;
-  if (max !== undefined && parsed > max) return fallback;
-  return parsed;
-}
-
 function formatRange(min?: number, max?: number): string {
   if (min !== undefined && max !== undefined) return `${min} 到 ${max}`;
   if (min !== undefined) return `大于等于 ${min}`;
@@ -143,17 +130,6 @@ function normalizeApiConfig(value: DynamicValue): PlainObject {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
-function validateSearchQuery(value: DynamicValue): string | string[] {
-  if (Array.isArray(value)) {
-    const normalized = value.map((item) => cleanOptionalString(item, 1000)).filter(Boolean);
-    if (!normalized.length) {
-      throw new ValidationError('VALIDATION_ERROR', 'query 不能为空');
-    }
-    return normalized;
-  }
-  return validateRequiredString(value, 'query', 4000);
-}
-
 export function validateChatBody(payload: DynamicValue) {
   const body = ensureObject(payload, '请求体必须为对象');
   return {
@@ -162,16 +138,6 @@ export function validateChatBody(payload: DynamicValue) {
     messages: body.messages === undefined ? [] : validateArray(body.messages, 'messages'),
     tools: body.tools === undefined ? undefined : validateArray(body.tools, 'tools'),
     stream: body.stream === true,
-  };
-}
-
-export function validateSearchBody(payload: DynamicValue) {
-  const body = ensureObject(payload, '请求体必须为对象');
-  return {
-    apiConfig: normalizeApiConfig(body.apiConfig),
-    query: validateSearchQuery(body.query),
-    maxResults: validateNumber(body.maxResults, 5, 1, 20),
-    includeAnswer: body.includeAnswer !== false,
   };
 }
 

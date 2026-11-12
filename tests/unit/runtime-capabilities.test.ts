@@ -34,11 +34,6 @@ function createSnapshot(overrides = {}) {
     canSelectDirectory: true,
     canRestartBackend: true,
     hasEmbeddedShell: false,
-    search: {
-      enabled: false,
-      provider: 'tavily',
-      disabledReason: 'search disabled',
-    },
     ...overrides,
   };
 }

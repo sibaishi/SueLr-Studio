@@ -347,13 +347,13 @@ export default function AiV3StylePanel() {
   const mjModeHint = MIDJOURNEY_MODE_OPTIONS.find(({ value }) => value === mjMode)?.label || mjMode;
   const mjAr = String(nodeData.mjAr || '1:1');
 
+  const webSearchEnabled = nodeData.enableWebSearch === true;
+
   // ── early exit ──
   if (!v3Node) return null;
 
   // Keep ref for handleGroupReorder
   typeGroupsRef.current = typeGroups;
-
-  const webSearchEnabled = Boolean(nodeData.enableWebSearch);
 
   return (
     <WorkflowStylePanelShell>

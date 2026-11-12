@@ -10,6 +10,7 @@ export type ProjectModel = {
   endpointMode: ProjectModelEndpointMode;
   endpointCategory: ProjectModelEndpointCategory;
   customEndpoint: string;
+  nativeWebSearch?: boolean;
   source: 'imported' | 'manual';
   configured: boolean;
   createdAt: number;
@@ -86,6 +87,7 @@ export function normalizeProjectModel(value: unknown): ProjectModel | null {
     type,
     endpointMode,
     endpointCategory: endpointMode === 'category' ? endpointCategory : '',
+    ...(type === 'chat' && record.nativeWebSearch === true ? { nativeWebSearch: true } : {}),
     customEndpoint: endpointMode === 'custom' ? customEndpoint : '',
     source: record.source === 'manual' ? 'manual' : 'imported',
     configured,

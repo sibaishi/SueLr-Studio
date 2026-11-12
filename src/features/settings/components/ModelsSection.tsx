@@ -612,6 +612,21 @@ export function ModelsSection({ T, actions, view }: Props) {
                       <ConfigOptions options={MODEL_TYPES} />
                     </IOSSelect>
                   </div>
+                  {editingModel.type === 'chat' && (
+                    <div>
+                      <IOSLabel>原生联网</IOSLabel>
+                      <IOSSelect
+                        aria-label="原生联网"
+                        value={editingModel.nativeWebSearch ? 'on' : 'off'}
+                        onChange={(value) =>
+                          actions.updateProjectModel(editingModel.modelId, { nativeWebSearch: value === 'on' })
+                        }
+                      >
+                        <option value="off">关闭</option>
+                        <option value="on">开启（Responses API）</option>
+                      </IOSSelect>
+                    </div>
+                  )}
                   <div>
                     <IOSLabel>接口模式</IOSLabel>
                     <IOSSelect

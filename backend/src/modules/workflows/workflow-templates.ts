@@ -63,10 +63,10 @@ export const BUILTIN_WORKFLOW_TEMPLATES = [
       node('chat', 'aiV3', 480, 70, {
         model: '',
         mode: 'chat',
-        enableWebSearch: false,
         temperature: 0.7,
         maxTokens: 1200,
         systemPrompt: '你是一个清晰、可靠、善于拆解任务的助手。',
+        enableWebSearch: false,
       }),
       node('answer', 'io', 900, 160),
     ],

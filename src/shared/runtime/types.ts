@@ -5,9 +5,4 @@ export type RuntimeCapabilities = {
   canSelectDirectory: boolean;
   canRestartBackend: boolean;
   hasEmbeddedShell: boolean;
-  search: {
-    enabled: boolean;
-    provider: string;
-    disabledReason: string;
-  };
 };

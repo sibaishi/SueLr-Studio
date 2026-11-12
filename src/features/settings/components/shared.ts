@@ -1,6 +1,6 @@
 import type {
   ClientDownloadDirectoryState,
-  NetworkSearchSettingsPayload,
+  OutboundProxyRuntimePatch,
   OutboundProxyMode,
   StorageSettingsPayload,
   WorkflowConcurrencySettingsPayload,
@@ -52,12 +52,10 @@ export type SettingsActions = {
   setApiKey: (value: string) => void;
   setModels: (models: ModelInfo[]) => void;
   setWorkflowConcurrency: (value: WorkflowConcurrencySettingsPayload) => void;
-  setNetworkSearchEnabled: (value: boolean) => void;
-  setNetworkSearchTavilyApiKey: (value: string) => void;
-  setNetworkSearchProxyMode: (value: OutboundProxyMode) => void;
-  setNetworkSearchHttpProxy: (value: string) => void;
-  setNetworkSearchHttpsProxy: (value: string) => void;
-  setNetworkSearchNoProxy: (value: string) => void;
+  setOutboundProxyMode: (value: OutboundProxyMode) => void;
+  setOutboundProxyHttpProxy: (value: string) => void;
+  setOutboundProxyHttpsProxy: (value: string) => void;
+  setOutboundProxyNoProxy: (value: string) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   testConnection: () => Promise<void>;
   toggleConfigEnabled: (id: string) => void;
@@ -90,7 +88,7 @@ export type SettingsViewModel = {
   storageSettingsSaving: boolean;
   backendRestarting: boolean;
   projectBusy: boolean;
-  networkSearch: NetworkSearchSettingsPayload;
+  outboundProxySettings: OutboundProxyRuntimePatch;
   runtimeCapabilities: RuntimeCapabilities | null;
   canRestartBackend: boolean;
   canSelectDirectory: boolean;

@@ -40,8 +40,6 @@ const DEFAULT_SETTINGS: DynamicValue = {
   },
   runtime: {
     activeConfigId: '',
-    tavilyApiKey: '',
-    searchEnabled: false,
     outboundProxy: {
       mode: 'system',
       httpProxy: '',
@@ -132,12 +130,8 @@ function readLegacyAppConfigSettings() {
   const appConfig = readJsonFile<DynamicValue>(path.join(STORAGE_PATHS.configDir, 'app-config.json'), null);
   if (!isPlainObject(appConfig)) return {};
 
-  const search = isPlainObject(appConfig.search) ? appConfig.search : {};
-  const providerConfig = isPlainObject(search.providerConfig) ? search.providerConfig : {};
   const network = isPlainObject(appConfig.network) ? appConfig.network : {};
   return {
-    tavilyApiKey: cleanOptionalString(providerConfig.tavilyApiKey, 4000),
-    searchEnabled: typeof search.enabled === 'boolean' ? search.enabled : undefined,
     outboundProxy: isPlainObject(network.outboundProxy) ? sanitizeOutboundProxy(network.outboundProxy) : undefined,
   };
 }
@@ -161,7 +155,7 @@ function sanitizeRole(value: DynamicValue) {
   const icon = cleanOptionalString(value.icon, 40);
   const systemPrompt = cleanOptionalString(value.systemPrompt, 20000);
   const tools = Array.isArray(value.tools)
-    ? value.tools.filter((tool) => ['generate_image', 'generate_video', 'video_generate', 'web_search'].includes(tool))
+    ? value.tools.filter((tool) => ['generate_image', 'generate_video', 'video_generate'].includes(tool))
     : [];
   if (!id || !name || !systemPrompt) return null;
   return { id, name, icon, systemPrompt, tools, isCustom: true };
@@ -269,7 +263,6 @@ function buildRuntimeSectionFromLegacyAssistant(settings: DynamicValue) {
     : configs;
   return {
     activeConfigId: cleanOptionalString(settings.ai_active_config, 120),
-    tavilyApiKey: cleanOptionalString(settings.ai_tavily_key, 4000),
     configs: mergedConfigs,
   };
 }
@@ -304,7 +297,6 @@ function buildRuntimeSectionFromLegacyBackend(settings: DynamicValue) {
 
   return {
     activeConfigId: config?.id || '',
-    tavilyApiKey: cleanOptionalString(settings.tavilyApiKey, 4000),
     configs: config ? [config] : [],
   };
 }
@@ -312,8 +304,6 @@ function buildRuntimeSectionFromLegacyBackend(settings: DynamicValue) {
 function mergeRuntimeSections(...sections: DynamicValue[]) {
   const merged = {
     activeConfigId: '',
-    tavilyApiKey: '',
-    searchEnabled: false,
     outboundProxy: { ...DEFAULT_SETTINGS.runtime.outboundProxy },
     configs: [] as DynamicValue[],
   };
@@ -322,8 +312,6 @@ function mergeRuntimeSections(...sections: DynamicValue[]) {
   for (const section of sections) {
     if (!section) continue;
     if (section.activeConfigId) merged.activeConfigId = section.activeConfigId;
-    if (section.tavilyApiKey) merged.tavilyApiKey = section.tavilyApiKey;
-    if (section.searchEnabled !== undefined) merged.searchEnabled = Boolean(section.searchEnabled);
     if (isPlainObject(section.outboundProxy)) merged.outboundProxy = sanitizeOutboundProxy(section.outboundProxy);
     for (const config of section.configs || []) {
       byId.set(config.id, config);
@@ -405,8 +393,6 @@ function sanitizeSettingsShape(input: DynamicValue) {
   settings.runtime = mergeRuntimeSections(
     {
       activeConfigId: cleanOptionalString(value.runtime?.activeConfigId, 120),
-      tavilyApiKey: cleanOptionalString(value.runtime?.tavilyApiKey, 4000),
-      searchEnabled: value.runtime?.searchEnabled,
       outboundProxy: sanitizeOutboundProxy(value.runtime?.outboundProxy),
       configs: sanitizeApiConfigList(value.runtime?.configs),
     },
@@ -448,20 +434,12 @@ function mergeLegacyAppConfigIntoSettings(settings: DynamicValue) {
   if (!isPlainObject(legacyAppConfig) || Object.keys(legacyAppConfig).length === 0) return settings;
 
   const runtime = isPlainObject(settings.runtime) ? settings.runtime : {};
-  const currentKey = cleanOptionalString(runtime.tavilyApiKey, 4000);
-  const legacyKey = cleanOptionalString(legacyAppConfig.tavilyApiKey, 4000);
   const currentProxy = isPlainObject(runtime.outboundProxy) ? sanitizeOutboundProxy(runtime.outboundProxy) : null;
 
   return {
     ...settings,
     runtime: {
       ...runtime,
-      tavilyApiKey: currentKey || legacyKey,
-      searchEnabled: currentKey
-        ? Boolean(runtime.searchEnabled)
-        : typeof legacyAppConfig.searchEnabled === 'boolean'
-          ? legacyAppConfig.searchEnabled
-          : Boolean(runtime.searchEnabled),
       outboundProxy: currentProxy || legacyAppConfig.outboundProxy || { ...DEFAULT_SETTINGS.runtime.outboundProxy },
     },
   };
@@ -491,8 +469,6 @@ function getActiveRuntimeConfig(settings: DynamicValue = readSettingsInternal())
 
 function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: DynamicValue) {
   const settings = readSettingsForScope(scope);
-  const settingsTavilyApiKey = cleanOptionalString(settings.runtime?.tavilyApiKey, 4000);
-  const effectiveSearchEnabled = Boolean(settings.runtime?.searchEnabled);
   const effectiveOutboundProxy = sanitizeOutboundProxy(settings.runtime?.outboundProxy);
   configureOutboundProxy(effectiveOutboundProxy);
   const overrideConfigs = sanitizeApiConfigList(overrides.configs);
@@ -521,8 +497,6 @@ function buildRuntimeApiConfigInternal(overrides: DynamicValue = {}, scope?: Dyn
 
   return {
     apiKey: cleanSecretOverride(overrides.apiKey, 4000) || active?.apiKey || '',
-    tavilyApiKey: cleanOptionalString(overrides.tavilyApiKey, 4000) || settingsTavilyApiKey,
-    webSearchEnabled: Boolean(effectiveSearchEnabled && settingsTavilyApiKey),
     outboundProxy: effectiveOutboundProxy,
     workflowExecution: settings.workflow.concurrency,
     baseUrl: cleanOptionalString(overrides.baseUrl, 2000) || active?.base || 'https://api.openai.com/v1',
@@ -675,7 +649,6 @@ export class SettingsRepository {
       ...settings,
       runtime: {
         ...settings.runtime,
-        tavilyApiKey: cleanOptionalString(patch.tavilyApiKey, 4000) || settings.runtime.tavilyApiKey,
         configs,
       },
     });
@@ -737,7 +710,6 @@ export class SettingsRepository {
       ui: currentSettings.ui,
       runtime: {
         ...publicRuntime,
-        tavilyApiKey: undefined,
         configs: currentSettings.runtime.configs.map((config: DynamicValue) => ({
           ...config,
           apiKey: undefined,
@@ -753,7 +725,6 @@ export class SettingsRepository {
           }
         : null,
       apiKeySet: Boolean(active?.apiKey),
-      tavilyApiKeySet: Boolean(currentSettings.runtime.tavilyApiKey),
       baseUrl: active?.base || 'https://api.openai.com/v1',
       projectModels,
       providerConfig: sanitizeProviderConfig(active?.providerConfig || DEFAULT_PROVIDER_CONFIG),

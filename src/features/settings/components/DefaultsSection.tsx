@@ -126,25 +126,25 @@ export function DefaultsSection({ actions, view }: Props) {
                 { l: '直连', v: 'direct' },
                 { l: '自定义', v: 'custom' },
               ]}
-              value={view.networkSearch.outboundProxy?.mode || 'system'}
-              onChange={(value) => actions.setNetworkSearchProxyMode(value as 'system' | 'direct' | 'custom')}
+              value={view.outboundProxySettings.outboundProxy?.mode || 'system'}
+              onChange={(value) => actions.setOutboundProxyMode(value as 'system' | 'direct' | 'custom')}
             />
           </div>
-          {view.networkSearch.outboundProxy?.mode === 'custom' && (
+          {view.outboundProxySettings.outboundProxy?.mode === 'custom' && (
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 180px', minWidth: 160 }}>
                 <IOSLabel>HTTP Proxy</IOSLabel>
                 <IOSInput
-                  value={view.networkSearch.outboundProxy?.httpProxy || ''}
-                  onChange={actions.setNetworkSearchHttpProxy}
+                  value={view.outboundProxySettings.outboundProxy?.httpProxy || ''}
+                  onChange={actions.setOutboundProxyHttpProxy}
                   placeholder="http://127.0.0.1:7890"
                 />
               </div>
               <div style={{ flex: '1 1 180px', minWidth: 160 }}>
                 <IOSLabel>HTTPS Proxy</IOSLabel>
                 <IOSInput
-                  value={view.networkSearch.outboundProxy?.httpsProxy || ''}
-                  onChange={actions.setNetworkSearchHttpsProxy}
+                  value={view.outboundProxySettings.outboundProxy?.httpsProxy || ''}
+                  onChange={actions.setOutboundProxyHttpsProxy}
                   placeholder="http://127.0.0.1:7890"
                 />
               </div>
@@ -153,8 +153,8 @@ export function DefaultsSection({ actions, view }: Props) {
           <div style={{ maxWidth: 400 }}>
             <IOSLabel>No Proxy</IOSLabel>
             <IOSInput
-              value={view.networkSearch.outboundProxy?.noProxy || ''}
-              onChange={actions.setNetworkSearchNoProxy}
+              value={view.outboundProxySettings.outboundProxy?.noProxy || ''}
+              onChange={actions.setOutboundProxyNoProxy}
               placeholder="127.0.0.1,localhost,.internal"
             />
           </div>

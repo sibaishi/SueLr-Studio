@@ -1,8 +1,10 @@
-import { ProviderError } from '../../app/errors/index.ts';
+import { ProviderError, ValidationError } from '../../app/errors/index.ts';
 import { resolveModelRuntime } from '../../engine/helpers/apiConfig.ts';
 import { localUrlToDataUrl } from '../media/media-resolver.ts';
 import { getProviderAdapter } from '../providers/index.ts';
 import type { RequestScope } from '../runtime/request-scope.ts';
+
+import { buildResponsesChatBody, toChatCompletionResponse } from './responses-chat.ts';
 
 interface ChatContentImageUrl {
   url?: unknown;
@@ -26,6 +28,7 @@ interface ChatCompletionRequest {
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
+  webSearch?: boolean;
   signal?: AbortSignal;
   scope?: RequestScope;
 }
@@ -75,39 +78,59 @@ export async function runChatCompletion({
   temperature,
   maxTokens,
   stream = false,
+  webSearch,
   signal,
   scope,
 }: ChatCompletionRequest): Promise<Response> {
-  if (!apiKey) throw new Error(`${cleanText('未配置')} API Key`);
   if (!model) throw new Error('缺少对话模型');
 
   const adapter = getProviderAdapter();
 
-  const { endpoint } = resolveModelRuntime(
+  const { endpoint, model: projectModel } = resolveModelRuntime(
     { projectModels: projectModels || [], providerConfig: providerConfig || {}, endpoint: '', model },
     model,
     { expectedType: 'chat', purpose: 'chat' },
   );
 
+  const modelSupportsSearch = 'nativeWebSearch' in projectModel && projectModel.nativeWebSearch === true;
+  if (webSearch === true && !modelSupportsSearch) {
+    throw new ValidationError(
+      'MODEL_WEB_SEARCH_DISABLED',
+      `模型「${model}」未开启原生联网，请在设置的模型库中开启后重试`,
+    );
+  }
+  if (!apiKey) throw new Error(`${cleanText('未配置')} API Key`);
+
+  const nativeWebSearch = modelSupportsSearch && webSearch !== false;
+  const normalizedMessages = normalizeChatMessagesForUpstream(messages, scope);
+  const responsesEndpoint = /\/(?:chat\/completions|responses)\/?$/.test(endpoint)
+    ? endpoint.replace(/\/(?:chat\/completions|responses)\/?$/, '/responses')
+    : '/v1/responses';
+
   const response = await adapter.jsonRequest({
     apiKey,
     providerConfig,
     baseUrl,
-    endpoint,
+    endpoint: nativeWebSearch ? responsesEndpoint : endpoint,
     method: 'POST',
     signal,
     errorCode: 'CHAT_FAILED',
-    body: {
-      model,
-      messages: normalizeChatMessagesForUpstream(messages, scope),
-      ...(typeof temperature === 'number' ? { temperature } : {}),
-      ...(typeof maxTokens === 'number' ? { max_tokens: maxTokens } : {}),
-      ...(tools?.length ? { tools } : {}),
-      ...(stream ? { stream: true } : {}),
-    },
+    body: nativeWebSearch
+      ? {
+          ...buildResponsesChatBody(model, normalizedMessages, tools, maxTokens),
+          ...(webSearch === true ? { tool_choice: 'required' } : {}),
+        }
+      : {
+          model,
+          messages: normalizedMessages,
+          ...(typeof temperature === 'number' ? { temperature } : {}),
+          ...(typeof maxTokens === 'number' ? { max_tokens: maxTokens } : {}),
+          ...(tools?.length ? { tools } : {}),
+          ...(stream ? { stream: true } : {}),
+        },
   });
 
   if (!response.ok) throw new ProviderError('CHAT_FAILED', '对话请求失败');
 
-  return response;
+  return nativeWebSearch ? toChatCompletionResponse(response) : response;
 }

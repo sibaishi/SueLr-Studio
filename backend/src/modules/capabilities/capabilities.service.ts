@@ -1,6 +1,5 @@
 import { ProviderError, ValidationError } from '../../app/errors/index.ts';
 import { runChatCompletion } from '../../platform/ai/chat-service.ts';
-import { formatWebSearchResult, normalizeWebSearchResult, runWebSearch } from '../../platform/ai/search-service.ts';
 import { executeVideoGeneration, pollVideoTask, submitVideoGeneration } from '../../platform/ai/video-service.ts';
 import { createLogger } from '../../platform/logging/logger.ts';
 import { getRuntimeCapabilities } from '../../platform/runtime/index.ts';
@@ -45,7 +44,7 @@ export class CapabilitiesService {
         messages: body.messages || [],
         tools: body.tools,
         stream: false,
-        signal: body.signal,
+        signal: _options.signal,
         scope: _options.scope,
       });
       return response.json();
@@ -70,7 +69,7 @@ export class CapabilitiesService {
         messages: body.messages || [],
         tools: body.tools,
         stream: true,
-        signal: body.signal,
+        signal: _options.signal,
         scope: _options.scope,
       });
     } catch (error: unknown) {
@@ -79,29 +78,6 @@ export class CapabilitiesService {
       throw normalizedError?.status
         ? normalizedError
         : new ProviderError('CHAT_STREAM_FAILED', error instanceof Error ? error.message : 'Chat stream failed');
-    }
-  }
-
-  async search(body: DynamicValue, _options: PlainObject = {}) {
-    try {
-      const runtimeConfig = this.buildRuntimeConfig(body.apiConfig || {}, _options.scope);
-      if (!runtimeConfig.webSearchEnabled) {
-        throw new ValidationError('SEARCH_DISABLED', '当前部署未启用联网搜索');
-      }
-      const data = await runWebSearch({
-        tavilyApiKey: runtimeConfig.tavilyApiKey,
-        query: body.query,
-        maxResults: body.maxResults,
-        includeAnswer: body.includeAnswer !== false,
-        signal: undefined,
-      });
-      const structured = normalizeWebSearchResult(data as PlainObject, { query: body.query });
-      return { raw: data, content: formatWebSearchResult(structured), structured };
-    } catch (error: unknown) {
-      const normalizedError = error as DynamicValue;
-      throw normalizedError?.status
-        ? normalizedError
-        : new ProviderError('SEARCH_FAILED', error instanceof Error ? error.message : 'Search failed');
     }
   }
 

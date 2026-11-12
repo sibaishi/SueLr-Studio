@@ -357,8 +357,8 @@ Cross-runtime contracts remain independently typed at each runtime boundary. Beh
   - upstream image provider calling and response adaptation
 - `backend/src/platform/ai/chat-service.ts`
   - upstream chat request handling
-- `backend/src/platform/ai/search-service.ts`
-  - upstream web-search request handling
+- `backend/src/platform/ai/responses-chat.ts`
+  - per-model `nativeWebSearch` routes chat requests to Responses API with `web_search`, converting replies and citations to the shared chat completion contract. Workflow chat also requires the node’s `enableWebSearch` flag and rejects a search request when the selected model has search disabled
 - `backend/src/platform/ai/video-service.ts`
   - upstream video request handling; synchronous or downloaded video results are materialized under `files/generated/videos/`
 - `backend/src/platform/http/proxy-aware-fetch.ts`

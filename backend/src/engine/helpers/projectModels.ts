@@ -14,6 +14,7 @@ export interface ProjectModel {
   endpointMode: EndpointMode;
   endpointCategory: EndpointCategory | '';
   customEndpoint: string;
+  nativeWebSearch?: boolean;
   source: 'imported' | 'manual';
   configured: boolean;
   createdAt: number;
@@ -28,6 +29,7 @@ interface ProjectModelInput {
   endpointMode?: unknown;
   endpointCategory?: unknown;
   customEndpoint?: unknown;
+  nativeWebSearch?: unknown;
   source?: unknown;
   createdAt?: unknown;
   updatedAt?: unknown;
@@ -118,6 +120,7 @@ export function normalizeProjectModel(value: unknown): ProjectModel | null {
     type,
     endpointMode,
     endpointCategory: endpointMode === 'category' ? endpointCategory : '',
+    ...(type === 'chat' && item.nativeWebSearch === true ? { nativeWebSearch: true } : {}),
     customEndpoint: endpointMode === 'custom' ? customEndpoint : '',
     source,
     configured,

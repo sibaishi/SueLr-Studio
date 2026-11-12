@@ -3,15 +3,23 @@
     "mode": "local-web",
     "canSelectDirectory": true,
     "canRestartBackend": true,
-    "hasEmbeddedShell": false,
-    "search": {
-      "enabled": false,
-      "provider": "tavily",
-      "disabledReason": "当前未启用联网搜索"
-    }
+    "hasEmbeddedShell": false
   },
   "projectModels": {
     "input": [
+      {
+        "id": "chat-model",
+        "modelId": "chat-model",
+        "enabled": true,
+        "type": "chat",
+        "endpointMode": "category",
+        "endpointCategory": "chat",
+        "nativeWebSearch": true,
+        "customEndpoint": "",
+        "source": "manual",
+        "createdAt": 100,
+        "updatedAt": 200
+      },
       {
         "id": "video-model",
         "modelId": "video-model",
@@ -50,6 +58,20 @@
       }
     ],
     "expected": [
+      {
+        "id": "chat-model",
+        "modelId": "chat-model",
+        "enabled": true,
+        "type": "chat",
+        "endpointMode": "category",
+        "endpointCategory": "chat",
+        "nativeWebSearch": true,
+        "customEndpoint": "",
+        "source": "manual",
+        "configured": true,
+        "createdAt": 100,
+        "updatedAt": 200
+      },
       {
         "id": "image-model",
         "modelId": "image-model",

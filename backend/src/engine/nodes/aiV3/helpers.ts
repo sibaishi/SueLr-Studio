@@ -58,58 +58,6 @@ export function classifyByValue(value: unknown): 'text' | 'image' | 'video' | 'a
   return 'text';
 }
 
-// ── search helpers ────────────────────────────────────────────
-
-export function stringifyForSearch(content: DynamicValue) {
-  if (typeof content === 'string') return content.trim();
-  if (!Array.isArray(content)) return '';
-  return content
-    .filter((p) => p?.type === 'text' && p.text)
-    .map((p) => String(p.text).trim())
-    .filter(Boolean)
-    .join('\n');
-}
-
-function formatDate(offset = 0) {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + offset);
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(d);
-  const y = parts.find((p) => p.type === 'year')?.value || '';
-  const m = parts.find((p) => p.type === 'month')?.value || '';
-  const day = parts.find((p) => p.type === 'day')?.value || '';
-  return `${y}-${m}-${day}`;
-}
-
-export function buildSearchPlan(text: DynamicValue) {
-  const clean = String(text || '').trim();
-  if (!clean) return null;
-  const isNews = /(新闻|时讯|快讯|头条|资讯|报道|国际)/.test(clean);
-  const normalized = clean.replace(/\s+/g, ' ').trim();
-  if (/(今天|今日|当天)/.test(normalized)) {
-    const d = formatDate(0);
-    return {
-      query: normalized.replace(/今天|今日|当天/g, d),
-      topic: isNews ? 'news' : undefined,
-      days: 1,
-      dateHint: d,
-    };
-  }
-  if (/昨天/.test(normalized)) {
-    const d = formatDate(-1);
-    return { query: normalized.replace(/昨天/g, d), topic: isNews ? 'news' : undefined, days: 2, dateHint: d };
-  }
-  if (/(最新|最近|刚刚|目前|当前|现在)/.test(normalized)) {
-    const d = formatDate(0);
-    return { query: `${normalized} ${d}`, topic: isNews ? 'news' : undefined, days: isNews ? 3 : 7, dateHint: d };
-  }
-  return { query: normalized, topic: isNews ? 'news' : undefined, days: undefined, dateHint: '' };
-}
-
 // ── chat content builder ──────────────────────────────────────
 
 export async function buildChatContent(text: string, images: DynamicValue[], scope: RuntimeApiConfig['scope']) {
