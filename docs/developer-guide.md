@@ -338,6 +338,8 @@ Cross-runtime contracts remain independently typed at each runtime boundary. Beh
   - unified general-purpose input/output behavior
 - `backend/src/engine/nodes/aiV3/`
   - capability-routed chat, image, video, and Midjourney execution
+  - 音频项目模型使用 `audio` 类型和端点分类，分类默认路由至 `/v1/audio/speech`，自定义路径沿用模型路由。AI V3 的音频模式发送兼容的语音合成请求，校验 MP3 后交给现有 IO 节点持久化。
+  - 视频服务以供应商请求 URL 解析相对结果地址，通过远程下载校验重定向和媒体内容，再向工作流返回视频数据。
   - AI 能力节点将图像输出档位保存为 `imageResolution`，旧节点读取 `resolution` 时只接受有效的图像档位。视频能力接口忽略旧请求中的 `resolution`，视频适配器提交上游任务时省略该字段。
 - `backend/src/engine/nodes/promptHelper.ts`
   - prompt structuring and optimization

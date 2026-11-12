@@ -41,6 +41,7 @@ export class SettingsController {
             chat: models.chat,
             image: models.image,
             video: models.video,
+            audio: models.audio,
           },
         }),
       );

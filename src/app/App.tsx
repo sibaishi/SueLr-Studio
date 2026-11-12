@@ -120,11 +120,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    const grouped: Record<'all' | 'chat' | 'image' | 'video' | 'midjourney', ModelOption[]> = {
+    const grouped: Record<'all' | 'chat' | 'image' | 'video' | 'audio' | 'midjourney', ModelOption[]> = {
       all: [],
       chat: [],
       image: [],
       video: [],
+      audio: [],
       midjourney: [],
     };
     for (const model of settings.configuredProjectModels) {

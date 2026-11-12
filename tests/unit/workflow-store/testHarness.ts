@@ -89,7 +89,7 @@ export function createBaseWorkflowState(overrides: Partial<WorkflowState> = {}):
     aiResultOutputs: {},
     executionLogs: [],
     workflowWarningMessage: null,
-    availableModels: { all: [], chat: [], image: [], video: [], midjourney: [] },
+    availableModels: { all: [], chat: [], image: [], video: [], audio: [], midjourney: [] },
     workflowRuntimeConfigs: [],
     projectModels: [],
     showDebugSizes: false,

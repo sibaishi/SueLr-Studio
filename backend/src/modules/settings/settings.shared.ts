@@ -15,7 +15,7 @@ export function normalizeModelOverrides(value: DynamicValue) {
     Object.entries(value).flatMap(([modelId, config]: [string, DynamicValue]) => {
       const id = String(modelId || '').trim();
       if (!id || !config || typeof config !== 'object') return [];
-      const type = ['chat', 'image', 'video'].includes(config.type) ? config.type : '';
+      const type = ['chat', 'image', 'video', 'audio'].includes(config.type) ? config.type : '';
       const endpoint = String(config.endpoint || '').trim();
       if (!type && !endpoint) return [];
       return [[id, { ...(type ? { type } : {}), ...(endpoint ? { endpoint } : {}) }]];

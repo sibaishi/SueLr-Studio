@@ -16,6 +16,7 @@ export async function executeVideoMode(
     ...runtimeConfig,
     baseUrl: String(runtimeConfig.baseUrl || ''),
     abortSignal: apiConfig.abortSignal,
+    scope: apiConfig.scope,
     persistGeneratedOutputs: false,
   };
   if (!vConfig.apiKey) throw new Error('未配置 API Key，请先在设置页或 API Key 节点中填写。');

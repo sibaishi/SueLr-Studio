@@ -23,12 +23,13 @@ type Props = {
   view: SettingsViewModel;
 };
 
-const CATEGORY_ORDER: Record<string, number> = { chat: 0, image: 1, 'image-edit': 2, video: 3, midjourney: 4 };
+const CATEGORY_ORDER: Record<string, number> = { chat: 0, image: 1, 'image-edit': 2, video: 3, audio: 4, midjourney: 5 };
 const CATEGORY_LABELS: Record<string, string> = {
   chat: '对话',
   image: '图像',
   'image-edit': '图像编辑',
   video: '视频',
+  audio: '音频',
   midjourney: 'Midjourney',
 };
 
@@ -37,6 +38,7 @@ const MODEL_TYPES = [
   ['chat', '对话'],
   ['image', '图像'],
   ['video', '视频'],
+  ['audio', '音频'],
   ['midjourney', 'Midjourney'],
 ] as const;
 const ENDPOINT_MODES = [
@@ -50,6 +52,7 @@ const ENDPOINT_CATEGORIES = [
   ['image-edit', 'image-edit'],
   ['gemini-generate-content', 'Gemini generateContent'],
   ['video', 'video'],
+  ['audio', '语音合成'],
 ] as const;
 
 function ConfigOptions({ options }: { options: readonly (readonly [string, string])[] }) {
@@ -63,6 +66,7 @@ function ConfigOptions({ options }: { options: readonly (readonly [string, strin
 function modelTypeColor(type: string | undefined, T: Record<string, string>) {
   if (type === 'image' || type === 'image-edit') return T.purple;
   if (type === 'video') return T.orange;
+  if (type === 'audio') return T.purple;
   if (type === 'chat') return T.blue;
   if (type === 'midjourney') return T.purple;
   return undefined;
@@ -348,6 +352,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                       <option value="chat">对话</option>
                       <option value="image">图像</option>
                       <option value="video">视频</option>
+                      <option value="audio">音频</option>
                       <option value="midjourney">Midjourney</option>
                     </IOSSelect>
                   </div>

@@ -234,7 +234,7 @@ test('executeVideoGeneration prefers playable media url over provider result_url
     }
 
     if (String(url) === 'https://93.184.216.34/final.mp4') {
-      return new Response(Buffer.from('VIDEO'), {
+      return new Response(Buffer.from('0000ftypisom'), {
         status: 200,
         headers: { 'content-type': 'video/mp4' },
       });
@@ -353,7 +353,8 @@ test('executeVideoGeneration stores synchronous video results under generated vi
   const originalFetch = globalThis.fetch;
 
   globalThis.fetch = async () => new Response(JSON.stringify({
-    video_url: 'data:video/mp4;base64,QUJD',
+    id: 'synchronous-video-id',
+    video_url: 'data:video/mp4;base64,MDAwMGZ0eXBpc29t',
   }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -377,7 +378,7 @@ test('executeVideoGeneration stores synchronous video results under generated vi
 
     assert.match(result.video, /^\/api\/outputs\/videos\/.+\.mp4$/);
     const relativePath = result.video.replace('/api/outputs/', '');
-    assert.equal(fs.readFileSync(path.join(STORAGE_PATHS.generatedDir, relativePath), 'utf8'), 'ABC');
+    assert.equal(fs.readFileSync(path.join(STORAGE_PATHS.generatedDir, relativePath), 'utf8'), '0000ftypisom');
   } finally {
     globalThis.fetch = originalFetch;
     cleanupStorage();
@@ -391,7 +392,7 @@ test('executeVideoGeneration can leave generated video data unpersisted for work
   let requestBody = null;
   globalThis.fetch = async (_url, options) => {
     requestBody = JSON.parse(String(options.body));
-    return new Response(JSON.stringify({ video_url: 'data:video/mp4;base64,QUJD' }), {
+    return new Response(JSON.stringify({ video_url: 'data:video/mp4;base64,MDAwMGZ0eXBpc29t' }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     });
@@ -416,7 +417,7 @@ test('executeVideoGeneration can leave generated video data unpersisted for work
 
     assert.equal(requestBody.prompt, 'a cinematic sunrise');
     assert.equal(Object.hasOwn(requestBody, 'resolution'), false);
-    assert.equal(result.video, 'data:video/mp4;base64,QUJD');
+    assert.equal(result.video, 'data:video/mp4;base64,MDAwMGZ0eXBpc29t');
     const videosDir = path.join(STORAGE_PATHS.generatedDir, 'videos');
     assert.equal(fs.existsSync(videosDir) ? fs.readdirSync(videosDir).length : 0, 0);
   } finally {
@@ -440,4 +441,40 @@ test('video submit and polling errors describe the failed phase without echoing 
       return true;
     });
   }
+});
+
+test('video workflow downloads a signed relative provider file and rejects a non-video response', async (t) => {
+  const baseUrl = 'https://93.184.216.34/v1';
+  const filePath = '/v1/videos/test-video/file?exp=123&sig=a%2Bb';
+  const videoBytes = Buffer.from('0000ftypisom');
+  let returnVideo = true;
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    const requestUrl = String(url);
+    if (options.method === 'POST') {
+      assert.equal(requestUrl, `${baseUrl}/video/generations`);
+      return Response.json({ id: 'test-task' });
+    }
+    if (requestUrl === `${baseUrl}/video/generations/test-task`) {
+      return Response.json({
+        data: {
+          status: 'SUCCESS',
+          result_url: '/v1/video/generations/test-task',
+          data: { metadata: { url: filePath } },
+        },
+      });
+    }
+    assert.equal(requestUrl, `https://93.184.216.34${filePath}`);
+    assert.equal(options.headers, undefined);
+    return returnVideo
+      ? new Response(videoBytes, { headers: { 'content-type': 'application/octet-stream' } })
+      : Response.json({ error: 'not a file' });
+  });
+
+  const runtime = createRuntime({ baseUrl, persistGeneratedOutputs: false });
+  const request = { model: 'doubao-seedance-2-0-260128', prompt: 'test video' };
+  assert.deepEqual(await executeVideoGeneration(request, runtime), {
+    video: `data:video/mp4;base64,${videoBytes.toString('base64')}`,
+  });
+  returnVideo = false;
+  await assert.rejects(executeVideoGeneration(request, runtime), { code: 'VIDEO_RESULT_INVALID' });
 });

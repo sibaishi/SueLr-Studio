@@ -26,17 +26,18 @@ import type {
 type BackendModelsData = {
   message?: string;
   models?: string[];
-  categorized?: { chat?: string[]; image?: string[]; video?: string[] };
+  categorized?: { chat?: string[]; image?: string[]; video?: string[]; audio?: string[] };
 };
 
 function modelsFromBackend(
   all: string[] = [],
-  categorized: { chat?: string[]; image?: string[]; video?: string[] } = {},
+  categorized: { chat?: string[]; image?: string[]; video?: string[]; audio?: string[] } = {},
 ): ModelInfo[] {
   const categoryById = new Map<string, ModelInfo['cat']>();
   for (const id of categorized.chat || []) categoryById.set(id, 'chat');
   for (const id of categorized.image || []) categoryById.set(id, 'image');
   for (const id of categorized.video || []) categoryById.set(id, 'video');
+  for (const id of categorized.audio || []) categoryById.set(id, 'audio');
 
   return all.map((id) => ({
     id,
@@ -198,7 +199,7 @@ export async function discoverProviderModels(
   configId?: string,
   providerConfig?: Record<string, unknown>,
 ) {
-  return apiRequest<{ all: string[]; chat: string[]; image: string[]; video: string[] }>(
+  return apiRequest<{ all: string[]; chat: string[]; image: string[]; video: string[]; audio: string[] }>(
     '/api/settings/discover-models',
     {
       method: 'POST',

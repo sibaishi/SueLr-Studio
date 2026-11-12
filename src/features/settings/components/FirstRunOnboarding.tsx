@@ -239,6 +239,7 @@ export function FirstRunOnboarding({
   const chatCount = testedModels.filter((model) => model.cat === 'chat').length;
   const imageCount = testedModels.filter((model) => model.cat === 'image').length;
   const videoCount = testedModels.filter((model) => model.cat === 'video').length;
+  const audioCount = testedModels.filter((model) => model.cat === 'audio').length;
 
   return (
     <div
@@ -481,12 +482,13 @@ export function FirstRunOnboarding({
             )}
 
             <div
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}
             >
               {[
                 ['对话', chatCount, T.blue],
                 ['图像', imageCount, T.green],
                 ['视频', videoCount, T.purple],
+                ['音频', audioCount, T.orange],
               ].map(([label, count, color]) => (
                 <div
                   key={label}

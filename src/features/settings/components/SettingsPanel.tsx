@@ -127,6 +127,7 @@ export function SettingsPanel({
       chat: allModels.filter((m) => m.type === 'chat' && m.enabled).length,
       image: allModels.filter((m) => m.type === 'image' && m.enabled).length,
       video: allModels.filter((m) => m.type === 'video' && m.enabled).length,
+      audio: allModels.filter((m) => m.type === 'audio' && m.enabled).length,
       midjourney: allModels.filter((m) => m.type === 'midjourney' && m.enabled).length,
     };
   }, [apiConfigs]);
@@ -646,7 +647,7 @@ export function SettingsPanel({
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 0.9fr)', gap: 12 }}>
           <div style={{ ...mutedPanelStyle(), padding: 18 }}>
             <div style={eyebrowStyle()}>能力分布</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>
                 <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Chat</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
@@ -663,6 +664,12 @@ export function SettingsPanel({
                 <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>Video</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
                   {configStats.video}
+                </div>
+              </div>
+              <div style={{ ...mutedPanelStyle(), padding: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>音频</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
+                  {configStats.audio}
                 </div>
               </div>
               <div style={{ ...mutedPanelStyle(), padding: 14 }}>

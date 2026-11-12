@@ -23,6 +23,7 @@ import {
   FileText,
   Image,
   PlayCircle,
+  SpeakerHigh,
   TerminalWindow,
   VideoCamera,
   Warning,
@@ -343,9 +344,9 @@ function ResultsList({
 }) {
   const resultItems = files.map((file) => ({
     id: file.id,
-    type: file.type === 'video' ? 'videoGen' : 'imageGen',
+    type: file.type === 'audio' ? 'audio' : file.type === 'video' ? 'videoGen' : 'imageGen',
     label: file.name,
-    color: file.type === 'video' ? '#AF52DE' : '#FF9500',
+    color: file.type === 'audio' ? '#FF375F' : file.type === 'video' ? '#AF52DE' : '#FF9500',
     outputLabels: { content: file.relativePath },
     outputs: {
       content: {
@@ -375,7 +376,7 @@ function ResultsList({
       <EmptyState
         icon={<Image size={20} />}
         title="还没有 AI 输出"
-        body="执行后，这里会集中显示文本、图片和视频结果。"
+        body="执行后，这里会集中显示文本、图片、视频和音频结果。"
         action="先运行一次工作流，或检查节点是否具备可输出内容。"
       />
     );
@@ -413,7 +414,7 @@ function ResultsList({
 
 function NodeBadgeIcon({ nodeType }: { nodeType: string }) {
   const def = getNodeDef(nodeType);
-  const Icon = NODE_ICONS[def?.icon || 'eye'] || NODE_ICONS.eye;
+  const Icon = nodeType === 'audio' ? SpeakerHigh : NODE_ICONS[def?.icon || 'eye'] || NODE_ICONS.eye;
   return <Icon size={14} strokeWidth={2.1} />;
 }
 

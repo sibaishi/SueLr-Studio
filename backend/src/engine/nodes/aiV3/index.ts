@@ -1,5 +1,6 @@
 import { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import type { DynamicValue, NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } from '../types.ts';
+import { executeAudioMode } from './audio.ts';
 import { executeChatMode } from './chat.ts';
 import { classifyByValue } from './helpers.ts';
 import { executeImageMode } from './image.ts';
@@ -98,8 +99,7 @@ export async function execute(
 
   const mode = String(nodeData.mode || 'chat');
 
-  // Append panel prompt for image/video modes (not chat)
-  if (nodeData.prompt && String(nodeData.prompt).trim() && (mode === 'image' || mode === 'video')) {
+  if (nodeData.prompt && String(nodeData.prompt).trim() && ['image', 'video', 'audio'].includes(mode)) {
     const extra = String(nodeData.prompt).trim();
     prompt = prompt ? `${prompt}\n${extra}` : extra;
   }
@@ -109,6 +109,9 @@ export async function execute(
 
   if (mode === 'image') {
     return executeImageMode(prompt, images, nodeData, runtimeConfig, apiConfig, sendProgress);
+  }
+  if (mode === 'audio') {
+    return executeAudioMode(prompt, nodeData, runtimeConfig, apiConfig, sendProgress);
   }
   if (mode === 'video') {
     return executeVideoMode(prompt, images, video, audio, nodeData, runtimeConfig, apiConfig, sendProgress);

@@ -141,6 +141,7 @@ export interface WorkflowState {
     chat: ModelOption[];
     image: ModelOption[];
     video: ModelOption[];
+    audio: ModelOption[];
     midjourney: ModelOption[];
   };
   workflowRuntimeConfigs: ApiConfig[];
@@ -222,6 +223,7 @@ export interface WorkflowState {
     chat: ModelOption[];
     image: ModelOption[];
     video: ModelOption[];
+    audio: ModelOption[];
     midjourney: ModelOption[];
   }) => void;
   setProjectModels: (models: ProjectModel[]) => void;

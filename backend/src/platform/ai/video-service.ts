@@ -9,7 +9,7 @@ import { formatVideoProviderStatus } from '../providers/provider-http.ts';
 import { getProviderAdapter } from '../providers/index.ts';
 import type { RequestScope } from '../runtime/request-scope.ts';
 import { fetchRemoteDownload, readDownloadBuffer } from '../http/remote-download.ts';
-import { STORAGE_PATHS } from '../storage/index.ts';
+import { getScopedStoragePaths } from '../storage/index.ts';
 import { waitForAsyncTask } from './async-task-runner.ts';
 
 const REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS = 30_000;
@@ -184,7 +184,7 @@ function resolveVideoTasksEndpoint(baseUrl: unknown, providerConfig?: ProviderCo
   return String(endpoint || providerConfig?.videoEndpoint || '/v1/video/generations');
 }
 
-function firstStringByKeys(value: unknown, keys: string[]): string {
+function firstStringByKeys(value: unknown, keys: string[], accepts = (_value: string) => true): string {
   if (!value || typeof value !== 'object') return '';
   const keySet = new Set(keys);
   const queue: unknown[] = [value];
@@ -194,7 +194,7 @@ function firstStringByKeys(value: unknown, keys: string[]): string {
     if (!item || typeof item !== 'object' || seen.has(item)) continue;
     seen.add(item);
     for (const [key, nested] of Object.entries(item)) {
-      if (keySet.has(key) && typeof nested === 'string' && nested.trim()) {
+      if (keySet.has(key) && typeof nested === 'string' && nested.trim() && accepts(nested.trim())) {
         return nested.trim();
       }
       if (nested && typeof nested === 'object') queue.push(nested);
@@ -231,10 +231,11 @@ function extractVideoUrl(data: unknown): string {
     getString(nestedData.video_url) ||
     getString(nestedDataOutput.video_url) ||
     getString(nestedDataContent.video_url) ||
+    firstStringByKeys(data, ['video_url', 'file_url', 'media_url', 'download_url']) ||
     getString(nestedDataDataMetadata.url) ||
-    firstStringByKeys(data, ['video_url', 'file_url', 'media_url', 'download_url', 'url']) ||
-    getString(record.result_url) ||
-    getString(nestedData.result_url)
+    firstStringByKeys(data, ['url', 'result_url'], (url) =>
+      /(?:\.(?:mp4|mov|webm|m4v)|\/videos?\/[^/]+\/file)(?:[?#]|$)|^data:video\//i.test(url),
+    )
   );
 }
 
@@ -370,24 +371,82 @@ async function buildVideoGenerationPayload(
   return { parts, images, videos, audios };
 }
 
-async function downloadRemoteVideo(url: string): Promise<string> {
-  const response = await fetchRemoteDownload(url, '视频下载地址', AbortSignal.timeout(REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS));
-  if (!response.ok) {
-    throw new Error(`下载视频失败: HTTP ${response.status}`);
+function resolveVideoResultUrl(value: string, requestUrl: string): string {
+  const candidate = value.trim();
+  const inline = candidate.match(/^data:(video\/(?:mp4|webm|quicktime|x-m4v));base64,([a-z0-9+/=\s]+)$/i);
+  if (inline) {
+    const encoded = inline[2].replace(/\s/g, '');
+    if (encoded.length > Math.ceil(REMOTE_VIDEO_MAX_BYTES / 3) * 4) {
+      throw new ProviderError('VIDEO_RESULT_INVALID', '视频文件超过大小限制');
+    }
+    return toVideoDataUrl(Buffer.from(encoded, 'base64'), inline[1].toLowerCase());
   }
-
-  const contentType = response.headers.get('content-type') || 'video/mp4';
-  const buffer = await readDownloadBuffer(response, REMOTE_VIDEO_MAX_BYTES, '下载视频失败: 文件超过大小限制');
-  return `data:${contentType};base64,${buffer.toString('base64')}`;
+  try {
+    const url = new URL(candidate, requestUrl);
+    if (
+      candidate &&
+      !candidate.startsWith('?') &&
+      !candidate.startsWith('#') &&
+      /^https?:$/.test(url.protocol) &&
+      !url.username &&
+      !url.password
+    )
+      return url.href;
+  } catch {
+    // Report a stable error without including signed URLs.
+  }
+  throw new ProviderError('VIDEO_RESULT_INVALID', '视频生成完成，但供应商返回的视频地址无效');
 }
 
-function saveGeneratedVideoDataUrl(value: unknown): string | null {
+function toVideoDataUrl(buffer: Buffer, contentType?: string): string {
+  const boxType = buffer.toString('ascii', 4, 8);
+  const detectedType = buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+    ? 'video/webm'
+    : boxType === 'ftyp'
+      ? 'video/mp4'
+      : contentType === 'video/quicktime' && ['moov', 'mdat', 'wide'].includes(boxType)
+        ? 'video/quicktime'
+        : '';
+  if (!detectedType || (contentType && contentType !== 'application/octet-stream' && !VIDEO_MIME_EXT[contentType])) {
+    throw new ProviderError('VIDEO_RESULT_INVALID', '视频生成完成，但供应商返回的内容不是有效的视频文件');
+  }
+  const mimeType =
+    detectedType === 'video/mp4' && (contentType === 'video/quicktime' || contentType === 'video/x-m4v')
+      ? contentType
+      : detectedType;
+  return `data:${mimeType};base64,${buffer.toString('base64')}`;
+}
+
+async function downloadRemoteVideo(url: string, signal?: AbortSignal): Promise<string> {
+  const timeout = AbortSignal.timeout(REMOTE_VIDEO_DOWNLOAD_TIMEOUT_MS);
+  try {
+    const response = await fetchRemoteDownload(
+      url,
+      '视频下载地址',
+      signal ? AbortSignal.any([signal, timeout]) : timeout,
+    );
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new ProviderError('VIDEO_DOWNLOAD_FAILED', `视频生成完成，但下载失败（HTTP ${response.status}）`);
+    }
+
+    const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+    const buffer = await readDownloadBuffer(response, REMOTE_VIDEO_MAX_BYTES, '视频文件超过大小限制');
+    return toVideoDataUrl(buffer, contentType);
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error instanceof ProviderError) throw error;
+    throw new ProviderError('VIDEO_DOWNLOAD_FAILED', '视频生成完成，但下载失败，请检查文件大小或供应商连接');
+  }
+}
+
+function saveGeneratedVideoDataUrl(value: unknown, scope?: RequestScope): string | null {
   const match = String(value || '').match(/^data:([^;]+);base64,([a-zA-Z0-9+/=\s]+)$/);
   if (!match) return null;
   const mimeType = match[1].toLowerCase();
   const ext = VIDEO_MIME_EXT[mimeType] || 'mp4';
   const fileName = `videos/${randomUUID()}.${ext}`;
-  const filePath = path.join(STORAGE_PATHS.generatedDir, fileName);
+  const filePath = path.join(getScopedStoragePaths(scope).generatedDir, fileName);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
   return `/api/outputs/${fileName}`;
@@ -507,35 +566,44 @@ export async function submitVideoGeneration({
     );
   }
 
+  const videoUrl = extractVideoUrl(data);
+  const status = normalizeVideoTaskStatus(extractVideoTaskStatus(data));
+  if (status === 'failed' || status === 'cancelled') {
+    throw new ProviderError('VIDEO_SUBMIT_FAILED', '供应商未能完成视频生成');
+  }
+  if (videoUrl && status !== 'queued' && status !== 'processing') {
+    return {
+      mode: 'sync',
+      videoUrl: resolveVideoResultUrl(videoUrl, response.url || adapter.buildEndpoint(baseUrl, endpoint)),
+      raw: data,
+    };
+  }
+
   const taskId = extractVideoTaskId(data);
   if (taskId) {
     sendProgress?.(`视频生成任务已提交: taskId=${taskId}; endpoint=${endpoint}`);
     return { mode: 'poll', taskId, endpoint, raw: data };
   }
 
-  const videoUrl = extractVideoUrl(data);
-  if (videoUrl) {
-    return { mode: 'sync', videoUrl, raw: data };
-  }
-
-  throw new Error(`未获得任务 ID，也未返回视频结果: ${JSON.stringify(data).slice(0, 200)}`);
+  throw new ProviderError('VIDEO_RESULT_INVALID', '供应商响应缺少任务 ID 和可用的视频地址');
 }
 
-export async function pollVideoTask({
+async function fetchVideoTask({
   baseUrl,
   apiKey,
   providerConfig,
   taskId,
   endpoint: taskEndpoint,
   signal,
-}: PollVideoTaskRequest): Promise<unknown> {
+}: PollVideoTaskRequest): Promise<{ data: unknown; requestUrl: string }> {
   const endpoint = resolveVideoTasksEndpoint(baseUrl, providerConfig, taskEndpoint || providerConfig?.videoEndpoint);
   const adapter = getProviderAdapter();
+  const pollEndpoint = `${endpoint}/${encodeURIComponent(taskId)}`;
   const response = await adapter.rawRequest({
     apiKey,
     providerConfig,
     baseUrl,
-    endpoint: `${endpoint}/${taskId}`,
+    endpoint: pollEndpoint,
     signal,
     errorCode: 'VIDEO_STATUS_FAILED',
   });
@@ -545,7 +613,14 @@ export async function pollVideoTask({
     throw new ProviderError('VIDEO_STATUS_FAILED', formatVideoProviderStatus(response.status, 'poll'));
   }
 
-  return response.json().catch(() => ({}));
+  return {
+    data: await response.json().catch(() => ({})),
+    requestUrl: response.url || adapter.buildEndpoint(baseUrl, pollEndpoint),
+  };
+}
+
+export async function pollVideoTask(request: PollVideoTaskRequest): Promise<unknown> {
+  return (await fetchVideoTask(request)).data;
 }
 
 export async function waitForVideoTask({
@@ -560,8 +635,8 @@ export async function waitForVideoTask({
   const maxAttempts = 120;
   const intervalMs = 5000;
   return waitForAsyncTask({
-    poll: () => pollVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint, signal }),
-    inspect: (data) => {
+    poll: () => fetchVideoTask({ baseUrl, apiKey, providerConfig, taskId, endpoint, signal }),
+    inspect: ({ data, requestUrl }) => {
       const videoUrl = extractVideoUrl(data);
       const rawStatus = extractVideoTaskStatus(data);
       const dataRecord = asRecord(data);
@@ -572,7 +647,9 @@ export async function waitForVideoTask({
       );
 
       if (status === 'completed') {
-        return { state: 'completed', result: videoUrl } as const;
+        return videoUrl
+          ? ({ state: 'completed', result: resolveVideoResultUrl(videoUrl, requestUrl) } as const)
+          : ({ state: 'failed', error: '视频生成完成，但供应商未返回可用的视频地址' } as const);
       }
 
       if (status === 'failed' || status === 'cancelled') {
@@ -592,8 +669,9 @@ export async function waitForVideoTask({
     abortMessage: '工作流已手动停止',
     timeoutMessage: '视频生成超时(超过 10 分钟)',
     onAttempt: (attempt) => sendProgress?.(`正在等待视频生成... (${attempt * 5}s)`),
-    onProgress: (progress) => sendProgress?.(`视频生成进度: ${Math.round(progress * 100)}%`),
-    shouldRetryError: (error) => !String(error instanceof Error ? error.message : '').includes('视频生成失败'),
+    onProgress: (progress) =>
+      sendProgress?.(`视频生成进度: ${Math.min(100, Math.round(progress <= 1 ? progress * 100 : progress))}%`),
+    shouldRetryError: (error) => !(error instanceof ProviderError && error.code === 'VIDEO_RESULT_INVALID'),
   });
 }
 
@@ -654,22 +732,11 @@ export async function executeVideoGeneration(
           sendProgress,
         });
 
-  if (!videoUrl) {
-    throw new Error('视频生成完成但未返回可用地址');
-  }
-
   sendProgress?.(shouldPersistGeneratedOutputs ? '正在下载并保存视频...' : '正在下载视频...');
-
-  if (String(videoUrl).startsWith('data:')) {
-    if (!shouldPersistGeneratedOutputs) return { video: videoUrl };
-    return { video: saveGeneratedVideoDataUrl(videoUrl) || videoUrl };
-  }
-
-  if (String(videoUrl).startsWith('http')) {
-    const downloaded = await downloadRemoteVideo(videoUrl);
-    if (!shouldPersistGeneratedOutputs) return { video: downloaded };
-    return { video: saveGeneratedVideoDataUrl(downloaded) || downloaded };
-  }
-
-  return { video: videoUrl };
+  const videoData = videoUrl.startsWith('data:') ? videoUrl : await downloadRemoteVideo(videoUrl, abortSignal);
+  return {
+    video: shouldPersistGeneratedOutputs
+      ? saveGeneratedVideoDataUrl(videoData, runtimeConfig.scope) || videoData
+      : videoData,
+  };
 }

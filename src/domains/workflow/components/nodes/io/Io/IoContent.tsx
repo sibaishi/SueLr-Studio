@@ -14,7 +14,7 @@ import {
   sortSlotsByInputOrder,
 } from '@/domains/workflow/lib/store/helpers';
 import type { ParamDef } from '@/domains/workflow/lib/types';
-import { FileText, Stack } from '@phosphor-icons/react';
+import { Stack } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 import { useMemo, useState } from 'react';
 import { fileRawStore } from '../fileRawStore';
@@ -197,10 +197,9 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
       for (const url of content) {
         if (!url || typeof url !== 'string') continue;
         const type = classifyItemValue(url);
-        if (type === 'audio') continue;
         expanded.push({
           value: url,
-          type: type as 'image' | 'video' | 'text',
+          type,
           slotId: `${slot.edgeId}/f_fallback_${expanded.length}`,
           edgeId: slot.edgeId,
           fileId: undefined,
@@ -237,6 +236,10 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
   const videoItems: string[] = typedUpstreamItems
     ? typedUpstreamItems.filter((s) => s.type === 'video').map((s) => s.value)
     : items.filter((item) => classifyItemValue(item) === 'video').map(String);
+
+  const audioItems = typedUpstreamItems
+    ? typedUpstreamItems.filter((item) => item.type === 'audio').map((item) => item.value)
+    : items.filter((item) => classifyItemValue(item) === 'audio').map(String);
 
   const previewable: { idx: number; value: string; type: string; fileId?: number }[] = typedUpstreamItems
     ? typedUpstreamItems
@@ -381,20 +384,12 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
             </div>
           ))}
 
-          {/* Video indicators */}
-          {videoItems.map((_vid, idx) => (
-            <div
-              key={`v${idx}`}
-              style={{
-                fontSize: 10,
-                color: 'var(--node-card-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <FileText size={12} /> 视频 {idx + 1}
-            </div>
+          {audioItems.map((src, index) => (
+            <audio key={index} className="nodrag nopan" src={src} controls preload="metadata" style={{ width: '100%' }} />
+          ))}
+
+          {videoItems.map((src, index) => (
+            <video className="nodrag nopan" key={index} src={src} controls preload="metadata" style={{ width: '100%' }} />
           ))}
 
           {/* Modal viewer */}

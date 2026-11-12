@@ -22,7 +22,7 @@ export async function testApiConnection(apiKey: string, baseUrl: string, provide
   return workflowApiFetch<{
     message: string;
     models: string[];
-    categorized: { chat: string[]; image: string[]; video: string[] };
+    categorized: { chat: string[]; image: string[]; video: string[]; audio: string[] };
   }>('/settings/test-api', {
     method: 'POST',
     body: JSON.stringify({ apiKey, baseUrl, providerConfig }),
@@ -45,6 +45,7 @@ export interface CategorizedModels {
   chat: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
   image: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
   video: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
+  audio?: CategorizedModels['video'];
   midjourney: Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>;
 }
 

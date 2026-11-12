@@ -1,7 +1,7 @@
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ParamDef } from '@/domains/workflow/lib/types';
-import { FilmSlate, Image, Palette, Robot } from '@phosphor-icons/react';
+import { FilmSlate, Image, Palette, Robot, SpeakerHigh } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 
 import { useState } from 'react';
@@ -58,6 +58,24 @@ export function AiV3Content({ params: _params, nodeId, data, outerStyle, onChang
             onClose={() => setPreviewImage(null)}
           />
         )}
+      </div>
+    );
+  }
+
+  if (mode === 'audio') {
+    const audioUrl = typeof outputs?.result === 'string' ? outputs.result : '';
+    return (
+      <div className="node-gallery-shell-v2" style={outerStyle}>
+        <div className="node-gallery-frame-v2">
+          {audioUrl ? (
+            <audio className="nodrag nopan" src={audioUrl} controls preload="metadata" style={{ width: '100%' }} />
+          ) : (
+            <div className="node-gallery-empty-v2">
+              <SpeakerHigh size={32} />
+              <span>待合成</span>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

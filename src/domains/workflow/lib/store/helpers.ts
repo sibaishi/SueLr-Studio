@@ -315,6 +315,7 @@ export function getAiNodesMissingValidOutputs(nodes: Node[], edges: Edge[]) {
 const AI_V3_MODE_INPUT_LIMITS: Record<string, Record<string, number>> = {
   chat: { text: Number.POSITIVE_INFINITY, image: 9 },
   image: { text: Number.POSITIVE_INFINITY, image: 9 },
+  audio: { text: Number.POSITIVE_INFINITY },
   video: { text: Number.POSITIVE_INFINITY, image: 2, video: 1, audio: 1 },
 };
 
@@ -339,6 +340,7 @@ function classifyInputEdgeSource(edge: Edge, nodes: Node[]): string {
   const src = nodes.find((n) => n.id === edge.source);
   if (!src) return 'text';
   const srcType = src.type || '';
+  if (srcType === 'aiV3' && src.data?.mode === 'audio') return 'audio';
   const handle = edge.sourceHandle || '';
 
   if (

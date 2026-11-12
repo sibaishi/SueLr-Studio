@@ -1,6 +1,6 @@
 export interface ModelInfo {
   id: string;
-  cat: 'chat' | 'image' | 'video';
+  cat: 'chat' | 'image' | 'video' | 'audio';
 }
 
 export type {

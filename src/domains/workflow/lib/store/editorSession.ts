@@ -164,6 +164,7 @@ export function createWorkflowEditorSessionActions(
           chat: result.data.chat.map(enrichConfigName),
           image: result.data.image.map(enrichConfigName),
           video: result.data.video.map(enrichConfigName),
+          audio: result.data.audio?.map(enrichConfigName) || [],
           midjourney: result.data.midjourney?.map(enrichConfigName) || [],
         };
 
@@ -175,6 +176,7 @@ export function createWorkflowEditorSessionActions(
             chat: nextModels.chat,
             image: nextModels.image,
             video: nextModels.video,
+            audio: nextModels.audio,
             midjourney: nextModels.midjourney.length > 0 ? nextModels.midjourney : prevMidjourney,
           },
         });

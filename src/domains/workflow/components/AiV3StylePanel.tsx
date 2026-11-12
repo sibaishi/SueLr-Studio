@@ -21,6 +21,7 @@ import {
   Image,
   Ruler,
   MagnifyingGlass,
+  SpeakerHigh,
   SlidersHorizontal,
   Sparkle,
   Stack,
@@ -187,6 +188,7 @@ export default function AiV3StylePanel() {
     (modelValue: string) => {
       if (!modelValue) return 'chat';
       if ((availableModels.image || []).some((m) => isModelMatch(m, modelValue))) return 'image';
+      if ((availableModels.audio || []).some((m) => isModelMatch(m, modelValue))) return 'audio';
       if ((availableModels.video || []).some((m) => isModelMatch(m, modelValue))) return 'video';
       if ((availableModels.chat || []).some((m) => isModelMatch(m, modelValue))) return 'chat';
       if ((availableModels.midjourney || []).some((m) => isModelMatch(m, modelValue))) return 'midjourney';
@@ -281,10 +283,11 @@ export default function AiV3StylePanel() {
   }, [rawInputs, nodes, v3Node]);
 
   // ── 模型三级树（must be before early return to keep hook count stable）──
-  const catLabels: Record<string, string> = { chat: '对话', image: '图像', video: '视频', midjourney: 'Midjourney' };
+  const catLabels: Record<string, string> = { chat: '对话', image: '图像', video: '视频', audio: '音频', midjourney: 'Midjourney' };
   const allModelOptions = [
     ...(availableModels.chat || []).map((m) => ({ ...m, _cat: 'chat' as const })),
     ...(availableModels.image || []).map((m) => ({ ...m, _cat: 'image' as const })),
+    ...(availableModels.audio || []).map((m) => ({ ...m, _cat: 'audio' as const })),
     ...(availableModels.video || []).map((m) => ({ ...m, _cat: 'video' as const })),
     ...(availableModels.midjourney || []).map((m) => ({ ...m, _cat: 'midjourney' as const })),
   ];
@@ -307,7 +310,7 @@ export default function AiV3StylePanel() {
       (config.cats[m._cat] ??= []).push(m);
       configs.set(configId, config);
     }
-    const catOrder = ['chat', 'image', 'video', 'midjourney'];
+    const catOrder = ['chat', 'image', 'video', 'audio', 'midjourney'];
     return Array.from(configs, ([configId, entry]) => ({
       configName: entry.configName,
       configId,
@@ -710,6 +713,52 @@ export default function AiV3StylePanel() {
         </div>
       )}
 
+      {currentMode === 'audio' && (
+        <div className="ai-composer">
+          <textarea
+            aria-label="合成文本"
+            value={promptValue}
+            onChange={(event) => {
+              setPromptValue(event.target.value);
+              setData({ prompt: event.target.value });
+            }}
+            className="nodrag nowheel ai-composer-prompt"
+            placeholder="输入要合成的文本，或连接上游文本节点"
+            onPointerDown={(event) => event.stopPropagation()}
+          />
+          <div className="nodrag ai-parameter-toolbar" aria-label="语音合成参数" role="group">
+            <StylePanelPopoverButton
+              showValue
+              icon={<Crosshair size={15} />}
+              label="模型"
+              valueHint={modelLabel}
+              open={openPopover === 'model'}
+              onToggle={() => setOpenPopover(openPopover === 'model' ? null : 'model')}
+            >
+              <ModelTreeSelector tree={modelTree} selectedModel={selectedModel} onSelect={handleModelChange} />
+            </StylePanelPopoverButton>
+            <StylePanelPopoverButton
+              showValue
+              icon={<SpeakerHigh size={15} />}
+              label="音色"
+              valueHint={String(nodeData.voice || 'alloy')}
+              open={openPopover === 'voice'}
+              onToggle={() => setOpenPopover(openPopover === 'voice' ? null : 'voice')}
+            >
+              <label className="ai-parameter-field">
+                音色标识
+                <input
+                  className="nodrag"
+                  value={String(nodeData.voice ?? '')}
+                  placeholder="alloy"
+                  onChange={(event) => setData({ voice: event.target.value })}
+                />
+              </label>
+            </StylePanelPopoverButton>
+          </div>
+        </div>
+      )}
+
       {/* ── MIDJOURNEY MODE ── */}
       {currentMode === 'midjourney' && (
         <div className="ai-composer">
@@ -844,6 +893,7 @@ const MODEL_CATEGORY_ICONS = {
   chat: ChatCircle,
   image: Image,
   video: VideoCamera,
+  audio: SpeakerHigh,
   midjourney: Sparkle,
 };
 

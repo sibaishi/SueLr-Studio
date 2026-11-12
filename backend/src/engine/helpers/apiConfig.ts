@@ -54,7 +54,7 @@ function cleanObject(value: unknown): PlainObject {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as PlainObject) : {};
 }
 
-const NODE_ENDPOINT_CATEGORIES = new Set(['chat', 'image', 'image-edit', 'gemini-generate-content', 'video']);
+const NODE_ENDPOINT_CATEGORIES = new Set(['chat', 'image', 'image-edit', 'gemini-generate-content', 'video', 'audio']);
 
 function normalizeEndpointMode(value: unknown): EndpointMode {
   return value === 'custom' ? 'custom' : 'category';

@@ -187,7 +187,7 @@ function sanitizeApiConfig(value: DynamicValue) {
           .map((item) => {
             if (!isPlainObject(item)) return null;
             const modelId = cleanOptionalString(item.id, 200);
-            const cat = ['chat', 'image', 'video'].includes(item.cat) ? item.cat : 'chat';
+            const cat = ['chat', 'image', 'video', 'audio'].includes(item.cat) ? item.cat : 'chat';
             return modelId ? { id: modelId, cat } : null;
           })
           .filter(Boolean)
@@ -544,13 +544,14 @@ function classifyModels(providerModels: DynamicValue, providerConfig: DynamicVal
     }))
     .filter((model) => model.id && model.type);
   const all = [...new Set([...discoveredModels.map((model) => model.id), ...Object.keys(overrides)])];
-  const groups: Record<string, string[]> = { all, chat: [], image: [], video: [] };
+  const groups: Record<string, string[]> = { all, chat: [], image: [], video: [], audio: [] };
   const discoveredTypes = new Map(discoveredModels.map((model) => [model.id, model.type]));
 
   for (const modelId of all) {
     const type = overrides[modelId]?.type || discoveredTypes.get(modelId) || categorizeLegacyModel(modelId);
     if (type === 'image') groups.image.push(modelId);
     else if (type === 'video') groups.video.push(modelId);
+    else if (type === 'audio') groups.audio.push(modelId);
     else groups.chat.push(modelId);
   }
 
@@ -678,7 +679,7 @@ export class SettingsRepository {
     const configModels: Record<
       string,
       Array<{ label: string; value: string; modelId: string; configId: string; configName: string }>
-    > = { all: [], chat: [], image: [], video: [] };
+    > = { all: [], chat: [], image: [], video: [], audio: [] };
     const seenPairs = new Set<string>();
     const allConfigs: DynamicValue[] = currentSettings.runtime.configs || [];
     for (const config of allConfigs) {
@@ -702,6 +703,7 @@ export class SettingsRepository {
         if (model.type === 'chat') configModels.chat.push(opt);
         if (model.type === 'image') configModels.image.push(opt);
         if (model.type === 'video') configModels.video.push(opt);
+        if (model.type === 'audio') configModels.audio.push(opt);
       }
     }
 

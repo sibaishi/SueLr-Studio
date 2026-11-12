@@ -1,10 +1,10 @@
-const MODEL_TYPES = new Set(['chat', 'image', 'video', 'midjourney']);
+const MODEL_TYPES = new Set(['chat', 'image', 'video', 'audio', 'midjourney']);
 const ENDPOINT_MODES = new Set(['category', 'custom']);
-const ENDPOINT_CATEGORIES = new Set(['chat', 'image', 'image-edit', 'gemini-generate-content', 'video']);
+const ENDPOINT_CATEGORIES = new Set(['chat', 'image', 'image-edit', 'gemini-generate-content', 'video', 'audio']);
 
-export type ProjectModelType = 'chat' | 'image' | 'video' | 'midjourney';
+export type ProjectModelType = 'chat' | 'image' | 'video' | 'audio' | 'midjourney';
 export type EndpointMode = 'category' | 'custom';
-export type EndpointCategory = 'chat' | 'image' | 'image-edit' | 'gemini-generate-content' | 'video';
+export type EndpointCategory = 'chat' | 'image' | 'image-edit' | 'gemini-generate-content' | 'video' | 'audio';
 
 export interface ProjectModel {
   id: string;
@@ -53,6 +53,7 @@ export const DEFAULT_ENDPOINTS = {
   'image-edit': '/v1/images/edits',
   'gemini-generate-content': null,
   video: '/v1/video/generations',
+  audio: '/v1/audio/speech',
 };
 
 function cleanText(value: unknown): string {
@@ -72,6 +73,7 @@ function cleanTimestamp(value: unknown): number {
 
 export function categorizeLegacyModel(modelId: unknown): ProjectModelType {
   const lower = cleanText(modelId).toLowerCase();
+  if (/(?:^|[-_/])tts(?:$|[-_/])/.test(lower)) return 'audio';
   if (/seedance|cogvideo|runway|sora|video|animate|kling/i.test(lower)) return 'video';
   if (/seedream|dall|stable.?diffusion|midjourney|sdxl|flux|cogview|image|banana|wanx/i.test(lower)) return 'image';
   return 'chat';
@@ -80,6 +82,7 @@ export function categorizeLegacyModel(modelId: unknown): ProjectModelType {
 export function inferEndpointCategory(type: unknown): EndpointCategory | '' {
   if (type === 'image' || type === 'midjourney') return 'image';
   if (type === 'video') return 'video';
+  if (type === 'audio') return 'audio';
   if (type === 'chat') return 'chat';
   return '';
 }
@@ -189,6 +192,7 @@ export function groupConfiguredProjectModels(projectModels: unknown): Record<'al
     chat: [],
     image: [],
     video: [],
+    audio: [],
     midjourney: [],
   };
   for (const model of normalizeProjectModels(projectModels)) {
@@ -197,6 +201,7 @@ export function groupConfiguredProjectModels(projectModels: unknown): Record<'al
     if (model.type === 'chat') groups.chat.push(model.modelId);
     if (model.type === 'image') groups.image.push(model.modelId);
     if (model.type === 'video') groups.video.push(model.modelId);
+    if (model.type === 'audio') groups.audio.push(model.modelId);
     if (model.type === 'midjourney') groups.midjourney.push(model.modelId);
   }
   return groups;
