@@ -14,6 +14,11 @@ router.post(
 );
 
 router.get(
+  '/:id/history',
+  validateParam('id', validateExecutionWorkflowId),
+  executionController.listHistory.bind(executionController),
+);
+router.get(
   '/runs/:runId/status',
   validateParam('runId', validateExecutionRunId),
   executionController.getStatus.bind(executionController),
@@ -22,6 +27,13 @@ router.post(
   '/runs/:runId/cancel',
   validateParam('runId', validateExecutionRunId),
   executionController.cancel.bind(executionController),
+);
+
+router.post(
+  '/runs/:runId/videos/:recoveryId/recover',
+  validateParam('runId', validateExecutionRunId),
+  validateParam('recoveryId', validateExecutionRunId),
+  executionController.recoverVideo.bind(executionController),
 );
 
 export default router;

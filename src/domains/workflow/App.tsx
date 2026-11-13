@@ -8,6 +8,7 @@ import ResultsPanel from '@/domains/workflow/components/ResultsPanel';
 import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
 import { WorkflowConfirmProvider, useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
+import WorkflowExportModal from '@/domains/workflow/components/WorkflowExportModal';
 import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
 import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
 import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
@@ -22,7 +23,7 @@ import { Cube } from '@phosphor-icons/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface WorkflowPageProps {
-  onOpenStudioSettings?: () => void;
+  onOpenStudioSettings?: (module?: 'connection' | 'models') => void;
   onToggleTheme?: () => void;
   themeMode: ThemeMode;
 }
@@ -42,7 +43,7 @@ export default function WorkflowPage({ onOpenStudioSettings, onToggleTheme, them
 function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }: WorkflowPageProps) {
   const confirm = useWorkflowConfirm();
   const store = useWorkflowPageStore();
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true);
   const [shouldRenderResultsPanel, setShouldRenderResultsPanel] = useState(!rightPanelCollapsed);
   const assetPositionRef = useRef({ x: 300, y: 200 });
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
@@ -80,6 +81,12 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
   useEffect(() => {
     store.persistLocalDraft();
   }, [store.workflowId, store.workflowName, store.nodes, store.edges]);
+
+  const workflowWarningMessage = useWorkflowStore((state) => state.workflowWarningMessage);
+  const nodeWarnings = useWorkflowStore((state) => state.nodeWarnings);
+  useEffect(() => {
+    if (workflowWarningMessage || store.isExecuting) setRightPanelCollapsed(false);
+  }, [nodeWarnings, workflowWarningMessage, store.isExecuting]);
 
   useEffect(() => {
     if (!rightPanelCollapsed) {
@@ -119,6 +126,11 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
     handleDuplicateWorkflow,
     handleDeleteWorkflow,
     handleExportWorkflow,
+    exportRequest,
+    exportBusy,
+    exportError,
+    closeExport,
+    downloadExport,
   } = useWorkflowPageCommands({
     store,
     resetHistory,
@@ -370,7 +382,9 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
           rightPanelCollapsed={rightPanelCollapsed}
           isExecuting={store.isExecuting}
         />
-        <FlowCanvas onViewportCenterChange={handleCanvasCenterChange} />
+        <div className={`workflow-flow-area ${rightPanelCollapsed ? '' : 'workflow-flow-area--with-results'}`}>
+          <FlowCanvas onViewportCenterChange={handleCanvasCenterChange} />
+        </div>
         {!store.isHydratingWorkflow && store.nodes.length === 0 && <EmptyCanvasHint />}
         <FloatingToolbar
           onAddNode={handleOpenNodeCatalog}
@@ -385,7 +399,12 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
           onAutoArrange={store.autoArrangeWorkflow}
         />
 
-        {shouldRenderResultsPanel && <ResultsPanel motionState={rightPanelCollapsed ? 'leaving' : 'entering'} />}
+        {shouldRenderResultsPanel && (
+          <ResultsPanel
+            motionState={rightPanelCollapsed ? 'leaving' : 'entering'}
+            onOpenSettings={onOpenStudioSettings}
+          />
+        )}
 
         <StatusBar
           documents={store.documents}
@@ -459,6 +478,16 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
         </div>
       )}
 
+      {exportRequest && (
+        <WorkflowExportModal
+          references={exportRequest.references}
+          busy={exportBusy}
+          error={exportError}
+          onClose={closeExport}
+          onDownload={(withMedia) => void downloadExport(withMedia)}
+        />
+      )}
+
       {importReport && (
         <WorkflowImportReportModal
           fileName={importReportFileName}
@@ -487,8 +516,9 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
 
       <input
         ref={importInputRef}
+        data-testid="workflow-import-file"
         type="file"
-        accept=".json,application/json"
+        accept=".json,.zip,application/json,application/zip"
         className="hidden"
         onChange={handleImportWorkflow}
       />

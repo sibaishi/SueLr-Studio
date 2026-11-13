@@ -1711,6 +1711,35 @@ test('generateImages does not retry non-retryable image request errors', async (
   }
 });
 
+test('Gemini image editing does not replay a POST when the upstream response is lost', async (t) => {
+  for (const code of ['UND_ERR_SOCKET', 'ECONNRESET']) {
+    await t.test(code, async (caseTest) => {
+      const fetchMock = caseTest.mock.method(globalThis, 'fetch', async () => {
+        throw new Error('fetch failed', { cause: { code, message: 'other side closed' } });
+      });
+      const progress = [];
+      await assert.rejects(generateImages({
+        model: 'gemini-3-pro-image-preview',
+        prompt: 'edit image',
+        image: ['data:image/png;base64,YWJj'],
+      }, createRuntimeConfig({
+        projectModels: [{
+          modelId: 'gemini-3-pro-image-preview',
+          type: 'image',
+          enabled: true,
+          endpointMode: 'category',
+          endpointCategory: 'gemini-generate-content',
+        }],
+      }), (message) => progress.push(message)), /未收到 HTTP 响应.*可能已完成并扣费/);
+      assert.equal(fetchMock.mock.callCount(), 1);
+      const requestLog = progress.find((message) => message.startsWith('[ImageRequest] '));
+      assert.ok(requestLog);
+      assert.doesNotMatch(requestLog, /YWJj/);
+      assert.match(requestLog, /"encoding":"base64","length":4/);
+    });
+  }
+});
+
 test('generateImages logs one ImageRequest entry for a single image edit request', async () => {
   const originalFetch = globalThis.fetch;
   const progress = [];

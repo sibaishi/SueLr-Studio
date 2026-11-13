@@ -8,6 +8,7 @@ import {
   clearGeneratedOutputs,
   fetchGeneratedOutputs,
 } from '@/domains/workflow/lib/api/files';
+import { type ExecutionHistoryEntry, fetchExecutionHistory, recoverExecutionVideo } from '@/domains/workflow/lib/api/execution';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { formatDurationSeconds, getExecutionStatusLabel } from '@/domains/workflow/lib/executionFormat';
 import {
@@ -18,6 +19,7 @@ import {
 } from '@/domains/workflow/lib/ioImageFiles';
 import { type ExecutionLogEntry, useWorkflowStore } from '@/domains/workflow/lib/store';
 import {
+  CaretDown,
   Clipboard,
   Clock,
   FileText,
@@ -30,12 +32,13 @@ import {
 } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-type PanelTab = 'results' | 'logs';
+type PanelTab = 'results' | 'logs' | 'history';
 const LOG_MESSAGE_PREVIEW_LIMIT = 600;
 const LOG_DETAILS_PREVIEW_LIMIT = 4000;
 
 interface ResultsPanelProps {
   motionState?: 'entering' | 'leaving';
+  onOpenSettings?: (module: 'connection' | 'models') => void;
 }
 
 type ReadableLog = ExecutionLogEntry & {
@@ -46,7 +49,7 @@ type ReadableLog = ExecutionLogEntry & {
   detailSource?: ExecutionLogEntry;
 };
 
-export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelProps) {
+export default function ResultsPanel({ motionState = 'entering', onOpenSettings }: ResultsPanelProps) {
   const confirm = useWorkflowConfirm();
   const [tab, setTab] = useState<PanelTab>('results');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -54,6 +57,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
   const [isLoadingOutputs, setIsLoadingOutputs] = useState(false);
   const [isClearingOutputs, setIsClearingOutputs] = useState(false);
   const [outputsError, setOutputsError] = useState<string | null>(null);
+  const workflowId = useWorkflowStore((s) => s.workflowId);
   const nodes = useWorkflowStore((s) => s.nodes);
   const executionLogs = useWorkflowStore((s) => s.executionLogs);
   const readableExecutionLogCount = useMemo(() => buildReadableLogs(executionLogs).length, [executionLogs]);
@@ -66,6 +70,8 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
   const addNode = useWorkflowStore((s) => s.addNode);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const selectNode = useWorkflowStore((s) => s.selectNode);
+  const lastExecutionError = useWorkflowStore((s) => s.lastExecutionError);
+  const onNodesChange = useWorkflowStore((s) => s.onNodesChange);
   const isServerRuntime = false;
 
   const refreshGeneratedOutputs = useCallback(async () => {
@@ -212,6 +218,7 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
           onClick={() => setTab('logs')}
           label={formatLogsTabLabel(readableExecutionLogCount, executionLogs.length)}
         />
+        <TabButton active={tab === 'history'} onClick={() => setTab('history')} label="历史" />
       </div>
 
       {isServerRuntime && tab === 'results' && generatedOutputs.length > 0 ? (
@@ -230,8 +237,14 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
       ) : null}
 
       <div className="workflow-panel__body workflow-results__body">
+        {lastExecutionError && !workflowWarningMessage && (
+          <div className="workflow-results__banner workflow-results__banner--warning" role="alert">
+            <Warning size={14} />
+            <span>{lastExecutionError}</span>
+          </div>
+        )}
         {workflowWarningMessage && (
-          <div className="workflow-results__banner workflow-results__banner--warning">
+          <div className="workflow-results__banner workflow-results__banner--warning" role="alert">
             <Warning size={14} />
             <span>{workflowWarningMessage}</span>
           </div>
@@ -244,12 +257,45 @@ export default function ResultsPanel({ motionState = 'entering' }: ResultsPanelP
               <div key={item.id} className="workflow-results__warning-item">
                 <span>{item.label}</span>
                 <span>{item.warning}</span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => {
+                      onNodesChange(nodes.map((node) => ({
+                        id: node.id,
+                        type: 'select',
+                        selected: node.id === item.id,
+                      })));
+                      selectNode(item.id);
+                    }}
+                  >
+                    选择节点
+                  </button>
+                  {onOpenSettings && (item.warning.includes('API Key') || item.warning.includes('连接')) && (
+                    <button type="button" className="underline" onClick={() => onOpenSettings('connection')}>
+                      配置连接
+                    </button>
+                  )}
+                  {onOpenSettings && item.warning.includes('模型') && (
+                    <button type="button" className="underline" onClick={() => onOpenSettings('models')}>
+                      管理项目模型
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {tab === 'results' ? (
+        {tab === 'history' ? (
+          <RunHistory
+            key={workflowId}
+            workflowId={workflowId}
+            isExecuting={isExecuting}
+            onRecovered={() => void refreshGeneratedOutputs()}
+          />
+        ) : tab === 'results' ? (
           <ResultsList
             files={generatedOutputs}
             isLoading={isLoadingOutputs}
@@ -939,4 +985,127 @@ function isVideoUrl(value: string) {
 
 function isAudioUrl(value: string) {
   return /^data:audio\//.test(value) || /\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i.test(value);
+}
+
+function RunHistory({ workflowId, isExecuting, onRecovered }: {
+  workflowId: string;
+  isExecuting: boolean;
+  onRecovered: () => void;
+}) {
+  const [entries, setEntries] = useState<ExecutionHistoryEntry[] | null>(null);
+  const [error, setError] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  const [recovering, setRecovering] = useState<string | null>(null);
+  const [recoveryError, setRecoveryError] = useState('');
+
+  async function recover(runId: string, recoveryId: string) {
+    setRecovering(recoveryId);
+    setRecoveryError('');
+    try {
+      const result = await recoverExecutionVideo(runId, recoveryId);
+      if (result.success) {
+        setRefresh((value) => value + 1);
+        onRecovered();
+      } else {
+        setRecoveryError(result.error || '视频取回失败。');
+      }
+    } finally {
+      setRecovering(null);
+    }
+  }
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchExecutionHistory(workflowId, controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      if (result.success) {
+        setEntries(result.data || []);
+        setError('');
+      } else {
+        setError(result.error || '无法读取运行历史。');
+      }
+    });
+    return () => controller.abort();
+  }, [workflowId, isExecuting, refresh]);
+
+  const statuses: Record<string, { label: string; tone: string }> = {
+    running: { label: '运行中', tone: 'info' },
+    completed: { label: '已完成', tone: 'success' },
+    failed: { label: '失败', tone: 'error' },
+    cancelled: { label: '已停止', tone: 'neutral' },
+    interrupted: { label: '运行中断', tone: 'error' },
+  };
+  return (
+    <div className="workflow-results__stack">
+      <div className="workflow-results__log-toolbar">
+        {entries && <span>共 {entries.length} 条</span>}
+        <button type="button" className="workflow-results__mini-action" onClick={() => setRefresh((value) => value + 1)}>
+          刷新历史
+        </button>
+      </div>
+      {(error || recoveryError) && (
+        <div className="workflow-results__banner workflow-results__banner--warning" role="alert">
+          {error || recoveryError}
+        </div>
+      )}
+      {!entries && !error && <p className="workflow-results__log-message">正在读取运行历史…</p>}
+      {entries?.length === 0 && (
+        <div className="workflow-results__empty">
+          <p className="workflow-results__log-message">当前工作流还没有历史记录。</p>
+        </div>
+      )}
+      {entries?.map((entry) => {
+        const status = statuses[entry.status] ?? { label: entry.status, tone: 'neutral' };
+        const startedAt = new Date(entry.startedAt);
+        const duration = formatDurationSeconds(entry.totalDuration);
+        return (
+          <details key={entry.runId} className="workflow-results__log-item workflow-results__history-item">
+            <summary className="workflow-results__history-summary">
+              <span className="workflow-results__log-head">
+                <span className={`workflow-results__log-level workflow-results__log-level--${status.tone}`}>
+                  {status.label}
+                </span>
+                <time dateTime={startedAt.toISOString()}>{startedAt.toLocaleString('zh-CN')}</time>
+              </span>
+              <span className="workflow-results__history-overview">
+                <span className="workflow-results__log-message">
+                  {entry.nodeCount} 个节点{duration && ` · 耗时 ${duration}`}
+                </span>
+                <CaretDown className="workflow-results__history-caret" size={14} aria-hidden="true" />
+              </span>
+            </summary>
+            <div className="workflow-results__history-details workflow-results__log-message">
+              {entry.inputs?.filter((input) => input.text || input.files.length > 0).map((input) => (
+                <div key={input.nodeId} className="break-all">
+                  <strong>输入 · {input.nodeId}</strong>
+                  {input.text && <p className="whitespace-pre-wrap">{input.text}</p>}
+                  {input.files.map((url, index) => (
+                    <p key={url}><a className="underline" href={url} download>下载输入素材 {index + 1}</a></p>
+                  ))}
+                </div>
+              ))}
+              {entry.error && <p>{entry.error}</p>}
+              {entry.failures.map((failure, index) => (
+                <p key={`${failure.nodeId}-${index}`}>{failure.nodeId} · {failure.error}</p>
+              ))}
+              {entry.recoverableVideos.map((task) => (
+                <button
+                  key={task.id}
+                  type="button"
+                  className="workflow-results__mini-action"
+                  disabled={Boolean(recovering)}
+                  onClick={() => void recover(entry.runId, task.id)}
+                >
+                  {recovering === task.id ? '正在取回视频…' : `取回视频 · ${task.nodeId}`}
+                </button>
+              ))}
+              {entry.outputs.map((url, index) => (
+                <p key={url}><a className="underline" href={url} download>下载产物 {index + 1}</a></p>
+              ))}
+            </div>
+          </details>
+        );
+      })}
+    </div>
+  );
 }

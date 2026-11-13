@@ -23,7 +23,7 @@ type Props = {
   addNewConfig: () => string;
   apiConfigs: ApiConfig[];
   applyConfig: (id: string) => void;
-  onComplete: () => void;
+  onComplete: (openModels?: boolean) => void;
   setApiConfigs: React.Dispatch<React.SetStateAction<ApiConfig[]>>;
   setApiKey: (value: string) => void;
   setBase: (value: string) => void;
@@ -83,6 +83,7 @@ export function FirstRunOnboarding({
   const [secret, setSecret] = useState('');
   const [testing, setTesting] = useState(false);
   const [testedModels, setTestedModels] = useState<ModelInfo[]>([]);
+  const [connectionVerified, setConnectionVerified] = useState(false);
   const [message, setMessage] = useState('');
   const [guidance, setGuidance] = useState('');
 
@@ -118,7 +119,7 @@ export function FirstRunOnboarding({
     setConfigName(activeConfig.name || '默认配置');
     setBaseUrl(activeConfig.base || '');
     if (activeConfig.apiKey) setSecret(activeConfig.apiKey);
-    if (activeConfig.models?.length) setTestedModels(activeConfig.models);
+    setTestedModels(activeConfig.models || []);
   }, [activeConfig]);
 
   const updateActiveConfig = (patch: Partial<ApiConfig>) => {
@@ -188,6 +189,7 @@ export function FirstRunOnboarding({
     }
 
     setTesting(true);
+    setConnectionVerified(false);
     setMessage('');
     setGuidance('');
     try {
@@ -199,13 +201,6 @@ export function FirstRunOnboarding({
       );
       if (!result.success) throw new Error(result.error || '连接测试失败');
       const nextModels = result.models || [];
-      if (nextModels.length === 0) {
-        setTestedModels([]);
-        setMessage('连接成功，但没有发现可用模型。');
-        setGuidance('请确认服务商支持模型列表接口，或稍后在设置页手动添加项目模型；没有模型时模板还不能直接运行。');
-        addLog('warn', '首次配置连接成功，但没有发现可用模型');
-        return;
-      }
       setTestedModels(nextModels);
       setBase(cleanBase);
       setApiKey(cleanSecret);
@@ -217,9 +212,10 @@ export function FirstRunOnboarding({
         models: nextModels,
         providerConfig: activeConfig?.providerConfig || DEFAULT_PROVIDER_CONFIG,
       });
-      setMessage(`连接成功，已发现 ${nextModels.length} 个模型。`);
+      setConnectionVerified(true);
+      setMessage(nextModels.length ? `连接成功，已发现 ${nextModels.length} 个模型。` : '连接成功，模型列表为空。');
       setGuidance(
-        '当前只保存连接信息和已发现模型，不会自动启用项目模型。请进入设置页的“模型”模块，手动导入你要启用的模型。',
+        nextModels.length ? '下一步，在项目模型中选择并导入需要的模型。' : '下一步，在项目模型中手动添加可用模型。',
       );
       addLog('success', `首次配置连接成功，发现 ${nextModels.length} 个模型`);
     } catch (error) {
@@ -232,7 +228,7 @@ export function FirstRunOnboarding({
     }
   };
 
-  const canComplete = Boolean(baseUrl.trim() && secret.trim() && testedModels.length > 0);
+  const canComplete = connectionVerified && !testing;
   const storageLabel = isServerRuntime
     ? storageDraft || '未设置浏览器自动下载目录，将回退到手动下载'
     : storage?.effectiveRoot || '正在读取默认位置...';
@@ -422,10 +418,12 @@ export function FirstRunOnboarding({
                 <IOSLabel>接口地址</IOSLabel>
                 <IOSInput
                   value={baseUrl}
+                  disabled={testing}
                   onChange={(value) => {
+                    setConnectionVerified(false);
                     setBaseUrl(value);
                     setBase(value);
-                    updateActiveConfig({ base: value });
+                    updateActiveConfig({ base: value, models: [] });
                   }}
                   placeholder="https://api.example.com/v1"
                 />
@@ -436,10 +434,12 @@ export function FirstRunOnboarding({
               <IOSLabel>API Key</IOSLabel>
               <IOSInput
                 value={secret}
+                disabled={testing}
                 onChange={(value) => {
+                  setConnectionVerified(false);
                   setSecret(value);
                   setApiKey(value);
-                  updateActiveConfig({ apiKey: value });
+                  updateActiveConfig({ apiKey: value, models: [] });
                 }}
                 type="password"
                 placeholder="sk-..."
@@ -519,11 +519,11 @@ export function FirstRunOnboarding({
                 }}
               >
                 {canComplete ? <CheckCircle size={16} /> : <Database size={16} />}
-                {canComplete ? '连接信息已保存，进入后请到设置里手动启用模型。' : '完成连接测试后即可进入工作台。'}
+                {canComplete ? '连接信息已保存。' : '测试连接后可继续配置项目模型。'}
               </div>
               <IOSButton
-                label="进入工作台"
-                onClick={onComplete}
+                label="配置项目模型"
+                onClick={() => onComplete(true)}
                 disabled={!canComplete}
                 small
                 style={{ width: 'auto', padding: '9px 16px' }}
@@ -535,12 +535,12 @@ export function FirstRunOnboarding({
         <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
           <button
             type="button"
-            onClick={onComplete}
+            onClick={() => onComplete()}
             data-testid="onboarding-skip"
             style={{
               border: 'none',
               background: 'transparent',
-              color: T.text3,
+              color: T.text2,
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',

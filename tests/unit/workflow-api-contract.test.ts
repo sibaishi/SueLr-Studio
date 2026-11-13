@@ -159,4 +159,17 @@ describe('workflow API contract', () => {
 
     expect(onWorkflowError).toHaveBeenCalledWith({ error: '执行连接已断开：stream reset' });
   });
+  it('reports a clean EOF without a terminal event as a recoverable stream disconnect', async () => {
+    const onStreamDisconnect = vi.fn();
+    const onWorkflowError = vi.fn();
+    globalThis.fetch = vi.fn(async () => new Response(
+      'event: workflow_run_started\ndata: {"runId":"run_live"}\n\n',
+    )) as typeof fetch;
+
+    await executeWorkflow('wf_test', { nodes: [], edges: [] }, { onStreamDisconnect, onWorkflowError });
+
+    expect(onStreamDisconnect).toHaveBeenCalledWith('执行连接提前结束。');
+    expect(onWorkflowError).not.toHaveBeenCalled();
+  });
+
 });

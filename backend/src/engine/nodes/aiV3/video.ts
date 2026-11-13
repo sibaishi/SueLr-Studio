@@ -1,4 +1,4 @@
-import { executeVideoGeneration } from '../../../platform/ai/video-service.ts';
+import { type VideoResultTask, executeVideoGeneration } from '../../../platform/ai/video-service.ts';
 import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
 
@@ -11,6 +11,7 @@ export async function executeVideoMode(
   runtimeConfig: ReturnType<typeof resolveRuntimeApiConfig>,
   apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
+  nodeId: string,
 ) {
   const vConfig = {
     ...runtimeConfig,
@@ -18,8 +19,14 @@ export async function executeVideoMode(
     abortSignal: apiConfig.abortSignal,
     scope: apiConfig.scope,
     persistGeneratedOutputs: false,
+    onDownloadFailed: (task: VideoResultTask) => apiConfig.recordVideoRecovery?.({
+      ...task,
+      nodeId,
+      model: String(nodeData.model || ''),
+      configId: runtimeConfig.configId,
+    }),
   };
-  if (!vConfig.apiKey) throw new Error('未配置 API Key，请先在设置页或 API Key 节点中填写。');
+  if (!vConfig.apiKey) throw new Error('未配置 API Key，请在工作室设置的「连接」中填写。');
   const videoResult = await executeVideoGeneration(
     {
       model: String(runtimeConfig.model || nodeData.model || 'cogvideox'),

@@ -478,3 +478,30 @@ test('video workflow downloads a signed relative provider file and rejects a non
   returnVideo = false;
   await assert.rejects(executeVideoGeneration(request, runtime), { code: 'VIDEO_RESULT_INVALID' });
 });
+
+
+test('video workflow refreshes an expired result link without submitting a second task', async (t) => {
+  const baseUrl = 'https://93.184.216.34/v1';
+  let submits = 0;
+  let polls = 0;
+  const videoBytes = Buffer.from('0000ftypisom');
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    if (options.method === 'POST') {
+      submits++;
+      return Response.json({ id: 'test-task' });
+    }
+    if (String(url) === `${baseUrl}/video/generations/test-task`) {
+      polls++;
+      return Response.json({ status: 'SUCCESS', video_url: `${baseUrl}/video-${polls}.mp4` });
+    }
+    if (String(url) === `${baseUrl}/video-1.mp4`) return new Response('', { status: 403 });
+    assert.equal(String(url), `${baseUrl}/video-2.mp4`);
+    return new Response(videoBytes, { headers: { 'content-type': 'video/mp4' } });
+  });
+
+  const runtime = createRuntime({ baseUrl, persistGeneratedOutputs: false });
+  const result = await executeVideoGeneration({ model: 'doubao-seedance-2-0-260128', prompt: 'video' }, runtime);
+  assert.match(result.video, /^data:video\/mp4;base64,/);
+  assert.equal(submits, 1);
+  assert.equal(polls, 2);
+});

@@ -1,15 +1,31 @@
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ConflictError, NotFoundError } from '../../app/errors/index.ts';
+import { resolveRuntimeApiConfig } from '../../engine/helpers/apiConfig.ts';
+import { recoverVideoResult } from '../../platform/ai/video-service.ts';
 import { executeWorkflow } from '../../engine/executor.ts';
 import { createLogger } from '../../platform/logging/logger.ts';
 import { runWithRequestContext } from '../../platform/logging/request-context.ts';
+import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 import { getProcessInstanceId } from '../../platform/logging/runtime-observability.ts';
 import { WORKFLOW_SSE_EVENTS } from '../../platform/logging/workflow-events.ts';
 import { sanitizeNodeOutputsForLogs } from '../../platform/logging/workflow-log-sanitizer.ts';
 import { createWorkflowRunLogger } from '../../platform/logging/workflow-run-logger.ts';
-import { isResourceVisibleForScope } from '../../platform/storage/index.ts';
+import { getScopedStoragePaths, isResourceVisibleForScope } from '../../platform/storage/index.ts';
 import { activateWorkflowRuntime, retainWorkflowRuntime } from '../../platform/storage/workflow-runtime-assets.ts';
 import { settingsService } from '../settings/settings.service.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { workflowsRepository } from '../workflows/workflows.repository.ts';
+import {
+  type ExecutionHistoryEntry,
+  type VideoRecovery,
+  collectExecutionOutputUrls,
+  listExecutionHistory,
+  publicExecutionHistory,
+  readExecutionHistory,
+  saveExecutionHistory,
+} from './execution-history.ts';
 import { createExecutionSnapshot } from './execution-snapshot.ts';
 
 const logger = createLogger({ module: 'execution-service' });
@@ -68,6 +84,7 @@ export class ExecutionService {
   repository: ExecutionRepository;
   runningExecutions: Map<string, RunningExecution>;
   recentExecutions: Map<string, RecentExecution>;
+  private recoveringRuns = new Set<string>();
 
   constructor(repository: ExecutionRepository = workflowsRepository) {
     this.repository = repository;
@@ -77,6 +94,56 @@ export class ExecutionService {
 
   getRun(runId: string): RunningExecution | null {
     return this.runningExecutions.get(runId) || null;
+  }
+
+  listHistory(workflowId: string, options: PlainObject = {}) {
+    return listExecutionHistory(workflowId, options.scope).map((entry) =>
+      publicExecutionHistory(
+        entry.status === 'running' && !this.getRun(entry.runId) ? { ...entry, status: 'interrupted' } : entry,
+      ),
+    );
+  }
+
+  async recoverVideo(runId: string, recoveryId: string, scope?: RequestScope) {
+    const entry = readExecutionHistory(runId, scope);
+    const recovery = entry?.videoRecoveries?.find((item) => item.id === recoveryId);
+    if (!entry || !recovery || !isResourceVisibleForScope(entry, scope)) {
+      throw new NotFoundError('VIDEO_RECOVERY_NOT_FOUND', '找不到可取回的视频任务。');
+    }
+    if (this.getRun(runId) || this.recoveringRuns.has(runId)) {
+      throw new ConflictError('VIDEO_RECOVERY_BUSY', '当前运行或取回任务尚未结束。');
+    }
+    const apiConfig = settingsService.buildRuntimeConfig({}, scope);
+    const config = resolveRuntimeApiConfig({}, apiConfig, recovery.model);
+    if (config.baseUrl !== recovery.baseUrl || config.configId !== recovery.configId || !config.apiKey) {
+      throw new ConflictError('VIDEO_RECOVERY_CONFIG_CHANGED', '请恢复该任务原来的模型连接后再取回视频。');
+    }
+    this.recoveringRuns.add(runId);
+    try {
+      const output = await recoverVideoResult({
+        apiKey: config.apiKey,
+        baseUrl: recovery.baseUrl,
+        providerConfig: config.providerConfig,
+        taskId: recovery.taskId,
+        endpoint: recovery.endpoint,
+        scope,
+        signal: AbortSignal.timeout(45_000),
+      });
+      try {
+        saveExecutionHistory({
+          ...entry,
+          outputs: [...entry.outputs, output],
+          videoRecoveries: entry.videoRecoveries?.filter((item) => item.id !== recoveryId),
+        }, scope);
+      } catch (error) {
+        const outputPath = path.join(getScopedStoragePaths(scope).generatedDir, output.slice('/api/outputs/'.length));
+        fs.rmSync(outputPath, { force: true });
+        throw error;
+      }
+      return { output };
+    } finally {
+      this.recoveringRuns.delete(runId);
+    }
   }
 
   getStatus(runId: string, _options: PlainObject = {}) {
@@ -95,6 +162,12 @@ export class ExecutionService {
           status: recentRun.status?.status,
         });
         return recentRun.status;
+      }
+      const entry = readExecutionHistory(runId, _options.scope);
+      if (entry && isResourceVisibleForScope(entry, _options.scope)) {
+        return entry.status === 'running'
+          ? { ...publicExecutionHistory(entry), status: 'failed', error: '上次运行被后端重启中断。' }
+          : publicExecutionHistory(entry);
       }
       logger.warn('execution status fell back to idle', {
         runId,
@@ -220,9 +293,50 @@ export class ExecutionService {
       runningExecutionCount: this.runningExecutions.size,
     });
     let terminalStatus: RunStatus | null = null;
+    const startedAt = Date.now();
+    const outputs = new Set<string>();
+    const videoRecoveries: VideoRecovery[] = [];
+    const upstreamTargets = new Set(snapshot.edges.map((edge: PlainObject) => edge.target));
+    const inputs = snapshot.nodes
+      .filter((node: PlainObject) => node.type === 'io' && !upstreamTargets.has(node.id))
+      .slice(0, 50)
+      .map((node: PlainObject) => {
+        const content = [node.data?.fileUrl, ...[node.data?.content].flat(2)];
+        return {
+          nodeId: cleanString(node.id, 120),
+          text: typeof node.data?.text === 'string' ? node.data.text.slice(0, 2000) : '',
+          files: [...new Set<string>(content.filter((value: unknown) =>
+            typeof value === 'string' && /^\/api\/(files|outputs)\//.test(value),
+          ))].slice(0, 20),
+        };
+      });
+    const history: ExecutionHistoryEntry = {
+      runId: snapshot.runId,
+      workflowId: snapshot.workflowId,
+      source: snapshot.source,
+      snapshotVersion: snapshot.snapshotVersion,
+      status: 'running',
+      startedAt,
+      nodeCount: snapshot.nodes.length,
+      failures: [],
+      inputs,
+      outputs: [],
+    };
+    const persistHistory = (entry: ExecutionHistoryEntry) => {
+      try {
+        saveExecutionHistory(entry, scope);
+      } catch {
+        logger.warn('execution history write failed', { runId: snapshot.runId });
+      }
+    };
+    persistHistory(history);
 
     const sendSSE = (event: string, data: DynamicValue) => {
       runLogger.log(event, buildRunLogData(event, data));
+      if (event === WORKFLOW_SSE_EVENTS.NODE_COMPLETED) collectExecutionOutputUrls(data.outputs, outputs);
+      if (event === WORKFLOW_SSE_EVENTS.NODE_FAILED && history.failures.length < 100) {
+        history.failures.push({ nodeId: cleanString(data.nodeId, 120), error: cleanString(data.error, 500) });
+      }
       logger.info('workflow event', { runId: runLogger.runId, workflowId, event });
       if (event === WORKFLOW_SSE_EVENTS.RUN_COMPLETED) {
         terminalStatus = {
@@ -257,6 +371,12 @@ export class ExecutionService {
           error: data.error,
         };
       }
+      if (terminalStatus) {
+        const totalDuration = terminalStatus.totalDuration ?? Date.now() - startedAt;
+        terminalStatus.totalDuration = totalDuration;
+        persistHistory({ ...history, ...terminalStatus, totalDuration, outputs: [...outputs], videoRecoveries });
+        data = { ...data, totalDuration };
+      }
       if (res.writableEnded) return false;
       try {
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -282,13 +402,20 @@ export class ExecutionService {
       source: snapshot.source,
     });
 
-    const apiConfig = settingsService.buildRuntimeConfig(body.apiConfig || {}, scope);
-
     try {
+      const apiConfig = settingsService.buildRuntimeConfig(body.apiConfig || {}, scope);
       await runWithRequestContext({ requestId, runId: runLogger.runId }, async () => {
         await executeWorkflow(
           snapshot,
-          { ...apiConfig, runId: snapshot.runId, scope, abortSignal: abortController.signal },
+          {
+            ...apiConfig,
+            runId: snapshot.runId,
+            scope,
+            abortSignal: abortController.signal,
+            recordVideoRecovery(task: Omit<VideoRecovery, 'id'>) {
+              if (videoRecoveries.length < 100) videoRecoveries.push({ ...task, id: randomUUID() });
+            },
+          },
           sendSSE,
           {
             getNodeLogOutputs(outputs: DynamicValue) {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ValidationError } from '../../app/errors/index.ts';
 import type { DynamicValue, PlainObject } from '../types.ts';
 import { CURRENT_WORKFLOW_SCHEMA_VERSION } from '../workflows/workflow-migrations.ts';
@@ -13,7 +14,7 @@ type ExecutionSnapshotInput = {
 
 function buildRunId(workflowId: string): string {
   const now = new Date().toISOString().replace(/[:.]/g, '-');
-  return `${now}_${workflowId}`;
+  return `${now}_${randomUUID()}_${workflowId}`;
 }
 
 export function createExecutionSnapshot({

@@ -64,7 +64,19 @@ function sanitizeRequestDetailsForLog(value: DynamicValue): DynamicValue {
   }
 
   return Object.fromEntries(
-    Object.entries(value).map(([key, nestedValue]) => [key, sanitizeRequestDetailsForLog(nestedValue)]),
+    Object.entries(value).map(([key, nestedValue]) => {
+      if (
+        (key === 'inlineData' || key === 'inline_data') &&
+        nestedValue &&
+        typeof nestedValue === 'object' &&
+        'data' in nestedValue &&
+        typeof nestedValue.data === 'string'
+      ) {
+        const { data, ...metadata } = nestedValue;
+        return [key, { ...metadata, data: { encoding: 'base64', length: data.length } }];
+      }
+      return [key, sanitizeRequestDetailsForLog(nestedValue)];
+    }),
   );
 }
 
@@ -102,7 +114,8 @@ function getFetchErrorCode(error: DynamicValue): string {
 
 function isRetryableImageRequestError(error: DynamicValue): boolean {
   const code = getFetchErrorCode(error);
-  return code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'ETIMEDOUT' || code === 'ECONNRESET';
+  // A socket reset or generic timeout can happen after the upstream accepted the POST.
+  return code === 'UND_ERR_CONNECT_TIMEOUT';
 }
 
 async function readImageResponseText(response: Response): Promise<ImageResponseReadResult> {

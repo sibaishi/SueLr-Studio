@@ -142,6 +142,7 @@ export function resolveRuntimeApiConfig(
   const routedModel = parseRoutedModel(selectedModel);
   const routedConfig = findRuntimeConfig(apiConfig, routedModel.configId);
   const sourceConfig = routedConfig || apiConfig || {};
+  const configId = routedConfig ? routedModel.configId : cleanText(apiConfig?.configId);
   const globalProviderConfig = mergeProviderConfig(DEFAULT_RUNTIME_PROVIDER_CONFIG, sourceConfig.providerConfig || {});
   const projectModels = normalizeProjectModels(sourceConfig.projectModels || []);
 
@@ -179,6 +180,7 @@ export function resolveRuntimeApiConfig(
       apiKey: nodeApiKey,
       baseUrl: nodeBaseUrl,
       model: nodeModel,
+      ...(configId && { configId }),
       endpoint: nodeEndpoint,
       endpointMode: nodeEndpointMode,
       endpointCategory: nodeEndpointCategory,
@@ -194,6 +196,7 @@ export function resolveRuntimeApiConfig(
     apiKey: nodeApiKey || cleanText(sourceConfig.apiKey),
     baseUrl: sourceConfig.baseUrl || sourceConfig.base,
     model: routedModel.modelId,
+    ...(configId && { configId }),
     endpoint: '',
     projectModels,
     providerConfig: globalProviderConfig,

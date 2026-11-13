@@ -77,6 +77,14 @@ export class ExecutionController {
     clearInterval(heartbeat);
   }
 
+  listHistory(req: RequestLike, res: ResponseLike) {
+    res.json(successEnvelope(executionService.listHistory(req.params.id, { scope: req.scope })));
+  }
+
+  async recoverVideo(req: RequestLike, res: ResponseLike) {
+    res.json(successEnvelope(await executionService.recoverVideo(req.params.runId, req.params.recoveryId, req.scope)));
+  }
+
   getStatus(req: RequestLike, res: ResponseLike) {
     res.json(successEnvelope(executionService.getStatus(req.params.runId, { scope: req.scope })));
   }

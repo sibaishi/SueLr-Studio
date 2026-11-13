@@ -117,6 +117,7 @@ export async function callGeminiGenerateContentApi(
     body: payload,
   });
 
+  const requestedAt = Date.now();
   let response: Response;
   try {
     response = await fetchWithImageTimeout(
@@ -131,7 +132,20 @@ export async function callGeminiGenerateContentApi(
       sendProgress,
     );
   } catch (error) {
-    throw new Error(`Gemini 生图请求失败: timeoutMs=${timeoutMs}; ${describeFetchError(error)}`);
+    if (externalSignal?.aborted) throw error;
+    const fetchError = error as { code?: string; cause?: { code?: string }; name?: string } | undefined;
+    const code = fetchError?.cause?.code ?? fetchError?.code;
+    const resultUnknown =
+      ['UND_ERR_SOCKET', 'UND_ERR_HEADERS_TIMEOUT', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE'].includes(code ?? '') ||
+      fetchError?.name === 'TimeoutError';
+    const details = `已等待 ${((Date.now() - requestedAt) / 1000).toFixed(1)} 秒，超时设置 ${timeoutMs / 1000} 秒。底层错误：${describeFetchError(error)}`;
+    if (resultUnknown) {
+      throw new Error(
+        `Gemini 生图未收到 HTTP 响应，上游可能已完成并扣费。请先核对上游记录，再决定是否重新生成。${details}`,
+        { cause: error },
+      );
+    }
+    throw new Error(`Gemini 生图请求失败。${details}`, { cause: error });
   }
 
   if (!response.ok) {

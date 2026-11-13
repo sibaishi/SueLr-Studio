@@ -92,7 +92,7 @@ export default function App() {
   const { colors, themeMode, setThemeMode } = useThemeState();
   const settings = useStudioSettingsState();
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsModule, setSettingsModule] = useState<'overview' | 'connection' | 'models' | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => localStorage.getItem('suelr_onboarding_dismissed') === 'true',
   );
@@ -168,7 +168,8 @@ export default function App() {
               addNewConfig={settings.addNewConfig}
               apiConfigs={settings.apiConfigs}
               applyConfig={settings.applyConfig}
-              onComplete={() => {
+              onComplete={(openModels) => {
+                if (openModels) setSettingsModule('models');
                 localStorage.setItem('suelr_onboarding_dismissed', 'true');
                 setOnboardingDismissed(true);
               }}
@@ -194,17 +195,18 @@ export default function App() {
           >
             <ErrorBoundary>
               <WorkflowPage
-                onOpenStudioSettings={() => setSettingsOpen(true)}
+                onOpenStudioSettings={(module) => setSettingsModule(module ?? 'overview')}
                 onToggleTheme={handleToggleTheme}
                 themeMode={themeMode}
               />
             </ErrorBoundary>
 
-            {settingsOpen && (
-              <SettingsModal onClose={() => setSettingsOpen(false)}>
+            {settingsModule && (
+              <SettingsModal onClose={() => setSettingsModule(null)}>
                 <ErrorBoundary>
                   <Suspense fallback={null}>
                     <SettingsPanel
+                      initialModule={settingsModule}
                       apiConfigs={settings.apiConfigs}
                       setApiConfigs={settings.setApiConfigs}
                       activeConfigId={settings.activeConfigId}

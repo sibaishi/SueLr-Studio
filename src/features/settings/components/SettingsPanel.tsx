@@ -41,6 +41,7 @@ import { chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, panelStyle, secti
 import './settings-panel.css';
 
 export function SettingsPanel({
+  initialModule = 'overview',
   apiConfigs,
   setApiConfigs,
   activeConfigId,
@@ -71,7 +72,7 @@ export function SettingsPanel({
   const [projectModelSearch, setProjectModelSearch] = useState('');
   const [discoveries, setDiscoveries] = useState<Record<string, ModelInfo[]>>({});
   const [selectedImports, setSelectedImports] = useState<string[]>([]);
-  const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>('overview');
+  const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>(initialModule);
   const [storageSettings, setStorageSettings] = useState<StorageSettingsPayload | null>(null);
   const [storagePathDraft, setStoragePathDraft] = useState('');
   const [storagePathPicking, setStoragePathPicking] = useState(false);
@@ -133,8 +134,8 @@ export function SettingsPanel({
   }, [apiConfigs]);
   const importedIds = useMemo(() => new Set(projectModels.map((model) => model.modelId)), [projectModels]);
   const importableModels = useMemo(
-    () => (discoveries[activeConfigId] ?? []).filter((model) => !importedIds.has(model.id)),
-    [activeConfigId, discoveries, importedIds],
+    () => (discoveries[activeConfigId] ?? activeConfig?.models ?? []).filter((model) => !importedIds.has(model.id)),
+    [activeConfigId, activeConfig?.models, discoveries, importedIds],
   );
   const filteredProjectModels = useMemo(
     () => projectModels.filter((model) => fuzzyMatch(model.modelId, projectModelSearch)),
@@ -495,6 +496,9 @@ export function SettingsPanel({
     }
   };
 
+  const hasConnectionDetails = Boolean(base.trim() && (apiKey.trim() || activeConfig?.apiKeySet));
+  const connectionLabel = hasConnectionDetails ? '已填写连接信息' : '待配置';
+
   const modules: SettingsModuleMeta[] = [
     {
       id: 'overview',
@@ -510,7 +514,7 @@ export function SettingsPanel({
       desc: 'Provider、鉴权与接口地址',
       icon: Key,
       accent: T.purple,
-      stat: base ? '已配置' : '待配置',
+      stat: connectionLabel,
     },
     {
       id: 'models',
@@ -629,7 +633,7 @@ export function SettingsPanel({
           <div style={{ ...mutedPanelStyle(), padding: 16 }}>
             <div style={eyebrowStyle()}>连接</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 8 }}>
-              {base ? '已接入' : '待配置'}
+              {connectionLabel}
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6 }}>
               {configStats.total} 项配置
@@ -779,7 +783,7 @@ export function SettingsPanel({
             </div>
           </div>
           <div className="settings-panel__badges">
-            <span style={chipStyle(base ? T.green : T.orange)}>{base ? '服务已接入' : '服务待配置'}</span>
+            <span style={chipStyle(hasConnectionDetails ? T.blue : T.orange)}>{connectionLabel}</span>
             <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
           </div>
         </div>

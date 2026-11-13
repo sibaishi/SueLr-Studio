@@ -23,6 +23,7 @@ import {
 } from '@/domains/workflow/lib/store/persistence';
 import { createExecutionStartPatch } from '@/domains/workflow/lib/store/runtimeState';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
+import { normalizeProjectModels } from '@/domains/workflow/lib/projectModels';
 import { notifyWorkflowComplete } from '@/shared/providers/notification';
 import type { Edge, Node } from '@xyflow/react';
 
@@ -395,6 +396,52 @@ export function createWorkflowExecutionActions(
       return;
     }
 
+    const nodeWarnings: Record<string, string> = {};
+    const configs = state.workflowRuntimeConfigs.filter((config) => config.enabled !== false);
+    const hasCredentials = configs.some((config) => config.apiKeySet || config.apiKey?.trim());
+    for (const node of executableGraph.nodes) {
+      if (node.type !== 'aiV3' || state.workflowRuntimeConfigs.length === 0) continue;
+      const model = typeof node.data.model === 'string' ? node.data.model.trim() : '';
+      const separator = model.indexOf('::');
+      const config = separator > 0 ? configs.find((item) => item.id === model.slice(0, separator)) : undefined;
+      if (separator > 0 && !config) {
+        nodeWarnings[node.id] = '所选模型的连接已停用或移除，请重新选择模型。';
+      } else if (config ? !config.apiKeySet && !config.apiKey?.trim() : !hasCredentials) {
+        nodeWarnings[node.id] = '缺少 API Key，请配置模型连接。';
+      } else if (!model) {
+        nodeWarnings[node.id] = '请选择已启用的项目模型。';
+      } else if (config) {
+        const projectModel = normalizeProjectModels(config.projectModels).find(
+          (item) => item.modelId === model.slice(separator + 2),
+        );
+        if (!projectModel?.configured || projectModel.type !== (node.data.mode || 'chat')) {
+          nodeWarnings[node.id] = '所选模型不可用或能力不匹配，请检查项目模型设置。';
+        }
+      }
+    }
+
+    if (state.workflowId === 'starter_image_to_image') {
+      const reference = executableGraph.nodes.find((node) => node.id === 'reference' && node.type === 'io');
+      if (
+        reference &&
+        executableGraph.edges.some((edge) => edge.source === reference.id && edge.target === 'generate') &&
+        !executableGraph.edges.some((edge) => edge.target === reference.id) &&
+        !reference.data.fileUrl &&
+        !(Array.isArray(reference.data.content) && reference.data.content.some(Boolean))
+      ) {
+        nodeWarnings[reference.id] = '请添加参考图或绘制草图。';
+      }
+    }
+
+    if (Object.keys(nodeWarnings).length > 0) {
+      set({
+        nodeWarnings,
+        workflowWarningMessage: '请修复以下问题后再执行工作流。',
+      });
+      return;
+    }
+
+    const requestedAt = Date.now();
     set(
       createExecutionStartPatch(options.targetNodeId ? '正在准备运行到节点...' : '准备执行工作流...', [
         {
@@ -650,6 +697,14 @@ export function createWorkflowExecutionActions(
       state.workflowRuntimeConfigs.length > 0 ? { configs: state.workflowRuntimeConfigs } : undefined;
 
     const callbacks: api.SSECallbacks = {
+      onStreamDisconnect: (message) => {
+        if (get().currentRunId) {
+          set({ executionMessage: '连接已断开，正在查询运行状态…' });
+          void get().syncExecutionRunStatus();
+          return;
+        }
+        callbacks.onWorkflowError?.({ error: message });
+      },
       onNodeStart: (data) => {
         const nodeLabel = getNodeDisplayNameById(data.nodeId, get().nodes);
         get().addExecutionLog({
@@ -883,6 +938,7 @@ export function createWorkflowExecutionActions(
           executingNodeId: null,
           lastExecutionStatus: 'error',
           lastExecutionError: data.error || '未知错误',
+          lastExecutionTime: data.totalDuration ?? Date.now() - requestedAt,
           lastExecutionSummary: null,
         });
         notifyWorkflowComplete('工作流执行失败', typeof data.error === 'string' ? data.error : '发生未知错误');
@@ -983,7 +1039,7 @@ export function createWorkflowExecutionActions(
       if (!state.currentRunId) return;
 
       const statusResult = await api.fetchExecutionStatus(state.currentRunId);
-      if (!statusResult.success || !statusResult.data) return;
+      if (!statusResult.success || !statusResult.data || get().currentRunId !== state.currentRunId) return;
 
       const syncedStatus = statusResult.data;
       if (syncedStatus.status === 'running') {

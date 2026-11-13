@@ -12,6 +12,8 @@ import {
   updateAsset,
 } from '../lib/api/assets';
 import { uploadFile } from '../lib/api/files';
+import { archiveLimit, downloadArchive, readArchiveAsset, safeArchiveName } from '../lib/fileArchive';
+import { isNodeLockedWithAncestors } from '../lib/store/editorShared';
 import { useWorkflowStore } from '../lib/store';
 import { ImagePreviewModal } from './ImagePreviewModal';
 import './asset-library.css';
@@ -69,7 +71,14 @@ export default function AssetLibraryModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const lastExecutionTime = useWorkflowStore((s) => s.lastExecutionTime);
 
-  const batchIds = data.items.filter((asset) => checkedIds.has(asset.id)).map((asset) => asset.id);
+  const batchAssets = data.items.filter((asset) => checkedIds.has(asset.id));
+  const batchIds = batchAssets.map((asset) => asset.id);
+  const selectedIoId = useWorkflowStore((state) => {
+    const selectedNodes = state.nodes.filter((node) => node.selected);
+    const target = selectedNodes[0];
+    return selectedNodes.length === 1 && target.type === 'io' && !isNodeLockedWithAncestors(target.id, state.nodes) &&
+      !state.edges.some((edge) => edge.target === target.id) ? target.id : undefined;
+  });
   const allChecked = batchIds.length > 0 && batchIds.length === data.items.length;
   const previewAsset = previewOpen ? selected : null;
 
@@ -181,9 +190,29 @@ export default function AssetLibraryModal({
     );
   }
 
-  async function backfill(asset: LibraryAsset) {
+  async function downloadSelection() {
     setBusy(true);
     setError('');
+    try {
+      let remaining = archiveLimit;
+      const entries: Record<string, Uint8Array> = Object.create(null);
+      for (const [index, asset] of batchAssets.entries()) {
+        const blob = await readArchiveAsset(asset.url, remaining);
+        remaining -= blob.size;
+        entries[`${index + 1}-${safeArchiveName(asset.originalName)}`] = new Uint8Array(await blob.arrayBuffer());
+      }
+      downloadArchive(entries, 'SueLr-资产.zip');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '批量下载失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function backfill(asset: LibraryAsset, targetId?: string) {
+    setBusy(true);
+    setError('');
+    const documentId = useWorkflowStore.getState().activeDocumentId;
     try {
       let text = '';
       if (asset.type === 'text' || asset.type === 'data') {
@@ -195,18 +224,24 @@ export default function AssetLibraryModal({
       const store = useWorkflowStore.getState();
       const offset = (store.nodes.length % 8) * 30;
       const media = ['image', 'video', 'audio'].includes(asset.type);
-      const nodeId = store.addNode(
-        'io',
-        { x: position.x - 160 + offset, y: position.y - 100 + offset },
-        {
-          text,
-          content: media ? [asset.url] : [],
-          _fileIds: [],
-          _fileOrder: [],
-          _fileKinds: media ? [asset.type] : [],
-          _fileNames: media ? [asset.name] : [],
-        },
-      );
+      if (store.activeDocumentId !== documentId) throw new Error('工作流已切换，请重新回填。');
+      const patch = {
+        text,
+        fileUrl: '',
+        content: media ? [asset.url] : [],
+        _fileIds: [],
+        _fileOrder: [],
+        _fileKinds: media ? [asset.type] : [],
+        _fileNames: media ? [asset.name] : [],
+      };
+      if (targetId) {
+        const target = store.nodes.find((node) => node.id === targetId);
+        if (target?.type !== 'io' || isNodeLockedWithAncestors(targetId, store.nodes) || store.edges.some((edge) => edge.target === targetId)) {
+          throw new Error('选中的 IO 已不可回填。');
+        }
+        store.updateNodeData(targetId, patch);
+      }
+      const nodeId = targetId ?? store.addNode('io', { x: position.x - 160 + offset, y: position.y - 100 + offset }, patch);
       store.selectNode(nodeId);
       onClose();
     } catch (error) {
@@ -472,6 +507,7 @@ export default function AssetLibraryModal({
               count={batchIds.length}
               disabled={busy || loading}
               onApply={(change) => void applyBatch(change)}
+              onDownload={() => void downloadSelection()}
             />
           )}
           {selected && (
@@ -483,6 +519,7 @@ export default function AssetLibraryModal({
               busy={busy}
               categories={data.categories}
               onBackfill={() => void backfill(selected)}
+              onBackfillSelected={selectedIoId ? () => void backfill(selected, selectedIoId) : undefined}
               onDelete={() => void deleteAsset(selected)}
               onSave={async (name, nextCategory, tags) => {
                 if (!validTags(tags)) {
@@ -536,10 +573,12 @@ function AssetBatchDetails({
   count,
   disabled,
   onApply,
+  onDownload,
 }: {
   count: number;
   disabled: boolean;
   onApply: (change: AssetBatchChange) => void;
+  onDownload: () => void;
 }) {
   const [editCategory, setEditCategory] = useState(false);
   const [editTags, setEditTags] = useState(false);
@@ -552,6 +591,7 @@ function AssetBatchDetails({
   return (
     <div className="asset-library__details-content asset-library__batch-details">
       <p>本页已选 {count} 项</p>
+      {count > 0 && <button type="button" disabled={disabled} onClick={onDownload}>下载所选资产</button>}
       {count > 0 &&
         (confirmDelete ? (
           <div className="asset-library__delete-confirm" role="group" aria-label="确认批量删除">
@@ -680,6 +720,7 @@ function AssetDetails({
   categories,
   onSave,
   onBackfill,
+  onBackfillSelected,
   onDelete,
 }: {
   asset: LibraryAsset;
@@ -689,6 +730,7 @@ function AssetDetails({
   categories: string[];
   onSave: (name: string, category: string, tags: string[]) => Promise<void>;
   onBackfill: () => void;
+  onBackfillSelected?: () => void;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(asset.name);
@@ -788,6 +830,11 @@ function AssetDetails({
         >
           回填画布
         </button>
+        {onBackfillSelected && (
+          <button type="button" disabled={busy || asset.type === 'file'} onClick={onBackfillSelected}>
+            替换选中 IO 的内容
+          </button>
+        )}
         <a className="asset-library__download" href={asset.url} download={asset.originalName}>
           下载原文件
         </a>

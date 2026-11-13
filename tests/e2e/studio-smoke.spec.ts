@@ -1,4 +1,6 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { unzipSync } from 'fflate';
 
 async function clearLocalState(page: import('@playwright/test').Page) {
   await page.goto('/');
@@ -235,6 +237,71 @@ test.describe('studio smoke', () => {
     expect(pixels.sharpCorner).toEqual([255, 255, 255, 255]);
   });
 
+  test('a workflow package restores local media into an independent upload', async ({ page }) => {
+    await clearLocalState(page);
+    await page.getByTestId('workflow-new').click();
+    await addWorkflowNode(page, 'io');
+    await page.getByRole('button', { name: '绘制草图' }).click();
+    await page.locator('.node-canvas-editor-modal canvas').click();
+    await page.getByRole('button', { name: '保存到 IO 节点' }).click();
+    const image = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    await expect(image).toHaveAttribute('src', /^\/api\/files\//);
+    const originalUrl = (await image.getAttribute('src'))!;
+    const original = await (await page.request.get(originalUrl)).body();
+
+    await page.getByTestId('workflow-export').click();
+    const exportDialog = page.getByRole('dialog', { name: '导出工作流' });
+    await expect(exportDialog).toContainText(originalUrl.split('/').at(-1)!);
+    const jsonDownload = page.waitForEvent('download');
+    await exportDialog.getByRole('button', { name: '仅导出 JSON' }).click();
+    expect((await jsonDownload).suggestedFilename()).toMatch(/\.json$/);
+
+    await page.getByTestId('workflow-export').click();
+    const downloadPromise = page.waitForEvent('download');
+    await exportDialog.getByRole('button', { name: '带素材导出 ZIP' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.zip$/);
+    const filePath = (await download.path())!;
+    const archive = await readFile(filePath);
+    expect(Object.keys(unzipSync(archive))).toEqual(
+      expect.arrayContaining(['workflow.json', 'assets.json', expect.stringMatching(/^assets\//)]),
+    );
+
+    await page.getByTestId('workflow-import-file').setInputFiles({
+      name: download.suggestedFilename(),
+      mimeType: 'application/zip',
+      buffer: archive,
+    });
+    await expect.poll(() => image.getAttribute('src')).not.toBe(originalUrl);
+    await expect(image).toHaveAttribute('src', /^\/api\/files\//);
+    const restored = await page.request.get((await image.getAttribute('src'))!);
+    expect(await restored.body()).toEqual(original);
+  });
+
+  test('first-run discovery opens project model settings with the discovered model ready to import', async ({ page }) => {
+    await page.request.post('/api/settings/reset');
+    await page.route('**/api/settings/test-api', (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          data: {
+            models: ['gpt-image-1-onboarding-fixture'],
+            categorized: { chat: [], image: ['gpt-image-1-onboarding-fixture'], video: [] },
+          },
+        },
+      }),
+    );
+    await page.goto('/');
+    await page.getByPlaceholder('https://api.example.com/v1').fill('https://provider.example/v1');
+    await page.getByPlaceholder('sk-...').fill('sk-onboarding-fixture');
+    await page.getByRole('button', { name: '测试连接并发现模型' }).click();
+    await page.getByRole('button', { name: '配置项目模型' }).click();
+
+    await expect(page.getByTestId('settings-page')).toBeVisible();
+    await expect(page.getByTestId('settings-importable-model-gpt-image-1-onboarding-fixture')).toBeVisible();
+    await expect(page.getByTestId('settings-project-model-card-gpt-image-1-onboarding-fixture')).toHaveCount(0);
+  });
+
   test('settings fields persist after reload', async ({ page }) => {
     const seed = Date.now().toString(36);
     const configName = `E2E Config ${seed}`;
@@ -463,7 +530,7 @@ test.describe('studio smoke', () => {
       settings: {},
     };
 
-    await page.locator('input[type="file"][accept=".json,application/json"]').setInputFiles({
+    await page.getByTestId('workflow-import-file').setInputFiles({
       name: 'conflict-workflow.json',
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify(importedWorkflow), 'utf8'),
@@ -760,6 +827,13 @@ test('资产库支持多选、批量编辑和批量删除', async ({ page }) => 
   await dialog.getByRole('button', { name: '全选本页' }).click();
   await expect(dialog.getByText('本页已选 3 项')).toBeVisible();
   await dialog.getByRole('button', { name: `选择 ${prefix}-3.png` }).click();
+  const archiveDownload = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: '下载所选资产' }).click();
+  const downloaded = await archiveDownload;
+  const archive = unzipSync(await readFile((await downloaded.path())!));
+  expect(Object.keys(archive)).toHaveLength(2);
+  expect(Object.keys(archive).some((name) => name.endsWith(`${prefix}-3.png`))).toBe(false);
+  for (const bytes of Object.values(archive)) expect(Buffer.from(bytes)).toEqual(image);
   await dialog.getByRole('checkbox', { name: '修改分类' }).check();
   await dialog.getByRole('textbox', { name: '批量分类' }).fill(prefix);
   await dialog.getByRole('checkbox', { name: '替换标签' }).check();

@@ -10,6 +10,7 @@ type WorkflowRunStatus = 'completed' | 'cancelled' | 'failed' | string;
 type LogData = Record<string, unknown>;
 
 interface WorkflowLogInput {
+  runId?: string;
   id?: unknown;
   workflowId?: unknown;
   name?: unknown;
@@ -66,8 +67,8 @@ export function createWorkflowRunLogger(
 
   const workflowId = sanitizeLogFilePart(workflow?.id || workflow?.workflowId, 'unsaved');
   const workflowName = sanitizeLogFilePart(workflow?.name || workflow?.workflowName, 'workflow');
-  const runId = `${logTimePart(now)}_${workflowId}`;
-  const filePath = path.join(dayDir, `${workflowName}_${runId}.jsonl`);
+  const runId = workflow.runId || `${logTimePart(now)}_${workflowId}`;
+  const filePath = path.join(dayDir, `${runId}.jsonl`);
 
   const write = (event: string, data: LogData = {}) => {
     const entry = {
@@ -101,7 +102,8 @@ export function createWorkflowRunLogger(
     directory: dayDir,
     log: write,
     writeTextFile(name: string, content: unknown, extension = 'txt') {
-      const filename = `${workflowName}_${runId}_${sanitizeLogFilePart(name, 'artifact')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${extension}`;
+      const artifactName = sanitizeLogFilePart(name, 'artifact').replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 16);
+      const filename = `${runId}_${artifactName}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${extension}`;
       const targetPath = path.join(dayDir, filename);
       fs.writeFileSync(targetPath, String(content || ''), 'utf8');
       return targetPath;

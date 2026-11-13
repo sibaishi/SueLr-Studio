@@ -1,10 +1,12 @@
 import type { WorkflowConfirmRequest } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
+import { downloadBlob, safeArchiveName } from '@/domains/workflow/lib/fileArchive';
+import { exportWorkflowArchive, getWorkflowAssetReferences } from '@/domains/workflow/lib/workflowArchive';
 import { serializeWorkflowExport } from '@/domains/workflow/lib/importExport';
 import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
 import type { NodeTypeDef } from '@/domains/workflow/lib/types';
 import type { Edge, Node } from '@xyflow/react';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 const DISABLED_NEW_NODE_TYPES = new Set<string>();
 
@@ -45,6 +47,13 @@ export function useWorkflowPageCommands({
   confirm: ConfirmWorkflowAction;
 }) {
   const viewportCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const [exportRequest, setExportRequest] = useState<{
+    workflow: PersistedWorkflow;
+    name: string;
+    references: string[];
+  } | null>(null);
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   const handleAddNode = useCallback(
     (nodeTypeDef: NodeTypeDef) => {
@@ -142,18 +151,39 @@ export function useWorkflowPageCommands({
   }, [confirm, resetHistory, setWorkflowErrorMessage, store]);
 
   const handleExportWorkflow = useCallback(() => {
-    const payload = store.exportCurrentWorkflow();
-    const safeName = (payload.name || 'workflow').replace(/[\\/:*?"<>|]/g, '-').trim() || 'workflow';
-    const blob = new Blob([serializeWorkflowExport(payload)], {
-      type: 'application/json;charset=utf-8',
-    });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${safeName}.json`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    const workflow = store.exportCurrentWorkflow();
+    const name = safeArchiveName(workflow.name || 'workflow');
+    const references = getWorkflowAssetReferences(workflow);
+    setExportError('');
+    if (references.length > 0) {
+      setExportRequest({ workflow, name, references });
+      return;
+    }
+    downloadBlob(new Blob([serializeWorkflowExport(workflow)], { type: 'application/json' }), `${name}.json`);
   }, [store]);
+
+  const closeExport = useCallback(() => {
+    if (!exportBusy) setExportRequest(null);
+  }, [exportBusy]);
+
+  const downloadExport = useCallback(async (withMedia: boolean) => {
+    if (!exportRequest || exportBusy) return;
+    const { workflow, name, references } = exportRequest;
+    setExportBusy(true);
+    setExportError('');
+    try {
+      if (withMedia) {
+        await exportWorkflowArchive(workflow, name, references);
+      } else {
+        downloadBlob(new Blob([serializeWorkflowExport(workflow)], { type: 'application/json' }), `${name}.json`);
+      }
+      setExportRequest(null);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : '导出没有完成，请稍后重试。');
+    } finally {
+      setExportBusy(false);
+    }
+  }, [exportBusy, exportRequest]);
 
   return {
     handleAddNode,
@@ -167,5 +197,10 @@ export function useWorkflowPageCommands({
     handleDuplicateWorkflow,
     handleDeleteWorkflow,
     handleExportWorkflow,
+    exportRequest,
+    exportBusy,
+    exportError,
+    closeExport,
+    downloadExport,
   };
 }

@@ -610,3 +610,9 @@ Asset library modal materials reuse the existing `settings-modal`, `settings-mod
 WorkflowLibraryModal also reuses the settings modal classes through ModalSurface and renders its header, search and browser as glass sections. Its portal remains mounted under document.body. Search data stays local; the existing workflow callbacks continue to own mutations.
 
 Settings header layout lives in `src/features/settings/components/settings-panel.css`. It uses a flexible title column and a wrapping configuration/status column instead of inheriting the canvas toolbar's 220px identity width. Header typography continues to use the settings style helpers shared by the library dialogs.
+
+## Workflow run history and portable media
+
+Execution history uses per-run JSON records under the scoped `logs/workflow-history` directory. Run status falls back to these records after the recent in-memory entry expires. The history API returns a compact snapshot of source IO, errors and saved output paths. Provider task handles stay in local records and are omitted from public responses. Video recovery polls the saved task with the current credentials for its original connection and adds the downloaded file to generated storage. Recovery does not invoke the executor.
+
+The workflow client supports both its existing JSON format and ZIP bundles with a workflow document, media manifest and file entries. Bundle import uses the existing upload API to materialize references and cleans up files if import fails.

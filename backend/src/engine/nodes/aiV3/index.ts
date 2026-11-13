@@ -105,7 +105,7 @@ export async function execute(
   }
 
   const runtimeConfig = resolveRuntimeApiConfig({}, apiConfig, nodeData.model);
-  if (!runtimeConfig.apiKey) throw new Error('未配置 API Key，请先在设置页或 API Key 节点中填写。');
+  if (!runtimeConfig.apiKey) throw new Error('未配置 API Key，请在工作室设置的「连接」中填写。');
 
   if (mode === 'image') {
     return executeImageMode(prompt, images, nodeData, runtimeConfig, apiConfig, sendProgress);
@@ -114,7 +114,7 @@ export async function execute(
     return executeAudioMode(prompt, nodeData, runtimeConfig, apiConfig, sendProgress);
   }
   if (mode === 'video') {
-    return executeVideoMode(prompt, images, video, audio, nodeData, runtimeConfig, apiConfig, sendProgress);
+    return executeVideoMode(prompt, images, video, audio, nodeData, runtimeConfig, apiConfig, sendProgress, String(node.id || ''));
   }
   if (mode === 'midjourney') {
     return executeMidjourneyMode(prompt, images, nodeData, runtimeConfig, apiConfig, sendProgress);

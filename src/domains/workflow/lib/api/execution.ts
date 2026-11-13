@@ -42,7 +42,8 @@ export interface SSECallbacks {
     source: 'persisted' | 'draft';
   }) => void;
   onWorkflowComplete?: (data: { totalDuration: number; successCount: number; failCount: number }) => void;
-  onWorkflowError?: (data: { error: string }) => void;
+  onStreamDisconnect?: (message: string) => void;
+  onWorkflowError?: (data: { error: string; totalDuration?: number }) => void;
 }
 
 function getEnvelopeErrorMessage(payload: ApiEnvelope<unknown> | null) {
@@ -108,6 +109,11 @@ export async function executeWorkflow(
   let buffer = '';
   let currentEvent = '';
   let currentData = '';
+  let reachedTerminalEvent = false;
+  const reportStreamDisconnect = (message: string) => {
+    if (callbacks.onStreamDisconnect) callbacks.onStreamDisconnect(message);
+    else callbacks.onWorkflowError?.({ error: message });
+  };
 
   try {
     while (true) {
@@ -149,11 +155,14 @@ export async function executeWorkflow(
                 callbacks.onRunStarted?.(data);
                 break;
               case 'workflow_run_completed':
+                reachedTerminalEvent = true;
                 callbacks.onWorkflowComplete?.(data);
                 break;
               case 'workflow_run_failed':
               case 'workflow_run_cancelled':
               case 'workflow_validation_failed':
+              case 'workflow_error':
+                reachedTerminalEvent = true;
                 callbacks.onWorkflowError?.(data);
                 break;
               default:
@@ -167,8 +176,11 @@ export async function executeWorkflow(
         }
       }
     }
+    if (!reachedTerminalEvent) reportStreamDisconnect('执行连接提前结束。');
   } catch (error) {
-    callbacks.onWorkflowError?.({ error: `执行连接已断开：${getUnknownErrorMessage(error, '无法读取执行流')}` });
+    if (!reachedTerminalEvent) {
+      reportStreamDisconnect(`执行连接已断开：${getUnknownErrorMessage(error, '无法读取执行流')}`);
+    }
   } finally {
     reader.releaseLock();
   }
@@ -191,4 +203,28 @@ export async function fetchExecutionStatus(runId: string) {
     failCount?: number;
     error?: string;
   }>(`/execute/runs/${runId}/status`);
+}
+
+export type ExecutionHistoryEntry = {
+  runId: string;
+  status: string;
+  startedAt: number;
+  totalDuration?: number;
+  error?: string;
+  nodeCount: number;
+  failures: { nodeId: string; error: string }[];
+  outputs: string[];
+  inputs?: { nodeId: string; text: string; files: string[] }[];
+  recoverableVideos: { id: string; nodeId: string }[];
+};
+
+export function fetchExecutionHistory(workflowId: string, signal?: AbortSignal) {
+  return workflowApiFetch<ExecutionHistoryEntry[]>(`/execute/${encodeURIComponent(workflowId)}/history`, { signal });
+}
+
+export function recoverExecutionVideo(runId: string, recoveryId: string) {
+  return workflowApiFetch<{ output: string }>(
+    `/execute/runs/${encodeURIComponent(runId)}/videos/${encodeURIComponent(recoveryId)}/recover`,
+    { method: 'POST' },
+  );
 }

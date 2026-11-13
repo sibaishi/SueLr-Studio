@@ -39,6 +39,7 @@ interface RuntimeConfig {
   projectModels?: unknown[];
   abortSignal?: AbortSignal;
   persistGeneratedOutputs?: boolean;
+  onDownloadFailed?: (task: VideoResultTask) => void;
   scope?: RequestScope;
 }
 
@@ -76,6 +77,8 @@ interface PollVideoTaskRequest extends RuntimeConfig {
   endpoint?: string;
   signal?: AbortSignal;
 }
+
+export type VideoResultTask = Pick<PollVideoTaskRequest, 'taskId' | 'endpoint' | 'baseUrl'>;
 
 interface WaitForVideoTaskRequest extends PollVideoTaskRequest {
   sendProgress?: ProgressHandler;
@@ -427,7 +430,7 @@ async function downloadRemoteVideo(url: string, signal?: AbortSignal): Promise<s
     );
     if (!response.ok) {
       await response.body?.cancel();
-      throw new ProviderError('VIDEO_DOWNLOAD_FAILED', `视频生成完成，但下载失败（HTTP ${response.status}）`);
+      throw new ProviderError('VIDEO_DOWNLOAD_FAILED', `视频生成完成，但下载失败（HTTP ${response.status}）`, { upstreamStatus: response.status });
     }
 
     const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
@@ -619,6 +622,23 @@ async function fetchVideoTask({
   };
 }
 
+async function refreshVideoResultUrl(request: PollVideoTaskRequest) {
+  const { data, requestUrl } = await fetchVideoTask(request);
+  const url = extractVideoUrl(data);
+  if (!url || normalizeVideoTaskStatus(extractVideoTaskStatus(data), true) !== 'completed') {
+    throw new ProviderError('VIDEO_RESULT_UNAVAILABLE', '供应商暂未返回可取回的视频。');
+  }
+  return resolveVideoResultUrl(url, requestUrl);
+}
+
+export async function recoverVideoResult(request: PollVideoTaskRequest) {
+  const url = await refreshVideoResultUrl(request);
+  const videoData = url.startsWith('data:') ? url : await downloadRemoteVideo(url, request.signal);
+  const output = saveGeneratedVideoDataUrl(videoData, request.scope);
+  if (!output) throw new ProviderError('VIDEO_RESULT_INVALID', '视频文件无法保存。');
+  return output;
+}
+
 export async function pollVideoTask(request: PollVideoTaskRequest): Promise<unknown> {
   return (await fetchVideoTask(request)).data;
 }
@@ -719,21 +739,40 @@ export async function executeVideoGeneration(
     sendProgress,
   });
 
-  const videoUrl =
-    task.mode === 'sync'
-      ? task.videoUrl
-      : await waitForVideoTask({
-          baseUrl,
-          apiKey,
-          providerConfig,
-          taskId: task.taskId,
-          endpoint: task.endpoint,
-          signal: abortSignal,
-          sendProgress,
-        });
+  const pollRequest = task.mode === 'poll'
+    ? { baseUrl, apiKey, providerConfig, taskId: task.taskId, endpoint: task.endpoint, signal: abortSignal }
+    : null;
+  const videoUrl = task.mode === 'sync'
+    ? task.videoUrl
+    : await waitForVideoTask({ baseUrl, apiKey, providerConfig, taskId: task.taskId, endpoint: task.endpoint, signal: abortSignal, sendProgress });
+  const download = (url: string) =>
+    url.startsWith('data:') ? Promise.resolve(url) : downloadRemoteVideo(url, abortSignal);
 
   sendProgress?.(shouldPersistGeneratedOutputs ? '正在下载并保存视频...' : '正在下载视频...');
-  const videoData = videoUrl.startsWith('data:') ? videoUrl : await downloadRemoteVideo(videoUrl, abortSignal);
+  let videoData: string;
+  try {
+    videoData = await download(videoUrl);
+  } catch (error) {
+    abortSignal?.throwIfAborted();
+    if (!(error instanceof ProviderError) || error.code !== 'VIDEO_DOWNLOAD_FAILED') throw error;
+    const status = Number(asRecord(error.details).upstreamStatus);
+    const expired = [401, 403, 404, 410].includes(status);
+    const transient = !status || status === 408 || status === 429 || status >= 500;
+    if (!(transient || (expired && pollRequest))) throw error;
+    sendProgress?.('视频已生成，正在重试取回结果...');
+    let retryUrl = videoUrl;
+    try {
+      if (pollRequest && expired) retryUrl = await refreshVideoResultUrl(pollRequest);
+      videoData = await download(retryUrl);
+    } catch (retryError) {
+      abortSignal?.throwIfAborted();
+      if (pollRequest) {
+        const { taskId, endpoint } = pollRequest;
+        runtimeConfig.onDownloadFailed?.({ taskId, endpoint, baseUrl });
+      }
+      throw retryError;
+    }
+  }
   return {
     video: shouldPersistGeneratedOutputs
       ? saveGeneratedVideoDataUrl(videoData, runtimeConfig.scope) || videoData

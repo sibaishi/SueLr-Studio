@@ -1,3 +1,4 @@
+import { getWorkflowAssetReferences, readWorkflowArchive } from '@/domains/workflow/lib/workflowArchive';
 import { parseWorkflowImport } from '@/domains/workflow/lib/importExport';
 import type { WorkflowImportError, WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
 import { type ChangeEvent, useCallback, useRef, useState } from 'react';
@@ -27,6 +28,7 @@ export function useWorkflowImport({
   const [importReportFileName, setImportReportFileName] = useState<string>('');
   const [importErrorMessage, setImportErrorMessage] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const importing = useRef(false);
 
   const handleImportClick = useCallback(() => {
     importInputRef.current?.click();
@@ -47,23 +49,41 @@ export function useWorkflowImport({
     async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       event.target.value = '';
-      if (!file) return;
+      if (!file || importing.current) return;
+      importing.current = true;
 
+      let archive: Awaited<ReturnType<typeof readWorkflowArchive>> | undefined;
+      let imported = false;
       try {
-        const content = await file.text();
-        const parsed = parseWorkflowImport(content);
-        const fallbackName = file.name.replace(/\.json$/i, '');
+        if (/\.zip$/i.test(file.name)) archive = await readWorkflowArchive(file);
+        const parsed = archive?.workflow ?? parseWorkflowImport(await file.text());
+        const missing: string[] = [];
+        if (!archive) {
+          for (const url of getWorkflowAssetReferences(parsed)) {
+            const response = await fetch(url, { method: 'HEAD', redirect: 'error' }).catch(() => null);
+            if (!response?.ok || response.headers.get('content-type')?.startsWith('text/html')) missing.push(url);
+          }
+        }
+        const fallbackName = file.name.replace(/\.(json|zip)$/i, '');
         setImportErrorMessage(null);
         const result = await store.importWorkflowData(parsed, fallbackName);
         if (!result.success) {
           setImportErrorMessage(formatWorkflowImportError(result.error?.message || '文件格式不正确。'));
           return;
         }
-        applySuccessfulImport(result.report, file.name);
+        imported = true;
+        const report = result.report;
+        if (report && missing.length) {
+          report.warnings.push(...missing.map((url) => `本地素材不可用，请在画布重新选择：${url}`));
+        }
+        applySuccessfulImport(report, file.name);
       } catch (error) {
         setImportErrorMessage(
-          formatWorkflowImportError(error instanceof Error ? error.message : '无法读取或解析 JSON 文件。'),
+          formatWorkflowImportError(error instanceof Error ? error.message : '无法读取工作流文件。'),
         );
+      } finally {
+        if (!imported) await archive?.rollback();
+        importing.current = false;
       }
     },
     [applySuccessfulImport, store],

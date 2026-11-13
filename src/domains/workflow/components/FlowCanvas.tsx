@@ -809,7 +809,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         fitView
         fitViewOptions={{
           padding: 0.2,
-          minZoom: 0.82,
+          minZoom: 0.35,
           maxZoom: 1.15,
         }}
         defaultViewport={{ x: 0, y: 0, zoom: 0.96 }}

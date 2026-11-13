@@ -6,6 +6,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { NODE_EXECUTORS } from '../src/engine/nodes/index.ts';
+import { saveExecutionHistory } from '../src/modules/execution/execution-history.ts';
+import { settingsService } from '../src/modules/settings/settings.service.ts';
 import { ExecutionService } from '../src/modules/execution/execution.service.ts';
 import { STORAGE_PATHS } from '../src/platform/storage/index.ts';
 import {
@@ -186,4 +188,57 @@ test('ExecutionService stores sanitized node outputs in workflow run logs', asyn
     ({ event, data }) => event === 'workflow_node_completed' && data.nodeId === 'text-1',
   );
   assert.equal(sseCompletedEvent.data.outputs.result, inlineImage);
+
+  const afterRestart = new ExecutionService();
+  const [record] = afterRestart.listHistory(workflow.id);
+  assert.equal(record.runId, logEvent.data.runId);
+  assert.equal(record.status, 'completed');
+  assert.equal(record.nodeCount, 1);
+  assert.equal(afterRestart.getStatus(record.runId).status, 'completed');
+  assert.doesNotMatch(JSON.stringify(record), /data:image/);
+});
+
+
+test('ExecutionService recovers an existing video after restart and publishes only the saved file', async (t) => {
+  const root = createStorageDir('video-recovery');
+  process.env.APP_CONFIG_DIR = root;
+  process.env.APP_STORAGE_BOOTSTRAP_FILE = path.join(root, 'config', 'bootstrap.json');
+  process.env.APP_DISABLE_LEGACY_STORAGE_MIGRATION = '1';
+
+  const baseUrl = 'https://93.184.216.34/v1';
+  const workflowId = 'wf_video_recovery';
+  const runId = `2026-11-12T10-00-00-000Z_${workflowId}`;
+  saveExecutionHistory({
+    runId, workflowId, source: 'draft', snapshotVersion: 1, status: 'failed', startedAt: 1,
+    nodeCount: 1, failures: [], outputs: [],
+    videoRecoveries: [{
+      id: 'recovery', nodeId: 'video', taskId: 'private-task', baseUrl, configId: 'original',
+      endpoint: '/v1/video/generations', model: 'original::seedance',
+    }],
+  });
+
+  t.mock.method(settingsService, 'buildRuntimeConfig', () => ({
+    configId: 'original',
+    configs: [{ id: 'original', baseUrl, apiKey: 'fixture-key' }],
+  }));
+  const calls = [];
+  const video = Buffer.from('0000ftypisom');
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    assert.notEqual(options.method, 'POST');
+    calls.push(String(url));
+    return String(url).endsWith('/private-task')
+      ? Response.json({ status: 'SUCCESS', video_url: `${baseUrl}/result.mp4` })
+      : new Response(video, { headers: { 'content-type': 'video/mp4' } });
+  });
+  const service = new ExecutionService();
+  assert.doesNotMatch(JSON.stringify(service.listHistory(workflowId)), /private-task|fixture-key/);
+  const { output } = await service.recoverVideo(runId, 'recovery');
+  assert.match(output, /^\/api\/outputs\/videos\//);
+  assert.deepEqual(fs.readFileSync(path.join(STORAGE_PATHS.generatedDir, output.replace('/api/outputs/', ''))), video);
+  assert.deepEqual(calls, [`${baseUrl}/video/generations/private-task`, `${baseUrl}/result.mp4`]);
+
+  const [record] = new ExecutionService().listHistory(workflowId);
+  assert.deepEqual(record.outputs, [output]);
+  assert.deepEqual(record.recoverableVideos, []);
+  await assert.rejects(service.recoverVideo(runId, 'recovery'), { code: 'VIDEO_RECOVERY_NOT_FOUND' });
 });

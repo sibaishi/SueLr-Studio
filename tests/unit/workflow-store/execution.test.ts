@@ -26,6 +26,31 @@ describe('workflow store execution actions', () => {
     vi.clearAllMocks();
   });
 
+  it('stops before execution when a starter image workflow lacks credentials and a reference', async () => {
+    const harness = createWorkflowStoreHarness({
+      workflowId: 'starter_image_to_image',
+      workflowRuntimeConfigs: [{ id: 'default', name: 'Default', base: 'https://example.test/v1', apiKey: '', models: [] }],
+      nodes: [
+        { id: 'reference', type: 'io', position: { x: 0, y: 0 }, data: {} },
+        { id: 'generate', type: 'aiV3', position: { x: 100, y: 0 }, data: { mode: 'image' } },
+        { id: 'output', type: 'io', position: { x: 200, y: 0 }, data: {} },
+      ],
+      edges: [
+        { id: 'a', source: 'reference', sourceHandle: 'result', target: 'generate', targetHandle: 'input' },
+        { id: 'b', source: 'generate', sourceHandle: 'result', target: 'output', targetHandle: 'input' },
+      ],
+    });
+    const actions = createWorkflowExecutionActions(harness.set, harness.get);
+
+    await actions.executeWorkflow();
+
+    expect(api.executeWorkflow).not.toHaveBeenCalled();
+    expect(harness.getState().nodeWarnings).toEqual({
+      generate: '缺少 API Key，请配置模型连接。',
+      reference: '请添加参考图或绘制草图。',
+    });
+  });
+
   it('executes grouped transit ports as direct inner-to-outer connections', async () => {
     const harness = createWorkflowStoreHarness({
       nodes: [

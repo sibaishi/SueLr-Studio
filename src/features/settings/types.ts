@@ -75,6 +75,7 @@ export type BackendRestartPayload = {
 };
 
 export type SettingsPanelProps = {
+  initialModule?: 'overview' | 'connection' | 'models';
   apiConfigs: ApiConfig[];
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   activeConfigId: string;
