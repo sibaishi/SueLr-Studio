@@ -1,3 +1,5 @@
+import FileSourceButton from './FileSourceButton';
+import { addIoFiles } from '../lib/addIoFiles';
 import { resolveWorkflowConnections } from '@/domains/workflow/lib/executionGraph';
 import { WorkflowStylePanelShell } from '@/domains/workflow/components/WorkflowStylePanelShell';
 import { createThumbnailFromBlob } from '@/domains/workflow/components/flowCanvasHelpers';
@@ -715,38 +717,9 @@ export default function IoStylePanel() {
               </button>
             </div>
           ))}
-          {/* + add files chip */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '3px 8px 3px 4px',
-              borderRadius: 10,
-              background: 'transparent',
-              border: '1px dashed var(--t-border)',
-              cursor: 'pointer',
-              fontSize: 11,
-              color: 'var(--t-text3)',
-            }}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <div
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 6,
-                background: 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1px dashed var(--t-border)',
-              }}
-            >
-              <span style={{ fontSize: 14, lineHeight: 1, color: 'var(--t-text3)' }}>+</span>
-            </div>
-            <span style={{ fontSize: 11, color: 'var(--t-text3)' }}>添加文件</span>
-          </div>
+          {selectedNodeId && <FileSourceButton className="node-v2-secondary-button nodrag"
+            onLocal={() => fileInputRef.current?.click()}
+            onAsset={(asset) => addIoFiles(selectedNodeId, [asset])}>添加文件</FileSourceButton>}
         </div>
       )}
       <input
@@ -756,7 +729,8 @@ export default function IoStylePanel() {
         accept="image/*,video/*,audio/*,text/*,.json,.csv,.xml,.html,.css,.js,.ts,.tsx,.jsx,.py,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.php,.rb,.sh,.bat,.ps1,.yaml,.yml,.md,.log"
         style={{ display: 'none' }}
         onChange={(e) => {
-          if (e.target.files) handleFileUpload(e.target.files);
+          if (e.target.files) void handleFileUpload(e.target.files);
+          e.target.value = '';
         }}
       />
 

@@ -1,3 +1,5 @@
+import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
+import { readLibraryFile } from '@/domains/workflow/lib/addIoFiles';
 import { AgentMediaPreview, type AgentPreview } from './AgentMediaPreview';
 import {
   ArrowUp,
@@ -774,19 +776,15 @@ export default function AgentPanel({
               event.currentTarget.value = '';
             }}
           />
-          <button
-            type="button"
-            className="agent-panel__icon-button"
+          <FileSourceButton className="agent-panel__icon-button" label="添加附件"
             disabled={busy || storageState === 'loading'}
-            aria-label="添加附件"
-            title="添加附件"
-            onClick={() => {
-              setOpenMenu(null);
-              picker.current?.click();
-            }}
-          >
-            <Paperclip size={18} />
-          </button>
+            onLocal={() => { setOpenMenu(null); picker.current?.click(); }}
+            onAsset={async (asset) => {
+              if (attachments.length >= 4) throw new Error('每条消息最多添加 4 个参考文件。');
+              const file = await readLibraryFile(asset);
+              setAttachments((previous) => [...previous, file]);
+              setError('');
+            }}><Paperclip size={18} /></FileSourceButton>
           <button
             type="button"
             className="agent-panel__icon-button"

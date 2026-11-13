@@ -621,3 +621,5 @@ The workflow client supports both its existing JSON format and ZIP bundles with 
 画布方案通过 `propose_canvas_changes` 函数工具返回，经后端验证后展示给用户。应用时复用编辑器的节点与边操作，在暂存状态中完成整批检查，成功后一次写入画布状态。应用绑定原画布，并遵守锁定节点与执行状态。
 
 弧光的直接生成通过 `propose_direct_generation` 提案和 `POST /api/agent/generate` 执行。生成请求按用户选择的连接和模型类型校验，复用图像、视频运行服务，产物返回会话。
+
+`FileSourceButton` 复用资产库的选取模式并保留各入口原有的本地文件选择器。IO 引用已有媒体 URL，弧光和画板则将所选资产读取为文件后交给各自的附件或图层逻辑。

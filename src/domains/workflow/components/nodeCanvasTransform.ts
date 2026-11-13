@@ -91,3 +91,71 @@ export function findInkBounds(source: HTMLCanvasElement): CanvasRect | null {
   }
   return right < 0 ? null : { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
 }
+
+export function snapCanvasMove(frame: CanvasTransform, targets: CanvasRect[], threshold: number) {
+  const width = Math.abs(Math.cos(frame.angle)) * frame.width + Math.abs(Math.sin(frame.angle)) * frame.height;
+  const height = Math.abs(Math.sin(frame.angle)) * frame.width + Math.abs(Math.cos(frame.angle)) * frame.height;
+  const bounds = { x: frame.x + (frame.width - width) / 2, y: frame.y + (frame.height - height) / 2, width, height };
+  const guides: Partial<CanvasPoint> = {};
+  const snapped = { ...frame };
+
+  for (const axis of ['x', 'y'] as const) {
+    const size = axis === 'x' ? 'width' : 'height';
+    const anchors = [bounds[axis], bounds[axis] + bounds[size] / 2, bounds[axis] + bounds[size]];
+    let best = threshold;
+    let offset = 0;
+    for (const target of targets) {
+      for (const guide of [target[axis], target[axis] + target[size] / 2, target[axis] + target[size]]) {
+        for (const anchor of anchors) {
+          const distance = Math.abs(guide - anchor);
+          if (distance > best || (guides[axis] !== undefined && distance === best)) continue;
+          best = distance;
+          offset = guide - anchor;
+          guides[axis] = guide;
+        }
+      }
+    }
+    snapped[axis] += offset;
+  }
+
+  return { frame: snapped, guides };
+}
+
+export function snapCanvasPoint(point: CanvasPoint, targets: CanvasRect[], threshold: number) {
+  const result = snapCanvasMove({ ...point, width: 0, height: 0, angle: 0 }, targets, threshold);
+  return { point: { x: result.frame.x, y: result.frame.y }, guides: result.guides };
+}
+
+export function snapCanvasResize(
+  frame: CanvasTransform,
+  handle: TransformHandle,
+  start: CanvasPoint,
+  point: CanvasPoint,
+  constrain: boolean,
+  targets: CanvasRect[],
+  threshold: number,
+) {
+  const dx = handle.includes('w') ? -1 : handle.includes('e') ? 1 : 0;
+  const dy = handle.includes('n') ? -1 : handle.includes('s') ? 1 : 0;
+  const handlePoint = (value: CanvasTransform) => {
+    const offset = rotatePoint({ x: (dx * value.width) / 2, y: (dy * value.height) / 2 }, value.angle);
+    return { x: value.x + value.width / 2 + offset.x, y: value.y + value.height / 2 + offset.y };
+  };
+  const raw = dragTransform(frame, handle, start, point, constrain);
+  const anchor = handlePoint(raw);
+  const snap = snapCanvasPoint(anchor, targets, threshold);
+  let best = { frame: raw, guides: {} as Partial<CanvasPoint> };
+  for (const axes of [['x', 'y'], ['x'], ['y']] as const) {
+    const next = { ...point };
+    for (const axis of axes) next[axis] += snap.point[axis] - anchor[axis];
+    const resized = dragTransform(frame, handle, start, next, constrain);
+    const actual = handlePoint(resized);
+    const guides: Partial<CanvasPoint> = {};
+    for (const axis of axes) {
+      const guide = snap.guides[axis];
+      if (guide !== undefined && Math.abs(actual[axis] - guide) < 0.01) guides[axis] = guide;
+    }
+    if (Object.keys(guides).length > Object.keys(best.guides).length) best = { frame: resized, guides };
+  }
+  return best;
+}

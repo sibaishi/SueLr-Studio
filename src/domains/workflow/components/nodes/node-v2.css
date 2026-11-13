@@ -2196,3 +2196,12 @@
   border: 0.5px solid var(--node-card-line);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
+
+.node-v2-empty-io-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.node-v2-empty-io-actions > button {
+  flex: 1;
+}

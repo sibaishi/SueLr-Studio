@@ -36,7 +36,9 @@ function validTags(tags: string[]) {
 export default function AssetLibraryModal({
   onClose,
   position,
-}: { onClose: () => void; position: { x: number; y: number } }) {
+  onPick,
+  pickType,
+}: { onClose: () => void; position: { x: number; y: number }; onPick?: (asset: LibraryAsset) => Promise<void>; pickType?: LibraryAsset['type'] }) {
   const [search, setSearch] = useState('');
   const [type, setType] = useState('all');
   const [source, setSource] = useState('all');
@@ -93,7 +95,7 @@ export default function AssetLibraryModal({
       const result = await fetchAssets(
         new URLSearchParams({
           search,
-          type,
+          type: pickType ?? type,
           source,
           category,
           favorite: favorite ? 'true' : 'all',
@@ -116,7 +118,7 @@ export default function AssetLibraryModal({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [search, type, source, category, favorite, page, revision, lastExecutionTime]);
+  }, [search, type, source, category, favorite, page, pickType, revision, lastExecutionTime]);
 
   async function importFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -253,13 +255,14 @@ export default function AssetLibraryModal({
 
   const library = (
     <ModalSurface
-      ariaLabel="资产库"
+      ariaLabel={onPick ? "从资产库添加文件" : "资产库"}
       inactive={Boolean(previewAsset)}
       onClose={onClose}
       rootClassName="settings-modal asset-library-overlay"
       panelClassName="settings-modal__panel asset-library"
       backdropClassName="settings-modal__backdrop"
       backdropLabel="关闭资产库"
+      rootProps={onPick ? { 'data-workflow-modal-overlay': '' } : undefined}
       isolateKeyboard
     >
       <header className="asset-library__header asset-library__panel">
@@ -311,7 +314,8 @@ export default function AssetLibraryModal({
         <div className="asset-library__filter-select">
           <select
             aria-label="资产类型"
-            value={type}
+            value={pickType ?? type}
+            disabled={Boolean(pickType)}
             onChange={(e) => {
               setType(e.target.value);
               setPage(1);
@@ -386,7 +390,7 @@ export default function AssetLibraryModal({
               <div className="asset-library__eyebrow">素材浏览</div>
               <h3>全部资产</h3>
             </div>
-            <div className="asset-library__batch-controls">
+            {!onPick && <div className="asset-library__batch-controls">
               {batchMode && (
                 <button
                   type="button"
@@ -407,7 +411,7 @@ export default function AssetLibraryModal({
               >
                 {batchMode ? '退出多选' : '多选'}
               </button>
-            </div>
+            </div>}
           </div>
           {loading ? (
             <p className="asset-library__empty">正在读取资产…</p>
@@ -510,7 +514,19 @@ export default function AssetLibraryModal({
               onDownload={() => void downloadSelection()}
             />
           )}
-          {selected && (
+          {selected && onPick && (
+            <div className="asset-library__details-empty">
+              <strong>{selected.name}</strong>
+              <button type="button" disabled={busy} onClick={async () => {
+                setBusy(true);
+                setError('');
+                try { await onPick(selected); onClose(); }
+                catch (failure) { setError(failure instanceof Error ? failure.message : '无法添加文件'); }
+                finally { setBusy(false); }
+              }}>添加所选文件</button>
+            </div>
+          )}
+          {selected && !onPick && (
             <AssetDetails
               key={selected.id}
               asset={selected}
@@ -544,7 +560,7 @@ export default function AssetLibraryModal({
             <div className="asset-library__details-empty">
               <FolderOpen size={32} />
               <strong>选择一个资产</strong>
-              <p>在左侧选择素材，预览内容、整理分类和标签，或回填画布继续创作。</p>
+              <p>{onPick ? '在左侧选择要添加的文件。' : '在左侧选择素材，预览内容、整理分类和标签，或回填画布继续创作。'}</p>
             </div>
           )}
         </aside>

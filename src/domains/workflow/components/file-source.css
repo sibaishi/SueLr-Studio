@@ -1,0 +1,32 @@
+.workflow-file-source {
+  position: fixed;
+  z-index: 1240;
+  display: grid;
+  width: 180px;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 11px;
+  color: var(--color-text-primary);
+}
+
+.workflow-file-source button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 7px;
+  padding: 7px 8px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workflow-file-source button:hover,
+.workflow-file-source button:focus-visible {
+  background: var(--color-bg-tertiary);
+}
+
+.workflow-file-picker-boundary {
+  position: fixed;
+  inset: 0;
+  z-index: 1220;
+}

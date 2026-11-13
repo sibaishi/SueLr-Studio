@@ -1,4 +1,7 @@
 import { resolveWorkflowConnections } from '@/domains/workflow/lib/executionGraph';
+import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
+import { addIoFiles } from '@/domains/workflow/lib/addIoFiles';
+import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasEditorModal';
 import { uploadFile } from '@/domains/workflow/lib/api/files';
@@ -17,7 +20,7 @@ import {
 import type { ParamDef } from '@/domains/workflow/lib/types';
 import { Stack } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { fileRawStore } from '../fileRawStore';
 import '../../node-v2.css';
 
@@ -66,6 +69,8 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
   const canvasEdges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useMemo(() => resolveWorkflowConnections(nodes, canvasEdges), [nodes, canvasEdges]);
+  const filePicker = useRef<HTMLInputElement>(null);
+  const [fileError, setFileError] = useState('');
   const [isSketchOpen, setIsSketchOpen] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number>(-1);
   const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
@@ -263,7 +268,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
     .map((item) => ({ src: resizedSrcs[item.idx] || item.value }));
   const canEditSourceImages = !useUpstreamTypes && imagePreviewItems.length > 0;
 
-  const canDrawSketch = Boolean(nodeId && !upstreamSlots && !hasContent && !data.fileUrl);
+  const canDrawSketch = Boolean(nodeId && !isNodeLockedWithAncestors(nodeId, nodes) && !upstreamSlots && !hasContent && !data.fileUrl);
 
   const appendBoardImage = async (file: File) => {
     const { activeDocumentId } = useWorkflowStore.getState();
@@ -308,18 +313,28 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
             <Stack size={32} strokeWidth={1.2} />
             <span>待输入</span>
           </div>
-          {canDrawSketch && (
-            <button
-              type="button"
-              className="node-v2-secondary-button nodrag nopan"
-              onClick={(event) => {
+          {canDrawSketch && nodeId && (
+            <div className="node-v2-empty-io-actions">
+              <button type="button" className="node-v2-secondary-button nodrag nopan" onClick={(event) => {
                 event.stopPropagation();
                 setIsSketchOpen(true);
-              }}
-            >
-              绘制草图
-            </button>
+              }}>绘制草图</button>
+              <FileSourceButton className="node-v2-secondary-button nodrag nopan"
+                onLocal={() => filePicker.current?.click()}
+                onAsset={(asset) => addIoFiles(nodeId, [asset])}>添加文件</FileSourceButton>
+              <input type="file" ref={filePicker} multiple hidden
+                accept="image/*,video/*,audio/*,text/*,.json,.md,.csv,.yaml,.yml"
+                onChange={(event) => {
+                  const files = Array.from(event.currentTarget.files ?? []);
+                  event.currentTarget.value = '';
+                  if (files.length) {
+                    setFileError('');
+                    void addIoFiles(nodeId, files).catch((error) => setFileError(error.message));
+                  }
+                }} />
+            </div>
           )}
+          {fileError && <span role="alert">{fileError}</span>}
         </div>
       ) : (
         <div

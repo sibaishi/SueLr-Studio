@@ -1,3 +1,5 @@
+import FileSourceButton from './FileSourceButton';
+import { readLibraryFile } from '../lib/addIoFiles';
 import { ModalSurface } from '@/ui/ModalSurface';
 import {
   isolateWorkflowModalKey,
@@ -14,6 +16,9 @@ import {
   dragTransform,
   drawTransformed,
   findInkBounds,
+  snapCanvasMove,
+  snapCanvasPoint,
+  snapCanvasResize,
   transformBounds,
 } from './nodeCanvasTransform';
 import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
@@ -21,6 +26,7 @@ import {
   ArrowClockwise,
   ArrowCounterClockwise,
   Check,
+  Magnet,
   Eraser,
   Hand,
   Eye,
@@ -238,7 +244,7 @@ export function NodeCanvasEditorModal({
   const [shapeFill, setShapeFill] = useState(false);
   const [shapeFillColor, setShapeFillColor] = useState('#ffffff');
   const [recognitionTrail, setRecognitionTrail] = useState<CanvasPoint[]>([]);
-  const shapeGesture = useRef<{ pointerId: number; start: CanvasPoint; points?: CanvasPoint[] } | null>(null);
+  const shapeGesture = useRef<{ pointerId: number; start: CanvasPoint; points?: CanvasPoint[]; snapTargets: CanvasRect[] } | null>(null);
   const isShapeTool = tool === 'shape' || tool === 'recognize';
   const isBrushTool = tool === 'brush' || tool === 'eraser';
   const [paintColor, setPaintColor] = useState(isSketch ? '#222222' : '#ff375f');
@@ -250,11 +256,14 @@ export function NodeCanvasEditorModal({
   const [selection, setSelection] = useState<Marquee | null>(null);
   const [marqueeShape, setMarqueeShape] = useState<Exclude<Marquee['shape'], 'mask'>>('rectangle');
   const [transform, setTransform] = useState<TransformSession | null>(null);
+  const [smartSnap, setSmartSnap] = useState(true);
+  const [snapGuides, setSnapGuides] = useState<Partial<CanvasPoint>>({});
   const transformDrag = useRef<{
     pointerId: number;
     handle: TransformHandle;
     point: CanvasPoint;
     frame: CanvasTransform;
+    snapTargets: CanvasRect[];
   } | null>(null);
   const [draggedLayer, setDraggedLayer] = useState<string | null>(null);
   const [layerDrop, setLayerDrop] = useState<{ id: string; above: boolean } | null>(null);
@@ -272,6 +281,7 @@ export function NodeCanvasEditorModal({
     previous: Marquee | null;
     mode: SelectionMode;
     move: boolean;
+    snapTargets: CanvasRect[];
     points?: CanvasPoint[];
   } | null>(null);
   const strokeDocument = useRef<CanvasSnapshot | null>(null);
@@ -959,21 +969,40 @@ export function NodeCanvasEditorModal({
     setSelection(null);
   }
 
+  function getSnapTargets(excludeActive = false): CanvasRect[] {
+    if (!smartSnap || !snapshot) return [];
+    return [
+      { x: 0, y: 0, width: snapshot.width, height: snapshot.height },
+      ...snapshot.layers.flatMap((layer) => {
+        if (!layer.visible || layer.opacity === 0 || (excludeActive && layer.id === snapshot.activeId)) return [];
+        const bounds = findInkBounds(layer.pixels);
+        return bounds ? [{ ...bounds, x: bounds.x + layer.x, y: bounds.y + layer.y }] : [];
+      }),
+    ];
+  }
+
+  function alignPoint(point: CanvasPoint, targets: CanvasRect[], bypass: boolean) {
+    const result = snapCanvasPoint(point, bypass ? [] : targets, 6 / zoom);
+    setSnapGuides(result.guides);
+    return result.point;
+  }
+
   function updateSelection(event: ReactPointerEvent<HTMLDivElement>, finalize = false) {
     const start = selectionStart.current;
     if (!start || start.pointerId !== event.pointerId) return false;
     const canvas = paintCanvasRef.current;
     if (!canvas) return false;
     const point = getBrushPoint(event.nativeEvent, canvas.getBoundingClientRect(), canvas);
-    const endX = Math.round(point.x);
-    const endY = Math.round(point.y);
+    const aligned = start.move || start.points ? point : alignPoint(point, start.snapTargets, event.altKey || event.shiftKey);
+    const endX = Math.round(aligned.x);
+    const endY = Math.round(aligned.y);
     if (start.move && start.previous) {
       const previous = start.previous;
-      setSelection({
-        ...previous,
-        x: previous.x + endX - start.x,
-        y: previous.y + endY - start.y,
-      });
+      const result = snapCanvasMove({
+        ...previous, x: previous.x + endX - start.x, y: previous.y + endY - start.y, angle: 0,
+      }, event.altKey ? [] : start.snapTargets, 6 / zoom);
+      setSnapGuides(result.guides);
+      setSelection({ ...previous, x: Math.round(result.frame.x), y: Math.round(result.frame.y) });
       return true;
     }
     let candidate: Marquee | null;
@@ -1043,6 +1072,7 @@ export function NodeCanvasEditorModal({
     if (apply) updateSelection(event, true);
     else setSelection(selectionStart.current.previous);
     selectionStart.current = null;
+    setSnapGuides({});
     setIsDrawing(false);
     return true;
   }
@@ -1118,6 +1148,7 @@ export function NodeCanvasEditorModal({
       updateLayer({ pixels, x, y });
     }
     transformDrag.current = null;
+    setSnapGuides({});
     setTransform(null);
     setError('');
   }
@@ -1161,6 +1192,7 @@ export function NodeCanvasEditorModal({
     }
     shapeGesture.current = null;
     transformDrag.current = null;
+    setSnapGuides({});
     setShapeDraft(null);
     setRecognitionTrail([]);
     setIsDrawing(false);
@@ -1177,7 +1209,10 @@ export function NodeCanvasEditorModal({
         gesture.points.push(point);
         setRecognitionTrail([...gesture.points]);
       }
-    } else setShapeDraft(makeShape(shapeKind, gesture.start, point, event.shiftKey));
+    } else {
+      const end = alignPoint(point, gesture.snapTargets, event.altKey || event.shiftKey);
+      setShapeDraft(makeShape(shapeKind, gesture.start, end, event.shiftKey));
+    }
     return true;
   }
 
@@ -1191,6 +1226,7 @@ export function NodeCanvasEditorModal({
       if (gesture.points && gesture.points.length > 1) setShapeDraft(recognizeShape(gesture.points));
       else if (Math.hypot(end.x - gesture.start.x, end.y - gesture.start.y) < 1) setShapeDraft(null);
       shapeGesture.current = null;
+      setSnapGuides({});
       setRecognitionTrail([]);
       setIsDrawing(false);
     }
@@ -1210,7 +1246,17 @@ export function NodeCanvasEditorModal({
   function updateTransformDrag(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = transformDrag.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    editFrame(dragTransform(drag.frame, drag.handle, drag.point, transformPoint(event), event.shiftKey));
+    const point = transformPoint(event);
+    if (!smartSnap || event.altKey || drag.handle === 'rotate') {
+      setSnapGuides({});
+      editFrame(dragTransform(drag.frame, drag.handle, drag.point, point, event.shiftKey));
+      return;
+    }
+    const result = drag.handle === 'move'
+      ? snapCanvasMove(dragTransform(drag.frame, drag.handle, drag.point, point, false), drag.snapTargets, 6 / zoom)
+      : snapCanvasResize(drag.frame, drag.handle, drag.point, point, event.shiftKey, drag.snapTargets, 6 / zoom);
+    setSnapGuides(result.guides);
+    editFrame(result.frame);
   }
 
   function finishTransformDrag(event: ReactPointerEvent<HTMLDivElement>, apply: boolean) {
@@ -1219,6 +1265,7 @@ export function NodeCanvasEditorModal({
     if (apply) updateTransformDrag(event);
     else editFrame(drag.frame);
     transformDrag.current = null;
+    setSnapGuides({});
   }
 
   function stepHistory(direction: number) {
@@ -1747,6 +1794,7 @@ export function NodeCanvasEditorModal({
                   () => selectTool('selection', 'lasso'),
                 ],
                 ['平移', 'H / 空格', Hand, viewMode === 'pan', () => setViewMode(viewMode === 'pan' ? 'draw' : 'pan')],
+                ['智能对齐', '', Magnet, smartSnap, () => setSmartSnap(!smartSnap)],
                 ['自由变换', 'Ctrl / ⌘ T', BoundingBox, Boolean(transform), beginTransform],
               ] as const
             ).map(([label, shortcut, Icon, pressed, action]) => (
@@ -1757,7 +1805,7 @@ export function NodeCanvasEditorModal({
                 title={shortcut ? `${label} (${shortcut})` : label}
                 aria-label={label}
                 aria-pressed={
-                  pressed && (label === '平移' || label === '自由变换' || (!transform && viewMode === 'draw'))
+                  pressed && (label === '平移' || label === '自由变换' || label === '智能对齐' || (!transform && viewMode === 'draw'))
                 }
                 disabled={
                   isBusy || !snapshot || (label === '自由变换' && (!activeLayer?.visible || activeLayer.locked))
@@ -1865,9 +1913,11 @@ export function NodeCanvasEditorModal({
                   return;
                 }
                 setError('');
+                const snapTargets = tool === 'recognize' ? [] : getSnapTargets();
                 shapeGesture.current = {
                   pointerId: event.pointerId,
-                  start: point,
+                  start: alignPoint(point, snapTargets, event.altKey),
+                  snapTargets,
                   points: tool === 'recognize' ? [point] : undefined,
                 };
                 if (tool === 'recognize') setRecognitionTrail([point]);
@@ -1889,8 +1939,10 @@ export function NodeCanvasEditorModal({
                       ? (nx - 0.5) ** 2 + (ny - 0.5) ** 2 <= 0.25
                       : nx >= 0 && nx <= 1 && ny >= 0 && ny <= 1),
                 );
-                const x = Math.round(point.x);
-                const y = Math.round(point.y);
+                const snapTargets = marqueeShape === 'lasso' ? [] : getSnapTargets();
+                const start = move ? point : alignPoint(point, snapTargets, event.altKey);
+                const x = Math.round(start.x);
+                const y = Math.round(start.y);
                 selectionStart.current = {
                   pointerId: event.pointerId,
                   x,
@@ -1899,6 +1951,7 @@ export function NodeCanvasEditorModal({
                   previous: selection,
                   mode: selectionMode,
                   move,
+                  snapTargets,
                 };
                 if (!move) setSelection(null);
                 setIsDrawing(true);
@@ -2058,6 +2111,16 @@ export function NodeCanvasEditorModal({
                     />
                   </svg>
                 )}
+                {(snapGuides.x !== undefined || snapGuides.y !== undefined) && imageDimensions && (
+                  <svg className="canvas-smart-guides" aria-hidden="true">
+                    {snapGuides.x !== undefined && (
+                      <line x1={snapGuides.x} x2={snapGuides.x} y1={0} y2={imageDimensions.height} vectorEffect="non-scaling-stroke" />
+                    )}
+                    {snapGuides.y !== undefined && (
+                      <line y1={snapGuides.y} y2={snapGuides.y} x1={0} x2={imageDimensions.width} vectorEffect="non-scaling-stroke" />
+                    )}
+                  </svg>
+                )}
                 {editFrameBounds && (
                   <div
                     className="canvas-transform-frame"
@@ -2083,6 +2146,7 @@ export function NodeCanvasEditorModal({
                         handle: handle ?? 'move',
                         point: transformPoint(event),
                         frame: editFrameBounds,
+                        snapTargets: handle === 'rotate' ? [] : getSnapTargets(Boolean(transform)),
                       };
                       event.currentTarget.setPointerCapture(event.pointerId);
                     }}
@@ -2395,16 +2459,11 @@ export function NodeCanvasEditorModal({
                   <ArrowDown size={15} />
                 </button>
                 <span />
-                <button
-                  type="button"
-                  className="canvas-icon"
-                  title="导入图片"
-                  aria-label="导入图片"
-                  disabled={isBusy}
-                  onClick={() => importInput.current?.click()}
-                >
+                <FileSourceButton className="canvas-icon" label="导入图片" assetType="image" disabled={isBusy}
+                  onLocal={() => importInput.current?.click()}
+                  onAsset={async (asset) => importLayer(await readLibraryFile(asset))}>
                   <UploadSimple size={16} />
-                </button>
+                </FileSourceButton>
                 <button
                   type="button"
                   className="canvas-icon"
