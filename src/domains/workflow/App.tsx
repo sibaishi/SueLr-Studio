@@ -1,3 +1,4 @@
+import AgentPanel from '@/domains/agent/AgentPanel';
 import { isWorkflowModalOpen } from './components/workflowModalIsolation';
 import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
 import AssetLibraryModal from '@/domains/workflow/components/AssetLibraryModal';
@@ -43,8 +44,14 @@ export default function WorkflowPage({ onOpenStudioSettings, onToggleTheme, them
 function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }: WorkflowPageProps) {
   const confirm = useWorkflowConfirm();
   const store = useWorkflowPageStore();
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true);
-  const [shouldRenderResultsPanel, setShouldRenderResultsPanel] = useState(!rightPanelCollapsed);
+  const [rightPanel, setRightPanel] = useState<'results' | 'agent' | null>(null);
+  const rightPanelCollapsed = rightPanel === null;
+  const resultsOpen = rightPanel === 'results';
+  const availableModels = useWorkflowStore((state) => state.availableModels);
+  const agentOpen = rightPanel === 'agent';
+  const [lastOpenPanel, setLastOpenPanel] = useState<typeof rightPanel>(null);
+  const visiblePanel = rightPanel ?? lastOpenPanel;
+  const panelMotion = rightPanel ? 'entering' : 'leaving';
   const assetPositionRef = useRef({ x: 300, y: 200 });
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
   const handleCloseAssets = useCallback(() => setAssetLibraryOpen(false), []);
@@ -85,21 +92,25 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
   const workflowWarningMessage = useWorkflowStore((state) => state.workflowWarningMessage);
   const nodeWarnings = useWorkflowStore((state) => state.nodeWarnings);
   useEffect(() => {
-    if (workflowWarningMessage || store.isExecuting) setRightPanelCollapsed(false);
+    if (workflowWarningMessage || store.isExecuting) {
+      setRightPanel((panel) => panel ?? 'results');
+    }
   }, [nodeWarnings, workflowWarningMessage, store.isExecuting]);
 
   useEffect(() => {
-    if (!rightPanelCollapsed) {
-      setShouldRenderResultsPanel(true);
+    if (rightPanel) {
+      setLastOpenPanel(rightPanel);
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      setShouldRenderResultsPanel(false);
-    }, 250);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setLastOpenPanel(null);
+      return;
+    }
 
+    const timer = window.setTimeout(() => setLastOpenPanel(null), 250);
     return () => window.clearTimeout(timer);
-  }, [rightPanelCollapsed]);
+  }, [rightPanel]);
 
   const {
     importInputRef,
@@ -168,7 +179,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
       // Ctrl/Cmd+P: toggle right panel
       if (hasPrimaryModifier && !event.shiftKey && !event.altKey && key === 'p') {
         event.preventDefault();
-        setRightPanelCollapsed((v) => !v);
+        setRightPanel((panel) => (panel === 'results' ? null : panel === null ? 'results' : panel));
         return;
       }
 
@@ -258,7 +269,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleCreateSelectedNodeGroup, handleExecute, handleRedo, handleSave, handleUndo, setRightPanelCollapsed]);
+  }, [handleCreateSelectedNodeGroup, handleExecute, handleRedo, handleSave, handleUndo]);
 
   const handleOpenNodeCatalog = useCallback(() => {
     window.dispatchEvent(new Event('workflow:open-node-catalog'));
@@ -393,19 +404,31 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
           onOpenSettings={onOpenStudioSettings}
           onToggleTheme={onToggleTheme}
           themeMode={themeMode}
-          onToggleRightPanel={() => setRightPanelCollapsed((value) => !value)}
-          rightPanelCollapsed={rightPanelCollapsed}
+          onToggleRightPanel={() => setRightPanel(resultsOpen ? null : 'results')}
+          rightPanelCollapsed={!resultsOpen}
+          onToggleAgent={() => setRightPanel(agentOpen ? null : 'agent')}
+          agentOpen={agentOpen}
           onToggleSnapToGrid={() => store.setSnapToGridEnabled(!store.snapToGridEnabled)}
           snapToGridEnabled={store.snapToGridEnabled}
           onAutoArrange={store.autoArrangeWorkflow}
         />
 
-        {shouldRenderResultsPanel && (
+        {visiblePanel === 'results' && (
           <ResultsPanel
-            motionState={rightPanelCollapsed ? 'leaving' : 'entering'}
+            motionState={panelMotion}
             onOpenSettings={onOpenStudioSettings}
           />
         )}
+
+        <AgentPanel
+          hidden={visiblePanel !== 'agent'}
+          motionState={panelMotion}
+          models={{
+            chat: availableModels.chat,
+            image: availableModels.image,
+            video: availableModels.video,
+          }}
+        />
 
         <StatusBar
           documents={store.documents}

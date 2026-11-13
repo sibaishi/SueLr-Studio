@@ -1,7 +1,7 @@
 import { THEME_ICONS, THEME_LABELS } from '@/app/theme/constants';
 import type { ThemeMode } from '@/shared/types';
 import { Icon } from '@/shared/ui/icons';
-import { AlignTop, FolderOpen, Gear, GridNine, Plus, Sidebar, SidebarSimple } from '@phosphor-icons/react';
+import { AlignTop, FolderOpen, Gear, GridNine, Plus, Sidebar, SidebarSimple, Sparkle } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 interface FloatingToolbarProps {
@@ -12,6 +12,8 @@ interface FloatingToolbarProps {
   themeMode: ThemeMode;
   onToggleRightPanel?: () => void;
   rightPanelCollapsed?: boolean;
+  onToggleAgent: () => void;
+  agentOpen: boolean;
   onToggleSnapToGrid?: () => void;
   snapToGridEnabled?: boolean;
   onAutoArrange?: () => void;
@@ -25,6 +27,8 @@ export default function FloatingToolbar({
   themeMode,
   onToggleRightPanel,
   rightPanelCollapsed,
+  onToggleAgent,
+  agentOpen,
   onToggleSnapToGrid,
   snapToGridEnabled,
   onAutoArrange,
@@ -48,6 +52,14 @@ export default function FloatingToolbar({
         label={rightPanelCollapsed ? '展开结果栏' : '收起结果栏'}
         onClick={onToggleRightPanel}
         testId="workflow-toggle-right-panel"
+        pressed={!rightPanelCollapsed}
+      />
+      <FloatingToolbarButton
+        icon={<Sparkle size={16} />}
+        label={agentOpen ? '收起弧光' : '打开弧光'}
+        onClick={onToggleAgent}
+        testId="workflow-toggle-agent"
+        pressed={agentOpen}
       />
       <FloatingToolbarButton
         icon={<GridNine size={16} />}
@@ -84,22 +96,25 @@ function FloatingToolbarButton({
   onClick,
   testId,
   active = false,
+  pressed,
 }: {
   icon: ReactNode;
   label: string;
   onClick?: () => void;
   testId: string;
   active?: boolean;
+  pressed?: boolean;
 }) {
   return (
     <button
       type="button"
       className="workflow-floating-toolbar__button"
       aria-label={label}
+      aria-pressed={pressed}
       title={label}
       data-testid={testId}
       onClick={onClick}
-      style={active ? { color: 'var(--color-accent)' } : undefined}
+      style={active || pressed ? { color: 'var(--color-accent)' } : undefined}
     >
       {icon}
     </button>

@@ -609,3 +609,9 @@ Settings header layout lives in `src/features/settings/components/settings-panel
 Execution history uses per-run JSON records under the scoped `logs/workflow-history` directory. Run status falls back to these records after the recent in-memory entry expires. The history API returns a compact snapshot of source IO, errors and saved output paths. Provider task handles stay in local records and are omitted from public responses. Video recovery polls the saved task with the current credentials for its original connection and adds the downloaded file to generated storage. Recovery does not invoke the executor.
 
 The workflow client supports both its existing JSON format and ZIP bundles with a workflow document, media manifest and file entries. Bundle import uses the existing upload API to materialize references and cleans up files if import fails.
+
+## 弧光
+
+`src/domains/agent/` 负责右侧会话界面、附件预览和图像转换。会话、草稿与附件保存在浏览器 IndexedDB，导入和保存的 Skills 存在浏览器本地。工作流页面负责右侧面板互斥切换。
+
+`POST /api/agent/chat` 校验会话顺序、附件数据和 Skills，按已启用的连接解析模型及凭据，复用现有模型适配层。客户端只提交文本和图像数据，视频由浏览器抽帧。前端请求取消会传递到上游模型请求。

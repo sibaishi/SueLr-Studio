@@ -5,6 +5,7 @@ import cors from 'cors';
 // @ts-expect-error Express does not ship local type declarations in this backend package yet.
 import express from 'express';
 import { z } from 'zod';
+import agentRoutes from '../modules/agent/agent.routes.ts';
 import assistantRoutes from '../modules/assistant/assistant.routes.ts';
 import capabilitiesRoutes from '../modules/capabilities/capabilities.routes.ts';
 import executeRoutes from '../modules/execution/execution.routes.ts';
@@ -183,6 +184,7 @@ export function createApp() {
   app.use('/api/workflows', workflowRoutes);
   app.use('/api/execute', executeRoutes);
   app.use('/api/assistant', assistantRoutes);
+  app.use('/api/agent', agentRoutes);
   app.use('/api/images', imageRoutes);
   app.use('/api/capabilities', capabilitiesRoutes);
   app.use('/api/settings', settingsRoutes);
