@@ -1,3 +1,4 @@
+import { useAgentWindow } from './useAgentWindow';
 import SkillLibrary from './SkillLibrary';
 import { builtinSkills } from './builtinSkills';
 import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
@@ -12,6 +13,8 @@ import {
   Image,
   ListBullets,
   MagnifyingGlassPlus,
+  CornersOut,
+  SidebarSimple,
   Paperclip,
   Plus,
   PuzzlePiece,
@@ -68,6 +71,9 @@ function createSession(): AgentSession {
 export default function AgentPanel({
   hidden,
   motionState,
+  floating,
+  onToggleMode,
+  onClose,
   models,
   captureCanvas,
   applyCanvasPlan,
@@ -75,6 +81,9 @@ export default function AgentPanel({
 }: {
   hidden: boolean;
   motionState: 'entering' | 'leaving';
+  floating: boolean;
+  onToggleMode: () => void;
+  onClose: () => void;
   models: Record<ModelKind, ModelOption[]>;
   captureCanvas: (signal: AbortSignal) => Promise<{
     documentId: string;
@@ -87,6 +96,8 @@ export default function AgentPanel({
   applyCanvasPlan: (plan: CanvasPlan, target: CanvasPlanTarget) => boolean;
   runCanvas: () => Promise<void>;
 }) {
+  const agentWindow = useAgentWindow();
+  const bounds = floating ? agentWindow.bounds : undefined;
   const [modelIds, setModelIds] = useState<Partial<Record<ModelKind, string>>>({});
   const [skills, setSkills] = useState<PreviewSkill[]>(() => [
     ...builtinSkills,
@@ -378,13 +389,22 @@ export default function AgentPanel({
 
   return (
     <aside
+      ref={agentWindow.panel}
       hidden={hidden}
       inert={hidden || motionState === 'leaving'}
-      className={`workflow-panel workflow-results workflow-results--${motionState} glass agent-panel`}
+      className={`workflow-panel glass agent-panel ${floating ? 'agent-panel--floating' : `workflow-results workflow-results--${motionState}`}`}
+      style={bounds ? { left: bounds.x, top: bounds.y, width: bounds.width, height: bounds.height } : undefined}
       aria-label="弧光"
       data-testid="workflow-agent-panel"
     >
-      <header className="workflow-panel__header agent-panel__header">
+      <header
+        className="workflow-panel__header agent-panel__header"
+        onPointerDown={floating ? (event) => agentWindow.begin(event) : undefined}
+        onPointerMove={agentWindow.move}
+        onPointerUp={agentWindow.end}
+        onPointerCancel={agentWindow.end}
+        onLostPointerCapture={agentWindow.end}
+      >
         <div>
           <h2 className="workflow-panel__title">弧光</h2>
           <p className="workflow-panel__desc">一起构思、打磨创意</p>
@@ -410,6 +430,29 @@ export default function AgentPanel({
           >
             <Plus size={19} />
           </button>
+          <button
+            type="button"
+            className="agent-panel__icon-button"
+            aria-label={floating ? '停靠到右侧' : '脱离为浮动窗口'}
+            title={floating ? '停靠到右侧' : '脱离为浮动窗口'}
+            onClick={() => {
+              if (!floating) agentWindow.place();
+              onToggleMode();
+            }}
+          >
+            {floating ? <SidebarSimple size={18} /> : <CornersOut size={18} />}
+          </button>
+          {floating && (
+            <button
+              type="button"
+              className="agent-panel__icon-button"
+              aria-label="关闭弧光"
+              title="关闭弧光"
+              onClick={onClose}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       </header>
       {sessionListOpen && (
@@ -951,6 +994,17 @@ export default function AgentPanel({
         </div>
       </form>
       {!hidden && mediaPreview && <AgentMediaPreview item={mediaPreview} onClose={() => setMediaPreview(undefined)} />}
+      {floating && (
+        <div
+          className="agent-panel__resize"
+          title="拖动调整窗口大小"
+          onPointerDown={(event) => agentWindow.begin(event, true)}
+          onPointerMove={agentWindow.move}
+          onPointerUp={agentWindow.end}
+          onPointerCancel={agentWindow.end}
+          onLostPointerCapture={agentWindow.end}
+        />
+      )}
     </aside>
   );
 }

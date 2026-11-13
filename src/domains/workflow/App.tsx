@@ -50,7 +50,21 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
   const rightPanelCollapsed = rightPanel === null;
   const resultsOpen = rightPanel === 'results';
   const availableModels = useWorkflowStore((state) => state.availableModels);
-  const agentOpen = rightPanel === 'agent';
+  const [agentFloating, setAgentFloating] = useState(false);
+  const [floatingAgentOpen, setFloatingAgentOpen] = useState(false);
+  const agentOpen = agentFloating ? floatingAgentOpen : rightPanel === 'agent';
+
+  function toggleAgentMode() {
+    if (agentFloating) {
+      setAgentFloating(false);
+      setFloatingAgentOpen(false);
+      setRightPanel('agent');
+    } else {
+      setAgentFloating(true);
+      setFloatingAgentOpen(true);
+      setRightPanel(null);
+    }
+  }
   const [lastOpenPanel, setLastOpenPanel] = useState<typeof rightPanel>(null);
   const visiblePanel = rightPanel ?? lastOpenPanel;
   const panelMotion = rightPanel ? 'entering' : 'leaving';
@@ -408,7 +422,10 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
           themeMode={themeMode}
           onToggleRightPanel={() => setRightPanel(resultsOpen ? null : 'results')}
           rightPanelCollapsed={!resultsOpen}
-          onToggleAgent={() => setRightPanel(agentOpen ? null : 'agent')}
+          onToggleAgent={() => {
+            if (agentFloating) setFloatingAgentOpen(!floatingAgentOpen);
+            else setRightPanel(agentOpen ? null : 'agent');
+          }}
           agentOpen={agentOpen}
           onToggleSnapToGrid={() => store.setSnapToGridEnabled(!store.snapToGridEnabled)}
           snapToGridEnabled={store.snapToGridEnabled}
@@ -426,8 +443,11 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
           captureCanvas={captureAgentCanvasContext}
           applyCanvasPlan={applyAgentCanvasPlan}
           runCanvas={handleExecute}
-          hidden={visiblePanel !== 'agent'}
-          motionState={panelMotion}
+          hidden={agentFloating ? !floatingAgentOpen : visiblePanel !== 'agent'}
+          motionState={agentFloating ? 'entering' : panelMotion}
+          floating={agentFloating}
+          onToggleMode={toggleAgentMode}
+          onClose={() => setFloatingAgentOpen(false)}
           models={{
             chat: availableModels.chat,
             image: availableModels.image,

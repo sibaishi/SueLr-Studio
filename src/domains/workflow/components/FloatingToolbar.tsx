@@ -34,58 +34,64 @@ export default function FloatingToolbar({
   onAutoArrange,
 }: FloatingToolbarProps) {
   return (
-    <div className="workflow-floating-toolbar" aria-label="工作流工具">
-      <FloatingToolbarButton
-        icon={<Plus size={16} />}
-        label="添加节点"
-        onClick={onAddNode}
-        testId="workflow-add-node"
-      />
-      <FloatingToolbarButton
-        icon={<FolderOpen size={16} />}
-        label="打开资产库"
-        onClick={onOpenAssetLibrary}
-        testId="workflow-open-assets"
-      />
-      <FloatingToolbarButton
-        icon={rightPanelCollapsed ? <Sidebar size={16} /> : <SidebarSimple size={16} />}
-        label={rightPanelCollapsed ? '展开结果栏' : '收起结果栏'}
-        onClick={onToggleRightPanel}
-        testId="workflow-toggle-right-panel"
-        pressed={!rightPanelCollapsed}
-      />
-      <FloatingToolbarButton
-        icon={<Sparkle size={16} />}
-        label={agentOpen ? '收起弧光' : '打开弧光'}
+    <div className="workflow-floating-tools">
+      <button
+        type="button"
+        className="workflow-agent-launcher"
+        aria-label={agentOpen ? '收起弧光' : '打开弧光'}
+        title={agentOpen ? '收起弧光' : '打开弧光'}
+        data-testid="workflow-toggle-agent"
+        aria-pressed={agentOpen}
         onClick={onToggleAgent}
-        testId="workflow-toggle-agent"
-        pressed={agentOpen}
-      />
-      <FloatingToolbarButton
-        icon={<GridNine size={16} />}
-        label={snapToGridEnabled ? '关闭网格吸附' : '开启网格吸附'}
-        onClick={onToggleSnapToGrid}
-        active={snapToGridEnabled}
-        testId="workflow-toggle-snap-grid"
-      />
-      <FloatingToolbarButton
-        icon={<AlignTop size={16} />}
-        label="自动整理"
-        onClick={onAutoArrange}
-        testId="workflow-auto-arrange"
-      />
-      <FloatingToolbarButton
-        icon={<Gear size={16} />}
-        label="打开设置"
-        onClick={onOpenSettings}
-        testId="workflow-open-settings"
-      />
-      <FloatingToolbarButton
-        icon={<Icon name={THEME_ICONS[themeMode]} size={16} />}
-        label={`调整主题：${THEME_LABELS[themeMode]}`}
-        onClick={onToggleTheme}
-        testId="workflow-toggle-theme"
-      />
+      >
+        <Sparkle size={19} />
+      </button>
+      <div className="workflow-floating-toolbar" aria-label="工作流工具">
+        <FloatingToolbarButton
+          icon={<Plus size={16} />}
+          label="添加节点"
+          onClick={onAddNode}
+          testId="workflow-add-node"
+        />
+        <FloatingToolbarButton
+          icon={<FolderOpen size={16} />}
+          label="打开资产库"
+          onClick={onOpenAssetLibrary}
+          testId="workflow-open-assets"
+        />
+        <FloatingToolbarButton
+          icon={rightPanelCollapsed ? <Sidebar size={16} /> : <SidebarSimple size={16} />}
+          label={rightPanelCollapsed ? '展开结果栏' : '收起结果栏'}
+          onClick={onToggleRightPanel}
+          testId="workflow-toggle-right-panel"
+          pressed={!rightPanelCollapsed}
+        />
+        <FloatingToolbarButton
+          icon={<GridNine size={16} />}
+          label={snapToGridEnabled ? '关闭网格吸附' : '开启网格吸附'}
+          onClick={onToggleSnapToGrid}
+          active={snapToGridEnabled}
+          testId="workflow-toggle-snap-grid"
+        />
+        <FloatingToolbarButton
+          icon={<AlignTop size={16} />}
+          label="自动整理"
+          onClick={onAutoArrange}
+          testId="workflow-auto-arrange"
+        />
+        <FloatingToolbarButton
+          icon={<Gear size={16} />}
+          label="打开设置"
+          onClick={onOpenSettings}
+          testId="workflow-open-settings"
+        />
+        <FloatingToolbarButton
+          icon={<Icon name={THEME_ICONS[themeMode]} size={16} />}
+          label={`调整主题：${THEME_LABELS[themeMode]}`}
+          onClick={onToggleTheme}
+          testId="workflow-toggle-theme"
+        />
+      </div>
     </div>
   );
 }

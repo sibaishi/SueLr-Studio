@@ -125,15 +125,20 @@ body {
   gap: 16px;
 }
 
-.workflow-floating-toolbar {
+.workflow-floating-tools {
+  --toolbar-inset: 22px;
   position: absolute;
-  left: 22px;
+  left: var(--toolbar-inset);
   top: 50%;
   z-index: 64;
+  transform: translateY(-50%);
+}
+
+.workflow-floating-toolbar,
+.workflow-agent-launcher {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transform: translateY(-50%);
   padding: 8px;
   border: 1px solid var(--glass-border);
   border-radius: 999px;
@@ -141,6 +146,23 @@ body {
   box-shadow: var(--glass-shadow-lg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.workflow-agent-launcher {
+  position: absolute;
+  bottom: calc(100% + var(--toolbar-inset));
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.workflow-agent-launcher:hover,
+.workflow-agent-launcher[aria-pressed="true"] {
+  color: var(--color-accent);
 }
 
 .workflow-floating-toolbar__button {

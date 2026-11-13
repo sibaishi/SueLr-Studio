@@ -625,3 +625,5 @@ The workflow client supports both its existing JSON format and ZIP bundles with 
 `FileSourceButton` 复用资产库的选取模式并保留各入口原有的本地文件选择器。IO 引用已有媒体 URL，弧光和画板则将所选资产读取为文件后交给各自的附件或图层逻辑。
 
 弧光通过 `load_skill` 和 `read_skill_resource` 在单次对话请求中加载技能正文与引用文本。前端发送技能目录及有界资料，后端仅向上游模型提供目录、显式指定的正文，以及工具调用所需的内容。技能元数据不改变现有工具授权。
+
+工作流页面维护弧光的停靠和浮动可见性。同一个会话组件在两种模式之间切换，浮窗的移动、缩放和视口约束由 `useAgentWindow` 管理。
