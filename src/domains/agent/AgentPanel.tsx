@@ -1,10 +1,13 @@
+import { AgentMediaPreview, type AgentPreview } from './AgentMediaPreview';
 import {
   ArrowUp,
+  CaretRight,
   Crosshair,
   File,
   Graph,
   Image,
   ListBullets,
+  MagnifyingGlassPlus,
   Paperclip,
   Plus,
   PuzzlePiece,
@@ -19,6 +22,9 @@ import type { CanvasPlan, CanvasPlanTarget } from '@/domains/workflow/lib/agentC
 import { loadJSON, saveJSON } from '@/shared/runtime';
 import {
   type ContentPart,
+  type GeneratedMedia,
+  type GenerationPlan,
+  requestAgentGeneration,
   buildAgentHistory,
   prepareAgentMessage,
   prepareCanvasOutputs,
@@ -34,6 +40,7 @@ const modelKinds = { chat: '对话模型', image: '图像模型', video: '视频
 type ModelKind = keyof typeof modelKinds;
 const modelOrder = ['chat', 'image', 'video'] as const;
 type DraftMessage = {
+  generation?: { plan: GenerationPlan; model: ModelOption; result?: GeneratedMedia };
   plan?: { changes: CanvasPlan; target: CanvasPlanTarget; applied?: boolean; textWriteFixed?: boolean };
   canvas?: { label: string; runId?: string; contentStart?: number };
   id: string;
@@ -172,6 +179,8 @@ export default function AgentPanel({
   const composer = useRef<HTMLTextAreaElement>(null);
   const timeline = useRef<HTMLDivElement>(null);
   const pending = useRef<AbortController>(null);
+  const [mediaPreview, setMediaPreview] = useState<AgentPreview>();
+  const [generatingId, setGeneratingId] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [savedReplies, setSavedReplies] = useState<string[]>([]);
@@ -192,6 +201,7 @@ export default function AgentPanel({
       current.map((message) => (message.status === 'pending' ? { ...message, status: 'stopped' } : message)),
     );
     setBusy(false);
+    setGeneratingId(undefined);
   }
 
   function switchSession(target: AgentSession, create = false) {
@@ -229,10 +239,39 @@ export default function AgentPanel({
     return () => document.removeEventListener('pointerdown', dismiss);
   }, [hidden, openMenu]);
 
+  async function generate(message: DraftMessage) {
+    if (!message.generation || message.generation.result || pending.current) return;
+    const { model, plan } = message.generation;
+    const controller = new AbortController();
+    pending.current = controller;
+    setGeneratingId(message.id);
+    setBusy(true);
+    setError('');
+    try {
+      const result = await requestAgentGeneration(model.value, plan, controller.signal);
+      if (controller.signal.aborted) return;
+      setMessages((current) =>
+        current.map((turn) => (turn.id === message.id ? { ...turn, generation: { model, plan, result } } : turn)),
+      );
+    } catch (failure) {
+      if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : '生成失败。');
+    } finally {
+      if (pending.current === controller) {
+        pending.current = null;
+        setBusy(false);
+        setGeneratingId(undefined);
+      }
+    }
+  }
+
   async function send() {
     const model = selectedModel('chat');
     if (!canSend || !model || pending.current) return;
 
+    const image = selectedModel('image');
+    const video = selectedModel('video');
+    const generationModels = { image, video };
+    const generationKinds = (['image', 'video'] as const).filter((kind) => generationModels[kind]);
     const controller = new AbortController();
     pending.current = controller;
     const { signal } = controller;
@@ -300,8 +339,10 @@ export default function AgentPanel({
         skillInstructions,
         signal,
         Boolean(planTarget),
+        generationKinds,
       );
       if (signal.aborted) return;
+      const generationModel = result.generation && generationModels[result.generation.kind];
       setMessages((current) =>
         current.map((turn) =>
           turn.id === message.id
@@ -310,6 +351,10 @@ export default function AgentPanel({
                 content,
                 answer: result.answer,
                 status: 'complete',
+                generation:
+                  result.generation && generationModel
+                    ? { plan: result.generation, model: generationModel }
+                    : undefined,
                 plan: result.plan && planTarget ? { changes: result.plan, target: planTarget } : undefined,
               }
             : turn,
@@ -418,7 +463,7 @@ export default function AgentPanel({
         ) : (
           <>
             {messages.map((message) => (
-              <article key={message.id}>
+              <article className="agent-panel__turn" key={message.id}>
                 <div className="agent-panel__message">
                   {message.attachments.map((file, fileIndex) => (
                     <AgentAttachment key={fileIndex} file={file} />
@@ -460,6 +505,56 @@ export default function AgentPanel({
                       </button>
                     )}
                   </div>
+                )}
+                {message.generation && (
+                  <section className="agent-panel__canvas-plan agent-panel__generation" aria-label="生成方案">
+                    <h3>{message.generation.plan.kind === 'image' ? '直接生成图像' : '直接生成视频'}</h3>
+                    <p className="agent-panel__generation-meta">
+                      {message.generation.model.label} · {message.generation.plan.ratio ?? '自动比例'}
+                      {message.generation.plan.kind === 'image'
+                        ? ` · ${message.generation.plan.count ?? 1} 张`
+                        : ` · ${message.generation.plan.duration ?? 5} 秒`}
+                    </p>
+                    <details>
+                      <summary>
+                        <CaretRight size={12} aria-hidden="true" />
+                        提示词
+                      </summary>
+                      <div>{message.generation.plan.prompt}</div>
+                    </details>
+                    {message.generation.result ? (
+                      <div className="agent-panel__generation-media">
+                        {message.generation.result.urls.map((url, index) => {
+                          const kind = message.generation!.result!.kind;
+                          const name = `生成${kind === 'image' ? '图像' : '视频'} ${index + 1}`;
+                          const open = () => setMediaPreview({ kind, name, source: url });
+                          return (
+                            <div className="agent-panel__generation-item" key={index} onDoubleClick={open}>
+                              {kind === 'image' ? (
+                                <img src={url} alt={name} />
+                              ) : (
+                                // biome-ignore lint/a11y/useMediaCaption: Generated videos may have no caption track.
+                                <video src={url} controls playsInline preload="metadata" />
+                              )}
+                              <button
+                                type="button"
+                                className="agent-preview-trigger"
+                                title={`查看 ${name}`}
+                                aria-label={`查看 ${name}`}
+                                onClick={open}
+                              >
+                                <MagnifyingGlassPlus size={16} aria-hidden="true" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <button type="button" disabled={busy} onClick={() => void generate(message)}>
+                        {generatingId === message.id ? '生成中…' : '确认生成'}
+                      </button>
+                    )}
+                  </section>
                 )}
                 {message.plan && (
                   <section className="agent-panel__canvas-plan" aria-label="画布修改方案">
@@ -823,7 +918,13 @@ export default function AgentPanel({
             }}
           />
           {busy ? (
-            <button type="button" className="agent-panel__send" onClick={stop} aria-label="停止回复" title="停止回复">
+            <button
+              type="button"
+              className="agent-panel__send"
+              onClick={stop}
+              aria-label={generatingId ? '停止等待生成' : '停止回复'}
+              title={generatingId ? '停止等待生成' : '停止回复'}
+            >
               <Stop size={17} weight="fill" />
             </button>
           ) : (
@@ -839,6 +940,7 @@ export default function AgentPanel({
           )}
         </div>
       </form>
+      {!hidden && mediaPreview && <AgentMediaPreview item={mediaPreview} onClose={() => setMediaPreview(undefined)} />}
     </aside>
   );
 }

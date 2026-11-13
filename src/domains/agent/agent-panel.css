@@ -100,7 +100,7 @@
 .agent-panel__message {
   width: fit-content;
   max-width: 90%;
-  margin: 0 0 12px auto;
+  margin: 0 0 0 auto;
   padding: 9px 12px;
   border-radius: 13px;
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary));
@@ -309,8 +309,8 @@
 }
 
 .agent-panel__reply {
-  margin: 0 0 16px;
-  padding: 8px 4px;
+  margin: 0;
+  padding: 0 3px;
   font-size: 13px;
   line-height: 1.65;
   white-space: pre-wrap;
@@ -377,8 +377,10 @@
 }
 
 .agent-panel__canvas-plan {
-  padding: 10px;
-  margin-bottom: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 11px;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 56%, transparent);
   border: 1px solid var(--glass-border);
   border-radius: 10px;
   font-size: 12px;
@@ -387,17 +389,180 @@
 
 .agent-panel__canvas-plan ol {
   padding-left: 20px;
-  margin: 6px 0;
+  margin: 0;
   list-style: decimal;
+  line-height: 1.65;
 }
 
 .agent-panel__canvas-plan button {
-  padding: 5px 8px;
+  justify-self: start;
+  padding: 6px 9px;
   border: 1px solid var(--glass-border);
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--color-accent);
 }
 
 .agent-panel__canvas-plan button:disabled {
   opacity: .55;
+}
+
+.agent-panel__attachment-preview img,
+.agent-panel__attachment-preview pre {
+  cursor: zoom-in;
+}
+
+.agent-preview-trigger {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  color: var(--color-text-secondary);
+}
+
+.agent-preview-trigger:hover,
+.agent-preview-trigger:focus-visible {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.agent-file-dialog {
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-file-dialog header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+}
+
+.agent-file-dialog h2 {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.agent-file-dialog__body {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  place-items: center;
+  padding: 0 16px 16px;
+}
+
+.agent-file-dialog__body video,
+.agent-file-dialog__body iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+
+.agent-panel__turn {
+  display: grid;
+  min-width: 0;
+  gap: 11px;
+  margin-bottom: 18px;
+}
+
+.agent-panel__turn:last-child {
+  margin-bottom: 4px;
+}
+
+.agent-panel__generation {
+  gap: 9px;
+  padding: 10px;
+}
+
+.agent-panel__generation h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.agent-panel__generation-meta {
+  margin: -5px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.agent-panel__canvas-plan details {
+  min-width: 0;
+  color: var(--color-text-secondary);
+}
+
+.agent-panel__generation details {
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: var(--color-bg-tertiary);
+}
+
+.agent-panel__generation summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.agent-panel__generation details[open] summary svg {
+  transform: rotate(90deg);
+}
+
+.agent-panel__canvas-plan details > div {
+  margin-top: 5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-panel__generation-media {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.agent-panel__generation-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--color-bg-tertiary);
+}
+
+.agent-panel__generation-item img,
+.agent-panel__generation-item video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+}
+
+.agent-panel__generation-item img {
+  cursor: zoom-in;
+}
+
+.agent-panel__generation-item .agent-preview-trigger {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 20%);
+  background: rgb(0 0 0 / 65%);
+  color: white;
+}
+
+.agent-panel__generation-item .agent-preview-trigger:hover,
+.agent-panel__generation-item .agent-preview-trigger:focus-visible {
+  background: rgb(0 0 0 / 85%);
+}
+
+.agent-panel__attachment-preview figcaption {
+  align-items: center;
+  min-height: 26px;
+  overflow-wrap: anywhere;
+}
+
+.agent-panel__attachment-preview figcaption button {
+  margin-left: auto;
 }

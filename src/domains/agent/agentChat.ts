@@ -99,7 +99,7 @@ export async function prepareAgentMessage(text: string, files: File[], signal: A
       } else if (kind === 'video') {
         content.push(...(await videoParts(file, signal)));
       } else {
-        throw new Error('请选择图片、纯文本或浏览器支持的视频。');
+        content.push({ type: 'text', text: `附件：${file.name}（文件保留在本地，模型无法读取此格式的内容。）` });
       }
     } catch (error) {
       signal.throwIfAborted();
@@ -133,16 +133,36 @@ export function buildAgentHistory(
   return messages;
 }
 
+export type GenerationPlan = {
+  kind: 'image' | 'video';
+  prompt: string;
+  ratio?: string;
+  count?: number;
+  duration?: number;
+};
+export type GeneratedMedia = { kind: 'image' | 'video'; urls: string[] };
+
+export function requestAgentGeneration(modelValue: string, plan: GenerationPlan, signal: AbortSignal) {
+  const split = modelValue.indexOf('::');
+  if (split <= 0) throw new Error('请选择已配置连接中的生成模型。');
+  return apiRequestOrThrow<GeneratedMedia>('/api/agent/generate', {
+    method: 'POST',
+    body: JSON.stringify({ configId: modelValue.slice(0, split), model: modelValue.slice(split + 2), plan }),
+    signal,
+  });
+}
+
 export function requestAgentChat(
   modelValue: string,
   messages: ChatMessage[],
   skills: string[],
   signal: AbortSignal,
   canvasEnabled = false,
+  generationKinds: GenerationPlan['kind'][] = [],
 ) {
   const split = modelValue.indexOf('::');
   if (split <= 0) throw new Error('请选择已配置连接中的对话模型。');
-  return apiRequestOrThrow<{ answer: string; plan?: CanvasPlan }>('/api/agent/chat', {
+  return apiRequestOrThrow<{ answer: string; plan?: CanvasPlan; generation?: GenerationPlan }>('/api/agent/chat', {
     method: 'POST',
     body: JSON.stringify({
       configId: modelValue.slice(0, split),
@@ -150,6 +170,7 @@ export function requestAgentChat(
       messages,
       skills,
       canvasEnabled,
+      generationKinds,
     }),
     signal,
   });

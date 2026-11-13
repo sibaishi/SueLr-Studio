@@ -619,3 +619,5 @@ The workflow client supports both its existing JSON format and ZIP bundles with 
 画布引用由工作流域生成，只传白名单字段、截断后的日志及匹配的运行摘要。弧光按消息显式引用，复用既有的运行历史接口与多模态消息通道。
 
 画布方案通过 `propose_canvas_changes` 函数工具返回，经后端验证后展示给用户。应用时复用编辑器的节点与边操作，在暂存状态中完成整批检查，成功后一次写入画布状态。应用绑定原画布，并遵守锁定节点与执行状态。
+
+弧光的直接生成通过 `propose_direct_generation` 提案和 `POST /api/agent/generate` 执行。生成请求按用户选择的连接和模型类型校验，复用图像、视频运行服务，产物返回会话。

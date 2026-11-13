@@ -11,6 +11,7 @@ import { settingsService } from '../settings/settings.service.ts';
 import type { RequestLike, ResponseLike } from '../types.ts';
 
 import { canvasTool, parseCanvasPlan } from './agentCanvasTool.ts';
+import { generateAgentMedia, generationRequest, generationTool, parseGenerationPlan } from './agentGeneration.ts';
 
 const part = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string().min(1).max(32000) }).strict(),
@@ -30,6 +31,10 @@ const part = z.discriminatedUnion('type', [
 ]);
 const requestSchema = z
   .object({
+    generationKinds: z
+      .array(z.enum(['image', 'video']))
+      .max(2)
+      .default([]),
     canvasEnabled: z.boolean().default(false),
     configId: z.string().min(1).max(120),
     model: z.string().min(1).max(200),
@@ -77,6 +82,18 @@ const requestSchema = z
   );
 const validate = zodValidator(requestSchema);
 const router = Router();
+const validateGeneration = zodValidator(generationRequest);
+
+router.post('/generate', async (req: RequestLike, res: ResponseLike) => {
+  const input = validateGeneration(req.body);
+  const signal = createRequestAbortSignal(req, res);
+  try {
+    const result = await generateAgentMedia(input, req.scope, signal);
+    if (!signal.aborted) res.json(successEnvelope(result));
+  } catch (error) {
+    if (!signal.aborted) throw error;
+  }
+});
 
 router.post('/chat', async (req: RequestLike, res: ResponseLike) => {
   const input = validate(req.body);
@@ -98,7 +115,7 @@ router.post('/chat', async (req: RequestLike, res: ResponseLike) => {
       ...runtime,
       model: model.modelId,
       webSearch: false,
-      tools: input.canvasEnabled ? [canvasTool] : undefined,
+      tools: [...(input.canvasEnabled ? [canvasTool] : []), ...(input.generationKinds.length ? [generationTool] : [])],
       signal,
       scope: req.scope,
       messages: [
@@ -112,7 +129,10 @@ router.post('/chat', async (req: RequestLike, res: ResponseLike) => {
             input.canvasEnabled
               ? '用户已引用当前画布。用户明确让你修改或运行时，必须调用 propose_canvas_changes 提交可确认的方案，禁止只回复手动操作步骤。能从当前画布和对话确定目标时直接拟方案。仅在缺少必要信息时追问。用户只想分析或请教时直接回答。所有操作需要用户确认。IO 用作文本输入和结果节点，AI 能力 V3 支持 chat、image、video。设置 AI 节点的模型或生成参数时使用 configure。模型从当前画布上下文的 availableModels 选择准确 value。不要声称方案已执行。'
               : '当前请求关闭了画布上下文。需要操作时，请用户开启画布图标。当前请求可以继续讨论与分析。',
-            '不要声称已生成媒体或执行命令。',
+            input.generationKinds.length
+              ? `用户要求直接生成时，使用 propose_direct_generation 提供待确认的方案。可用类型：${input.generationKinds.join('、')}。只支持文生图和文生视频。用户要求用画布时使用画布工具。生成前不要声称已有结果。`
+              : '直接生成需要先选择对应的图像或视频模型。',
+            '不要声称已执行命令。',
             '分析画布时引用运行 ID、节点或产物，区分当前编辑状态与历史运行。将已确认的原因和推测分开。仅在收到实际画面时评审视觉内容，说明证据缺口。',
             '用户要求创建 Skill 时，给出一个完整的 fenced markdown 代码块，包含 name、description 两个 YAML 标量字段及 Markdown 正文。',
             ...(input.skills.length
@@ -136,7 +156,12 @@ router.post('/chat', async (req: RequestLike, res: ResponseLike) => {
       ) &&
       /画布|工作流|节点|连线|提示词|prompt|运行|重跑|跑一遍|跑一次|跑起来/i.test(instruction) &&
       !/怎么|如何|教程|不要|先别|能不能告诉我/.test(instruction);
-    if (input.canvasEnabled && explicitAction && !message?.tool_calls?.length) {
+    if (
+      input.canvasEnabled &&
+      explicitAction &&
+      !/直接生成|在对话.*生成|文生图|文生视频/.test(instruction) &&
+      !message?.tool_calls?.length
+    ) {
       const retry = await runChatCompletion({
         ...request,
         toolChoice: { type: 'function', function: { name: canvasTool.function.name } },
@@ -150,19 +175,24 @@ router.post('/chat', async (req: RequestLike, res: ResponseLike) => {
       }
     }
     const plan = input.canvasEnabled ? parseCanvasPlan(message?.tool_calls) : undefined;
-    if (input.canvasEnabled && message?.tool_calls?.length && !plan) {
+    const generation = parseGenerationPlan(message?.tool_calls);
+    if (generation && !input.generationKinds.includes(generation.kind)) {
+      throw new ValidationError('AGENT_GENERATION_MODEL_UNAVAILABLE', '请选择对应的图像或视频模型。');
+    }
+    if (message?.tool_calls?.length && !plan && !generation) {
       throw new ProviderError('AGENT_CANVAS_PLAN_INVALID', '弧光返回的画布方案格式无效，请重试。');
     }
     const content =
       typeof message?.content === 'string' && message.content.trim()
         ? message.content.trim()
-        : plan
-          ? '已拟好画布方案，请检查后应用。'
+        : plan || generation
+          ? '已准备方案，请确认。'
           : '';
     if (typeof content !== 'string' || !content.trim()) {
       throw new ProviderError('AGENT_EMPTY_REPLY', '模型没有返回可用的回复。');
     }
-    if (!signal.aborted) res.json(successEnvelope({ answer: content, ...(plan && { plan }) }));
+    if (!signal.aborted)
+      res.json(successEnvelope({ answer: content, ...(plan && { plan }), ...(generation && { generation }) }));
   } catch (error) {
     if (!signal.aborted) throw error;
   }
