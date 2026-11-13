@@ -1,3 +1,5 @@
+import { applyAgentCanvasPlan } from '@/domains/workflow/lib/agentCanvasPlan';
+import { captureAgentCanvasContext } from '@/domains/workflow/lib/agentCanvasContext';
 import AgentPanel from '@/domains/agent/AgentPanel';
 import { isWorkflowModalOpen } from './components/workflowModalIsolation';
 import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
@@ -421,6 +423,9 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
         )}
 
         <AgentPanel
+          captureCanvas={captureAgentCanvasContext}
+          applyCanvasPlan={applyAgentCanvasPlan}
+          runCanvas={handleExecute}
           hidden={visiblePanel !== 'agent'}
           motionState={panelMotion}
           models={{

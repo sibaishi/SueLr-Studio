@@ -1,4 +1,5 @@
 import { apiRequestOrThrow } from '@/shared/api';
+import type { CanvasPlan } from '@/domains/workflow/lib/agentCanvasPlan';
 import { getAttachmentKind } from './AgentAttachment';
 
 export type ContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
@@ -132,17 +133,46 @@ export function buildAgentHistory(
   return messages;
 }
 
-export function requestAgentChat(modelValue: string, messages: ChatMessage[], skills: string[], signal: AbortSignal) {
+export function requestAgentChat(
+  modelValue: string,
+  messages: ChatMessage[],
+  skills: string[],
+  signal: AbortSignal,
+  canvasEnabled = false,
+) {
   const split = modelValue.indexOf('::');
   if (split <= 0) throw new Error('请选择已配置连接中的对话模型。');
-  return apiRequestOrThrow<{ answer: string }>('/api/agent/chat', {
+  return apiRequestOrThrow<{ answer: string; plan?: CanvasPlan }>('/api/agent/chat', {
     method: 'POST',
     body: JSON.stringify({
       configId: modelValue.slice(0, split),
       model: modelValue.slice(split + 2),
       messages,
       skills,
+      canvasEnabled,
     }),
     signal,
   });
+}
+
+export async function prepareCanvasOutputs(paths: string[], signal: AbortSignal) {
+  const files = paths.filter((path) => /\.(png|jpe?g|webp|gif|mp4|webm|mov)$/i.test(path)).slice(-2);
+  const content: ContentPart[] = [];
+  for (const path of files) {
+    const name = path.split('/').at(-1) || '产物';
+    try {
+      const response = await fetch(path, { signal, redirect: 'error' });
+      const size = Number(response.headers.get('content-length'));
+      if (!response.ok || !size || size > 32 * 1024 * 1024) {
+        await response.body?.cancel();
+        throw new Error('无法读取或文件过大');
+      }
+      const blob = await response.blob();
+      content.push(...(await prepareAgentMessage('', [new File([blob], name, { type: blob.type })], signal)));
+    } catch {
+      signal.throwIfAborted();
+      content.push({ type: 'text', text: `产物 ${name} 未能提供可评审画面，请根据实际收到的证据判断。` });
+    }
+  }
+  return content;
 }

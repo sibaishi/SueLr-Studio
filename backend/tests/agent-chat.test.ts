@@ -63,4 +63,33 @@ test('Agent forwards ordered conversation, visual references and selected Skills
   const result = await request(payload);
   assert.equal(result.status, 200);
   assert.deepEqual(result.body.data, { answer: '延续暖色，增加明暗对比。' });
+  const operations = [{ kind: 'update', nodeId: 'prompt', text: '新提示词' }, { kind: 'run' }];
+  let actionCalls = 0;
+  upstream.mock.mockImplementation(async ({ body }) => {
+    if (++actionCalls === 1) return Response.json({ choices: [{ message: { content: '请手动修改并运行。' } }] });
+    assert.deepEqual((body as { tool_choice: unknown }).tool_choice, {
+      type: 'function',
+      function: { name: 'propose_canvas_changes' },
+    });
+    return Response.json({
+      choices: [
+        {
+          message: {
+            tool_calls: [
+              {
+                function: { name: 'propose_canvas_changes', arguments: JSON.stringify({ operations }) },
+              },
+            ],
+          },
+        },
+      ],
+    });
+  });
+  const action = await request({
+    ...payload,
+    canvasEnabled: true,
+    messages: [{ role: 'user', content: [{ type: 'text', text: '现在可以帮我把提示词放进去，再跑一遍吗？' }] }],
+  });
+  assert.equal(action.status, 200);
+  assert.deepEqual(action.body.data.plan, { operations });
 });

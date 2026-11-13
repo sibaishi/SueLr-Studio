@@ -25,6 +25,7 @@ interface ChatCompletionRequest {
   model?: string;
   messages?: unknown;
   tools?: unknown[];
+  toolChoice?: { type: 'function'; function: { name: string } };
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
@@ -75,6 +76,7 @@ export async function runChatCompletion({
   model,
   messages,
   tools,
+  toolChoice,
   temperature,
   maxTokens,
   stream = false,
@@ -125,7 +127,7 @@ export async function runChatCompletion({
           messages: normalizedMessages,
           ...(typeof temperature === 'number' ? { temperature } : {}),
           ...(typeof maxTokens === 'number' ? { max_tokens: maxTokens } : {}),
-          ...(tools?.length ? { tools } : {}),
+          ...(tools?.length ? { tools, ...(toolChoice && { tool_choice: toolChoice }) } : {}),
           ...(stream ? { stream: true } : {}),
         },
   });

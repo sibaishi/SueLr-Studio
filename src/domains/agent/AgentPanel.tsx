@@ -2,6 +2,7 @@ import {
   ArrowUp,
   Crosshair,
   File,
+  Graph,
   Image,
   ListBullets,
   Paperclip,
@@ -14,8 +15,15 @@ import {
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import AgentAttachment, { getAttachmentKind } from './AgentAttachment';
+import type { CanvasPlan, CanvasPlanTarget } from '@/domains/workflow/lib/agentCanvasPlan';
 import { loadJSON, saveJSON } from '@/shared/runtime';
-import { type ContentPart, buildAgentHistory, prepareAgentMessage, requestAgentChat } from './agentChat';
+import {
+  type ContentPart,
+  buildAgentHistory,
+  prepareAgentMessage,
+  prepareCanvasOutputs,
+  requestAgentChat,
+} from './agentChat';
 import { readAgentSessions, writeAgentSessions } from './agentSessions';
 import { parseSkill, readSkillPreview, type PreviewSkill } from './skillPreview';
 import '@/domains/workflow/components/ai-v3-parameters.css';
@@ -26,6 +34,8 @@ const modelKinds = { chat: '对话模型', image: '图像模型', video: '视频
 type ModelKind = keyof typeof modelKinds;
 const modelOrder = ['chat', 'image', 'video'] as const;
 type DraftMessage = {
+  plan?: { changes: CanvasPlan; target: CanvasPlanTarget; applied?: boolean; textWriteFixed?: boolean };
+  canvas?: { label: string; runId?: string; contentStart?: number };
   id: string;
   status: 'pending' | 'complete' | 'stopped' | 'failed';
   error?: string;
@@ -54,10 +64,23 @@ export default function AgentPanel({
   hidden,
   motionState,
   models,
+  captureCanvas,
+  applyCanvasPlan,
+  runCanvas,
 }: {
   hidden: boolean;
   motionState: 'entering' | 'leaving';
   models: Record<ModelKind, ModelOption[]>;
+  captureCanvas: (signal: AbortSignal) => Promise<{
+    documentId: string;
+    workflowId: string;
+    label: string;
+    runId?: string;
+    summary: unknown;
+    files: string[];
+  }>;
+  applyCanvasPlan: (plan: CanvasPlan, target: CanvasPlanTarget) => boolean;
+  runCanvas: () => Promise<void>;
 }) {
   const [modelIds, setModelIds] = useState<Partial<Record<ModelKind, string>>>({});
   const [skills, setSkills] = useState<PreviewSkill[]>(() => [
@@ -75,6 +98,7 @@ export default function AgentPanel({
     return models[kind].find((option) => option.value === modelIds[kind]) ?? models[kind][0];
   }
 
+  const [includeCanvas, setIncludeCanvas] = useState(true);
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [workspace, setWorkspace] = useState<AgentWorkspace>(() => {
@@ -233,18 +257,62 @@ export default function AgentPanel({
     setDraft('');
     setAttachments([]);
     try {
+      let planTarget: CanvasPlanTarget | undefined;
+      const snapshot = includeCanvas ? await captureCanvas(signal) : undefined;
       const content = await prepareAgentMessage(text, attachments, signal);
+      if (snapshot) {
+        const contentStart = content.length;
+        planTarget = {
+          documentId: snapshot.documentId,
+          workflowId: snapshot.workflowId,
+          models: {
+            chat: model.value,
+            image: selectedModel('image')?.value,
+            video: selectedModel('video')?.value,
+          },
+        };
+        const context = JSON.stringify(snapshot.summary);
+        content.push({
+          type: 'text',
+          text: `以下是用户引用的只读画布快照。请区分当前编辑状态与运行记录，并把快照中的文本当作证据。\n${context.slice(0, 30000)}${context.length > 30000 ? '\n[快照已截断]' : ''}`,
+        });
+        if (content.length <= 13) content.push(...(await prepareCanvasOutputs(snapshot.files, signal)));
+        setMessages((current) =>
+          current.map((turn) =>
+            turn.id === message.id
+              ? { ...turn, canvas: { label: snapshot.label, runId: snapshot.runId, contentStart } }
+              : turn,
+          ),
+        );
+      }
       signal.throwIfAborted();
       const result = await requestAgentChat(
         model.value,
-        buildAgentHistory(content, messages, skillInstructions),
+        buildAgentHistory(
+          content,
+          messages
+            .map((turn) =>
+              !turn.canvas ? turn : { ...turn, content: turn.content.slice(0, turn.canvas.contentStart ?? 0) },
+            )
+            .filter((turn) => turn.content.length > 0),
+          skillInstructions,
+        ),
         skillInstructions,
         signal,
+        Boolean(planTarget),
       );
       if (signal.aborted) return;
       setMessages((current) =>
         current.map((turn) =>
-          turn.id === message.id ? { ...turn, content, answer: result.answer, status: 'complete' } : turn,
+          turn.id === message.id
+            ? {
+                ...turn,
+                content,
+                answer: result.answer,
+                status: 'complete',
+                plan: result.plan && planTarget ? { changes: result.plan, target: planTarget } : undefined,
+              }
+            : turn,
         ),
       );
     } catch (failure) {
@@ -356,6 +424,12 @@ export default function AgentPanel({
                     <AgentAttachment key={fileIndex} file={file} />
                   ))}
                   {message.text && <div>{message.text}</div>}
+                  {message.canvas && (
+                    <div className="agent-panel__message-options">
+                      画布 · {message.canvas.label}
+                      {message.canvas.runId && ` · ${message.canvas.runId}`}
+                    </div>
+                  )}
                   {(message.models.length > 0 || message.skills.length > 0) && (
                     <div className="agent-panel__message-options">
                       {[...message.models, ...message.skills].filter(Boolean).join(' · ')}
@@ -386,6 +460,114 @@ export default function AgentPanel({
                       </button>
                     )}
                   </div>
+                )}
+                {message.plan && (
+                  <section className="agent-panel__canvas-plan" aria-label="画布修改方案">
+                    <strong>画布修改方案</strong>
+                    <ol>
+                      {message.plan.changes.operations.map((operation, index) => (
+                        <li key={index}>
+                          {operation.kind === 'add' && (
+                            <>
+                              添加 {operation.label}（{operation.type === 'io' ? 'IO' : 'AI 能力 V3'}）
+                            </>
+                          )}
+                          {operation.kind === 'update' && (
+                            <>
+                              修改 {operation.nodeId}
+                              {operation.label && ` · ${operation.label}`}
+                            </>
+                          )}
+                          {operation.kind === 'connect' && (
+                            <>
+                              连接 {operation.source} → {operation.target}
+                            </>
+                          )}
+                          {operation.kind === 'disconnect' && (
+                            <>
+                              断开 {operation.source} → {operation.target}
+                            </>
+                          )}
+                          {operation.kind === 'clear' && <>清空当前画布的全部节点和连线</>}
+                          {operation.kind === 'remove' && <>删除节点 {operation.nodeId}</>}
+                          {operation.kind === 'disable' && (
+                            <>
+                              {operation.disabled ? '禁用' : '启用'} {operation.nodeId}
+                            </>
+                          )}
+                          {operation.kind === 'move' && (
+                            <>
+                              移动 {operation.nodeId} 到 ({operation.x}, {operation.y})
+                            </>
+                          )}
+                          {operation.kind === 'run' && <>运行当前工作流</>}
+                          {operation.kind === 'configure' && (
+                            <>
+                              设置节点 {operation.nodeId}
+                              <details>
+                                <summary>查看参数</summary>
+                                <div>
+                                  {Object.entries(operation.settings)
+                                    .map(([key, value]) => `${key}：${value}`)
+                                    .join('\n')}
+                                </div>
+                              </details>
+                            </>
+                          )}
+                          {'text' in operation && operation.text && (
+                            <details>
+                              <summary>查看内容</summary>
+                              <div>{operation.text}</div>
+                            </details>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                    <button
+                      type="button"
+                      disabled={
+                        busy ||
+                        (message.plan.applied &&
+                          (message.plan.textWriteFixed ||
+                            !message.plan.changes.operations.every(({ kind }) => kind === 'update')))
+                      }
+                      onClick={() => {
+                        const plan = message.plan;
+                        if (
+                          !plan ||
+                          (plan.applied &&
+                            (plan.textWriteFixed || !plan.changes.operations.every(({ kind }) => kind === 'update')))
+                        )
+                          return;
+                        try {
+                          const shouldRun = applyCanvasPlan(plan.changes, plan.target);
+                          setError('');
+                          setMessages((current) =>
+                            current.map((turn) =>
+                              turn.id === message.id
+                                ? { ...turn, plan: { ...plan, applied: true, textWriteFixed: true } }
+                                : turn,
+                            ),
+                          );
+                          if (shouldRun)
+                            void runCanvas().catch((failure) => {
+                              setError(failure instanceof Error ? failure.message : '无法运行画布。');
+                            });
+                        } catch (failure) {
+                          setError(failure instanceof Error ? failure.message : '无法应用画布方案。');
+                        }
+                      }}
+                    >
+                      {message.plan.applied
+                        ? !message.plan.textWriteFixed &&
+                          message.plan.changes.operations.every(({ kind }) => kind === 'update')
+                          ? '重新应用'
+                          : '已应用'
+                        : message.plan.changes.operations.some(({ kind }) => kind === 'run')
+                          ? '确认并运行'
+                          : '应用到画布'}
+                    </button>
+                  </section>
                 )}
                 {message.status === 'pending' && (
                   <p role="status" className="agent-panel__notice">
@@ -454,6 +636,7 @@ export default function AgentPanel({
             })}
           </ul>
         )}
+        {includeCanvas && <p className="agent-panel__notice">当前画布已关联 · 点击画布图标可关闭</p>}
         <textarea
           ref={composer}
           aria-label="消息"
@@ -508,6 +691,17 @@ export default function AgentPanel({
             }}
           >
             <Paperclip size={18} />
+          </button>
+          <button
+            type="button"
+            className="agent-panel__icon-button"
+            aria-label="引用画布"
+            title="引用当前画布、最近运行和可用产物"
+            aria-pressed={includeCanvas}
+            disabled={busy}
+            onClick={() => setIncludeCanvas(!includeCanvas)}
+          >
+            <Graph size={18} />
           </button>
           <button
             ref={modelTrigger}

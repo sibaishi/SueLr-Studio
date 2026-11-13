@@ -191,7 +191,8 @@
   position: relative;
 }
 
-.agent-panel__icon-button[aria-expanded="true"] {
+.agent-panel__icon-button[aria-expanded="true"],
+.agent-panel__icon-button[aria-pressed="true"] {
   border-color: var(--t-border);
   background: var(--t-card2);
   color: var(--t-blue);
@@ -373,4 +374,30 @@
 .agent-panel__session-list button[aria-current] {
   border-color: var(--glass-border);
   background: var(--color-bg-tertiary);
+}
+
+.agent-panel__canvas-plan {
+  padding: 10px;
+  margin-bottom: 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.agent-panel__canvas-plan ol {
+  padding-left: 20px;
+  margin: 6px 0;
+  list-style: decimal;
+}
+
+.agent-panel__canvas-plan button {
+  padding: 5px 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 7px;
+  color: var(--color-accent);
+}
+
+.agent-panel__canvas-plan button:disabled {
+  opacity: .55;
 }
