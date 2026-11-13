@@ -1,3 +1,4 @@
+import { resolveWorkflowConnections } from '@/domains/workflow/lib/executionGraph';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
 import {
   StylePanelPopoverButton,
@@ -118,14 +119,15 @@ type InputThumb = {
 
 export default function AiV3StylePanel() {
   const nodes = useWorkflowStore((s) => s.nodes);
-  const edges = useWorkflowStore((s) => s.edges);
+  const canvasEdges = useWorkflowStore((s) => s.edges);
+  const edges = useMemo(() => resolveWorkflowConnections(nodes, canvasEdges), [nodes, canvasEdges]);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const availableModels = useWorkflowStore((s) => s.availableModels);
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   // Only show panel when exactly one panel-capable node is selected across all types
   const v3Node = (() => {
     const selectedPanelNodes = nodes.filter(
-      (n) => n.selected && (n.type === 'io' || n.type === 'aiV3' || n.type === 'materialProcess'),
+      (n) => n.selected && (n.type === 'io' || n.type === 'aiV3'),
     );
     if (selectedPanelNodes.length !== 1) return null;
     return selectedPanelNodes[0].type === 'aiV3' ? selectedPanelNodes[0] : null;

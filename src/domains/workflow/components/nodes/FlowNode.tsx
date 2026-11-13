@@ -1,3 +1,4 @@
+import { COLLAPSED_GROUP_INPUT_ANCHOR, COLLAPSED_GROUP_OUTPUT_ANCHOR } from '../flowCanvasRenderModel';
 import {
   GRID_SIZE,
   getExpandedNodeOutputs,
@@ -8,6 +9,8 @@ import {
 } from '@/domains/workflow/lib/constants';
 import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
 import {
+  GROUP_COLLAPSED_LAYOUT,
+  GROUP_EXPANDED_LAYOUT,
   GROUP_CONTENT_INSET_BOTTOM,
   GROUP_CONTENT_INSET_X,
   GROUP_HEADER_HEIGHT,
@@ -15,16 +18,15 @@ import {
   getCollapsedGroupNodeSize,
   getEffectiveNodeSize,
 } from '@/domains/workflow/lib/groupLayout';
-import { getGroupPorts, isGroupPortEmpty } from '@/domains/workflow/lib/groupPorts';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import type { PortDef } from '@/domains/workflow/lib/types';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
 import { CaretDown, CaretRight, Copy, LockOpen, LockSimple, Play, Prohibit } from '@phosphor-icons/react';
-import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
+import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
 import { type CSSProperties, memo, useEffect, useMemo, useState } from 'react';
 import { NodeContent } from './NodeContent';
-import { GroupPortRow, InputPort, OutputPort } from './NodePorts';
+import { InputPort, OutputPort } from './NodePorts';
 import { NODE_ICONS, STATUS_BADGE } from './nodeConstants';
 import { useBufferedStringField } from './useBufferedStringField';
 import './node.css';
@@ -143,17 +145,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
     if (edge.target === id && edge.targetHandle) connectedInputs.add(edge.targetHandle);
   }
 
-  const groupInputs = isGroupNode ? getGroupPorts(data, 'input') : [];
-  const groupOutputs = isGroupNode ? getGroupPorts(data, 'output') : [];
-  const occupiedGroupInputCount = groupInputs.filter((port) => !isGroupPortEmpty(port)).length;
-  const occupiedGroupOutputCount = groupOutputs.filter((port) => !isGroupPortEmpty(port)).length;
-  const groupPortRows = isGroupNode
-    ? Array.from({ length: Math.max(groupInputs.length, groupOutputs.length, 1) }, (_, index) => ({
-        input: groupInputs[index] || null,
-        output: groupOutputs[index] || null,
-      }))
-    : [];
-
   const className = [
     'flow-node',
     'group',
@@ -168,10 +159,15 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   ]
     .filter(Boolean)
     .join(' ');
+  const groupLayout = isCollapsed ? GROUP_COLLAPSED_LAYOUT : GROUP_EXPANDED_LAYOUT;
   const nodeStyle = {
     '--node-color': def.color,
+    ...(isGroupNode ? {
+      '--group-padding': `${groupLayout.padding}px`,
+      '--group-gap': `${groupLayout.gap}px`,
+    } : {}),
   } as CSSProperties;
-  const groupTitleField = useBufferedStringField(String((data.title as string) || 'Group'), (nextValue) => {
+  const groupTitleField = useBufferedStringField(String((data.title as string) || '节点组'), (nextValue) => {
     updateNodeData(id, { title: nextValue });
   });
 
@@ -191,6 +187,28 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
         position: 'relative',
       }}
     >
+      {isCollapsed && data.showCollapsedInputAnchor === true && (
+        <Handle
+          id={COLLAPSED_GROUP_INPUT_ANCHOR}
+          type="target"
+          position={Position.Left}
+          isConnectable={false}
+          className="flow-node__collapsed-anchor"
+          aria-hidden="true"
+          style={{ left: -6 }}
+        />
+      )}
+      {isCollapsed && data.showCollapsedOutputAnchor === true && (
+        <Handle
+          id={COLLAPSED_GROUP_OUTPUT_ANCHOR}
+          type="source"
+          position={Position.Right}
+          isConnectable={false}
+          className="flow-node__collapsed-anchor"
+          aria-hidden="true"
+          style={{ right: -6 }}
+        />
+      )}
       {!isGroupNode && (
         <>
           <NodeAppendix position="top">
@@ -409,8 +427,9 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
               <input
                 value={groupTitleField.value}
                 onChange={(event) => groupTitleField.onChange(event.target.value)}
-                className="flow-node__title-input"
-                placeholder="Group"
+                className="flow-node__title-input nodrag"
+                placeholder="节点组"
+                aria-label="节点组名称"
                 onFocus={() => groupTitleField.onFocus()}
                 onBlur={(event) => groupTitleField.onBlur(event.target.value)}
                 onCompositionStart={() => groupTitleField.onCompositionStart()}
@@ -446,34 +465,14 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                   toggleGroupCollapsed(id);
                 }}
                 onMouseDown={(event) => event.stopPropagation()}
-                title={isCollapsed ? 'Expand group' : 'Collapse group'}
-                aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
+                title={isCollapsed ? '展开节点组' : '折叠节点组'}
+                aria-expanded={!isCollapsed}
+                aria-label={isCollapsed ? '展开节点组' : '折叠节点组'}
               >
                 {isCollapsed ? <CaretRight size={14} /> : <CaretDown size={14} />}
               </button>
             )}
           </div>
-
-          {isGroupNode && (
-            <div className="flow-node__group-ports">
-              <div className="flow-node__ports flow-node__ports--group flow-node__ports--group-band">
-                {groupPortRows.map((row, index) => (
-                  <div key={`group-row-${index}`} className="flow-node__group-port-row">
-                    {row.input ? (
-                      <GroupPortRow side="input" port={row.input} color={def.color} isConnectable={isConnectable} />
-                    ) : (
-                      <div className="node-port node-port--group-spacer" aria-hidden="true" />
-                    )}
-                    {row.output ? (
-                      <GroupPortRow side="output" port={row.output} color={def.color} isConnectable={isConnectable} />
-                    ) : (
-                      <div className="node-port node-port--group-spacer" aria-hidden="true" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {!isGroupNode && effectiveInputs.length > 0 && (
             <div className="flow-node__ports flow-node__ports--inputs">
@@ -489,7 +488,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
             </div>
           )}
 
-          {!(isGroupNode && isCollapsed) && (
+          {!isGroupNode && (
             <NodeContent
               type={type}
               data={data}
@@ -500,13 +499,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
               showBottomBorder={hasOutputs}
               connectedInputCount={connectedInputs.size}
             />
-          )}
-
-          {isGroupNode && isCollapsed && (
-            <div className="flow-node__group-collapsed-meta">
-              <span className="flow-node__group-collapsed-chip">IN {occupiedGroupInputCount}</span>
-              <span className="flow-node__group-collapsed-chip">OUT {occupiedGroupOutputCount}</span>
-            </div>
           )}
 
           {!isGroupNode && hasOutputs && (

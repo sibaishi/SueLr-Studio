@@ -32,10 +32,6 @@ import {
 } from '@/domains/workflow/lib/store/editorShared';
 import { getDefaultData, gid, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import type { WorkflowState, WorkflowStoreGet, WorkflowStoreSet } from '@/domains/workflow/lib/store/types';
-import {
-  findNestedMaterialProcessPath,
-  wouldCreateNestedMaterialProcessPath,
-} from '@/shared/workflow/material-process-graph.js';
 import { type Edge, type Node, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 
 type WorkflowStoreGraphEditorActions = Pick<
@@ -332,11 +328,6 @@ export function createWorkflowGraphEditorActions(
         const updatedNodes = state.nodes.map((node) =>
           node.id === nodeId ? { ...node, data: { ...node.data, ...data, ...ownUpdates } } : node,
         );
-        if (findNestedMaterialProcessPath(updatedNodes, state.edges)) {
-          return {
-            workflowWarningMessage: '同一条执行路径只能有一个启用逐项的素材处理节点',
-          };
-        }
         const withPropagation =
           changedNode?.type === 'io' ? propagateIoData(updatedNodes, state.edges, nodeId) : updatedNodes;
         return {
@@ -350,8 +341,8 @@ export function createWorkflowGraphEditorActions(
 
     toggleGroupCollapsed: (groupId, collapsed) => {
       set((state) => ({
-        nodes: normalizeEditorNodes(
-          enforceGroupLayout(
+        nodes: enforceGroupLayout(
+          normalizeEditorNodes(
             state.nodes.map((node) => {
               if (node.id !== groupId || node.type !== 'group') return node;
 
@@ -392,8 +383,8 @@ export function createWorkflowGraphEditorActions(
                 },
               };
             }),
+            state.edges,
           ),
-          state.edges,
         ),
         hasUnsavedChanges: true,
       }));
@@ -580,11 +571,6 @@ export function createWorkflowGraphEditorActions(
 
         const updatedNodes = removeGroupPortLinksFromNodes(state.nodes, [replacedEdge]);
         const prunedEdges = pruneGroupPortEdges(updatedNodes, nextEdges);
-        if (findNestedMaterialProcessPath(updatedNodes, prunedEdges)) {
-          return {
-            workflowWarningMessage: '同一条执行路径只能有一个启用逐项的素材处理节点',
-          };
-        }
 
         return {
           nodes: normalizeEditorNodes(updatedNodes, prunedEdges),
@@ -608,12 +594,11 @@ export function createWorkflowGraphEditorActions(
       if (exists) return;
 
       if (createsCycle(get().nodes, edges, source, target)) return;
-      if (wouldCreateNestedMaterialProcessPath(get().nodes, edges, { source, target })) return;
 
       // Skip single-connection filter for node types that support multi-input
       const targetNode = get().nodes.find((n) => n.id === target);
-      const isMultiInput =
-        targetNode?.type === 'aiV3' || targetNode?.type === 'io' || targetNode?.type === 'materialProcess';
+      if (targetNode?.type === 'group' || get().nodes.some((node) => node.id === source && node.type === 'group')) return;
+      const isMultiInput = targetNode?.type === 'aiV3' || targetNode?.type === 'io';
 
       // Enforce per-type connection limits for io nodes only (aiV3 limits are mode-aware, applied at execution)
       if (targetNode?.type === 'io' && targetHandle === 'input') {

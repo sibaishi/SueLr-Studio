@@ -1,6 +1,6 @@
 import { getExpandedNodeOutputs, getNodeDef } from '@/domains/workflow/lib/constants';
 import { parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
-import { DEFAULT_WORKFLOW_EDGE_STYLE, WORKFLOW_PORT_TYPE_COLORS } from '@/shared/workflow/port-visuals';
+import { WORKFLOW_PORT_TYPE_COLORS } from '@/shared/workflow/port-visuals';
 import type { Edge, Node as FlowNodeType } from '@xyflow/react';
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { getNodeRenderRect } from './flowCanvasClipboard';
@@ -16,14 +16,6 @@ import type { ContextMenuKind, EdgeInsertionCandidate, MenuHorizontalDirection }
 
 export { DEFAULT_WORKFLOW_EDGE_STYLE } from '@/shared/workflow/port-visuals';
 
-const GROUP_INTERNAL_EDGE_STYLE = {
-  ...DEFAULT_WORKFLOW_EDGE_STYLE,
-} as const;
-
-const GROUP_EXTERNAL_EDGE_STYLE = {
-  ...DEFAULT_WORKFLOW_EDGE_STYLE,
-} as const;
-
 export function isPaneBackgroundTarget(target: EventTarget | null) {
   const element = target instanceof Element ? target : null;
   if (!element) return false;
@@ -34,55 +26,6 @@ export function isPaneBackgroundTarget(target: EventTarget | null) {
       !element.closest('.react-flow__selection') &&
       !element.closest('.workflow-context-menu'),
   );
-}
-
-export function getNearestGroupAncestorId(nodeId: string, nodeMap: Map<string, FlowNodeType>) {
-  let current = nodeMap.get(nodeId);
-  while (current) {
-    const parentId = getParentId(current);
-    if (!parentId) return null;
-    const parentNode = nodeMap.get(parentId);
-    if (!parentNode) return null;
-    if (parentNode.type === 'group') return parentNode.id;
-    current = parentNode;
-  }
-
-  return null;
-}
-
-export function getDecoratedGroupEdge(
-  edge: Edge,
-  sourceDescriptor: ReturnType<typeof parseGroupHandleId>,
-  targetDescriptor: ReturnType<typeof parseGroupHandleId>,
-): Edge {
-  const isInternal =
-    sourceDescriptor?.role === 'internal' ||
-    targetDescriptor?.role === 'internal' ||
-    edge.id.startsWith('group-binding:');
-  const isExternal =
-    sourceDescriptor?.role === 'external' || targetDescriptor?.role === 'external' || edge.id.startsWith('virtual:');
-
-  if (isInternal) {
-    return {
-      ...edge,
-      style: {
-        ...(edge.style || {}),
-        ...GROUP_INTERNAL_EDGE_STYLE,
-      },
-    };
-  }
-
-  if (isExternal) {
-    return {
-      ...edge,
-      style: {
-        ...(edge.style || {}),
-        ...GROUP_EXTERNAL_EDGE_STYLE,
-      },
-    };
-  }
-
-  return edge;
 }
 
 function resolveNodeBridgeHandles(node: FlowNodeType, edge: Edge, nodeMap: Map<string, FlowNodeType>, edges: Edge[]) {

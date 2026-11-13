@@ -159,23 +159,6 @@ function formatHumanDuration(ms: number): string {
   return `不到 ${seconds} 秒`;
 }
 
-function mergeRepeatedOutputValue(existing: unknown, next: unknown) {
-  if (existing === undefined) return next;
-  if (Array.isArray(existing) && Array.isArray(next)) return [...existing, ...next];
-  if (Array.isArray(existing)) return [...existing, next];
-  if (Array.isArray(next)) return [existing, ...next];
-  return [existing, next];
-}
-
-function appendRepeatedNodeOutputs(existing: Record<string, unknown> | undefined, next: Record<string, unknown>) {
-  if (!existing) return next;
-  const merged = { ...existing };
-  for (const [key, value] of Object.entries(next)) {
-    merged[key] = mergeRepeatedOutputValue(merged[key], value);
-  }
-  return merged;
-}
-
 function shouldPersistIoOutput(state: WorkflowState, nodeId: string, outputs: Record<string, unknown>) {
   const node = state.nodes.find((item) => item.id === nodeId);
   if (node?.type !== 'io') return false;
@@ -272,13 +255,6 @@ function buildIoOutputMetadata(result: unknown): {
   }
 
   return { ...empty, content: result };
-}
-
-function getNodeEventExpectedCount(data: { iteration?: { total?: number } }) {
-  if (typeof data.iteration?.total === 'number' && Number.isFinite(data.iteration.total)) {
-    return Math.max(1, Math.round(data.iteration.total));
-  }
-  return 1;
 }
 
 function isRunToNodeAllowed(node: Node | undefined) {
@@ -718,7 +694,6 @@ export function createWorkflowExecutionActions(
           const activeCount = (currentState.nodeExecutionActiveCounts[data.nodeId] || 0) + 1;
           const expectedCount = Math.max(
             currentState.nodeExecutionExpectedCounts[data.nodeId] || 0,
-            getNodeEventExpectedCount(data),
             startedCount,
           );
 
@@ -781,15 +756,11 @@ export function createWorkflowExecutionActions(
           const completedCount = (currentState.nodeExecutionCompletedCounts[data.nodeId] || 0) + 1;
           const expectedCount = Math.max(
             currentState.nodeExecutionExpectedCounts[data.nodeId] || 0,
-            getNodeEventExpectedCount(data),
             completedCount,
           );
           const allKnownExecutionsCompleted = activeCount === 0 && completedCount >= expectedCount;
           const startedAt = currentState.nodeExecutionStartedAt[data.nodeId];
           const aggregateDuration = startedAt ? Math.max(0, Date.now() - startedAt) : data.duration;
-          const mergedNodeOutputs = data.iteration
-            ? appendRepeatedNodeOutputs(currentState.nodeOutputs[data.nodeId], sanitizedOutputs)
-            : sanitizedOutputs;
           return {
             executionMessage: `${nodeLabel} 执行完成`,
             nodes: persistIoOutput
@@ -828,14 +799,14 @@ export function createWorkflowExecutionActions(
             },
             nodeOutputs: {
               ...currentState.nodeOutputs,
-              [data.nodeId]: mergedNodeOutputs,
+              [data.nodeId]: sanitizedOutputs,
             },
             aiResultOutputs: AI_RESULT_NODE_TYPES.has(
               currentState.nodes.find((node) => node.id === data.nodeId)?.type || '',
             )
               ? {
                   ...currentState.aiResultOutputs,
-                  [data.nodeId]: mergedNodeOutputs,
+                  [data.nodeId]: sanitizedOutputs,
                 }
               : currentState.aiResultOutputs,
           };

@@ -59,43 +59,6 @@ describe('workflow store graph editor actions', () => {
     ]);
   });
 
-  it('rejects a connection that would nest two iterating material processors', () => {
-    const harness = createWorkflowStoreHarness({
-      nodes: [
-        { id: 'first', type: 'materialProcess', position: { x: 0, y: 0 }, data: { iterateEnabled: true } },
-        { id: 'middle', type: 'io', position: { x: 220, y: 0 }, data: {} },
-        { id: 'second', type: 'materialProcess', position: { x: 440, y: 0 }, data: { iterateEnabled: true } },
-      ],
-      edges: [{ id: 'existing', source: 'first', sourceHandle: 'result', target: 'middle', targetHandle: 'input' }],
-    });
-
-    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
-    harness.attachActions(actions);
-
-    actions.addEdge('middle', 'result', 'second', 'input');
-
-    expect(harness.getState().edges).toHaveLength(1);
-  });
-
-  it('allows independent parallel branches to iterate separately', () => {
-    const harness = createWorkflowStoreHarness({
-      nodes: [
-        { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'sourceB', type: 'io', position: { x: 0, y: 120 }, data: {} },
-        { id: 'iterateA', type: 'materialProcess', position: { x: 220, y: 0 }, data: { iterateEnabled: true } },
-        { id: 'iterateB', type: 'materialProcess', position: { x: 220, y: 120 }, data: { iterateEnabled: true } },
-      ],
-      edges: [],
-    });
-
-    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
-    harness.attachActions(actions);
-    actions.addEdge('sourceA', 'result', 'iterateA', 'input');
-    actions.addEdge('sourceB', 'result', 'iterateB', 'input');
-
-    expect(harness.getState().edges).toHaveLength(2);
-  });
-
   it('keeps exactly one trailing empty group input slot after edge mutations', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
@@ -325,7 +288,7 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'io', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'resize', type: 'materialProcess', position: { x: 240, y: 0 }, data: { iterateEnabled: false } },
+        { id: 'resize', type: 'io', position: { x: 240, y: 0 }, data: {} },
         { id: 'merge', type: 'io', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
@@ -355,30 +318,6 @@ describe('workflow store graph editor actions', () => {
       }),
     ]));
     expect(state.hasUnsavedChanges).toBe(true);
-  });
-
-  it('does not insert an iterator into an existing iterating path', () => {
-    const harness = createWorkflowStoreHarness({
-      nodes: [
-        { id: 'io', type: 'materialProcess', position: { x: 0, y: 0 }, data: { iterateEnabled: true } },
-        { id: 'chat', type: 'materialProcess', position: { x: 240, y: 0 }, data: { iterateEnabled: true } },
-        { id: 'merge', type: 'io', position: { x: 520, y: 0 }, data: {} },
-      ],
-      edges: [
-        { id: 'edge_original', source: 'io', sourceHandle: 'result', target: 'merge', targetHandle: 'input' },
-      ],
-    });
-
-    const actions = createWorkflowGraphEditorActions(harness.set, harness.get);
-    harness.attachActions(actions);
-
-    actions.insertNodeOnEdge('chat', 'edge_original');
-
-    const state = harness.getState();
-    expect(state.edges).toEqual([
-      { id: 'edge_original', source: 'io', sourceHandle: 'result', target: 'merge', targetHandle: 'input' },
-    ]);
-    expect(state.hasUnsavedChanges).toBe(false);
   });
 
   it('locks selected nodes and blocks subsequent graph changes', () => {
@@ -479,7 +418,7 @@ describe('workflow store graph editor actions', () => {
     const lockedChild = state.nodes.find((node) => node.id === 'lockedChild');
     const freeChild = state.nodes.find((node) => node.id === 'freeChild');
 
-    expect(lockedChild?.position).toEqual({ x: 56, y: 140 });
+    expect(lockedChild?.position).toEqual({ x: 56, y: 84 });
     expect(Math.abs((freeChild?.position.x ?? 1) % 28)).toBe(0);
     expect(Math.abs((freeChild?.position.y ?? 1) % 28)).toBe(0);
     expect(group?.width).toBeGreaterThanOrEqual(280);
@@ -639,7 +578,7 @@ describe('workflow store graph editor actions', () => {
         {
           id: 'childA',
           type: 'io',
-          position: { x: 84, y: 112 },
+          position: { x: 84, y: 168 },
           parentId: 'group',
           extent: 'parent',
           data: {},
@@ -661,12 +600,12 @@ describe('workflow store graph editor actions', () => {
 
     actions.toggleGroupCollapsed('group', true);
     let state = harness.getState();
-    expect(state.nodes.find((node) => node.id === 'childA')?.position).toEqual({ x: 84, y: 112 });
+    expect(state.nodes.find((node) => node.id === 'childA')?.position).toEqual({ x: 84, y: 168 });
     expect(state.nodes.find((node) => node.id === 'childB')?.position).toEqual({ x: 420, y: 224 });
 
     actions.toggleGroupCollapsed('group', false);
     state = harness.getState();
-    expect(state.nodes.find((node) => node.id === 'childA')?.position).toEqual({ x: 84, y: 140 });
+    expect(state.nodes.find((node) => node.id === 'childA')?.position).toEqual({ x: 84, y: 168 });
     expect(state.nodes.find((node) => node.id === 'childB')?.position).toEqual({ x: 420, y: 224 });
     expect(state.nodes.find((node) => node.id === 'group')?.width).toBe(840);
     expect(state.nodes.find((node) => node.id === 'group')?.height).toBe(560);

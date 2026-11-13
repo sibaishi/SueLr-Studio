@@ -1,6 +1,7 @@
+import { omitRetiredWorkflowNodes } from '@/shared/workflow/retired-nodes.js';
 import * as api from '@/domains/workflow/lib/api/workflows';
 import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
-import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
+import { migrateGroupPortConnections } from '@/domains/workflow/lib/executionGraph';
 import type {
   WorkflowImportError,
   WorkflowImportMode,
@@ -51,13 +52,12 @@ function getApiErrorStatus(result: { status?: number } | undefined) {
   return typeof result?.status === 'number' ? result.status : undefined;
 }
 
-function normalizeWorkflowGraph(workflow: Workflow) {
+function normalizeWorkflowGraph(input: Workflow) {
+  const workflow = omitRetiredWorkflowNodes(input);
   const rawNodes = normalizeNodes(workflow.nodes);
   const normalizedEdges = normalizeEdges(workflow.edges, new Set(rawNodes.map((node) => node.id)));
-  const normalizedNodes = normalizeEditorNodes(rawNodes, normalizedEdges);
-  const edges = pruneGroupPortEdges(normalizedNodes, normalizedEdges);
-  const nodes = normalizeEditorNodes(rawNodes, edges);
-  return { nodes, edges };
+  const { nodes, edges } = migrateGroupPortConnections(rawNodes, normalizedEdges);
+  return { nodes: normalizeEditorNodes(nodes, edges), edges };
 }
 
 function createDocumentFromWorkflow(

@@ -1,3 +1,4 @@
+import { resolveWorkflowConnections } from '@/domains/workflow/lib/executionGraph';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasEditorModal';
 import { uploadFile } from '@/domains/workflow/lib/api/files';
@@ -62,8 +63,9 @@ function flattenNestedOutput(arr: unknown[]): string[] {
 
 export function IoContent({ params: _params, nodeId, data, outerStyle, onChange: _onChange }: IoContentProps) {
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
-  const edges = useWorkflowStore((s) => s.edges);
+  const canvasEdges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
+  const edges = useMemo(() => resolveWorkflowConnections(nodes, canvasEdges), [nodes, canvasEdges]);
   const [isSketchOpen, setIsSketchOpen] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number>(-1);
   const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
@@ -271,7 +273,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
     const entry = await createIoImageFileEntry(file);
     const store = useWorkflowStore.getState();
     const node = store.nodes.find((item) => item.id === nodeId && item.type === 'io');
-    const hasUpstream = store.edges.some((edge) => edge.target === nodeId && edge.targetHandle === 'input');
+    const hasUpstream = resolveWorkflowConnections(store.nodes, store.edges).some((edge) => edge.target === nodeId && edge.targetHandle === 'input');
     if (!nodeId || !node || store.activeDocumentId !== activeDocumentId || hasUpstream) {
       fileRawStore.remove(entry.fileId);
       throw new Error('当前 IO 节点已发生变化，请重新打开画板。');

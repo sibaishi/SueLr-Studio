@@ -254,9 +254,9 @@ describe('workflow store execution actions', () => {
         { id: 'a', type: 'io', position: { x: 0, y: 0 }, data: { text: 'a' } },
         {
           id: 'b',
-          type: 'materialProcess',
+          type: 'io',
           position: { x: 200, y: 0 },
-          data: { splitEnabled: false, iterateEnabled: true },
+          data: {},
         },
         { id: 'c', type: 'io', position: { x: 400, y: 0 }, data: {} },
         { id: 'd', type: 'io', position: { x: 600, y: 0 }, data: {} },
@@ -289,7 +289,7 @@ describe('workflow store execution actions', () => {
       nodes: [
         { id: 'prompt', type: 'io', position: { x: 0, y: 0 }, data: { text: 'hello' } },
         { id: 'ai_node', type: 'aiV3', position: { x: 200, y: 0 }, data: { disabled: false } },
-        { id: 'clean_node', type: 'materialProcess', position: { x: 400, y: 0 }, data: {} },
+        { id: 'clean_node', type: 'io', position: { x: 400, y: 0 }, data: {} },
       ],
       edges: [
         { id: 'prompt-ai', source: 'prompt', sourceHandle: 'result', target: 'ai_node', targetHandle: 'input' },
@@ -535,129 +535,6 @@ describe('workflow store execution actions', () => {
       content: [],
     });
     expect(state.hasUnsavedChanges).toBe(true);
-  });
-
-  it('keeps materialProcess execution output in runtime results without mutating node configuration', async () => {
-    vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
-      callbacks.onNodeComplete?.({
-        nodeId: 'split_node',
-        outputs: { result: ['first', 'second'] },
-        duration: 1,
-      });
-      callbacks.onWorkflowComplete?.({
-        totalDuration: 1,
-        successCount: 1,
-        failCount: 0,
-      });
-    });
-
-    const harness = createWorkflowStoreHarness({
-      hasUnsavedChanges: false,
-      nodes: [
-        {
-          id: 'source_text',
-          type: 'io',
-          position: { x: 0, y: 0 },
-          data: { text: 'first\n---\nsecond' },
-        },
-        {
-          id: 'split_node',
-          type: 'materialProcess',
-          position: { x: 300, y: 0 },
-          data: { outputCount: 2, separator: '---', splitEnabled: true, iterateEnabled: false },
-        },
-      ],
-      edges: [{ id: 'edge-1', source: 'source_text', sourceHandle: 'result', target: 'split_node', targetHandle: 'input' }],
-      saveWorkflow: vi.fn(async () => false),
-      addExecutionLog: vi.fn(),
-    });
-
-    const actions = createWorkflowExecutionActions(harness.set, harness.get);
-    harness.attachActions(actions);
-
-    await actions.executeWorkflow();
-
-    const state = harness.getState();
-    expect(state.nodes.find((node) => node.id === 'split_node')?.data).toMatchObject({
-      outputCount: 2,
-      separator: '---',
-    });
-    expect(state.nodeOutputs.split_node).toEqual({ result: ['first', 'second'] });
-    expect(state.hasUnsavedChanges).toBe(false);
-  });
-
-  it('keeps a repeated node running until all concurrent iteration completions settle', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(1000);
-
-    try {
-      const harness = createWorkflowStoreHarness({
-        nodes: [
-          {
-            id: 'repeated_node',
-            type: 'materialProcess',
-            position: { x: 0, y: 0 },
-            data: {},
-          },
-        ],
-        addExecutionLog: vi.fn(),
-      });
-      const actions = createWorkflowExecutionActions(harness.set, harness.get);
-      harness.attachActions(actions);
-
-      vi.mocked(api.executeWorkflow).mockImplementation(async (_workflowId, _draft, callbacks) => {
-        callbacks.onNodeStart?.({
-          nodeId: 'repeated_node',
-          nodeType: 'materialProcess',
-          index: 0,
-          total: 1,
-          iteration: { sourceNodeId: 'iter_node', index: 1, total: 2 },
-        });
-        vi.setSystemTime(1200);
-        callbacks.onNodeStart?.({
-          nodeId: 'repeated_node',
-          nodeType: 'materialProcess',
-          index: 0,
-          total: 1,
-          iteration: { sourceNodeId: 'iter_node', index: 2, total: 2 },
-        });
-        vi.setSystemTime(1500);
-        callbacks.onNodeComplete?.({
-          nodeId: 'repeated_node',
-          outputs: { text: 'first' },
-          duration: 500,
-          iteration: { sourceNodeId: 'iter_node', index: 1, total: 2 },
-        });
-
-        const midState = harness.getState();
-        expect(midState.nodeExecStatus.repeated_node).toBe('running');
-        expect(midState.nodeExecutionTime.repeated_node).toBe(0);
-        expect(midState.nodeExecutionActiveCounts.repeated_node).toBe(1);
-
-        vi.setSystemTime(1900);
-        callbacks.onNodeComplete?.({
-          nodeId: 'repeated_node',
-          outputs: { text: 'second' },
-          duration: 700,
-          iteration: { sourceNodeId: 'iter_node', index: 2, total: 2 },
-        });
-        callbacks.onWorkflowComplete?.({
-          totalDuration: 900,
-          successCount: 2,
-          failCount: 0,
-        });
-      });
-
-      await actions.executeWorkflow();
-
-      const state = harness.getState();
-      expect(state.nodeExecStatus.repeated_node).toBe('success');
-      expect(state.nodeExecutionTime.repeated_node).toBe(900);
-      expect(state.nodeExecutionActiveCounts.repeated_node).toBe(0);
-      expect(state.nodeOutputs.repeated_node).toEqual({ text: ['first', 'second'] });
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it('marks execution stopped when cancel is requested without a run id', async () => {

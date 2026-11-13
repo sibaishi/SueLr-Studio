@@ -6,13 +6,11 @@ import {
   getExpandedNodeOutputs,
   getNodeDef,
 } from '@/domains/workflow/lib/constants';
-import { getAbsoluteNodePosition } from '@/domains/workflow/lib/graphHierarchy';
 import {
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
   pushRootNodeOutsideGroupAreas,
 } from '@/domains/workflow/lib/groupLayout';
-import { parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { useWorkflowCanvasStore } from '@/domains/workflow/lib/store/selectors';
@@ -39,8 +37,6 @@ import { GridGlow } from './GridGlow';
 import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
 import { snapNodeBox } from './flowCanvasClipboard';
 import {
-  FLOW_CATEGORY_LABELS,
-  FLOW_CATEGORY_ORDER,
   FLOW_DISABLED_NEW_NODE_TYPES,
   FLOW_NODE_COLORS,
   FLOW_NODE_TYPES,
@@ -297,33 +293,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     ];
   }, [edgeInsertionCandidate, renderModel.edges, renderNodes, store.edgeStyle]);
 
-  const attachNodeToGroup = useCallback((nodeId: string, groupId: string) => {
-    useWorkflowStore.setState((state) => {
-      const nodeMap = new Map(state.nodes.map((node) => [node.id, node as FlowNodeType]));
-      const node = nodeMap.get(nodeId);
-      const groupNode = nodeMap.get(groupId);
-      if (!node || !groupNode || groupNode.type !== 'group') return {};
-
-      const groupPosition = getAbsoluteNodePosition(groupId, nodeMap);
-      const nextNode = constrainChildNodeToGroupContent(
-        {
-          ...node,
-          parentId: groupId,
-          extent: 'parent',
-          position: {
-            x: node.position.x - groupPosition.x,
-            y: node.position.y - groupPosition.y,
-          },
-        },
-        groupNode,
-      );
-
-      return {
-        nodes: enforceGroupLayout(state.nodes.map((item) => (item.id === nodeId ? nextNode : item))),
-        hasUnsavedChanges: true,
-      };
-    });
-  }, []);
 
   const edgeCut = useFlowEdgeCutting({
     store,
@@ -407,21 +376,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       event.preventDefault();
       event.stopPropagation();
 
-      if (edge.id.startsWith('group-binding:')) {
-        const actualEdge = store.edges.find(
-          (candidate) =>
-            candidate.source === edge.source &&
-            candidate.sourceHandle === edge.sourceHandle &&
-            candidate.target === edge.target &&
-            candidate.targetHandle === edge.targetHandle,
-        );
-        if (actualEdge) {
-          store.removeEdge(actualEdge.id);
-          return;
-        }
-      }
-
-      store.removeEdge(edge.id);
+      if (!edge.data?.collapsedGroupPreview) store.removeEdge(edge.id);
     },
     [store],
   );
@@ -643,11 +598,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         const pending = ctxMenu.contextMenu.sourceConnection;
 
         if (pending.handleType === 'source') {
-          const sourceDescriptor = parseGroupHandleId(pending.sourceHandle);
-          if (sourceDescriptor?.side === 'input' && sourceDescriptor.role === 'internal') {
-            attachNodeToGroup(newNodeId, pending.sourceId);
-          }
-
           const targetHandle = resolveTargetHandle(nodeType, pending.sourceType);
           if (targetHandle) {
             connection.commitConnection({
@@ -658,11 +608,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
             });
           }
         } else {
-          const targetDescriptor = parseGroupHandleId(pending.targetHandle);
-          if (targetDescriptor?.side === 'output' && targetDescriptor.role === 'internal') {
-            attachNodeToGroup(newNodeId, pending.targetId);
-          }
-
           const sourceHandle = resolveSourceHandle(nodeType, pending.targetType);
           if (sourceHandle) {
             connection.commitConnection({
@@ -678,7 +623,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       ctxMenu.closeContextMenu();
     },
     [
-      attachNodeToGroup,
       ctxMenu.closeContextMenu,
       connection,
       ctxMenu.contextMenu,
@@ -729,22 +673,9 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     });
   }, [ctxMenu.contextMenu]);
 
-  const groupedNodeDefs = useMemo(() => {
-    return FLOW_CATEGORY_ORDER.map((category) => ({
-      category,
-      label: FLOW_CATEGORY_LABELS[category],
-      items: availableNodeDefs.filter((nodeDef) => nodeDef.category === category),
-    })).filter((group) => group.items.length > 0);
-  }, [availableNodeDefs]);
-
   const miniMapNodeColor = useCallback((node: { type?: string | null }) => {
     return FLOW_NODE_COLORS[node.type || ''] || '#8E8E93';
   }, []);
-
-  const currentNodeCategory = groupedNodeDefs.some((group) => group.category === ctxMenu.activeCategory)
-    ? ctxMenu.activeCategory
-    : groupedNodeDefs[0]?.category || null;
-  const currentNodeItems = groupedNodeDefs.find((group) => group.category === currentNodeCategory)?.items || [];
 
   return (
     <div
@@ -974,27 +905,8 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
                   </div>
                 </div>
 
-                <div className="workflow-context-menu__category-strip">
-                  {groupedNodeDefs.map((group) => (
-                    <button
-                      key={group.category}
-                      type="button"
-                      className={[
-                        'workflow-context-menu__category-chip',
-                        currentNodeCategory === group.category ? 'workflow-context-menu__category-chip--active' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      onClick={() => ctxMenu.setActiveCategory(group.category)}
-                    >
-                      <span>{group.label}</span>
-                      <span className="workflow-context-menu__category-count">{group.items.length}</span>
-                    </button>
-                  ))}
-                </div>
-
                 <div className="workflow-context-menu__node-list">
-                  {currentNodeItems.map((nodeDef) => (
+                  {availableNodeDefs.map((nodeDef) => (
                     <NodeCatalogButton
                       key={nodeDef.type}
                       nodeDef={nodeDef}

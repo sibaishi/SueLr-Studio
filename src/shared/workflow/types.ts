@@ -49,7 +49,7 @@ export interface NodeTypeDef {
   label: string;
   icon: string;
   color: string;
-  category: 'input' | 'api' | 'merge' | 'iterate' | 'tool' | 'ai' | 'output' | 'group';
+  category: 'input' | 'ai' | 'group';
   inputs: PortDef[];
   outputs: PortDef[];
   params: ParamDef[];
@@ -58,9 +58,6 @@ export interface NodeTypeDef {
   dynamicInputs?: DynamicPortDef;
   dynamicOutputs?: DynamicPortDef;
   dynamicOutputInputs?: DynamicPortDef;
-  runtime?: {
-    mode?: 'standard' | 'material-process';
-  };
   supportsDisabledPassthrough?: boolean;
   executable?: boolean;
 }

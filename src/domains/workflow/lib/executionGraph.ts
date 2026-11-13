@@ -1,5 +1,5 @@
 import { getAbsoluteNodePosition } from '@/domains/workflow/lib/graphHierarchy';
-import { findGroupPort, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
+import { findGroupPort, normalizeGroupPortNodes, normalizeLegacyGroupEdges, parseGroupHandleId } from '@/domains/workflow/lib/groupPorts';
 import { getNodeDef, supportsDisabledPassthrough } from '@/domains/workflow/nodes/registry';
 import type { Edge, Node } from '@xyflow/react';
 
@@ -23,7 +23,7 @@ function resolveExecutionSources(
   }
 
   const descriptor = parseGroupHandleId(handleId);
-  if (!descriptor || descriptor.side !== 'output' || descriptor.role !== 'external') {
+  if (!descriptor || descriptor.side !== 'output' || (descriptor.role && descriptor.role !== 'external')) {
     return [];
   }
 
@@ -57,7 +57,7 @@ function resolveExecutionTargets(
   }
 
   const descriptor = parseGroupHandleId(handleId);
-  if (!descriptor || descriptor.side !== 'input' || descriptor.role !== 'external') {
+  if (!descriptor || descriptor.side !== 'input' || (descriptor.role && descriptor.role !== 'external')) {
     return [];
   }
 
@@ -76,6 +76,65 @@ function resolveExecutionTargets(
   return resolvedTargets;
 }
 
+export function resolveWorkflowConnections(nodes: Node[], edges: Edge[]): Edge[] {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const seenEdges = new Set<string>();
+  const projectedEdges: Edge[] = [];
+  const usedEdgeIds = new Set<string>();
+  const canvasEdgeIds = new Set(edges.map((edge) => edge.id));
+
+  for (const edge of edges) {
+    const sources = resolveExecutionSources(nodeMap, edge.source, edge.sourceHandle);
+    const targets = resolveExecutionTargets(nodeMap, edge.target, edge.targetHandle);
+    if (sources.length === 0 || targets.length === 0) continue;
+
+    for (const source of sources) {
+      for (const target of targets) {
+        const dedupeKey = `${source.nodeId}:${source.handleId}->${target.nodeId}:${target.handleId}`;
+        if (seenEdges.has(dedupeKey)) continue;
+        seenEdges.add(dedupeKey);
+
+        let id = edge.id;
+        if (usedEdgeIds.has(id)) {
+          let suffix = 2;
+          do {
+            id = `${edge.id}:route:${suffix++}`;
+          } while (usedEdgeIds.has(id) || canvasEdgeIds.has(id));
+        }
+        usedEdgeIds.add(id);
+        projectedEdges.push({
+          ...edge,
+          id,
+          source: source.nodeId,
+          sourceHandle: source.handleId,
+          target: target.nodeId,
+          targetHandle: target.handleId,
+        });
+      }
+    }
+  }
+
+  return projectedEdges;
+}
+
+export function migrateGroupPortConnections(nodes: Node[], edges: Edge[]) {
+  const hasLegacyPorts = nodes.some((node) => node.type === 'group' &&
+    ('groupInputs' in node.data || 'groupOutputs' in node.data)) ||
+    edges.some((edge) => parseGroupHandleId(edge.sourceHandle) || parseGroupHandleId(edge.targetHandle));
+  if (!hasLegacyPorts) return { nodes, edges };
+
+  const legacyEdges = normalizeLegacyGroupEdges(nodes, edges);
+  const legacyNodes = normalizeGroupPortNodes(nodes, legacyEdges);
+  return {
+    nodes: nodes.map((node) => {
+      if (node.type !== 'group') return node;
+      const { groupInputs, groupOutputs, ...data } = node.data;
+      return { ...node, data };
+    }),
+    edges: resolveWorkflowConnections(legacyNodes, legacyEdges),
+  };
+}
+
 export function projectWorkflowToExecutionGraph(nodes: Node[], edges: Edge[]) {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const positionMemo = new Map<string, { x: number; y: number }>();
@@ -92,32 +151,7 @@ export function projectWorkflowToExecutionGraph(nodes: Node[], edges: Edge[]) {
       } satisfies Node;
     });
 
-  const seenEdges = new Set<string>();
-  const projectedEdges: Edge[] = [];
-
-  for (const edge of edges) {
-    const sources = resolveExecutionSources(nodeMap, edge.source, edge.sourceHandle);
-    const targets = resolveExecutionTargets(nodeMap, edge.target, edge.targetHandle);
-    if (sources.length === 0 || targets.length === 0) continue;
-
-    for (const source of sources) {
-      for (const target of targets) {
-        const dedupeKey = `${source.nodeId}:${source.handleId}->${target.nodeId}:${target.handleId}`;
-        if (seenEdges.has(dedupeKey)) continue;
-        seenEdges.add(dedupeKey);
-
-        projectedEdges.push({
-          ...edge,
-          source: source.nodeId,
-          sourceHandle: source.handleId,
-          target: target.nodeId,
-          targetHandle: target.handleId,
-        });
-      }
-    }
-  }
-
-  let executableEdges = projectedEdges;
+  let executableEdges = resolveWorkflowConnections(nodes, edges);
   for (const node of nodes.filter((item) => item.type !== 'group' && item.data?.disabled)) {
     const def = getNodeDef(node.type || '');
     const primaryInput = def?.inputs[0]?.id;

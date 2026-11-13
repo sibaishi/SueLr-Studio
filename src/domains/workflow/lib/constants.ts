@@ -11,8 +11,6 @@ const DEFAULT_NODE_SIZE_UNITS = { w: 10, h: 6 };
 
 export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   group: { w: 14, h: 10 },
-  materialProcess: { w: 10, h: 10 },
-  promptHelper: { w: 14, h: 12 },
   aiV3: { w: 10, h: 10 },
   io: { w: 10, h: 10 },
 };
@@ -97,12 +95,6 @@ export function getNodeAutoExpandedSize(
 }
 
 export const NODE_REGISTRY: NodeTypeDef[] = WORKFLOW_NODE_DEFS;
-
-export const NODE_CATEGORIES = [
-  { id: 'input', label: '输入' },
-  { id: 'tool', label: '工具' },
-  { id: 'ai', label: 'AI 能力' },
-] as const;
 
 export const PORT_COMPATIBILITY: Record<string, string[]> = {
   string: ['string', 'any'],

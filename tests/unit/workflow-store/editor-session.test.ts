@@ -3,7 +3,7 @@ import { createWorkflowEditorSessionActions } from '@/domains/workflow/lib/store
 import { createWorkflowStoreHarness } from './testHarness';
 
 describe('workflow store editor session actions', () => {
-  it('normalizes group facade ports when applying an editor snapshot', () => {
+  it('keeps direct edges when applying an editor snapshot', () => {
     const harness = createWorkflowStoreHarness({
       workflowId: 'wf_before',
       workflowName: 'Before',
@@ -41,16 +41,8 @@ describe('workflow store editor session actions', () => {
     expect(state.workflowId).toBe('wf_snapshot');
     expect(state.workflowName).toBe('Snapshot');
     expect(state.edges).toHaveLength(2);
-    expect(groupData.groupInputs?.[0]).toMatchObject({
-      type: 'any',
-      insideLinks: [{ nodeId: 'inner', handleId: 'input' }],
-      outsideLinks: [{ nodeId: 'outside', handleId: 'result' }],
-    });
-    expect(groupData.groupOutputs?.[0]).toMatchObject({
-      type: 'any',
-      insideLinks: [{ nodeId: 'inner', handleId: 'result' }],
-      outsideLinks: [{ nodeId: 'outside', handleId: 'input' }],
-    });
+    expect(groupData.groupInputs).toBeUndefined();
+    expect(groupData.groupOutputs).toBeUndefined();
     expect(state.nodeExecStatus).toEqual({});
     expect(state.executionLogs).toEqual([]);
     expect(state.workflowWarningMessage).toBeNull();

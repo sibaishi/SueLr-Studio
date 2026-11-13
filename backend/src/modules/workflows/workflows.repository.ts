@@ -1,3 +1,4 @@
+import { omitRetiredWorkflowNodes } from '../../../../src/shared/workflow/retired-nodes.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
@@ -39,7 +40,7 @@ export class WorkflowsRepository {
           logger.warn('skipping invalid workflow file', { file });
           continue;
         }
-        workflows.push(workflow as PlainObject);
+        workflows.push(omitRetiredWorkflowNodes(workflow as PlainObject));
       } catch {
         logger.warn('skipping unreadable workflow file', { file });
       }
@@ -52,7 +53,7 @@ export class WorkflowsRepository {
     if (!fs.existsSync(filePath)) throw new NotFoundError('WORKFLOW_NOT_FOUND', '工作流不存在');
     return {
       filePath,
-      workflow: JSON.parse(fs.readFileSync(filePath, 'utf-8')),
+      workflow: omitRetiredWorkflowNodes(JSON.parse(fs.readFileSync(filePath, 'utf-8'))),
     };
   }
 

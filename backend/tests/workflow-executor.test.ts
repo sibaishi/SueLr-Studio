@@ -465,14 +465,15 @@ test('aiV3 resolves image inputs from request-scoped upload storage', async () =
 });
 
 test('independent ready workflow nodes execute concurrently when enabled', async () => {
-  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const originalIo = NODE_EXECUTORS.io;
   const bothCleanNodesStarted = createDeferred();
   const releaseCleanNodes = createDeferred();
   const cleanStarted = [];
   const events = [];
 
-  NODE_EXECUTORS.materialProcess = async (_node, inputs) => {
-    cleanStarted.push(_node.id);
+  NODE_EXECUTORS.io = async (node, inputs, apiConfig, progress) => {
+    if (node.data?.content !== undefined || node.id === 'merge') return originalIo(node, inputs, apiConfig, progress);
+    cleanStarted.push(node.id);
     if (cleanStarted.length === 2) {
       bothCleanNodesStarted.resolve();
     }
@@ -486,8 +487,8 @@ test('independent ready workflow nodes execute concurrently when enabled', async
         nodes: [
           { id: 'source-a', type: 'io', data: { content: 'alpha' } },
           { id: 'source-b', type: 'io', data: { content: 'beta' } },
-          { id: 'clean-a', type: 'materialProcess', data: { splitEnabled: true, iterateEnabled: false } },
-          { id: 'clean-b', type: 'materialProcess', data: { splitEnabled: true, iterateEnabled: false } },
+          { id: 'clean-a', type: 'io', data: {} },
+          { id: 'clean-b', type: 'io', data: {} },
           { id: 'merge', type: 'io', data: {} },
         ],
         edges: [
@@ -527,7 +528,7 @@ test('independent ready workflow nodes execute concurrently when enabled', async
     assert.equal(cleanCompletionIndexes.length, 2);
     assert.ok(cleanCompletionIndexes.every((index) => index < mergeStartedIndex));
   } finally {
-    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+    NODE_EXECUTORS.io = originalIo;
   }
 });
 

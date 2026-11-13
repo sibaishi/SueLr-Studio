@@ -258,6 +258,12 @@ export function getNodeHandleType(
 ): PortDataType | null {
   if (!node || !handleId) return null;
 
+  if (node.type === 'group') {
+    const descriptor = parseGroupHandleId(handleId);
+    if (descriptor?.side !== side || descriptor.role === 'internal') return null;
+    return findGroupPort(node.data, side, descriptor.portId)?.type || null;
+  }
+
   const def = getNodeDef(node.type || '');
   if (!def) return null;
 
@@ -320,7 +326,7 @@ function normalizeGroupPortListInternal(
 
   for (const parsedPort of parsed) {
     const derivedLinks = edges && groupId ? resolvePortLinksFromEdges(groupId, parsedPort.id, side, edges) : null;
-    const resolvedInsideLinksSource = derivedLinks?.matched ? derivedLinks.insideLinks : parsedPort.insideLinks;
+    const resolvedInsideLinksSource = derivedLinks?.insideLinks.length ? derivedLinks.insideLinks : parsedPort.insideLinks;
     const resolvedOutsideLinksSource = derivedLinks?.matched ? derivedLinks.outsideLinks : parsedPort.outsideLinks;
 
     const insideLinks = takeLimitedLinks(
@@ -566,6 +572,23 @@ export function normalizeGroupPortNodes(nodes: Node[], edges: Edge[]) {
         groupInputs,
         groupOutputs,
       },
+    };
+  });
+}
+
+export function normalizeLegacyGroupEdges(nodes: Node[], edges: Edge[]): Edge[] {
+  const groupIds = new Set(nodes.filter((node) => node.type === 'group').map((node) => node.id));
+  return edges.map((edge) => {
+    const source = groupIds.has(edge.source) ? parseGroupHandleId(edge.sourceHandle) : null;
+    const target = groupIds.has(edge.target) ? parseGroupHandleId(edge.targetHandle) : null;
+    return {
+      ...edge,
+      sourceHandle: source && !source.role
+        ? buildGroupHandleId(source.side, source.portId, source.side === 'input' ? 'internal' : 'external')
+        : edge.sourceHandle,
+      targetHandle: target && !target.role
+        ? buildGroupHandleId(target.side, target.portId, target.side === 'output' ? 'internal' : 'external')
+        : edge.targetHandle,
     };
   });
 }

@@ -1,28 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { Node } from '@xyflow/react';
-import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
-import { autoArrangeNodes, isNodeLockedWithAncestors, normalizeMergeNodeSizes } from '@/domains/workflow/lib/store/editorShared';
+import { autoArrangeNodes, isNodeLockedWithAncestors, normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
 
 describe('workflow store shared editor helpers', () => {
-  it('keeps the unified material processor at its declared minimum size', () => {
-    const minimumSize = getNodeDefaultSize('materialProcess');
-    const nodes = [
-      {
-        id: 'material',
-        type: 'materialProcess',
-        position: { x: 0, y: 0 },
-        width: minimumSize.w - 56,
-        height: minimumSize.h - 56,
-        data: {},
-      },
+  it('clamps only children outside group bounds without resizing the group', () => {
+    const nodes: Node[] = [
+      { id: 'group', type: 'group', position: { x: 0, y: 0 }, width: 840, height: 700, data: {} },
+      { id: 'near', type: 'io', parentId: 'group', position: { x: 5, y: 60 }, data: {} },
+      { id: 'inside', type: 'io', parentId: 'group', position: { x: 360, y: 300 }, data: {} },
     ];
-    const edges: never[] = [];
 
-    const [materialNode] = normalizeMergeNodeSizes(nodes, edges);
-
-    expect(materialNode?.data).toEqual({});
-    expect(materialNode?.width).toBe(minimumSize.w - 56);
-    expect(materialNode?.height).toBe(minimumSize.h - 56);
+    const [group, near, inside] = normalizeEditorNodes(nodes, []);
+    expect(group).toMatchObject({ width: 840, height: 700 });
+    expect(near.position).toEqual({ x: 12, y: 79 });
+    expect(inside).toBe(nodes[2]);
   });
 
   it('treats children of locked groups as locked', () => {

@@ -97,14 +97,9 @@ describe('repository documentation and branch hygiene', () => {
       expect(source).not.toContain('return (');
     }
 
-    for (const file of [
-      'src/domains/workflow/components/nodes/explicitContentRegistry.tsx',
-      'src/domains/workflow/components/nodes/settingsContentRegistry.tsx',
-    ]) {
-      const source = readUtf8(file);
-      expect(source).not.toContain('=> (');
-      expect(source).not.toContain('return (');
-    }
+    const registry = readUtf8('src/domains/workflow/components/nodes/settingsContentRegistry.tsx');
+    expect(registry).not.toContain('=> (');
+    expect(registry).not.toContain('return (');
   });
 
   it('keeps critical workflow shell, public docs, and settings-facing copy readable in UTF-8', () => {

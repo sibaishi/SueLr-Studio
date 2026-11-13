@@ -91,10 +91,11 @@ test('execution HTTP boundary rejects invalid draft execution bodies with a vali
 
 test('execution SSE disconnect does not cancel the active run so polling can recover it', async () => {
   const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
-  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const originalIo = NODE_EXECUTORS.io;
   const started = deferred();
   const release = deferred();
-  NODE_EXECUTORS.materialProcess = async (_node, inputs) => {
+  NODE_EXECUTORS.io = async (node, inputs, apiConfig, progress) => {
+    if (node.data?.content !== undefined || node.id === 'merge') return originalIo(node, inputs, apiConfig, progress);
     started.resolve();
     await release.promise;
     return { result: String(inputs.input || '') };
@@ -112,9 +113,9 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'hello' } },
           {
             id: 'clean',
-            type: 'materialProcess',
+            type: 'io',
             position: { x: 160, y: 0 },
-            data: { splitEnabled: true, iterateEnabled: false },
+            data: {},
           },
         ],
         edges: [
@@ -153,7 +154,7 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
     assert.equal(finalStatus, 'completed');
   } finally {
     release.resolve();
-    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+    NODE_EXECUTORS.io = originalIo;
     await new Promise((resolve) => server.close(resolve));
   }
 });
@@ -161,10 +162,11 @@ test('execution SSE disconnect does not cancel the active run so polling can rec
 test('workflow runtime assets remain served after completion until the same workflow starts again', async () => {
   const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
   const { writeWorkflowRuntimeAsset } = await import('../src/platform/storage/workflow-runtime-assets.ts');
-  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const originalIo = NODE_EXECUTORS.io;
   const assetReady = deferred();
   const release = deferred();
-  NODE_EXECUTORS.materialProcess = async (_node, _inputs, apiConfig) => {
+  NODE_EXECUTORS.io = async (node, inputs, apiConfig, progress) => {
+    if (node.id === 'input') return originalIo(node, inputs, apiConfig, progress);
     const url = writeWorkflowRuntimeAsset(apiConfig.runId, Buffer.from('runtime-image'), 'image/png', apiConfig.scope);
     assetReady.resolve(url);
     await release.promise;
@@ -183,9 +185,9 @@ test('workflow runtime assets remain served after completion until the same work
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
           {
             id: 'split',
-            type: 'materialProcess',
+            type: 'io',
             position: { x: 160, y: 0 },
-            data: { splitEnabled: true, iterateEnabled: false },
+            data: {},
           },
         ],
         edges: [
@@ -231,9 +233,9 @@ test('workflow runtime assets remain served after completion until the same work
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
           {
             id: 'split',
-            type: 'materialProcess',
+            type: 'io',
             position: { x: 160, y: 0 },
-            data: { splitEnabled: true, iterateEnabled: false },
+            data: {},
           },
         ],
         edges: [
@@ -251,7 +253,7 @@ test('workflow runtime assets remain served after completion until the same work
     assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 404);
   } finally {
     release.resolve();
-    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+    NODE_EXECUTORS.io = originalIo;
     await new Promise((resolve) => server.close(resolve));
   }
 });
@@ -259,10 +261,11 @@ test('workflow runtime assets remain served after completion until the same work
 test('failed workflow runtime assets remain served until the same workflow starts again', async () => {
   const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
   const { writeWorkflowRuntimeAsset } = await import('../src/platform/storage/workflow-runtime-assets.ts');
-  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const originalIo = NODE_EXECUTORS.io;
   const assetReady = deferred();
   const release = deferred();
-  NODE_EXECUTORS.materialProcess = async (_node, _inputs, apiConfig) => {
+  NODE_EXECUTORS.io = async (node, inputs, apiConfig, progress) => {
+    if (node.id === 'input') return originalIo(node, inputs, apiConfig, progress);
     const url = writeWorkflowRuntimeAsset(apiConfig.runId, Buffer.from('failed-runtime-image'), 'image/png');
     assetReady.resolve(url);
     await release.promise;
@@ -281,9 +284,9 @@ test('failed workflow runtime assets remain served until the same workflow start
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
           {
             id: 'split',
-            type: 'materialProcess',
+            type: 'io',
             position: { x: 160, y: 0 },
-            data: { splitEnabled: true, iterateEnabled: false },
+            data: {},
           },
         ],
         edges: [
@@ -323,9 +326,9 @@ test('failed workflow runtime assets remain served until the same workflow start
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
           {
             id: 'split',
-            type: 'materialProcess',
+            type: 'io',
             position: { x: 160, y: 0 },
-            data: { splitEnabled: true, iterateEnabled: false },
+            data: {},
           },
         ],
         edges: [
@@ -343,7 +346,7 @@ test('failed workflow runtime assets remain served until the same workflow start
     assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 404);
   } finally {
     release.resolve();
-    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+    NODE_EXECUTORS.io = originalIo;
     await new Promise((resolve) => server.close(resolve));
   }
 });
@@ -351,9 +354,10 @@ test('failed workflow runtime assets remain served until the same workflow start
 test('cancelled workflow runtime assets remain served until the same workflow starts again', async () => {
   const { NODE_EXECUTORS } = await import('../src/engine/nodes/index.ts');
   const { writeWorkflowRuntimeAsset } = await import('../src/platform/storage/workflow-runtime-assets.ts');
-  const originalMaterialProcess = NODE_EXECUTORS.materialProcess;
+  const originalIo = NODE_EXECUTORS.io;
   const assetReady = deferred();
-  NODE_EXECUTORS.materialProcess = async (_node, _inputs, apiConfig) => {
+  NODE_EXECUTORS.io = async (node, inputs, apiConfig, progress) => {
+    if (node.id === 'input') return originalIo(node, inputs, apiConfig, progress);
     const url = writeWorkflowRuntimeAsset(apiConfig.runId, Buffer.from('cancelled-runtime-image'), 'image/png');
     assetReady.resolve(url);
     await new Promise((resolve, reject) => {
@@ -378,9 +382,9 @@ test('cancelled workflow runtime assets remain served until the same workflow st
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
           {
             id: 'split',
-            type: 'materialProcess',
+            type: 'io',
             position: { x: 160, y: 0 },
-            data: { splitEnabled: true, iterateEnabled: false },
+            data: {},
           },
         ],
         edges: [
@@ -422,9 +426,9 @@ test('cancelled workflow runtime assets remain served until the same workflow st
           { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: { content: 'source' } },
           {
             id: 'split',
-            type: 'materialProcess',
+            type: 'io',
             position: { x: 160, y: 0 },
-            data: { splitEnabled: true, iterateEnabled: false },
+            data: {},
           },
         ],
         edges: [
@@ -442,7 +446,7 @@ test('cancelled workflow runtime assets remain served until the same workflow st
     assert.equal((await fetch(`${baseUrl}${runtimeUrl}`)).status, 404);
     await requestJson(baseUrl, `/api/execute/runs/${nextRunId}/cancel`, { method: 'POST' });
   } finally {
-    NODE_EXECUTORS.materialProcess = originalMaterialProcess;
+    NODE_EXECUTORS.io = originalIo;
     await new Promise((resolve) => server.close(resolve));
   }
 });

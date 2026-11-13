@@ -25,7 +25,7 @@ describe('workflow store group editor actions', () => {
     expect(state.nodes.find((node) => node.id === 'b')?.parentId).toBe(groupId);
   });
 
-  it('auto exposes boundary edges as group facade ports when grouping', () => {
+  it('keeps direct connections when grouping', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: {} },
@@ -45,63 +45,11 @@ describe('workflow store group editor actions', () => {
     const groupId = actions.createNodeGroup(['innerA', 'innerB']);
     const state = harness.getState();
     const groupNode = state.nodes.find((node) => node.id === groupId);
-    const inputs = Array.isArray(groupNode?.data?.groupInputs) ? groupNode.data.groupInputs : [];
-    const outputs = Array.isArray(groupNode?.data?.groupOutputs) ? groupNode.data.groupOutputs : [];
-
-    expect(inputs).toHaveLength(2);
-    expect(outputs).toHaveLength(2);
-    expect(inputs[0]).toMatchObject({
-      type: 'any',
-      insideLinks: [{
-        nodeId: 'innerA',
-        handleId: 'input',
-      }],
-      outsideLinks: [{
-        nodeId: 'source',
-        handleId: 'result',
-      }],
-    });
-    expect(outputs[0]).toMatchObject({
-      type: 'any',
-      insideLinks: [{
-        nodeId: 'innerA',
-        handleId: 'result',
-      }],
-      outsideLinks: [{
-        nodeId: 'outside',
-        handleId: 'input',
-      }],
-    });
-    expect(inputs[1]).toMatchObject({ insideLinks: [], outsideLinks: [] });
-    expect(outputs[1]).toMatchObject({ insideLinks: [], outsideLinks: [] });
-    expect(groupNode?.data?.collapsed).toBe(false);
-    expect(state.edges).toHaveLength(4);
-    expect(state.edges).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        source: 'source',
-        sourceHandle: 'result',
-        target: groupId,
-        targetHandle: expect.stringContaining('group-port:input:external:'),
-      }),
-      expect.objectContaining({
-        source: groupId,
-        sourceHandle: expect.stringContaining('group-port:input:internal:'),
-        target: 'innerA',
-        targetHandle: 'input',
-      }),
-      expect.objectContaining({
-        source: 'innerA',
-        sourceHandle: 'result',
-        target: groupId,
-        targetHandle: expect.stringContaining('group-port:output:internal:'),
-      }),
-      expect.objectContaining({
-        source: groupId,
-        sourceHandle: expect.stringContaining('group-port:output:external:'),
-        target: 'outside',
-        targetHandle: 'input',
-      }),
-    ]));
+    expect(groupNode?.data).toEqual({ title: '节点组', collapsed: false });
+    expect(state.edges).toEqual([
+      expect.objectContaining({ id: 'e1', source: 'source', target: 'innerA' }),
+      expect.objectContaining({ id: 'e2', source: 'innerA', target: 'outside' }),
+    ]);
   });
 
   it('ungroups children back to root nodes with absolute positions', () => {

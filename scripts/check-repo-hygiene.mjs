@@ -174,7 +174,6 @@ if (failures.length === 0) {
       snippets: [
         '`IO`',
         '`AI 能力 V3`',
-        '`提示词助手`',
         '`文本拆分`',
         '`图像拆分`',
         'Alt+G',

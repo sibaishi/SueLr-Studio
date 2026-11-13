@@ -29,6 +29,7 @@ const allowedMarkdownDocs = new Set([
   'docs/developer-guide.md',
   'docs/release-sop.md',
   'docs/imageGenV2-changes.md',
+  'docs/workflow-node-redesign.md',
 ]);
 
 function collectMarkdownFiles(dir, bucket = []) {

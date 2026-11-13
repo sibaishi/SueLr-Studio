@@ -55,7 +55,6 @@
     "fflate": "0.8.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "three": "^0.184.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -65,7 +64,6 @@
     "@types/node": "22.19.17",
     "@types/react": "^19.2.17",
     "@types/react-dom": "19.2.3",
-    "@types/three": "^0.184.1",
     "@vitejs/plugin-react": "^6.0.3",
     "concurrently": "^9.2.3",
     "electron": "^41.9.0",

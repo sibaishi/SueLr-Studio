@@ -1,32 +1,18 @@
 import { GRID_SIZE, getNodeDefaultSize } from '@/domains/workflow/lib/constants';
-import { getGroupPorts } from '@/domains/workflow/lib/groupPorts';
 import type { Node } from '@xyflow/react';
 
 export const GROUP_SAFE_MARGIN = GRID_SIZE;
 export const GROUP_HEADER_HEIGHT = GRID_SIZE * 2;
-export const GROUP_PORT_ROW_HEIGHT = 36;
-export const GROUP_PORT_ROW_GAP = 6;
-export const GROUP_PORT_SECTION_PADDING = 8;
 export const GROUP_CONTENT_INSET_X = 12;
 export const GROUP_CONTENT_INSET_BOTTOM = 12;
-const GROUP_COLLAPSED_FRAME_PADDING = 8;
-const GROUP_COLLAPSED_STACK_GAP = 6;
-const GROUP_COLLAPSED_HEADER_HEIGHT = 68;
-const GROUP_COLLAPSED_PORT_SECTION_BORDER = 2;
-const GROUP_COLLAPSED_PORT_SECTION_PADDING = 6;
-const GROUP_COLLAPSED_PORT_ROW_HEIGHT = 38;
-const GROUP_COLLAPSED_PORT_ROW_GAP = 4;
-const GROUP_COLLAPSED_META_HEIGHT = 18;
-const GROUP_COLLAPSED_META_MARGIN_TOP = 2;
-const GROUP_COLLAPSED_BOTTOM_SAFE_GAP = 10;
+const GROUP_BORDER = 1;
+
+export const GROUP_EXPANDED_LAYOUT = { padding: 10, gap: 8 };
+export const GROUP_COLLAPSED_LAYOUT = { padding: 8, gap: 6 };
 const GROUP_EXCLUSION_MARGIN = GROUP_SAFE_MARGIN;
 
 function snapValue(value: number) {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
-}
-
-function snapUpValue(value: number) {
-  return Math.ceil(value / GRID_SIZE) * GRID_SIZE;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -56,47 +42,30 @@ export function getGroupContentBounds(groupNode: Node, childNode?: Node) {
   return { minX, minY, maxX, maxY };
 }
 
-function getGroupVisiblePortRowCount(groupNode?: Pick<Node, 'data'>) {
-  const data = (groupNode?.data || {}) as Record<string, unknown>;
-  const inputCount = getGroupPorts(data, 'input').length || 1;
-  const outputCount = getGroupPorts(data, 'output').length || 1;
-  return Math.max(inputCount, outputCount, 1);
+export function getGroupTopInset(_groupNode?: Pick<Node, 'data'>) {
+  return GROUP_BORDER + GROUP_EXPANDED_LAYOUT.padding + GROUP_HEADER_HEIGHT + GROUP_CONTENT_INSET_X;
 }
 
-function getGroupPortSectionHeight(groupNode?: Pick<Node, 'data'>) {
-  const rowCount = getGroupVisiblePortRowCount(groupNode);
-  return (
-    GROUP_PORT_SECTION_PADDING * 2 + rowCount * GROUP_PORT_ROW_HEIGHT + Math.max(0, rowCount - 1) * GROUP_PORT_ROW_GAP
-  );
-}
-
-export function getGroupTopInset(groupNode?: Pick<Node, 'data'>) {
-  if (!groupNode) {
-    return GROUP_HEADER_HEIGHT + GROUP_SAFE_MARGIN;
-  }
-  return snapValue(GROUP_HEADER_HEIGHT + getGroupPortSectionHeight(groupNode) + GROUP_SAFE_MARGIN);
-}
-
-export function getCollapsedGroupNodeSize(node: Pick<Node, 'data'>) {
-  const visibleRows = getGroupVisiblePortRowCount(node);
-  const portSectionHeight =
-    GROUP_COLLAPSED_PORT_SECTION_BORDER +
-    GROUP_COLLAPSED_PORT_SECTION_PADDING * 2 +
-    visibleRows * GROUP_COLLAPSED_PORT_ROW_HEIGHT +
-    Math.max(0, visibleRows - 1) * GROUP_COLLAPSED_PORT_ROW_GAP;
-  const contentHeight =
-    GROUP_COLLAPSED_FRAME_PADDING * 2 +
-    GROUP_COLLAPSED_HEADER_HEIGHT +
-    portSectionHeight +
-    GROUP_COLLAPSED_META_HEIGHT +
-    GROUP_COLLAPSED_META_MARGIN_TOP +
-    GROUP_COLLAPSED_BOTTOM_SAFE_GAP +
-    GROUP_COLLAPSED_STACK_GAP * 2;
-
+export function getCollapsedGroupNodeSize(_node: Pick<Node, 'data'>) {
   return {
     width: GRID_SIZE * 12,
-    height: Math.max(GRID_SIZE * 6, snapUpValue(contentHeight)),
+    height: GROUP_HEADER_HEIGHT + 2 * (GROUP_COLLAPSED_LAYOUT.padding + GROUP_BORDER),
   };
+}
+
+export function constrainGroupChildPositions(nodes: Node[]): Node[] {
+  const groups = new Map(nodes.filter((node) => node.type === 'group').map((node) => [node.id, node]));
+  return nodes.map((node) => {
+    const group = node.parentId ? groups.get(node.parentId) : undefined;
+    return group && !group.data.collapsed ? constrainChildPosition(node, group) : node;
+  });
+}
+
+function constrainChildPosition<T extends Node>(node: T, group: Node): T {
+  const bounds = getGroupContentBounds(group, node);
+  const x = clamp(node.position.x, bounds.minX, bounds.maxX);
+  const y = clamp(node.position.y, bounds.minY, bounds.maxY);
+  return x === node.position.x && y === node.position.y ? node : { ...node, position: { x, y } };
 }
 
 export function constrainChildNodeSizeToGroupContent<T extends Node>(node: T, groupNode: Node): T {
@@ -126,26 +95,8 @@ export function constrainChildNodeToGroupContent<T extends Node>(node: T, groupN
     } as T;
   }
 
-  const sizedNode = constrainChildNodeSizeToGroupContent(node, groupNode);
-  const bounds = getGroupContentBounds(groupNode, sizedNode);
-  const nextPosition = {
-    x: clamp(sizedNode.position.x, bounds.minX, bounds.maxX),
-    y: clamp(sizedNode.position.y, bounds.minY, bounds.maxY),
-  };
-
-  if (
-    nextPosition.x === sizedNode.position.x &&
-    nextPosition.y === sizedNode.position.y &&
-    (sizedNode as Node & { extent?: unknown }).extent === 'parent'
-  ) {
-    return sizedNode;
-  }
-
-  return {
-    ...sizedNode,
-    position: nextPosition,
-    extent: 'parent',
-  } as T;
+  const constrainedNode = constrainChildPosition(constrainChildNodeSizeToGroupContent(node, groupNode), groupNode);
+  return constrainedNode.extent === 'parent' ? constrainedNode : { ...constrainedNode, extent: 'parent' };
 }
 
 export function pushRootNodeOutsideGroupAreas<T extends Node>(node: T, nodes: Node[]): T {

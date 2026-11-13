@@ -76,6 +76,8 @@ describe('workflow store document actions', () => {
         updatedAt: 3456,
         nodes: [
           { id: 'outside', type: 'io', position: { x: 0, y: 0 }, data: {} },
+          { id: 'retired_prompt', type: 'promptHelper', position: { x: 0, y: 0 }, data: {} },
+          { id: 'retired_material', type: 'materialProcess', position: { x: 0, y: 0 }, data: {} },
           { id: 'group', type: 'group', position: { x: 196, y: 0 }, data: {} },
           { id: 'inner', type: 'aiV3', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
         ],
@@ -83,6 +85,8 @@ describe('workflow store document actions', () => {
           { id: 'edge_in', source: 'outside', sourceHandle: 'result', target: 'inner', targetHandle: 'input' },
           { id: 'edge_out', source: 'inner', sourceHandle: 'result', target: 'outside', targetHandle: 'input' },
           { id: 'edge_invalid', source: 'outside', target: 'missing_node' },
+          { id: 'edge_retired_in', source: 'outside', target: 'retired_prompt' },
+          { id: 'edge_retired_out', source: 'retired_material', target: 'outside' },
         ],
       }),
     });
@@ -128,16 +132,8 @@ describe('workflow store document actions', () => {
       groupInputs?: unknown[];
       groupOutputs?: unknown[];
     };
-    expect(groupData.groupInputs?.[0]).toMatchObject({
-      type: 'any',
-      insideLinks: [{ nodeId: 'inner', handleId: 'input' }],
-      outsideLinks: [{ nodeId: 'outside', handleId: 'result' }],
-    });
-    expect(groupData.groupOutputs?.[0]).toMatchObject({
-      type: 'any',
-      insideLinks: [{ nodeId: 'inner', handleId: 'result' }],
-      outsideLinks: [{ nodeId: 'outside', handleId: 'input' }],
-    });
+    expect(groupData.groupInputs).toBeUndefined();
+    expect(groupData.groupOutputs).toBeUndefined();
     expect(state.isExecuting).toBe(false);
     expect(state.currentRunId).toBeNull();
     expect(state.nodeExecStatus).toEqual({});
@@ -225,11 +221,7 @@ describe('workflow store document actions', () => {
     const groupData = (state.nodes.find((node) => node.id === 'group')?.data || {}) as {
       groupInputs?: unknown[];
     };
-    expect(groupData.groupInputs?.[0]).toMatchObject({
-      type: 'any',
-      insideLinks: [{ nodeId: 'inner', handleId: 'input' }],
-      outsideLinks: [{ nodeId: 'outside', handleId: 'result' }],
-    });
+    expect(groupData.groupInputs).toBeUndefined();
     expect(state.isExecuting).toBe(false);
     expect(state.currentRunId).toBeNull();
     expect(state.nodeExecStatus).toEqual({});

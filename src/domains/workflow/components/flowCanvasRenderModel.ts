@@ -1,24 +1,11 @@
 import { getNodeDefaultSize } from '@/domains/workflow/lib/constants';
 import { getCollapsedGroupNodeSize } from '@/domains/workflow/lib/groupLayout';
-import {
-  buildGroupHandleId,
-  collectDescendantNodeIds,
-  findGroupPort,
-  getGroupPorts,
-  parseGroupHandleId,
-} from '@/domains/workflow/lib/groupPorts';
+import { collectDescendantNodeIds } from '@/domains/workflow/lib/groupPorts';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import type { Edge, Node as FlowNodeType } from '@xyflow/react';
-import { getVisibleCollapsedAncestorId } from './flowCanvasConnections';
-import { DEFAULT_WORKFLOW_EDGE_STYLE, getDecoratedGroupEdge, getNearestGroupAncestorId } from './flowCanvasUiHelpers';
 
-const GROUP_INTERNAL_EDGE_STYLE = {
-  ...DEFAULT_WORKFLOW_EDGE_STYLE,
-} as const;
-
-const GROUP_EXTERNAL_EDGE_STYLE = {
-  ...DEFAULT_WORKFLOW_EDGE_STYLE,
-} as const;
+export const COLLAPSED_GROUP_INPUT_ANCHOR = 'collapsed-group-input';
+export const COLLAPSED_GROUP_OUTPUT_ANCHOR = 'collapsed-group-output';
 
 type BuildFlowCanvasRenderModelInput = {
   nodes: FlowNodeType[];
@@ -77,191 +64,48 @@ export function buildFlowCanvasRenderModel({ nodes, edges }: BuildFlowCanvasRend
       return 0;
     });
 
-  const visibleEdges: Edge[] = [];
-  const virtualEdges: Edge[] = [];
-  const internalPortEdges: Edge[] = [];
-  const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
-
-  for (const node of visibleNodes) {
-    if (node.type !== 'group' || collapsedGroupIds.has(node.id)) continue;
-
-    const nodeData = (node.data || {}) as Record<string, unknown>;
-    for (const port of getGroupPorts(nodeData, 'input')) {
-      for (const insideLink of port.insideLinks) {
-        if (!visibleNodeIds.has(insideLink.nodeId)) continue;
-        internalPortEdges.push({
-          id: `group-binding:${node.id}:input:${port.id}:${insideLink.nodeId}:${insideLink.handleId}`,
-          source: node.id,
-          sourceHandle: buildGroupHandleId('input', port.id, 'internal'),
-          target: insideLink.nodeId,
-          targetHandle: insideLink.handleId,
-          type: 'default',
-          animated: false,
-          style: { ...GROUP_INTERNAL_EDGE_STYLE },
-        });
-      }
+  const visibleEndpoints = new Map<string, string>();
+  for (const nodeId of collapsedDescendantIds) {
+    let parentId = nodeMap.get(nodeId)?.parentId;
+    while (parentId && collapsedDescendantIds.has(parentId)) {
+      parentId = nodeMap.get(parentId)?.parentId;
     }
-
-    for (const port of getGroupPorts(nodeData, 'output')) {
-      for (const insideLink of port.insideLinks) {
-        if (!visibleNodeIds.has(insideLink.nodeId)) continue;
-        internalPortEdges.push({
-          id: `group-binding:${node.id}:output:${port.id}:${insideLink.nodeId}:${insideLink.handleId}`,
-          source: insideLink.nodeId,
-          sourceHandle: insideLink.handleId,
-          target: node.id,
-          targetHandle: buildGroupHandleId('output', port.id, 'internal'),
-          type: 'default',
-          animated: false,
-          style: { ...GROUP_INTERNAL_EDGE_STYLE },
-        });
-      }
-    }
+    if (parentId) visibleEndpoints.set(nodeId, parentId);
   }
 
-  for (const edge of edges) {
-    const sourceDescriptor = parseGroupHandleId(edge.sourceHandle);
-    const targetDescriptor = parseGroupHandleId(edge.targetHandle);
-    const sourceNodeForEdge = nodeMap.get(edge.source);
-    const targetNodeForEdge = nodeMap.get(edge.target);
-    const sourceIsCollapsedGroupExternal =
-      sourceNodeForEdge?.type === 'group' &&
-      collapsedGroupIds.has(edge.source) &&
-      sourceDescriptor?.role === 'external';
-    const targetIsCollapsedGroupExternal =
-      targetNodeForEdge?.type === 'group' &&
-      collapsedGroupIds.has(edge.target) &&
-      targetDescriptor?.role === 'external';
+  const inputAnchors = new Set<string>();
+  const outputAnchors = new Set<string>();
+  const visibleEdges = edges.flatMap((edge) => {
+    const source = visibleEndpoints.get(edge.source) ?? edge.source;
+    const target = visibleEndpoints.get(edge.target) ?? edge.target;
+    const projected = source !== edge.source || target !== edge.target;
+    if (!projected) return [{ ...edge, type: 'default' }];
+    if (source === target) return [];
+    if (source !== edge.source) outputAnchors.add(source);
+    if (target !== edge.target) inputAnchors.add(target);
+    return [{
+      ...edge,
+      source,
+      target,
+      sourceHandle: source === edge.source ? edge.sourceHandle : COLLAPSED_GROUP_OUTPUT_ANCHOR,
+      targetHandle: target === edge.target ? edge.targetHandle : COLLAPSED_GROUP_INPUT_ANCHOR,
+      type: 'default',
+      selectable: false,
+      deletable: false,
+      reconnectable: false,
+      selected: false,
+      data: { ...edge.data, collapsedGroupPreview: true },
+    }];
+  });
 
-    if (
-      sourceDescriptor &&
-      sourceNodeForEdge?.type === 'group' &&
-      sourceDescriptor.side === 'input' &&
-      sourceDescriptor.role === 'internal'
-    ) {
-      const port = findGroupPort(
-        (sourceNodeForEdge.data || {}) as Record<string, unknown>,
-        'input',
-        sourceDescriptor.portId,
-      );
-      if (port?.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle)) {
-        continue;
-      }
-    }
+  const nodesWithAnchors = visibleNodes.map((node) => collapsedGroupIds.has(node.id) ? {
+    ...node,
+    data: {
+      ...node.data,
+      showCollapsedInputAnchor: inputAnchors.has(node.id),
+      showCollapsedOutputAnchor: outputAnchors.has(node.id),
+    },
+  } : node);
 
-    if (
-      targetDescriptor &&
-      targetNodeForEdge?.type === 'group' &&
-      targetDescriptor.side === 'output' &&
-      targetDescriptor.role === 'internal'
-    ) {
-      const port = findGroupPort(
-        (targetNodeForEdge.data || {}) as Record<string, unknown>,
-        'output',
-        targetDescriptor.portId,
-      );
-      if (port?.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle)) {
-        continue;
-      }
-    }
-
-    if (sourceIsCollapsedGroupExternal || targetIsCollapsedGroupExternal) {
-      visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
-      continue;
-    }
-
-    const sourceGroupId = getNearestGroupAncestorId(edge.source, nodeMap);
-    const targetGroupId = getNearestGroupAncestorId(edge.target, nodeMap);
-    const sourceCollapsedGroupId = getVisibleCollapsedAncestorId(edge.source, nodeMap, collapsedGroupIds);
-    const targetCollapsedGroupId = getVisibleCollapsedAncestorId(edge.target, nodeMap, collapsedGroupIds);
-    const visibleSourceGroupId = sourceCollapsedGroupId || sourceGroupId;
-    const visibleTargetGroupId = targetCollapsedGroupId || targetGroupId;
-
-    if (!visibleSourceGroupId && !visibleTargetGroupId) {
-      visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
-      continue;
-    }
-
-    if (visibleSourceGroupId && visibleTargetGroupId && visibleSourceGroupId === visibleTargetGroupId) {
-      if (!sourceCollapsedGroupId && !targetCollapsedGroupId) {
-        visibleEdges.push(getDecoratedGroupEdge({ ...edge, type: 'default' }, sourceDescriptor, targetDescriptor));
-      }
-      continue;
-    }
-
-    if (!visibleSourceGroupId && visibleTargetGroupId) {
-      const groupNode = nodeMap.get(visibleTargetGroupId);
-      const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'input') : [];
-      const port = ports.find((item) =>
-        item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle),
-      );
-      if (!port) continue;
-      virtualEdges.push({
-        id: `virtual:${edge.id}`,
-        source: edge.source,
-        sourceHandle: edge.sourceHandle,
-        target: visibleTargetGroupId,
-        targetHandle: buildGroupHandleId('input', port.id, 'external'),
-        type: 'default',
-        animated: false,
-        style: { ...GROUP_EXTERNAL_EDGE_STYLE },
-      });
-      continue;
-    }
-
-    if (visibleSourceGroupId && !visibleTargetGroupId) {
-      const groupNode = nodeMap.get(visibleSourceGroupId);
-      const ports = groupNode ? getGroupPorts((groupNode.data || {}) as Record<string, unknown>, 'output') : [];
-      const port = ports.find((item) =>
-        item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle),
-      );
-      if (!port) continue;
-      virtualEdges.push({
-        id: `virtual:${edge.id}`,
-        source: visibleSourceGroupId,
-        sourceHandle: buildGroupHandleId('output', port.id, 'external'),
-        target: edge.target,
-        targetHandle: edge.targetHandle,
-        type: 'default',
-        animated: false,
-        style: { ...GROUP_EXTERNAL_EDGE_STYLE },
-      });
-      continue;
-    }
-
-    if (visibleSourceGroupId && visibleTargetGroupId) {
-      const sourceGroupNode = nodeMap.get(visibleSourceGroupId);
-      const targetGroupNode = nodeMap.get(visibleTargetGroupId);
-      const sourcePorts = sourceGroupNode
-        ? getGroupPorts((sourceGroupNode.data || {}) as Record<string, unknown>, 'output')
-        : [];
-      const targetPorts = targetGroupNode
-        ? getGroupPorts((targetGroupNode.data || {}) as Record<string, unknown>, 'input')
-        : [];
-      const sourcePort = sourcePorts.find((item) =>
-        item.insideLinks.some((link) => link.nodeId === edge.source && link.handleId === edge.sourceHandle),
-      );
-      const targetPort = targetPorts.find((item) =>
-        item.insideLinks.some((link) => link.nodeId === edge.target && link.handleId === edge.targetHandle),
-      );
-      if (!sourcePort || !targetPort) continue;
-      virtualEdges.push({
-        id: `virtual:${edge.id}`,
-        source: visibleSourceGroupId,
-        sourceHandle: buildGroupHandleId('output', sourcePort.id, 'external'),
-        target: visibleTargetGroupId,
-        targetHandle: buildGroupHandleId('input', targetPort.id, 'external'),
-        type: 'default',
-        animated: false,
-        style: { ...GROUP_EXTERNAL_EDGE_STYLE },
-      });
-    }
-  }
-
-  return {
-    nodes: visibleNodes,
-    edges: [...visibleEdges, ...virtualEdges, ...internalPortEdges],
-    collapsedGroupIds,
-    nodeMap,
-  };
+  return { nodes: nodesWithAnchors, edges: visibleEdges, collapsedGroupIds, nodeMap };
 }

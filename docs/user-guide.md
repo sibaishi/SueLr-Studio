@@ -224,19 +224,11 @@ Execution behavior:
 - Closing the browser tab, refreshing the page, or losing the streaming connection does not by itself cancel the backend run. The app can recover run status by polling after reconnecting.
 - If a run finishes while the stream is disconnected, the latest terminal status is still available from the run-status endpoint for recovery.
 
-Common node groups:
-
-- `IO`: accepts text, images, files, or upstream values and exposes a general-purpose output. Image cards render only the actual images and do not append synthetic `+N` items.
-- `AI 能力 V3`: switches execution mode from the selected project model capability
-- `提示词助手`: structures and optimizes prompt content
-- `素材处理`: handles text or image material through one `input -> result` contract. It can split only, iterate only, or split and then execute downstream once per item.
-- `分组`: organizes canvas nodes without changing the saved child-node semantics
-
-`素材处理` directly reuses the same V2 card dimensions, resizable bottom-panel shell, compact input preview, and popover controls as the current IO and AiV3 nodes. Its card follows the IO material-preview style without extra counters, adoption labels, leading text icons, image-count limits, or `+N` placeholders. Text keeps its original line breaks, and every image is rendered as a real thumbnail. The card previews the input items that will be processed or the latest result. Choosing `文本` or `图像` filters a mixed upstream array and processes only matching items; unsupported and non-selected items are ignored. `自动识别` accepts a single recognizable material type and asks you to choose a type when text and images are mixed. Text splitting uses a separator and output limit; image splitting uses a rows-by-columns grid. Enable at least one of `拆分` or `逐项`. A single directed execution path may contain only one `素材处理` node with `逐项` enabled, while separate parallel branches may each use one.
-
-Image parts created by `素材处理` are temporary workflow assets. They can pass through multiple downstream nodes during the same run, but they are not added to uploads or generated results. After the workflow completes, fails, or is cancelled, the latest temporary images remain available for node preview. The app releases that retained set when the same workflow starts its next run; backend startup also removes abandoned temporary assets.
-
 The former `文本拆分`, `图像拆分`, `文本逐项`, and `图像逐项` node types are no longer supported. Workflows containing those historical node types are reported as incompatible instead of being silently converted.
+
+The node picker lists `IO` and `AI 能力 V3` directly. IO accepts text, images, files, and upstream values. Canvas groups use a translucent frame when expanded and a compact card when collapsed. Connect directly to nodes inside expanded groups. Cross-group connections reach the card boundary when collapsed and reconnect visually to their nodes when expanded. Opening an older workflow converts connected group ports into direct node connections.
+
+Old workflows open with retired prompt-helper and material-processing nodes removed, along with their connected edges. Reconnect the remaining nodes as needed. Saved files are updated when the workflow is saved.
 
 `AI 能力 V3` behavior:
 

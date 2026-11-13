@@ -15,7 +15,6 @@ import {
   Repeat,
   Robot,
   Scan,
-  Sparkle,
   SplitVertical,
 } from '@phosphor-icons/react';
 import type { ComponentType } from 'react';
@@ -38,7 +37,6 @@ export const NODE_ICONS: Record<string, NodeIconComponent> = {
   clapperboard: FilmStrip,
   search: MagnifyingGlass,
   eye: Eye,
-  promptHelper: Sparkle,
   save: DownloadSimple,
 };
 

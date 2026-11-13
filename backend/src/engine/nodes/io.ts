@@ -3,35 +3,6 @@ import type { NodeInputs, ProgressCallback, RuntimeApiConfig, WorkflowNode } fro
 
 const AI_NODE_TYPES = /^(aiV3|imageGenV2|videoGenV2|aiChatV2)$/;
 
-// Per-run accumulator for iterationAggregate IO nodes.
-// Keyed by runId, then by node id. Each iteration appends its upstream
-// items; the IO node returns the full accumulated list every round.
-const perRunAccumulators = new Map<string, Map<string, unknown[]>>();
-
-function getAccumulator(runId: string, nodeId: string): unknown[] {
-  let runAcc = perRunAccumulators.get(runId);
-  if (!runAcc) {
-    runAcc = new Map();
-    perRunAccumulators.set(runId, runAcc);
-  }
-  let accumulator = runAcc.get(nodeId);
-  if (!accumulator) {
-    accumulator = [];
-    runAcc.set(nodeId, accumulator);
-  }
-  return accumulator;
-}
-
-function pushToAccumulator(acc: unknown[], items: unknown): void {
-  if (Array.isArray(items)) {
-    for (const item of items) {
-      acc.push(item);
-    }
-  } else if (items !== undefined && items !== null) {
-    acc.push(items);
-  }
-}
-
 type IoResult = { result: unknown; savedFiles: unknown[]; savedPaths: string[] };
 
 function resolveSourceType(types: unknown[], idx: number): unknown {
@@ -55,21 +26,11 @@ export async function execute(
 ) {
   const nodeData = (node.data || {}) as Record<string, unknown>;
 
-  // Wrap every return through finalize so iterationAggregate nodes
-  // accumulate upstream items across iterations.
-  const finalize = (partial: { result: unknown; savedFiles?: unknown[]; savedPaths?: string[] }): IoResult => {
-    const normalized: IoResult = {
-      result: partial.result,
-      savedFiles: partial.savedFiles || [],
-      savedPaths: partial.savedPaths || [],
-    };
-    if (nodeData.iterationAggregate && apiConfig.runId) {
-      const acc = getAccumulator(apiConfig.runId, String(node.id || ''));
-      pushToAccumulator(acc, normalized.result);
-      return { result: [...acc], savedFiles: normalized.savedFiles, savedPaths: normalized.savedPaths };
-    }
-    return normalized;
-  };
+  const finalize = (partial: { result: unknown; savedFiles?: unknown[]; savedPaths?: string[] }): IoResult => ({
+    result: partial.result,
+    savedFiles: partial.savedFiles || [],
+    savedPaths: partial.savedPaths || [],
+  });
 
   // _rawContent (pre-assembled upstream data in per-type order) takes priority
   // over live upstream inputs — enables per-type independent ordering.

@@ -151,7 +151,7 @@ Current cleanup and ownership notes:
 - `src/domains/workflow/components/nodes/V2WorkflowNode.tsx`
   - shared `aiV3`/`io` node shell for rename, disable, lock, duplicate, execute-to-node, runtime status, resizing, and common handles; node-specific wrappers preserve type, label, color, ports, and content semantics
 - `src/domains/workflow/components/nodes/NodePorts.tsx`
-  - regular node handles and group boundary port handles, including split internal and external group-port affordances
+  - regular node handles. Canvas groups have no handles
 - `src/domains/workflow/components/NodeCanvasEditorModal.tsx`
   - 图片与草图共用的画板。编辑会话管理画布尺寸、位图图层、矩形、椭圆和自由手绘套索选区。绘画辅助在 `nodeCanvasShapes.ts` 中处理指针平滑、形状路径与手绘识别，应用后写入图层像素。选区布尔运算与羽化在 `nodeCanvasSelection.ts` 中生成透明度蒙版。自由变换的预览保存在会话状态，应用时只提交一条历史；几何与位图绘制在 `nodeCanvasTransform.ts`。撤销历史复用未修改的图层位图。预览与 PNG 输出使用同一合成画布，保存回调接收 PNG 文件。
   - 画板、图片预览和长文本使用与工作室设置、资产库相同的 `ModalSurface` 和遮罩样式。画板、预览、长文本和确认弹窗共用 `workflowModalIsolation.ts` 管理键盘焦点，并用 inert 暂停工作区和下层弹窗的交互。工作流快捷键和粘贴入口在这些弹窗打开时暂停。
@@ -160,7 +160,7 @@ Current cleanup and ownership notes:
 - `src/domains/workflow/lib/groupLayout.ts`
   - group sizing, collapsed group size, child constraints, and root-node placement around groups
 - `src/domains/workflow/lib/groupPorts.ts`
-  - group input/output port normalization, boundary-handle ids, compatibility, and transit-port routing
+  - legacy group-port normalization and migration to direct node edges
 - `src/domains/workflow/lib/graphHierarchy.ts`
   - canonical parent lookup, absolute canvas coordinates, descendant collection, and action-selection expansion shared by clipboard, editor, grouping, and execution projection
 - `src/domains/workflow/lib/executionGraph.ts`
@@ -276,12 +276,10 @@ The normal Vite build uses explicit vendor chunks in `vite.config.ts`:
 
 - `vendor-react`
 - `vendor-react-flow`
-- `vendor-three`
 - `vendor-markdown`
 - `vendor-icons`
 
 `VITE_SINGLEFILE=1` disables manual chunking so the single-file build path remains compatible with `vite-plugin-singlefile`.
-The chunk warning limit is set to 600 kB because the only expected near-threshold chunk is the isolated Three.js vendor payload used by the workflow prompt-helper scene.
 
 ## Backend Structure
 
@@ -344,10 +342,6 @@ Cross-runtime contracts remain independently typed at each runtime boundary. Beh
   - 音频项目模型使用 `audio` 类型和端点分类，分类默认路由至 `/v1/audio/speech`，自定义路径沿用模型路由。AI V3 的音频模式发送兼容的语音合成请求，校验 MP3 后交给现有 IO 节点持久化。
   - 视频服务以供应商请求 URL 解析相对结果地址，通过远程下载校验重定向和媒体内容，再向工作流返回视频数据。
   - AI 能力节点将图像输出档位保存为 `imageResolution`，旧节点读取 `resolution` 时只接受有效的图像档位。视频能力接口忽略旧请求中的 `resolution`，视频适配器提交上游任务时省略该字段。
-- `backend/src/engine/nodes/promptHelper.ts`
-  - prompt structuring and optimization
-- `backend/src/engine/nodes/materialProcess.ts`
-  - unified text/image material splitting and per-item execution preparation
 - `backend/src/engine/nodes/cleanModelText.ts`
   - model-output cleanup used by the maintained execution chain
 - `backend/src/engine/helpers/imageGeneration.ts`
@@ -473,12 +467,9 @@ Current canonical node surface:
 
 - `io`: general input/output
 - `aiV3`: chat, image, video, and Midjourney execution selected by project-model capability
-- `promptHelper` and `materialProcess`: maintained transformation nodes
 - `group`: canvas organization
 
-`materialProcess` owns the unified `input:any -> result:any` contract. It uses `V2WorkflowNodeShell` with the same default dimensions as `io` and `aiV3`, plus the shared `WorkflowStylePanelShell`, compact input preview, and `StylePanelPopoverButton` controls. Its card-level text/image rendering lives in `NodeCardMaterialPreview` and follows the IO visual style. Both cards render only actual images: synthetic image-count entries such as `+N` are forbidden. The material card must not introduce thumbnail limits, counters, adoption labels, or media-type icons. Its isolated node metadata declares text/image selection, split parameters, and iteration mode. An explicit `materialType` filters mixed upstream arrays before splitting or iteration; `auto` remains strict and accepts only one recognizable type. The executor treats `iterateEnabled` nodes as scheduling controls, and shared graph validation rejects more than one enabled iterator on the same directed path. Historical `textSplit`, `imageSplit`, `iterateRun`, and `iterateImageRun` workflows are intentionally incompatible.
-
-Image splitting writes each part under the resolver-owned `runtime/workflows/<run>` storage area and passes `/api/runtime/workflows/...` URLs through the execution graph. Provider adapters resolve them through the shared media resolver and convert them to Base64 only at the supplier boundary. A completed, failed, or cancelled run retains its temporary directory for node previews. When the same workflow starts again, activation removes the previous retained run before creating the new runtime directory; concurrent active runs are not removed. Backend startup removes abandoned runtime directories. Runtime URLs must not be persisted as IO source metadata, generated-output artifacts, or recoverable run-summary assets.
+The node picker is a flat list of executable node definitions. Canvas groups remain structural. Workflow document loading and normalization omit retired transformation nodes and their incident edges. The [redesign checklist](workflow-node-redesign.md) records their former behavior.
 
 Older V2-specific node documents and definitions are migration history, not templates for new work.
 
@@ -493,8 +484,7 @@ High-value regression areas:
 
 - workflow document save/load/import/export
 - workflow group creation, collapse, ungroup, locking, and disabling behavior
-- group input/output port routing across group boundaries
-- directional group-port connection behavior from `FlowCanvas.tsx` through `NodePorts.tsx`
+- direct node connections across expanded group boundaries and legacy group-port migration
 - centered node-picker panel, blank-canvas double-click open, and blank-canvas right-click paste menu
 - workflow keyboard shortcuts for copy, paste, grouping, execution, undo, and redo
 - workflow node registry compatibility after node-definition moves

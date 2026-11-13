@@ -22,9 +22,6 @@ async function addTextInputNode(page: import('@playwright/test').Page) {
 
 async function addWorkflowNode(page: import('@playwright/test').Page, nodeType: 'aiV3' | 'io') {
   await page.getByTestId('workflow-add-node').click();
-  if (nodeType === 'aiV3') {
-    await page.getByRole('button', { name: /AI 能力/ }).click();
-  }
   await page.getByTestId(`workflow-node-catalog-item-${nodeType}`).click();
 }
 

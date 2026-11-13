@@ -1,9 +1,5 @@
-import {
-  findNestedMaterialProcessPath,
-  isIteratingMaterialProcessNode,
-} from '../../../src/shared/workflow/material-process-graph.js';
 import { WORKFLOW_SSE_EVENTS } from '../platform/logging/workflow-events.ts';
-import { mapConcurrentAndThrowAfterSettled, normalizeConcurrencyConfig } from '../platform/runtime/concurrency.ts';
+import { normalizeConcurrencyConfig } from '../platform/runtime/concurrency.ts';
 import { getRequiredInputs, isExecutableNodeType } from './contracts/node-registry.ts';
 import {
   collectInputs,
@@ -13,7 +9,6 @@ import {
   validateWorkflow,
 } from './executor-helpers.ts';
 import { NODE_EXECUTORS } from './nodes/index.ts';
-import { processMaterial } from './nodes/materialProcess.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig, WorkflowNode } from './nodes/types.ts';
 
 type WorkflowEdge = {
@@ -39,24 +34,6 @@ type NodeExecutor = (
   progress: ProgressCallback,
 ) => Promise<Record<string, DynamicValue>> | Record<string, DynamicValue>;
 
-type IterationItem = {
-  value: DynamicValue;
-  outputKey: 'result';
-  inputHandle: string;
-  sourceNodeId: string;
-  sourceHandle: string;
-};
-
-type IterationContext = {
-  sourceNodeId: string;
-  index: number;
-  total: number;
-  inputHandle: string;
-  sourceInputNodeId: string;
-  sourceHandle: string;
-  parent?: IterationContext;
-};
-
 type ExecutionContext = {
   getNodeLogOutputs?: (
     result: Record<string, DynamicValue>,
@@ -68,65 +45,6 @@ type WorkflowError = Error & {
   workflowTerminated?: boolean;
   nodeErrorAlreadySent?: boolean;
 };
-
-function isIterateControlNode(node?: WorkflowNode): boolean {
-  return isIteratingMaterialProcessNode(node);
-}
-
-function getIterateMissingInputError(): string {
-  return '素材逐项运行没有可用输入';
-}
-
-function getReachableNodeIds(sourceId: string, edges: WorkflowEdge[]): Set<string> {
-  const reachable = new Set<string>();
-  const queue = edges.filter((edge) => edge.source === sourceId).map((edge) => edge.target);
-
-  while (queue.length > 0) {
-    const nodeId = queue.shift();
-    if (!nodeId || reachable.has(nodeId)) continue;
-    reachable.add(nodeId);
-    for (const edge of edges) {
-      if (edge.source === nodeId) queue.push(edge.target);
-    }
-  }
-
-  return reachable;
-}
-
-function normalizeIterationItems(value: DynamicValue): DynamicValue[] {
-  if (Array.isArray(value)) {
-    return value.flatMap((item) => normalizeIterationItems(item));
-  }
-
-  if (value === undefined || value === null) return [];
-
-  if (typeof value === 'string') {
-    const text = value.trim();
-    return text ? [text] : [];
-  }
-
-  return [value];
-}
-
-async function collectIterationItems(
-  iterateNode: WorkflowNode,
-  edges: WorkflowEdge[],
-  outputs: WorkflowOutputs,
-  nodes: WorkflowNode[],
-  apiConfig: RuntimeApiConfig,
-): Promise<IterationItem[]> {
-  const inputEdges = edges.filter((edge) => edge.target === iterateNode.id);
-  const inputs = collectInputs(iterateNode, edges, outputs, nodes);
-  const processed = await processMaterial(iterateNode, inputs.input, apiConfig);
-  const sourceEdge = inputEdges[0];
-  return normalizeIterationItems(processed).map((item) => ({
-    value: item,
-    outputKey: 'result',
-    inputHandle: sourceEdge?.targetHandle || 'input',
-    sourceNodeId: sourceEdge?.source || '',
-    sourceHandle: sourceEdge?.sourceHandle || '',
-  }));
-}
 
 export async function executeWorkflow(
   workflow: Workflow,
@@ -149,14 +67,6 @@ export async function executeWorkflow(
   const executableEdges = edges.filter(
     (edge) => executableNodeIds.has(edge.source) && executableNodeIds.has(edge.target),
   );
-
-  const nestedMaterialPath = findNestedMaterialProcessPath(executableNodes, executableEdges);
-  if (nestedMaterialPath) {
-    sendSSE(WORKFLOW_SSE_EVENTS.VALIDATION_FAILED, {
-      error: `同一条执行路径只能有一个启用逐项的素材处理节点：${nestedMaterialPath.sourceId} -> ${nestedMaterialPath.targetId}`,
-    });
-    return;
-  }
 
   if (executableNodes.length === 0) {
     sendSSE(WORKFLOW_SSE_EVENTS.VALIDATION_FAILED, { error: '工作流中没有可执行节点' });
@@ -189,8 +99,6 @@ export async function executeWorkflow(
     node: WorkflowNode,
     index: number,
     total: number,
-    scopedOutputs: WorkflowOutputs,
-    iteration: IterationContext | null = null,
   ): Promise<Record<string, DynamicValue>> => {
     if (abortSignal?.aborted) {
       throw new Error('工作流已手动停止');
@@ -218,11 +126,10 @@ export async function executeWorkflow(
       nodeType: node.type,
       index,
       total,
-      ...(iteration ? { iteration } : {}),
     });
 
     try {
-      const inputs = collectInputs(node, executableEdges, scopedOutputs, executableNodes);
+      const inputs = collectInputs(node, executableEdges, outputs, executableNodes);
       const requiredInputs = getRequiredInputs(String(node.type || ''));
       const missingInputs = requiredInputs.filter((key) => {
         const value = inputs[key];
@@ -248,11 +155,10 @@ export async function executeWorkflow(
           progress: -1,
           message,
           ...(data || {}),
-          ...(iteration ? { iteration } : {}),
         });
       });
 
-      scopedOutputs[String(node.id || '')] = result;
+      outputs[String(node.id || '')] = result;
       successCount += 1;
 
       sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
@@ -266,7 +172,6 @@ export async function executeWorkflow(
             })
           : result,
         duration: Date.now() - nodeStartTime,
-        ...(iteration ? { iteration } : {}),
       });
 
       return result;
@@ -281,176 +186,61 @@ export async function executeWorkflow(
         sendSSE(WORKFLOW_SSE_EVENTS.NODE_FAILED, {
           nodeId: node.id,
           error: message,
-          ...(iteration ? { iteration } : {}),
         });
       }
       throw error;
     }
   };
 
-  const runSegment = async (
-    segmentNodes: WorkflowNode[],
-    scopedOutputs: WorkflowOutputs,
-    parentIteration: IterationContext | null = null,
-  ): Promise<void> => {
-    const segmentNodeIds = new Set(segmentNodes.map((node) => String(node.id || '')));
-    const segmentNodesById = new Map(segmentNodes.map((node) => [String(node.id || ''), node]));
-    const controlledNodeIds = new Set<string>();
-    const controlledDownstreamByNodeId = new Map<string, Set<string>>();
+  const nodesById = new Map(sorted.map((node) => [String(node.id || ''), node]));
+  const pendingNodeIds = new Set(nodesById.keys());
+  const running = new Map<string, Promise<{ nodeId: string; status: 'fulfilled' | 'rejected'; error?: unknown }>>();
+  const completedNodeIds = new Set<string>();
+  let firstError: unknown = null;
 
-    for (const node of segmentNodes) {
-      if (!isIterateControlNode(node)) continue;
-      const downstreamIds = new Set(
-        [...getReachableNodeIds(String(node.id || ''), executableEdges)].filter((nodeId) => segmentNodeIds.has(nodeId)),
+  const startReadyOperations = () => {
+    if (firstError) return;
+
+    for (const nodeId of [...pendingNodeIds]) {
+      if (running.size >= workflowConcurrency.maxConcurrency) return;
+      const node = nodesById.get(nodeId);
+      if (!node) continue;
+      const waitingForUpstream = executableEdges.some(
+        (edge) => edge.target === nodeId && !completedNodeIds.has(edge.source),
       );
-      controlledDownstreamByNodeId.set(String(node.id || ''), downstreamIds);
-      downstreamIds.forEach((nodeId) => controlledNodeIds.add(nodeId));
+      if (waitingForUpstream) continue;
+
+      pendingNodeIds.delete(nodeId);
+      const promise = runNode(node, sortedIndexByNodeId.get(nodeId) ?? 0, sorted.length)
+        .then(() => ({ nodeId, status: 'fulfilled' as const }))
+        .catch((error: unknown) => ({ nodeId, status: 'rejected' as const, error }));
+      running.set(nodeId, promise);
     }
-
-    const runnableNodes = segmentNodes.filter((node) => !controlledNodeIds.has(String(node.id || '')));
-    const runnableNodeIds = new Set(runnableNodes.map((node) => String(node.id || '')));
-    const pendingNodeIds = new Set(runnableNodes.map((node) => String(node.id || '')));
-    const running = new Map<string, Promise<{ nodeId: string; status: 'fulfilled' | 'rejected'; error?: unknown }>>();
-    const completedNodeIds = new Set<string>();
-    let firstError: unknown = null;
-
-    const getNodeIndex = (nodeId?: string) => sortedIndexByNodeId.get(String(nodeId || '')) ?? 0;
-
-    const getOperationDependencies = (node: WorkflowNode): Set<string> => {
-      const dependencies = new Set(
-        executableEdges.filter((edge) => edge.target === node.id).map((edge) => edge.source),
-      );
-
-      if (isIterateControlNode(node)) {
-        const controlledDownstreamIds = controlledDownstreamByNodeId.get(String(node.id || '')) || new Set();
-        for (const edge of executableEdges) {
-          if (!controlledDownstreamIds.has(edge.target)) continue;
-          if (controlledDownstreamIds.has(edge.source) || edge.source === node.id) continue;
-          dependencies.add(edge.source);
-        }
-      }
-
-      return dependencies;
-    };
-
-    const dependenciesReady = (dependencies: Set<string>) =>
-      [...dependencies].every((nodeId) => {
-        if (runnableNodeIds.has(nodeId)) return completedNodeIds.has(nodeId);
-        return Object.prototype.hasOwnProperty.call(scopedOutputs, nodeId);
-      });
-
-    const runIterateNode = async (node: WorkflowNode) => {
-      const index = getNodeIndex(node.id);
-      const controlledDownstreamIds = controlledDownstreamByNodeId.get(String(node.id || '')) || new Set();
-      const downstreamNodes = segmentNodes.filter((item) => controlledDownstreamIds.has(String(item.id || '')));
-      const iterationItems = await collectIterationItems(
-        node,
-        executableEdges,
-        scopedOutputs,
-        executableNodes,
-        apiConfig,
-      );
-      if (iterationItems.length === 0) {
-        failCount += 1;
-        failWorkflowAtNode({
-          node,
-          nodes: executableNodes,
-          index,
-          total: sorted.length,
-          error: getIterateMissingInputError(),
-          sendSSE,
-        });
-      }
-
-      await mapConcurrentAndThrowAfterSettled(
-        iterationItems,
-        async (item, iterationIndex) => {
-          const iteration: IterationContext = {
-            sourceNodeId: String(node.id || ''),
-            index: iterationIndex + 1,
-            total: iterationItems.length,
-            inputHandle: item.inputHandle,
-            sourceInputNodeId: item.sourceNodeId,
-            sourceHandle: item.sourceHandle,
-            ...(parentIteration ? { parent: parentIteration } : {}),
-          };
-          const iterationOutputs = {
-            ...scopedOutputs,
-            [String(node.id || '')]: { [item.outputKey]: item.value },
-          };
-
-          sendSSE(WORKFLOW_SSE_EVENTS.NODE_STARTED, {
-            nodeId: node.id,
-            nodeType: node.type,
-            index,
-            total: sorted.length,
-            iteration,
-          });
-          sendSSE(WORKFLOW_SSE_EVENTS.NODE_COMPLETED, {
-            nodeId: node.id,
-            outputs: { [item.outputKey]: item.value },
-            logOutputs: { [item.outputKey]: item.value },
-            duration: 0,
-            iteration,
-          });
-
-          await runSegment(downstreamNodes, iterationOutputs, iteration);
-        },
-        workflowConcurrency.maxConcurrency,
-      );
-    };
-
-    const runOperation = async (node: WorkflowNode) => {
-      if (isIterateControlNode(node)) {
-        await runIterateNode(node);
-        return;
-      }
-      await runNode(node, getNodeIndex(node.id), sorted.length, scopedOutputs, parentIteration);
-    };
-
-    const startReadyOperations = () => {
-      if (firstError) return;
-
-      for (const nodeId of [...pendingNodeIds]) {
-        if (running.size >= workflowConcurrency.maxConcurrency) return;
-        const node = segmentNodesById.get(nodeId);
-        if (!node) continue;
-        const dependencies = getOperationDependencies(node);
-        if (!dependenciesReady(dependencies)) continue;
-
-        pendingNodeIds.delete(nodeId);
-        const promise = runOperation(node)
-          .then(() => ({ nodeId, status: 'fulfilled' as const }))
-          .catch((error: unknown) => ({ nodeId, status: 'rejected' as const, error }));
-        running.set(nodeId, promise);
-      }
-    };
-
-    while (pendingNodeIds.size > 0 || running.size > 0) {
-      startReadyOperations();
-
-      if (running.size === 0) {
-        if (firstError) throw firstError;
-        const blockedNodeId = pendingNodeIds.values().next().value;
-        const blockedNode = blockedNodeId ? segmentNodesById.get(blockedNodeId) : undefined;
-        throw new Error(
-          `Workflow execution could not resolve dependencies for node: ${blockedNode?.id || blockedNodeId}`,
-        );
-      }
-
-      const settled = await Promise.race(running.values());
-      running.delete(settled.nodeId);
-      if (settled.status === 'rejected') {
-        firstError = firstError || settled.error;
-      } else {
-        completedNodeIds.add(settled.nodeId);
-      }
-    }
-
-    if (firstError) throw firstError;
   };
 
-  await runSegment(sorted, outputs);
+  while (pendingNodeIds.size > 0 || running.size > 0) {
+    startReadyOperations();
+
+    if (running.size === 0) {
+      if (firstError) throw firstError;
+      const blockedNodeId = pendingNodeIds.values().next().value;
+      const blockedNode = blockedNodeId ? nodesById.get(blockedNodeId) : undefined;
+      throw new Error(
+        `Workflow execution could not resolve dependencies for node: ${blockedNode?.id || blockedNodeId}`,
+      );
+    }
+
+    const settled = await Promise.race(running.values());
+    running.delete(settled.nodeId);
+    if (settled.status === 'rejected') {
+      firstError = firstError || settled.error;
+    } else {
+      completedNodeIds.add(settled.nodeId);
+    }
+  }
+
+  if (firstError) throw firstError;
+
   sendSSE(WORKFLOW_SSE_EVENTS.RUN_COMPLETED, {
     totalDuration: Date.now() - startTime,
     successCount,

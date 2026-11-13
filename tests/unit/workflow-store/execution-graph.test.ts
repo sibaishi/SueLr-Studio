@@ -1,8 +1,12 @@
+import { normalizeGroupPortNodes, normalizeLegacyGroupEdges, pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
+import { expandAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
 import { describe, expect, it } from 'vitest';
 import type { Node } from '@xyflow/react';
 import {
   filterExecutionGraphToUpstreamTarget,
+  migrateGroupPortConnections,
   projectWorkflowToExecutionGraph,
+  resolveWorkflowConnections,
 } from '@/domains/workflow/lib/executionGraph';
 
 describe('execution graph projection', () => {
@@ -187,10 +191,49 @@ describe('execution graph projection', () => {
     ]);
   });
 
-  it('passes a disabled materialProcess input through result', () => {
+  it('resolves legacy generic group ports to the actual IO and AI inputs', () => {
+    const nodes: Node[] = [
+      { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: { text: '分组输入' } },
+      {
+        id: 'group',
+        type: 'group',
+        position: { x: 300, y: 0 },
+        data: {
+          groupInputs: [{ id: 'in', type: 'any', binding: { nodeId: 'ai', handleId: 'input' } }],
+          groupOutputs: [{ id: 'out', type: 'any', binding: { nodeId: 'ai', handleId: 'result' } }],
+        },
+      },
+      { id: 'ai', type: 'aiV3', parentId: 'group', position: { x: 0, y: 0 }, data: { mode: 'image' } },
+      { id: 'output', type: 'io', position: { x: 600, y: 0 }, data: {} },
+    ];
+    const edges = normalizeLegacyGroupEdges(nodes, [
+      { id: 'in-edge', source: 'source', sourceHandle: 'result', target: 'group', targetHandle: 'group-port:input:in' },
+      { id: 'out-edge', source: 'group', sourceHandle: 'group-port:output:out', target: 'output', targetHandle: 'input' },
+    ]);
+    const normalizedNodes = normalizeGroupPortNodes(nodes, edges);
+    const canvasEdges = pruneGroupPortEdges(normalizedNodes, edges);
+    const resolvedEdges = resolveWorkflowConnections(normalizedNodes, canvasEdges);
+
+    expect(canvasEdges.map((edge) => [edge.sourceHandle, edge.targetHandle])).toEqual([
+      ['result', 'group-port:input:external:in'],
+      ['group-port:output:external:out', 'input'],
+    ]);
+    expect(expandAiV3InputSlots('ai', resolvedEdges, normalizedNodes)).toEqual([
+      expect.objectContaining({ edgeId: 'in-edge', sourceNodeId: 'source', type: 'text' }),
+    ]);
+    expect(expandAiV3InputSlots('output', resolvedEdges, normalizedNodes)).toEqual([
+      expect.objectContaining({ edgeId: 'out-edge', sourceNodeId: 'ai', type: 'image' }),
+    ]);
+    expect(projectWorkflowToExecutionGraph(normalizedNodes, canvasEdges).edges).toEqual(resolvedEdges);
+    const migrated = migrateGroupPortConnections(nodes, edges);
+    expect(migrated.edges).toEqual(resolvedEdges);
+    expect(migrated.nodes.find((node) => node.id === 'group')?.data).toEqual({});
+  });
+
+  it('passes a disabled io input through result', () => {
     const nodes: Node[] = [
       { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: {} },
-      { id: 'process', type: 'materialProcess', position: { x: 100, y: 0 }, data: { disabled: true } },
+      { id: 'process', type: 'io', position: { x: 100, y: 0 }, data: { disabled: true } },
       { id: 'output', type: 'io', position: { x: 200, y: 0 }, data: {} },
     ];
     const edges = [

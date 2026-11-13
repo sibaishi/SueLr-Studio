@@ -340,7 +340,11 @@ function classifyInputEdgeSource(edge: Edge, nodes: Node[]): string {
   const src = nodes.find((n) => n.id === edge.source);
   if (!src) return 'text';
   const srcType = src.type || '';
-  if (srcType === 'aiV3' && src.data?.mode === 'audio') return 'audio';
+  if (srcType === 'aiV3') {
+    const mode = src.data?.mode;
+    if (mode === 'midjourney') return 'image';
+    if (mode === 'image' || mode === 'video' || mode === 'audio') return mode;
+  }
   const handle = edge.sourceHandle || '';
 
   if (

@@ -20,12 +20,6 @@ function manualChunks(id: string) {
   if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
     return 'vendor-react';
   }
-  if (id.includes('/three/examples/') || id.includes('/three/addons/')) {
-    return 'vendor-three-addons';
-  }
-  if (id.includes('/three/build/')) {
-    return 'vendor-three';
-  }
   if (
     id.includes('react-markdown') ||
     id.includes('/remark-') ||

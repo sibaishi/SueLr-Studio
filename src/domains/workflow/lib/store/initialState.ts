@@ -1,5 +1,6 @@
+import { omitRetiredWorkflowNodes } from '@/shared/workflow/retired-nodes.js';
 import { DEFAULT_WORKFLOW_NAME } from '@/domains/workflow/lib/constants';
-import { pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
+import { migrateGroupPortConnections } from '@/domains/workflow/lib/executionGraph';
 import type { ProjectModel } from '@/domains/workflow/lib/projectModels';
 import { normalizeEditorNodes } from '@/domains/workflow/lib/store/editorShared';
 import { gid, normalizeEdges, normalizeNodes } from '@/domains/workflow/lib/store/helpers';
@@ -8,7 +9,7 @@ import { createClearedRuntimePatch } from '@/domains/workflow/lib/store/runtimeS
 import type { WorkflowDocument, WorkflowState } from '@/domains/workflow/lib/store/types';
 import type { Edge, Node } from '@xyflow/react';
 
-export const initialDraft = loadLocalDraft();
+export const initialDraft = omitRetiredWorkflowNodes(loadLocalDraft());
 
 type WorkflowStoreDataState = {
   documents: WorkflowDocument[];
@@ -55,12 +56,10 @@ type WorkflowStoreDataState = {
 };
 
 const initialDraftNodes = initialDraft ? normalizeNodes(initialDraft.nodes) : [];
-const initialDraftEdges = initialDraft
-  ? normalizeEdges(initialDraft.edges, new Set(initialDraftNodes.map((node) => node.id)))
-  : [];
-const normalizedInitialDraftNodes = normalizeEditorNodes(initialDraftNodes, initialDraftEdges);
-const prunedInitialDraftEdges = pruneGroupPortEdges(normalizedInitialDraftNodes, initialDraftEdges);
-const finalInitialDraftNodes = normalizeEditorNodes(initialDraftNodes, prunedInitialDraftEdges);
+const draftEdges = normalizeEdges(initialDraft?.edges, new Set(initialDraftNodes.map((node) => node.id)));
+const migratedDraft = migrateGroupPortConnections(initialDraftNodes, draftEdges);
+const prunedInitialDraftEdges = migratedDraft.edges;
+const finalInitialDraftNodes = normalizeEditorNodes(migratedDraft.nodes, migratedDraft.edges);
 const initialDocumentId = gid();
 const initialWorkflowId = initialDraft?.workflowId || gid();
 const initialWorkflowName = initialDraft?.workflowName || DEFAULT_WORKFLOW_NAME;

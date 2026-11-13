@@ -21,14 +21,11 @@ import {
   getGroupContentBounds,
   getGroupTopInset,
   pushRootNodeOutsideGroupAreas,
+  constrainGroupChildPositions,
 } from '@/domains/workflow/lib/groupLayout';
 import {
   type GroupPortSide,
-  buildGroupHandleId,
-  buildGroupPortsFromBoundaryEdges,
-  getGroupPorts,
   normalizeGroupPortNodes,
-  pruneGroupPortEdges,
   updateGroupPortList,
 } from '@/domains/workflow/lib/groupPorts';
 import { gid, snapValue } from '@/domains/workflow/lib/store/helpers';
@@ -187,19 +184,11 @@ export function normalizeMergeNodeSizes(nodes: Node[], edges: Edge[]) {
   });
 }
 
-function normalizeV2PanelNodeDefaults(nodes: Node[]) {
-  const legacyMaterialWidth = 12 * GRID_SIZE;
-  const legacyMaterialHeight = 18 * GRID_SIZE;
-  return nodes.map((node) => {
-    if (node.type !== 'materialProcess' || node.width !== legacyMaterialWidth || node.height !== legacyMaterialHeight) {
-      return node;
-    }
-    return { ...node, width: undefined, height: undefined };
-  });
-}
-
 export function normalizeEditorNodes(nodes: Node[], edges: Edge[]) {
-  return normalizeGroupPortNodes(normalizeMergeNodeSizes(normalizeV2PanelNodeDefaults(nodes), edges), edges);
+  const sized = normalizeMergeNodeSizes(nodes, edges);
+  const hasLegacyPorts = sized.some((node) => node.type === 'group' &&
+    ('groupInputs' in node.data || 'groupOutputs' in node.data));
+  return constrainGroupChildPositions(hasLegacyPorts ? normalizeGroupPortNodes(sized, edges) : sized);
 }
 
 export function expandNodeActionIds(nodes: Node[], nodeIds: string[]) {
@@ -308,6 +297,7 @@ export function buildGroupForNodes(nodes: Node[], edges: Edge[], nodeIds: string
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const positionMemo = new Map<string, { x: number; y: number }>();
   const contentPaddingX = GROUP_CONTENT_INSET_X;
+  const selectedSet = new Set(selectedNodes.map((node) => node.id));
   const contentPaddingTop = getGroupTopInset();
   const contentPaddingBottom = GROUP_CONTENT_INSET_BOTTOM;
 
@@ -336,8 +326,6 @@ export function buildGroupForNodes(nodes: Node[], edges: Edge[], nodeIds: string
   const groupWidth = Math.max(minSize.w, snapUpToGrid(maxX - minX + contentPaddingX * 2));
   const groupHeight = Math.max(minSize.h, snapUpToGrid(maxY - minY + contentPaddingTop + contentPaddingBottom));
 
-  const selectedSet = new Set(selectedNodes.map((node) => node.id));
-  const portData = buildGroupPortsFromBoundaryEdges(nodes, edges, [...selectedSet]);
   const groupNode: Node = {
     id: groupId,
     type: 'group',
@@ -345,94 +333,11 @@ export function buildGroupForNodes(nodes: Node[], edges: Edge[], nodeIds: string
     width: groupWidth,
     height: groupHeight,
     data: {
-      title: `Group ${selectedNodes.length}`,
+      title: '节点组',
       collapsed: false,
-      ...portData,
     },
     selected: true,
   };
-
-  const appendEdge = (collection: Edge[], nextEdge: Edge) => {
-    const exists = collection.some(
-      (edge) =>
-        edge.source === nextEdge.source &&
-        edge.sourceHandle === nextEdge.sourceHandle &&
-        edge.target === nextEdge.target &&
-        edge.targetHandle === nextEdge.targetHandle,
-    );
-    if (!exists) {
-      collection.push(nextEdge);
-    }
-  };
-
-  const rewrittenEdgesBase = edges.filter((edge) => {
-    const sourceInside = selectedSet.has(edge.source);
-    const targetInside = selectedSet.has(edge.target);
-    return sourceInside === targetInside;
-  });
-
-  const generatedGroupEdges: Edge[] = [];
-  const groupData = (groupNode.data || {}) as Record<string, unknown>;
-
-  for (const port of getGroupPorts(groupData, 'input')) {
-    const outsideLink = port.outsideLinks[0];
-    if (outsideLink) {
-      appendEdge(generatedGroupEdges, {
-        id: `edge_${gid()}`,
-        source: outsideLink.nodeId,
-        sourceHandle: outsideLink.handleId,
-        target: groupId,
-        targetHandle: buildGroupHandleId('input', port.id, 'external'),
-        type: 'default',
-        animated: false,
-        style: { strokeWidth: 2 },
-      });
-    }
-
-    for (const insideLink of port.insideLinks) {
-      appendEdge(generatedGroupEdges, {
-        id: `edge_${gid()}`,
-        source: groupId,
-        sourceHandle: buildGroupHandleId('input', port.id, 'internal'),
-        target: insideLink.nodeId,
-        targetHandle: insideLink.handleId,
-        type: 'default',
-        animated: false,
-        style: { strokeWidth: 2 },
-      });
-    }
-  }
-
-  for (const port of getGroupPorts(groupData, 'output')) {
-    const insideLink = port.insideLinks[0];
-    if (insideLink) {
-      appendEdge(generatedGroupEdges, {
-        id: `edge_${gid()}`,
-        source: insideLink.nodeId,
-        sourceHandle: insideLink.handleId,
-        target: groupId,
-        targetHandle: buildGroupHandleId('output', port.id, 'internal'),
-        type: 'default',
-        animated: false,
-        style: { strokeWidth: 2 },
-      });
-    }
-
-    for (const outsideLink of port.outsideLinks) {
-      appendEdge(generatedGroupEdges, {
-        id: `edge_${gid()}`,
-        source: groupId,
-        sourceHandle: buildGroupHandleId('output', port.id, 'external'),
-        target: outsideLink.nodeId,
-        targetHandle: outsideLink.handleId,
-        type: 'default',
-        animated: false,
-        style: { strokeWidth: 2 },
-      });
-    }
-  }
-
-  const rewrittenEdges = pruneGroupPortEdges([groupNode, ...nodes], [...rewrittenEdgesBase, ...generatedGroupEdges]);
 
   const updatedNodes = nodes.map((node) => {
     if (!selectedSet.has(node.id)) {
@@ -459,8 +364,8 @@ export function buildGroupForNodes(nodes: Node[], edges: Edge[], nodeIds: string
 
   return {
     groupNode,
-    nodes: normalizeEditorNodes(enforceGroupLayout([groupNode, ...updatedNodes]), rewrittenEdges),
-    edges: rewrittenEdges,
+    nodes: normalizeEditorNodes(enforceGroupLayout([groupNode, ...updatedNodes]), edges),
+    edges: edges,
   };
 }
 
@@ -769,14 +674,15 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
     const originalMovableBounds = movableTargetChildren.length > 0 ? getNodesBounds(movableTargetChildren) : null;
 
     const baseX = Number.isFinite(selectedBounds.minX) ? selectedBounds.minX : parentId ? GROUP_SAFE_MARGIN : rootStart;
+    const groupTopInset = parentId ? getGroupTopInset(nodeMap.get(parentId)) : rootStart;
     const baseY = Number.isFinite(selectedBounds.minY)
       ? selectedBounds.minY
-      : parentId
-        ? getGroupTopInset()
-        : rootStart;
+      : groupTopInset;
 
     const startX = snapValue(parentId ? Math.max(GROUP_SAFE_MARGIN, baseX) : Math.max(rootStart, baseX));
-    let nextBlockY = snapValue(parentId ? Math.max(getGroupTopInset(), baseY) : Math.max(rootStart, baseY));
+    let nextBlockY = parentId
+      ? Math.ceil(Math.max(groupTopInset, baseY) / GRID_SIZE) * GRID_SIZE
+      : snapValue(Math.max(rootStart, baseY));
     const connectedBlocks = buildConnectedNodeBlocks(targetChildren, scopedEdges);
 
     for (const blockNodes of connectedBlocks) {
@@ -860,7 +766,7 @@ export function autoArrangeNodes(nodes: Node[], edges: Edge[], selectedNodeIds?:
 
     const minSize = getNodeDefaultSize('group');
     let maxX = GROUP_CONTENT_INSET_X;
-    let maxY = getGroupTopInset();
+    let maxY = getGroupTopInset(groupNode);
 
     for (const child of directChildren) {
       const size = getEffectiveNodeSize(child);

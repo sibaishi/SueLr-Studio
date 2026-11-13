@@ -19,7 +19,7 @@ export interface V2WorkflowNodeProps {
 }
 
 interface V2WorkflowNodeShellProps extends V2WorkflowNodeProps {
-  type: 'aiV3' | 'io' | 'materialProcess';
+  type: 'aiV3' | 'io';
   fallbackLabel: string;
   fallbackColor: string;
 }

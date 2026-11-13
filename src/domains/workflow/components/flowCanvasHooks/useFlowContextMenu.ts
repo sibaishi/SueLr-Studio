@@ -1,7 +1,6 @@
 import type { NodeMouseHandler } from '@xyflow/react';
 import type { MouseEvent as ReactMouseEvent, RefObject } from 'react';
 import { useCallback, useRef, useState } from 'react';
-import type { FLOW_CATEGORY_ORDER } from '../flowCanvasConfig';
 import type { ContextMenuKind, ContextMenuState } from '../flowCanvasTypes';
 import { getContextMenuLayout, getLocalPoint, isPaneBackgroundTarget } from '../flowCanvasUiHelpers';
 import type { FlowHookDeps } from './types';
@@ -12,14 +11,12 @@ interface UseFlowContextMenuDeps extends FlowHookDeps {
 
 export function useFlowContextMenu({ containerRef, reactFlow, store }: UseFlowContextMenuDeps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [activeCategory, setActiveCategory] = useState<(typeof FLOW_CATEGORY_ORDER)[number] | null>(null);
   const contextMenuOpenedAtRef = useRef(0);
 
   const wasContextMenuJustOpened = useCallback(() => Date.now() - contextMenuOpenedAtRef.current < 150, []);
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
-    setActiveCategory(null);
   }, []);
 
   const openContextMenuAtScreenPoint = useCallback(
@@ -38,7 +35,6 @@ export function useFlowContextMenu({ containerRef, reactFlow, store }: UseFlowCo
         ...extras,
       });
       contextMenuOpenedAtRef.current = Date.now();
-      setActiveCategory(null);
     },
     [containerRef, reactFlow],
   );
@@ -94,7 +90,6 @@ export function useFlowContextMenu({ containerRef, reactFlow, store }: UseFlowCo
   );
 
   return {
-    activeCategory,
     closeContextMenu,
     contextMenu,
     onNodeContextMenu,
@@ -102,7 +97,6 @@ export function useFlowContextMenu({ containerRef, reactFlow, store }: UseFlowCo
     onPaneDoubleClickOpenMenu,
     openContextMenuAtPoint,
     openContextMenuAtScreenPoint,
-    setActiveCategory,
     wasContextMenuJustOpened,
   };
 }
