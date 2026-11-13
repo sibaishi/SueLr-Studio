@@ -623,3 +623,5 @@ The workflow client supports both its existing JSON format and ZIP bundles with 
 弧光的直接生成通过 `propose_direct_generation` 提案和 `POST /api/agent/generate` 执行。生成请求按用户选择的连接和模型类型校验，复用图像、视频运行服务，产物返回会话。
 
 `FileSourceButton` 复用资产库的选取模式并保留各入口原有的本地文件选择器。IO 引用已有媒体 URL，弧光和画板则将所选资产读取为文件后交给各自的附件或图层逻辑。
+
+弧光通过 `load_skill` 和 `read_skill_resource` 在单次对话请求中加载技能正文与引用文本。前端发送技能目录及有界资料，后端仅向上游模型提供目录、显式指定的正文，以及工具调用所需的内容。技能元数据不改变现有工具授权。

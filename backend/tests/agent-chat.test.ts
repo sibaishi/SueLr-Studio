@@ -92,4 +92,43 @@ test('Agent forwards ordered conversation, visual references and selected Skills
   });
   assert.equal(action.status, 200);
   assert.deepEqual(action.body.data.plan, { operations });
+  const skillCatalog = [
+    {
+      id: 'review',
+      name: '评审',
+      description: '评审广告图',
+      instructions: '先读取评审标准。',
+      pinned: false,
+      resources: [{ path: 'references/checklist.md', text: '检查主体保真。' }],
+    },
+  ];
+  let skillCalls = 0;
+  upstream.mock.mockImplementation(async ({ body }) => {
+    const payload = body as { messages: { role: string; content: string }[] };
+    const call = (id: string, name: string, args: unknown) =>
+      Response.json({
+        choices: [
+          {
+            message: {
+              content: null,
+              tool_calls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
+            },
+          },
+        ],
+      });
+    if (++skillCalls === 1) {
+      assert.match(payload.messages[0].content, /评审广告图/);
+      assert.doesNotMatch(payload.messages[0].content, /先读取评审标准|检查主体保真/);
+      return call('load', 'load_skill', { id: 'review' });
+    }
+    if (skillCalls === 2) {
+      assert.match(payload.messages.at(-1)?.content ?? '', /先读取评审标准/);
+      return call('read', 'read_skill_resource', { id: 'review', path: 'references/checklist.md' });
+    }
+    assert.match(payload.messages.at(-1)?.content ?? '', /检查主体保真/);
+    return Response.json({ choices: [{ message: { content: '已评审主体保真。' } }] });
+  });
+  const skillReply = await request({ ...payload, skills: [], skillCatalog });
+  assert.equal(skillReply.status, 200);
+  assert.deepEqual(skillReply.body.data, { answer: '已评审主体保真。', usedSkills: ['review'] });
 });

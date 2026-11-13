@@ -566,3 +566,236 @@
 .agent-panel__attachment-preview figcaption button {
   margin-left: auto;
 }
+
+.agent-skill-entry + .agent-skill-entry {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.agent-skill-entry pre {
+  padding: 7px;
+  border-radius: 7px;
+  background: var(--ai-menu-card);
+  font-size: 11px;
+}
+
+.agent-skill-search,
+.agent-skill-edit input,
+.agent-skill-edit textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 5px;
+  border: 1px solid var(--t-border);
+  border-radius: 6px;
+  background: var(--ai-menu-card);
+  font-size: 12px;
+}
+
+.agent-panel__skill-options .agent-skill-edit label {
+  display: grid;
+  gap: 4px;
+}
+
+.agent-panel__skill-actions button:disabled {
+  opacity: .5;
+}
+
+.agent-panel__skill-auto {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 4px 9px;
+  font-size: 12px;
+}
+
+.ai-parameter-popover.agent-skills-popover {
+  display: flex;
+  flex-direction: column;
+  max-height: min(390px, 55dvh);
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(var(--t-card), var(--t-card)), var(--t-bg);
+}
+
+.agent-skills-header {
+  padding: 12px 13px 8px;
+  border-bottom: 1px solid var(--t-border);
+}
+
+.agent-skills-heading,
+.agent-panel__skill-auto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-skills-heading strong {
+  font-size: 14px;
+}
+
+.agent-skills-heading span,
+.agent-panel__skill-auto {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.agent-panel__skill-auto {
+  flex-direction: row-reverse;
+  margin-top: 8px;
+  padding: 0;
+}
+
+.agent-skill-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 5px 7px;
+}
+
+.agent-skill-list {
+  display: grid;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.agent-skill-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding-right: 6px;
+}
+
+.agent-skill-list li:hover,
+.agent-skill-list li:focus-within {
+  background: var(--ai-menu-card);
+}
+
+.agent-skill-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.agent-skill-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-skill-name svg {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.agent-skill-switch {
+  appearance: none;
+  flex: none;
+  width: 26px;
+  height: 15px;
+  border-radius: 20px;
+  border: 1px solid var(--t-border);
+  background: var(--t-bg);
+  position: relative;
+  cursor: pointer;
+}
+
+.agent-skill-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+}
+
+.agent-skill-switch:checked {
+  background: var(--color-accent);
+  border-color: transparent;
+}
+
+.agent-skill-switch:checked::after {
+  left: 13px;
+  background: white;
+}
+
+.agent-skill-switch:disabled {
+  opacity: .45;
+}
+
+.agent-skill-search-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  margin: 2px 0 4px;
+  border: 1px solid var(--t-border);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+}
+
+.agent-skill-search-row input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  font-size: 12px;
+}
+
+.agent-skill-detail {
+  display: grid;
+  gap: 7px;
+  padding: 5px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.agent-skill-detail :is(h3, p, pre) {
+  margin: 0;
+}
+
+.agent-skill-detail p,
+.agent-skill-empty,
+.agent-skill-back {
+  color: var(--color-text-secondary);
+}
+
+.agent-skill-back {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-self: start;
+}
+
+.agent-skill-detail pre {
+  max-height: 130px;
+  overflow: auto;
+  white-space: pre-wrap;
+  padding: 8px;
+  border-radius: 7px;
+  background: var(--ai-menu-card);
+}
+
+.agent-skill-edit label {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.agent-panel__skill-actions.agent-skills-footer {
+  justify-content: space-between;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 8px;
+  border-top: 1px solid var(--t-border);
+}

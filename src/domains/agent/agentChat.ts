@@ -1,3 +1,4 @@
+import type { buildSkillCatalog } from './skillPreview';
 import { apiRequestOrThrow } from '@/shared/api';
 import type { CanvasPlan } from '@/domains/workflow/lib/agentCanvasPlan';
 import { getAttachmentKind } from './AgentAttachment';
@@ -159,21 +160,26 @@ export function requestAgentChat(
   signal: AbortSignal,
   canvasEnabled = false,
   generationKinds: GenerationPlan['kind'][] = [],
+  skillCatalog: ReturnType<typeof buildSkillCatalog> = [],
 ) {
   const split = modelValue.indexOf('::');
   if (split <= 0) throw new Error('请选择已配置连接中的对话模型。');
-  return apiRequestOrThrow<{ answer: string; plan?: CanvasPlan; generation?: GenerationPlan }>('/api/agent/chat', {
-    method: 'POST',
-    body: JSON.stringify({
-      configId: modelValue.slice(0, split),
-      model: modelValue.slice(split + 2),
-      messages,
-      skills,
-      canvasEnabled,
-      generationKinds,
-    }),
-    signal,
-  });
+  return apiRequestOrThrow<{ answer: string; plan?: CanvasPlan; generation?: GenerationPlan; usedSkills?: string[] }>(
+    '/api/agent/chat',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        configId: modelValue.slice(0, split),
+        model: modelValue.slice(split + 2),
+        messages,
+        skills,
+        canvasEnabled,
+        generationKinds,
+        skillCatalog,
+      }),
+      signal,
+    },
+  );
 }
 
 export async function prepareCanvasOutputs(paths: string[], signal: AbortSignal) {

@@ -1,3 +1,5 @@
+import SkillLibrary from './SkillLibrary';
+import { builtinSkills } from './builtinSkills';
 import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
 import { readLibraryFile } from '@/domains/workflow/lib/addIoFiles';
 import { AgentMediaPreview, type AgentPreview } from './AgentMediaPreview';
@@ -33,7 +35,7 @@ import {
   requestAgentChat,
 } from './agentChat';
 import { readAgentSessions, writeAgentSessions } from './agentSessions';
-import { parseSkill, readSkillPreview, type PreviewSkill } from './skillPreview';
+import { buildSkillCatalog, parseSkill, readSkillPreview, type PreviewSkill } from './skillPreview';
 import '@/domains/workflow/components/ai-v3-parameters.css';
 import './agent-panel.css';
 
@@ -63,12 +65,6 @@ function createSession(): AgentSession {
   return { id: crypto.randomUUID(), messages: [] };
 }
 
-const previewSkills = [
-  { id: 'ideation', name: '创意发散', description: '围绕一个目标探索不同的创意方向。' },
-  { id: 'copywriting', name: '文案打磨', description: '改写标题、卖点和叙述。' },
-  { id: 'storyboard', name: '分镜规划', description: '把创意拆成镜头和节奏。' },
-];
-
 export default function AgentPanel({
   hidden,
   motionState,
@@ -93,9 +89,10 @@ export default function AgentPanel({
 }) {
   const [modelIds, setModelIds] = useState<Partial<Record<ModelKind, string>>>({});
   const [skills, setSkills] = useState<PreviewSkill[]>(() => [
-    ...previewSkills,
+    ...builtinSkills,
     ...loadJSON<PreviewSkill[]>('agent_skills', []),
   ]);
+  const [autoSkills, setAutoSkills] = useState(() => loadJSON('agent_auto_skills', true));
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [openMenu, setOpenMenu] = useState<'models' | 'skills' | null>(null);
   const [skillError, setSkillError] = useState('');
@@ -192,7 +189,7 @@ export default function AgentPanel({
   useEffect(() => {
     saveJSON(
       'agent_skills',
-      skills.filter(({ instructions }) => instructions),
+      skills.filter(({ id, instructions }) => instructions && !builtinSkills.some((skill) => skill.id === id)),
     );
   }, [skills]);
 
@@ -225,7 +222,7 @@ export default function AgentPanel({
 
   function addSkill(skill: PreviewSkill) {
     setSkills((current) => [...current, skill]);
-    setSelectedSkills((current) => [...current, skill.id]);
+    setSelectedSkills((current) => [...current, skill.id].slice(0, 12));
   }
 
   useEffect(() => {
@@ -288,9 +285,7 @@ export default function AgentPanel({
       skills: enabledSkills.map(({ name }) => name),
       content: [],
     };
-    const skillInstructions = enabledSkills.map(({ name, description, instructions }) =>
-      [name, instructions || description].join('\n').slice(0, 256 * 1024),
-    );
+    const skillCatalog = buildSkillCatalog(skills, selectedSkills, autoSkills);
     setBusy(true);
     setError('');
     setOpenMenu(null);
@@ -336,12 +331,13 @@ export default function AgentPanel({
               !turn.canvas ? turn : { ...turn, content: turn.content.slice(0, turn.canvas.contentStart ?? 0) },
             )
             .filter((turn) => turn.content.length > 0),
-          skillInstructions,
+          [],
         ),
-        skillInstructions,
+        [],
         signal,
         Boolean(planTarget),
         generationKinds,
+        skillCatalog,
       );
       if (signal.aborted) return;
       const generationModel = result.generation && generationModels[result.generation.kind];
@@ -353,6 +349,9 @@ export default function AgentPanel({
                 content,
                 answer: result.answer,
                 status: 'complete',
+                skills: result.usedSkills
+                  ? skills.filter(({ id }) => result.usedSkills?.includes(id)).map(({ name }) => name)
+                  : turn.skills,
                 generation:
                   result.generation && generationModel
                     ? { plan: result.generation, model: generationModel }
@@ -776,15 +775,23 @@ export default function AgentPanel({
               event.currentTarget.value = '';
             }}
           />
-          <FileSourceButton className="agent-panel__icon-button" label="添加附件"
+          <FileSourceButton
+            className="agent-panel__icon-button"
+            label="添加附件"
             disabled={busy || storageState === 'loading'}
-            onLocal={() => { setOpenMenu(null); picker.current?.click(); }}
+            onLocal={() => {
+              setOpenMenu(null);
+              picker.current?.click();
+            }}
             onAsset={async (asset) => {
               if (attachments.length >= 4) throw new Error('每条消息最多添加 4 个参考文件。');
               const file = await readLibraryFile(asset);
               setAttachments((previous) => [...previous, file]);
               setError('');
-            }}><Paperclip size={18} /></FileSourceButton>
+            }}
+          >
+            <Paperclip size={18} />
+          </FileSourceButton>
           <button
             type="button"
             className="agent-panel__icon-button"
@@ -842,41 +849,46 @@ export default function AgentPanel({
             </section>
           )}
           {openMenu === 'skills' && !hidden && (
-            <section className="ai-parameter-popover agent-panel__popover" aria-label="Skills 清单">
-              <div className="ai-menu-module">
-                <div className="ai-menu-module-label">Skills</div>
-                <div className="ai-menu-module-body agent-panel__skill-options">
-                  {skills.map((skill) => (
-                    <div key={skill.id}>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={selectedSkills.includes(skill.id)}
-                          onChange={(event) => {
-                            const { checked } = event.currentTarget;
-                            setSelectedSkills((current) =>
-                              checked ? [...current, skill.id] : current.filter((id) => id !== skill.id),
-                            );
-                          }}
-                        />
-                        <span>
-                          <strong>{skill.name}</strong>
-                          <small>{skill.description || (skill.instructions ? '本地 Skill' : '内置 Skill')}</small>
-                        </span>
-                      </label>
-                      {skill.instructions && (
-                        <details>
-                          <summary>查看技能正文</summary>
-                          <pre>{skill.instructions}</pre>
-                        </details>
-                      )}
-                    </div>
-                  ))}
+            <section
+              className="ai-parameter-popover agent-panel__popover agent-skills-popover"
+              aria-label="Skills 清单"
+            >
+              <header className="agent-skills-header">
+                <div className="agent-skills-heading">
+                  <strong>Skills</strong>
+                  <span>已启用 {selectedSkills.length}</span>
                 </div>
-              </div>
-              <div className="agent-panel__skill-actions">
+                <label className="agent-panel__skill-auto">
+                  <input
+                    type="checkbox"
+                    className="agent-skill-switch"
+                    role="switch"
+                    checked={autoSkills}
+                    onChange={(event) => {
+                      setAutoSkills(event.target.checked);
+                      saveJSON('agent_auto_skills', event.target.checked);
+                    }}
+                  />
+                  <span>按任务自动选用</span>
+                </label>
+              </header>
+              <SkillLibrary
+                skills={skills}
+                selected={selectedSkills}
+                onToggle={(id, enabled) =>
+                  setSelectedSkills((current) =>
+                    enabled ? [...new Set([...current, id])].slice(0, 12) : current.filter((item) => item !== id),
+                  )
+                }
+                onSave={(skill) => setSkills((current) => current.map((item) => (item.id === skill.id ? skill : item)))}
+                onRemove={(id) => {
+                  setSkills((current) => current.filter((skill) => skill.id !== id));
+                  setSelectedSkills((current) => current.filter((item) => item !== id));
+                }}
+              />
+              <div className="agent-panel__skill-actions agent-skills-footer">
                 <button type="button" onClick={() => skillPicker.current?.click()}>
-                  导入 SKILL.md
+                  导入技能包
                 </button>
                 <button
                   type="button"
@@ -899,7 +911,7 @@ export default function AgentPanel({
           )}
           <input
             type="file"
-            accept=".md"
+            accept=".md,.zip"
             hidden
             ref={skillPicker}
             onChange={async (event) => {
