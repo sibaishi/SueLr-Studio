@@ -175,6 +175,7 @@ test.describe('studio smoke', () => {
     await apply.click();
     await expect(canvas).toHaveAttribute('width', '900');
     await expect(canvas).toHaveAttribute('height', '500');
+    await editor.getByRole('button', { name: '适合视图' }).click();
 
     const box = (await canvas.boundingBox())!;
     const pen = await page.context().newCDPSession(page);
@@ -235,6 +236,289 @@ test.describe('studio smoke', () => {
     expect(pixels.heavyPressure).toEqual([34, 34, 34, 255]);
     expect(pixels.roundedCurve).toEqual([34, 34, 34, 255]);
     expect(pixels.sharpCorner).toEqual([255, 255, 255, 255]);
+  });
+
+  test('an IO image board resizes with transparency and clips drawing to a selection', async ({ page }) => {
+    test.setTimeout(45_000);
+    await clearLocalState(page);
+    await page.getByTestId('workflow-new').click();
+    await addWorkflowNode(page, 'io');
+    const editor = page.locator('.node-canvas-editor-modal');
+    await page.getByRole('button', { name: '绘制草图' }).click();
+    await editor.locator('canvas').click();
+    await editor.getByRole('button', { name: '保存到 IO 节点' }).click();
+    const image = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    await expect(image).toHaveAttribute('src', /^\/api\/files\//);
+    await image.dblclick();
+    await page.getByRole('button', { name: '画板', exact: true }).click();
+
+    const canvas = editor.locator('canvas');
+    await editor.getByRole('spinbutton', { name: '高度 (px)' }).fill('1024');
+    await editor.getByRole('group', { name: '原图锚点' }).getByRole('button', { name: '下', exact: true }).click();
+    await editor.getByRole('button', { name: '应用尺寸' }).click();
+    await expect(canvas).toHaveAttribute('height', '1024');
+
+    const pixel = (x: number, y: number) =>
+      canvas.evaluate((element: HTMLCanvasElement, point) =>
+        Array.from(element.getContext('2d')!.getImageData(point.x, point.y, 1, 1).data), { x, y });
+    expect(await pixel(16, 16)).toEqual([0, 0, 0, 0]);
+    expect(await pixel(16, 270)).toEqual([255, 255, 255, 255]);
+
+    await editor.getByRole('button', { name: '矩形选区' }).click();
+    const box = (await canvas.boundingBox())!;
+    const drag = async (startX: number, startY: number, endX: number, endY: number) => {
+      const box = (await canvas.boundingBox())!;
+      await page.mouse.move(box.x + startX * box.width, box.y + startY * box.height);
+      await page.mouse.down();
+      await page.mouse.move(box.x + endX * box.width, box.y + endY * box.height, { steps: 8 });
+      await page.mouse.up();
+    };
+    await drag(0.25, 0.05, 0.75, 0.2);
+    await editor.getByRole('button', { name: '画笔', exact: true }).click();
+    await drag(0.15, 0.1, 0.85, 0.1);
+    expect(await pixel(384, 102)).toEqual([255, 55, 95, 255]);
+    expect(await pixel(150, 102)).toEqual([0, 0, 0, 0]);
+    await editor.getByTitle('隐藏：绘制层').click();
+    expect(await pixel(384, 102)).toEqual([0, 0, 0, 0]);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+    expect(await pixel(384, 102)).toEqual([255, 55, 95, 255]);
+    await editor.getByRole('combobox', { name: '混合模式' }).selectOption('multiply');
+    const opacity = editor.getByRole('spinbutton', { name: '不透明度' });
+    await opacity.fill('50');
+    await opacity.press('Enter');
+    expect((await pixel(384, 102))[3]).toBe(128);
+
+    await editor.getByRole('button', { name: '椭圆选区', exact: true }).click();
+    await drag(0.4, 0.06, 0.6, 0.14);
+    await expect(editor.locator('.canvas-document__selection ellipse').first()).toBeVisible();
+    await editor.getByRole('button', { name: '清除像素', exact: true }).click();
+    expect(await pixel(384, 102)).toEqual([0, 0, 0, 0]);
+    expect((await pixel(200, 102))[3]).toBe(128);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+    expect((await pixel(384, 102))[3]).toBe(128);
+
+    await editor.getByText('绘制层', { exact: true }).dblclick();
+    const layerName = editor.getByRole('textbox', { name: '图层名称' });
+    await layerName.fill('标注');
+    await layerName.press('Enter');
+    await expect(editor.getByRole('button', { name: '选择图层：标注' })).toHaveAttribute('aria-pressed', 'true');
+
+    const startTransform = editor.getByRole('button', { name: '自由变换', exact: true });
+    await startTransform.click();
+    await expect(editor.locator('.canvas-transform-frame [data-handle]')).toHaveCount(9);
+    const frame = editor.locator('.canvas-transform-frame');
+    const frameBox = (await frame.boundingBox())!;
+    const x = frameBox.x + frameBox.width / 4;
+    const y = frameBox.y + frameBox.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + box.height * 0.08, { steps: 6 });
+    await page.mouse.up();
+    expect(await pixel(384, 102)).toEqual([0, 0, 0, 0]);
+    expect((await pixel(384, 184))[3]).toBe(128);
+    await page.keyboard.press('Escape');
+    expect((await pixel(384, 102))[3]).toBe(128);
+    expect(await pixel(384, 184)).toEqual([0, 0, 0, 0]);
+
+    await startTransform.click();
+    const angle = editor.getByRole('spinbutton', { name: '角度' });
+    await angle.fill('90');
+    await angle.press('Enter');
+    await editor.getByRole('button', { name: '应用变换' }).click();
+    expect(await pixel(200, 102)).toEqual([0, 0, 0, 0]);
+    expect((await pixel(384, 184))[3]).toBe(128);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+    expect((await pixel(200, 102))[3]).toBe(128);
+
+    await editor.getByRole('button', { name: '套索选区', exact: true }).click();
+    const lassoBox = (await canvas.boundingBox())!;
+    const moveLasso = (x: number, y: number) => page.mouse.move(lassoBox.x + x * lassoBox.width, lassoBox.y + y * lassoBox.height);
+    await moveLasso(0.35, 0.07);
+    await page.mouse.down();
+    await moveLasso(0.65, 0.07);
+    await moveLasso(0.5, 0.18);
+    await page.mouse.up();
+    await expect(editor.locator('.canvas-document__selection polygon').first()).toBeVisible();
+    await editor.getByRole('button', { name: '清除像素', exact: true }).click();
+    expect(await pixel(384, 102)).toEqual([0, 0, 0, 0]);
+    expect((await pixel(275, 102))[3]).toBe(128);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+
+    await editor.getByRole('button', { name: '图层菜单' }).click();
+    await editor.getByRole('button', { name: '导出图层到当前 IO 节点' }).click();
+    await expect(editor.getByRole('status').filter({ hasText: '图层已添加到当前 IO 节点' })).toBeVisible();
+    const images = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    await expect(page.locator('.react-flow__node-io')).toHaveCount(1);
+    await expect(images).toHaveCount(2);
+    const exportedPixels = await images.nth(1).evaluate(async (element: HTMLImageElement) => {
+      await element.decode();
+      const bitmap = document.createElement('canvas');
+      bitmap.width = element.naturalWidth;
+      bitmap.height = element.naturalHeight;
+      const context = bitmap.getContext('2d')!;
+      context.drawImage(element, 0, 0);
+      return [bitmap.height, context.getImageData(384, 102, 1, 1).data[3], context.getImageData(16, 270, 1, 1).data[3]];
+    });
+    expect(exportedPixels).toEqual([1024, 128, 0]);
+
+    await editor.getByRole('button', { name: '图层大小', exact: true }).click();
+    const layerWidth = editor.getByRole('spinbutton', { name: '图层宽度 (px)' });
+    await expect(layerWidth).toHaveValue('384');
+    const layerHeight = editor.getByRole('spinbutton', { name: '图层高度 (px)' });
+    const originalHeight = Number(await layerHeight.inputValue());
+    await layerWidth.fill('192');
+    await expect(layerHeight).toHaveValue(String(Math.round(originalHeight / 2)));
+    await editor.getByRole('button', { name: '应用图层大小' }).click();
+    await expect(canvas).toHaveAttribute('height', '1024');
+    expect((await pixel(240, 96))[3]).toBeGreaterThan(100);
+    expect((await pixel(500, 102))[3]).toBe(0);
+    expect(await pixel(16, 270)).toEqual([255, 255, 255, 255]);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+
+    await editor.getByRole('button', { name: '图像大小', exact: true }).click();
+    await editor.getByRole('spinbutton', { name: '图像宽度 (px)' }).fill('384');
+    await expect(editor.getByRole('spinbutton', { name: '图像高度 (px)' })).toHaveValue('512');
+    await editor.getByRole('button', { name: '应用图像大小' }).click();
+    await expect(canvas).toHaveAttribute('width', '384');
+    await expect(canvas).toHaveAttribute('height', '512');
+    expect((await pixel(192, 51))[3]).toBe(128);
+    expect(await pixel(8, 135)).toEqual([255, 255, 255, 255]);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+
+    await editor.getByRole('button', { name: '矩形选区', exact: true }).click();
+    const outsideBox = (await canvas.boundingBox())!;
+    await page.mouse.move(outsideBox.x - 12, outsideBox.y + outsideBox.height * 0.03);
+    await page.mouse.down();
+    await page.mouse.move(outsideBox.x + outsideBox.width * 0.2, outsideBox.y + outsideBox.height * 0.15);
+    await page.mouse.up();
+    const outline = editor.locator('.canvas-document__selection');
+    await expect(outline).toBeVisible();
+    expect(await outline.evaluate((element) => Number.parseInt((element as SVGElement).style.left, 10))).toBeLessThan(0);
+
+    await editor.getByRole('button', { name: '画笔', exact: true }).click();
+    await page.mouse.move(outsideBox.x - 12, outsideBox.y + outsideBox.height * 0.1);
+    await page.mouse.down();
+    await page.mouse.move(outsideBox.x + outsideBox.width * 0.1, outsideBox.y + outsideBox.height * 0.1, { steps: 8 });
+    await page.mouse.up();
+    expect((await pixel(8, 102))[3]).toBe(128);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+    expect((await pixel(8, 102))[3]).toBe(0);
+
+    await editor.getByRole('button', { name: '平移', exact: true }).click();
+    const beforePan = (await canvas.boundingBox())!;
+    await page.mouse.move(beforePan.x - 12, beforePan.y + beforePan.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(beforePan.x + 12, beforePan.y + beforePan.height / 2);
+    await page.mouse.up();
+    expect((await canvas.boundingBox())!.x - beforePan.x).toBeCloseTo(24);
+
+    await editor.getByRole('button', { name: '平移', exact: true }).click();
+    await editor.getByRole('button', { name: '适合视图' }).click();
+    await editor.getByRole('button', { name: '矩形选区', exact: true }).click();
+    await drag(0.25, 0.04, 0.75, 0.2);
+    await editor.getByRole('button', { name: '纯色填充', exact: true }).click();
+    await editor.getByRole('button', { name: '填充选区', exact: true }).click();
+    expect((await pixel(384, 61))[3]).toBe(128);
+    expect((await pixel(100, 61))[3]).toBe(0);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+
+    await editor.getByRole('button', { name: '渐变填充', exact: true }).click();
+    await drag(0.2, 0.06, 0.8, 0.06);
+    const gradientStart = await pixel(100, 61);
+    const gradientEnd = await pixel(670, 61);
+    expect(gradientStart[3]).toBe(128);
+    expect(gradientEnd[3]).toBe(128);
+    expect(gradientEnd[1]).toBeGreaterThan(gradientStart[1] + 150);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+    expect((await pixel(100, 61))[3]).toBe(0);
+
+    const sourceUrl = await image.first().getAttribute('src');
+    await editor.getByRole('button', { name: '保存图片', exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await expect.poll(() => image.first().getAttribute('src')).not.toBe(sourceUrl);
+    await expect.poll(() => image.first().evaluate((element: HTMLImageElement) => element.naturalHeight)).toBe(1024);
+  });
+
+  test('workflow modals isolate input from the workspace and underlying dialogs', async ({ page }) => {
+    await clearLocalState(page);
+    await page.getByTestId('workflow-new').click();
+    await addWorkflowNode(page, 'io');
+    const editor = page.locator('.node-canvas-editor-modal');
+    await page.getByRole('button', { name: '绘制草图' }).click();
+    await editor.locator('canvas').click();
+    await editor.getByRole('button', { name: '保存到 IO 节点' }).click();
+    const node = page.locator('.react-flow__node-io');
+    const image = node.locator('.node-gallery-frame-v2 img');
+    await expect(image).toHaveAttribute('src', /^\/api\/files\//);
+    await node.click({ position: { x: 30, y: 15 } });
+    await expect(node).toHaveClass(/selected/);
+    await image.dblclick();
+    const preview = page.getByRole('dialog', { name: '查看大图' });
+    await expect(preview).toBeFocused();
+    const halo = page.locator('.workflow-grid-glow-halo');
+    const haloPosition = () => halo.evaluateAll((elements) => elements.map((element) => {
+      const { left, top } = (element as HTMLElement).style;
+      return { left, top };
+    }));
+    const expectBackgroundPointerStill = async () => {
+      const before = await haloPosition();
+      await page.mouse.move(340, 300);
+      await page.mouse.move(550, 380, { steps: 4 });
+      const after = await haloPosition();
+      // The previous glow may finish fading while the modal is open.
+      expect(after.length === 0 || JSON.stringify(after) === JSON.stringify(before)).toBe(true);
+    };
+    await expectBackgroundPointerStill();
+    const previewBackdrop = page.locator('.workflow-image-preview-modal > .settings-modal__backdrop');
+    await expect(previewBackdrop).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.42)');
+    await expect(previewBackdrop).toHaveCSS('backdrop-filter', 'blur(14px)');
+    await expect(page.locator('#root')).toHaveAttribute('inert', '');
+    await page.mouse.wheel(0, 250);
+    await page.keyboard.press('Delete');
+    await expect(node).toHaveCount(1);
+
+    await preview.getByRole('button', { name: '画板', exact: true }).click();
+    await expect(page.locator('.workflow-image-preview-modal')).toHaveAttribute('inert', '');
+    await expectBackgroundPointerStill();
+    await expect(editor.locator('.settings-modal__backdrop')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.42)');
+    await page.keyboard.press('Delete');
+    await expect(node).toHaveCount(1);
+    await editor.locator('canvas').click();
+    await page.keyboard.press('Escape');
+    const confirm = page.getByRole('dialog', { name: '关闭画板？' });
+    await expect(confirm).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(confirm).toHaveCount(0);
+    await expect(editor.locator('canvas')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await confirm.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await expect(preview).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(preview).toHaveCount(0);
+    await expect(page.locator('#root')).not.toHaveAttribute('inert', '');
+
+    const pasteTextFile = () => page.evaluate(() => {
+      const clipboardData = new DataTransfer();
+      clipboardData.items.add(new File(['弹窗键盘测试'], 'keyboard.txt', { type: 'text/plain' }));
+      window.dispatchEvent(new ClipboardEvent('paste', { clipboardData }));
+    });
+    await image.hover();
+    await pasteTextFile();
+    const textSnippet = page.locator('.react-flow__node-io .node-gallery-frame-v2').getByText(/弹窗键盘测试/);
+    await textSnippet.dblclick();
+    const nodeCount = await node.count();
+    const text = page.getByRole('dialog', { name: '查看文本' });
+    await expect(text).toBeFocused();
+    await expectBackgroundPointerStill();
+    await page.keyboard.press('Tab');
+    await expect(text.getByRole('button').first()).toBeFocused();
+    await pasteTextFile();
+    await page.keyboard.press('Delete');
+    await expect(node).toHaveCount(nodeCount);
+    await expect(textSnippet).toHaveText('[keyboard.txt] 弹窗键盘测试');
+    await previewBackdrop.click({ position: { x: 10, y: 10 } });
+    await expect(text).toHaveCount(0);
   });
 
   test('a workflow package restores local media into an independent upload', async ({ page }) => {

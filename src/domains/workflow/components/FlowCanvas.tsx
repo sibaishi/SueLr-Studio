@@ -1,3 +1,4 @@
+import { isWorkflowModalOpen } from './workflowModalIsolation';
 import {
   GRID_SIZE,
   NODE_REGISTRY,
@@ -61,6 +62,10 @@ import {
 } from './flowCanvasUiHelpers';
 import './contextMenu.css';
 import './nodes/nodeAnimations.css';
+
+function isCanvasPointerEvent(event: { currentTarget: HTMLElement; target: EventTarget }) {
+  return !isWorkflowModalOpen() && event.target instanceof Node && event.currentTarget.contains(event.target);
+}
 
 interface FlowCanvasProps {
   onViewportCenterChange?: (position: { x: number; y: number }) => void;
@@ -180,6 +185,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isWorkflowModalOpen()) return;
       if (isEditableElement(event.target)) return;
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -447,6 +453,8 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
   const updateLastPointerFlowPosition = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
+      // React portals bubble through the node tree even though the overlay is outside the canvas DOM.
+      if (!isCanvasPointerEvent(event)) return;
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
@@ -742,12 +750,22 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     <div
       ref={containerRef}
       className="relative h-full w-full"
-      onDoubleClick={ctxMenu.onPaneDoubleClickOpenMenu}
+      onDoubleClick={(event) => {
+        if (isCanvasPointerEvent(event)) ctxMenu.onPaneDoubleClickOpenMenu(event);
+      }}
       onMouseMove={updateLastPointerFlowPosition}
-      onPointerDownCapture={edgeCut.onCanvasPointerDownCapture}
-      onPointerMoveCapture={edgeCut.onCanvasPointerMoveCapture}
-      onPointerUpCapture={edgeCut.onCanvasPointerUpCapture}
-      onPointerCancelCapture={edgeCut.onCanvasPointerUpCapture}
+      onPointerDownCapture={(event) => {
+        if (isCanvasPointerEvent(event)) edgeCut.onCanvasPointerDownCapture(event);
+      }}
+      onPointerMoveCapture={(event) => {
+        if (isCanvasPointerEvent(event)) edgeCut.onCanvasPointerMoveCapture(event);
+      }}
+      onPointerUpCapture={(event) => {
+        if (isCanvasPointerEvent(event)) edgeCut.onCanvasPointerUpCapture(event);
+      }}
+      onPointerCancelCapture={(event) => {
+        if (isCanvasPointerEvent(event)) edgeCut.onCanvasPointerUpCapture(event);
+      }}
     >
       <GridDots
         gap={GRID_SIZE}

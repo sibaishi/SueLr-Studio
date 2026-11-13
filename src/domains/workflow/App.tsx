@@ -1,3 +1,4 @@
+import { isWorkflowModalOpen } from './components/workflowModalIsolation';
 import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
 import AssetLibraryModal from '@/domains/workflow/components/AssetLibraryModal';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
@@ -148,6 +149,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isWorkflowModalOpen()) return;
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName;
       if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target?.isContentEditable) return;

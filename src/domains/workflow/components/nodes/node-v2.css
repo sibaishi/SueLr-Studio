@@ -601,28 +601,12 @@
 }
 
 .long-text-editor-modal {
-  position: fixed;
-  inset: 0;
   z-index: 1200;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(12px);
 }
 
 .long-text-editor-modal__dialog {
   display: flex;
-  width: min(1280px, calc(100vw - 48px));
-  height: calc(100vh - 48px);
-  min-height: 0;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 22px;
-  background: var(--color-bg-primary);
-  box-shadow: 0 28px 86px rgba(0, 0, 0, 0.36);
 }
 
 .long-text-editor-modal__header {
@@ -1421,24 +1405,12 @@
 }
 
 .node-canvas-editor-modal {
-  position: fixed;
-  inset: 0;
   z-index: 1100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.68);
-  backdrop-filter: blur(12px);
 }
 
 .node-canvas-editor-modal__dialog {
-  width: min(1280px, 96vw);
-  max-height: 92vh;
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
-  overflow: hidden;
 }
 
 .node-canvas-editor-modal__header,

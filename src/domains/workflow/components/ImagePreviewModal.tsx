@@ -1,18 +1,14 @@
+import { ModalSurface } from '@/ui/ModalSurface';
+import {
+  isolateWorkflowModalKey,
+  stopWorkflowModalEvent,
+  useWorkflowModalIsolation,
+  workflowModalPointerBoundary,
+} from './workflowModalIsolation';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasEditorModal';
 import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
-import {
-  ArrowsLeftRight,
-  ArrowsOut,
-  CaretLeft,
-  CaretRight,
-  Check,
-  Columns,
-  Copy,
-  Download,
-  PaintBrush,
-  X,
-} from '@phosphor-icons/react';
+import { ArrowsLeftRight, CaretLeft, CaretRight, Columns, Copy, Download, PaintBrush, X } from '@phosphor-icons/react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -31,11 +27,11 @@ export function ImagePreviewModal({
   alt = '查看大图',
   closeLabel = '关闭',
   overlayClassName,
-  focusOnOpen = false,
   images,
   initialIndex,
   onClose,
-  onApplyResize,
+  onSaveBoardImage,
+  onExportLayer,
   showEditActions = false,
   renderActions,
   children,
@@ -48,18 +44,16 @@ export function ImagePreviewModal({
   alt?: string;
   closeLabel?: string;
   overlayClassName?: string;
-  focusOnOpen?: boolean;
   images?: PreviewImageItem[];
   initialIndex?: number;
   onClose: () => void;
-  onApplyResize?: (
-    resizedBlobUrl: string,
-    w: number,
-    h: number,
-    blob?: Blob,
+  onExportLayer?: (file: File) => Promise<void>;
+  onSaveBoardImage?: (
+    previewUrl: string,
+    blob: File,
     activeItem?: PreviewImageItem,
     activeIndex?: number,
-  ) => void;
+  ) => void | Promise<void>;
   showEditActions?: boolean;
   renderActions?: (activeItem: PreviewImageItem, activeIndex: number) => ReactNode;
   children?: ReactNode;
@@ -99,11 +93,6 @@ export function ImagePreviewModal({
     },
     [onTextChange],
   );
-  const [showResize, setShowResize] = useState(false);
-  const [resizeMode, setResizeMode] = useState<'percent' | 'dimensions'>('percent');
-  const [scalePercent, setScalePercent] = useState(100);
-  const [targetWidth, setTargetWidth] = useState(0);
-  const [targetHeight, setTargetHeight] = useState(0);
   const [resizedSrcs, setResizedSrcs] = useState<Record<number, string>>({});
   const [canvasEditorOpen, setCanvasEditorOpen] = useState(false);
 
@@ -116,9 +105,7 @@ export function ImagePreviewModal({
 
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (focusOnOpen) dialogRef.current?.focus();
-  }, [focusOnOpen]);
+  useWorkflowModalIsolation(dialogRef);
 
   const resizedSrcsRef = useRef<Record<number, string>>({});
   const compareViewportRef = useRef<HTMLDivElement>(null);
@@ -131,7 +118,7 @@ export function ImagePreviewModal({
   const activeImage = gallery[activeIndex] || gallery[0];
   const displaySrc = resizedSrcs[activeIndex] || activeImage.src;
   const canNavigate = gallery.length > 1 && !isCompareMode;
-  const canEditImage = showEditActions && Boolean(onApplyResize);
+  const canEditImage = showEditActions && Boolean(onSaveBoardImage);
   const canCompare = gallery.length >= 2;
 
   const compareSrcA = resizedSrcs[compareA] || gallery[compareA]?.src || '';
@@ -249,13 +236,6 @@ export function ImagePreviewModal({
   );
 
   useEffect(() => {
-    if (focusOnOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => handlePreviewKey(event.key);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [focusOnOpen, handlePreviewKey]);
-
-  useEffect(() => {
     resizedSrcsRef.current = resizedSrcs;
   }, [resizedSrcs]);
 
@@ -301,49 +281,27 @@ export function ImagePreviewModal({
   };
 
   const publishEditedBlob = useCallback(
-    (url: string, width: number, height: number, blob: Blob) => {
+    async (url: string, blob: File) => {
+      await onSaveBoardImage?.(url, blob, activeImage, activeIndex);
       setResizedSrcs((prev) => {
         const next = { ...prev, [activeIndex]: url };
         if (prev[activeIndex]) URL.revokeObjectURL(prev[activeIndex]);
         return next;
       });
-      onApplyResize?.(url, width, height, blob, activeImage, activeIndex);
     },
-    [activeImage, activeIndex, onApplyResize],
+    [activeImage, activeIndex, onSaveBoardImage],
   );
 
-  const handleApplyResize = useCallback(async () => {
-    try {
-      const img = await loadWorkflowImage(displaySrc, { crossOrigin: 'anonymous' });
-      const origW = img.naturalWidth || img.width;
-      const origH = img.naturalHeight || img.height;
-
-      let w: number;
-      let h: number;
-      if (resizeMode === 'percent') {
-        const pct = Math.max(1, Math.min(1000, scalePercent)) / 100;
-        w = Math.round(origW * pct);
-        h = Math.round(origH * pct);
-      } else {
-        w = targetWidth || Math.round(origW * (targetHeight / origH));
-        h = targetHeight || Math.round(origH * (targetWidth / origW));
-        w = w || origW;
-        h = h || origH;
-      }
-
-      const blob = await drawImageToPng(img, w, h);
-      const url = URL.createObjectURL(blob);
-      publishEditedBlob(url, w, h, blob);
-    } catch {
-      // Keep the viewer open; callers already treat resizing as optional.
-    }
-  }, [displaySrc, publishEditedBlob, resizeMode, scalePercent, targetHeight, targetWidth]);
-
   const handleCanvasSave = useCallback(
-    async (file: File, previewUrl: string) => {
-      const img = await loadWorkflowImage(previewUrl, { crossOrigin: 'anonymous' });
-      publishEditedBlob(previewUrl, img.naturalWidth || img.width, img.naturalHeight || img.height, file);
-      setCanvasEditorOpen(false);
+    async (file: File) => {
+      const previewUrl = URL.createObjectURL(file);
+      try {
+        await publishEditedBlob(previewUrl, file);
+        setCanvasEditorOpen(false);
+      } catch (error) {
+        URL.revokeObjectURL(previewUrl);
+        throw error;
+      }
     },
     [publishEditedBlob],
   );
@@ -370,85 +328,64 @@ export function ImagePreviewModal({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className={['workflow-image-preview-modal', overlayClassName].filter(Boolean).join(' ')} onClick={onClose}>
-      <div
-        ref={dialogRef}
-        role={focusOnOpen ? 'dialog' : undefined}
-        aria-modal={focusOnOpen || undefined}
-        aria-label={focusOnOpen ? alt : undefined}
-        tabIndex={focusOnOpen ? -1 : undefined}
-        className="workflow-image-preview-modal__dialog"
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={
-          focusOnOpen
-            ? (event) => {
-                event.stopPropagation();
-                handlePreviewKey(event.key);
-                if (event.key !== 'Tab') return;
-                const dialog = event.currentTarget;
-                const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), textarea'));
-                const first = controls[0];
-                const last = controls.at(-1);
-                if (event.shiftKey && (event.target === first || event.target === dialog)) {
-                  event.preventDefault();
-                  last?.focus();
-                } else if (!event.shiftKey && event.target === last) {
-                  event.preventDefault();
-                  first?.focus();
-                }
-              }
-            : undefined
-        }
-      >
-        {textContent != null ? (
-          <div className="workflow-image-preview-modal__text-viewer">
-            <div className="workflow-image-preview-modal__text-card">
-              <div className="workflow-image-preview-modal__text-toolbar">
-                <span className="workflow-image-preview-modal__text-mode">{onTextChange ? '编辑中' : '文本'}</span>
-                {title && <span className="workflow-image-preview-modal__text-title">{title}</span>}
-                <span className="workflow-image-preview-modal__text-stats">
-                  {textStats.chars} 字符　{textStats.lines} 行　{textStats.paragraphs} 段
-                </span>
-                <div style={{ flex: 1, minWidth: 12 }} />
-                {renderTextActions?.()}
-                <button
-                  type="button"
-                  onClick={handleCopyText}
-                  className="workflow-image-preview-modal__icon-button"
-                  aria-label="复制文本"
-                  title={textCopyStatus || '复制文本'}
-                  disabled={!!textCopyStatus}
-                >
-                  <Copy size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="workflow-image-preview-modal__icon-button"
-                  aria-label={closeLabel}
-                  title={closeLabel}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              {onTextChange ? (
-                <textarea
-                  className="workflow-image-preview-modal__text-editor"
-                  value={localText}
-                  onChange={(e) => handleTextChange(e.target.value)}
-                />
-              ) : (
-                <pre className="workflow-image-preview-modal__text-content">{localText}</pre>
-              )}
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="workflow-image-preview-modal__topbar">
-              <ImageSizeLabel
-                src={isCompareMode ? compareSrcA : displaySrc}
-                className="workflow-image-preview-modal__size-badge"
-              />
+    <ModalSurface
+      ariaLabel={title || (textContent != null ? '查看文本' : alt)}
+      onClose={onClose}
+      rootClassName={['settings-modal', 'workflow-image-preview-modal', overlayClassName].filter(Boolean).join(' ')}
+      panelClassName="settings-modal__panel workflow-image-preview-modal__dialog"
+      backdropClassName="settings-modal__backdrop"
+      panelRef={dialogRef}
+      manageFocus={false}
+      closeOnEscape={false}
+      dialogOnPanel
+      rootProps={{
+        ...workflowModalPointerBoundary,
+        'data-workflow-modal-overlay': '',
+        onClick: stopWorkflowModalEvent,
+        onMouseDown: stopWorkflowModalEvent,
+      }}
+      panelProps={{
+        onKeyPress: stopWorkflowModalEvent,
+        onPaste: stopWorkflowModalEvent,
+        onKeyUp: stopWorkflowModalEvent,
+        onKeyDown: (event) => {
+          isolateWorkflowModalKey(event);
+          if (canvasEditorOpen || event.defaultPrevented || event.nativeEvent.isComposing) return;
+          const target = event.target;
+          if (
+            event.key !== 'Escape' &&
+            target instanceof HTMLElement &&
+            target.matches('input, textarea, select, [contenteditable="true"]')
+          )
+            return;
+          if (event.key === 'Escape' || (canNavigate && ['ArrowLeft', 'ArrowRight'].includes(event.key))) {
+            event.preventDefault();
+            handlePreviewKey(event.key);
+          }
+        },
+      }}
+    >
+      {textContent != null ? (
+        <div className="workflow-image-preview-modal__text-viewer">
+          <div className="workflow-image-preview-modal__text-card">
+            <div className="workflow-image-preview-modal__text-toolbar">
+              <span className="workflow-image-preview-modal__text-mode">{onTextChange ? '编辑中' : '文本'}</span>
+              {title && <span className="workflow-image-preview-modal__text-title">{title}</span>}
+              <span className="workflow-image-preview-modal__text-stats">
+                {textStats.chars} 字符　{textStats.lines} 行　{textStats.paragraphs} 段
+              </span>
+              <div style={{ flex: 1, minWidth: 12 }} />
+              {renderTextActions?.()}
+              <button
+                type="button"
+                onClick={handleCopyText}
+                className="workflow-image-preview-modal__icon-button"
+                aria-label="复制文本"
+                title={textCopyStatus || '复制文本'}
+                disabled={!!textCopyStatus}
+              >
+                <Copy size={14} />
+              </button>
               <button
                 type="button"
                 onClick={onClose}
@@ -459,226 +396,189 @@ export function ImagePreviewModal({
                 <X size={16} />
               </button>
             </div>
-
-            {canNavigate && (
-              <>
-                <button
-                  type="button"
-                  onClick={goPrevious}
-                  className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--prev"
-                  aria-label="上一张"
-                >
-                  <CaretLeft size={26} />
-                </button>
-                <button
-                  type="button"
-                  onClick={goNext}
-                  className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--next"
-                  aria-label="下一张"
-                >
-                  <CaretRight size={26} />
-                </button>
-              </>
-            )}
-
-            {!isCompareMode && (
-              <div className="workflow-image-preview-modal__actions">
-                {children}
-                {renderActions?.(activeImage, activeIndex)}
-
-                {canCompare && (
-                  <ImagePreviewActionButton
-                    icon={<Columns size={14} />}
-                    label="对比"
-                    active={false}
-                    onClick={enterCompareMode}
-                  />
-                )}
-
-                {showResize && canEditImage && (
-                  <div className="workflow-image-preview-modal__resize-panel">
-                    <select
-                      value={resizeMode}
-                      onChange={(event) => setResizeMode(event.target.value as 'percent' | 'dimensions')}
-                      className="workflow-image-preview-modal__field"
-                    >
-                      <option value="percent">百分比</option>
-                      <option value="dimensions">按尺寸</option>
-                    </select>
-                    {resizeMode === 'percent' ? (
-                      <>
-                        <input
-                          type="number"
-                          value={scalePercent}
-                          min={1}
-                          max={1000}
-                          onChange={(event) =>
-                            setScalePercent(Math.max(1, Math.min(1000, Number(event.target.value) || 1)))
-                          }
-                          className="workflow-image-preview-modal__field workflow-image-preview-modal__field--number"
-                        />
-                        <span className="workflow-image-preview-modal__muted">%</span>
-                      </>
-                    ) : (
-                      <>
-                        <input
-                          type="number"
-                          value={targetWidth || ''}
-                          min={1}
-                          onChange={(event) => setTargetWidth(Math.max(1, Number(event.target.value) || 0))}
-                          className="workflow-image-preview-modal__field workflow-image-preview-modal__field--number"
-                          placeholder="宽"
-                        />
-                        <span className="workflow-image-preview-modal__muted">x</span>
-                        <input
-                          type="number"
-                          value={targetHeight || ''}
-                          min={1}
-                          onChange={(event) => setTargetHeight(Math.max(1, Number(event.target.value) || 0))}
-                          className="workflow-image-preview-modal__field workflow-image-preview-modal__field--number"
-                          placeholder="高"
-                        />
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleApplyResize();
-                      }}
-                      className="workflow-image-preview-modal__apply"
-                    >
-                      <Check size={13} />
-                      应用
-                    </button>
-                  </div>
-                )}
-                {copyStatus && <span className="workflow-image-preview-modal__status">{copyStatus}</span>}
-                {canEditImage && (
-                  <>
-                    <ImagePreviewActionButton
-                      icon={<ArrowsOut size={14} />}
-                      label="缩放"
-                      active={showResize}
-                      onClick={() => setShowResize((prev) => !prev)}
-                    />
-                    <ImagePreviewActionButton
-                      icon={<PaintBrush size={14} />}
-                      label="画板"
-                      onClick={() => setCanvasEditorOpen(true)}
-                    />
-                  </>
-                )}
-                <ImagePreviewActionButton
-                  icon={<Copy size={14} />}
-                  label="复制图片"
-                  onClick={() => {
-                    void handleCopyImage();
-                  }}
-                />
-                <ImagePreviewActionButton icon={<Download size={14} />} label="另存为" onClick={handleSaveAs} />
-              </div>
-            )}
-
-            {isCompareMode ? (
-              <div
-                style={{
-                  flex: 1,
-                  width: '100%',
-                  minHeight: 0,
-                  alignSelf: 'stretch',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                }}
-              >
-                <div
-                  ref={compareViewportRef}
-                  className="node-image-compare__viewport"
-                  style={
-                    {
-                      '--compare-position': `${sliderPosition}%`,
-                      '--node-card-field': 'rgba(255,255,255,0.06)',
-                      '--node-field-border': 'rgba(255,255,255,0.12)',
-                      '--node-color': '#FF9500',
-                      flex: 1,
-                    } as React.CSSProperties
-                  }
-                  onMouseDown={handleSliderMouseDown}
-                  onTouchStart={handleSliderTouchStart}
-                >
-                  <img src={compareSrcA} alt="对比图 A" className="node-image-compare__image" draggable={false} />
-                  <div className="node-image-compare__pane node-image-compare__pane--right">
-                    <img src={compareSrcB} alt="对比图 B" className="node-image-compare__image" draggable={false} />
-                  </div>
-                  <div className="node-image-compare__divider" />
-                  <div className="node-image-compare__labels">
-                    <span>A</span>
-                    <span>B</span>
-                  </div>
-                </div>
-
-                {/* Compare thumbnail strip */}
-                <div className="workflow-image-preview-modal__compare-strip">
-                  <div className="workflow-image-preview-modal__compare-controls">
-                    <button
-                      type="button"
-                      className={`workflow-image-preview-modal__slot-toggle ${selectingSlot === 'A' ? 'is-active' : ''}`}
-                      onClick={() => setSelectingSlot('A')}
-                    >
-                      选A
-                    </button>
-                    <button
-                      type="button"
-                      className={`workflow-image-preview-modal__slot-toggle ${selectingSlot === 'B' ? 'is-active' : ''}`}
-                      onClick={() => setSelectingSlot('B')}
-                    >
-                      选B
-                    </button>
-                    <button
-                      type="button"
-                      className="workflow-image-preview-modal__swap-btn"
-                      onClick={swapCompare}
-                      title="交换A/B"
-                    >
-                      <ArrowsLeftRight size={12} />
-                    </button>
-                  </div>
-                  <div className="workflow-image-preview-modal__thumb-strip">
-                    {gallery.map((item, idx) => {
-                      const isA = idx === compareA;
-                      const isB = idx === compareB;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          className={`workflow-image-preview-modal__thumb ${isA ? 'is-compare-a' : ''} ${isB ? 'is-compare-b' : ''}`}
-                          onClick={() => handleCompareSelect(idx)}
-                        >
-                          <img src={item.src} alt="" draggable={false} />
-                          {isA && <span className="workflow-image-preview-modal__thumb-badge">A</span>}
-                          {isB && <span className="workflow-image-preview-modal__thumb-badge">B</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <img src={displaySrc} alt={alt} className="workflow-image-preview-modal__image" draggable={false} />
-            )}
-
-            {canvasEditorOpen && canEditImage && !isCompareMode && (
-              <NodeCanvasEditorModal
-                src={displaySrc}
-                nodeLabel={activeImage.name || '画板'}
-                onClose={() => setCanvasEditorOpen(false)}
-                onSavePaint={handleCanvasSave}
+            {onTextChange ? (
+              <textarea
+                className="workflow-image-preview-modal__text-editor"
+                value={localText}
+                onChange={(e) => handleTextChange(e.target.value)}
               />
+            ) : (
+              <pre className="workflow-image-preview-modal__text-content">{localText}</pre>
             )}
-          </>
-        )}
-      </div>
-    </div>,
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="workflow-image-preview-modal__topbar">
+            <ImageSizeLabel
+              src={isCompareMode ? compareSrcA : displaySrc}
+              className="workflow-image-preview-modal__size-badge"
+            />
+            <button
+              type="button"
+              onClick={onClose}
+              className="workflow-image-preview-modal__icon-button"
+              aria-label={closeLabel}
+              title={closeLabel}
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {canNavigate && (
+            <>
+              <button
+                type="button"
+                onClick={goPrevious}
+                className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--prev"
+                aria-label="上一张"
+              >
+                <CaretLeft size={26} />
+              </button>
+              <button
+                type="button"
+                onClick={goNext}
+                className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--next"
+                aria-label="下一张"
+              >
+                <CaretRight size={26} />
+              </button>
+            </>
+          )}
+
+          {!isCompareMode && (
+            <div className="workflow-image-preview-modal__actions">
+              {children}
+              {renderActions?.(activeImage, activeIndex)}
+
+              {canCompare && (
+                <ImagePreviewActionButton
+                  icon={<Columns size={14} />}
+                  label="对比"
+                  active={false}
+                  onClick={enterCompareMode}
+                />
+              )}
+
+              {copyStatus && <span className="workflow-image-preview-modal__status">{copyStatus}</span>}
+              {canEditImage && (
+                <ImagePreviewActionButton
+                  icon={<PaintBrush size={14} />}
+                  label="画板"
+                  onClick={() => setCanvasEditorOpen(true)}
+                />
+              )}
+              <ImagePreviewActionButton
+                icon={<Copy size={14} />}
+                label="复制图片"
+                onClick={() => {
+                  void handleCopyImage();
+                }}
+              />
+              <ImagePreviewActionButton icon={<Download size={14} />} label="另存为" onClick={handleSaveAs} />
+            </div>
+          )}
+
+          {isCompareMode ? (
+            <div
+              style={{
+                flex: 1,
+                width: '100%',
+                minHeight: 0,
+                alignSelf: 'stretch',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+              }}
+            >
+              <div
+                ref={compareViewportRef}
+                className="node-image-compare__viewport"
+                style={
+                  {
+                    '--compare-position': `${sliderPosition}%`,
+                    '--node-card-field': 'rgba(255,255,255,0.06)',
+                    '--node-field-border': 'rgba(255,255,255,0.12)',
+                    '--node-color': '#FF9500',
+                    flex: 1,
+                  } as React.CSSProperties
+                }
+                onMouseDown={handleSliderMouseDown}
+                onTouchStart={handleSliderTouchStart}
+              >
+                <img src={compareSrcA} alt="对比图 A" className="node-image-compare__image" draggable={false} />
+                <div className="node-image-compare__pane node-image-compare__pane--right">
+                  <img src={compareSrcB} alt="对比图 B" className="node-image-compare__image" draggable={false} />
+                </div>
+                <div className="node-image-compare__divider" />
+                <div className="node-image-compare__labels">
+                  <span>A</span>
+                  <span>B</span>
+                </div>
+              </div>
+
+              {/* Compare thumbnail strip */}
+              <div className="workflow-image-preview-modal__compare-strip">
+                <div className="workflow-image-preview-modal__compare-controls">
+                  <button
+                    type="button"
+                    className={`workflow-image-preview-modal__slot-toggle ${selectingSlot === 'A' ? 'is-active' : ''}`}
+                    onClick={() => setSelectingSlot('A')}
+                  >
+                    选A
+                  </button>
+                  <button
+                    type="button"
+                    className={`workflow-image-preview-modal__slot-toggle ${selectingSlot === 'B' ? 'is-active' : ''}`}
+                    onClick={() => setSelectingSlot('B')}
+                  >
+                    选B
+                  </button>
+                  <button
+                    type="button"
+                    className="workflow-image-preview-modal__swap-btn"
+                    onClick={swapCompare}
+                    title="交换A/B"
+                  >
+                    <ArrowsLeftRight size={12} />
+                  </button>
+                </div>
+                <div className="workflow-image-preview-modal__thumb-strip">
+                  {gallery.map((item, idx) => {
+                    const isA = idx === compareA;
+                    const isB = idx === compareB;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`workflow-image-preview-modal__thumb ${isA ? 'is-compare-a' : ''} ${isB ? 'is-compare-b' : ''}`}
+                        onClick={() => handleCompareSelect(idx)}
+                      >
+                        <img src={item.src} alt="" draggable={false} />
+                        {isA && <span className="workflow-image-preview-modal__thumb-badge">A</span>}
+                        {isB && <span className="workflow-image-preview-modal__thumb-badge">B</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <img src={displaySrc} alt={alt} className="workflow-image-preview-modal__image" draggable={false} />
+          )}
+
+          {canvasEditorOpen && canEditImage && !isCompareMode && (
+            <NodeCanvasEditorModal
+              src={displaySrc}
+              nodeLabel={activeImage.name || '画板'}
+              onClose={() => setCanvasEditorOpen(false)}
+              onSavePaint={handleCanvasSave}
+              onExportLayer={onExportLayer}
+            />
+          )}
+        </>
+      )}
+    </ModalSurface>,
     document.body,
   );
 }

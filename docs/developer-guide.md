@@ -152,6 +152,9 @@ Current cleanup and ownership notes:
   - shared `aiV3`/`io` node shell for rename, disable, lock, duplicate, execute-to-node, runtime status, resizing, and common handles; node-specific wrappers preserve type, label, color, ports, and content semantics
 - `src/domains/workflow/components/nodes/NodePorts.tsx`
   - regular node handles and group boundary port handles, including split internal and external group-port affordances
+- `src/domains/workflow/components/NodeCanvasEditorModal.tsx`
+  - 图片与草图共用的画板。编辑会话管理画布尺寸、位图图层、矩形、椭圆和自由手绘套索选区。自由变换的预览保存在会话状态，应用时只提交一条历史；几何与位图绘制在 `nodeCanvasTransform.ts`。撤销历史复用未修改的图层位图。预览与 PNG 输出使用同一合成画布，保存回调接收 PNG 文件。
+  - 画板、图片预览和长文本使用与工作室设置、资产库相同的 `ModalSurface` 和遮罩样式。画板、预览、长文本和确认弹窗共用 `workflowModalIsolation.ts` 管理键盘焦点，并用 inert 暂停工作区和下层弹窗的交互。工作流快捷键和粘贴入口在这些弹窗打开时暂停。
 - `src/domains/workflow/components/ResultsPanel.tsx`
   - outputs, logs, and run diagnostics
 - `src/domains/workflow/lib/groupLayout.ts`

@@ -776,32 +776,13 @@ body {
 }
 
 .workflow-image-preview-modal {
-  position: fixed;
-  inset: 0;
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 .workflow-image-preview-modal__dialog {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: min(1120px, 92vw);
-  height: min(820px, 88vh);
-  overflow: hidden;
-  border: 1px solid var(--glass-border);
-  border-radius: 25px;
-  background: color-mix(in srgb, var(--glass-bg) 88%, rgba(0, 0, 0, 0.34));
-  box-shadow: var(--glass-shadow-lg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .workflow-image-preview-modal__topbar {
@@ -835,8 +816,7 @@ body {
 
 .workflow-image-preview-modal__icon-button,
 .workflow-image-preview-modal__nav,
-.workflow-image-preview-modal__action,
-.workflow-image-preview-modal__apply {
+.workflow-image-preview-modal__action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -860,8 +840,7 @@ body {
 
 .workflow-image-preview-modal__icon-button:hover,
 .workflow-image-preview-modal__nav:hover,
-.workflow-image-preview-modal__action:hover,
-.workflow-image-preview-modal__apply:hover {
+.workflow-image-preview-modal__action:hover {
   border-color: color-mix(in srgb, var(--color-accent) 34%, var(--glass-border));
   background: var(--glass-bg-hover);
 }
@@ -900,8 +879,7 @@ body {
   flex-wrap: wrap;
 }
 
-.workflow-image-preview-modal__action,
-.workflow-image-preview-modal__apply {
+.workflow-image-preview-modal__action {
   gap: 6px;
   min-height: 34px;
   padding: 0 13px;
@@ -914,39 +892,6 @@ body {
   color: var(--color-accent);
 }
 
-.workflow-image-preview-modal__resize-panel {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 50px;
-  padding: 8px;
-  border: 1px solid var(--glass-border);
-  border-radius: 25px;
-  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
-  box-shadow: var(--glass-shadow-lg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-}
-
-.workflow-image-preview-modal__field {
-  height: 34px;
-  min-width: 86px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  padding: 0 12px;
-  font-size: 12px;
-  outline: none;
-}
-
-.workflow-image-preview-modal__field--number {
-  min-width: 68px;
-  width: 72px;
-  text-align: right;
-}
-
-.workflow-image-preview-modal__muted,
 .workflow-image-preview-modal__status {
   color: var(--color-text-secondary);
   font-size: 12px;
@@ -2729,4 +2674,10 @@ input[type="range"]::-moz-range-thumb {
   outline: none;
   box-shadow: none;
   border-color: transparent;
+}
+
+
+[data-workflow-modal-overlay],
+[data-workflow-modal-overlay] * {
+  overscroll-behavior: contain;
 }

@@ -561,7 +561,6 @@ export default function AssetLibraryModal({
           alt={previewAsset.name}
           closeLabel="关闭大图"
           overlayClassName="asset-library-image-preview"
-          focusOnOpen
           onClose={closePreview}
         />
       )}

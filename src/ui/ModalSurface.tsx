@@ -1,4 +1,12 @@
-import { type MouseEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useRef } from 'react';
+import {
+  type MouseEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  type HTMLAttributes,
+  type Ref,
+  useEffect,
+  useRef,
+} from 'react';
 
 interface ModalSurfaceProps {
   ariaLabel: string;
@@ -11,6 +19,12 @@ interface ModalSurfaceProps {
   closeOnRootClick?: boolean;
   isolateKeyboard?: boolean;
   inactive?: boolean;
+  rootProps?: HTMLAttributes<HTMLDivElement> & { [attribute: `data-${string}`]: string };
+  panelProps?: HTMLAttributes<HTMLDivElement>;
+  panelRef?: Ref<HTMLDivElement>;
+  manageFocus?: boolean;
+  closeOnEscape?: boolean;
+  dialogOnPanel?: boolean;
 }
 
 export function ModalSurface({
@@ -24,32 +38,40 @@ export function ModalSurface({
   closeOnRootClick = false,
   isolateKeyboard = false,
   inactive = false,
+  rootProps,
+  panelProps,
+  panelRef: externalPanelRef,
+  manageFocus = true,
+  closeOnEscape = true,
+  dialogOnPanel = false,
 }: ModalSurfaceProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!manageFocus) return;
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     panelRef.current?.focus();
     return () => previouslyFocused?.focus();
-  }, [onClose]);
+  }, [manageFocus]);
 
   useEffect(() => {
-    if (inactive) return;
+    if (inactive || !closeOnEscape || isolateKeyboard) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [inactive, onClose]);
+  }, [closeOnEscape, inactive, isolateKeyboard, onClose]);
 
   const handleRootClick = (event: MouseEvent<HTMLDivElement>) => {
+    rootProps?.onClick?.(event);
     if (closeOnRootClick && event.target === event.currentTarget) onClose();
   };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!isolateKeyboard) return;
     event.stopPropagation();
-    if (event.key === 'Escape') onClose();
+    if (closeOnEscape && event.key === 'Escape' && !event.nativeEvent.isComposing) onClose();
     if (event.key !== 'Tab') return;
     const elements = Array.from(
       panelRef.current?.querySelectorAll<HTMLElement>(
@@ -71,20 +93,34 @@ export function ModalSurface({
     }
   };
 
+  const dialogProps = { role: 'dialog', 'aria-modal': true, 'aria-label': ariaLabel } as const;
+
   return (
     <div
+      {...rootProps}
+      {...(!dialogOnPanel && dialogProps)}
       className={rootClassName}
-      role="dialog"
-      aria-modal="true"
-      aria-label={ariaLabel}
       inert={inactive}
       onClick={handleRootClick}
-      onKeyDown={handleKeyDown}
+      onKeyDown={(event) => {
+        rootProps?.onKeyDown?.(event);
+        if (!event.isPropagationStopped()) handleKeyDown(event);
+      }}
     >
       {backdropClassName && (
         <button type="button" className={backdropClassName} aria-label={backdropLabel} onClick={onClose} />
       )}
-      <div ref={panelRef} className={panelClassName} tabIndex={-1} onClick={(event) => event.stopPropagation()}>
+      <div
+        {...panelProps}
+        {...(dialogOnPanel && dialogProps)}
+        ref={externalPanelRef ?? panelRef}
+        className={panelClassName}
+        tabIndex={-1}
+        onClick={(event) => {
+          panelProps?.onClick?.(event);
+          event.stopPropagation();
+        }}
+      >
         {children}
       </div>
     </div>

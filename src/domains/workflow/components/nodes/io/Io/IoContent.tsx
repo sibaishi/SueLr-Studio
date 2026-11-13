@@ -263,34 +263,38 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
 
   const canDrawSketch = Boolean(nodeId && !upstreamSlots && !hasContent && !data.fileUrl);
 
-  const saveSketch = async (file: File) => {
+  const appendBoardImage = async (file: File) => {
     const { activeDocumentId } = useWorkflowStore.getState();
     const uploaded = await uploadFile(file);
-    if (!uploaded.success || !uploaded.url) throw new Error(uploaded.error || '草图上传失败。');
+    if (!uploaded.success || !uploaded.url) throw new Error(uploaded.error || '图片上传失败。');
 
     const entry = await createIoImageFileEntry(file);
     const store = useWorkflowStore.getState();
-    const node = store.nodes.find((item) => item.id === nodeId);
+    const node = store.nodes.find((item) => item.id === nodeId && item.type === 'io');
     const hasUpstream = store.edges.some((edge) => edge.target === nodeId && edge.targetHandle === 'input');
-    if (
-      !nodeId ||
-      !node ||
-      store.activeDocumentId !== activeDocumentId ||
-      hasUpstream ||
-      node.data.fileUrl ||
-      String(node.data.text ?? '').trim() ||
-      (Array.isArray(node.data.content) && node.data.content.length > 0)
-    ) {
+    if (!nodeId || !node || store.activeDocumentId !== activeDocumentId || hasUpstream) {
       fileRawStore.remove(entry.fileId);
       throw new Error('当前 IO 节点已发生变化，请重新打开画板。');
     }
 
+    const data = node.data;
+    const content = Array.isArray(data.content) ? data.content : [];
+    const ids = Array.isArray(data._fileIds) ? data._fileIds : [];
+    const kinds = Array.isArray(data._fileKinds) ? data._fileKinds : [];
+    const names = Array.isArray(data._fileNames) ? data._fileNames : [];
+    const order = Array.isArray(data._fileOrder) ? data._fileOrder : [];
+    const count = Math.max(content.length, ids.length);
+    const fileIds = Array.from({ length: count }, (_, index) => ids[index] ?? fileRawStore.reserveId());
+    const orderedIds = new Set([...order.filter((id) => fileIds.includes(id)), ...fileIds]);
     store.updateNodeData(nodeId, {
-      content: [uploaded.url],
-      _fileIds: [entry.fileId],
-      _fileKinds: ['image'],
-      _fileOrder: [entry.fileId],
-      _fileNames: [uploaded.fileName || entry.fileName],
+      content: [...Array.from({ length: count }, (_, index) => content[index] ?? ''), uploaded.url],
+      _fileIds: [...fileIds, entry.fileId],
+      _fileKinds: [...fileIds.map((_, index) => kinds[index] ?? classifyItemValue(content[index])), 'image'],
+      _fileOrder: [...orderedIds, entry.fileId],
+      _fileNames: [
+        ...fileIds.map((_, index) => names[index] ?? (content[index] ? imageFileNameFromUrl(content[index]) : '')),
+        uploaded.fileName || entry.fileName,
+      ],
     });
   };
 
@@ -385,11 +389,25 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
           ))}
 
           {audioItems.map((src, index) => (
-            <audio key={index} className="nodrag nopan" src={src} controls preload="metadata" style={{ width: '100%' }} />
+            <audio
+              key={index}
+              className="nodrag nopan"
+              src={src}
+              controls
+              preload="metadata"
+              style={{ width: '100%' }}
+            />
           ))}
 
           {videoItems.map((src, index) => (
-            <video className="nodrag nopan" key={index} src={src} controls preload="metadata" style={{ width: '100%' }} />
+            <video
+              className="nodrag nopan"
+              key={index}
+              src={src}
+              controls
+              preload="metadata"
+              style={{ width: '100%' }}
+            />
           ))}
 
           {/* Modal viewer */}
@@ -405,7 +423,8 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
               )}
               onClose={() => setPreviewIdx(-1)}
               showEditActions={canEditSourceImages}
-              onApplyResize={(url, _w, _h, blob, activeItem) => {
+              onExportLayer={nodeId && !upstreamSlots ? appendBoardImage : undefined}
+              onSaveBoardImage={(url, blob, activeItem) => {
                 const activePreviewIdx = activeItem?.src
                   ? previewable.findIndex(
                       (item) => item.type === 'image' && (resizedSrcs[item.idx] || item.value) === activeItem.src,
@@ -415,8 +434,8 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
                 const item = previewable[targetPreviewIdx];
                 if (!item) return;
                 const fid = item.fileId;
-                if (!blob || !nodeId) return;
-                void createIoImageFileEntry(blob, imageFileNameFromUrl(item.value, blob.type)).then((entry) => {
+                if (!nodeId) return;
+                return createIoImageFileEntry(blob, imageFileNameFromUrl(item.value, blob.type)).then((entry) => {
                   const store = useWorkflowStore.getState();
                   const nd = (store.nodes.find((n) => n.id === nodeId)?.data || {}) as Record<string, unknown>;
                   const fileIds: number[] = Array.isArray(nd._fileIds) ? [...(nd._fileIds as number[])] : [];
@@ -517,7 +536,8 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
         <NodeCanvasEditorModal
           nodeLabel="绘制草图"
           onClose={() => setIsSketchOpen(false)}
-          onSavePaint={saveSketch}
+          onSavePaint={appendBoardImage}
+          onExportLayer={appendBoardImage}
         />
       )}
     </div>

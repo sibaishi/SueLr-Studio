@@ -1,3 +1,9 @@
+import {
+  isolateWorkflowModalKey,
+  stopWorkflowModalEvent,
+  useWorkflowModalIsolation,
+  workflowModalPointerBoundary,
+} from './workflowModalIsolation';
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -39,17 +45,6 @@ export function WorkflowConfirmProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!pendingRequest) return undefined;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close(false);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [close, pendingRequest]);
-
-  useEffect(() => {
     return () => {
       pendingResolverRef.current?.(false);
       pendingResolverRef.current = null;
@@ -79,6 +74,9 @@ function WorkflowConfirmDialog({
   request: WorkflowConfirmRequest;
   onClose: (confirmed: boolean) => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useWorkflowModalIsolation(dialogRef);
+
   if (typeof document === 'undefined') return null;
 
   const tone = request.tone || 'default';
@@ -89,7 +87,23 @@ function WorkflowConfirmDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="workflow-confirm-title"
+      ref={dialogRef}
+      tabIndex={-1}
+      data-workflow-modal-overlay
+      {...workflowModalPointerBoundary}
+      onKeyDown={(event) => {
+        isolateWorkflowModalKey(event);
+        if (event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          onClose(false);
+        }
+      }}
+      onKeyUp={stopWorkflowModalEvent}
+      onKeyPress={stopWorkflowModalEvent}
+      onPaste={stopWorkflowModalEvent}
+      onClick={stopWorkflowModalEvent}
       onMouseDown={(event) => {
+        event.stopPropagation();
         if (event.target === event.currentTarget) onClose(false);
       }}
     >

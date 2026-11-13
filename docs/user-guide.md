@@ -183,6 +183,26 @@ Typical flow:
 
 To use a hand-drawn reference, click **绘制草图** on an empty IO node with no incoming connection. Choose a canvas ratio preset or enter a custom width and height (64–2048 px per side), then click **应用尺寸**. Resizing keeps the drawing centered and scales it down proportionally if needed. You can undo or redo a size change. Pressure-sensitive pens vary the brush width as you draw when the device supplies pressure to the app. Draw on the white canvas and click **保存到 IO 节点** to upload the PNG at the applied size. Connect that IO node and a prompt to an image generation node with a model that accepts reference images.
 
+打开 IO 节点图片预览中的 **画板**，右侧 **画布属性** 的 **画布大小** 可设置宽高、比例和九宫格锚点。扩大画布会露出透明区域，缩小画布只裁掉显示范围，图层原像素可通过重新调整画布找回。图片画板的尺寸设置范围为每边 64–8192 px，总像素上限为 3200 万。草图为白底，默认使用居中锚点。
+
+图片尺寸在画板中调整。**图像大小** 会重采样整份图像，并按新尺寸缩放所有图层的位置和像素。**图层大小** 按实际像素范围缩放当前图层，保留该范围的左上位置和整张画布尺寸。两项都默认保持宽高比例，可以解除比例锁定，也都可以撤销。
+
+右侧 **图层** 面板从上到下显示合成顺序。点击名称或缩略图选中图层，双击名称或按 `F2` 重命名；拖动图层行可以排序。眼睛和锁图标分别控制显隐和锁定。面板底部可新建、导入和删除图层，右上角菜单提供复制、清空、排序和自由变换。可为每层设置不透明度和混合模式。
+
+选中可见且未锁定的图层后，按 **Ctrl / ⌘ + T** 或点击左侧 **自由变换**。拖框内移动，拖边或角点缩放，拖框上方的圆点旋转；按住 Shift 拖角点保持比例，旋转时按住 Shift 按 15° 吸附。顶部也可输入位置、宽高和角度。按 Enter 应用，Esc 取消；应用后可撤销。
+
+用 **矩形选区**（M）或 **椭圆选区**（Shift + M）拖出范围。按住 Shift 拖出正方形或正圆，拖动选区内部可移动边界。画笔、橡皮和清除像素都受选区限制；也可把选区复制为新图层，或按选区外框裁切画布。Ctrl / ⌘ + A 全选，Ctrl / ⌘ + D 或 Esc 取消选区。按住空格拖动可临时平移，滚轮可缩放。笔刷、橡皮、选区和平移都可以从画布周围的工作区起手。
+
+用 **套索选区**（L）沿任意轮廓拖画，松开鼠标后自动闭合。套索可以限制画笔、橡皮和清除像素的范围，也可以复制为新图层或按外框裁切画布。
+
+用 **纯色填充**（Shift + G）选择颜色，再点击工作区或顶部的填充按钮。用 **渐变填充**（G）设置起始、结束颜色，拖出一条线来控制线性渐变的方向和长度，松开应用。填充写入当前可见且未锁定的图层，有选区时只填充选区内的画布部分，否则填充整个画布。两种操作都可撤销。
+
+选中图层后，在图层菜单中点 **导出图层到当前 IO 节点**。它会把该层作为透明 PNG 追加到当前节点，保留画布尺寸、图层位置和不透明度。导出只包含所选图层，画板会继续打开。
+
+打开画板、大图或文本弹窗时，键盘、点击和滚动都由最上层弹窗处理，背景画布的发光效果也不会跟随鼠标。按 Tab 在弹窗内切换焦点，关闭后可继续使用工作流快捷键。
+
+保存输出合成 PNG，图层保留在本次编辑中。提示词通过工作流中的 **AI 能力 V3** 节点填写。
+
 Workflow management:
 
 - `New` starts a local draft. Save it before relying on it as a reusable workflow.

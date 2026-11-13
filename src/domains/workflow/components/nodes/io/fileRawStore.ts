@@ -20,6 +20,9 @@ let nextId = Date.now();
 export const uploadUrlStore = new Map<number, string>();
 
 export const fileRawStore = {
+  reserveId(): number {
+    return nextId++;
+  },
   add(blob: Blob, name: string, base64: string): number {
     const id = nextId++;
     const objectUrl = URL.createObjectURL(blob);

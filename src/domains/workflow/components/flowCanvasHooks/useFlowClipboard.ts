@@ -1,3 +1,4 @@
+import { isWorkflowModalOpen } from '../workflowModalIsolation';
 import {
   constrainChildNodeToGroupContent,
   enforceGroupLayout,
@@ -164,6 +165,7 @@ export function useFlowClipboard({
 
   useEffect(() => {
     const handleClipboardHotkeys = (event: KeyboardEvent) => {
+      if (isWorkflowModalOpen()) return;
       if (isEditableElement(event.target)) return;
       if (event.altKey) return;
       if (!event.metaKey && !event.ctrlKey) return;
@@ -183,6 +185,7 @@ export function useFlowClipboard({
 
   useEffect(() => {
     const handleClipboardPaste = (event: ClipboardEvent) => {
+      if (isWorkflowModalOpen()) return;
       if (isEditableElement(event.target)) return;
 
       const clipboardText = event.clipboardData?.getData('text/plain') || '';
