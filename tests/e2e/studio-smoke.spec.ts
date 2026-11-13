@@ -178,6 +178,8 @@ test.describe('studio smoke', () => {
     await editor.getByRole('button', { name: '适合视图' }).click();
 
     const box = (await canvas.boundingBox())!;
+    await editor.getByRole('slider', { name: '防抖' }).focus();
+    await page.keyboard.press('Home');
     const pen = await page.context().newCDPSession(page);
     const y = box.y + box.height / 4;
     await pen.send('Input.dispatchMouseEvent', {
@@ -238,6 +240,70 @@ test.describe('studio smoke', () => {
     expect(pixels.sharpCorner).toEqual([255, 255, 255, 255]);
   });
 
+  test('drawing aids preview shapes, apply through a feathered selection, and undo', async ({ page }) => {
+    await clearLocalState(page);
+    await page.getByTestId('workflow-new').click();
+    await addWorkflowNode(page, 'io');
+    await page.getByRole('button', { name: '绘制草图' }).click();
+    const editor = page.locator('.node-canvas-editor-modal');
+    const canvas = editor.getByLabel('图像画布');
+    await expect(editor.getByRole('slider', { name: '防抖' })).toHaveValue('25');
+    const draw = async (points: number[][]) => {
+      const box = (await canvas.boundingBox())!;
+      const move = ([x, y]: number[]) => page.mouse.move(box.x + box.width * x, box.y + box.height * y);
+      await move(points[0]);
+      await page.mouse.down();
+      for (const point of points.slice(1)) await move(point);
+      await page.mouse.up();
+    };
+    const center = () => canvas.evaluate((el: HTMLCanvasElement) =>
+      el.getContext('2d')!.getImageData(el.width / 2, el.height / 2, 1, 1).data[0]);
+    await editor.getByRole('button', { name: '形状', exact: true }).click();
+    const shape = editor.getByRole('combobox', { name: '形状', exact: true });
+    for (const kind of ['line', 'arrow', 'rectangle', 'rounded', 'ellipse', 'polygon']) {
+      await shape.selectOption(kind);
+      await draw([[0.25, 0.3], [0.7, 0.7]]);
+      await expect(editor.locator('.canvas-transform-frame .canvas-shape-preview path')).toBeVisible();
+      await expect.poll(center).toBe(255);
+      await page.keyboard.press('Escape');
+      await expect(editor.locator('.canvas-transform-frame')).toHaveCount(0);
+    }
+    await editor.getByRole('button', { name: '手绘识形', exact: true }).click();
+    await draw([[0.25, 0.5], [0.4, 0.502], [0.55, 0.498], [0.75, 0.5]]);
+    await expect(shape).toHaveValue('line');
+    await page.keyboard.press('Enter');
+    await expect.poll(center).toBeLessThan(80);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+    await expect.poll(center).toBe(255);
+    await draw([[0.25, 0.3], [0.4, 0.65], [0.55, 0.31], [0.7, 0.72]]);
+    await expect(editor.getByRole('button', { name: '保留手绘' })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await editor.getByRole('button', { name: '矩形选区', exact: true }).click();
+    const feather = editor.getByRole('spinbutton', { name: '羽化 (px)' });
+    await feather.fill('32');
+    await feather.press('Enter');
+    await draw([[0.2, 0.3], [0.5, 0.7]]);
+    await editor.getByRole('button', { name: '形状', exact: true }).click();
+    await shape.selectOption('rectangle');
+    await draw([[0.3, 0.35], [0.75, 0.65]]);
+    await editor.getByRole('checkbox', { name: '填充', exact: true }).check();
+    await editor.getByLabel('填充颜色').fill('#222222');
+    const width = editor.getByRole('spinbutton', { name: '宽', exact: true });
+    await width.fill('320');
+    await width.press('Enter');
+    await expect(width).toHaveValue('320');
+    await editor.getByRole('button', { name: '应用形状' }).click();
+    const samples = await canvas.evaluate((el: HTMLCanvasElement) => {
+      const ctx = el.getContext('2d')!;
+      return [0.4, 0.5, 0.6].map((x) => ctx.getImageData(el.width * x, el.height / 2, 1, 1).data[0]);
+    });
+    expect(samples[0]).toBeLessThan(80);
+    expect(samples[1]).toBeGreaterThan(80);
+    expect(samples[1]).toBeLessThan(220);
+    expect(samples[2]).toBe(255);
+  });
+
   test('an IO image board resizes with transparency and clips drawing to a selection', async ({ page }) => {
     test.setTimeout(45_000);
     await clearLocalState(page);
@@ -258,6 +324,8 @@ test.describe('studio smoke', () => {
     await editor.getByRole('button', { name: '应用尺寸' }).click();
     await expect(canvas).toHaveAttribute('height', '1024');
 
+    await editor.getByRole('slider', { name: '防抖' }).focus();
+    await page.keyboard.press('Home');
     const pixel = (x: number, y: number) =>
       canvas.evaluate((element: HTMLCanvasElement, point) =>
         Array.from(element.getContext('2d')!.getImageData(point.x, point.y, 1, 1).data), { x, y });

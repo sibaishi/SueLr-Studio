@@ -8,6 +8,7 @@ import {
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import {
   type CanvasPoint,
+  type CanvasRect,
   type CanvasTransform,
   type TransformHandle,
   dragTransform,
@@ -39,6 +40,8 @@ import {
   Gradient,
   BoundingBox,
   NotePencil,
+  Shapes,
+  ScribbleLoop,
   Trash,
   X,
 } from '@phosphor-icons/react';
@@ -63,9 +66,18 @@ import {
   maskSelection,
   traceMarquee,
 } from './nodeCanvasSelection';
+import {
+  SHAPE_LABELS,
+  type ShapeDraft,
+  type ShapeKind,
+  makeShape,
+  recognizeShape,
+  shapePath,
+  smoothPointer,
+} from './nodeCanvasShapes';
 import './NodeCanvasEditorModal.css';
 
-type ToolMode = 'brush' | 'eraser' | 'selection' | 'fill' | 'gradient';
+type ToolMode = 'brush' | 'eraser' | 'selection' | 'fill' | 'gradient' | 'shape' | 'recognize';
 type ViewMode = 'draw' | 'pan';
 
 type BrushPoint = { x: number; y: number; radius: number };
@@ -219,6 +231,15 @@ export function NodeCanvasEditorModal({
   const [gradientEndColor, setGradientEndColor] = useState('#ffffff');
   const [gradientGuide, setGradientGuide] = useState<{ start: CanvasPoint; end: CanvasPoint } | null>(null);
   const gradientDrag = useRef<{ pointerId: number; start: CanvasPoint } | null>(null);
+  const [stabilization, setStabilization] = useState(25);
+  const [shapeKind, setShapeKind] = useState<ShapeKind>('rectangle');
+  const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
+  const [shapeStroke, setShapeStroke] = useState(4);
+  const [shapeFill, setShapeFill] = useState(false);
+  const [shapeFillColor, setShapeFillColor] = useState('#ffffff');
+  const [recognitionTrail, setRecognitionTrail] = useState<CanvasPoint[]>([]);
+  const shapeGesture = useRef<{ pointerId: number; start: CanvasPoint; points?: CanvasPoint[] } | null>(null);
+  const isShapeTool = tool === 'shape' || tool === 'recognize';
   const isBrushTool = tool === 'brush' || tool === 'eraser';
   const [paintColor, setPaintColor] = useState(isSketch ? '#222222' : '#ff375f');
   const [exportMessage, setExportMessage] = useState('');
@@ -273,9 +294,13 @@ export function NodeCanvasEditorModal({
   const paintCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const layerCount = useRef(0);
   const importInput = useRef<HTMLInputElement | null>(null);
-  const strokeRef = useRef<{ pointerId: number; last: BrushPoint; midpoint: BrushPoint; touchesLayer: boolean } | null>(
-    null,
-  );
+  const strokeRef = useRef<{
+    pointerId: number;
+    last: BrushPoint;
+    midpoint: BrushPoint;
+    touchesLayer: boolean;
+    sampleTime: number;
+  } | null>(null);
   const brushPreviewTimerRef = useRef<number | null>(null);
 
   const brushCursorColor = tool === 'eraser' ? '#ffffff' : paintColor;
@@ -303,7 +328,7 @@ export function NodeCanvasEditorModal({
       selection.y + selection.height > 0,
   );
   const isDirty = Boolean(snapshot && snapshot !== savedSnapshot);
-  const isBusy = isDrawing || isSaving || isImporting || Boolean(transform);
+  const isBusy = isDrawing || isSaving || isImporting || Boolean(transform || shapeDraft);
   const width = dimensions?.width;
   const height = dimensions?.height;
   const imageDimensions = useMemo(() => (width && height ? { width, height } : null), [width, height]);
@@ -721,7 +746,9 @@ export function NodeCanvasEditorModal({
       if (canvas && rect?.width && rect.height) {
         const endpoint = getBrushPoint(event.nativeEvent, rect, canvas);
         if (endpoint.x !== stroke.last.x || endpoint.y !== stroke.last.y) {
-          appendBrushPoint(stroke, { ...endpoint, radius: stroke.last.radius });
+          const finalPoint = { ...endpoint, radius: stroke.last.radius };
+          if (stabilization) appendBrushPoint(stroke, smoothPointer(stroke.last, finalPoint, 25, stabilization));
+          appendBrushPoint(stroke, finalPoint);
         }
       }
     }
@@ -763,13 +790,15 @@ export function NodeCanvasEditorModal({
     }
   }
 
-  function startStroke() {
+  function startStroke(bounds?: CanvasRect) {
     if (!snapshot || !activeLayer || activeLayer.locked || !activeLayer.visible) return false;
     // Include both the layer's existing pixels and the visible canvas in its new drawing surface.
-    const x = Math.min(0, activeLayer.x);
-    const y = Math.min(0, activeLayer.y);
-    const width = Math.max(snapshot.width, activeLayer.x + activeLayer.pixels.width) - x;
-    const height = Math.max(snapshot.height, activeLayer.y + activeLayer.pixels.height) - y;
+    const x = Math.min(0, activeLayer.x, bounds?.x ?? 0);
+    const y = Math.min(0, activeLayer.y, bounds?.y ?? 0);
+    const width =
+      Math.max(snapshot.width, activeLayer.x + activeLayer.pixels.width, bounds ? bounds.x + bounds.width : 0) - x;
+    const height =
+      Math.max(snapshot.height, activeLayer.y + activeLayer.pixels.height, bounds ? bounds.y + bounds.height : 0) - y;
     if (width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE || width * height > MAX_CANVAS_PIXELS) {
       setError('图层和画布的范围过大，请先调整图层位置或缩小画布。');
       return false;
@@ -1093,6 +1122,86 @@ export function NodeCanvasEditorModal({
     setError('');
   }
 
+  function endShape(apply: boolean) {
+    if (apply && (shapeGesture.current || transformDrag.current || !shapeDraft)) return;
+    if (apply && shapeDraft) {
+      const bounds = transformBounds(shapeDraft.frame);
+      const padding = Math.ceil(shapeStroke / 2) + 1;
+      const x = bounds.x - padding;
+      const y = bounds.y - padding;
+      const width = bounds.width + padding * 2;
+      const height = bounds.height + padding * 2;
+      if (!startStroke({ x, y, width, height })) return;
+      const next = strokeDocument.current;
+      strokeDocument.current = null;
+      const layer = next?.layers.find((item) => item.id === next.activeId);
+      if (!next || !layer) return;
+      const overlay = createPixels(width, height);
+      const context = overlay.getContext('2d');
+      if (!context) return;
+      const frame = shapeDraft.frame;
+      context.save();
+      context.translate(frame.x + frame.width / 2 - x, frame.y + frame.height / 2 - y);
+      context.rotate(frame.angle);
+      context.translate(-frame.width / 2, -frame.height / 2);
+      const path = new Path2D(shapePath(shapeDraft));
+      if (shapeFill && !['line', 'arrow', 'freehand'].includes(shapeDraft.kind)) {
+        context.fillStyle = shapeFillColor;
+        context.fill(path);
+      }
+      context.lineWidth = shapeStroke;
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+      context.strokeStyle = paintColor;
+      context.stroke(path);
+      context.restore();
+      if (selection) maskSelection(context, selection, x, y);
+      layer.pixels.getContext('2d')?.drawImage(overlay, x - layer.x, y - layer.y);
+      commit(next);
+    }
+    shapeGesture.current = null;
+    transformDrag.current = null;
+    setShapeDraft(null);
+    setRecognitionTrail([]);
+    setIsDrawing(false);
+    setError('');
+  }
+
+  function moveShapeGesture(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = shapeGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return false;
+    const point = transformPoint(event);
+    if (gesture.points) {
+      const last = gesture.points[gesture.points.length - 1];
+      if (gesture.points.length < 2048 && Math.hypot(last.x - point.x, last.y - point.y) >= 1) {
+        gesture.points.push(point);
+        setRecognitionTrail([...gesture.points]);
+      }
+    } else setShapeDraft(makeShape(shapeKind, gesture.start, point, event.shiftKey));
+    return true;
+  }
+
+  function finishShapeGesture(event: ReactPointerEvent<HTMLDivElement>, apply: boolean) {
+    const gesture = shapeGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return false;
+    if (!apply) endShape(false);
+    else {
+      moveShapeGesture(event);
+      const end = transformPoint(event);
+      if (gesture.points && gesture.points.length > 1) setShapeDraft(recognizeShape(gesture.points));
+      else if (Math.hypot(end.x - gesture.start.x, end.y - gesture.start.y) < 1) setShapeDraft(null);
+      shapeGesture.current = null;
+      setRecognitionTrail([]);
+      setIsDrawing(false);
+    }
+    return true;
+  }
+
+  function editFrame(frame: CanvasTransform) {
+    if (shapeDraft) setShapeDraft({ ...shapeDraft, frame });
+    else editTransform(frame);
+  }
+
   function transformPoint(event: ReactPointerEvent) {
     const canvas = paintCanvasRef.current;
     return canvas ? getBrushPoint(event.nativeEvent, canvas.getBoundingClientRect(), canvas) : { x: 0, y: 0 };
@@ -1101,14 +1210,14 @@ export function NodeCanvasEditorModal({
   function updateTransformDrag(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = transformDrag.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    editTransform(dragTransform(drag.frame, drag.handle, drag.point, transformPoint(event), event.shiftKey));
+    editFrame(dragTransform(drag.frame, drag.handle, drag.point, transformPoint(event), event.shiftKey));
   }
 
   function finishTransformDrag(event: ReactPointerEvent<HTMLDivElement>, apply: boolean) {
     const drag = transformDrag.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (apply) updateTransformDrag(event);
-    else editTransform(drag.frame);
+    else editFrame(drag.frame);
     transformDrag.current = null;
   }
 
@@ -1133,6 +1242,11 @@ export function NodeCanvasEditorModal({
       return;
     }
     if (key === 'escape') {
+      if (shapeDraft || shapeGesture.current) {
+        event.preventDefault();
+        endShape(false);
+        return;
+      }
       if (finishGradient()) {
         event.preventDefault();
         return;
@@ -1143,6 +1257,11 @@ export function NodeCanvasEditorModal({
       else if (menuOpen) setMenuOpen(false);
       else if (selection) setSelection(null);
       else void handleClose();
+      return;
+    }
+    if (shapeDraft && key === 'enter' && target?.tagName !== 'BUTTON') {
+      event.preventDefault();
+      endShape(true);
       return;
     }
     if (transform && key === 'enter' && target?.tagName !== 'BUTTON') {
@@ -1246,6 +1365,7 @@ export function NodeCanvasEditorModal({
     [showBrushPreviewTemporarily],
   );
 
+  const editFrameBounds = shapeDraft?.frame ?? transform?.frame;
   const isCanvasEditorAvailable = Boolean(snapshot);
 
   if (typeof document === 'undefined') return null;
@@ -1253,7 +1373,7 @@ export function NodeCanvasEditorModal({
   return createPortal(
     <ModalSurface
       ariaLabel={nodeLabel}
-      onClose={() => void handleClose()}
+      onClose={() => (shapeDraft || shapeGesture.current ? endShape(false) : void handleClose())}
       rootClassName="settings-modal node-canvas-editor-modal"
       panelClassName="settings-modal__panel node-canvas-editor-modal__dialog"
       backdropClassName="settings-modal__backdrop"
@@ -1281,17 +1401,20 @@ export function NodeCanvasEditorModal({
         },
       }}
     >
-      <div className="node-canvas-editor-modal__header">
-        <div className="workflow-toolbar__badge">
-          <NotePencil size={16} />
-        </div>
+      <div className="node-canvas-editor-modal__header glass">
         <div className="min-w-0 flex-1">
-          <div className="node-canvas-editor-modal__eyebrow">图像编辑</div>
-          <div className="node-canvas-editor-modal__title">{nodeLabel}</div>
+          <h2 className="node-canvas-editor-modal__title">画板</h2>
+          {nodeLabel !== '画板' && (
+            <p className="canvas-document-name" title={nodeLabel}>
+              {nodeLabel}
+            </p>
+          )}
         </div>
         <button
           type="button"
-          onClick={() => (transform ? endTransform(false) : void handleClose())}
+          onClick={() =>
+            shapeDraft || shapeGesture.current ? endShape(false) : transform ? endTransform(false) : void handleClose()
+          }
           className="node-canvas-editor-modal__icon-button"
           aria-label="关闭画板"
         >
@@ -1300,7 +1423,126 @@ export function NodeCanvasEditorModal({
       </div>
 
       <div className="canvas-options" aria-label="工具选项">
-        {transform ? (
+        {isShapeTool ? (
+          <>
+            {(tool === 'shape' || (shapeDraft && !isDrawing)) && (
+              <label>
+                形状
+                <select
+                  value={shapeDraft?.kind ?? shapeKind}
+                  disabled={isDrawing}
+                  onChange={(event) => {
+                    const kind = event.target.value as ShapeKind;
+                    setShapeKind(kind);
+                    if (shapeDraft) setShapeDraft({ ...shapeDraft, kind });
+                  }}
+                >
+                  {shapeDraft?.kind === 'freehand' && <option value="freehand">未识别 · 手绘轨迹</option>}
+                  {Object.entries(SHAPE_LABELS).map(([kind, name]) => (
+                    <option key={kind} value={kind}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label>
+              描边颜色{' '}
+              <input
+                type="color"
+                disabled={isDrawing}
+                value={paintColor}
+                onChange={(event) => setPaintColor(event.target.value)}
+              />
+            </label>
+            <label>
+              描边宽度{' '}
+              <CommitNumber value={shapeStroke} min={1} max={256} disabled={isDrawing} onCommit={setShapeStroke} />
+            </label>
+            {shapeDraft && !isDrawing && !['line', 'arrow', 'freehand'].includes(shapeDraft.kind) && (
+              <>
+                <label>
+                  <input type="checkbox" checked={shapeFill} onChange={(event) => setShapeFill(event.target.checked)} />{' '}
+                  填充
+                </label>
+                {shapeFill && (
+                  <label>
+                    填充颜色{' '}
+                    <input
+                      type="color"
+                      value={shapeFillColor}
+                      onChange={(event) => setShapeFillColor(event.target.value)}
+                    />
+                  </label>
+                )}
+              </>
+            )}
+            {shapeDraft && !isDrawing && (
+              <>
+                {(
+                  [
+                    ['x', 'X'],
+                    ['y', 'Y'],
+                    ['width', '宽'],
+                    ['height', '高'],
+                    ['angle', '角度'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key}>
+                    {label}
+                    <CommitNumber
+                      value={Math.round(
+                        key === 'angle' ? (shapeDraft.frame.angle * 180) / Math.PI : shapeDraft.frame[key],
+                      )}
+                      min={key === 'width' || key === 'height' ? 1 : key === 'angle' ? -360 : -MAX_IMAGE_SIDE}
+                      max={key === 'angle' ? 360 : MAX_IMAGE_SIDE}
+                      disabled={isDrawing}
+                      onCommit={(value) =>
+                        editFrame({ ...shapeDraft.frame, [key]: key === 'angle' ? (value * Math.PI) / 180 : value })
+                      }
+                    />
+                  </label>
+                ))}
+                {shapeDraft.kind === 'rounded' && (
+                  <label>
+                    圆角{' '}
+                    <CommitNumber
+                      value={shapeDraft.corner}
+                      min={0}
+                      max={MAX_IMAGE_SIDE}
+                      onCommit={(corner) => setShapeDraft({ ...shapeDraft, corner })}
+                    />
+                  </label>
+                )}
+                {shapeDraft.kind === 'polygon' && (
+                  <label>
+                    边数{' '}
+                    <CommitNumber
+                      value={shapeDraft.sides}
+                      min={3}
+                      max={12}
+                      onCommit={(sides) => setShapeDraft({ ...shapeDraft, sides })}
+                    />
+                  </label>
+                )}
+                <button type="button" onClick={() => endShape(false)}>
+                  取消形状
+                </button>
+                <button
+                  type="button"
+                  className="canvas-options__apply"
+                  disabled={isDrawing}
+                  onClick={() => endShape(true)}
+                >
+                  {shapeDraft.kind === 'freehand' ? '保留手绘' : '应用形状'}
+                </button>
+              </>
+            )}
+            {(!shapeDraft || isDrawing) && (
+              <span>{tool === 'recognize' ? '徒手勾勒，松开识别' : '拖动绘制形状，Shift 约束比例或方向'}</span>
+            )}
+          </>
+        ) : transform ? (
           <>
             <strong>自由变换</strong>
             {(
@@ -1353,6 +1595,21 @@ export function NodeCanvasEditorModal({
                   </label>
                 )}
 
+                {isBrushTool && (
+                  <label className="node-canvas-editor-modal__slider">
+                    <span>防抖 {stabilization}</span>
+                    <input
+                      type="range"
+                      aria-label="防抖"
+                      min={0}
+                      max={100}
+                      value={stabilization}
+                      disabled={isBusy}
+                      style={{ '--range-progress': `${stabilization}%` } as CSSProperties}
+                      onChange={(event) => setStabilization(Number(event.target.value))}
+                    />
+                  </label>
+                )}
                 <label className="node-canvas-editor-modal__color-picker">
                   <span>{tool === 'gradient' ? '起始颜色' : '颜色'}</span>
                   <span
@@ -1457,76 +1714,87 @@ export function NodeCanvasEditorModal({
       </div>
 
       <div className="canvas-workspace">
-        <nav className="canvas-tools" aria-label="画板工具">
-          {(
-            [
-              ['画笔', 'B', NotePencil, tool === 'brush', () => selectTool('brush')],
-              ['橡皮', 'E', Eraser, tool === 'eraser', () => selectTool('eraser')],
-              ['纯色填充', 'Shift + G', PaintBucket, tool === 'fill', () => selectTool('fill')],
-              ['渐变填充', 'G', Gradient, tool === 'gradient', () => selectTool('gradient')],
+        <nav className="canvas-tools glass" aria-label="画板工具">
+          <h3 className="canvas-tools__title">工具</h3>
+          <div className="canvas-tools__list">
+            {(
               [
-                '矩形选区',
-                'M',
-                Selection,
-                tool === 'selection' && marqueeShape === 'rectangle',
-                () => selectTool('selection', 'rectangle'),
-              ],
-              [
-                '椭圆选区',
-                'Shift + M',
-                CircleDashed,
-                tool === 'selection' && marqueeShape === 'ellipse',
-                () => selectTool('selection', 'ellipse'),
-              ],
-              [
-                '套索选区',
-                'L',
-                Lasso,
-                tool === 'selection' && marqueeShape === 'lasso',
-                () => selectTool('selection', 'lasso'),
-              ],
-              ['平移', 'H / 空格', Hand, viewMode === 'pan', () => setViewMode(viewMode === 'pan' ? 'draw' : 'pan')],
-              ['自由变换', 'Ctrl / ⌘ T', BoundingBox, Boolean(transform), beginTransform],
-            ] as const
-          ).map(([label, shortcut, Icon, pressed, action]) => (
+                ['画笔', 'B', NotePencil, tool === 'brush', () => selectTool('brush')],
+                ['形状', '', Shapes, tool === 'shape', () => selectTool('shape')],
+                ['手绘识形', '', ScribbleLoop, tool === 'recognize', () => selectTool('recognize')],
+                ['橡皮', 'E', Eraser, tool === 'eraser', () => selectTool('eraser')],
+                ['纯色填充', 'Shift + G', PaintBucket, tool === 'fill', () => selectTool('fill')],
+                ['渐变填充', 'G', Gradient, tool === 'gradient', () => selectTool('gradient')],
+                [
+                  '矩形选区',
+                  'M',
+                  Selection,
+                  tool === 'selection' && marqueeShape === 'rectangle',
+                  () => selectTool('selection', 'rectangle'),
+                ],
+                [
+                  '椭圆选区',
+                  'Shift + M',
+                  CircleDashed,
+                  tool === 'selection' && marqueeShape === 'ellipse',
+                  () => selectTool('selection', 'ellipse'),
+                ],
+                [
+                  '套索选区',
+                  'L',
+                  Lasso,
+                  tool === 'selection' && marqueeShape === 'lasso',
+                  () => selectTool('selection', 'lasso'),
+                ],
+                ['平移', 'H / 空格', Hand, viewMode === 'pan', () => setViewMode(viewMode === 'pan' ? 'draw' : 'pan')],
+                ['自由变换', 'Ctrl / ⌘ T', BoundingBox, Boolean(transform), beginTransform],
+              ] as const
+            ).map(([label, shortcut, Icon, pressed, action]) => (
+              <button
+                key={label}
+                type="button"
+                className="canvas-icon"
+                title={shortcut ? `${label} (${shortcut})` : label}
+                aria-label={label}
+                aria-pressed={
+                  pressed && (label === '平移' || label === '自由变换' || (!transform && viewMode === 'draw'))
+                }
+                disabled={
+                  isBusy || !snapshot || (label === '自由变换' && (!activeLayer?.visible || activeLayer.locked))
+                }
+                onClick={action}
+              >
+                <span className="canvas-tool-glyph">
+                  <Icon size={16} />
+                </span>
+                <span className="canvas-tool-label">{label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="canvas-tool-history">
             <button
-              key={label}
               type="button"
               className="canvas-icon"
-              title={`${label} (${shortcut})`}
-              aria-label={label}
-              aria-pressed={
-                pressed && (label === '平移' || label === '自由变换' || (!transform && viewMode === 'draw'))
-              }
-              disabled={isBusy || !snapshot || (label === '自由变换' && (!activeLayer?.visible || activeLayer.locked))}
-              onClick={action}
+              title="撤销 (Ctrl / ⌘ Z)"
+              aria-label="撤销"
+              disabled={isBusy || history.index <= 0}
+              onClick={() => stepHistory(-1)}
             >
-              <Icon size={19} />
+              <ArrowCounterClockwise size={18} />
             </button>
-          ))}
-          <div className="canvas-tools__separator" />
-          <button
-            type="button"
-            className="canvas-icon"
-            title="撤销 (Ctrl / ⌘ Z)"
-            aria-label="撤销"
-            disabled={isBusy || history.index <= 0}
-            onClick={() => stepHistory(-1)}
-          >
-            <ArrowCounterClockwise size={18} />
-          </button>
-          <button
-            type="button"
-            className="canvas-icon"
-            title="重做 (Ctrl / ⌘ Shift Z)"
-            aria-label="重做"
-            disabled={isBusy || history.index >= history.entries.length - 1}
-            onClick={() => stepHistory(1)}
-          >
-            <ArrowClockwise size={18} />
-          </button>
+            <button
+              type="button"
+              className="canvas-icon"
+              title="重做 (Ctrl / ⌘ Shift Z)"
+              aria-label="重做"
+              disabled={isBusy || history.index >= history.entries.length - 1}
+              onClick={() => stepHistory(1)}
+            >
+              <ArrowClockwise size={18} />
+            </button>
+          </div>
         </nav>
-        <div className="canvas-stage">
+        <div className="canvas-stage glass">
           <div className="canvas-stage__bar">
             <span>{imageDimensions ? `${imageDimensions.width} × ${imageDimensions.height} px` : '画布'}</span>
             <div>
@@ -1583,7 +1851,7 @@ export function NodeCanvasEditorModal({
                 beginPan(event);
                 return;
               }
-              if (event.button !== 0 || transform) return;
+              if (event.button !== 0 || transform || shapeDraft) return;
               const canvas = paintCanvasRef.current;
               if (!canvas) return;
               const rect = canvas.getBoundingClientRect();
@@ -1591,6 +1859,22 @@ export function NodeCanvasEditorModal({
               event.preventDefault();
               canvas.focus({ preventScroll: true });
               const point = getBrushPoint(event.nativeEvent, rect, canvas);
+              if (isShapeTool) {
+                if (!activeLayer?.visible || activeLayer.locked) {
+                  setError('请选择可见且未锁定的图层。');
+                  return;
+                }
+                setError('');
+                shapeGesture.current = {
+                  pointerId: event.pointerId,
+                  start: point,
+                  points: tool === 'recognize' ? [point] : undefined,
+                };
+                if (tool === 'recognize') setRecognitionTrail([point]);
+                setIsDrawing(true);
+                event.currentTarget.setPointerCapture(event.pointerId);
+                return;
+              }
               if (tool === 'selection') {
                 const nx = selection ? (point.x - selection.x) / selection.width : -1;
                 const ny = selection ? (point.y - selection.y) / selection.height : -1;
@@ -1643,7 +1927,13 @@ export function NodeCanvasEditorModal({
                 }
               }
               event.currentTarget.setPointerCapture(event.pointerId);
-              strokeRef.current = { pointerId: event.pointerId, last: point, midpoint: point, touchesLayer: false };
+              strokeRef.current = {
+                pointerId: event.pointerId,
+                last: point,
+                midpoint: point,
+                touchesLayer: false,
+                sampleTime: event.timeStamp,
+              };
               setIsDrawing(true);
               setCursorPoint(point);
               paintCurve(point, point, point);
@@ -1654,6 +1944,7 @@ export function NodeCanvasEditorModal({
                 updatePan(event);
                 return;
               }
+              if (moveShapeGesture(event)) return;
               if (updateSelection(event) || selectionStart.current) return;
               if (transform) return;
               const stroke = strokeRef.current;
@@ -1675,22 +1966,34 @@ export function NodeCanvasEditorModal({
               if (!stroke) return;
               const samples = nativeEvent.getCoalescedEvents?.();
               for (const sample of samples?.length ? samples : [nativeEvent]) {
-                appendBrushPoint(stroke, getBrushPoint(sample, rect, canvas));
+                const point = getBrushPoint(sample, rect, canvas);
+                appendBrushPoint(
+                  stroke,
+                  smoothPointer(stroke.last, point, sample.timeStamp - stroke.sampleTime, stabilization),
+                );
+                stroke.sampleTime = sample.timeStamp;
               }
               renderStroke();
             }}
             onPointerUp={(event) => {
               if (panPointerIdRef.current === event.pointerId) endPan(event);
-              else if (!finishGradient(event, true) && !finishSelection(event, true)) finishDrawing(event, true);
+              else if (
+                !finishShapeGesture(event, true) &&
+                !finishGradient(event, true) &&
+                !finishSelection(event, true)
+              )
+                finishDrawing(event, true);
             }}
             onPointerLeave={() => setCursorPoint(null)}
             onPointerCancel={(event) => {
               if (panPointerIdRef.current === event.pointerId) endPan(event);
-              else if (!finishGradient(event) && !finishSelection(event, false)) finishDrawing(event);
+              else if (!finishShapeGesture(event, false) && !finishGradient(event) && !finishSelection(event, false))
+                finishDrawing(event);
             }}
             onLostPointerCapture={(event) => {
               if (panPointerIdRef.current === event.pointerId) endPan();
-              else if (!finishGradient(event) && !finishSelection(event, false)) finishDrawing(event);
+              else if (!finishShapeGesture(event, false) && !finishGradient(event) && !finishSelection(event, false))
+                finishDrawing(event);
             }}
           >
             {!isSketch && !src ? (
@@ -1743,23 +2046,35 @@ export function NodeCanvasEditorModal({
                     ))}
                   </svg>
                 )}
-                {transform && (
+                {recognitionTrail.length > 1 && (
+                  <svg className="canvas-shape-preview canvas-shape-trail" aria-hidden="true">
+                    <polyline
+                      points={recognitionTrail.map((point) => `${point.x},${point.y}`).join(' ')}
+                      fill="none"
+                      stroke={paintColor}
+                      strokeWidth={shapeStroke}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+                {editFrameBounds && (
                   <div
                     className="canvas-transform-frame"
                     style={
                       {
-                        left: transform.frame.x,
-                        top: transform.frame.y,
-                        width: transform.frame.width,
-                        height: transform.frame.height,
-                        transform: `rotate(${transform.frame.angle}rad)`,
+                        left: editFrameBounds.x,
+                        top: editFrameBounds.y,
+                        width: editFrameBounds.width,
+                        height: editFrameBounds.height,
+                        transform: `rotate(${editFrameBounds.angle}rad)`,
                         '--handle-size': `${9 / zoom}px`,
                         '--transform-stroke': `${1 / zoom}px`,
                         '--rotation-offset': `${26 / zoom}px`,
                       } as CSSProperties
                     }
                     onPointerDown={(event) => {
-                      if (event.button !== 0 || transformDrag.current) return;
+                      if (event.button !== 0 || transformDrag.current || shapeGesture.current) return;
                       event.stopPropagation();
                       const handle = (event.target as HTMLElement).dataset.handle as TransformHandle | undefined;
                       event.preventDefault();
@@ -1767,7 +2082,7 @@ export function NodeCanvasEditorModal({
                         pointerId: event.pointerId,
                         handle: handle ?? 'move',
                         point: transformPoint(event),
-                        frame: transform.frame,
+                        frame: editFrameBounds,
                       };
                       event.currentTarget.setPointerCapture(event.pointerId);
                     }}
@@ -1776,6 +2091,22 @@ export function NodeCanvasEditorModal({
                     onPointerCancel={(event) => finishTransformDrag(event, false)}
                     onLostPointerCapture={(event) => finishTransformDrag(event, false)}
                   >
+                    {shapeDraft && (
+                      <svg className="canvas-shape-preview" aria-hidden="true">
+                        <path
+                          d={shapePath(shapeDraft)}
+                          stroke={paintColor}
+                          strokeWidth={shapeStroke}
+                          fill={
+                            shapeFill && !['line', 'arrow', 'freehand'].includes(shapeDraft.kind)
+                              ? shapeFillColor
+                              : 'none'
+                          }
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
                     {(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'rotate'] as const).map((handle) => (
                       <span key={handle} data-handle={handle} aria-hidden="true" />
                     ))}
@@ -1795,7 +2126,7 @@ export function NodeCanvasEditorModal({
         </div>
         {snapshot && activeLayer && imageDimensions && (
           <aside className="canvas-inspector" aria-label="画板面板">
-            <section className="canvas-panel">
+            <section className="canvas-panel glass">
               <div className="canvas-panel__heading">
                 <h3>画布属性</h3>
                 <span>{isSketch ? '白色背景' : '透明背景'}</span>
@@ -1850,7 +2181,7 @@ export function NodeCanvasEditorModal({
                 <p className="canvas-size-hint">当前图层没有可缩放的像素。</p>
               )}
             </section>
-            <section className="canvas-panel canvas-panel--layers">
+            <section className="canvas-panel canvas-panel--layers glass">
               <div className="canvas-panel__heading">
                 <h3>
                   图层 <small>{snapshot.layers.length}</small>
@@ -2111,7 +2442,7 @@ export function NodeCanvasEditorModal({
         )}
       </div>
 
-      <div className="node-canvas-editor-modal__footer">
+      <div className="node-canvas-editor-modal__footer glass">
         <div className="node-canvas-editor-modal__status" role="status">
           {error || exportMessage || (isDirty ? '有未保存修改' : '保存为合成 PNG · 图层保留在本次编辑中')}
         </div>
@@ -2119,7 +2450,13 @@ export function NodeCanvasEditorModal({
           <button
             type="button"
             className="node-canvas-editor-modal__secondary"
-            onClick={() => (transform ? endTransform(false) : void handleClose())}
+            onClick={() =>
+              shapeDraft || shapeGesture.current
+                ? endShape(false)
+                : transform
+                  ? endTransform(false)
+                  : void handleClose()
+            }
             disabled={isSaving || isImporting || isDrawing}
           >
             取消
