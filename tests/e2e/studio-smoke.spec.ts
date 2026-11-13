@@ -345,7 +345,7 @@ test.describe('studio smoke', () => {
     await editor.getByRole('button', { name: '撤销', exact: true }).click();
 
     await editor.getByRole('button', { name: '图层菜单' }).click();
-    await editor.getByRole('button', { name: '导出图层到当前 IO 节点' }).click();
+    await editor.getByRole('button', { name: '导出图层到当前 IO 节点', exact: true }).click();
     await expect(editor.getByRole('status').filter({ hasText: '图层已添加到当前 IO 节点' })).toBeVisible();
     const images = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
     await expect(page.locator('.react-flow__node-io')).toHaveCount(1);
@@ -431,6 +431,45 @@ test.describe('studio smoke', () => {
     expect(gradientEnd[1]).toBeGreaterThan(gradientStart[1] + 150);
     await editor.getByRole('button', { name: '撤销', exact: true }).click();
     expect((await pixel(100, 61))[3]).toBe(0);
+
+    await editor.getByRole('button', { name: '图层菜单' }).click();
+    await editor.getByRole('button', { name: '导出图层到当前 IO 节点（裁紧）', exact: true }).click();
+    await expect(images).toHaveCount(3);
+    const trimmedSize = await images.nth(2).evaluate(async (element: HTMLImageElement) => {
+      await element.decode();
+      return [element.naturalWidth, element.naturalHeight];
+    });
+    expect(trimmedSize[0]).toBe(384);
+    expect(trimmedSize[1]).toBeLessThan(40);
+
+    await editor.getByRole('button', { name: '矩形选区', exact: true }).click();
+    const mode = editor.getByRole('combobox', { name: '选区模式' });
+    await drag(0.1, 0.035, 0.5, 0.2);
+    await mode.selectOption('add');
+    await drag(0.6, 0.035, 0.9, 0.2);
+    await mode.selectOption('subtract');
+    await drag(0.25, 0.035, 0.4, 0.2);
+    await mode.selectOption('intersect');
+    await drag(0.05, 0.035, 0.8, 0.2);
+    await editor.getByRole('button', { name: '纯色填充', exact: true }).click();
+    await editor.getByRole('button', { name: '填充选区', exact: true }).click();
+    for (const x of [120, 340, 520]) expect((await pixel(x, 65))[3]).toBe(128);
+    for (const x of [50, 235, 420, 650]) expect((await pixel(x, 65))[3]).toBe(0);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+
+    await editor.getByRole('button', { name: '矩形选区', exact: true }).click();
+    await mode.selectOption('replace');
+    const feather = editor.getByRole('spinbutton', { name: '羽化 (px)' });
+    await feather.fill('32');
+    await feather.press('Enter');
+    await drag(0.25, 0.03, 0.75, 0.12);
+    await editor.getByRole('button', { name: '纯色填充', exact: true }).click();
+    await editor.getByRole('button', { name: '填充选区', exact: true }).click();
+    const featheredAlpha = (await pixel(192, 65))[3];
+    expect(featheredAlpha).toBeGreaterThan(10);
+    expect(featheredAlpha).toBeLessThan(115);
+    expect((await pixel(384, 65))[3]).toBeGreaterThan(115);
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
 
     const sourceUrl = await image.first().getAttribute('src');
     await editor.getByRole('button', { name: '保存图片', exact: true }).click();

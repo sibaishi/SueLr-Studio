@@ -8,7 +8,6 @@ import {
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import {
   type CanvasPoint,
-  type CanvasRect,
   type CanvasTransform,
   type TransformHandle,
   dragTransform,
@@ -56,6 +55,14 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  type Marquee,
+  type SelectionMode,
+  combineSelection,
+  makeSelectionMask,
+  maskSelection,
+  traceMarquee,
+} from './nodeCanvasSelection';
 import './NodeCanvasEditorModal.css';
 
 type ToolMode = 'brush' | 'eraser' | 'selection' | 'fill' | 'gradient';
@@ -76,8 +83,6 @@ interface NodeCanvasEditorModalProps {
 }
 
 type CanvasDimensions = { width: number; height: number };
-type Marquee = CanvasRect & ({ shape: 'rectangle' | 'ellipse' } | { shape: 'lasso'; points: CanvasPoint[] });
-
 function lassoMarquee(points: CanvasPoint[]): Marquee | null {
   if (points.length < 3) return null;
   let left = Infinity;
@@ -102,19 +107,6 @@ function lassoMarquee(points: CanvasPoint[]): Marquee | null {
 }
 type TransformSession = { source: HTMLCanvasElement; initial: CanvasTransform; frame: CanvasTransform };
 
-function traceMarquee(context: CanvasRenderingContext2D, selection: Marquee) {
-  const { x, y, width, height, shape } = selection;
-  context.beginPath();
-  if (shape === 'lasso') {
-    selection.points.forEach((point, index) => {
-      if (index === 0) context.moveTo(x + point.x, y + point.y);
-      else context.lineTo(x + point.x, y + point.y);
-    });
-    context.closePath();
-  } else if (shape === 'ellipse')
-    context.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
-  else context.rect(x, y, width, height);
-}
 type CanvasLayer = {
   id: string;
   name: string;
@@ -235,7 +227,7 @@ export function NodeCanvasEditorModal({
   const [savedSnapshot, setSavedSnapshot] = useState<CanvasSnapshot | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [selection, setSelection] = useState<Marquee | null>(null);
-  const [marqueeShape, setMarqueeShape] = useState<Marquee['shape']>('rectangle');
+  const [marqueeShape, setMarqueeShape] = useState<Exclude<Marquee['shape'], 'mask'>>('rectangle');
   const [transform, setTransform] = useState<TransformSession | null>(null);
   const transformDrag = useRef<{
     pointerId: number;
@@ -248,11 +240,16 @@ export function NodeCanvasEditorModal({
   const [menuOpen, setMenuOpen] = useState(false);
   const [holdPan, setHoldPan] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('replace');
+  const [feather, setFeather] = useState(0);
+  const maskedStroke = useRef<HTMLCanvasElement | null>(null);
+  const maskedPreview = useRef<HTMLCanvasElement | null>(null);
   const selectionStart = useRef<{
     pointerId: number;
     x: number;
     y: number;
     previous: Marquee | null;
+    mode: SelectionMode;
     move: boolean;
     points?: CanvasPoint[];
   } | null>(null);
@@ -525,10 +522,8 @@ export function NodeCanvasEditorModal({
     const pixels = createPixels(width, height);
     const context = pixels.getContext('2d');
     if (context) {
-      context.translate(-x, -y);
-      traceMarquee(context, marquee);
-      context.clip();
-      context.drawImage(activeLayer.pixels, activeLayer.x, activeLayer.y);
+      context.drawImage(activeLayer.pixels, activeLayer.x - x, activeLayer.y - y);
+      maskSelection(context, marquee, x, y);
     }
     addLayer({ ...createLayer('选区副本', pixels), x, y, opacity: activeLayer.opacity, blend: activeLayer.blend });
   }
@@ -605,7 +600,7 @@ export function NodeCanvasEditorModal({
   function paintCurve(start: BrushPoint, control: BrushPoint, end: BrushPoint) {
     const document = strokeDocument.current;
     const layer = document?.layers.find((item) => item.id === document.activeId);
-    const context = layer?.pixels.getContext('2d');
+    const context = (maskedStroke.current ?? layer?.pixels)?.getContext('2d');
     if (!context || !layer) return;
 
     const left = Math.min(start.x - start.radius, control.x - control.radius, end.x - end.radius);
@@ -622,11 +617,11 @@ export function NodeCanvasEditorModal({
     if (strokeRef.current) strokeRef.current.touchesLayer = true;
     context.save();
     context.translate(-layer.x, -layer.y);
-    if (selection) {
+    if (selection && selection.shape !== 'mask') {
       traceMarquee(context, selection);
       context.clip();
     }
-    context.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+    context.globalCompositeOperation = tool === 'eraser' && !maskedStroke.current ? 'destination-out' : 'source-over';
     context.fillStyle = paintColor;
     if (start.radius === control.radius && control.radius === end.radius && (start.x !== end.x || start.y !== end.y)) {
       context.lineWidth = start.radius * 2;
@@ -712,6 +707,8 @@ export function NodeCanvasEditorModal({
     if (!stroke || stroke.pointerId !== event.pointerId) return;
 
     if (!includeEndpoint) {
+      maskedStroke.current = null;
+      maskedPreview.current = null;
       strokeRef.current = null;
       strokeDocument.current = null;
       setIsDrawing(false);
@@ -731,12 +728,37 @@ export function NodeCanvasEditorModal({
     paintCurve(stroke.midpoint, stroke.last, stroke.last);
     strokeRef.current = null;
     setIsDrawing(false);
-    if (stroke.touchesLayer && strokeDocument.current) commit(strokeDocument.current);
+    if (stroke.touchesLayer && strokeDocument.current) {
+      compositeMaskedStroke();
+      commit(strokeDocument.current);
+    }
+    maskedStroke.current = null;
+    maskedPreview.current = null;
     strokeDocument.current = null;
+  }
+
+  function compositeMaskedStroke() {
+    const next = strokeDocument.current;
+    const layer = next?.layers.find((item) => item.id === next.activeId);
+    const stroke = maskedStroke.current;
+    const preview = maskedPreview.current;
+    if (!layer || !activeLayer || !selection || !stroke || !preview) return;
+    const overlay = preview.getContext('2d')!;
+    overlay.clearRect(0, 0, preview.width, preview.height);
+    overlay.drawImage(stroke, 0, 0);
+    maskSelection(overlay, selection, layer.x, layer.y);
+    const context = layer.pixels.getContext('2d')!;
+    context.clearRect(0, 0, layer.pixels.width, layer.pixels.height);
+    context.drawImage(activeLayer.pixels, activeLayer.x - layer.x, activeLayer.y - layer.y);
+    context.save();
+    context.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+    context.drawImage(preview, 0, 0);
+    context.restore();
   }
 
   function renderStroke() {
     if (paintCanvasRef.current && strokeDocument.current) {
+      compositeMaskedStroke();
       renderDocument(paintCanvasRef.current, strokeDocument.current, isSketch);
     }
   }
@@ -767,11 +789,13 @@ export function NodeCanvasEditorModal({
     const next = strokeDocument.current;
     strokeDocument.current = null;
     const layer = next?.layers.find((item) => item.id === next.activeId);
-    const context = layer?.pixels.getContext('2d');
-    if (!next || !layer || !context) return;
+    if (!next || !layer) return;
+    const overlay = selection?.shape === 'mask' ? createPixels(snapshot.width, snapshot.height) : null;
+    const context = (overlay ?? layer.pixels).getContext('2d');
+    if (!context) return;
     context.save();
-    context.translate(-layer.x, -layer.y);
-    if (selection) {
+    if (!overlay) context.translate(-layer.x, -layer.y);
+    if (selection && selection.shape !== 'mask') {
       traceMarquee(context, selection);
       context.clip();
     }
@@ -785,6 +809,10 @@ export function NodeCanvasEditorModal({
     }
     context.fillRect(0, 0, snapshot.width, snapshot.height);
     context.restore();
+    if (overlay && selection) {
+      maskSelection(context, selection, 0, 0);
+      layer.pixels.getContext('2d')?.drawImage(overlay, -layer.x, -layer.y);
+    }
     commit(next);
   }
 
@@ -810,10 +838,13 @@ export function NodeCanvasEditorModal({
       const context = pixels.getContext('2d');
       if (context) {
         context.drawImage(source, 0, 0);
-        context.translate(-x, -y);
-        traceMarquee(context, marquee);
-        context.clip();
-        context.clearRect(marquee.x, marquee.y, marquee.width, marquee.height);
+        context.globalCompositeOperation = 'destination-out';
+        if (marquee.shape === 'mask') context.drawImage(marquee.pixels, marquee.x - x, marquee.y - y);
+        else {
+          context.translate(-x, -y);
+          traceMarquee(context, marquee);
+          context.fill();
+        }
       }
     }
     updateLayer({ pixels });
@@ -899,7 +930,7 @@ export function NodeCanvasEditorModal({
     setSelection(null);
   }
 
-  function updateSelection(event: ReactPointerEvent<HTMLDivElement>) {
+  function updateSelection(event: ReactPointerEvent<HTMLDivElement>, finalize = false) {
     const start = selectionStart.current;
     if (!start || start.pointerId !== event.pointerId) return false;
     const canvas = paintCanvasRef.current;
@@ -916,38 +947,71 @@ export function NodeCanvasEditorModal({
       });
       return true;
     }
+    let candidate: Marquee | null;
     if (start.points) {
       const last = start.points.at(-1);
       if (last?.x !== endX || last.y !== endY) start.points.push({ x: endX, y: endY });
-      setSelection(lassoMarquee(start.points));
-      return true;
+      candidate = lassoMarquee(start.points);
+    } else {
+      let dx = endX - start.x;
+      let dy = endY - start.y;
+      if (event.shiftKey) {
+        const size = Math.min(Math.abs(dx), Math.abs(dy));
+        dx = Math.sign(dx) * size;
+        dy = Math.sign(dy) * size;
+      }
+      const width = Math.abs(dx);
+      const height = Math.abs(dy);
+      candidate =
+        width && height
+          ? {
+              x: start.x + Math.min(0, dx),
+              y: start.y + Math.min(0, dy),
+              width,
+              height,
+              shape: marqueeShape === 'ellipse' ? 'ellipse' : 'rectangle',
+            }
+          : null;
     }
-    let dx = endX - start.x;
-    let dy = endY - start.y;
-    if (event.shiftKey) {
-      const size = Math.min(Math.abs(dx), Math.abs(dy));
-      dx = Math.sign(dx) * size;
-      dy = Math.sign(dy) * size;
+    if (finalize) {
+      const previous = start.previous;
+      if (!candidate) {
+        setSelection(start.mode === 'replace' ? null : previous);
+        return true;
+      }
+      const padding = feather * 2;
+      const left = candidate.x - padding;
+      const top = candidate.y - padding;
+      const right = candidate.x + candidate.width + padding;
+      const bottom = candidate.y + candidate.height + padding;
+      const width =
+        previous && start.mode === 'add'
+          ? Math.max(right, previous.x + previous.width) - Math.min(left, previous.x)
+          : right - left;
+      const height =
+        previous && start.mode === 'add'
+          ? Math.max(bottom, previous.y + previous.height) - Math.min(top, previous.y)
+          : bottom - top;
+      if (
+        (feather || start.mode !== 'replace') &&
+        (width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE || width * height > MAX_CANVAS_PIXELS)
+      ) {
+        setError('选区尺寸过大，请缩小选区或减少羽化。');
+        setSelection(previous);
+        return true;
+      }
+      setError('');
+      const next = makeSelectionMask(candidate, feather);
+      if (previous && next && start.mode !== 'replace') candidate = combineSelection(previous, next, start.mode);
+      else candidate = next;
     }
-    const width = Math.abs(dx);
-    const height = Math.abs(dy);
-    setSelection(
-      width && height
-        ? {
-            x: start.x + Math.min(0, dx),
-            y: start.y + Math.min(0, dy),
-            width,
-            height,
-            shape: marqueeShape === 'ellipse' ? 'ellipse' : 'rectangle',
-          }
-        : null,
-    );
+    setSelection(candidate);
     return true;
   }
 
   function finishSelection(event: ReactPointerEvent<HTMLDivElement>, apply: boolean) {
     if (selectionStart.current?.pointerId !== event.pointerId) return false;
-    if (apply) updateSelection(event);
+    if (apply) updateSelection(event, true);
     else setSelection(selectionStart.current.previous);
     selectionStart.current = null;
     setIsDrawing(false);
@@ -974,7 +1038,7 @@ export function NodeCanvasEditorModal({
     if (layers.some((layer, i) => layer !== snapshot.layers[i])) commit({ ...snapshot, layers });
   }
 
-  function selectTool(next: ToolMode, shape?: Marquee['shape']) {
+  function selectTool(next: ToolMode, shape?: Exclude<Marquee['shape'], 'mask'>) {
     setTool(next);
     setViewMode('draw');
     if (shape) setMarqueeShape(shape);
@@ -1120,20 +1184,33 @@ export function NodeCanvasEditorModal({
     return encodeCanvasPng(canvas, isSketch ? 'sketch.png' : 'painted-image.png');
   }, [isSketch]);
 
-  async function exportActiveLayer() {
+  async function exportActiveLayer(trim = false) {
     if (!snapshot || !activeLayer || !onExportLayer || isBusy) return;
     setMenuOpen(false);
     setIsSaving(true);
     setExportMessage('');
     setError('');
     try {
-      const pixels = createPixels(snapshot.width, snapshot.height);
+      const bounds = trim
+        ? findInkBounds(activeLayer.pixels)
+        : { x: 0, y: 0, width: snapshot.width, height: snapshot.height };
+      if (!bounds || (trim && !activeLayer.opacity)) throw new Error('当前图层没有可导出的像素。');
+      const pixels = createPixels(bounds.width, bounds.height);
       const context = pixels.getContext('2d');
       if (!context) throw new Error('无法读取图层。');
       context.globalAlpha = activeLayer.opacity;
-      context.drawImage(activeLayer.pixels, activeLayer.x, activeLayer.y);
+      context.drawImage(activeLayer.pixels, trim ? -bounds.x : activeLayer.x, trim ? -bounds.y : activeLayer.y);
+      let output = pixels;
+      if (trim && activeLayer.opacity < 1) {
+        const actual = findInkBounds(pixels);
+        if (!actual) throw new Error('当前图层没有可导出的像素。');
+        if (actual.width !== pixels.width || actual.height !== pixels.height) {
+          output = createPixels(actual.width, actual.height);
+          output.getContext('2d')?.drawImage(pixels, -actual.x, -actual.y);
+        }
+      }
       const name = activeLayer.name.replace(/[\\/:*?"<>|]/g, '_').trim() || '图层';
-      await onExportLayer(await encodeCanvasPng(pixels, `${name}.png`));
+      await onExportLayer(await encodeCanvasPng(output, `${name}.png`));
       setExportMessage('图层已添加到当前 IO 节点');
     } catch (error) {
       setError(error instanceof Error ? error.message : '图层导出失败，请重试。');
@@ -1319,6 +1396,27 @@ export function NodeCanvasEditorModal({
               </>
             )}
             {viewMode === 'pan' && <span>拖动画布以平移视图</span>}
+            {tool === 'selection' && viewMode === 'draw' && (
+              <>
+                <label>
+                  选区模式
+                  <select
+                    value={selectionMode}
+                    disabled={isBusy}
+                    onChange={(event) => setSelectionMode(event.target.value as SelectionMode)}
+                  >
+                    <option value="replace">新建</option>
+                    <option value="add">添加</option>
+                    <option value="subtract">减去</option>
+                    <option value="intersect">相交</option>
+                  </select>
+                </label>
+                <label>
+                  羽化 (px)
+                  <CommitNumber value={feather} min={0} max={256} disabled={isBusy} onCommit={setFeather} />
+                </label>
+              </>
+            )}
             {tool === 'selection' && !selection && viewMode === 'draw' && (
               <span>
                 {marqueeShape === 'lasso' ? '按住鼠标勾勒轮廓，松开闭合' : '拖出选区 · Shift 等比 · Ctrl / ⌘ A 全选'}
@@ -1327,8 +1425,14 @@ export function NodeCanvasEditorModal({
             {selection && (
               <>
                 <span className="canvas-selection-info">
-                  {selection.shape === 'lasso' ? '套索' : selection.shape === 'ellipse' ? '椭圆' : '矩形'} ·{' '}
-                  {selection.width} × {selection.height} px
+                  {selection.shape === 'mask'
+                    ? '选区'
+                    : selection.shape === 'lasso'
+                      ? '套索'
+                      : selection.shape === 'ellipse'
+                        ? '椭圆'
+                        : '矩形'}{' '}
+                  · {selection.width} × {selection.height} px
                 </span>
                 <button type="button" disabled={isBusy} onClick={duplicateLayer}>
                   <Copy size={14} /> 复制选区
@@ -1492,6 +1596,8 @@ export function NodeCanvasEditorModal({
                 const ny = selection ? (point.y - selection.y) / selection.height : -1;
                 const move = Boolean(
                   selection &&
+                    selectionMode === 'replace' &&
+                    selection.shape !== 'mask' &&
                     selection.shape !== 'lasso' &&
                     marqueeShape !== 'lasso' &&
                     !event.shiftKey &&
@@ -1507,6 +1613,7 @@ export function NodeCanvasEditorModal({
                   y,
                   points: marqueeShape === 'lasso' ? [{ x, y }] : undefined,
                   previous: selection,
+                  mode: selectionMode,
                   move,
                 };
                 if (!move) setSelection(null);
@@ -1527,6 +1634,14 @@ export function NodeCanvasEditorModal({
                 return;
               }
               if (!startStroke()) return;
+              if (selection?.shape === 'mask') {
+                const document = strokeDocument.current;
+                const layer = document?.layers.find((item) => item.id === document.activeId);
+                if (layer) {
+                  maskedStroke.current = createPixels(layer.pixels.width, layer.pixels.height);
+                  maskedPreview.current = createPixels(layer.pixels.width, layer.pixels.height);
+                }
+              }
               event.currentTarget.setPointerCapture(event.pointerId);
               strokeRef.current = { pointerId: event.pointerId, last: point, midpoint: point, touchesLayer: false };
               setIsDrawing(true);
@@ -1779,9 +1894,14 @@ export function NodeCanvasEditorModal({
                         {selection ? '选区复制到新图层' : '复制图层'}
                       </button>
                       {onExportLayer && (
-                        <button type="button" onClick={() => void exportActiveLayer()}>
-                          导出图层到当前 IO 节点
-                        </button>
+                        <>
+                          <button type="button" onClick={() => void exportActiveLayer()}>
+                            导出图层到当前 IO 节点
+                          </button>
+                          <button type="button" onClick={() => void exportActiveLayer(true)}>
+                            导出图层到当前 IO 节点（裁紧）
+                          </button>
+                        </>
                       )}
                       <button
                         type="button"
@@ -2159,7 +2279,9 @@ function LayerName({
 function MarqueeOutline({ selection, zoom }: { selection: Marquee; zoom: number }) {
   const { x, y, width, height, shape } = selection;
   const geometry =
-    shape === 'lasso' ? (
+    shape === 'mask' ? (
+      <path d={selection.outline} transform={`scale(${selection.step})`} vectorEffect="non-scaling-stroke" />
+    ) : shape === 'lasso' ? (
       <polygon
         points={selection.points.map((point) => `${point.x},${point.y}`).join(' ')}
         vectorEffect="non-scaling-stroke"
