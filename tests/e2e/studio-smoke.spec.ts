@@ -543,6 +543,97 @@ test.describe('studio smoke', () => {
     await expect.poll(() => image.first().evaluate((element: HTMLImageElement) => element.naturalHeight)).toBe(1024);
   });
 
+  test('large image preview supports dragging the divider and synchronized zoom', async ({ page }) => {
+    await clearLocalState(page);
+    const sources = ['/compare-red.png', '/compare-green.png', '/compare-blue.png'];
+    const colors = ['red', 'green', 'blue'];
+    await page.route('**/compare-*.png', (route) => {
+      const color = colors[sources.indexOf(new URL(route.request().url()).pathname)];
+      return route.fulfill({
+        contentType: 'image/svg+xml',
+        body: `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect width="320" height="240" fill="${color}"/></svg>`,
+      });
+    });
+    const workflow = {
+      id: 'wf_image_compare_test',
+      name: '图片对比',
+      version: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      nodes: [{ id: 'comparison', type: 'io', position: { x: 0, y: 0 }, data: { content: sources } }],
+      edges: [],
+      settings: {},
+    };
+    await page.getByTestId('workflow-import-file').setInputFiles({
+      name: 'compare.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(workflow)),
+    });
+    await page.getByRole('dialog', { name: '工作流导入结果' }).getByRole('button', { name: '关闭' }).click();
+    const thumbnails = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    await expect(thumbnails).toHaveCount(3);
+    await thumbnails.first().dispatchEvent('dblclick');
+
+    const preview = page.getByRole('dialog', { name: '查看大图' });
+    const button = (name: string) => preview.getByRole('button', { name, exact: true });
+    const stage = preview.locator('.workflow-image-preview-modal__stage');
+    const zoom = (percent: number) => button(`适应窗口，当前缩放 ${percent}%`);
+    await button('放大').click();
+    await expect(zoom(125)).toBeVisible();
+    await button('缩小').click();
+    await expect(zoom(100)).toBeVisible();
+
+    await button('对比').click();
+    const slider = preview.getByRole('slider', { name: '对比分割线' });
+    const bounds = (await stage.boundingBox())!;
+    const y = bounds.y + bounds.height / 2;
+    const moveTo = (fraction: number) => page.mouse.move(bounds.x + bounds.width * fraction, y, { steps: 5 });
+    await moveTo(0.5);
+    await page.mouse.down();
+    await moveTo(0.75);
+    await page.mouse.up();
+    await expect(slider).toHaveAttribute('aria-valuenow', '75');
+    const a = preview.getByRole('img', { name: '对比图 A' });
+    const b = preview.getByRole('img', { name: '对比图 B' });
+    await expect(a.locator('..')).toHaveCSS('clip-path', /inset\(0px 25% 0px/);
+    await expect(b.locator('..')).toHaveCSS('clip-path', 'inset(0px 0px 0px 75%)');
+    await slider.press('Home');
+    await expect(slider).toHaveAttribute('aria-valuenow', '0');
+    await slider.press('ArrowRight');
+    await expect(slider).toHaveAttribute('aria-valuenow', '2');
+
+    await button('选 A').click();
+    await preview.getByRole('button', { name: /^第 3 张/ }).click();
+    await expect(a).toHaveAttribute('src', sources[2]);
+    await expect(b).toHaveAttribute('src', sources[1]);
+    await button('交换 A/B').click();
+    await expect(a).toHaveAttribute('src', sources[1]);
+    await expect(b).toHaveAttribute('src', sources[2]);
+
+    await button('并排').click();
+    await expect(slider).toHaveCount(0);
+    await expect(a.locator('..')).toHaveCSS('clip-path', 'none');
+    await moveTo(0.25);
+    await page.mouse.wheel(0, -100);
+    await expect(zoom(112)).toBeVisible();
+    const transform = () => a.evaluate((image) => getComputedStyle(image).transform);
+    const beforePan = await transform();
+    await page.mouse.down();
+    await moveTo(0.3);
+    await page.mouse.up();
+    await expect.poll(transform).not.toBe(beforePan);
+    await expect(b).toHaveCSS('transform', await transform());
+    await zoom(112).click();
+    await expect(zoom(100)).toBeVisible();
+    await button('退出对比').click();
+    await expect(button('对比')).toBeVisible();
+    await button('对比').click();
+    await page.keyboard.press('Escape');
+    await expect(button('对比')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(preview).toHaveCount(0);
+  });
+
   test('workflow modals isolate input from the workspace and underlying dialogs', async ({ page }) => {
     await clearLocalState(page);
     await page.getByTestId('workflow-new').click();

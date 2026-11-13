@@ -183,6 +183,10 @@ Typical flow:
 
 To use a hand-drawn reference, click **绘制草图** on an empty IO node with no incoming connection. Choose a canvas ratio preset or enter a custom width and height (64–2048 px per side), then click **应用尺寸**. Resizing keeps the drawing centered and scales it down proportionally if needed. You can undo or redo a size change. Pressure-sensitive pens vary the brush width as you draw when the device supplies pressure to the app. Draw on the white canvas and click **保存到 IO 节点** to upload the PNG at the applied size. Connect that IO node and a prompt to an image generation node with a model that accepts reference images.
 
+大图预览支持滚轮和顶部 **放大**、**缩小** 按钮。放大后可拖动图片查看局部，点击缩放百分比可恢复适应窗口。百分比以适应窗口时的显示大小为基准。
+
+有两张或更多图片时，点击 **对比** 会打开当前图和下一张图。用 **选 A** 或 **选 B** 指定要替换的一侧，再点击缩略图；选择另一侧正在使用的图片会交换 A/B。可以切换 **滑动** 和 **并排**，两张图同步缩放和平移。滑动模式放大后，拖动分割线调整显示范围，拖动画面平移。聚焦分割线后，也可用方向键移动，按 Home 或 End 查看单侧。点击 **退出对比** 或按 Esc 返回单图预览。
+
 打开 IO 节点图片预览中的 **画板**，右侧 **画布属性** 的 **画布大小** 可设置宽高、比例和九宫格锚点。扩大画布会露出透明区域，缩小画布只裁掉显示范围，图层原像素可通过重新调整画布找回。图片画板的尺寸设置范围为每边 64–8192 px，总像素上限为 3200 万。草图为白底，默认使用居中锚点。
 
 图片尺寸在画板中调整。**图像大小** 会重采样整份图像，并按新尺寸缩放所有图层的位置和像素。**图层大小** 按实际像素范围缩放当前图层，保留该范围的左上位置和整张画布尺寸。两项都默认保持宽高比例，可以解除比例锁定，也都可以撤销。

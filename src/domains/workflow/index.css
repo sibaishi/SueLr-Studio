@@ -791,10 +791,17 @@ body {
   left: 14px;
   right: 14px;
   z-index: 12;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 4px;
   align-items: center;
-  justify-content: space-between;
+  justify-items: start;
   pointer-events: none;
+}
+
+.workflow-image-preview-modal__topbar > .workflow-image-preview-modal__icon-button {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .workflow-image-preview-modal__size-badge {
@@ -908,84 +915,177 @@ body {
   border: 1px solid var(--glass-border);
 }
 
+.workflow-image-preview-modal__zoom {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.workflow-image-preview-modal__topbar > .workflow-image-preview-modal__action {
+  pointer-events: auto;
+}
+
+.workflow-image-preview-modal__action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.workflow-image-preview-modal__viewer {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  width: 100%;
+  min-height: 0;
+}
+
+.workflow-image-preview-modal__stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+.workflow-image-preview-modal__stage.is-slider {
+  cursor: ew-resize;
+}
+
+.workflow-image-preview-modal__stage.is-zoomed {
+  cursor: grab;
+}
+
+.workflow-image-preview-modal__stage.is-zoomed:active {
+  cursor: grabbing;
+}
+
+.workflow-image-preview-modal__pane {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.workflow-image-preview-modal__stage.is-slider .workflow-image-preview-modal__pane {
+  position: absolute;
+  inset: 0;
+}
+
+.workflow-image-preview-modal__stage.is-slider .is-a {
+  clip-path: inset(0 calc(100% - var(--divider)) 0 0);
+}
+
+.workflow-image-preview-modal__stage.is-slider .is-b {
+  clip-path: inset(0 0 0 var(--divider));
+}
+
+.workflow-image-preview-modal__stage.is-side-by-side::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 1px;
+  background: var(--glass-border);
+  pointer-events: none;
+}
+
 .workflow-image-preview-modal__image {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
-  user-select: none;
+  pointer-events: none;
+  transform: var(--image-transform);
+}
+
+.workflow-image-preview-modal__pane-label {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.workflow-image-preview-modal__stage.is-slider .is-b .workflow-image-preview-modal__pane-label {
+  left: auto;
+  right: 12px;
+}
+
+.workflow-image-preview-modal__divider {
+  position: absolute;
+  inset: 0 auto 0 var(--divider);
+  width: 32px;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+}
+
+.workflow-image-preview-modal__divider::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(50% - 1px);
+  background: white;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.75);
+}
+
+.workflow-image-preview-modal__divider > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  padding: 8px 3px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid white;
+  color: white;
+}
+
+.workflow-image-preview-modal__divider:focus-visible > span {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .workflow-image-preview-modal__compare-strip {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 6px;
-  padding: 8px 14px 14px;
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--glass-border);
   flex-shrink: 0;
 }
 
-.workflow-image-preview-modal__compare-controls {
+.workflow-image-preview-modal__compare-controls,
+.workflow-image-preview-modal__compare-controls > div {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
-.workflow-image-preview-modal__slot-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
-  color: var(--color-text-primary);
-  box-shadow: var(--glass-shadow-lg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+.workflow-image-preview-modal__compare-controls {
+  gap: 10px;
 }
 
-.workflow-image-preview-modal__slot-toggle.is-active {
-  background: color-mix(in srgb, var(--color-accent, #0a84ff) 20%, transparent);
-  border-color: var(--color-accent, #0a84ff);
-}
-
-.workflow-image-preview-modal__swap-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
-  color: var(--color-text-primary);
-  box-shadow: var(--glass-shadow-lg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.workflow-image-preview-modal__swap-btn:hover {
-  background: color-mix(in srgb, var(--glass-bg) 72%, transparent);
+.workflow-image-preview-modal__compare-controls .workflow-image-preview-modal__action {
+  min-height: 28px;
+  padding-inline: 10px;
 }
 
 .workflow-image-preview-modal__thumb-strip {
   display: flex;
   gap: 6px;
+  max-width: 100%;
   overflow-x: auto;
   padding: 4px 2px;
-  scrollbar-width: none;
-}
-
-.workflow-image-preview-modal__thumb-strip::-webkit-scrollbar {
-  display: none;
 }
 
 .workflow-image-preview-modal__thumb {
@@ -1041,41 +1141,6 @@ body {
   line-height: 1;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-}
-
-/* Override compare labels for modal context */
-.workflow-image-preview-modal__dialog .node-image-compare__labels {
-  inset: auto 14px 14px;
-}
-
-.workflow-image-preview-modal__dialog .node-image-compare__labels span {
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: color-mix(in srgb, var(--glass-bg) 88%, transparent);
-  border: 1px solid var(--glass-border);
-  color: var(--color-text-primary);
-  box-shadow: var(--glass-shadow-lg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.workflow-image-preview-modal__dialog .node-image-compare__divider {
-  width: 2px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.18), 0 0 2px rgba(255, 255, 255, 0.4);
-}
-
-.workflow-image-preview-modal__dialog .node-image-compare__divider::after {
-  width: 20px;
-  height: 20px;
-  border: 1.5px solid var(--glass-border);
-  background: color-mix(in srgb, var(--glass-bg) 94%, transparent);
-  box-shadow: var(--glass-shadow-lg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .workflow-image-preview-modal__text-viewer {
