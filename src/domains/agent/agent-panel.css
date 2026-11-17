@@ -359,6 +359,19 @@
   padding: 5px 14px 10px;
 }
 
+.agent-panel__session-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-panel__session-row button:last-child {
+  display: grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+}
+
 .agent-panel__session-list button {
   overflow: hidden;
   padding: 7px 9px;

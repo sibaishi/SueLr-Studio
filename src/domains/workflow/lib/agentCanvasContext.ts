@@ -97,10 +97,13 @@ export async function captureAgentCanvasContext(signal: AbortSignal) {
       nodes,
       edges,
     },
-    currentRun: live,
+    executionState: live
+      ? { ...live, relation: state.isExecuting ? 'active-run' : 'last-observed-run' }
+      : null,
     recordedRun: recent
       ? {
           runId: recent.runId,
+          relation: runId ? 'matches-observed-run' : 'latest-historical-run-for-workflow',
           status: recent.status,
           startedAt: recent.startedAt,
           durationMs: recent.totalDuration,

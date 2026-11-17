@@ -125,7 +125,7 @@ export function buildAgentHistory(
   let remaining = 12_000_000 - contentSize(content) - skills.reduce((total, skill) => total + skill.length, 0);
   const messages: ChatMessage[] = [{ role: 'user', content }];
   for (const turn of turns.slice(-10).reverse()) {
-    if (!turn.answer) continue;
+    if (!turn.answer || turn.content.length === 0) continue;
     const answer = turn.answer.slice(0, 32000);
     remaining -= contentSize(turn.content) + answer.length;
     if (remaining < 0) break;

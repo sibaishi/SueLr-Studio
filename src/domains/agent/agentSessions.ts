@@ -7,7 +7,10 @@ function openSessions() {
   });
 }
 
+let pendingWrite = Promise.resolve();
+
 export async function readAgentSessions<T>(): Promise<T | undefined> {
+  await pendingWrite;
   const database = await openSessions();
   try {
     return await new Promise<T | undefined>((resolve, reject) => {
@@ -20,7 +23,13 @@ export async function readAgentSessions<T>(): Promise<T | undefined> {
   }
 }
 
-export async function writeAgentSessions<T>(workspace: T) {
+export function writeAgentSessions<T>(workspace: T) {
+  const write = pendingWrite.then(() => persistWorkspace(workspace));
+  pendingWrite = write.catch(() => {});
+  return write;
+}
+
+async function persistWorkspace<T>(workspace: T) {
   const database = await openSessions();
   try {
     await new Promise<void>((resolve, reject) => {

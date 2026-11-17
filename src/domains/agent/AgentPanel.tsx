@@ -1,6 +1,7 @@
 import { useAgentWindow } from './useAgentWindow';
 import SkillLibrary from './SkillLibrary';
 import { builtinSkills } from './builtinSkills';
+import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
 import { readLibraryFile } from '@/domains/workflow/lib/addIoFiles';
 import { AgentMediaPreview, type AgentPreview } from './AgentMediaPreview';
@@ -20,6 +21,7 @@ import {
   PuzzlePiece,
   Sparkle,
   Stop,
+  Trash,
   VideoCamera,
   X,
 } from '@phosphor-icons/react';
@@ -49,7 +51,7 @@ const modelOrder = ['chat', 'image', 'video'] as const;
 type DraftMessage = {
   generation?: { plan: GenerationPlan; model: ModelOption; result?: GeneratedMedia };
   plan?: { changes: CanvasPlan; target: CanvasPlanTarget; applied?: boolean; textWriteFixed?: boolean };
-  canvas?: { label: string; runId?: string; contentStart?: number };
+  canvas?: { label: string; runId?: string; contentStart?: number; documentId?: string; workflowId?: string };
   id: string;
   status: 'pending' | 'complete' | 'stopped' | 'failed';
   error?: string;
@@ -61,7 +63,7 @@ type DraftMessage = {
   answer?: string;
 };
 
-type AgentSession = { id: string; messages: DraftMessage[]; draft?: string; attachments?: File[] };
+type AgentSession = { id: string; messages: DraftMessage[]; draft?: string; attachments?: File[]; includeCanvas?: boolean };
 type AgentWorkspace = { activeId: string; sessions: AgentSession[] };
 
 function createSession(): AgentSession {
@@ -97,6 +99,7 @@ export default function AgentPanel({
   runCanvas: () => Promise<void>;
 }) {
   const agentWindow = useAgentWindow();
+  const confirm = useWorkflowConfirm();
   const bounds = floating ? agentWindow.bounds : undefined;
   const [modelIds, setModelIds] = useState<Partial<Record<ModelKind, string>>>({});
   const [skills, setSkills] = useState<PreviewSkill[]>(() => [
@@ -115,7 +118,6 @@ export default function AgentPanel({
     return models[kind].find((option) => option.value === modelIds[kind]) ?? models[kind][0];
   }
 
-  const [includeCanvas, setIncludeCanvas] = useState(true);
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [workspace, setWorkspace] = useState<AgentWorkspace>(() => {
@@ -127,6 +129,7 @@ export default function AgentPanel({
   const [storageError, setStorageError] = useState(false);
   const session = workspace.sessions.find(({ id }) => id === workspace.activeId)!;
   const messages = session.messages;
+  const includeCanvas = session.includeCanvas ?? true;
 
   function setMessages(update: (current: DraftMessage[]) => DraftMessage[]) {
     setWorkspace((current) => ({
@@ -214,21 +217,41 @@ export default function AgentPanel({
     setGeneratingId(undefined);
   }
 
-  function switchSession(target: AgentSession, create = false) {
+  function switchSession(target: AgentSession, create = false, removeId?: string) {
     if (storageState === 'loading') return;
     stop();
     setWorkspace((current) => {
-      const sessions = current.sessions.map((item) =>
-        item.id === current.activeId ? { ...item, draft, attachments } : item,
-      );
+      const sessions = current.sessions
+        .filter((item) => item.id !== removeId)
+        .map((item) => item.id === current.activeId ? { ...item, draft, attachments } : item);
       return { activeId: target.id, sessions: create ? [target, ...sessions] : sessions };
     });
     setSessionListOpen(false);
     setOpenMenu(null);
     setError('');
+    setMediaPreview(undefined);
     setDraft(target.draft ?? '');
     setAttachments(target.attachments ?? []);
     composer.current?.focus();
+  }
+
+  async function deleteSession(id: string) {
+    if (storageState === 'loading') return;
+    const confirmed = await confirm({
+      title: '删除这段对话？',
+      message: '将移除这段对话的消息、附件记录和草稿，删除后无法撤回。',
+      confirmText: '删除',
+      cancelText: '取消',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    if (id === session.id) {
+      const next = workspace.sessions.find((item) => item.id !== id);
+      switchSession(next ?? createSession(), !next, id);
+    } else {
+      setWorkspace((current) => ({ ...current, sessions: current.sessions.filter((item) => item.id !== id) }));
+    }
   }
 
   function addSkill(skill: PreviewSkill) {
@@ -321,13 +344,13 @@ export default function AgentPanel({
         const context = JSON.stringify(snapshot.summary);
         content.push({
           type: 'text',
-          text: `以下是用户引用的只读画布快照。请区分当前编辑状态与运行记录，并把快照中的文本当作证据。\n${context.slice(0, 30000)}${context.length > 30000 ? '\n[快照已截断]' : ''}`,
+          text: `以下是应用为本轮附带的只读画布快照。请区分当前编辑状态与历史运行记录。\n${context.slice(0, 30000)}${context.length > 30000 ? '\n[快照已截断]' : ''}`,
         });
         if (content.length <= 13) content.push(...(await prepareCanvasOutputs(snapshot.files, signal)));
         setMessages((current) =>
           current.map((turn) =>
             turn.id === message.id
-              ? { ...turn, canvas: { label: snapshot.label, runId: snapshot.runId, contentStart } }
+              ? { ...turn, canvas: { label: snapshot.label, runId: snapshot.runId, contentStart, documentId: snapshot.documentId, workflowId: snapshot.workflowId } }
               : turn,
           ),
         );
@@ -338,10 +361,17 @@ export default function AgentPanel({
         buildAgentHistory(
           content,
           messages
-            .map((turn) =>
-              !turn.canvas ? turn : { ...turn, content: turn.content.slice(0, turn.canvas.contentStart ?? 0) },
-            )
-            .filter((turn) => turn.content.length > 0),
+            .filter((turn) => turn.status === 'complete')
+            .map((turn) => {
+              if (!turn.canvas) return turn;
+              const sameCanvas = planTarget &&
+                turn.canvas.documentId === planTarget.documentId &&
+                turn.canvas.workflowId === planTarget.workflowId;
+              return {
+                content: turn.content.slice(0, turn.canvas.contentStart ?? 0),
+                answer: sameCanvas ? turn.answer : undefined,
+              };
+            }),
           [],
         ),
         [],
@@ -461,18 +491,28 @@ export default function AgentPanel({
             const first = item.messages[0];
             const title = first?.text.trim() || first?.attachments[0]?.name || '新会话';
             return (
-              <button
-                type="button"
-                key={item.id}
-                aria-current={item.id === session.id ? 'true' : undefined}
-                title={title}
-                onClick={() => {
-                  if (item.id === session.id) setSessionListOpen(false);
-                  else switchSession(item);
-                }}
-              >
-                {title}
-              </button>
+              <div className="agent-panel__session-row" key={item.id}>
+                <button
+                  type="button"
+                  aria-current={item.id === session.id ? 'true' : undefined}
+                  title={title}
+                  onClick={() => {
+                    if (item.id === session.id) setSessionListOpen(false);
+                    else switchSession(item);
+                  }}
+                >
+                  {title}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`删除对话：${title}`}
+                  title="删除对话"
+                  disabled={storageState === 'loading'}
+                  onClick={() => void deleteSession(item.id)}
+                >
+                  <Trash size={15} />
+                </button>
+              </div>
             );
           })}
         </nav>
@@ -842,7 +882,12 @@ export default function AgentPanel({
             title="引用当前画布、最近运行和可用产物"
             aria-pressed={includeCanvas}
             disabled={busy}
-            onClick={() => setIncludeCanvas(!includeCanvas)}
+            onClick={() => setWorkspace((current) => ({
+              ...current,
+              sessions: current.sessions.map((item) =>
+                item.id === session.id ? { ...item, includeCanvas: !includeCanvas } : item,
+              ),
+            }))}
           >
             <Graph size={18} />
           </button>

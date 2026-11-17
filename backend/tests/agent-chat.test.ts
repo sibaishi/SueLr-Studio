@@ -47,6 +47,8 @@ test('Agent forwards ordered conversation, visual references and selected Skills
     assert.equal(body.messages[0].role, 'system');
     assert.match(body.messages[0].content, /我是弧光，SueLr Studio 里的创意搭档/);
     assert.match(body.messages[0].content, /优先考虑色彩对比/);
+    assert.match(body.messages[0].content, /本次请求中提供的同一会话消息/);
+    assert.match(body.messages[0].content, /推测、建议和执行声明都不是事实凭证/);
     assert.deepEqual(body.messages.slice(1), messages);
     return Response.json({ choices: [{ message: { content: '延续暖色，增加明暗对比。' } }] });
   });

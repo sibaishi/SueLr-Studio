@@ -1332,3 +1332,57 @@ test('资产库支持多选、批量编辑和批量删除', async ({ page }) => 
   await expect(cards).toHaveCount(1);
   await expect(dialog.getByRole('button', { name: `选择 ${prefix}-3.png` })).toBeVisible();
 });
+
+test('Arc keeps canvas settings per conversation and persists conversation deletion', async ({ page }) => {
+  await clearLocalState(page);
+  await page.getByTestId('workflow-toggle-agent').click();
+  const panel = page.getByTestId('workflow-agent-panel');
+  const composer = panel.getByRole('textbox');
+  const canvas = panel.getByRole('button', { name: '引用画布' });
+  const listButton = panel.getByRole('button', { name: '对话列表' });
+
+  await composer.fill('需要删除的草稿');
+  await canvas.click();
+  await expect(canvas).toHaveAttribute('aria-pressed', 'false');
+  await panel.getByRole('button', { name: '新会话' }).click();
+  await expect(canvas).toHaveAttribute('aria-pressed', 'true');
+  await composer.fill('保留的草稿');
+
+  await listButton.click();
+  const list = panel.getByRole('navigation', { name: '对话列表' });
+  await list.getByRole('button', { name: '新会话', exact: true }).last().click();
+  await expect(composer).toHaveValue('需要删除的草稿');
+  await expect(canvas).toHaveAttribute('aria-pressed', 'false');
+
+  await listButton.click();
+  await list.locator('[aria-current="true"] + button').click();
+  await page.getByRole('dialog').getByRole('button', { name: '删除', exact: true }).click();
+  await expect(composer).toHaveValue('保留的草稿');
+  await expect(canvas).toHaveAttribute('aria-pressed', 'true');
+
+  await expect.poll(() => page.evaluate(() => new Promise<number>((resolve, reject) => {
+    const open = indexedDB.open('suelr-agent', 1);
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const read = db.transaction('sessions').objectStore('sessions').get('workspace');
+      read.onsuccess = () => {
+        db.close();
+        resolve(read.result?.sessions.length ?? 0);
+      };
+      read.onerror = () => {
+        db.close();
+        reject(read.error);
+      };
+    };
+  }))).toBe(1);
+
+  await page.reload();
+  if (!(await panel.isVisible())) await page.getByTestId('workflow-toggle-agent').click();
+  await expect(composer).toHaveValue('保留的草稿');
+  await listButton.click();
+  await expect(list.getByRole('button', { name: '新会话', exact: true })).toHaveCount(1);
+  await list.locator('[aria-current="true"] + button').click();
+  await page.getByRole('dialog').getByRole('button', { name: '删除', exact: true }).click();
+  await expect(composer).toHaveValue('');
+});
