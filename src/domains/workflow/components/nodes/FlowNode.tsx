@@ -211,103 +211,53 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
       )}
       {!isGroupNode && (
         <>
-          <NodeAppendix position="top">
-            <button
-              type="button"
-              style={{
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 10,
-                background: 'var(--t-card)',
-                backdropFilter: 'blur(40px)',
-                border: '1px solid var(--t-border)',
-                color: 'var(--t-text2)',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                updateNodeData(id, { disabled: !isDisabled });
-              }}
-              title={isDisabled ? '启用' : '禁用'}
-            >
-              <Prohibit size={15} style={{ color: isDisabled ? 'var(--t-red)' : undefined }} />
-            </button>
-            <button
-              type="button"
-              style={{
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 10,
-                background: 'var(--t-card)',
-                backdropFilter: 'blur(40px)',
-                border: '1px solid var(--t-border)',
-                color: 'var(--t-text2)',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleNodesLocked([id], !isDirectlyLocked);
-              }}
-              title={isLocked ? '解锁' : '锁定'}
-            >
-              {isLocked ? <LockSimple size={15} /> : <LockOpen size={15} />}
-            </button>
-            <button
-              type="button"
-              style={{
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 10,
-                background: 'var(--t-card)',
-                backdropFilter: 'blur(40px)',
-                border: '1px solid var(--t-border)',
-                color: 'var(--t-text2)',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                duplicateNode(id);
-              }}
-              title="复制"
-            >
-              <Copy size={15} />
-            </button>
-            <button
-              type="button"
-              style={{
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 10,
-                background: 'var(--t-card)',
-                backdropFilter: 'blur(40px)',
-                border: '1px solid var(--t-border)',
-                color: 'var(--t-text2)',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                executeWorkflowToNode(id);
-              }}
-              title="执行到此节点"
-            >
-              <Play size={15} />
-            </button>
+          <NodeAppendix position="top" className="menu-surface">
+            <div className="menu-group flow-node__toolbar-actions">
+              <button
+                type="button"
+                className="flow-node__toolbar-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updateNodeData(id, { disabled: !isDisabled });
+                }}
+                title={isDisabled ? '启用' : '禁用'}
+              >
+                <Prohibit size={15} style={{ color: isDisabled ? 'var(--t-red)' : undefined }} />
+              </button>
+              <button
+                type="button"
+                className="flow-node__toolbar-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleNodesLocked([id], !isDirectlyLocked);
+                }}
+                title={isLocked ? '解锁' : '锁定'}
+              >
+                {isLocked ? <LockSimple size={15} /> : <LockOpen size={15} />}
+              </button>
+              <button
+                type="button"
+                className="flow-node__toolbar-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  duplicateNode(id);
+                }}
+                title="复制"
+              >
+                <Copy size={15} />
+              </button>
+              <button
+                type="button"
+                className="flow-node__toolbar-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  executeWorkflowToNode(id);
+                }}
+                title="执行到此节点"
+              >
+                <Play size={15} />
+              </button>
+            </div>
           </NodeAppendix>
           {(isDisabled || hasWarning || execStatus !== 'idle') && (
             <NodeAppendix position="bottom" showOnHover={false}>

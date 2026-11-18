@@ -1,4 +1,4 @@
-import { useAgentWindow } from './useAgentWindow';
+import { agentResizeEdges, useAgentWindow } from './useAgentWindow';
 import SkillLibrary from './SkillLibrary';
 import { builtinSkills } from './builtinSkills';
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
@@ -42,6 +42,7 @@ import {
 import { readAgentSessions, writeAgentSessions } from './agentSessions';
 import { buildSkillCatalog, parseSkill, readSkillPreview, type PreviewSkill } from './skillPreview';
 import '@/domains/workflow/components/ai-v3-parameters.css';
+import AgentMarkdown from './AgentMarkdown';
 import './agent-panel.css';
 
 type ModelOption = { value: string; label: string; configName?: string; group?: string };
@@ -364,13 +365,14 @@ export default function AgentPanel({
             .filter((turn) => turn.status === 'complete')
             .map((turn) => {
               if (!turn.canvas) return turn;
-              const sameCanvas = planTarget &&
-                turn.canvas.documentId === planTarget.documentId &&
-                turn.canvas.workflowId === planTarget.workflowId;
-              return {
-                content: turn.content.slice(0, turn.canvas.contentStart ?? 0),
-                answer: sameCanvas ? turn.answer : undefined,
-              };
+              const { contentStart } = turn.canvas;
+              const content: ContentPart[] = contentStart === undefined
+                ? [
+                    ...(turn.text ? [{ type: 'text' as const, text: turn.text }] : []),
+                    ...turn.attachments.map(({ name }) => ({ type: 'text' as const, text: `参考附件：${name}` })),
+                  ]
+                : turn.content.slice(0, contentStart);
+              return { content, answer: turn.answer };
             }),
           [],
         ),
@@ -567,8 +569,8 @@ export default function AgentPanel({
                 </div>
                 {message.answer && (
                   <div className="agent-panel__reply">
-                    <strong>弧光</strong>
-                    <div>{message.answer}</div>
+                    <strong className="agent-panel__reply-author">弧光</strong>
+                    <AgentMarkdown source={message.answer} />
                     {/```(?:markdown|md)?[ \t]*\r?\n---[ \t]*\r?\n/.test(message.answer) && (
                       <button
                         type="button"
@@ -785,7 +787,7 @@ export default function AgentPanel({
         {!selectedModel('chat') && <p className="agent-panel__notice">请先在工作室设置中配置对话模型。</p>}
       </div>
       <form
-        className="agent-panel__composer"
+        className="text-composer agent-panel__composer"
         onSubmit={(event) => {
           event.preventDefault();
           send();
@@ -914,9 +916,9 @@ export default function AgentPanel({
             <PuzzlePiece size={18} />
           </button>
           {openMenu === 'models' && !hidden && (
-            <section className="ai-parameter-popover agent-panel__popover" aria-label="模型配置">
+            <section className="menu-surface ai-parameter-popover agent-panel__popover" aria-label="模型配置">
               {modelOrder.map((kind) => (
-                <label key={kind} className="ai-menu-module agent-panel__model-group">
+                <label key={kind} className="menu-group ai-menu-module agent-panel__model-group">
                   <span className="ai-menu-module-label">{modelKinds[kind]}</span>
                   <span className="ai-menu-module-body">
                     <select
@@ -938,10 +940,10 @@ export default function AgentPanel({
           )}
           {openMenu === 'skills' && !hidden && (
             <section
-              className="ai-parameter-popover agent-panel__popover agent-skills-popover"
+              className="menu-surface ai-parameter-popover agent-panel__popover agent-skills-popover"
               aria-label="Skills 清单"
             >
-              <header className="agent-skills-header">
+              <header className="agent-skills-header menu-group">
                 <div className="agent-skills-heading">
                   <strong>Skills</strong>
                   <span>已启用 {selectedSkills.length}</span>
@@ -974,7 +976,7 @@ export default function AgentPanel({
                   setSelectedSkills((current) => current.filter((item) => item !== id));
                 }}
               />
-              <div className="agent-panel__skill-actions agent-skills-footer">
+              <div className="agent-panel__skill-actions agent-skills-footer menu-group">
                 <button type="button" onClick={() => skillPicker.current?.click()}>
                   导入技能包
                 </button>
@@ -1039,17 +1041,19 @@ export default function AgentPanel({
         </div>
       </form>
       {!hidden && mediaPreview && <AgentMediaPreview item={mediaPreview} onClose={() => setMediaPreview(undefined)} />}
-      {floating && (
+      {floating && agentResizeEdges.map((edge) => (
         <div
+          key={edge}
           className="agent-panel__resize"
-          title="拖动调整窗口大小"
-          onPointerDown={(event) => agentWindow.begin(event, true)}
+          data-resize-edge={edge}
+          aria-hidden="true"
+          onPointerDown={(event) => agentWindow.begin(event, edge)}
           onPointerMove={agentWindow.move}
           onPointerUp={agentWindow.end}
           onPointerCancel={agentWindow.end}
           onLostPointerCapture={agentWindow.end}
         />
-      )}
+      ))}
     </aside>
   );
 }

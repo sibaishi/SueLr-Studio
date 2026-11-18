@@ -89,10 +89,61 @@
   --toast-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   --chip-radius: 14px;
   --modal-radius: 20px;
+  --modal-glass-bg: rgba(28, 30, 36, 0.68);
+  --modal-panel-bg: rgba(39, 41, 48, 0.92);
+  --menu-glass-bg: rgba(28, 30, 36, 0.94);
+  --overlay-border: rgba(255, 255, 255, 0.13);
+  --overlay-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+  --modal-backdrop: rgba(7, 9, 13, 0.24);
 }
 
 [data-theme="light"] {
   --card-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+  --modal-glass-bg: rgba(234, 237, 244, 0.59);
+  --modal-panel-bg: rgba(255, 255, 255, 0.91);
+  --menu-glass-bg: rgba(234, 237, 244, 0.94);
+  --overlay-border: rgba(15, 23, 42, 0.12);
+  --overlay-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+}
+
+.modal-surface,
+.menu-surface {
+  border: 1px solid var(--overlay-border);
+  box-shadow: var(--overlay-shadow);
+}
+
+.modal-surface {
+  border-radius: var(--modal-radius);
+  background: var(--modal-glass-bg);
+  backdrop-filter: blur(24px) saturate(145%);
+}
+
+.modal-inset-panel,
+.menu-group {
+  background: var(--modal-panel-bg);
+  backdrop-filter: blur(16px) saturate(130%);
+}
+
+.modal-inset-panel {
+  border: 1px solid var(--overlay-border);
+  border-radius: 15px;
+}
+
+.menu-surface {
+  padding: 6px;
+  border-radius: var(--radius-md);
+  background: var(--menu-glass-bg);
+  backdrop-filter: blur(28px) saturate(145%);
+}
+
+.menu-group {
+  min-width: 0;
+  border: 1px solid var(--overlay-border);
+  border-radius: var(--radius-sm);
+}
+
+.menu-group > :where(button) {
+  border-radius: calc(var(--radius-sm) - 2px);
 }
 
 /* ==================== Reset (Layer: reset) ==================== */
@@ -340,16 +391,62 @@ button:active {
 /* ==================== Input Focus States ==================== */
 
 input:focus,
-textarea:focus,
 select:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.3), 0 0 20px rgba(10, 132, 255, 0.08);
 }
 
 [data-theme="light"] input:focus,
-[data-theme="light"] textarea:focus,
 [data-theme="light"] select:focus {
   box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25), 0 0 16px rgba(0, 122, 255, 0.06);
+}
+
+/* Multiline editors use a neutral focus indicator instead of the input glow. */
+textarea {
+  resize: none;
+}
+
+textarea:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--color-text-primary) 45%, transparent);
+  outline-offset: -1px;
+}
+
+.text-composer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--overlay-border);
+  border-radius: 15px;
+  background: var(--modal-panel-bg);
+}
+
+.text-composer:has(> textarea:focus) {
+  border-color: color-mix(in srgb, var(--color-text-primary) 42%, transparent);
+}
+
+.text-composer > textarea {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.text-composer > textarea:focus-visible {
+  outline: none;
+}
+
+.text-composer > textarea::placeholder {
+  color: var(--color-text-secondary);
 }
 
 /* --- Component-scoped focus-visible --- */
@@ -363,14 +460,12 @@ select:focus {
   outline-color: rgba(0, 122, 255, 0.5);
 }
 
-.ios-input:focus-visible,
-.ios-textarea:focus-visible {
+.ios-input:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.3), 0 0 20px rgba(10, 132, 255, 0.08);
 }
 
-[data-theme="light"] .ios-input:focus-visible,
-[data-theme="light"] .ios-textarea:focus-visible {
+[data-theme="light"] .ios-input:focus-visible {
   box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25), 0 0 16px rgba(0, 122, 255, 0.06);
 }
 

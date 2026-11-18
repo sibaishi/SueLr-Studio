@@ -17,7 +17,7 @@ export default function WorkflowImportReportModal({ fileName, report, onClose }:
     <ModalSurface
       ariaLabel="工作流导入结果"
       rootClassName="workflow-import-modal"
-      panelClassName="workflow-import-modal__dialog glass"
+      panelClassName="workflow-import-modal__dialog"
       closeOnRootClick
       onClose={onClose}
     >

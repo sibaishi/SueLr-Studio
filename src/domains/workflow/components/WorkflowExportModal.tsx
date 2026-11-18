@@ -17,7 +17,7 @@ export default function WorkflowExportModal({
     <ModalSurface
       ariaLabel="导出工作流"
       rootClassName="workflow-import-modal"
-      panelClassName="workflow-import-modal__dialog glass"
+      panelClassName="workflow-import-modal__dialog"
       onClose={onClose}
       closeOnRootClick
       isolateKeyboard

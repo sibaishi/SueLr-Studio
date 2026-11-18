@@ -133,7 +133,7 @@ export default function WorkflowLibraryModal({
       onClose={onClose}
       isolateKeyboard
     >
-      <div className="workflow-library-modal__header glass">
+      <div className="workflow-library-modal__header modal-inset-panel">
         <div>
           <div style={eyebrowStyle()}>Workflow Library</div>
           <h2 style={{ ...sectionTitleStyle(), marginTop: 6 }}>工作流库</h2>
@@ -146,7 +146,7 @@ export default function WorkflowLibraryModal({
         </button>
       </div>
 
-      <div className="workflow-library-modal__toolbar glass">
+      <div className="workflow-library-modal__toolbar modal-inset-panel">
         <div className="workflow-library-modal__search">
           <MagnifyingGlass size={14} />
           <input
@@ -163,7 +163,7 @@ export default function WorkflowLibraryModal({
 
       {errorMessage && <div className="workflow-library-modal__error">{errorMessage}</div>}
 
-      <section className="workflow-library-modal__content glass" aria-label="已保存的工作流">
+      <section className="workflow-library-modal__content modal-inset-panel" aria-label="已保存的工作流">
         <div>
           <div style={eyebrowStyle()}>工作流浏览</div>
           <h3 style={{ ...sectionTitleStyle(), marginTop: 8 }}>已保存的工作流</h3>

@@ -114,7 +114,7 @@ export function ModalSurface({
         {...panelProps}
         {...(dialogOnPanel && dialogProps)}
         ref={externalPanelRef ?? panelRef}
-        className={panelClassName}
+        className={`modal-surface ${panelClassName}`}
         tabIndex={-1}
         onClick={(event) => {
           panelProps?.onClick?.(event);

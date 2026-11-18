@@ -3,7 +3,6 @@
 
 /* The settings modal owns the backdrop, outer material and fixed dimensions. */
 .asset-library {
-  --asset-library-panel-bg: color-mix(in srgb, var(--color-bg-primary) 92%, white);
   display: flex;
   flex-direction: column;
   padding: 10px;
@@ -118,7 +117,7 @@
   padding: 14px;
   border: 1px solid var(--color-border);
   border-radius: 5px;
-  background: color-mix(in srgb, var(--asset-library-panel-bg) 96%, white);
+  background: var(--color-bg-secondary);
 }
 .asset-library .asset-library__danger,
 .asset-library .asset-library__danger:hover:not(:disabled) { color: var(--color-danger); }
@@ -126,12 +125,6 @@
 .asset-library__delete-confirm > div { display: flex; justify-content: flex-end; gap: 8px; }
 .asset-library .asset-library__detail-actions .asset-library__primary { margin: 0; }
 
-/* Match the settings shell: separate inset panels above the glass frame. */
-.asset-library__panel {
-  background: var(--asset-library-panel-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 15px;
-}
 .asset-library__section-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0; margin-bottom: 14px; }
 .asset-library__batch-controls { display: flex; flex-wrap: wrap; gap: 6px; }
 .asset-library__batch-check {
@@ -144,7 +137,7 @@
   height: 30px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: var(--asset-library-panel-bg);
+  background: var(--modal-panel-bg);
 }
 .asset-library__batch-details > p { margin: 0 0 12px; font-size: 12px; }
 .asset-library__details .asset-library__batch-option { flex-direction: row; align-items: center; }

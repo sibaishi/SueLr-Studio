@@ -480,7 +480,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
 
       {importErrorMessage && (
         <div className="workflow-import-modal" onClick={() => setImportErrorMessage(null)}>
-          <div className="workflow-import-modal__dialog glass" onClick={(e) => e.stopPropagation()}>
+          <div className="workflow-import-modal__dialog modal-surface" onClick={(e) => e.stopPropagation()}>
             <div className="workflow-import-modal__header">
               <div>
                 <div className="workflow-panel__title">导入没有完成</div>
@@ -504,7 +504,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
 
       {workflowErrorMessage && (
         <div className="workflow-import-modal" onClick={() => setWorkflowErrorMessage(null)}>
-          <div className="workflow-import-modal__dialog glass" onClick={(e) => e.stopPropagation()}>
+          <div className="workflow-import-modal__dialog modal-surface" onClick={(e) => e.stopPropagation()}>
             <div className="workflow-import-modal__header">
               <div>
                 <div className="workflow-panel__title">操作没有完成</div>

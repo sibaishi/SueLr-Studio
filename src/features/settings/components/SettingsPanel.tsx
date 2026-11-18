@@ -37,7 +37,7 @@ import { DefaultsSection } from './DefaultsSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
 import { ModelsSection } from './ModelsSection';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
-import { chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, panelStyle, sectionTitleStyle } from './styles';
+import { chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, sectionTitleStyle } from './styles';
 import './settings-panel.css';
 
 export function SettingsPanel({
@@ -768,7 +768,7 @@ export function SettingsPanel({
         padding: 10,
       }}
     >
-      <div className="settings-panel__header glass">
+      <div className="settings-panel__header modal-inset-panel">
         <div className="settings-panel__identity">
           <div style={eyebrowStyle()}>Studio Settings</div>
           <h2 style={{ ...sectionTitleStyle(), marginTop: 6 }}>工作室设置</h2>
@@ -802,9 +802,9 @@ export function SettingsPanel({
         }}
       >
         <aside
+          className="modal-inset-panel"
           style={{
-            ...panelStyle(),
-            padding: 10,
+            padding: 12,
             display: 'flex',
             flexDirection: 'column',
             gap: 10,
@@ -912,7 +912,7 @@ export function SettingsPanel({
           </div>
         </aside>
 
-        <main style={{ ...panelStyle(), padding: 10, overflow: 'auto', minWidth: 0 }}>
+        <main className="modal-inset-panel" style={{ padding: 12, overflow: 'auto', minWidth: 0 }}>
           <div className="flex-col" style={{ gap: 10 }}>
             <div
               style={{
@@ -935,7 +935,8 @@ export function SettingsPanel({
 
         <aside style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
           <div
-            style={{ ...panelStyle(), padding: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+            className="modal-inset-panel"
+            style={{ padding: 12, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
           >
             <div>
               <div style={eyebrowStyle()}>实时概览</div>

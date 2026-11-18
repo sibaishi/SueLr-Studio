@@ -154,7 +154,7 @@ Current cleanup and ownership notes:
   - regular node handles. Canvas groups have no handles
 - `src/domains/workflow/components/NodeCanvasEditorModal.tsx`
   - 图片与草图共用的画板。编辑会话管理画布尺寸、位图图层、矩形、椭圆和自由手绘套索选区。绘画辅助在 `nodeCanvasShapes.ts` 中处理指针平滑、形状路径与手绘识别，应用后写入图层像素。选区布尔运算与羽化在 `nodeCanvasSelection.ts` 中生成透明度蒙版。自由变换的预览保存在会话状态，应用时只提交一条历史；几何与位图绘制在 `nodeCanvasTransform.ts`。撤销历史复用未修改的图层位图。预览与 PNG 输出使用同一合成画布，保存回调接收 PNG 文件。
-  - 画板、图片预览和长文本使用与工作室设置、资产库相同的 `ModalSurface` 和遮罩样式。画板、预览、长文本和确认弹窗共用 `workflowModalIsolation.ts` 管理键盘焦点，并用 inert 暂停工作区和下层弹窗的交互。工作流快捷键和粘贴入口在这些弹窗打开时暂停。
+  - 画板、图片预览和长文本使用与工作室设置、资产库相同的 `ModalSurface` 和遮罩样式。弹窗与浮层菜单分别使用 `modal-surface` 和 `menu-surface`，共用主题边框与阴影。弹窗底板使用半透明毛玻璃，设置、资产库和工作流库的内部模块使用高不透明度的 `modal-inset-panel`，浮层菜单以 `menu-surface` 使用浓度更高的毛玻璃底板，`menu-group` 为菜单选项和控件叠加高不透明度的玻璃。画板、预览、长文本和确认弹窗共用 `workflowModalIsolation.ts` 管理键盘焦点，并用 inert 暂停工作区和下层弹窗的交互。工作流快捷键和粘贴入口在这些弹窗打开时暂停。
 - `src/domains/workflow/components/ResultsPanel.tsx`
   - outputs, logs, and run diagnostics
 - `src/domains/workflow/lib/groupLayout.ts`
@@ -612,11 +612,11 @@ The workflow client supports both its existing JSON format and ZIP bundles with 
 
 ## 弧光
 
-`src/domains/agent/` 负责右侧会话界面、附件预览和图像转换。会话、草稿与附件保存在浏览器 IndexedDB，导入和保存的 Skills 存在浏览器本地。工作流页面负责右侧面板互斥切换。
+`src/domains/agent/` 负责右侧会话界面、附件预览和图像转换。会话、草稿与附件保存在浏览器 IndexedDB，导入和保存的 Skills 存在浏览器本地。 `AgentMarkdown` 在显示层渲染回复，复制和下载直接使用原文，历史请求和 Skill 导入继续读取原始回复。工作流页面负责右侧面板互斥切换。
 
 `POST /api/agent/chat` 校验会话顺序、附件数据和 Skills，按已启用的连接解析模型及凭据，复用现有模型适配层。客户端只提交文本和图像数据，视频由浏览器抽帧。前端请求取消会传递到上游模型请求。
 
-画布引用由工作流域生成，只传白名单字段、截断后的日志及匹配的运行摘要。画布引用按会话保存开关，按消息捕获快照，区分活跃任务和历史记录。请求只从当前会话构建历史，剔除旧快照及归属无法确认或与本轮画布不同的画布对话轮次。会话持久化按顺序写入，以保留删除与切换结果。
+画布引用由工作流域生成，只传白名单字段、截断后的日志及匹配的运行摘要。画布引用按会话保存开关，按消息捕获快照，区分活跃任务和历史记录。请求只从当前会话构建历史，保留已完成的用户消息和回复，并剔除旧快照与自动附带的画布产物。缺少快照起始位置的旧记录使用原始用户文字和附件名恢复历史。会话持久化按顺序写入，以保留删除与切换结果。
 
 画布方案通过 `propose_canvas_changes` 函数工具返回，经后端验证后展示给用户。应用时复用编辑器的节点与边操作，在暂存状态中完成整批检查，成功后一次写入画布状态。应用绑定原画布，并遵守锁定节点与执行状态。
 
@@ -625,5 +625,7 @@ The workflow client supports both its existing JSON format and ZIP bundles with 
 `FileSourceButton` 复用资产库的选取模式并保留各入口原有的本地文件选择器。IO 引用已有媒体 URL，弧光和画板则将所选资产读取为文件后交给各自的附件或图层逻辑。
 
 弧光通过 `load_skill` 和 `read_skill_resource` 在单次对话请求中加载技能正文与引用文本。前端发送技能目录及有界资料，后端仅向上游模型提供目录、显式指定的正文，以及工具调用所需的内容。技能元数据不改变现有工具授权。
+
+弧光、IO 和 AI 能力的输入区在 `src/index.css` 共用 `text-composer`，多行编辑器使用中性色焦点提示。
 
 工作流页面维护弧光的停靠和浮动可见性。同一个会话组件在两种模式之间切换，浮窗的移动、缩放和视口约束由 `useAgentWindow` 管理。

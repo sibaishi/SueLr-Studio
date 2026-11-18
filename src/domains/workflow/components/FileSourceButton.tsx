@@ -79,7 +79,7 @@ export default function FileSourceButton({
             ref={menu}
             role="group"
             aria-label="文件来源"
-            className="workflow-file-source glass"
+            className="workflow-file-source menu-surface"
             style={{
               left: position.left,
               top: position.top,
@@ -95,25 +95,27 @@ export default function FileSourceButton({
               }
             }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                setPosition(undefined);
-                setLibrary(true);
-              }}
-            >
-              <FolderOpen size={16} /> 从资产库添加文件
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPosition(undefined);
-                trigger.current?.focus();
-                onLocal();
-              }}
-            >
-              <HardDrive size={16} /> 从本地添加文件
-            </button>
+            <div className="menu-group">
+              <button
+                type="button"
+                onClick={() => {
+                  setPosition(undefined);
+                  setLibrary(true);
+                }}
+              >
+                <FolderOpen size={16} /> 从资产库添加文件
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPosition(undefined);
+                  trigger.current?.focus();
+                  onLocal();
+                }}
+              >
+                <HardDrive size={16} /> 从本地添加文件
+              </button>
+            </div>
           </div>,
           document.body,
         )}

@@ -48,6 +48,7 @@ export function WorkflowStylePanelShell({
 
   return (
     <div
+      className="workflow-style-panel-shell"
       style={{
         position: 'absolute',
         bottom: 80,
@@ -61,8 +62,6 @@ export function WorkflowStylePanelShell({
         padding: 8,
         gap: 10,
         borderRadius: 25,
-        background: 'var(--t-card)',
-        backdropFilter: 'blur(40px)',
         border: '1px solid var(--t-border)',
         boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
         zIndex: 30,
@@ -201,7 +200,7 @@ export function StylePanelPopoverButton({
           {!showValue && <div style={{ position: 'fixed', inset: 0, zIndex: 31 }} onClick={onToggle} />}
           <div
             id={popoverId}
-            className={showValue ? 'nodrag nowheel ai-parameter-popover' : 'nodrag'}
+            className={showValue ? 'nodrag nowheel menu-surface ai-parameter-popover' : 'nodrag menu-surface'}
             onPointerDown={(event) => event.stopPropagation()}
             style={
               showValue
@@ -211,27 +210,11 @@ export function StylePanelPopoverButton({
                     ...(direction === 'up' ? { bottom: '100%', marginBottom: 8 } : { top: '100%', marginTop: 8 }),
                     right: 0,
                     minWidth: 260,
-                    borderRadius: 16,
-                    background: 'color-mix(in srgb, var(--t-card) 94%, transparent)',
-                    backdropFilter: 'blur(48px) saturate(180%)',
-                    border: '1px solid color-mix(in srgb, var(--t-border) 72%, transparent)',
-                    boxShadow:
-                      direction === 'up'
-                        ? '0 -12px 48px rgba(0,0,0,0.14), 0 -1px 0 rgba(255,255,255,0.07) inset'
-                        : '0 16px 48px rgba(0,0,0,0.16), 0 1px 0 rgba(255,255,255,0.07) inset',
                     zIndex: 32,
                   }
             }
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '13px 16px 10px',
-                borderBottom: '1px solid color-mix(in srgb, var(--t-border) 28%, transparent)',
-              }}
-            >
+            <div className="menu-group ai-parameter-popover__heading">
               <span style={{ display: 'flex', alignItems: 'center', color: 'var(--t-text2)', opacity: 0.75 }}>
                 {icon}
               </span>
@@ -239,7 +222,7 @@ export function StylePanelPopoverButton({
                 {label}
               </span>
             </div>
-            <div style={{ padding: 12 }}>{children}</div>
+            <div className="menu-group" style={{ padding: 8 }}>{children}</div>
           </div>
         </>
       )}

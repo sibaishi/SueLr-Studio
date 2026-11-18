@@ -32,7 +32,7 @@ export default function SkillLibrary({
   };
 
   return (
-    <div className="agent-skill-body">
+    <div className="agent-skill-body menu-group">
       {skill ? (
         <div className="agent-skill-detail">
           <button type="button" className="agent-skill-back" onClick={closeDetail}>

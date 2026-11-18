@@ -1386,3 +1386,230 @@ test('Arc keeps canvas settings per conversation and persists conversation delet
   await page.getByRole('dialog').getByRole('button', { name: '删除', exact: true }).click();
   await expect(composer).toHaveValue('');
 });
+
+test('Arc retains conversation history with canvas reference off and on', async ({ page }) => {
+  const model = { label: '测试模型', value: 'test-model', modelId: 'test-model', configId: 'test', configName: '测试' };
+  await page.route('**/api/settings/models', (route) => route.fulfill({
+    json: { success: true, data: { all: [model], chat: [model], image: [], video: [] } },
+  }));
+  await page.route('**/api/agent/chat', (route) => route.fulfill({
+    json: { success: true, data: { answer: '采用高对比度的黑白方案' } },
+  }));
+  await clearLocalState(page);
+  await page.getByTestId('workflow-toggle-agent').click();
+  const panel = page.getByTestId('workflow-agent-panel');
+  const canvas = panel.getByRole('button', { name: '引用画布' });
+  const snapshotMarker = '以下是应用为本轮附带的只读画布快照';
+
+  async function send(text: string) {
+    await panel.getByRole('textbox').fill(text);
+    const request = page.waitForRequest('**/api/agent/chat');
+    await panel.getByRole('button', { name: '发送消息' }).click();
+    const payload = (await request).postDataJSON();
+    await expect(canvas).toBeEnabled();
+    return payload;
+  }
+
+  const linked = await send('帮我确定海报的配色');
+  expect(linked.canvasEnabled).toBe(true);
+  expect(JSON.stringify(linked.messages)).toContain(snapshotMarker);
+  await expect(panel.getByText('采用高对比度的黑白方案', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '下载回复 .md' })).toHaveCount(0);
+  await expect(panel.getByRole('button', { name: '复制回复原文' })).toHaveCount(0);
+
+  await canvas.click();
+  const unlinked = await send('继续用刚才定好的配色');
+  expect(unlinked.canvasEnabled).toBe(false);
+  expect(unlinked.messages.slice(0, 2)).toEqual([
+    { role: 'user', content: [{ type: 'text', text: '帮我确定海报的配色' }] },
+    { role: 'assistant', content: '采用高对比度的黑白方案' },
+  ]);
+  expect(JSON.stringify(unlinked.messages)).not.toContain(snapshotMarker);
+
+  await canvas.click();
+  const relinked = await send('按照这个方案继续');
+  expect(relinked.canvasEnabled).toBe(true);
+  expect(relinked.messages.slice(0, 4)).toEqual([
+    ...unlinked.messages,
+    { role: 'assistant', content: '采用高对比度的黑白方案' },
+  ]);
+  expect(JSON.stringify(relinked.messages.at(-1))).toContain(snapshotMarker);
+});
+
+test('settings and asset library share layered glass in both themes', async ({ page }) => {
+  await clearLocalState(page);
+  const themes = [
+    { name: 'dark', frame: 'rgba(28, 30, 36, 0.68)', menu: 'rgba(28, 30, 36, 0.94)', inset: 'rgba(39, 41, 48, 0.92)' },
+    { name: 'light', frame: 'rgba(234, 237, 244, 0.59)', menu: 'rgba(234, 237, 244, 0.94)', inset: 'rgba(255, 255, 255, 0.91)' },
+  ];
+  for (const theme of themes) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme.name);
+    await openSettings(page);
+    const settings = page.locator('.settings-modal__panel');
+    await expect(settings).toHaveCSS('background-color', theme.frame);
+    await expect(settings).toHaveCSS('backdrop-filter', /blur\(24px\)/);
+    await expect(settings.locator('main.modal-inset-panel')).toHaveCSS('background-color', theme.inset);
+    await page.keyboard.press('Escape');
+    await expect(settings).toBeHidden();
+
+    await page.getByRole('button', { name: '打开资产库' }).click();
+    const assets = page.locator('.settings-modal__panel.asset-library');
+    await expect(assets).toHaveCSS('background-color', theme.frame);
+    await expect(assets.locator('main.modal-inset-panel')).toHaveCSS('background-color', theme.inset);
+    await expect(assets.locator('main.modal-inset-panel')).toHaveCSS('backdrop-filter', /blur\(16px\)/);
+    await assets.getByRole('button', { name: '关闭资产库' }).click();
+
+    await page.getByTestId('workflow-add-node').click();
+    const menu = page.locator('.workflow-context-menu--panel');
+    await expect(menu).toHaveCSS('background-color', theme.menu);
+    await expect(menu).toHaveCSS('backdrop-filter', /blur\(28px\)/);
+    await expect(menu.locator('.menu-group')).toHaveCSS('background-color', theme.inset);
+    await page.getByTestId('workflow-node-catalog-item-io').click();
+    await expect(menu).toBeHidden();
+  }
+});
+
+
+test('Arc and node menus share the same glass layers', async ({ page }) => {
+  await clearLocalState(page);
+  await addTextInputNode(page);
+  await page.locator('.react-flow__node').last().click({ button: 'right' });
+  const nodeMenu = page.locator('.workflow-context-menu--root');
+  await expect(nodeMenu).toBeVisible();
+  const frame = await nodeMenu.evaluate((element) => getComputedStyle(element).backgroundColor);
+  const inset = await nodeMenu.locator('.menu-group').evaluate((element) => getComputedStyle(element).backgroundColor);
+  await page.getByTestId('workflow-toggle-agent').click();
+  const arc = page.getByTestId('workflow-agent-panel');
+
+  await arc.getByRole('button', { name: 'Skills 清单' }).click();
+  const skills = arc.getByRole('region', { name: 'Skills 清单' });
+  await expect(skills).toHaveCSS('background-color', frame);
+  await expect(skills.locator('.agent-skill-body')).toHaveCSS('background-color', inset);
+
+  await arc.getByRole('button', { name: '选择模型' }).click();
+  const models = arc.getByRole('region', { name: '模型配置' });
+  await expect(models).toHaveCSS('background-color', frame);
+  await expect(models.locator('.menu-group').first()).toHaveCSS('background-color', inset);
+
+  await arc.getByRole('button', { name: '添加附件' }).click();
+  const attachments = page.getByRole('group', { name: '文件来源' });
+  await expect(attachments).toHaveCSS('background-color', frame);
+  await expect(attachments.locator('.menu-group')).toHaveCSS('background-color', inset);
+});
+
+test('Arc renders Markdown and preserves source when wrapping, copying, and downloading', async ({ page, context }) => {
+  const model = { label: '测试模型', value: 'test-model', modelId: 'test-model', configId: 'test', configName: '测试' };
+  const code = `  const label = '${'abcdefghijklmnopqrstuvwxyz'.repeat(12)}';\n  return label;`;
+  const document = '# 分镜文档\n\n1. 景别\n2. 动作';
+  const answer = [
+    '## 分镜计划', '', '> 保持光线一致', '', '| 镜头 | 内容 |', '| --- | --- |', '| 1 | **特写** |', '',
+    '\x60\x60\x60js', code, '\x60\x60\x60', '', '\x60\x60\x60md', document, '\x60\x60\x60',
+  ].join('\n');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.route('**/api/settings/models', (route) => route.fulfill({
+    json: { success: true, data: { all: [model], chat: [model], image: [], video: [] } },
+  }));
+  await page.route('**/api/agent/chat', (route) => route.fulfill({
+    json: { success: true, data: { answer } },
+  }));
+  await clearLocalState(page);
+  await page.getByTestId('workflow-toggle-agent').click();
+  const panel = page.getByTestId('workflow-agent-panel');
+  await panel.getByRole('textbox', { name: '消息' }).fill('给我分镜计划和示例代码');
+  await panel.getByRole('button', { name: '发送消息' }).click();
+
+  await expect(panel.getByRole('heading', { name: '分镜计划' })).toBeVisible();
+  await expect(panel.getByRole('cell', { name: '特写' })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: '分镜文档' })).toBeVisible();
+  const block = panel.locator('pre.agent-markdown__code');
+  await expect(block).toHaveCSS('white-space', 'pre-wrap');
+  await expect.poll(() => block.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0);
+  await panel.getByRole('button', { name: '关闭换行' }).click();
+  await expect(block).toHaveCSS('white-space', 'pre');
+  await expect.poll(() => block.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeGreaterThan(0);
+  await panel.getByRole('button', { name: '开启换行' }).click();
+  await panel.getByRole('button', { name: '复制代码' }).click();
+  await expect(panel.getByText('已复制', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(code);
+
+  await panel.getByRole('button', { name: '查看原文' }).click();
+  const sources = panel.locator('pre.agent-markdown__code code');
+  await expect.poll(() => sources.last().textContent()).toBe(document);
+  await panel.getByRole('button', { name: '查看预览' }).click();
+  await expect(panel.getByRole('heading', { name: '分镜文档' })).toBeVisible();
+  for (const [button, source] of [['下载文档 .md', document], ['下载回复 .md', answer]]) {
+    const pending = page.waitForEvent('download');
+    await panel.getByRole('button', { name: button, exact: true }).click();
+    const download = await pending;
+    expect(await readFile((await download.path())!, 'utf8')).toBe(source);
+  }
+});
+
+
+test('Arc floating window resizes from all edges and corners', async ({ page }) => {
+  await clearLocalState(page);
+  await page.getByTestId('workflow-toggle-agent').click();
+  const panel = page.getByTestId('workflow-agent-panel');
+  await panel.getByRole('button', { name: '脱离为浮动窗口' }).click();
+  for (const edge of ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw']) {
+    const before = (await panel.boundingBox())!;
+    const handle = (await panel.locator(`[data-resize-edge="${edge}"]`).boundingBox())!;
+    // Move each edge independently and verify the opposite edge stays fixed.
+    const dx = edge.includes('w') ? -8 : edge.includes('e') ? -8 : 0;
+    const dy = edge.includes('n') ? 8 : edge.includes('s') ? -8 : 0;
+    const x = handle.x + handle.width / 2;
+    const y = handle.y + handle.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dx, y + dy, { steps: 3 });
+    await page.mouse.up();
+    const after = (await panel.boundingBox())!;
+    expect(after.x).toBeCloseTo(before.x + (edge.includes('w') ? dx : 0));
+    expect(after.y).toBeCloseTo(before.y + (edge.includes('n') ? dy : 0));
+    expect(after.width).toBeCloseTo(before.width + (edge.includes('w') ? -dx : dx));
+    expect(after.height).toBeCloseTo(before.height + (edge.includes('n') ? -dy : dy));
+  }
+});
+
+test('Arc, IO and AI use matching text input styling without a glow or resize grip', async ({ page }) => {
+  await clearLocalState(page);
+  await page.getByTestId('workflow-new').click();
+  await addWorkflowNode(page, 'io');
+  await addWorkflowNode(page, 'aiV3');
+  await page.getByTestId('workflow-auto-arrange').click();
+  await page.getByRole('button', { name: 'Fit View' }).click();
+
+  async function readComposer(field: import('@playwright/test').Locator) {
+    await field.focus();
+    return field.evaluate((element) => {
+      const fieldStyle = getComputedStyle(element);
+      const frame = getComputedStyle(element.parentElement!);
+      return {
+        resize: fieldStyle.resize,
+        shadow: fieldStyle.boxShadow,
+        outline: fieldStyle.outlineStyle,
+        padding: fieldStyle.padding,
+        fontSize: fieldStyle.fontSize,
+        lineHeight: fieldStyle.lineHeight,
+        background: frame.backgroundColor,
+        border: frame.borderColor,
+        radius: frame.borderRadius,
+      };
+    });
+  }
+
+  for (const theme of ['dark', 'light']) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme);
+    await page.locator('.react-flow__node').filter({ hasText: 'IO' }).last().click();
+    const io = await readComposer(page.getByPlaceholder('输入文本内容...'));
+    expect(io).toMatchObject({ resize: 'none', shadow: 'none', outline: 'none' });
+    await page.locator('.react-flow__pane').click({ position: { x: 20, y: 110 } });
+    await page.locator('.react-flow__node-aiV3').last().click();
+    const ai = await readComposer(page.locator('.node-text-composer textarea'));
+    expect(ai).toEqual(io);
+    await page.getByTestId('workflow-toggle-agent').click();
+    const arc = await readComposer(page.getByTestId('workflow-agent-panel').getByRole('textbox', { name: '消息' }));
+    expect(arc).toEqual(io);
+    await page.getByTestId('workflow-toggle-agent').click();
+  }
+});

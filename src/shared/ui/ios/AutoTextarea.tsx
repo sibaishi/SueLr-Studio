@@ -56,7 +56,6 @@ export function AutoTextarea({
         borderRadius: 'var(--input-radius)',
         padding: 'var(--input-padding)',
         border: `1px solid ${T.border}`,
-        outline: 'none',
         lineHeight: '22px',
         minHeight: 36,
         maxHeight: maxH,

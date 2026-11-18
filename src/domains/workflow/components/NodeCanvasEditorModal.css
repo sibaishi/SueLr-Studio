@@ -278,10 +278,6 @@
   width: max-content;
   min-width: 198px;
   padding: 4px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-primary);
-  box-shadow: var(--glass-shadow);
 }
 .canvas-layer-menu__items button {
   display: flex;

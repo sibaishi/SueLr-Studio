@@ -2264,70 +2264,72 @@ export function NodeCanvasEditorModal({
                   </button>
                   {menuOpen && !isBusy && (
                     <div
-                      className="canvas-layer-menu__items"
+                      className="canvas-layer-menu__items menu-surface"
                       onBlur={(event) => {
                         if (!event.currentTarget.parentElement?.contains(event.relatedTarget)) setMenuOpen(false);
                       }}
                     >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          beginTransform();
-                        }}
-                        disabled={!activeLayer.visible || activeLayer.locked}
-                      >
-                        自由变换 <kbd>Ctrl / ⌘ T</kbd>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          duplicateLayer();
-                        }}
-                      >
-                        {selection ? '选区复制到新图层' : '复制图层'}
-                      </button>
-                      {onExportLayer && (
-                        <>
-                          <button type="button" onClick={() => void exportActiveLayer()}>
-                            导出图层到当前 IO 节点
-                          </button>
-                          <button type="button" onClick={() => void exportActiveLayer(true)}>
-                            导出图层到当前 IO 节点（裁紧）
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          clearLayer();
-                        }}
-                        disabled={!activeLayer.visible || activeLayer.locked}
-                      >
-                        {selection ? '清除选区像素' : '清空图层'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          reorderLayer(1);
-                        }}
-                        disabled={snapshot.layers.at(-1) === activeLayer}
-                      >
-                        图层上移
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          reorderLayer(-1);
-                        }}
-                        disabled={snapshot.layers[0] === activeLayer}
-                      >
-                        图层下移
-                      </button>
+                      <div className="menu-group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            beginTransform();
+                          }}
+                          disabled={!activeLayer.visible || activeLayer.locked}
+                        >
+                          自由变换 <kbd>Ctrl / ⌘ T</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            duplicateLayer();
+                          }}
+                        >
+                          {selection ? '选区复制到新图层' : '复制图层'}
+                        </button>
+                        {onExportLayer && (
+                          <>
+                            <button type="button" onClick={() => void exportActiveLayer()}>
+                              导出图层到当前 IO 节点
+                            </button>
+                            <button type="button" onClick={() => void exportActiveLayer(true)}>
+                              导出图层到当前 IO 节点（裁紧）
+                            </button>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            clearLayer();
+                          }}
+                          disabled={!activeLayer.visible || activeLayer.locked}
+                        >
+                          {selection ? '清除选区像素' : '清空图层'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            reorderLayer(1);
+                          }}
+                          disabled={snapshot.layers.at(-1) === activeLayer}
+                        >
+                          图层上移
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            reorderLayer(-1);
+                          }}
+                          disabled={snapshot.layers[0] === activeLayer}
+                        >
+                          图层下移
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

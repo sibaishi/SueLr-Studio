@@ -120,6 +120,10 @@ body {
   user-select: text;
 }
 
+.node-text-composer {
+  flex: 1;
+}
+
 .workflow-shell {
   padding: 12px 16px 16px;
   gap: 16px;
@@ -205,9 +209,7 @@ body {
   position: absolute;
   inset: 0;
   border: 0;
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--modal-backdrop);
   cursor: default;
 }
 
@@ -220,10 +222,6 @@ body {
   max-height: 940px;
   min-height: min(620px, calc(100vh - 100px));
   overflow: hidden;
-  border: 1px solid var(--glass-border);
-  border-radius: 25px;
-  background: var(--glass-bg);
-  box-shadow: var(--glass-shadow-lg);
 }
 
 .settings-modal__panel > .settings-shell {
@@ -1874,15 +1872,13 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(7, 9, 13, 0.58);
-  backdrop-filter: blur(10px);
+  background: var(--modal-backdrop);
 }
 
 .workflow-import-modal__dialog {
   width: min(720px, 100%);
   max-height: min(84vh, 920px);
   overflow: auto;
-  border-radius: 24px;
   padding: 18px;
 }
 
@@ -2058,17 +2054,13 @@ body {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(7, 9, 13, 0.28);
+  background: var(--modal-backdrop);
 }
 
 .workflow-confirm-modal__dialog {
   width: min(420px, calc(100vw - 44px));
-  border: 1px solid color-mix(in srgb, var(--color-accent) 32%, var(--color-border));
-  border-radius: 22px;
-  background: var(--color-bg-primary);
   overflow: hidden;
   color: var(--color-text-primary);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.26), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
 .workflow-confirm-modal__dialog--danger {
@@ -2164,12 +2156,6 @@ body {
   padding: 10px;
   gap: 10px;
   outline: none;
-}
-
-.workflow-library-modal__header,
-.workflow-library-modal__toolbar,
-.workflow-library-modal__content {
-  border-radius: 15px;
 }
 
 .workflow-library-modal__content {
@@ -2666,7 +2652,11 @@ input[type="range"]::-moz-range-thumb {
     gap: 8px;
   }
 
-  .workflow-shell {
+  .node-text-composer {
+  flex: 1;
+}
+
+.workflow-shell {
     position: relative;
     padding: 10px;
     gap: 10px;

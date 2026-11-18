@@ -736,27 +736,13 @@ export default function IoStylePanel() {
 
       {/* ── Text area ── */}
       {!hasUpstream && (
-        <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex' }}>
+        <div className="text-composer node-text-composer">
           <textarea
             className="nodrag nowheel"
             value={textValue}
             onChange={(e) => setTextValue(e.target.value)}
             placeholder="输入文本内容..."
             onPointerDown={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              height: '100%',
-              resize: 'none',
-              border: '1px solid var(--t-border)',
-              borderRadius: 15,
-              outline: 'none',
-              background: 'var(--t-bg2)',
-              color: 'var(--t-text)',
-              fontSize: 13,
-              lineHeight: 1.6,
-              padding: '10px 14px',
-              fontFamily: 'inherit',
-            }}
           />
         </div>
       )}

@@ -265,7 +265,7 @@ export default function AssetLibraryModal({
       rootProps={onPick ? { 'data-workflow-modal-overlay': '' } : undefined}
       isolateKeyboard
     >
-      <header className="asset-library__header asset-library__panel">
+      <header className="asset-library__header modal-inset-panel">
         <div>
           <div className="asset-library__eyebrow">Asset Library</div>
           <h2>
@@ -297,7 +297,7 @@ export default function AssetLibraryModal({
           }}
         />
       </header>
-      <div className="asset-library__filters asset-library__panel">
+      <div className="asset-library__filters modal-inset-panel">
         <div className="asset-library__search workflow-library-modal__search">
           <MagnifyingGlass size={14} />
           <input
@@ -384,7 +384,7 @@ export default function AssetLibraryModal({
         </p>
       )}
       <div className="asset-library__body">
-        <main className="asset-library__results asset-library__panel" aria-busy={loading}>
+        <main className="asset-library__results modal-inset-panel" aria-busy={loading}>
           <div className="asset-library__section-heading">
             <div>
               <div className="asset-library__eyebrow">素材浏览</div>
@@ -493,7 +493,7 @@ export default function AssetLibraryModal({
             </button>
           </footer>
         </main>
-        <aside className="asset-library__details asset-library__panel">
+        <aside className="asset-library__details modal-inset-panel">
           <div className="asset-library__details-heading">
             <div>
               <div className="asset-library__eyebrow">资产详情</div>

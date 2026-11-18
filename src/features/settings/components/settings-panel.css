@@ -5,7 +5,6 @@
   gap: 18px 24px;
   flex-shrink: 0;
   padding: 14px;
-  border-radius: 15px;
 }
 
 .settings-panel__identity { flex: 1 1 420px; min-width: 0; }

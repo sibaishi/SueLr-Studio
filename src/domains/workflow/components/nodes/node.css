@@ -565,10 +565,6 @@
   font-family: inherit;
 }
 
-.long-text-editor-modal__segment-text:focus {
-  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
-}
-
 .long-text-editor-modal__meta {
   flex-shrink: 0;
   padding: 10px 18px;
@@ -1531,7 +1527,6 @@
 
 .node-field--textarea {
   min-height: 66px;
-  resize: vertical;
   line-height: 1.5;
 }
 
@@ -1830,4 +1825,24 @@
   .flow-node--group {
     transition: none;
   }
+}
+
+
+.flow-node__toolbar-actions {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+}
+
+.flow-node__toolbar-action {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.flow-node__toolbar-action:hover {
+  background: var(--glass-bg-hover);
 }

@@ -510,11 +510,11 @@ export default function AiV3StylePanel() {
 
       {/* ── CHAT MODE ── */}
       {currentMode === 'chat' && (
-        <div className="ai-composer">
+        <div className="text-composer node-text-composer">
           <textarea
             value={String(nodeData.systemPrompt || '')}
             onChange={(e) => setData({ systemPrompt: e.target.value })}
-            className="nodrag nowheel ai-composer-prompt"
+            className="nodrag nowheel"
             placeholder="系统提示词（如：你是一个有帮助的 AI 助手）"
             onPointerDown={(e) => e.stopPropagation()}
           />
@@ -549,14 +549,14 @@ export default function AiV3StylePanel() {
 
       {/* ── IMAGE MODE ── */}
       {currentMode === 'image' && (
-        <div className="ai-composer">
+        <div className="text-composer node-text-composer">
           <textarea
             value={promptValue}
             onChange={(e) => {
               setPromptValue(e.target.value);
               setData({ prompt: e.target.value });
             }}
-            className="nodrag nowheel ai-composer-prompt"
+            className="nodrag nowheel"
             placeholder="输入提示词..."
             onPointerDown={(e) => e.stopPropagation()}
           />
@@ -658,14 +658,14 @@ export default function AiV3StylePanel() {
 
       {/* ── VIDEO MODE ── */}
       {currentMode === 'video' && (
-        <div className="ai-composer">
+        <div className="text-composer node-text-composer">
           <textarea
             value={promptValue}
             onChange={(e) => {
               setPromptValue(e.target.value);
               setData({ prompt: e.target.value });
             }}
-            className="nodrag nowheel ai-composer-prompt"
+            className="nodrag nowheel"
             placeholder="输入提示词（描述视频画面和运镜）..."
             onPointerDown={(e) => e.stopPropagation()}
           />
@@ -716,7 +716,7 @@ export default function AiV3StylePanel() {
       )}
 
       {currentMode === 'audio' && (
-        <div className="ai-composer">
+        <div className="text-composer node-text-composer">
           <textarea
             aria-label="合成文本"
             value={promptValue}
@@ -724,7 +724,7 @@ export default function AiV3StylePanel() {
               setPromptValue(event.target.value);
               setData({ prompt: event.target.value });
             }}
-            className="nodrag nowheel ai-composer-prompt"
+            className="nodrag nowheel"
             placeholder="输入要合成的文本，或连接上游文本节点"
             onPointerDown={(event) => event.stopPropagation()}
           />
@@ -763,14 +763,14 @@ export default function AiV3StylePanel() {
 
       {/* ── MIDJOURNEY MODE ── */}
       {currentMode === 'midjourney' && (
-        <div className="ai-composer">
+        <div className="text-composer node-text-composer">
           <textarea
             value={promptValue}
             onChange={(e) => {
               setPromptValue(e.target.value);
               setData({ prompt: e.target.value });
             }}
-            className="nodrag nowheel ai-composer-prompt"
+            className="nodrag nowheel"
             placeholder="输入提示词..."
             onPointerDown={(e) => e.stopPropagation()}
           />
@@ -1026,7 +1026,7 @@ function ModelTreeSelector({
 
 function ModelMenuColumn({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="ai-model-column ai-menu-module" role="group" aria-label={label}>
+    <div className="ai-model-column ai-menu-module menu-group" role="group" aria-label={label}>
       <div className="ai-model-column-label ai-menu-module-label" aria-hidden="true">
         {label}
       </div>
@@ -1037,7 +1037,7 @@ function ModelMenuColumn({ label, children }: { label: string; children: ReactNo
 
 function AiMenuModule({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="ai-menu-module" role="group" aria-label={label}>
+    <div className="ai-menu-module menu-group" role="group" aria-label={label}>
       <div className="ai-menu-module-label" aria-hidden="true">
         {label}
       </div>

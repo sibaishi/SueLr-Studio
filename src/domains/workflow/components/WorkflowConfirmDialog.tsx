@@ -108,7 +108,7 @@ function WorkflowConfirmDialog({
       }}
     >
       <div
-        className={`workflow-confirm-modal__dialog workflow-confirm-modal__dialog--${tone}`}
+        className={`modal-surface workflow-confirm-modal__dialog workflow-confirm-modal__dialog--${tone}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="workflow-confirm-modal__header">
