@@ -1,3 +1,4 @@
+import { normalizeWorkflowNodeType } from '../../../../src/shared/workflow/node-registry.js';
 import { omitRetiredWorkflowNodes } from '../../../../src/shared/workflow/retired-nodes.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -51,10 +52,13 @@ export class WorkflowsRepository {
   read(id: string) {
     const filePath = this.getFilePath(id);
     if (!fs.existsSync(filePath)) throw new NotFoundError('WORKFLOW_NOT_FOUND', '工作流不存在');
-    return {
-      filePath,
-      workflow: omitRetiredWorkflowNodes(JSON.parse(fs.readFileSync(filePath, 'utf-8'))),
-    };
+    const workflow = omitRetiredWorkflowNodes(JSON.parse(fs.readFileSync(filePath, 'utf-8')));
+    if (Array.isArray(workflow?.nodes)) {
+      workflow.nodes = workflow.nodes.map((node: DynamicValue) =>
+        typeof node?.type === 'string' ? { ...node, type: normalizeWorkflowNodeType(node.type) } : node,
+      );
+    }
+    return { filePath, workflow };
   }
 
   save(id: string, workflow: DynamicValue) {

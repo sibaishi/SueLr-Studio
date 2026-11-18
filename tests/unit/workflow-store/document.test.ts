@@ -127,6 +127,7 @@ describe('workflow store document actions', () => {
     expect(state.workflowId).toBe('wf_loaded');
     expect(state.workflowName).toBe('Loaded Workflow');
     expect(state.nodes).toHaveLength(3);
+    expect(state.nodes.find((node) => node.id === 'inner')?.type).toBe('ai');
     expect(state.edges).toHaveLength(2);
     const groupData = (state.nodes.find((node) => node.id === 'group')?.data || {}) as {
       groupInputs?: unknown[];
@@ -183,7 +184,7 @@ describe('workflow store document actions', () => {
         nodes: [
           { id: 'outside', type: 'io', position: { x: 0, y: 0 }, data: {} },
           { id: 'group', type: 'group', position: { x: 196, y: 0 }, data: {} },
-          { id: 'inner', type: 'aiV3', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
+          { id: 'inner', type: 'ai', position: { x: 56, y: 84 }, ui: { parentId: 'group', extent: 'parent' }, data: {} },
         ],
         edges: [
           { id: 'edge_in', source: 'outside', sourceHandle: 'result', target: 'inner', targetHandle: 'input' },

@@ -1,3 +1,4 @@
+import { normalizeWorkflowNodeType } from '../../../../src/shared/workflow/node-registry.js';
 import { omitRetiredWorkflowNodes } from '../../../../src/shared/workflow/retired-nodes.js';
 import { z } from 'zod';
 import { ValidationError } from '../../app/errors/index.ts';
@@ -57,7 +58,8 @@ function normalizeNode(node: DynamicValue, index: number) {
     });
   }
 
-  const contract = getNodeContract(node.type);
+  const type = normalizeWorkflowNodeType(node.type);
+  const contract = getNodeContract(type);
   if (!contract) {
     throw new ValidationError('WORKFLOW_NODE_TYPE_UNSUPPORTED', `不支持的节点类型: ${node.type}`, {
       path: `nodes[${index}].type`,
@@ -71,14 +73,14 @@ function normalizeNode(node: DynamicValue, index: number) {
 
   return {
     id: String(node.id).trim(),
-    type: node.type,
+    type,
     version: Number(node.version) || 1,
     position: {
       x: Number(position.x) || 0,
       y: Number(position.y) || 0,
     },
     data: {
-      ...getNodeDataDefaults(node.type),
+      ...getNodeDataDefaults(type),
       ...data,
     },
     ui: {

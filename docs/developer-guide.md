@@ -136,12 +136,12 @@ Current cleanup and ownership notes:
   - workflow-edge actions for node access, settings, and theme
 - `src/domains/workflow/components/WorkflowLibraryModal.tsx`
   - card-based workflow library, covers, save/open/duplicate/import/export/delete flows
-- `src/domains/workflow/components/AiV3StylePanel.tsx`
-  - capability-aware controls for the unified `aiV3` node; delegates upstream value and media-type resolution to the shared style-panel input resolver
+- `src/domains/workflow/components/AiStylePanel.tsx`
+  - capability-aware controls for the AI node, whose persisted type is `ai` (legacy `aiV3` is normalized on read and import); delegates upstream value and media-type resolution to the shared style-panel input resolver
 - `src/domains/workflow/components/IoStylePanel.tsx`
   - text/file/media editing for the unified `io` node; delegates upstream value and media-type resolution to the shared style-panel input resolver
 - `src/domains/workflow/components/stylePanelInputResolver.ts`
-  - shared `aiV3`/`io` upstream input value resolution, persisted-file fallback, nested runtime-output flattening, and media-type inference
+  - shared `ai`/`io` upstream input value resolution, persisted-file fallback, nested runtime-output flattening, and media-type inference
 - `src/domains/workflow/components/FlowCanvas.tsx`
   - canvas graph rendering, context menus, centered node-picker panel, keyboard shortcuts, grouping, connection, drag/drop, and editor interactions
 - `src/domains/workflow/components/flowCanvas*.ts*`
@@ -149,7 +149,7 @@ Current cleanup and ownership notes:
 - `src/domains/workflow/components/nodes/FlowNode.tsx`
   - workflow node frame rendering, node chrome, group collapse controls, and node-level actions
 - `src/domains/workflow/components/nodes/V2WorkflowNode.tsx`
-  - shared `aiV3`/`io` node shell for rename, disable, lock, duplicate, execute-to-node, runtime status, resizing, and common handles; node-specific wrappers preserve type, label, color, ports, and content semantics
+  - shared `ai`/`io` node shell for rename, disable, lock, duplicate, execute-to-node, runtime status, resizing, and common handles; node-specific wrappers preserve type, label, color, ports, and content semantics
 - `src/domains/workflow/components/nodes/NodePorts.tsx`
   - regular node handles. Canvas groups have no handles
 - `src/domains/workflow/components/NodeCanvasEditorModal.tsx`
@@ -337,9 +337,9 @@ Cross-runtime contracts remain independently typed at each runtime boundary. Beh
   - backend node module aggregation
 - `backend/src/engine/nodes/io.ts`
   - unified general-purpose input/output behavior
-- `backend/src/engine/nodes/aiV3/`
+- `backend/src/engine/nodes/ai/`
   - capability-routed chat, image, video, and Midjourney execution
-  - 音频项目模型使用 `audio` 类型和端点分类，分类默认路由至 `/v1/audio/speech`，自定义路径沿用模型路由。AI V3 的音频模式发送兼容的语音合成请求，校验 MP3 后交给现有 IO 节点持久化。
+  - 音频项目模型使用 `audio` 类型和端点分类，分类默认路由至 `/v1/audio/speech`，自定义路径沿用模型路由。AI 节点的音频模式发送兼容的语音合成请求，校验 MP3 后交给现有 IO 节点持久化。
   - 视频服务以供应商请求 URL 解析相对结果地址，通过远程下载校验重定向和媒体内容，再向工作流返回视频数据。
   - AI 能力节点将图像输出档位保存为 `imageResolution`，旧节点读取 `resolution` 时只接受有效的图像档位。视频能力接口忽略旧请求中的 `resolution`，视频适配器提交上游任务时省略该字段。
 - `backend/src/engine/nodes/cleanModelText.ts`
@@ -441,7 +441,7 @@ For the product-facing external data path entry, `desktop` and `local-web` may u
 1. frontend workflow store submits an execution request
 2. backend execution service starts a run
 3. engine executor traverses the normalized graph and invokes the registered node executor
-4. `aiV3/image.ts` routes the selected project model to the image-generation helper and provider path
+4. `ai/image.ts` routes the selected project model to the image-generation helper and provider path
 5. result is normalized and written into node outputs
 6. workflow run logger stores sanitized logs and artifacts
 7. frontend results panel renders outputs and logs
@@ -466,7 +466,7 @@ Current test layers:
 Current canonical node surface:
 
 - `io`: general input/output
-- `aiV3`: chat, image, video, and Midjourney execution selected by project-model capability
+- `ai`: chat, image, video, and Midjourney execution selected by project-model capability
 - `group`: canvas organization
 
 The node picker is a flat list of executable node definitions. Canvas groups remain structural. Workflow document loading and normalization omit retired transformation nodes and their incident edges. The [redesign checklist](workflow-node-redesign.md) records their former behavior.
@@ -616,7 +616,7 @@ The workflow client supports both its existing JSON format and ZIP bundles with 
 
 `POST /api/agent/chat` 校验会话顺序、附件数据和 Skills，按已启用的连接解析模型及凭据，复用现有模型适配层。客户端只提交文本和图像数据，视频由浏览器抽帧。前端请求取消会传递到上游模型请求。
 
-画布引用由工作流域生成，只传白名单字段、截断后的日志及匹配的运行摘要。画布引用按会话保存开关，按消息捕获快照，区分活跃任务和历史记录。请求只从当前会话构建历史，保留已完成的用户消息和回复，并剔除旧快照与自动附带的画布产物。缺少快照起始位置的旧记录使用原始用户文字和附件名恢复历史。会话持久化按顺序写入，以保留删除与切换结果。
+画布引用由工作流域生成，只传白名单字段、截断后的日志及匹配的运行摘要。画布引用按会话保存开关，按消息捕获快照，区分活跃任务和历史记录。快照包含节点位置和历史运行的本地时间，帮助弧光使用可读的节点与运行描述。请求只从当前会话构建历史，保留已完成的用户消息和回复，并剔除旧快照与自动附带的画布产物。缺少快照起始位置的旧记录使用原始用户文字和附件名恢复历史。会话持久化按顺序写入，以保留删除与切换结果。
 
 画布方案通过 `propose_canvas_changes` 函数工具返回，经后端验证后展示给用户。应用时复用编辑器的节点与边操作，在暂存状态中完成整批检查，成功后一次写入画布状态。应用绑定原画布，并遵守锁定节点与执行状态。
 

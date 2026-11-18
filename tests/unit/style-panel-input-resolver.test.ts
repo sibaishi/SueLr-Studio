@@ -2,11 +2,11 @@ import {
   inferStylePanelInputType,
   resolveStylePanelInput,
 } from '@/domains/workflow/components/stylePanelInputResolver';
-import type { AiV3InputSlot } from '@/domains/workflow/lib/store/helpers';
+import type { AiInputSlot } from '@/domains/workflow/lib/store/helpers';
 import type { Edge, Node } from '@xyflow/react';
 import { describe, expect, it } from 'vitest';
 
-function createSlot(overrides: Partial<AiV3InputSlot> = {}): AiV3InputSlot {
+function createSlot(overrides: Partial<AiInputSlot> = {}): AiInputSlot {
   return {
     id: 'edge-1',
     edgeId: 'edge-1',
@@ -19,7 +19,7 @@ function createSlot(overrides: Partial<AiV3InputSlot> = {}): AiV3InputSlot {
 
 describe('resolveStylePanelInput', () => {
   it('resolves the actual source handle and keeps the final nested output value', () => {
-    const nodes = [{ id: 'source-1', type: 'aiV3', data: {}, position: { x: 0, y: 0 } }] as Node[];
+    const nodes = [{ id: 'source-1', type: 'ai', data: {}, position: { x: 0, y: 0 } }] as Node[];
     const edges = [
       {
         id: 'edge-1',
@@ -30,7 +30,7 @@ describe('resolveStylePanelInput', () => {
     ] as Edge[];
 
     expect(
-      resolveStylePanelInput(createSlot({ sourceNodeType: 'aiV3' }), nodes, edges, {
+      resolveStylePanelInput(createSlot({ sourceNodeType: 'ai' }), nodes, edges, {
         'source-1': { result: ['prompt', ['data:image/png;base64,result']] },
       }),
     ).toMatchObject({

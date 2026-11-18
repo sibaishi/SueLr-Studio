@@ -75,7 +75,7 @@ describe('workflow store shared editor helpers', () => {
       },
       {
         id: 'child',
-        type: 'aiV3',
+        type: 'ai',
         position: { x: 64, y: 112 },
         parentId: 'group',
         extent: 'parent',

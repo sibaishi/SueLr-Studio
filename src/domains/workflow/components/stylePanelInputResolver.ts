@@ -1,10 +1,10 @@
 import { fileRawStore } from '@/domains/workflow/components/nodes/io/fileRawStore';
-import type { AiV3InputSlot } from '@/domains/workflow/lib/store/helpers';
+import type { AiInputSlot } from '@/domains/workflow/lib/store/helpers';
 import type { Edge, Node } from '@xyflow/react';
 
 export type ResolvedStylePanelInput = {
   sourceNode?: Node;
-  type: AiV3InputSlot['type'];
+  type: AiInputSlot['type'];
   value: string;
 };
 
@@ -14,7 +14,7 @@ function collectStringValues(value: unknown): string[] {
   return value.flatMap(collectStringValues);
 }
 
-function resolveIoValue(slot: AiV3InputSlot, data: Record<string, unknown>): string {
+function resolveIoValue(slot: AiInputSlot, data: Record<string, unknown>): string {
   const content = Array.isArray(data.content) ? (data.content as string[]) : [];
 
   if (slot.type === 'text') {
@@ -38,7 +38,7 @@ function resolveIoValue(slot: AiV3InputSlot, data: Record<string, unknown>): str
 }
 
 function resolveStandardValue(
-  slot: AiV3InputSlot,
+  slot: AiInputSlot,
   data: Record<string, unknown>,
   outputs: Record<string, unknown> | undefined,
   edges: Edge[],
@@ -64,7 +64,7 @@ function resolveStandardValue(
   return '';
 }
 
-export function inferStylePanelInputType(type: AiV3InputSlot['type'], value: string): AiV3InputSlot['type'] {
+export function inferStylePanelInputType(type: AiInputSlot['type'], value: string): AiInputSlot['type'] {
   if (type !== 'text' || !value) return type;
   if (value.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(value)) return 'video';
   if (value.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(value)) return 'audio';
@@ -80,7 +80,7 @@ export function inferStylePanelInputType(type: AiV3InputSlot['type'], value: str
 }
 
 export function resolveStylePanelInput(
-  slot: AiV3InputSlot,
+  slot: AiInputSlot,
   nodes: Node[],
   edges: Edge[],
   nodeOutputs: Record<string, Record<string, unknown>>,

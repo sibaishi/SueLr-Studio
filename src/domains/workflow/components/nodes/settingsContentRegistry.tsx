@@ -1,9 +1,9 @@
-import { aiV3ContentRenderer } from './ai/AiV3/renderer';
+import { aiContentRenderer } from './ai/Ai/renderer';
 import { ioContentRenderer } from './io/Io/renderer';
 import type { NodeContentRenderer } from './nodeContentTypes';
 
 const settingsContentRenderers: Record<string, NodeContentRenderer> = {
-  aiV3: aiV3ContentRenderer,
+  ai: aiContentRenderer,
   io: ioContentRenderer,
 };
 

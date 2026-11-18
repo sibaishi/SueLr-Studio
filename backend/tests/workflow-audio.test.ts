@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { execute as executeAi } from '../src/engine/nodes/aiV3/index.ts';
+import { execute as executeAi } from '../src/engine/nodes/ai/index.ts';
 import { execute as executeIo } from '../src/engine/nodes/io.ts';
 import { getProviderAdapter } from '../src/platform/providers/index.ts';
 
@@ -49,7 +49,7 @@ test('AI V3 routes speech synthesis to the selected config and IO saves an audio
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  const output = await executeIo({ data: {} }, { input: generated.result, _inputTypes: ['aiV3'] }, {}, undefined);
+  const output = await executeIo({ data: {} }, { input: generated.result, _inputTypes: ['ai'] }, {}, undefined);
   assert.match(String(output.result), /^\/api\/outputs\/audio\/.+\.mp3$/);
   assert.deepEqual(
     output.savedFiles.map((file) => (file as { type: string }).type),

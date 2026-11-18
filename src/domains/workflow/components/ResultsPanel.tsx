@@ -997,6 +997,7 @@ function RunHistory({ workflowId, isExecuting, onRecovered }: {
   const [refresh, setRefresh] = useState(0);
   const [recovering, setRecovering] = useState<string | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
+  const [runIdCopy, setRunIdCopy] = useState<{ id: string; succeeded: boolean }>();
 
   async function recover(runId: string, recoveryId: string) {
     setRecovering(recoveryId);
@@ -1075,6 +1076,26 @@ function RunHistory({ workflowId, isExecuting, onRecovered }: {
               </span>
             </summary>
             <div className="workflow-results__history-details workflow-results__log-message">
+              <div>
+                <p className="break-all select-text">运行 ID · {entry.runId}</p>
+                <button
+                  type="button"
+                  className="workflow-results__mini-action"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(entry.runId);
+                      setRunIdCopy({ id: entry.runId, succeeded: true });
+                    } catch {
+                      setRunIdCopy({ id: entry.runId, succeeded: false });
+                    }
+                  }}
+                >
+                  复制运行 ID
+                </button>
+                {runIdCopy?.id === entry.runId && (
+                  <span className="ml-2" role="status">{runIdCopy.succeeded ? '已复制' : '复制失败'}</span>
+                )}
+              </div>
               {entry.inputs?.filter((input) => input.text || input.files.length > 0).map((input) => (
                 <div key={input.nodeId} className="break-all">
                   <strong>输入 · {input.nodeId}</strong>

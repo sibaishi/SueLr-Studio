@@ -12,7 +12,7 @@ const planSchema = z
             .object({
               kind: z.literal('add'),
               ref,
-              type: z.enum(['io', 'aiV3']),
+              type: z.enum(['io', 'ai']),
               label,
               text,
               mode: z.enum(['chat', 'image', 'video']).optional(),

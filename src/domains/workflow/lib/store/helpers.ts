@@ -1,8 +1,9 @@
 import { GRID_SIZE, NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import type { PersistedWorkflow } from '@/domains/workflow/lib/persistenceTypes';
+import { normalizeWorkflowNodeType } from '@/shared/workflow/node-registry.js';
 import type { Edge, Node } from '@xyflow/react';
 
-const AI_TYPES = ['aiV3'];
+const AI_TYPES = ['ai'];
 const OUTPUT_NODE_TYPES = new Set(['io']);
 const FORCE_DISABLED_NODE_TYPES = new Set<string>();
 const LOG_DATA_URL_PREFIX = /^data:([\w.+-]+\/[\w.+-]+)?(?:;charset=[^;,]+)?;base64,/i;
@@ -139,6 +140,7 @@ export function normalizeNodes(input: unknown): Node[] {
     const record = item as Record<string, unknown>;
     if (typeof record.id !== 'string' || typeof record.type !== 'string') return [];
 
+    const type = normalizeWorkflowNodeType(record.type);
     const positionRecord = record.position as Record<string, unknown> | undefined;
     const uiRecord = record.ui as Record<string, unknown> | undefined;
     const x = typeof positionRecord?.x === 'number' ? positionRecord.x : 0;
@@ -147,7 +149,7 @@ export function normalizeNodes(input: unknown): Node[] {
     return [
       {
         id: record.id,
-        type: record.type,
+        type,
         position: { x, y },
         width:
           typeof uiRecord?.width === 'number'
@@ -178,7 +180,7 @@ export function normalizeNodes(input: unknown): Node[] {
             : undefined,
         data: {
           ...sanitizeNodeData(
-            record.type,
+            type,
             record.data && typeof record.data === 'object' ? (record.data as Record<string, unknown>) : {},
           ),
         },
@@ -310,16 +312,16 @@ export function getAiNodesMissingValidOutputs(nodes: Node[], edges: Edge[]) {
   });
 }
 
-// ── Mode-aware input slot filtering for aiV3 ──
+// ── Mode-aware input slot filtering for ai ──
 
-const AI_V3_MODE_INPUT_LIMITS: Record<string, Record<string, number>> = {
+const AI_MODE_INPUT_LIMITS: Record<string, Record<string, number>> = {
   chat: { text: Number.POSITIVE_INFINITY, image: 9 },
   image: { text: Number.POSITIVE_INFINITY, image: 9 },
   audio: { text: Number.POSITIVE_INFINITY },
   video: { text: Number.POSITIVE_INFINITY, image: 2, video: 1, audio: 1 },
 };
 
-export interface AiV3InputSlot {
+export interface AiInputSlot {
   id: string; // unique slot id: edgeId or edgeId+'/text' or edgeId+'/f'+fileId
   edgeId: string;
   type: 'text' | 'image' | 'video' | 'audio';
@@ -329,8 +331,8 @@ export interface AiV3InputSlot {
   fileId?: number; // raw fileId from IO _fileIds (only for IO file slots)
 }
 
-export interface AiV3FilterResult {
-  acceptedSlots: AiV3InputSlot[];
+export interface AiFilterResult {
+  acceptedSlots: AiInputSlot[];
   acceptedEdgeIds: Set<string>;
   /** edgeId → Set of accepted _fileIds indices (0-based) for IO _rawContent trimming */
   acceptedIoFileIndices: Map<string, Set<number>>;
@@ -340,7 +342,7 @@ function classifyInputEdgeSource(edge: Edge, nodes: Node[]): string {
   const src = nodes.find((n) => n.id === edge.source);
   if (!src) return 'text';
   const srcType = src.type || '';
-  if (srcType === 'aiV3') {
+  if (srcType === 'ai') {
     const mode = src.data?.mode;
     if (mode === 'midjourney') return 'image';
     if (mode === 'image' || mode === 'video' || mode === 'audio') return mode;
@@ -357,9 +359,9 @@ function classifyInputEdgeSource(edge: Edge, nodes: Node[]): string {
   return 'text';
 }
 
-export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[]): AiV3InputSlot[] {
+export function expandAiInputSlots(nodeId: string, edges: Edge[], nodes: Node[]): AiInputSlot[] {
   const inputEdges = edges.filter((e) => e.target === nodeId && e.targetHandle === 'input');
-  const slots: AiV3InputSlot[] = [];
+  const slots: AiInputSlot[] = [];
 
   for (const edge of inputEdges) {
     const src = nodes.find((n) => n.id === edge.source);
@@ -394,7 +396,7 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
       // File slots
       for (const { fid, idx } of sortedFileEntries) {
         const kind = fileKinds[idx] || 'other';
-        let slotType: AiV3InputSlot['type'] | null = null;
+        let slotType: AiInputSlot['type'] | null = null;
         if (kind === 'image') slotType = 'image';
         else if (kind === 'video') slotType = 'video';
         else if (kind === 'audio') slotType = 'audio';
@@ -434,7 +436,7 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
             continue;
           }
           // Classify media URL
-          let slotType: AiV3InputSlot['type'] | null = null;
+          let slotType: AiInputSlot['type'] | null = null;
           if (s.startsWith('data:video/') || /\.(mp4|webm|mov)(\?|$)/i.test(s)) slotType = 'video';
           else if (s.startsWith('data:audio/') || /\.(mp3|wav|ogg)(\?|$)/i.test(s)) slotType = 'audio';
           else slotType = 'image';
@@ -455,7 +457,7 @@ export function expandAiV3InputSlots(nodeId: string, edges: Edge[], nodes: Node[
       slots.push({
         id: edge.id,
         edgeId: edge.id,
-        type: type as AiV3InputSlot['type'],
+        type: type as AiInputSlot['type'],
         sourceNodeId: src.id,
         sourceNodeType: src.type || '',
       });
@@ -508,7 +510,7 @@ export function readInputOrder(targetNode?: Node | null): InputOrderMap {
   return {};
 }
 
-export function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: InputOrderMap): AiV3InputSlot[] {
+export function sortSlotsByInputOrder(slots: AiInputSlot[], inputOrder: InputOrderMap): AiInputSlot[] {
   // Build per-type edge priority maps
   const edgeOrderByType = new Map<string, Map<string, number>>();
   const legacyOrder = inputOrder._legacy;
@@ -529,7 +531,7 @@ export function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: InputO
 
     // Level 2: same type, order by edge priority from inputOrder (or legacy)
     const typeEdgeOrder = edgeOrderByType.get(a.type);
-    const getOrder = (slot: AiV3InputSlot): number | undefined => {
+    const getOrder = (slot: AiInputSlot): number | undefined => {
       if (typeEdgeOrder) {
         const o = typeEdgeOrder.get(slot.edgeId);
         if (o !== undefined) return o;
@@ -561,9 +563,9 @@ export function sortSlotsByInputOrder(slots: AiV3InputSlot[], inputOrder: InputO
  * Within each type, slots are accepted in inputOrder priority; excess slots
  * beyond a type's cap are silently ignored.
  */
-export function filterAiV3InputSlots(nodeId: string, mode: string, edges: Edge[], nodes: Node[]): AiV3FilterResult {
-  const limits = AI_V3_MODE_INPUT_LIMITS[mode];
-  const slots = expandAiV3InputSlots(nodeId, edges, nodes);
+export function filterAiInputSlots(nodeId: string, mode: string, edges: Edge[], nodes: Node[]): AiFilterResult {
+  const limits = AI_MODE_INPUT_LIMITS[mode];
+  const slots = expandAiInputSlots(nodeId, edges, nodes);
 
   if (!limits) {
     const allEdgeIds = new Set(slots.map((s) => s.edgeId));
@@ -575,7 +577,7 @@ export function filterAiV3InputSlots(nodeId: string, mode: string, edges: Edge[]
   const sorted = sortSlotsByInputOrder(slots, inputOrder);
 
   const counts: Record<string, number> = {};
-  const acceptedSlots: AiV3InputSlot[] = [];
+  const acceptedSlots: AiInputSlot[] = [];
 
   for (const slot of sorted) {
     const limit = limits[slot.type];
@@ -603,7 +605,7 @@ export function filterAiV3InputSlots(nodeId: string, mode: string, edges: Edge[]
  * Legacy wrapper: filter edges by mode, returning only accepted edges.
  * For IO nodes, the edge is accepted if at least one of its slots passes.
  */
-export function filterAiV3InputEdgesByMode(nodeId: string, mode: string, edges: Edge[], nodes: Node[]): Edge[] {
-  const { acceptedEdgeIds } = filterAiV3InputSlots(nodeId, mode, edges, nodes);
+export function filterAiInputEdgesByMode(nodeId: string, mode: string, edges: Edge[], nodes: Node[]): Edge[] {
+  const { acceptedEdgeIds } = filterAiInputSlots(nodeId, mode, edges, nodes);
   return edges.filter((e) => e.target === nodeId && e.targetHandle === 'input' && acceptedEdgeIds.has(e.id));
 }

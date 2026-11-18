@@ -8,7 +8,7 @@ import {
 import {
   type InputOrderMap,
   buildWorkflowPayload,
-  filterAiV3InputSlots,
+  filterAiInputSlots,
   formatLogDetails,
   getAiNodesMissingValidOutputs,
   getNodeDisplayName,
@@ -36,7 +36,7 @@ type WorkflowStoreExecutionActions = Pick<
   | 'syncExecutionRunStatus'
 >;
 
-const MULTI_INPUT_NODE_TYPES = new Set(['aiV3', 'io']);
+const MULTI_INPUT_NODE_TYPES = new Set(['ai', 'io']);
 
 function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   const multiInputNodes = nodes.filter((n) => MULTI_INPUT_NODE_TYPES.has(n.type || ''));
@@ -111,8 +111,8 @@ function sortEdgesByInputOrder(nodes: Node[], edges: Edge[]) {
   return sorted;
 }
 
-const AI_RESULT_NODE_TYPES = new Set(['aiV3']);
-const RUN_TO_NODE_BLOCKED_TYPES = new Set(['aiV3']);
+const AI_RESULT_NODE_TYPES = new Set(['ai']);
+const RUN_TO_NODE_BLOCKED_TYPES = new Set(['ai']);
 
 function sanitizeSavedFile(file: unknown) {
   if (!file || typeof file !== 'object') return file;
@@ -376,7 +376,7 @@ export function createWorkflowExecutionActions(
     const configs = state.workflowRuntimeConfigs.filter((config) => config.enabled !== false);
     const hasCredentials = configs.some((config) => config.apiKeySet || config.apiKey?.trim());
     for (const node of executableGraph.nodes) {
-      if (node.type !== 'aiV3' || state.workflowRuntimeConfigs.length === 0) continue;
+      if (node.type !== 'ai' || state.workflowRuntimeConfigs.length === 0) continue;
       const model = typeof node.data.model === 'string' ? node.data.model.trim() : '';
       const separator = model.indexOf('::');
       const config = separator > 0 ? configs.find((item) => item.id === model.slice(0, separator)) : undefined;
@@ -436,7 +436,7 @@ export function createWorkflowExecutionActions(
       ]),
     );
 
-    // Reorder edges for multi-input nodes (aiV3) based on inputOrder
+    // Reorder edges for multi-input nodes (ai) based on inputOrder
     const sortedEdges = sortEdgesByInputOrder(executableGraph.nodes, executableGraph.edges);
 
     // Collect per-edge accepted IO file indices for _rawContent trimming.
@@ -445,13 +445,13 @@ export function createWorkflowExecutionActions(
     // have empty data before execution, so slot expansion yields zero slots
     // and acceptedEdgeIds would not include their incoming edges, resulting
     // in those edges being removed from the payload and breaking execution
-    // order (e.g. AiV3 starting before upstream IO completes).
+    // order (e.g. Ai starting before upstream IO completes).
     const ioFileTrimMap = new Map<string, Set<number>>(); // edgeId → accepted fileIdx
     for (const node of executableGraph.nodes) {
-      if (node.type !== 'aiV3') continue;
+      if (node.type !== 'ai') continue;
       const nodeData = (node.data || {}) as Record<string, unknown>;
       const mode = (nodeData.mode as string) || 'chat';
-      const result = filterAiV3InputSlots(node.id, mode, sortedEdges, executableGraph.nodes);
+      const result = filterAiInputSlots(node.id, mode, sortedEdges, executableGraph.nodes);
 
       for (const [edgeId, indices] of result.acceptedIoFileIndices) {
         const existing = ioFileTrimMap.get(edgeId) || new Set();
@@ -476,7 +476,7 @@ export function createWorkflowExecutionActions(
       const nodeText = nd.text as string | undefined;
 
       // Determine which file indices to include: union of accepted indices across
-      // all edges from this IO node to aiV3 targets (untrimmed if feeding non-aiV3 nodes)
+      // all edges from this IO node to ai targets (untrimmed if feeding non-ai nodes)
       let acceptedIndices: Set<number> | null = null;
       for (const [edgeId, indices] of ioFileTrimMap) {
         const edge = payload.edges.find((e) => e.id === edgeId);
@@ -496,7 +496,7 @@ export function createWorkflowExecutionActions(
           .sort((a, b) => a.order - b.order || a.idx - b.idx);
         try {
           for (const { fid, idx } of sortedEntries) {
-            // If trim map exists and this IO feeds aiV3 nodes, only include accepted file indices
+            // If trim map exists and this IO feeds ai nodes, only include accepted file indices
             if (acceptedIndices && !acceptedIndices.has(idx)) continue;
             const b64 = fileRawStore.getBase64(fid);
             if (b64) {

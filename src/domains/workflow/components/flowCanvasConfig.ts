@@ -1,16 +1,16 @@
 import FlowNode from './nodes/FlowNode';
-import AiV3Node from './nodes/ai/AiV3/AiV3Node';
+import AiNode from './nodes/ai/Ai/AiNode';
 import IoNode from './nodes/io/Io/IoNode';
 
 export const FLOW_NODE_TYPES = {
   group: FlowNode,
-  aiV3: AiV3Node,
+  ai: AiNode,
   io: IoNode,
 } as const;
 
 export const FLOW_NODE_COLORS: Record<string, string> = {
   group: '#8E8E93',
-  aiV3: '#0A84FF',
+  ai: '#0A84FF',
   io: '#5E5CE6',
 };
 

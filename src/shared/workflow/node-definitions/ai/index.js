@@ -1,3 +1,3 @@
-import { AI_V3_NODE } from './aiV3/index.js';
+import { AI_NODE } from './ai/index.js';
 
-export const AI_NODES = [AI_V3_NODE];
+export const AI_NODES = [AI_NODE];

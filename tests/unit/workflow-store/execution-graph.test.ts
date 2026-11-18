@@ -1,5 +1,5 @@
 import { normalizeGroupPortNodes, normalizeLegacyGroupEdges, pruneGroupPortEdges } from '@/domains/workflow/lib/groupPorts';
-import { expandAiV3InputSlots } from '@/domains/workflow/lib/store/helpers';
+import { expandAiInputSlots } from '@/domains/workflow/lib/store/helpers';
 import { describe, expect, it } from 'vitest';
 import type { Node } from '@xyflow/react';
 import {
@@ -203,7 +203,7 @@ describe('execution graph projection', () => {
           groupOutputs: [{ id: 'out', type: 'any', binding: { nodeId: 'ai', handleId: 'result' } }],
         },
       },
-      { id: 'ai', type: 'aiV3', parentId: 'group', position: { x: 0, y: 0 }, data: { mode: 'image' } },
+      { id: 'ai', type: 'ai', parentId: 'group', position: { x: 0, y: 0 }, data: { mode: 'image' } },
       { id: 'output', type: 'io', position: { x: 600, y: 0 }, data: {} },
     ];
     const edges = normalizeLegacyGroupEdges(nodes, [
@@ -218,10 +218,10 @@ describe('execution graph projection', () => {
       ['result', 'group-port:input:external:in'],
       ['group-port:output:external:out', 'input'],
     ]);
-    expect(expandAiV3InputSlots('ai', resolvedEdges, normalizedNodes)).toEqual([
+    expect(expandAiInputSlots('ai', resolvedEdges, normalizedNodes)).toEqual([
       expect.objectContaining({ edgeId: 'in-edge', sourceNodeId: 'source', type: 'text' }),
     ]);
-    expect(expandAiV3InputSlots('output', resolvedEdges, normalizedNodes)).toEqual([
+    expect(expandAiInputSlots('output', resolvedEdges, normalizedNodes)).toEqual([
       expect.objectContaining({ edgeId: 'out-edge', sourceNodeId: 'ai', type: 'image' }),
     ]);
     expect(projectWorkflowToExecutionGraph(normalizedNodes, canvasEdges).edges).toEqual(resolvedEdges);

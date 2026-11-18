@@ -6,7 +6,7 @@ describe('group port helpers', () => {
     const nodes = [
       { id: 'sourceA', type: 'io', position: { x: 0, y: 0 }, data: {} },
       { id: 'sourceB', type: 'io', position: { x: 0, y: 120 }, data: {} },
-      { id: 'inner', type: 'aiV3', position: { x: 240, y: 0 }, data: {} },
+      { id: 'inner', type: 'ai', position: { x: 240, y: 0 }, data: {} },
       { id: 'outside', type: 'io', position: { x: 520, y: 0 }, data: {} },
     ];
     const edges = [
@@ -85,7 +85,7 @@ describe('group port helpers', () => {
       },
       {
         id: 'child',
-        type: 'aiV3',
+        type: 'ai',
         position: { x: 48, y: 96 },
         parentId: 'group',
         extent: 'parent',
@@ -140,7 +140,7 @@ describe('group port helpers', () => {
       },
       {
         id: 'child',
-        type: 'aiV3',
+        type: 'ai',
         position: { x: 48, y: 96 },
         parentId: 'group',
         extent: 'parent',
@@ -227,7 +227,7 @@ describe('group port helpers', () => {
       },
       {
         id: 'child',
-        type: 'aiV3',
+        type: 'ai',
         position: { x: 48, y: 96 },
         parentId: 'group',
         extent: 'parent',

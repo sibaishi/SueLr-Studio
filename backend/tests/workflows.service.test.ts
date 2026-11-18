@@ -64,7 +64,7 @@ test('workflows repository seeds starter workflows only for empty storage', asyn
     seeded.map((workflow) => workflow.id).sort(),
     ['starter_ai_chat', 'starter_image_to_image', 'starter_text_to_image'],
   );
-  assert.equal(service.getById('starter_text_to_image').nodes.some((node) => node.type === 'aiV3'), true);
+  assert.equal(service.getById('starter_text_to_image').nodes.some((node) => node.type === 'ai'), true);
 
   const secondRepository = new WorkflowsRepository();
   const secondService = new WorkflowsService(secondRepository);
@@ -243,16 +243,33 @@ test('workflow import migrates historical version and reports applied migration'
   const repository = new WorkflowsRepository();
   const service = new WorkflowsService(repository);
 
-  const imported = service.import({
+  const legacyWorkflow = {
     id: 'wf_legacy',
     name: 'Legacy Workflow',
     version: 0,
     createdAt: 1,
     updatedAt: 1,
-    nodes: [{ id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'legacy' } }],
-    edges: [],
+    nodes: [
+      { id: 'node-1', type: 'io', position: { x: 0, y: 0 }, data: { content: 'legacy' } },
+      { id: 'node-ai', type: 'aiV3', position: { x: 20, y: 0 }, data: { label: '我的 AI', mode: 'image' } },
+    ],
+    edges: [{ id: 'edge-1', source: 'node-1', target: 'node-ai', sourceHandle: 'result', targetHandle: 'input' }],
     settings: {},
-  }, { mode: 'preserve_id' });
+  };
+  repository.save('wf_legacy_on_disk', { ...legacyWorkflow, id: 'wf_legacy_on_disk' });
+  const opened = service.getById('wf_legacy_on_disk');
+  assert.equal(opened.nodes[1].type, 'ai');
+  assert.equal(JSON.parse(fs.readFileSync(repository.getFilePath('wf_legacy_on_disk'), 'utf8')).nodes[1].type, 'aiV3');
+
+  const { createExecutionSnapshot } = await import('../src/modules/execution/execution-snapshot.ts');
+  const snapshot = createExecutionSnapshot({ draftWorkflow: legacyWorkflow });
+  assert.equal(snapshot.nodes[1].type, 'ai');
+
+  const imported = service.import(legacyWorkflow, { mode: 'preserve_id' });
+  assert.equal(imported.workflow.nodes[1].type, 'ai');
+  assert.equal(imported.workflow.nodes[1].data.label, '我的 AI');
+  assert.deepEqual(imported.workflow.edges, legacyWorkflow.edges);
+  assert.equal(JSON.parse(fs.readFileSync(repository.getFilePath(legacyWorkflow.id), 'utf8')).nodes[1].type, 'ai');
 
   assert.equal(imported.workflow.version, 1);
   assert.deepEqual(imported.report.appliedMigrations, []);

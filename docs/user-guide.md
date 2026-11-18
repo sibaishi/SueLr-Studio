@@ -211,7 +211,7 @@ To use a hand-drawn reference, click **绘制草图** on an empty IO node with n
 
 打开画板、大图或文本弹窗时，键盘、点击和滚动都由最上层弹窗处理，背景画布的发光效果也不会跟随鼠标。按 Tab 在弹窗内切换焦点，关闭后可继续使用工作流快捷键。
 
-保存输出合成 PNG，图层保留在本次编辑中。提示词通过工作流中的 **AI 能力 V3** 节点填写。
+保存输出合成 PNG，图层保留在本次编辑中。提示词通过工作流中的 **AI** 节点填写。
 
 Workflow management:
 
@@ -230,11 +230,13 @@ Execution behavior:
 
 The former `文本拆分`, `图像拆分`, `文本逐项`, and `图像逐项` node types are no longer supported. Workflows containing those historical node types are reported as incompatible instead of being silently converted.
 
-The node picker lists `IO` and `AI 能力 V3` directly. IO accepts text, images, files, and upstream values. Canvas groups use a translucent frame when expanded and a compact card when collapsed. Connect directly to nodes inside expanded groups. Cross-group connections reach the card boundary when collapsed and reconnect visually to their nodes when expanded. Opening an older workflow converts connected group ports into direct node connections.
+The node picker lists `IO` and `AI` directly. IO accepts text, images, files, and upstream values. Canvas groups use a translucent frame when expanded and a compact card when collapsed. Connect directly to nodes inside expanded groups. Cross-group connections reach the card boundary when collapsed and reconnect visually to their nodes when expanded. Opening an older workflow converts connected group ports into direct node connections.
 
 Old workflows open with retired prompt-helper and material-processing nodes removed, along with their connected edges. Reconnect the remaining nodes as needed. Saved files are updated when the workflow is saved.
 
-`AI 能力 V3` behavior:
+`AI` behavior:
+
+Workflows saved with the older `aiV3` type still open and run. Saving them again writes the current `ai` type.
 
 - chat models return text
 - image models return normalized local image outputs. The compact toolbar at the lower right of the image prompt shows the current model, aspect ratio, dimensions, and format. Choose an API channel, then a model type in the next column to see its enabled models. Search filters the same menu. Click an aspect ratio or file format to apply it, or leave either dimension blank for automatic sizing.
@@ -438,13 +440,13 @@ AI 能力节点的文本、图像、视频和 Midjourney 模式使用统一的�
 
 Skills 支持启用内置指导、导入 Markdown 正文，或通过对话生成并从回复中保存。导入和保存的 Skills 保存在当前浏览器。Skills 清单支持查看正文、编辑和删除本地 Skill，以及导出为 SKILL.md。启用后，Skill 正文随对话请求提交给所选模型，每条消息最多启用 12 个。
 
-需要复盘时，直接发送问题。弧光会收到当前流程结构、可用的运行状态与日志摘要，以及最近一次匹配运行的记录。可读取的本地产物可附带图像或视频静帧供评审。开启画布引用时，每次发送都会重新读取当前画布。关闭画布关联或切换画布后，弧光仍会延续当前会话的问答。历史画布快照与自动附带的产物会从后续请求中移除。
+需要复盘时，直接发送问题。弧光会收到当前流程结构、可用的运行状态与日志摘要，以及最近一次匹配运行的记录。可读取的本地产物可附带图像或视频静帧供评审。开启画布引用时，每次发送都会重新读取当前画布。关闭画布关联或切换画布后，弧光仍会延续当前会话的问答。历史画布快照与自动附带的产物会从后续请求中移除。消息下方显示引用的画布名称，完整运行 ID 可以在结果栏的「历史」中展开对应记录并复制。
 
-可以请弧光添加 IO 或 AI 能力 V3 节点、修改节点名称与文本，或连接这些节点。先检查对话中的「画布修改方案」，再点「应用到画布」。新 AI 节点使用弧光菜单中选定的对应模型。方案应用到提出时的画布，可用画布撤销操作回退。完成后可在画布上检查，也可让弧光提出运行方案。
+可以请弧光添加 IO 或 AI 节点、修改节点名称与文本，或连接这些节点。先检查对话中的「画布修改方案」，再点「应用到画布」。新 AI 节点使用弧光菜单中选定的对应模型。方案应用到提出时的画布，可用画布撤销操作回退。完成后可在画布上检查，也可让弧光提出运行方案。
 
 弧光默认随每条消息读取发送时的当前画布，可用输入区的画布图标关闭。开关按会话保存，聊天历史只在同一会话内使用。它也可以提出移动、删除、启用或禁用节点、断开连线，以及运行工作流的方案。包含运行的方案需要点击「确认并运行」，会使用画布现有的执行入口。
 
-弧光也可以配置现有 AI 能力 V3 节点，包括模型与模式、提示词、画面比例、尺寸、生成数量、图像格式、视频时长、语音及对话联网开关。模型必须已在工作室启用。应用前可在方案中展开查看具体参数。
+弧光也可以配置现有 AI 节点，包括模型与模式、提示词、画面比例、尺寸、生成数量、图像格式、视频时长、语音及对话联网开关。模型必须已在工作室启用。应用前可在方案中展开查看具体参数。
 
 弧光支持清空画布。确认清空后会移除全部节点和连线，删除分组会同时删除组内节点。方案遇到锁定节点时会整批拒绝。
 

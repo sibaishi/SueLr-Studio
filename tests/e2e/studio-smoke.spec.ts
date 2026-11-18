@@ -20,7 +20,7 @@ async function addTextInputNode(page: import('@playwright/test').Page) {
   await page.getByTestId('workflow-node-catalog-item-io').click();
 }
 
-async function addWorkflowNode(page: import('@playwright/test').Page, nodeType: 'aiV3' | 'io') {
+async function addWorkflowNode(page: import('@playwright/test').Page, nodeType: 'ai' | 'io') {
   await page.getByTestId('workflow-add-node').click();
   await page.getByTestId(`workflow-node-catalog-item-${nodeType}`).click();
 }
@@ -837,7 +837,7 @@ test.describe('studio smoke', () => {
     await expect(page.locator('.react-flow__node')).toHaveCount(beforeCount + 1);
   });
 
-  test('AI V3 and IO nodes preserve their shared shell behavior and distinct types', async ({ page }) => {
+  test('AI and IO nodes preserve their shared shell behavior and distinct types', async ({ page }) => {
     const workflowName = `E2E Shared Node Shell ${Date.now().toString(36)}`;
 
     await clearLocalState(page);
@@ -847,10 +847,14 @@ test.describe('studio smoke', () => {
     await page.keyboard.press('Enter');
 
     await addWorkflowNode(page, 'io');
-    await addWorkflowNode(page, 'aiV3');
+    await page.getByTestId('workflow-add-node').click();
+    const aiCatalogItem = page.getByTestId('workflow-node-catalog-item-ai');
+    await expect(aiCatalogItem.getByText('AI', { exact: true })).toBeVisible();
+    await aiCatalogItem.click();
 
     const ioNode = page.locator('.react-flow__node').filter({ hasText: 'IO' }).last();
-    const aiNode = page.locator('.react-flow__node').filter({ hasText: 'AI 能力 V3' }).last();
+    const aiNode = page.locator('.react-flow__node-ai').last();
+    await expect(aiNode.locator('.node-v2-appendix-label-text')).toHaveText('AI');
     await expect(ioNode).toBeVisible();
     await expect(aiNode).toBeVisible();
 
@@ -878,7 +882,7 @@ test.describe('studio smoke', () => {
     expect(
       savedNodes.some(
         (node: { type?: string; data?: { label?: string; locked?: boolean } }) =>
-          node.type === 'aiV3' && node.data?.label === 'AI 审查节点' && node.data?.locked === true,
+          node.type === 'ai' && node.data?.label === 'AI 审查节点' && node.data?.locked === true,
       ),
     ).toBe(true);
   });
@@ -1004,7 +1008,7 @@ test.describe('studio smoke', () => {
       version: 1,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      nodes: [],
+      nodes: [{ id: 'legacy-ai', type: 'aiV3', position: { x: 0, y: 0 }, data: { mode: 'image' } }],
       edges: [],
       settings: {},
     };
@@ -1020,6 +1024,7 @@ test.describe('studio smoke', () => {
     await expect(page.getByText(/workflow\.id/)).toBeVisible();
     await expect(page.getByText('用其他方式重新导入')).toHaveCount(0);
     await expect(page.getByTestId('workflow-document-tabs')).toContainText('conflict-workflow *');
+    await expect(page.getByTestId('rf__node-legacy-ai')).toHaveClass(/react-flow__node-ai\b/);
 
     const afterImport = await page.evaluate(async (originalId) => {
       const response = await fetch('/api/workflows');
@@ -1387,13 +1392,21 @@ test('Arc keeps canvas settings per conversation and persists conversation delet
   await expect(composer).toHaveValue('');
 });
 
-test('Arc retains conversation history with canvas reference off and on', async ({ page }) => {
+test('Arc retains conversation history with canvas reference off and on', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const model = { label: '测试模型', value: 'test-model', modelId: 'test-model', configId: 'test', configName: '测试' };
   await page.route('**/api/settings/models', (route) => route.fulfill({
     json: { success: true, data: { all: [model], chat: [model], image: [], video: [] } },
   }));
   await page.route('**/api/agent/chat', (route) => route.fulfill({
     json: { success: true, data: { answer: '采用高对比度的黑白方案' } },
+  }));
+  const runId = '2026-11-18T12-26-06-547Z_example_starter_image_to_image';
+  await page.route('**/api/execute/*/history', (route) => route.fulfill({
+    json: { success: true, data: [{
+      runId, status: 'completed', startedAt: 1795004766547, nodeCount: 4,
+      failures: [], outputs: [], recoverableVideos: [],
+    }] },
   }));
   await clearLocalState(page);
   await page.getByTestId('workflow-toggle-agent').click();
@@ -1413,6 +1426,9 @@ test('Arc retains conversation history with canvas reference off and on', async 
   const linked = await send('帮我确定海报的配色');
   expect(linked.canvasEnabled).toBe(true);
   expect(JSON.stringify(linked.messages)).toContain(snapshotMarker);
+  expect(JSON.stringify(linked.messages)).toContain(runId);
+  await expect(panel.getByText(/^画布 · /)).toBeVisible();
+  await expect(panel.getByText(runId, { exact: false })).toHaveCount(0);
   await expect(panel.getByText('采用高对比度的黑白方案', { exact: true })).toBeVisible();
   await expect(panel.getByRole('button', { name: '下载回复 .md' })).toHaveCount(0);
   await expect(panel.getByRole('button', { name: '复制回复原文' })).toHaveCount(0);
@@ -1434,6 +1450,15 @@ test('Arc retains conversation history with canvas reference off and on', async 
     { role: 'assistant', content: '采用高对比度的黑白方案' },
   ]);
   expect(JSON.stringify(relinked.messages.at(-1))).toContain(snapshotMarker);
+
+  await page.getByRole('button', { name: '展开结果栏' }).click();
+  await page.getByRole('button', { name: '历史', exact: true }).click();
+  const history = page.locator('.workflow-results__history-item');
+  await expect(history.getByText(runId, { exact: false })).toBeHidden();
+  await history.locator('summary').click();
+  await history.getByRole('button', { name: '复制运行 ID' }).click();
+  await expect(history.getByRole('status')).toHaveText('已复制');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(runId);
 });
 
 test('settings and asset library share layered glass in both themes', async ({ page }) => {
@@ -1575,7 +1600,7 @@ test('Arc, IO and AI use matching text input styling without a glow or resize gr
   await clearLocalState(page);
   await page.getByTestId('workflow-new').click();
   await addWorkflowNode(page, 'io');
-  await addWorkflowNode(page, 'aiV3');
+  await addWorkflowNode(page, 'ai');
   await page.getByTestId('workflow-auto-arrange').click();
   await page.getByRole('button', { name: 'Fit View' }).click();
 
@@ -1604,7 +1629,7 @@ test('Arc, IO and AI use matching text input styling without a glow or resize gr
     const io = await readComposer(page.getByPlaceholder('输入文本内容...'));
     expect(io).toMatchObject({ resize: 'none', shadow: 'none', outline: 'none' });
     await page.locator('.react-flow__pane').click({ position: { x: 20, y: 110 } });
-    await page.locator('.react-flow__node-aiV3').last().click();
+    await page.locator('.react-flow__node-ai').last().click();
     const ai = await readComposer(page.locator('.node-text-composer textarea'));
     expect(ai).toEqual(io);
     await page.getByTestId('workflow-toggle-agent').click();

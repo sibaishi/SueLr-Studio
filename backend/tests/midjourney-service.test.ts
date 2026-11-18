@@ -126,10 +126,10 @@ test('executeMidjourneyImagine reports terminal provider failure', async () => {
   }
 });
 
-test('aiV3 midjourney mode uses the unified input/result contract and keeps task data in metadata', async () => {
+test('ai midjourney mode uses the unified input/result contract and keeps task data in metadata', async () => {
   const originalFetch = globalThis.fetch;
   const previousConfigDir = process.env.APP_CONFIG_DIR;
-  const storageRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'suelr-midjourney-ai-v3-'));
+  const storageRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'suelr-midjourney-ai-'));
   process.env.APP_CONFIG_DIR = storageRoot;
   let submittedBody: Record<string, unknown> = {};
   globalThis.fetch = async (url, options = {}) => {
@@ -153,9 +153,9 @@ test('aiV3 midjourney mode uses the unified input/result contract and keeps task
   };
 
   try {
-    const result = await NODE_EXECUTORS.aiV3(
+    const result = await NODE_EXECUTORS.ai(
       {
-        type: 'aiV3',
+        type: 'ai',
         data: { model: 'midjourney', mode: 'midjourney', mjMode: 'relax', prompt: 'local detail' },
       },
       { input: ['upstream prompt', 'second prompt'] },
@@ -172,9 +172,9 @@ test('aiV3 midjourney mode uses the unified input/result contract and keeps task
     assert.equal(Array.isArray(result.result), true);
     assert.match(result.result[0], /^\/api\/outputs\/images\/.+\.png$/);
     assert.equal('meta' in result, true);
-    if (!('meta' in result)) assert.fail('aiV3 midjourney result must include metadata');
+    if (!('meta' in result)) assert.fail('ai midjourney result must include metadata');
     assert.equal('task' in result.meta, true);
-    if (!('task' in result.meta)) assert.fail('aiV3 midjourney metadata must include task details');
+    if (!('task' in result.meta)) assert.fail('ai midjourney metadata must include task details');
     const task = result.meta.task as { jobId?: unknown };
     assert.equal(task.jobId, 'job-node');
   } finally {

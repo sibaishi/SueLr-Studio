@@ -2,10 +2,10 @@
 import { EMPTY_OPTIONS } from '../../shared-options.js';
 
 /** @type {NodeTypeDef} */
-export const AI_V3_NODE = {
-  type: 'aiV3',
+export const AI_NODE = {
+  type: 'ai',
   version: 1,
-  label: 'AI 能力 V3',
+  label: 'AI',
   icon: 'bot',
   color: '#0A84FF',
   category: 'ai',

@@ -2,7 +2,7 @@ import { applyAgentCanvasPlan } from '@/domains/workflow/lib/agentCanvasPlan';
 import { captureAgentCanvasContext } from '@/domains/workflow/lib/agentCanvasContext';
 import AgentPanel from '@/domains/agent/AgentPanel';
 import { isWorkflowModalOpen } from './components/workflowModalIsolation';
-import AiV3StylePanel from '@/domains/workflow/components/AiV3StylePanel';
+import AiStylePanel from '@/domains/workflow/components/AiStylePanel';
 import AssetLibraryModal from '@/domains/workflow/components/AssetLibraryModal';
 import FloatingToolbar from '@/domains/workflow/components/FloatingToolbar';
 import FlowCanvas from '@/domains/workflow/components/FlowCanvas';
@@ -474,7 +474,7 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
           hasUnsavedChanges={store.hasUnsavedChanges}
         />
 
-        <AiV3StylePanel />
+        <AiStylePanel />
         <IoStylePanel />
       </div>
 

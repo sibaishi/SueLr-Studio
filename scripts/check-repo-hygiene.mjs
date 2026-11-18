@@ -173,7 +173,7 @@ if (failures.length === 0) {
       source: userGuide,
       snippets: [
         '`IO`',
-        '`AI 能力 V3`',
+        '`AI`',
         '`文本拆分`',
         '`图像拆分`',
         'Alt+G',

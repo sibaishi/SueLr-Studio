@@ -7,7 +7,7 @@ import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import '../../node-v2.css';
 
-interface AiV3ContentProps {
+interface AiContentProps {
   params: ParamDef[];
   nodeId?: string;
   data: Record<string, unknown>;
@@ -15,7 +15,7 @@ interface AiV3ContentProps {
   onChange: (paramId: string, value: unknown) => void;
 }
 
-export function AiV3Content({ params: _params, nodeId, data, outerStyle, onChange: _onChange }: AiV3ContentProps) {
+export function AiContent({ params: _params, nodeId, data, outerStyle, onChange: _onChange }: AiContentProps) {
   const nodeOutputs = useWorkflowStore((s) => s.nodeOutputs);
   const outputs = nodeId ? nodeOutputs[nodeId] : undefined;
   const [previewImage, setPreviewImage] = useState<string | null>(null);

@@ -32,7 +32,7 @@ describe('workflow store graph editor actions', () => {
       nodes: [
         { id: 'promptA', type: 'io', position: { x: 0, y: 0 }, data: {} },
         { id: 'promptB', type: 'io', position: { x: 0, y: 80 }, data: {} },
-        { id: 'ai', type: 'aiV3', position: { x: 240, y: 0 }, data: {} },
+        { id: 'ai', type: 'ai', position: { x: 240, y: 0 }, data: {} },
       ],
       edges: [],
     });
@@ -91,7 +91,7 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'child',
-          type: 'aiV3',
+          type: 'ai',
           position: { x: 56, y: 84 },
           parentId: 'group',
           extent: 'parent',
@@ -184,7 +184,7 @@ describe('workflow store graph editor actions', () => {
           },
         },
         { id: 'source', type: 'io', position: { x: -240, y: 0 }, data: {} },
-        { id: 'child', type: 'aiV3', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'child', type: 'ai', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
       ],
       edges: [
         {
@@ -226,7 +226,7 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'chat', type: 'aiV3', position: { x: 240, y: 0 }, data: {} },
+        { id: 'chat', type: 'ai', position: { x: 240, y: 0 }, data: {} },
         { id: 'output', type: 'io', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
@@ -256,7 +256,7 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'input', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'chat', type: 'aiV3', position: { x: 240, y: 0 }, data: {} },
+        { id: 'chat', type: 'ai', position: { x: 240, y: 0 }, data: {} },
         { id: 'output', type: 'io', position: { x: 520, y: 0 }, data: {} },
       ],
       edges: [
@@ -372,7 +372,7 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'input', type: 'io', position: { x: 300, y: 300 }, data: {} },
-        { id: 'chat', type: 'aiV3', position: { x: 120, y: 40 }, data: {} },
+        { id: 'chat', type: 'ai', position: { x: 120, y: 40 }, data: {} },
         { id: 'output', type: 'io', position: { x: 40, y: 260 }, data: {} },
       ],
       edges: [
@@ -429,7 +429,7 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'selectedA', type: 'io', position: { x: 300, y: 280 }, data: {}, selected: true },
-        { id: 'selectedB', type: 'aiV3', position: { x: 120, y: 56 }, data: {}, selected: true },
+        { id: 'selectedB', type: 'ai', position: { x: 120, y: 56 }, data: {}, selected: true },
         { id: 'untouched', type: 'io', position: { x: 812, y: 476 }, data: {}, selected: false },
       ],
       edges: [
@@ -482,8 +482,8 @@ describe('workflow store graph editor actions', () => {
       nodes: [
         { id: 'leftTop', type: 'io', position: { x: 56, y: 56 }, data: {} },
         { id: 'leftBottom', type: 'io', position: { x: 56, y: 420 }, data: {} },
-        { id: 'rightTop', type: 'aiV3', position: { x: 560, y: 420 }, data: {} },
-        { id: 'rightBottom', type: 'aiV3', position: { x: 560, y: 56 }, data: {} },
+        { id: 'rightTop', type: 'ai', position: { x: 560, y: 420 }, data: {} },
+        { id: 'rightBottom', type: 'ai', position: { x: 560, y: 56 }, data: {} },
       ],
       edges: [
         { id: 'edge_top', source: 'leftTop', sourceHandle: 'result', target: 'rightTop', targetHandle: 'input' },
@@ -507,7 +507,7 @@ describe('workflow store graph editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'chainATop', type: 'io', position: { x: 56, y: 420 }, data: {} },
-        { id: 'chainABottom', type: 'aiV3', position: { x: 560, y: 84 }, data: {} },
+        { id: 'chainABottom', type: 'ai', position: { x: 560, y: 84 }, data: {} },
         { id: 'chainBTop', type: 'io', position: { x: 84, y: 1120 }, data: {} },
         { id: 'chainBBottom', type: 'io', position: { x: 588, y: 700 }, data: {} },
       ],
@@ -537,7 +537,7 @@ describe('workflow store graph editor actions', () => {
   it('keeps the root arrangement near the original bounding-box center', () => {
     const originalNodes = [
       { id: 'left', type: 'io', position: { x: 840, y: 308 }, data: {} },
-      { id: 'middle', type: 'aiV3', position: { x: 1596, y: 560 }, data: {} },
+      { id: 'middle', type: 'ai', position: { x: 1596, y: 560 }, data: {} },
       { id: 'right', type: 'io', position: { x: 2380, y: 896 }, data: {} },
     ];
     const harness = createWorkflowStoreHarness({
@@ -655,7 +655,7 @@ describe('workflow store graph editor actions', () => {
         { id: 'sink', type: 'io', position: { x: 980, y: 180 }, data: {} },
         {
           id: 'childIn',
-          type: 'aiV3',
+          type: 'ai',
           position: { x: 56, y: 140 },
           parentId: 'group',
           extent: 'parent',
@@ -761,7 +761,7 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'child',
-          type: 'aiV3',
+          type: 'ai',
           position: { x: 56, y: 84 },
           parentId: 'group',
           extent: 'parent',
@@ -838,7 +838,7 @@ describe('workflow store graph editor actions', () => {
         },
         {
           id: 'child',
-          type: 'aiV3',
+          type: 'ai',
           position: { x: 56, y: 84 },
           parentId: 'group',
           extent: 'parent',

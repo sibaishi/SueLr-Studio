@@ -1,3 +1,4 @@
+import { normalizeWorkflowNodeType } from '@/shared/workflow/node-registry.js';
 import { useWorkflowStore } from './store';
 import { createWorkflowGraphEditorActions } from './store/editorGraph';
 import { getEffectiveNodeSize } from './groupLayout';
@@ -7,7 +8,7 @@ type Mode = 'chat' | 'image' | 'video';
 type NodeMode = Mode | 'audio' | 'midjourney';
 export type CanvasPlan = {
   operations: (
-    | { kind: 'add'; ref: string; type: 'io' | 'aiV3'; label: string; text: string; mode?: Mode }
+    | { kind: 'add'; ref: string; type: 'io' | 'ai'; label: string; text: string; mode?: Mode }
     | { kind: 'update'; nodeId: string; label?: string; text?: string }
     | { kind: 'connect' | 'disconnect'; source: string; target: string }
     | {
@@ -68,7 +69,7 @@ export function applyAgentCanvasPlan(plan: CanvasPlan, target: CanvasPlanTarget)
   function editableNode(ref: string) {
     const id = refs.get(ref) ?? ref;
     const node = staged.nodes.find((item) => item.id === id);
-    if (!node || (node.type !== 'io' && node.type !== 'aiV3')) throw new Error(`找不到可编辑节点「${ref}」。`);
+    if (!node || (node.type !== 'io' && node.type !== 'ai')) throw new Error(`找不到可编辑节点「${ref}」。`);
     if (isNodeLockedWithAncestors(node.id, staged.nodes)) throw new Error(`节点「${ref}」已锁定。`);
     return node;
   }
@@ -92,10 +93,11 @@ export function applyAgentCanvasPlan(plan: CanvasPlan, target: CanvasPlanTarget)
         if (refs.has(operation.ref) || staged.nodes.some(({ id }) => id === operation.ref)) {
           throw new Error(`节点引用「${operation.ref}」重复。`);
         }
+        const type = normalizeWorkflowNodeType(operation.type);
         const mode = operation.mode ?? 'chat';
         const model = target.models[mode];
         if (
-          operation.type === 'aiV3' &&
+          type === 'ai' &&
           (!model || !original.availableModels[mode].some(({ value }) => value === model))
         ) {
           throw new Error(
@@ -103,11 +105,11 @@ export function applyAgentCanvasPlan(plan: CanvasPlan, target: CanvasPlanTarget)
           );
         }
         const data =
-          operation.type === 'io'
+          type === 'io'
             ? { label: operation.label, text: operation.text }
             : { label: operation.label, mode, model, [mode === 'chat' ? 'systemPrompt' : 'prompt']: operation.text };
         const id = editor.addNode(
-          operation.type,
+          type,
           { x: startX + (refs.size % 3) * 400, y: startY + Math.floor(refs.size / 3) * 360 },
           data,
         );
@@ -129,7 +131,7 @@ export function applyAgentCanvasPlan(plan: CanvasPlan, target: CanvasPlanTarget)
       }
       case 'configure': {
         const node = editableNode(operation.nodeId);
-        if (node.type !== 'aiV3') throw new Error('模型和生成参数只适用于 AI 能力 V3 节点。');
+        if (node.type !== 'ai') throw new Error('模型和生成参数只适用于 AI 节点。');
         const { model, mode, ...settings } = operation.settings;
         const categories = ['chat', 'image', 'video', 'audio', 'midjourney'] as const;
         const currentModel = typeof node.data.model === 'string' ? node.data.model : '';

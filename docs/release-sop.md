@@ -65,7 +65,7 @@ This document defines the standard release workflow for SueLr Studio. The active
    - A second desktop launch focuses the existing instance instead of opening a second main window.
    - Restart behavior works after settings changes.
    - Core workflows can run successfully.
-   - `io -> aiV3 -> io` executes with at least one configured project model.
+   - `io -> ai -> io` executes with at least one configured project model.
    - Enabled provider configurations remain independently selectable and their project models do not overwrite each other.
    - Workflow library covers create, save, duplicate, cover assignment, import, export, and delete.
    - Verify the Local-Web homepage and `/api/health` at the address printed by the launcher.

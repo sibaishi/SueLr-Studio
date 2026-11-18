@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { normalizeProjectModels } from '../src/engine/helpers/projectModels.ts';
-import { executeChatMode } from '../src/engine/nodes/aiV3/chat.ts';
+import { executeChatMode } from '../src/engine/nodes/ai/chat.ts';
 import { getProviderAdapter } from '../src/platform/providers/index.ts';
 
 test('workflow chat requires both switches before requesting web search', async (t) => {

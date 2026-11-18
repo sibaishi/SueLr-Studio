@@ -41,7 +41,7 @@ import {
 } from './agentChat';
 import { readAgentSessions, writeAgentSessions } from './agentSessions';
 import { buildSkillCatalog, parseSkill, readSkillPreview, type PreviewSkill } from './skillPreview';
-import '@/domains/workflow/components/ai-v3-parameters.css';
+import '@/domains/workflow/components/ai-parameters.css';
 import AgentMarkdown from './AgentMarkdown';
 import './agent-panel.css';
 
@@ -558,7 +558,6 @@ export default function AgentPanel({
                   {message.canvas && (
                     <div className="agent-panel__message-options">
                       画布 · {message.canvas.label}
-                      {message.canvas.runId && ` · ${message.canvas.runId}`}
                     </div>
                   )}
                   {(message.models.length > 0 || message.skills.length > 0) && (
@@ -650,7 +649,7 @@ export default function AgentPanel({
                         <li key={index}>
                           {operation.kind === 'add' && (
                             <>
-                              添加 {operation.label}（{operation.type === 'io' ? 'IO' : 'AI 能力 V3'}）
+                              添加 {operation.label}（{operation.type === 'io' ? 'IO' : 'AI'}）
                             </>
                           )}
                           {operation.kind === 'update' && (

@@ -12,8 +12,8 @@ import {
 } from '@/domains/workflow/lib/ioImageFiles';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import {
-  type AiV3InputSlot,
-  expandAiV3InputSlots,
+  type AiInputSlot,
+  expandAiInputSlots,
   readInputOrder,
   sortSlotsByInputOrder,
 } from '@/domains/workflow/lib/store/helpers';
@@ -77,12 +77,12 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
   const [textModalIdx, setTextModalIdx] = useState<number | null>(null);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
 
-  // Compute upstream content from edges via slot expansion (same as AiV3 panel)
-  const upstreamSlots = useMemo((): AiV3InputSlot[] | null => {
+  // Compute upstream content from edges via slot expansion (same as Ai panel)
+  const upstreamSlots = useMemo((): AiInputSlot[] | null => {
     if (!nodeId) return null;
     const upstreamEdges = edges.filter((e) => e.target === nodeId && e.targetHandle === 'input');
     if (upstreamEdges.length === 0) return null;
-    const expanded = expandAiV3InputSlots(nodeId, edges, nodes);
+    const expanded = expandAiInputSlots(nodeId, edges, nodes);
     // Apply per-type inputOrder sorting so card matches dialog
     const currentNode = nodes.find((n) => n.id === nodeId);
     const inputOrder = readInputOrder(currentNode ?? null);
@@ -115,7 +115,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
     return null;
   }, [data.text, data.content, data._fileOrder, data._fileIds]);
 
-  // Resolve slot values (same logic as AiV3StylePanel input thumbnails)
+  // Resolve slot values (same logic as AiStylePanel input thumbnails)
   // Also handle data.content fallback: when upstream IO has file URLs but no _fileIds
   // (e.g., passthrough from execution output), classify those by URL pattern.
   const upstreamItems = useMemo(() => {

@@ -11,7 +11,7 @@ const DEFAULT_NODE_SIZE_UNITS = { w: 10, h: 6 };
 
 export const NODE_SIZE_UNITS: Record<string, { w: number; h: number }> = {
   group: { w: 14, h: 10 },
-  aiV3: { w: 10, h: 10 },
+  ai: { w: 10, h: 10 },
   io: { w: 10, h: 10 },
 };
 

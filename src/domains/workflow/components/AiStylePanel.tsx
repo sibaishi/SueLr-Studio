@@ -7,7 +7,7 @@ import {
 import { resolveStylePanelInput } from '@/domains/workflow/components/stylePanelInputResolver';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { type InputOrderMap, filterAiV3InputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
+import { type InputOrderMap, filterAiInputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import { loadJSON } from '@/shared/runtime';
 import type { ApiConfig } from '@/shared/types';
 import {
@@ -30,7 +30,7 @@ import {
 } from '@phosphor-icons/react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import './ai-v3-parameters.css';
+import './ai-parameters.css';
 
 const RATIO_OPTIONS = [
   { label: 'auto', value: 'auto' },
@@ -117,7 +117,7 @@ type InputThumb = {
   edgeId: string;
 };
 
-export default function AiV3StylePanel() {
+export default function AiStylePanel() {
   const nodes = useWorkflowStore((s) => s.nodes);
   const canvasEdges = useWorkflowStore((s) => s.edges);
   const edges = useMemo(() => resolveWorkflowConnections(nodes, canvasEdges), [nodes, canvasEdges]);
@@ -127,10 +127,10 @@ export default function AiV3StylePanel() {
   // Only show panel when exactly one panel-capable node is selected across all types
   const v3Node = (() => {
     const selectedPanelNodes = nodes.filter(
-      (n) => n.selected && (n.type === 'io' || n.type === 'aiV3'),
+      (n) => n.selected && (n.type === 'io' || n.type === 'ai'),
     );
     if (selectedPanelNodes.length !== 1) return null;
-    return selectedPanelNodes[0].type === 'aiV3' ? selectedPanelNodes[0] : null;
+    return selectedPanelNodes[0].type === 'ai' ? selectedPanelNodes[0] : null;
   })();
 
   const [openPopover, setOpenPopover] = useState<string | null>(null);
@@ -218,7 +218,7 @@ export default function AiV3StylePanel() {
   // ── rawInputs (useMemo: must be before early return to keep hook count stable) ──
   const rawInputs: InputThumb[] = useMemo(() => {
     if (!v3Node) return [];
-    const filterResult = filterAiV3InputSlots(v3Node.id, currentMode, edges, nodes);
+    const filterResult = filterAiInputSlots(v3Node.id, currentMode, edges, nodes);
     return filterResult.acceptedSlots.map((slot) => {
       const { sourceNode, type: finalType, value } = resolveStylePanelInput(slot, nodes, edges, nodeOutputs);
 

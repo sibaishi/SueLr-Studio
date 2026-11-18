@@ -25,6 +25,11 @@ export const WORKFLOW_NODE_REGISTRY = [
 const NODE_REGISTRY_BY_TYPE = createNodeRegistryIndex(WORKFLOW_NODE_REGISTRY);
 
 /** @param {string} type */
+export function normalizeWorkflowNodeType(type) {
+  return type === 'aiV3' ? 'ai' : type;
+}
+
+/** @param {string} type */
 export function getNodeDef(type) {
   return getNodeDefFromIndex(NODE_REGISTRY_BY_TYPE, type);
 }

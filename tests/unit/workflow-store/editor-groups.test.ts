@@ -29,7 +29,7 @@ describe('workflow store group editor actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'source', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'innerA', type: 'aiV3', position: { x: 224, y: 0 }, data: {} },
+        { id: 'innerA', type: 'ai', position: { x: 224, y: 0 }, data: {} },
         { id: 'innerB', type: 'io', position: { x: 476, y: 0 }, data: {} },
         { id: 'outside', type: 'io', position: { x: 728, y: 0 }, data: {} },
       ],
@@ -112,8 +112,8 @@ describe('workflow store group editor actions', () => {
             ],
           },
         },
-        { id: 'innerA', type: 'aiV3', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
-        { id: 'innerB', type: 'aiV3', position: { x: 56, y: 252 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'innerA', type: 'ai', position: { x: 56, y: 84 }, parentId: 'group', extent: 'parent', data: {} },
+        { id: 'innerB', type: 'ai', position: { x: 56, y: 252 }, parentId: 'group', extent: 'parent', data: {} },
       ],
       edges: [
         {

@@ -1,5 +1,5 @@
 import { fetchExecutionHistory } from './api/execution';
-import { getNodeDef } from './constants';
+import { DEFAULT_WORKFLOW_NAME, getNodeDef } from './constants';
 import { useWorkflowStore } from './store';
 
 function excerpt(value: unknown, limit = 360) {
@@ -10,21 +10,23 @@ function excerpt(value: unknown, limit = 360) {
 
 export async function captureAgentCanvasContext(signal: AbortSignal) {
   const state = useWorkflowStore.getState();
+  const workflowName = state.workflowName || DEFAULT_WORKFLOW_NAME;
   const runId = state.currentRunId ?? state.lastExecutionRunId;
   const nodeLimit = 60;
   const edgeLimit = 100;
-  const nodes = state.nodes.slice(0, nodeLimit).map(({ id, type, data, selected }) => ({
+  const nodes = state.nodes.slice(0, nodeLimit).map(({ id, type, data, selected, position, parentId }) => ({
     id,
     type,
-    name: excerpt(data.label, 100) || getNodeDef(type ?? '')?.label || type,
+    name: excerpt(type === 'group' ? data.title : data.label, 100) || getNodeDef(type ?? '')?.label || type,
     selected: Boolean(selected),
+    position: { x: Math.round(position.x), y: Math.round(position.y), parentId },
     mode: excerpt(data.mode, 40),
     model: typeof data.model === 'string' ? excerpt(data.model.split('::').at(-1), 120) : undefined,
     prompt: excerpt(data.prompt, 480),
     systemPrompt: excerpt(data.systemPrompt, 480),
     text: type === 'io' ? excerpt(data.text, 480) : undefined,
     settings:
-      type === 'aiV3'
+      type === 'ai'
         ? {
             ratio: excerpt(data.ratio, 20),
             imageResolution: excerpt(data.imageResolution, 20),
@@ -85,7 +87,7 @@ export async function captureAgentCanvasContext(signal: AbortSignal) {
       }
     }) ?? [];
   const summary = {
-    workflow: state.workflowName,
+    workflow: workflowName,
     capturedAt: new Date().toISOString(),
     availableModels: (['chat', 'image', 'video', 'audio', 'midjourney'] as const).map((mode) => ({
       mode,
@@ -106,6 +108,7 @@ export async function captureAgentCanvasContext(signal: AbortSignal) {
           relation: runId ? 'matches-observed-run' : 'latest-historical-run-for-workflow',
           status: recent.status,
           startedAt: recent.startedAt,
+          startedAtLocal: new Date(recent.startedAt).toLocaleString('zh-CN'),
           durationMs: recent.totalDuration,
           error: excerpt(recent.error),
           failures: recent.failures.slice(0, 15).map(({ nodeId, error }) => ({ nodeId, error: excerpt(error) })),
@@ -122,7 +125,7 @@ export async function captureAgentCanvasContext(signal: AbortSignal) {
   return {
     documentId: state.activeDocumentId,
     workflowId: state.workflowId,
-    label: state.workflowName,
+    label: workflowName,
     runId: runId ?? recent?.runId,
     summary,
     files,

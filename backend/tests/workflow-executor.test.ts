@@ -37,7 +37,7 @@ test('disabled nodes are excluded from workflow execution and validation', async
         },
         {
           id: 'disabled-image-gen',
-          type: 'aiV3',
+          type: 'ai',
           data: { mode: 'image', disabled: true },
         },
       ],
@@ -171,7 +171,7 @@ test('io override flows to downstream io nodes', async () => {
   assert.equal(outputEvent.data.outputs.result, 'from upstream');
 });
 
-test('aiV3 image output flows into io and materializes generated files', async () => {
+test('ai image output flows into io and materializes generated files', async () => {
   const originalFetch = globalThis.fetch;
   const events = [];
 
@@ -195,7 +195,7 @@ test('aiV3 image output flows into io and materializes generated files', async (
           },
           {
             id: 'image',
-            type: 'aiV3',
+            type: 'ai',
             data: { model: 'demo-image-model', mode: 'image', n: 1 },
           },
           {
@@ -259,10 +259,10 @@ test('aiV3 image output flows into io and materializes generated files', async (
   }
 });
 
-test('aiV3 midjourney mode accepts io input and its unified result is materialized by io output', async () => {
+test('ai midjourney mode accepts io input and its unified result is materialized by io output', async () => {
   const originalFetch = globalThis.fetch;
   const previousConfigDir = process.env.APP_CONFIG_DIR;
-  const storageRoot = createStorageDir('ai-v3-midjourney');
+  const storageRoot = createStorageDir('ai-midjourney');
   process.env.APP_CONFIG_DIR = storageRoot;
   const scope = { userId: 'midjourney-test', workspaceId: 'default', runtimeMode: 'local-web' };
   const events = [];
@@ -309,7 +309,7 @@ test('aiV3 midjourney mode accepts io input and its unified result is materializ
           },
           {
             id: 'midjourney',
-            type: 'aiV3',
+            type: 'ai',
             data: { model: 'midjourney', mode: 'midjourney', mjMode: 'turbo' },
           },
           {
@@ -395,7 +395,7 @@ test('aiV3 midjourney mode accepts io input and its unified result is materializ
   }
 });
 
-test('aiV3 resolves image inputs from request-scoped upload storage', async () => {
+test('ai resolves image inputs from request-scoped upload storage', async () => {
   const previousConfigDir = process.env.APP_CONFIG_DIR;
   const storageRoot = createStorageDir('aichat-scoped-image');
   process.env.APP_CONFIG_DIR = storageRoot;
@@ -424,7 +424,7 @@ test('aiV3 resolves image inputs from request-scoped upload storage', async () =
           { id: 'image', type: 'io', data: { content: '/api/files/source.png' } },
           {
             id: 'chat',
-            type: 'aiV3',
+            type: 'ai',
             data: { model: 'vision-model', systemPrompt: 'system' },
           },
         ],
@@ -532,7 +532,7 @@ test('independent ready workflow nodes execute concurrently when enabled', async
   }
 });
 
-test('aiV3 image mode runs multi-image requests concurrently through workflow config', async () => {
+test('ai image mode runs multi-image requests concurrently through workflow config', async () => {
   const originalFetch = globalThis.fetch;
   const allRequestsStarted = createDeferred();
   let startedRequests = 0;
@@ -567,7 +567,7 @@ test('aiV3 image mode runs multi-image requests concurrently through workflow co
       {
         nodes: [
           { id: 'prompt', type: 'io', data: { content: 'draw a mountain' } },
-          { id: 'image', type: 'aiV3', data: { model: 'demo-image-model', mode: 'image', n: 4 } },
+          { id: 'image', type: 'ai', data: { model: 'demo-image-model', mode: 'image', n: 4 } },
         ],
         edges: [
           { id: 'prompt-image', source: 'prompt', sourceHandle: 'result', target: 'image', targetHandle: 'input' },

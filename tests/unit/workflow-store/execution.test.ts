@@ -32,7 +32,7 @@ describe('workflow store execution actions', () => {
       workflowRuntimeConfigs: [{ id: 'default', name: 'Default', base: 'https://example.test/v1', apiKey: '', models: [] }],
       nodes: [
         { id: 'reference', type: 'io', position: { x: 0, y: 0 }, data: {} },
-        { id: 'generate', type: 'aiV3', position: { x: 100, y: 0 }, data: { mode: 'image' } },
+        { id: 'generate', type: 'ai', position: { x: 100, y: 0 }, data: { mode: 'image' } },
         { id: 'output', type: 'io', position: { x: 200, y: 0 }, data: {} },
       ],
       edges: [
@@ -97,7 +97,7 @@ describe('workflow store execution actions', () => {
         },
         {
           id: 'inner_ai',
-          type: 'aiV3',
+          type: 'ai',
           position: { x: 48, y: 96 },
           parentId: 'group',
           extent: 'parent',
@@ -154,7 +154,7 @@ describe('workflow store execution actions', () => {
       expect.objectContaining({
         nodes: expect.arrayContaining([
           expect.objectContaining({ id: 'outer_prompt', type: 'io' }),
-          expect.objectContaining({ id: 'inner_ai', type: 'aiV3' }),
+          expect.objectContaining({ id: 'inner_ai', type: 'ai' }),
           expect.objectContaining({ id: 'outer_output', type: 'io' }),
         ]),
         edges: expect.arrayContaining([
@@ -189,7 +189,7 @@ describe('workflow store execution actions', () => {
       nodes: [
         {
           id: 'ai_node',
-          type: 'aiV3',
+          type: 'ai',
           position: { x: 0, y: 0 },
           data: { disabled: false },
         },
@@ -222,7 +222,7 @@ describe('workflow store execution actions', () => {
         },
         {
           id: 'ai_node',
-          type: 'aiV3',
+          type: 'ai',
           position: { x: 200, y: 0 },
           data: { disabled: false },
         },
@@ -288,7 +288,7 @@ describe('workflow store execution actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'prompt', type: 'io', position: { x: 0, y: 0 }, data: { text: 'hello' } },
-        { id: 'ai_node', type: 'aiV3', position: { x: 200, y: 0 }, data: { disabled: false } },
+        { id: 'ai_node', type: 'ai', position: { x: 200, y: 0 }, data: { disabled: false } },
         { id: 'clean_node', type: 'io', position: { x: 400, y: 0 }, data: {} },
       ],
       edges: [
@@ -310,7 +310,7 @@ describe('workflow store execution actions', () => {
     const harness = createWorkflowStoreHarness({
       nodes: [
         { id: 'prompt', type: 'io', position: { x: 0, y: 0 }, data: { text: 'hello' } },
-        { id: 'ai_node', type: 'aiV3', position: { x: 200, y: 0 }, data: { disabled: false } },
+        { id: 'ai_node', type: 'ai', position: { x: 200, y: 0 }, data: { disabled: false } },
       ],
       edges: [
         { id: 'prompt-ai', source: 'prompt', sourceHandle: 'result', target: 'ai_node', targetHandle: 'input' },

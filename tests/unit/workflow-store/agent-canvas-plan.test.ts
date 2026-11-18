@@ -48,7 +48,7 @@ it('configures a node with an enabled model and rejects mismatched modes atomica
     isExecuting: false,
     isHydratingWorkflow: false,
     availableModels: { ...original.availableModels, image: [{ value: model, modelId: 'image', label: 'Image' }] },
-    nodes: [{ id: 'generate', type: 'aiV3', position: { x: 0, y: 0 }, data: { mode: 'chat' } }],
+    nodes: [{ id: 'generate', type: 'ai', position: { x: 0, y: 0 }, data: { mode: 'chat' } }],
     edges: [],
   });
   try {

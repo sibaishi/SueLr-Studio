@@ -8,7 +8,7 @@ import { resolveStylePanelInput } from '@/domains/workflow/components/stylePanel
 import { uploadFile } from '@/domains/workflow/lib/api/files';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
-import { type InputOrderMap, expandAiV3InputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
+import { type InputOrderMap, expandAiInputSlots, readInputOrder } from '@/domains/workflow/lib/store/helpers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fileRawStore, uploadUrlStore } from './nodes/io/fileRawStore';
 
@@ -86,7 +86,7 @@ export default function IoStylePanel() {
   // Only show panel when exactly one panel-capable node is selected across all types
   const ioNode = (() => {
     const selectedPanelNodes = nodes.filter(
-      (n) => n.selected && (n.type === 'io' || n.type === 'aiV3'),
+      (n) => n.selected && (n.type === 'io' || n.type === 'ai'),
     );
     if (selectedPanelNodes.length !== 1) return null;
     return selectedPanelNodes[0].type === 'io' ? selectedPanelNodes[0] : null;
@@ -332,9 +332,9 @@ export default function IoStylePanel() {
     });
   }, []);
 
-  // ═══ V3-STYLE UPSTREAM INPUTS (slot expansion, same as AiV3StylePanel) ═══
+  // ═══ V3-STYLE UPSTREAM INPUTS (slot expansion, same as AiStylePanel) ═══
   const rawInputs: InputThumb[] = selectedNodeId
-    ? expandAiV3InputSlots(selectedNodeId, edges, nodes).map((slot) => {
+    ? expandAiInputSlots(selectedNodeId, edges, nodes).map((slot) => {
         const { sourceNode, type: finalType, value } = resolveStylePanelInput(slot, nodes, edges, nodeOutputs);
 
         const label =

@@ -32,7 +32,7 @@ export const BUILTIN_WORKFLOW_TEMPLATES = [
       node('prompt', 'io', 80, 140, {
         text: '一张温暖的产品海报，干净背景，柔和自然光，主体清晰，细节精致',
       }),
-      node('generate', 'aiV3', 480, 80, {
+      node('generate', 'ai', 480, 80, {
         model: '',
         mode: 'image',
         ratio: '1:1',
@@ -60,7 +60,7 @@ export const BUILTIN_WORKFLOW_TEMPLATES = [
       node('question', 'io', 80, 120, {
         text: '请用简洁的中文，帮我把这个想法整理成三个可执行步骤。',
       }),
-      node('chat', 'aiV3', 480, 70, {
+      node('chat', 'ai', 480, 70, {
         model: '',
         mode: 'chat',
         temperature: 0.7,
@@ -91,7 +91,7 @@ export const BUILTIN_WORKFLOW_TEMPLATES = [
       node('prompt', 'io', 80, 380, {
         text: '保留主体构图，把画面调整为高级商业摄影风格，光线更柔和，背景更干净',
       }),
-      node('generate', 'aiV3', 500, 160, {
+      node('generate', 'ai', 500, 160, {
         model: '',
         mode: 'image',
         ratio: 'auto',
