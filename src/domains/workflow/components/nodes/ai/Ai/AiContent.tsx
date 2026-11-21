@@ -45,7 +45,7 @@ export function AiContent({ params: _params, nodeId, data, outerStyle, onChange:
             />
           ) : (
             <div className="node-gallery-empty-v2">
-              <EmptyIcon size={32} strokeWidth={1.2} />
+              <EmptyIcon size={32} weight="light" />
               <span>待生成</span>
             </div>
           )}
@@ -99,7 +99,7 @@ export function AiContent({ params: _params, nodeId, data, outerStyle, onChange:
             />
           ) : (
             <div className="node-gallery-empty-v2">
-              <FilmSlate size={32} strokeWidth={1.2} />
+              <FilmSlate size={32} weight="light" />
               <span>待生成</span>
             </div>
           )}
@@ -139,7 +139,7 @@ export function AiContent({ params: _params, nodeId, data, outerStyle, onChange:
           </div>
         ) : (
           <div className="node-gallery-empty-v2">
-            <Robot size={32} strokeWidth={1.2} />
+            <Robot size={32} weight="light" />
             <span>待生成</span>
           </div>
         )}

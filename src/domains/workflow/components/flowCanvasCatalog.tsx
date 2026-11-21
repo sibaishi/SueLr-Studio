@@ -1,6 +1,6 @@
 import type { NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import { FLOW_DISABLED_NODE_REASON } from './flowCanvasConfig';
-import { NODE_ICONS } from './nodes/nodeConstants';
+import { WorkflowNodeIcon } from './nodes/WorkflowNodeIcon';
 
 export function ContextMenuButton({
   label,
@@ -51,7 +51,6 @@ export function NodeCatalogButton({
   nodeDef: (typeof NODE_REGISTRY)[number];
   onClick: () => void;
 }) {
-  const Icon = NODE_ICONS[nodeDef.icon] || NODE_ICONS.eye;
   const inputCount = nodeDef.maxInputs ? `${nodeDef.maxInputs}+` : String(nodeDef.inputs.length);
   const outputCount = String(nodeDef.outputs.length);
 
@@ -67,12 +66,12 @@ export function NodeCatalogButton({
         className="workflow-context-menu__node-icon"
         style={{
           color: nodeDef.color || '#8E8E93',
-          background: `${nodeDef.color || '#8E8E93'}18`,
-          border: `1px solid ${nodeDef.color || '#8E8E93'}28`,
+          background: `${nodeDef.color || '#8E8E93'}12`,
+          border: `1px solid ${nodeDef.color || '#8E8E93'}20`,
         }}
         aria-hidden="true"
       >
-        <Icon size={16} strokeWidth={2.1} />
+        <WorkflowNodeIcon name={nodeDef.icon} size={17} />
       </span>
       <span className="workflow-context-menu__node-copy">
         <span className="workflow-context-menu__node-label">{nodeDef.label}</span>

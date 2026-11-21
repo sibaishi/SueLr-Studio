@@ -40,6 +40,8 @@ export function IOSInput({ value, onChange, placeholder, type = 'text', style = 
         <button
           onClick={() => setShowPw(!showPw)}
           type="button"
+          aria-label={showPw ? '隐藏密码' : '显示密码'}
+          title={showPw ? '隐藏密码' : '显示密码'}
           style={{
             position: 'absolute',
             right: 8,
@@ -53,7 +55,7 @@ export function IOSInput({ value, onChange, placeholder, type = 'text', style = 
             padding: 4,
           }}
         >
-          {showPw ? <EyeSlash size={16} /> : <Eye size={16} />}
+          {showPw ? <EyeSlash size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
         </button>
       )}
     </div>

@@ -2,7 +2,7 @@ import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/com
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { inferImageThumbnailUrl } from '@/domains/workflow/components/nodes/NodeMedia';
-import { NODE_ICONS } from '@/domains/workflow/components/nodes/nodeConstants';
+import { WorkflowNodeIcon } from '@/domains/workflow/components/nodes/WorkflowNodeIcon';
 import {
   type GeneratedOutputFile,
   clearGeneratedOutputs,
@@ -25,7 +25,6 @@ import {
   FileText,
   Image,
   PlayCircle,
-  SpeakerHigh,
   TerminalWindow,
   VideoCamera,
   Warning,
@@ -460,8 +459,7 @@ function ResultsList({
 
 function NodeBadgeIcon({ nodeType }: { nodeType: string }) {
   const def = getNodeDef(nodeType);
-  const Icon = nodeType === 'audio' ? SpeakerHigh : NODE_ICONS[def?.icon || 'eye'] || NODE_ICONS.eye;
-  return <Icon size={14} strokeWidth={2.1} />;
+  return <WorkflowNodeIcon name={nodeType === 'audio' ? 'audio' : def?.icon} size={14} />;
 }
 
 function AiOutputGroup({

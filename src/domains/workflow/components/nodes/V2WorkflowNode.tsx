@@ -3,11 +3,12 @@ import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
-import { Copy, LockOpen, LockSimple, Play, Prohibit } from '@phosphor-icons/react';
+import { Copy, LockOpen, LockSimple, Play, Prohibit, Warning } from '@phosphor-icons/react';
 import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeContent } from './NodeContent';
 import { STATUS_BADGE } from './nodeConstants';
+import { WorkflowNodeIcon } from './WorkflowNodeIcon';
 import './node-v2.css';
 import './nodeAnimations.css';
 
@@ -155,7 +156,9 @@ export function V2WorkflowNodeShell({
             />
           ) : (
             <span className="node-v2-appendix-label" onClick={startEditing} title="点击重命名">
-              <span className="node-v2-appendix-dot" style={{ backgroundColor: nodeColor }} />
+              <span className="node-v2-appendix-type-icon" style={{ color: nodeColor }}>
+                <WorkflowNodeIcon name={def.icon} size={14} />
+              </span>
               <span className="node-v2-appendix-label-text">{displayLabel}</span>
             </span>
           )}
@@ -168,6 +171,7 @@ export function V2WorkflowNodeShell({
               updateNodeData(id, { disabled: !isDisabled });
             }}
             title={isDisabled ? '启用' : '禁用'}
+            aria-label={isDisabled ? '启用' : '禁用'}
           >
             <Prohibit size={15} style={{ color: isDisabled ? '#ff3b30' : undefined }} />
           </button>
@@ -180,6 +184,7 @@ export function V2WorkflowNodeShell({
               toggleNodesLocked([id], !isDirectlyLocked);
             }}
             title={isLocked ? '解锁' : '锁定'}
+            aria-label={isLocked ? '解锁' : '锁定'}
           >
             {isLocked ? <LockSimple size={15} /> : <LockOpen size={15} />}
           </button>
@@ -192,6 +197,7 @@ export function V2WorkflowNodeShell({
               duplicateNode(id);
             }}
             title="复制"
+            aria-label="复制"
           >
             <Copy size={15} />
           </button>
@@ -204,6 +210,7 @@ export function V2WorkflowNodeShell({
               executeWorkflowToNode(id);
             }}
             title="执行到此节点"
+            aria-label="执行到此节点"
           >
             <Play size={15} />
           </button>
@@ -219,7 +226,8 @@ export function V2WorkflowNodeShell({
           )}
           {hasWarning && (
             <span className="node-v2-status-pill" style={{ color: '#ff9500' }} title={warningMessage}>
-              ⚠ {warningMessage}
+              <Warning size={14} aria-hidden="true" />
+              {warningMessage}
             </span>
           )}
           {execStatus !== 'idle' && statusText && (

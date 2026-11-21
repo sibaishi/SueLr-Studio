@@ -1,6 +1,7 @@
 import { agentResizeEdges, useAgentWindow } from './useAgentWindow';
 import SkillLibrary from './SkillLibrary';
 import { builtinSkills } from './builtinSkills';
+import { ArcIcon } from './ArcIcon';
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
 import { readLibraryFile } from '@/domains/workflow/lib/addIoFiles';
@@ -19,7 +20,6 @@ import {
   Paperclip,
   Plus,
   PuzzlePiece,
-  Sparkle,
   Stop,
   Trash,
   VideoCamera,
@@ -527,7 +527,7 @@ export default function AgentPanel({
       <div ref={timeline} className="workflow-panel__body agent-panel__timeline" role="log" aria-label="对话">
         {messages.length === 0 ? (
           <div className="agent-panel__empty">
-            <Sparkle size={24} weight="duotone" />
+            <ArcIcon size={24} />
             <h3>你想做点什么？</h3>
             <p>聊聊你的想法，或添加一份参考素材。</p>
             <div className="agent-panel__starters">

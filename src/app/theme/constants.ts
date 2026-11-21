@@ -39,9 +39,3 @@ export const THEME_LABELS: Record<ThemeMode, string> = {
   light: '浅色',
   system: '系统',
 };
-
-export const THEME_ICONS: Record<ThemeMode, string> = {
-  dark: 'moon',
-  light: 'sun',
-  system: 'monitor',
-};

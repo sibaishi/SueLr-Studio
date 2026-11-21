@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   focusWindow: () => {
     ipcRenderer.send('focus:window');
   },
+  setIconTheme: (theme) => {
+    ipcRenderer.send('app-icon:set-theme', theme);
+  },
 });

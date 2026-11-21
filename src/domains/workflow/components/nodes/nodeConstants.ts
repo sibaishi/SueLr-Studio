@@ -1,44 +1,6 @@
 import type { NodeExecStatus } from '@/domains/workflow/lib/store';
 import type { ProviderConfig } from '@/shared/providers';
 import { WORKFLOW_PORT_TYPE_COLORS, WORKFLOW_PORT_TYPE_LABELS } from '@/shared/workflow/port-visuals';
-import {
-  ArrowsMerge,
-  DownloadSimple,
-  Eraser,
-  Eye,
-  FileImage,
-  FilmStrip,
-  Key,
-  MagnifyingGlass,
-  MusicNotes,
-  Pen,
-  Repeat,
-  Robot,
-  Scan,
-  SplitVertical,
-} from '@phosphor-icons/react';
-import type { ComponentType } from 'react';
-
-type NodeIconComponent = ComponentType<{ size?: number | string; strokeWidth?: number; className?: string }>;
-
-export const NODE_ICONS: Record<string, NodeIconComponent> = {
-  pen: Pen,
-  image: FileImage,
-  resize: Scan,
-  film: FilmStrip,
-  music: MusicNotes,
-  key: Key,
-  repeat: Repeat,
-  eraser: Eraser,
-  merge: ArrowsMerge,
-  split: SplitVertical,
-  bot: Robot,
-  palette: FileImage,
-  clapperboard: FilmStrip,
-  search: MagnifyingGlass,
-  eye: Eye,
-  save: DownloadSimple,
-};
 
 export const PORT_TYPE_COLORS = WORKFLOW_PORT_TYPE_COLORS;
 export const PORT_TYPE_LABELS = WORKFLOW_PORT_TYPE_LABELS;

@@ -149,7 +149,7 @@ After onboarding, open `Settings` and complete this order:
    - In batch configuration, choose which model type and endpoint fields to update. Fields set to keep their current value retain each model’s configuration where applicable.
    - Use the connection selector to switch which connection you are managing
 3. `Defaults`
-   - Choose theme mode
+   - Choose light, dark, or system theme. The browser tab icon and the running desktop app icon follow the resolved theme.
    - Optionally set an external data path
    - If you changed the external data path, click `Restart Backend` after saving
 
@@ -432,7 +432,7 @@ AI 能力节点的文本、图像、视频和 Midjourney 模式使用统一的�
 
 ## 弧光
 
-点击画布左侧胶囊工具栏上方的弧光按钮，在右侧打开弧光。切换结果栏时保留对话和草稿。发送后，消息和附件立即进入对话，处理状态显示在消息下方。停止或失败后可以把原消息恢复到输入框。使用已配置的对话模型进行创意讨论，发送时携带最多最近十轮对话，较大的附件会缩短随请求发送的历史范围。标题栏的「对话列表」可以切换历史会话，点击「新会话」会另开一段对话。会话和附件保存在当前浏览器，刷新后可以继续。切换会话时会停止正在生成的回复。对话列表每行右侧的删除按钮可移除该会话的消息、附件记录和草稿。删除当前会话后会切换到另一段会话，删除最后一段会打开空白会话。
+点击画布左侧胶囊工具栏上方的弧线图标，在右侧打开弧光。切换结果栏时保留对话和草稿。发送后，消息和附件立即进入对话，处理状态显示在消息下方。停止或失败后可以把原消息恢复到输入框。使用已配置的对话模型进行创意讨论，发送时携带最多最近十轮对话，较大的附件会缩短随请求发送的历史范围。标题栏的「对话列表」可以切换历史会话，点击「新会话」会另开一段对话。会话和附件保存在当前浏览器，刷新后可以继续。切换会话时会停止正在生成的回复。对话列表每行右侧的删除按钮可移除该会话的消息、附件记录和草稿。删除当前会话后会切换到另一段会话，删除最后一段会打开空白会话。
 
 弧光回复中的 Markdown 标题、列表、表格和引用会直接排版。代码块默认软换行，可关闭换行后横向滚动。「复制代码」保留原有缩进和换行。Markdown 文档块可切换预览和原文，并单独复制或下载。以 Markdown 标题开头的回复也可以整条复制原文或下载为 .md。
 

@@ -2147,11 +2147,9 @@
   min-width: 80px;
 }
 
-.node-v2-appendix-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.node-v2-appendix-type-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
 }
 
 .node-v2-appendix-btn {
@@ -2180,6 +2178,7 @@
 .node-v2-status-pill {
   display: flex;
   align-items: center;
+  gap: 5px;
   height: 40px;
   padding: 0 14px;
   font-size: 13px;

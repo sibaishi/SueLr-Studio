@@ -87,7 +87,9 @@ Current cleanup and ownership notes:
 - new application code must not import from `@/lib/*`
 - canonical homes are:
   - app shell constants in `src/app/`
-  - shared icons and status helpers in `src/shared/ui/`
+  - shared UI components in `src/shared/ui/`
+  - node glyphs in `src/domains/workflow/components/nodes/WorkflowNodeIcon.tsx`, keyed by the workflow node catalog
+  - the theme-aware app icon sources in `build/icon.svg` (dark) and `build/icon-light.svg` (light). Keep both runtime PNGs and the default dark ICO and ICNS exports in sync. The renderer updates the favicon and sends its resolved theme through preload to `electron/app-icon.cjs`
   - provider contracts and routing in `src/shared/providers/`
   - browser/runtime helpers in `src/shared/runtime/`
   - shared frontend contracts in `src/shared/types/`

@@ -8,5 +8,4 @@ export { AutoTextarea } from './AutoTextarea';
 export { IOSLabel } from './IOSLabel';
 export { CollapsibleSection } from './CollapsibleSection';
 export { SplashScreen } from './SplashScreen';
-export { RoleIcon } from './RoleIcon';
 export { LogPanel } from './LogPanel';

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
+const { createAppIconController } = require('./app-icon.cjs');
 const path = require('node:path');
 const { buildRelaunchOptions } = require('./relaunch.cjs');
 const { buildApplicationMenuTemplate } = require('./menu.cjs');
@@ -10,6 +11,12 @@ const { openDataDirectory, openLogsDirectory } = require('./runtime-paths.cjs');
 let mainWindow = null;
 let backendServer = null;
 let relaunching = false;
+const appIcon = createAppIconController({
+  dock: app.dock,
+  getWindow: () => mainWindow,
+  platform: process.platform,
+  resolveAppPath,
+});
 const { hasLock: hasSingleInstanceLock } = setupSingleInstance(app, () => focusMainWindow());
 
 function resolveAppPath(...segments) {
@@ -41,7 +48,7 @@ function createWindow(url) {
     BrowserWindow,
     shell,
     url,
-    iconPath: resolveAppPath('build', 'icon.ico'),
+    iconPath: appIcon.initialIconPath,
     app,
   });
 }
@@ -66,8 +73,8 @@ function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function setupIPC() {
-  const { ipcMain } = require('electron');
+function setupIPC(url) {
+  ipcMain.on('app-icon:set-theme', appIcon.handleTheme(new URL(url).origin));
 
   ipcMain.on('focus:window', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -94,7 +101,7 @@ app.whenReady().then(async () => {
     relaunchApp,
   });
   backendServer = backend.server;
-  setupIPC();
+  setupIPC(backend.url);
   installApplicationMenu();
   createWindow(backend.url);
 

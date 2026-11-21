@@ -310,7 +310,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
       {!hasContent ? (
         <div className="node-gallery-frame-v2" style={{ flexDirection: 'column', gap: 8 }}>
           <div className="node-gallery-empty-v2">
-            <Stack size={32} strokeWidth={1.2} />
+            <Stack size={32} weight="light" />
             <span>待输入</span>
           </div>
           {canDrawSketch && nodeId && (

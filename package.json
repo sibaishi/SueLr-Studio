@@ -92,6 +92,7 @@
       "electron/**/*",
       "build/icon.ico",
       "build/icon.png",
+      "build/icon-light.png",
       "build/icon.icns",
       "backend/**/*",
       "src/shared/workflow/**/*",

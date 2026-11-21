@@ -22,12 +22,13 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import type { PortDef } from '@/domains/workflow/lib/types';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
-import { CaretDown, CaretRight, Copy, LockOpen, LockSimple, Play, Prohibit } from '@phosphor-icons/react';
+import { CaretDown, CaretRight, Copy, LockOpen, LockSimple, Play, Prohibit, Warning } from '@phosphor-icons/react';
 import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
 import { type CSSProperties, memo, useEffect, useMemo, useState } from 'react';
 import { NodeContent } from './NodeContent';
 import { InputPort, OutputPort } from './NodePorts';
-import { NODE_ICONS, STATUS_BADGE } from './nodeConstants';
+import { STATUS_BADGE } from './nodeConstants';
+import { WorkflowNodeIcon } from './WorkflowNodeIcon';
 import { useBufferedStringField } from './useBufferedStringField';
 import './node.css';
 import './nodeAnimations.css';
@@ -70,7 +71,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const minSize = def.maxOutputs
     ? getNodeAutoExpandedSize(type, inputCount, outputCount)
     : getNodeDefaultSize(type, inputCount);
-  const Icon = NODE_ICONS[def.icon] || NODE_ICONS.eye;
   const effectiveOutputs: PortDef[] = def.maxOutputs ? getExpandedNodeOutputs(type, data) : def.outputs;
   const hasOutputs = effectiveOutputs.length > 0;
   const isDisabled = Boolean(data.disabled);
@@ -221,6 +221,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                   updateNodeData(id, { disabled: !isDisabled });
                 }}
                 title={isDisabled ? '启用' : '禁用'}
+                aria-label={isDisabled ? '启用' : '禁用'}
               >
                 <Prohibit size={15} style={{ color: isDisabled ? 'var(--t-red)' : undefined }} />
               </button>
@@ -232,6 +233,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                   toggleNodesLocked([id], !isDirectlyLocked);
                 }}
                 title={isLocked ? '解锁' : '锁定'}
+                aria-label={isLocked ? '解锁' : '锁定'}
               >
                 {isLocked ? <LockSimple size={15} /> : <LockOpen size={15} />}
               </button>
@@ -243,6 +245,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                   duplicateNode(id);
                 }}
                 title="复制"
+                aria-label="复制"
               >
                 <Copy size={15} />
               </button>
@@ -254,6 +257,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                   executeWorkflowToNode(id);
                 }}
                 title="执行到此节点"
+                aria-label="执行到此节点"
               >
                 <Play size={15} />
               </button>
@@ -297,7 +301,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                   }}
                   title={warningMessage}
                 >
-                  ⚠ {warningMessage}
+                  <Warning size={14} aria-hidden="true" style={{ verticalAlign: 'text-bottom' }} /> {warningMessage}
                 </span>
               )}
               {execStatus !== 'idle' && statusText && (
@@ -371,7 +375,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
         <div className="flow-node__stack">
           <div className="flow-node__header" style={{ minHeight: isGroupNode ? GROUP_HEADER_HEIGHT : undefined }}>
             <span className="flow-node__icon">
-              <Icon size={15} strokeWidth={2.1} />
+              <WorkflowNodeIcon name={def.icon} size={15} />
             </span>
             {isGroupNode ? (
               <input
@@ -404,7 +408,7 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
               title={isDirectlyLocked ? '解锁节点' : '锁定节点'}
               aria-label={isDirectlyLocked ? '解锁节点' : '锁定节点'}
             >
-              {isLocked ? <LockSimple size={14} strokeWidth={2.2} /> : <LockOpen size={14} strokeWidth={2.2} />}
+              {isLocked ? <LockSimple size={14} /> : <LockOpen size={14} />}
             </button>
             {isGroupNode && (
               <button

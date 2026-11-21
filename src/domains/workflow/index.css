@@ -191,6 +191,10 @@ body {
   transform: translateY(-1px);
 }
 
+.workflow-floating-toolbar__icon {
+  display: inline-flex;
+}
+
 .workflow-floating-toolbar__button:active {
   transform: translateY(0);
 }

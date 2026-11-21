@@ -1,6 +1,8 @@
 import { loadJSON } from '@/shared/runtime';
 import type { ThemeMode } from '@/shared/types';
 import { useEffect, useState } from 'react';
+import darkIcon from '../../../build/icon.svg?inline';
+import lightIcon from '../../../build/icon-light.svg?inline';
 import { DARK, LIGHT } from './constants';
 
 export function useThemeState() {
@@ -14,12 +16,15 @@ export function useThemeState() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  useEffect(() => {
-    const theme = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode;
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [themeMode, systemDark]);
+  const theme = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode;
 
-  const colors = themeMode === 'system' ? (systemDark ? DARK : LIGHT) : themeMode === 'dark' ? DARK : LIGHT;
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.querySelector<HTMLLinkElement>('#app-icon')?.setAttribute('href', theme === 'light' ? lightIcon : darkIcon);
+    window.electronAPI?.setIconTheme?.(theme);
+  }, [theme]);
+
+  const colors = theme === 'dark' ? DARK : LIGHT;
 
   return {
     colors,

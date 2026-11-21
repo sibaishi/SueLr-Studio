@@ -266,7 +266,7 @@ export default function WorkflowLibraryModal({
                       opacity: workflow.coverUrl ? 0 : 0.16,
                     }}
                   >
-                    <ShareNetwork size={48} strokeWidth={1.5} />
+                    <ShareNetwork size={48} weight="light" />
                   </div>
 
                   <div

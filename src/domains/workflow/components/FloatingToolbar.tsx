@@ -1,8 +1,11 @@
-import { THEME_ICONS, THEME_LABELS } from '@/app/theme/constants';
+import { THEME_LABELS } from '@/app/theme/constants';
+import { ArcIcon } from '@/domains/agent/ArcIcon';
 import type { ThemeMode } from '@/shared/types';
-import { Icon } from '@/shared/ui/icons';
-import { AlignTop, FolderOpen, Gear, GridNine, Plus, Sidebar, SidebarSimple, Sparkle } from '@phosphor-icons/react';
+import { FolderOpen, Gear, GridNine, Monitor, Moon, Plus, Sun } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
+import { ArrangeNodesIcon, ResultsSidebarIcon } from './CanvasToolIcons';
+
+const THEME_ICONS = { dark: Moon, light: Sun, system: Monitor };
 
 interface FloatingToolbarProps {
   onAddNode: () => void;
@@ -33,6 +36,7 @@ export default function FloatingToolbar({
   snapToGridEnabled,
   onAutoArrange,
 }: FloatingToolbarProps) {
+  const ThemeIcon = THEME_ICONS[themeMode];
   return (
     <div className="workflow-floating-tools">
       <button
@@ -44,7 +48,7 @@ export default function FloatingToolbar({
         aria-pressed={agentOpen}
         onClick={onToggleAgent}
       >
-        <Sparkle size={19} />
+        <ArcIcon size={20} />
       </button>
       <div className="workflow-floating-toolbar" aria-label="工作流工具">
         <FloatingToolbarButton
@@ -60,7 +64,7 @@ export default function FloatingToolbar({
           testId="workflow-open-assets"
         />
         <FloatingToolbarButton
-          icon={rightPanelCollapsed ? <Sidebar size={16} /> : <SidebarSimple size={16} />}
+          icon={<ResultsSidebarIcon open={!rightPanelCollapsed} />}
           label={rightPanelCollapsed ? '展开结果栏' : '收起结果栏'}
           onClick={onToggleRightPanel}
           testId="workflow-toggle-right-panel"
@@ -74,7 +78,7 @@ export default function FloatingToolbar({
           testId="workflow-toggle-snap-grid"
         />
         <FloatingToolbarButton
-          icon={<AlignTop size={16} />}
+          icon={<ArrangeNodesIcon />}
           label="自动整理"
           onClick={onAutoArrange}
           testId="workflow-auto-arrange"
@@ -86,7 +90,7 @@ export default function FloatingToolbar({
           testId="workflow-open-settings"
         />
         <FloatingToolbarButton
-          icon={<Icon name={THEME_ICONS[themeMode]} size={16} />}
+          icon={<ThemeIcon size={16} />}
           label={`调整主题：${THEME_LABELS[themeMode]}`}
           onClick={onToggleTheme}
           testId="workflow-toggle-theme"
@@ -122,7 +126,9 @@ function FloatingToolbarButton({
       onClick={onClick}
       style={active || pressed ? { color: 'var(--color-accent)' } : undefined}
     >
-      {icon}
+      <span className="workflow-floating-toolbar__icon" aria-hidden="true">
+        {icon}
+      </span>
     </button>
   );
 }
