@@ -9,12 +9,12 @@ import {
   Plus,
   Trash,
   Upload,
-  X,
 } from '@phosphor-icons/react';
-import type { ReactNode } from 'react';
+import { FloatingSurface, IconButton as StatusbarIconButton } from '@/ui/CanvasPrimitives';
+import CanvasDocumentTab from './CanvasDocumentTab';
 
 interface StatusBarProps {
-  documents: WorkflowDocument[];
+  documents: Pick<WorkflowDocument, 'documentId' | 'name' | 'hasUnsavedChanges' | 'isExecuting'>[];
   activeDocumentId: string;
   onSelectDocument: (documentId: string) => void;
   onCloseDocument: (documentId: string) => void;
@@ -52,42 +52,16 @@ export default function StatusBar({
 }: StatusBarProps) {
   return (
     <div className="workflow-statusbar">
-      <div className="workflow-statusbar__frame glass">
+      <FloatingSurface className="workflow-statusbar__frame">
         <div className="workflow-document-tabs" data-testid="workflow-document-tabs">
           {documents.map((document) => (
-            <button
+            <CanvasDocumentTab
               key={document.documentId}
-              type="button"
-              className={`workflow-document-tab ${document.documentId === activeDocumentId ? 'workflow-document-tab--active' : ''}`}
-              onClick={() => onSelectDocument(document.documentId)}
-              data-testid={`workflow-document-tab-${document.documentId}`}
-              title={document.name}
-            >
-              {document.isExecuting && <span className="workflow-document-tab__run-dot" title="运行中" />}
-              <span className="workflow-document-tab__label">
-                {document.name || '未命名工作流'}
-                {document.hasUnsavedChanges ? ' *' : ''}
-              </span>
-              <span
-                role="button"
-                tabIndex={0}
-                className="workflow-document-tab__close"
-                aria-label="关闭标签"
-                title="关闭标签"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onCloseDocument(document.documentId);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onCloseDocument(document.documentId);
-                }}
-              >
-                <X size={12} />
-              </span>
-            </button>
+              {...document}
+              active={document.documentId === activeDocumentId}
+              onSelect={onSelectDocument}
+              onClose={onCloseDocument}
+            />
           ))}
         </div>
 
@@ -139,46 +113,7 @@ export default function StatusBar({
         <div className="workflow-statusbar__version">
           <span className="workflow-statusbar__version-pill">SueLr Studio v{APP_VERSION}</span>
         </div>
-      </div>
+      </FloatingSurface>
     </div>
-  );
-}
-
-function StatusbarIconButton({
-  icon,
-  label,
-  onClick,
-  disabled = false,
-  active = false,
-  testId,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  active?: boolean;
-  testId?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      data-testid={testId}
-      className="workflow-toolbar__icon-button"
-      style={{
-        opacity: disabled ? 0.45 : 1,
-        color: active
-          ? 'var(--color-accent)'
-          : disabled
-            ? 'var(--color-text-quaternary)'
-            : 'var(--color-text-secondary)',
-        background: active ? 'rgba(10,132,255,0.12)' : 'transparent',
-      }}
-      title={label}
-      aria-label={label}
-    >
-      {icon}
-    </button>
   );
 }

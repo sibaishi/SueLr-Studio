@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { LibraryAsset } from '../lib/api/assets';
 import AssetLibraryModal from './AssetLibraryModal';
-import './file-source.css';
+import { MenuGroup, MenuItem } from '@/ui/MenuPrimitives';
 
 export default function FileSourceButton({
   children,
@@ -63,10 +63,10 @@ export default function FileSourceButton({
           event.stopPropagation();
           if (position) return setPosition(undefined);
           const rect = event.currentTarget.getBoundingClientRect();
-          const above = rect.bottom + 100 > window.innerHeight;
+          const above = rect.bottom + 160 > window.innerHeight;
           setPosition({
             left: Math.max(8, Math.min(rect.left, window.innerWidth - 188)),
-            top: above ? rect.top - 6 : rect.bottom + 6,
+            top: above ? rect.top - 8 : rect.bottom + 8,
             above,
           });
         }}
@@ -95,18 +95,16 @@ export default function FileSourceButton({
               }
             }}
           >
-            <div className="menu-group">
-              <button
-                type="button"
+            <MenuGroup label="添加来源">
+              <MenuItem
                 onClick={() => {
                   setPosition(undefined);
                   setLibrary(true);
                 }}
               >
                 <FolderOpen size={16} /> 从资产库添加文件
-              </button>
-              <button
-                type="button"
+              </MenuItem>
+              <MenuItem
                 onClick={() => {
                   setPosition(undefined);
                   trigger.current?.focus();
@@ -114,8 +112,8 @@ export default function FileSourceButton({
                 }}
               >
                 <HardDrive size={16} /> 从本地添加文件
-              </button>
-            </div>
+              </MenuItem>
+            </MenuGroup>
           </div>,
           document.body,
         )}

@@ -7,6 +7,7 @@ import {
   ensureGeneratedThumbnailFromFile,
   getGeneratedThumbnailPath,
 } from '../../platform/media/image-thumbnails.ts';
+import { deleteOutputGeneration, readOutputGeneration } from '../../platform/media/output-generation.ts';
 import { ensureResourceOwnership } from '../../platform/runtime/index.ts';
 import {
   STORAGE_PATHS,
@@ -158,6 +159,7 @@ export class FilesRepository {
           height: dimensions?.height,
           size: stat.size,
           modifiedAt: stat.mtimeMs,
+          generation: readOutputGeneration(relativePath.split(path.sep).join('/'), options.scope),
         };
         const scopedOutput = ensureResourceOwnership(output as DynamicValue, options.scope) as PlainObject;
         if (!isResourceVisibleForScope(scopedOutput, options.scope)) continue;
@@ -201,6 +203,7 @@ export class FilesRepository {
 
         const relativePath = path.relative(root, filePath).split(path.sep).join('/');
         fs.unlinkSync(filePath);
+        deleteOutputGeneration(relativePath, options.scope);
         deleteGeneratedThumbnail(relativePath, { scope: options.scope });
         removed += 1;
       }

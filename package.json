@@ -96,6 +96,7 @@
       "build/icon.icns",
       "backend/**/*",
       "src/shared/workflow/**/*",
+      "src/shared/types/generation.ts",
       "package.json",
       "!node_modules/**/*",
       "!backend/package-lock.json",

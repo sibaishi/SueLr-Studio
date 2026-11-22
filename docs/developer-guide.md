@@ -28,6 +28,44 @@ Repository note:
 - the active trunk in this repository is currently `main`
 - release-planning docs may still describe a future or cross-repo `main` model, but maintenance work in this repo should follow the actual local branch layout
 
+## Canvas Visual Foundations
+
+Updated 2026-11-22: `src/ui/foundations.css` owns the reusable floating-surface and icon-button styles (`ui-floating-surface`, `ui-icon-button`) and their dark/light semantic tokens. It is imported by the workflow stylesheet. New consumers should reuse these foundations instead of declaring per-component blur, border, shadow, hover, active, or disabled colors. The surface uses an inset hairline so borders do not alter layout dimensions. Both themes define their own surface and control colors; the shared default is dark.
+
+`src/domains/workflow/index.css` owns canvas placement and its `--canvas-*` tokens, including bottom-bar clearance, minimap masking, and theme-aware grid glow. Workflow React components compose these foundations without changing graph state or command ownership. Layout uses a 4px step and prefers 12px rhythm; borders, typography and optical drawing values can be finer. This is the first migrated surface, not a completed app-wide design system; other domain styles are not yet migrated.
+
+The reusable React entry is `src/ui/CanvasPrimitives.tsx`: `FloatingSurface`, `IconButton`, `ActionButton`, and `ToolGroup`. They own native button semantics, accessible names, standard/compact sizing and active/pressed/disabled states; styles remain centralized in `foundations.css`. Use `pressed` for toggle state and `active` for attention indicators such as unsaved content. Tool groups use group semantics and normal Tab navigation.
+
+Workflow-specific `CanvasRunControls`, `CanvasDocumentTab`, and `CanvasNavigation` live under `src/domains/workflow/components/` and are used by the editor and component catalogue. Document selection and close controls are sibling native buttons; `aria-current` identifies the selected document. Navigation must stay inside React Flow and consumes its viewport directly.
+
+In Vite development, `/?view=canvas-components` opens one interactive virtual canvas. Nodes, a containing group, edges, document tabs, tools, minimap, run controls and the selected-node editor share this canvas. Switch themes without remounting the fixture; use the optional inspector for content/state variants. React Flow owns fixture nodes, edges and viewport through local hooks. No App, workflow store, API requests or project persistence are initialized. The route is excluded from production builds. Layout stays in the workflow stylesheet, with no component-specific style files. `WorkflowGalleryNode` adapts production card/group presentations; `WorkflowGalleryPanel` composes the production input, attachment, model and parameter components with local demo callbacks. The real image/text preview modal is reused with an optional portal theme; its canvas editor dependency loads only when editing is requested. Upload sources use bundled sample data rather than reading local files or assets. Other app domains still require migration.
+
+### Shared node presentation
+
+Updated 2026-11-22: `WorkflowNodePrimitives.tsx` owns the presentation-only `WorkflowNodeSurface`, `WorkflowNodeHeader`, `WorkflowNodeHandle` and `WorkflowNodeStatus` components. Both `FlowNode` and `V2WorkflowNodeShell` consume them. `node-foundations.css` is the single owner of the shared node palette, shell states, port rows/handles and status badges; duplicated palette and shell-state declarations were removed from `node.css` and `node-v2.css`. Those renderer styles retain content and group-specific layout.
+
+The active canvas registers only AI, IO and group nodes (`flowCanvasConfig.ts`). Generic labelled-port branches in `FlowNode` are not a current catalogue variant. AI/IO retain their current layered card shadows, floating toolbar and external status appendix; they must not inherit the generic header or group treatment. Execution state, selection, disabled and locked flags remain independent; errors take precedence over running/warning/success colours, and locking never hides an execution result. Running animation stops for disabled nodes and reduced-motion preferences. Existing handle IDs, node definitions, execution commands, resizing and group layout contracts are preserved. The legacy labelled port inset is now 20px; handle circles/borders and edge-centred offsets remain optical exceptions.
+
+Correction 2026-11-22: the former synthetic standard/card/group preview was incorrect and has been removed. `WorkflowCardPresentation` and `WorkflowCardToolbar` now own the actual AI/IO shell structure used by both the connected renderer and catalogue. `WorkflowGroupPresentation.tsx` owns the group surface, header and frame consumed by `FlowNode` and the catalogue. Group title editing, locking and expand/collapse controls are included. Group previews intentionally do not show AI/IO execution appendices, matching the production renderer. The gallery uses isolated callbacks and local fixture state; card previews now compose the shared content frame and empty state; model and file actions remain isolated fixtures. Do not create lookalike node structures for the catalogue or present an unregistered generic node as a current component.
+
+AI/IO rename triggers remain keyboard-focusable. Keyboard focus reveals the appendix, and Enter/Escape return focus to the title after editing; Tab/blur retain normal focus movement. Existing graph IDs, model configuration, execution and persistence remain owned by the connected renderer.
+
+### Shared text entry and node content
+
+Updated 2026-11-22: consolidation proceeds by component responsibility across AI and IO. `src/ui/TextComposer.tsx` owns the existing textarea-plus-toolbar structure; both `AiStylePanel` (all five modes) and `IoStylePanel` consume it. Native textarea props, Chinese IME behaviour, prompt update callbacks and IO buffered persistence stay with callers. `.text-composer` styles now live once in `src/ui/foundations.css`, including shared padding (12px), radius (16px), neutral focus, read-only, disabled and invalid states. The previous declarations in `src/index.css` were removed; that entry imports the shared foundations for other composers.
+
+`WorkflowContentPrimitives.tsx` provides `NodeContentSurface`, `NodeContentFrame`, `NodeEmptyState`, `NodeTextPreview`, `NodeImagePreview` and `NodeMediaPreview`. Both current AI and IO content renderers consume these components. Frame variants describe content layouts (preview, empty, text, list); text and image variants describe response/snippet and full/thumbnail usage, never node types. Their appearance is centralized in `node-foundations.css`; the former `node-gallery-*-v2` rules and inline snippet hover mutations were removed. Image and text preview activation supports keyboard Enter/Space as well as the existing double-click entry. Preview modals, uploads, ordering, model output resolution and upstream connection handling remain in connected business components.
+
+The AI/IO shell fixtures also compose the production content frame and empty state. The catalogue includes an isolated shared-content section for text entry states and empty/text/image/audio/video presentation. Native media controls have no source in this fixture and do not fetch remote assets. Model lookup and file actions retain their business components; shared menu controls are described below. This is not completion of the entire form or media library.
+
+### Shared menus and parameter controls
+
+Updated 2026-11-22: `src/ui/MenuPrimitives.tsx` provides `MenuTrigger`, `MenuGroup`, `MenuItem`, `ChoiceGroup`, `ControlField` and `SearchInput`. `src/ui/foundations.css` is the single visual owner for menu/control sizes, hover, expanded/pressed, disabled and focus states in both themes. These are native buttons and labelled fields with normal Tab navigation, not ARIA menu/listbox widgets. Choice buttons retain independent pressed semantics.
+
+`ModelTreeSelector.tsx` owns workflow-specific channel/category/model filtering and composes the common menu primitives. AI modes share that selector and the same parameter choice/field controls; `FileSourceButton` uses the same groups/items while retaining local picker and asset-library callbacks. `WorkflowStylePanelShell` owns panel resizing and popover dismissal (outside click and Escape with trigger focus restoration). Static panel geometry, cascade layout and file-source positioning styles live in `src/domains/workflow/index.css`; only measured height and anchor coordinates remain inline. Parameter triggers are 28px high, menu options and inputs have a 32px minimum, and group spacing/radii use 4px steps.
+
+The former `ai-parameters.css` and `file-source.css` have been removed. The agent panel no longer imports workflow parameter styles; its existing menus reference the shared foundation classes/tokens. `WorkflowGalleryPanel` mounts the production workflow model selector and popover in the selected-node editor using local fixture models. It covers search, cascade navigation, selected/no-result/no-enabled-model states, parameter choices/quantity, toggles and file-source options without opening files or writing settings. Model IDs, capability routing, numeric constraints and runtime handlers remain with existing business callers.
+
 ## Encoding Baseline
 
 Repository text files should remain `UTF-8` without BOM.
@@ -628,6 +666,66 @@ The workflow client supports both its existing JSON format and ZIP bundles with 
 
 弧光通过 `load_skill` 和 `read_skill_resource` 在单次对话请求中加载技能正文与引用文本。前端发送技能目录及有界资料，后端仅向上游模型提供目录、显式指定的正文，以及工具调用所需的内容。技能元数据不改变现有工具授权。
 
-弧光、IO 和 AI 能力的输入区在 `src/index.css` 共用 `text-composer`，多行编辑器使用中性色焦点提示。
+弧光、IO 和 AI 能力的输入区通过 `src/ui/foundations.css` 共用 `text-composer`，多行编辑器使用中性色焦点提示。
 
 工作流页面维护弧光的停靠和浮动可见性。同一个会话组件在两种模式之间切换，浮窗的移动、缩放和视口约束由 `useAgentWindow` 管理。
+
+
+### Component catalogue organization
+
+Updated 2026-11-22: catalogue navigation follows canvas objects rather than source-file boundaries. Each theme has a Node section containing complete AI/IO presentations, state controls, and a native expandable “组成部分” area for the existing content and menu fixtures. `WorkflowNodeGallery` composes those fixtures; their file boundaries remain independent of catalogue hierarchy. `WorkflowGroupGallery` is a peer section with its own selected/locked/collapsed state, reusing the production group presentation. Execution/disabled/warning controls apply only to AI/IO cards. All catalogue interactions remain local fixtures.
+
+Updated 2026-11-22: AI and IO upstream attachment rows share `NodeInputAttachments` and its strip/chip/thumbnail primitives in `WorkflowContentPrimitives.tsx`. Presentation owns transient drag feedback only; panels retain input resolution, same-type ordering callbacks and persistence. IO uploaded files reuse the same visual primitives. Styles live in `node-foundations.css`, with 4px spacing, 12px chip corners and 24/28px thumbnails; failed thumbnails show a type fallback. The existing Node → 组成部分 gallery includes isolated reorder/removal fixtures.
+
+Updated 2026-11-22 (supersedes the earlier sectional catalogue notes): the multi-section, dual-column catalogue has been replaced by the single virtual canvas described above. Former `WorkflowNodeGallery`, `WorkflowGroupGallery`, `WorkflowContentGallery` and `WorkflowMenuGallery` fixture sections are removed; node variants are selected on the canvas and inspected in context. Theme changes retain node positions, content and selection; resetting recreates fixture state. Grid colour resolution uses the canvas element’s inherited theme variables rather than document-root variables.
+
+
+### 画布组件层级表
+
+更新日期：2026-11-22。演示画板现已直接使用正式画布的 `Toolbar`、`FloatingToolbar` 和 `StatusBar`，复用它们的位置样式及 `workflow-page` 布局基准。此前演示页单独制作的顶部标签栏、横向工具栏、通栏页头页脚和常驻侧栏已移除。检查面板改为默认收起的悬浮层，展开时不改变 React Flow 画布的尺寸。`StatusBar` 仅接收展示所需的文档字段；正式页面的文档状态和操作仍由原有模块负责。
+
+后续每轮画布整理都要更新本表，并在回复中列出本轮涉及的层级和待整理项。层级表及相关说明统一使用中文；组件名和文件路径保留代码原名，方便定位。这里的层级表示组件职责，与节点所属分组、界面遮挡顺序是不同概念。“复用”表示演示页直接使用同一个正式组件，不代表整个应用的所有界面都已完成统一。
+
+| 层级 | 部分 | 负责模块／组件 | 当前状态 |
+| --- | --- | --- | --- |
+| L0 页面层 | 演示页入口和演示状态 | `CanvasComponentGallery.tsx` | 仅供开发检查；演示画布状态由本页的 React Flow 管理 |
+| L1 画布基础层 | 节点、连线、选中状态和视口 | `ReactFlow` | 复用画布引擎；使用独立演示数据 |
+| L1 画布基础层 | 网格和鼠标光效 | `GridDots`、`GridGlow` | 复用正式画布的绘制组件 |
+| L1 画布布局层 | 页面标识、工作流库入口、执行按钮 | `Toolbar` | 复用正式组件及其布局位置 |
+| L1 画布布局层 | 左侧竖向工具栏和弧光入口 | `FloatingToolbar` | 复用正式组件及其布局位置 |
+| L1 画布布局层 | 底部文档标签栏和操作栏 | `StatusBar` | 复用正式组件及其布局位置 |
+| L1 画布布局层 | 小地图和缩放控件 | `CanvasNavigation` | 复用正式组件；沿用底部避让间距 |
+| L1 画布布局层 | 结果栏与弧光的停靠、浮动及画布避让 | `workflow-flow-area`、`useAgentWindow` | 沿用正式布局；演示的检查工具避让侧栏 |
+| L1 开发检查层 | 检查、重置、主题切换工具 | `CanvasGalleryInspector.tsx` | 已独立提取；通过属性和回调操作演示数据，检查面板默认收起 |
+| L2 业务组合层 | AI 节点、输入输出节点的卡片及工具栏 | `WorkflowCardPresentation`、`WorkflowCardToolbar` | 复用正式节点的展示组件 |
+| L2 业务组合层 | 分组背景、标题栏和框架 | `WorkflowGroupPresentation.tsx` | 复用正式分组的展示组件 |
+| L2 业务组合层 | 选中节点的编辑面板容器 | `WorkflowStylePanelShell` | 复用底部位置及尺寸调整交互 |
+| L2 业务组合层 | 模型选择器和参数弹层 | `ModelTreeSelector`、`StylePanelPopoverButton` | 复用正式控件；模型列表使用演示数据 |
+| L2 业务组合层 | 图片和文本预览弹窗 | `ImagePreviewModal` | 复用正式弹窗，跟随演示页主题 |
+| L2 业务组合层 | 当次提示词、参考、参数及操作反馈 | `ResultGenerationDetails.tsx` | 正式结果与演示共用；三段内容分别提供复制、回填、复用 |
+| L2 业务流程层 | 参数复用、参考回填 | `generationActions.ts`、`generationReuse.ts` | 使用现有画布操作；检查模型启用及节点锁定，不自动执行 |
+| L3 数据契约层 | 当次生成记录及参数白名单 | `src/shared/types/generation.ts` | 前后端共用；不包含渠道凭证 |
+| L2 业务组合层 | 结果、执行记录与运行历史 | `ResultsPanelView`、`ResultsList`、`LogsList`、`RunHistoryList` | 正式结果栏与演示共用展示；读取、恢复和回填仍由 `ResultsPanel` 负责 |
+| L2 业务组合层 | 弧光标题、空白态、消息、回复、方案和输入区 | `AgentPresentation.tsx`、`AgentMarkdown`、`SkillLibrary` | 正式弧光与演示共用；会话、模型调用和画布修改仍由 `AgentPanel` 负责 |
+| L2 演示适配层 | 侧栏场景和本地交互 | `WorkflowGallerySidePanels.tsx` | 提供有内容、空白、处理中、错误四种场景；不访问会话、模型或项目存储 |
+| L2 演示适配层 | 演示节点和编辑面板的交互适配 | `WorkflowGalleryNode`、`WorkflowGalleryPanel` | 仅处理演示回调，不承担正式业务逻辑 |
+| L3 节点基础组件层 | 节点外壳、标题、连接端口和状态 | `WorkflowNodePrimitives.tsx` | 正式页面与演示页共用 |
+| L3 节点基础组件层 | 内容容器、空白态、文本、图片、音视频和附件 | `WorkflowContentPrimitives.tsx` | 正式页面与演示页共用；目前集中在一个源码模块中 |
+| L3 通用界面组件层 | 文本编辑器、菜单和表单控件 | `TextComposer`、`MenuPrimitives` | 共用基础组件 |
+| L3 通用界面组件层 | 侧栏容器、标题、卡片、空白态和切换按钮 | `PanelPrimitives.tsx` | 统一展示规则；接收领域提供的数据与回调 |
+| L3 通用界面组件层 | 悬浮容器、按钮和工具组 | `CanvasPrimitives` | 共用基础组件 |
+| L4 样式基础层 | 通用视觉变量和交互状态 | `src/ui/foundations.css` | 集中维护深色、浅色样式基准；包含侧栏底色、边界、文字、状态色和交互 |
+| L4 样式基础层 | 节点配色、内容和附件样式 | `node-foundations.css` | 集中维护节点样式基准 |
+| L4 领域排版层 | 结果排版与弧光消息、方案、Markdown 排版 | `workflow/index.css`、`agent-panel.css` | 保留领域布局；卡片、按钮和状态色使用共用基准，无新增组件样式文件 |
+| L4 布局样式层 | 画布工具布局和开发检查浮层 | `src/domains/workflow/index.css` | 复用正式画布的位置规则；演示页仅单独定义检查浮层的位置 |
+
+更新日期：2026-11-22（后续整理）。开发检查面板和右上角检查工具已一起移至 `CanvasGalleryInspector.tsx`，归属工作流领域的开发检查层。演示页保留状态和画布组装职责，检查组件仅接收属性并发出回调，不直接读写 React Flow 或项目存储。两者继续共用现有样式基准，没有新增样式文件。
+
+更新日期：2026-11-22（侧栏整理）。结果栏和弧光已纳入同一虚拟画布，左侧入口可切换侧栏；检查面板可选择侧栏及四种展示状态。结果页的记录、历史、错误及视频恢复入口复用正式展示；弧光的消息、Markdown、画布方案、生成方案、模型与技能菜单、输入区、停靠及浮动展示复用正式组件或排版。演示恢复、应用和发送只改变演示状态，不产生真实任务。领域展示模块不读取正式 store，业务容器保留原有请求、持久化和恢复流程。
+
+待整理项：资产库、设置、工作流库和各种预览、画板、文字编辑窗口进入后续整理；本轮未统一其完整样式。未接入的弹窗入口仍仅显示本地演示反馈。画板中的流程是示意数据，并非用户已保存工作流的副本。真实模型执行、文件选择、导入导出和项目保存不属于当前演示范围。
+
+
+更新日期：2026-11-22（真实结果生成信息）。执行服务为每次运行建立独立的生成记录映射；AI 各模式在获得结果后按实际请求记录提示词、参考及允许的参数。IO 保存结果时将记录绑定到输出文件，元信息保存在运行时存储解析器给出的 logsDir/output-generation 下，不混入输出文件列表。文件列表读取经校验的记录，清空结果时同步删除记录；同内容跨节点来源不明确时不强行归属。记录不改变节点结果、端口或调度协议，不持久化 API Key、渠道配置和供应商原始响应。
+
+结果详情与动作按上述层级维护，样式仍集中在 workflow/index.css 并使用 foundations.css 的深浅主题变量，未新增组件样式文件。画板示例只注入本地回调；真实 ResultsPanel 注入业务动作。记录覆盖工作流 AI → IO 保存链路；弧光直接生成、独立视频恢复及历史文件暂无可用快照。参考保留当次素材地址，不承诺供应商外链永久有效。

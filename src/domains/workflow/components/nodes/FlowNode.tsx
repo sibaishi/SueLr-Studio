@@ -13,7 +13,6 @@ import {
   GROUP_EXPANDED_LAYOUT,
   GROUP_CONTENT_INSET_BOTTOM,
   GROUP_CONTENT_INSET_X,
-  GROUP_HEADER_HEIGHT,
   enforceGroupLayout,
   getCollapsedGroupNodeSize,
   getEffectiveNodeSize,
@@ -22,12 +21,13 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
 import type { PortDef } from '@/domains/workflow/lib/types';
 import { NodeAppendix } from '@/shared/ui/NodeAppendix';
-import { CaretDown, CaretRight, Copy, LockOpen, LockSimple, Play, Prohibit, Warning } from '@phosphor-icons/react';
+import { Copy, LockOpen, LockSimple, Play, Prohibit } from '@phosphor-icons/react';
 import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
 import { type CSSProperties, memo, useEffect, useMemo, useState } from 'react';
 import { NodeContent } from './NodeContent';
 import { InputPort, OutputPort } from './NodePorts';
-import { STATUS_BADGE } from './nodeConstants';
+import { WorkflowNodeSurface, WorkflowNodeHeader, WorkflowNodeStatus } from './WorkflowNodePrimitives';
+import { WorkflowGroupSurface, WorkflowGroupHeader, WorkflowNodeFrame } from './WorkflowGroupPresentation';
 import { WorkflowNodeIcon } from './WorkflowNodeIcon';
 import { useBufferedStringField } from './useBufferedStringField';
 import './node.css';
@@ -79,7 +79,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const isRunning = execStatus === 'running' && !isDisabled;
   const isError = execStatus === 'error';
   const hasWarning = Boolean(warningMessage) && !isError;
-  const badge = STATUS_BADGE[execStatus];
   const [tick, setTick] = useState(() => Date.now());
   const currentNode = nodes.find((node) => node.id === id);
   const parentId = (currentNode as typeof currentNode & { parentId?: string })?.parentId;
@@ -162,17 +161,29 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
   const groupLayout = isCollapsed ? GROUP_COLLAPSED_LAYOUT : GROUP_EXPANDED_LAYOUT;
   const nodeStyle = {
     '--node-color': def.color,
-    ...(isGroupNode ? {
-      '--group-padding': `${groupLayout.padding}px`,
-      '--group-gap': `${groupLayout.gap}px`,
-    } : {}),
+    ...(isGroupNode
+      ? {
+          '--group-padding': `${groupLayout.padding}px`,
+          '--group-gap': `${groupLayout.gap}px`,
+        }
+      : {}),
   } as CSSProperties;
   const groupTitleField = useBufferedStringField(String((data.title as string) || '节点组'), (nextValue) => {
     updateNodeData(id, { title: nextValue });
   });
 
+  const NodeSurface = isGroupNode ? WorkflowGroupSurface : WorkflowNodeSurface;
+
   return (
-    <div
+    <NodeSurface
+      color={def.color}
+      {...(isGroupNode ? { collapsed: isCollapsed } : {})}
+      status={execStatus}
+      warning={hasWarning}
+      disabled={isDisabled}
+      locked={isLocked}
+      selected={selected}
+      variant={isGroupNode ? 'group' : 'standard'}
       className={className}
       style={{
         ...nodeStyle,
@@ -180,7 +191,6 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
         height: '100%',
         minWidth: collapsedGroupSize ? collapsedGroupSize.width : minSize.w,
         minHeight: collapsedGroupSize ? collapsedGroupSize.height : minSize.h,
-        animation: isRunning ? 'pulse-border 1.5s ease-in-out infinite' : undefined,
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
@@ -265,72 +275,13 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
           </NodeAppendix>
           {(isDisabled || hasWarning || execStatus !== 'idle') && (
             <NodeAppendix position="bottom" showOnHover={false}>
-              {isDisabled && (
-                <span
-                  style={{
-                    padding: '6px 14px',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    borderRadius: 10,
-                    background: 'var(--t-card)',
-                    backdropFilter: 'blur(40px)',
-                    border: '1px solid var(--t-border)',
-                    color: 'var(--t-text3)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}
-                >
-                  已禁用
-                </span>
-              )}
-              {hasWarning && (
-                <span
-                  style={{
-                    padding: '6px 14px',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    borderRadius: 10,
-                    background: 'var(--t-card)',
-                    backdropFilter: 'blur(40px)',
-                    border: '1px solid var(--t-border)',
-                    color: 'var(--t-orange)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}
-                  title={warningMessage}
-                >
-                  <Warning size={14} aria-hidden="true" style={{ verticalAlign: 'text-bottom' }} /> {warningMessage}
-                </span>
-              )}
-              {execStatus !== 'idle' && statusText && (
-                <span
-                  style={{
-                    padding: '6px 14px',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    borderRadius: 10,
-                    background: 'var(--t-card)',
-                    backdropFilter: 'blur(40px)',
-                    border: '1px solid var(--t-border)',
-                    color: badge.color || 'var(--t-text)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}
-                  title={badge.label + (execError ? `: ${execError}` : '')}
-                >
-                  {badge.label === 'running'
-                    ? '执行中'
-                    : badge.label === 'error'
-                      ? '出错'
-                      : badge.label === 'success'
-                        ? '完成'
-                        : badge.label}{' '}
-                  {statusText}
-                </span>
-              )}
+              <WorkflowNodeStatus
+                status={execStatus}
+                disabled={isDisabled}
+                warning={hasWarning ? warningMessage : undefined}
+                error={execError}
+                duration={statusText}
+              />
             </NodeAppendix>
           )}
         </>
@@ -371,13 +322,16 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
           boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
         }}
       />
-      <div className="flow-node__frame">
-        <div className="flow-node__stack">
-          <div className="flow-node__header" style={{ minHeight: isGroupNode ? GROUP_HEADER_HEIGHT : undefined }}>
-            <span className="flow-node__icon">
-              <WorkflowNodeIcon name={def.icon} size={15} />
-            </span>
-            {isGroupNode ? (
+      <WorkflowNodeFrame>
+        {isGroupNode ? (
+          <WorkflowGroupHeader
+            icon={def.icon}
+            collapsed={isCollapsed}
+            locked={isLocked}
+            directlyLocked={isDirectlyLocked}
+            onToggleLocked={() => toggleNodesLocked([id], !isDirectlyLocked)}
+            onToggleCollapsed={() => toggleGroupCollapsed(id)}
+            title={
               <input
                 value={groupTitleField.value}
                 onChange={(event) => groupTitleField.onChange(event.target.value)}
@@ -392,9 +346,14 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
                 onMouseDown={(event) => event.stopPropagation()}
                 onKeyDown={(event) => event.stopPropagation()}
               />
-            ) : (
-              <span className="flow-node__title">{def.label}</span>
-            )}
+            }
+          />
+        ) : (
+          <WorkflowNodeHeader className="flow-node__header">
+            <span className="flow-node__icon">
+              <WorkflowNodeIcon name={def.icon} size={15} />
+            </span>
+            <span className="flow-node__title">{def.label}</span>
             <button
               type="button"
               className={['flow-node__lock-button', 'nodrag', isDirectlyLocked ? 'flow-node__lock-button--active' : '']
@@ -410,61 +369,45 @@ function FlowNode({ id, type, data, selected, isConnectable }: FlowNodeProps) {
             >
               {isLocked ? <LockSimple size={14} /> : <LockOpen size={14} />}
             </button>
-            {isGroupNode && (
-              <button
-                type="button"
-                className="flow-node__collapse-button nodrag"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggleGroupCollapsed(id);
-                }}
-                onMouseDown={(event) => event.stopPropagation()}
-                title={isCollapsed ? '展开节点组' : '折叠节点组'}
-                aria-expanded={!isCollapsed}
-                aria-label={isCollapsed ? '展开节点组' : '折叠节点组'}
-              >
-                {isCollapsed ? <CaretRight size={14} /> : <CaretDown size={14} />}
-              </button>
-            )}
+          </WorkflowNodeHeader>
+        )}
+
+        {!isGroupNode && effectiveInputs.length > 0 && (
+          <div className="flow-node__ports flow-node__ports--inputs">
+            {effectiveInputs.map((input) => (
+              <InputPort
+                key={input.id}
+                input={input}
+                connected={connectedInputs.has(input.id)}
+                isConnectable={isConnectable}
+                color={def.color}
+              />
+            ))}
           </div>
+        )}
 
-          {!isGroupNode && effectiveInputs.length > 0 && (
-            <div className="flow-node__ports flow-node__ports--inputs">
-              {effectiveInputs.map((input) => (
-                <InputPort
-                  key={input.id}
-                  input={input}
-                  connected={connectedInputs.has(input.id)}
-                  isConnectable={isConnectable}
-                  color={def.color}
-                />
-              ))}
-            </div>
-          )}
+        {!isGroupNode && (
+          <NodeContent
+            type={type}
+            data={data}
+            nodeId={id}
+            def={def}
+            updateNodeData={updateNodeData}
+            outputs={nodeOutputs}
+            showBottomBorder={hasOutputs}
+            connectedInputCount={connectedInputs.size}
+          />
+        )}
 
-          {!isGroupNode && (
-            <NodeContent
-              type={type}
-              data={data}
-              nodeId={id}
-              def={def}
-              updateNodeData={updateNodeData}
-              outputs={nodeOutputs}
-              showBottomBorder={hasOutputs}
-              connectedInputCount={connectedInputs.size}
-            />
-          )}
-
-          {!isGroupNode && hasOutputs && (
-            <div className="flow-node__ports flow-node__ports--outputs">
-              {effectiveOutputs.map((output) => (
-                <OutputPort key={output.id} output={output} isConnectable={isConnectable} color={def.color} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+        {!isGroupNode && hasOutputs && (
+          <div className="flow-node__ports flow-node__ports--outputs">
+            {effectiveOutputs.map((output) => (
+              <OutputPort key={output.id} output={output} isConnectable={isConnectable} color={def.color} />
+            ))}
+          </div>
+        )}
+      </WorkflowNodeFrame>
+    </NodeSurface>
   );
 }
 

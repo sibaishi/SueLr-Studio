@@ -25,7 +25,7 @@ export function GridGlow({ radius, containerWidth, containerHeight, mouseScreenP
         borderRadius: '50%',
         pointerEvents: 'none',
         opacity: alpha * 0.55,
-        background: 'radial-gradient(circle, rgba(10,132,255,0.18) 0%, rgba(10,132,255,0.06) 40%, transparent 70%)',
+        background: 'var(--canvas-grid-halo)',
       }}
     />
   );

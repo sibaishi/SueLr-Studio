@@ -69,6 +69,7 @@ export async function execute(
             const savedResult = await materializeContentForOutput(aiItems.length === 1 ? aiItems[0] : aiItems, {
               prefix: 'io',
               scope: apiConfig.scope,
+              generationRecords: apiConfig.generationRecords,
             });
             // Rebuild result in original order: AI items → saved URLs, others → passthrough
             let aiIdx = 0;
@@ -102,7 +103,11 @@ export async function execute(
         return finalize({ result: raw });
       }
       sendProgress?.('正在保存...');
-      const rawSaveResult = await materializeContentForOutput(raw, { prefix: 'io', scope: apiConfig.scope });
+      const rawSaveResult = await materializeContentForOutput(raw, {
+        prefix: 'io',
+        scope: apiConfig.scope,
+        generationRecords: apiConfig.generationRecords,
+      });
       return finalize({
         result: rawSaveResult.content ?? raw,
         savedFiles: rawSaveResult.savedFiles,
@@ -139,7 +144,11 @@ export async function execute(
       if (aiItems.length > 0) {
         sendProgress?.('正在保存 AI 生成内容...');
         const raw = aiItems.length === 1 ? aiItems[0] : aiItems;
-        savedResult = await materializeContentForOutput(raw, { prefix: 'io', scope: apiConfig.scope });
+        savedResult = await materializeContentForOutput(raw, {
+          prefix: 'io',
+          scope: apiConfig.scope,
+          generationRecords: apiConfig.generationRecords,
+        });
       }
       // Merge: AI items replaced with saved URLs, non-AI items pass through in-place
       let aiIdx = 0;
@@ -168,6 +177,7 @@ export async function execute(
       const aiSingleResult = await materializeContentForOutput(upstreamValue, {
         prefix: 'io',
         scope: apiConfig.scope,
+        generationRecords: apiConfig.generationRecords,
       });
       return finalize({
         result: aiSingleResult.content ?? upstreamValue,

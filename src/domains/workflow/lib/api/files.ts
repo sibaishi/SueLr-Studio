@@ -5,6 +5,7 @@ import {
   getFilenameFromFileUrl,
   uploadFile as uploadFileOrThrow,
 } from '@/shared/api/files';
+import type { GenerationRecord } from '@/shared/types/generation';
 
 export interface UploadResult {
   success: boolean;
@@ -24,6 +25,7 @@ export interface UploadResult {
 export interface UploadedFileMetadataResult extends UploadResult {}
 
 export interface GeneratedOutputFile {
+  generation?: GenerationRecord | null;
   id: string;
   name: string;
   relativePath: string;

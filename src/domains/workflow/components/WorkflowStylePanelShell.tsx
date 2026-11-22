@@ -1,7 +1,7 @@
-import { CaretDown } from '@phosphor-icons/react';
+import { MenuTrigger } from '@/ui/MenuPrimitives';
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 
-export const STYLE_PANEL_MIN_HEIGHT = 150;
+export const STYLE_PANEL_MIN_HEIGHT = 152;
 export const STYLE_PANEL_MAX_HEIGHT = 300;
 
 export function WorkflowStylePanelShell({
@@ -47,39 +47,8 @@ export function WorkflowStylePanelShell({
   }, [dragging]);
 
   return (
-    <div
-      className="workflow-style-panel-shell"
-      style={{
-        position: 'absolute',
-        bottom: 80,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        maxWidth: 640,
-        width: 'calc(100% - 44px)',
-        height,
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 8,
-        gap: 10,
-        borderRadius: 25,
-        border: '1px solid var(--t-border)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-        zIndex: 30,
-        cursor: 'default',
-      }}
-    >
-      <div
-        data-style-panel-resize-handle
-        onPointerDown={handleDragStart}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 20,
-          right: 20,
-          height: 12,
-          cursor: 'ns-resize',
-        }}
-      />
+    <div className="workflow-style-panel-shell" style={{ height }}>
+      <div data-style-panel-resize-handle onPointerDown={handleDragStart} />
       {children}
     </div>
   );
@@ -93,10 +62,8 @@ export function StylePanelPopoverButton({
   direction = 'up',
   onToggle,
   children,
-  showValue = false,
 }: {
   icon: ReactNode;
-  showValue?: boolean;
   label: string;
   valueHint?: string;
   open: boolean;
@@ -104,127 +71,52 @@ export function StylePanelPopoverButton({
   onToggle: () => void;
   children: ReactNode;
 }) {
-  const displayValue = valueHint || label;
   const popoverId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!open || !showValue) return;
+    if (!open) return;
     const closeOutside = (event: MouseEvent) => {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) onToggle();
     };
     document.addEventListener('click', closeOutside, true);
     return () => document.removeEventListener('click', closeOutside, true);
-  }, [open, showValue, onToggle]);
+  }, [open, onToggle]);
   return (
     <div
       ref={rootRef}
-      className={showValue ? 'ai-parameter' : undefined}
-      style={showValue ? undefined : { position: 'relative' }}
+      className="workflow-panel-popover-root"
       onKeyDown={(event) => {
-        if (!showValue || !open || event.key !== 'Escape') return;
+        if (!open || event.key !== 'Escape') return;
         event.stopPropagation();
         triggerRef.current?.focus();
         onToggle();
       }}
     >
-      <button
+      <MenuTrigger
         ref={triggerRef}
+        icon={icon}
+        label={label}
+        valueHint={valueHint}
         aria-expanded={open}
         aria-controls={open ? popoverId : undefined}
-        type="button"
         onClick={onToggle}
-        className={showValue ? 'nodrag ai-parameter-trigger' : 'nodrag'}
-        style={
-          showValue
-            ? undefined
-            : {
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                height: 28,
-                padding: '0 8px 0 6px',
-                borderRadius: 9,
-                border: open
-                  ? '1px solid color-mix(in srgb, var(--t-border) 80%, transparent)'
-                  : '1px solid color-mix(in srgb, var(--t-border) 50%, transparent)',
-                background: open
-                  ? 'color-mix(in srgb, var(--t-bg2) 72%, transparent)'
-                  : 'color-mix(in srgb, var(--t-bg2) 55%, transparent)',
-                backdropFilter: open ? 'blur(14px)' : 'blur(8px)',
-                color: open ? 'var(--t-text)' : 'var(--t-text2)',
-                fontSize: 11,
-                fontWeight: 500,
-                fontFamily: 'var(--font-sans)',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'background 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
-                boxShadow: open ? '0 2px 12px rgba(0,0,0,0.08)' : 'none',
-              }
-        }
-        title={showValue ? `${label} · ${displayValue}` : label}
-      >
-        {showValue ? (
-          <>
-            <span className="ai-parameter-icon" aria-hidden="true">
-              {icon}
-            </span>
-            <span className="ai-parameter-caption">
-              <span className="sr-only">{label}</span>
-              <strong>{displayValue}</strong>
-            </span>
-            <CaretDown size={11} className="ai-parameter-chevron" aria-hidden="true" />
-          </>
-        ) : (
-          <>
-            <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, opacity: 0.75 }}>{icon}</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 64 }}>{displayValue}</span>
-            <span
-              style={{
-                fontSize: 8,
-                opacity: 0.45,
-                flexShrink: 0,
-                marginLeft: 1,
-                transition: 'transform 0.2s',
-                transform: open ? 'rotate(180deg)' : '',
-              }}
-            >
-              ▾
-            </span>
-          </>
-        )}
-      </button>
+        className="nodrag"
+      />
       {open && (
-        <>
-          {!showValue && <div style={{ position: 'fixed', inset: 0, zIndex: 31 }} onClick={onToggle} />}
-          <div
-            id={popoverId}
-            className={showValue ? 'nodrag nowheel menu-surface ai-parameter-popover' : 'nodrag menu-surface'}
-            onPointerDown={(event) => event.stopPropagation()}
-            style={
-              showValue
-                ? undefined
-                : {
-                    position: 'absolute',
-                    ...(direction === 'up' ? { bottom: '100%', marginBottom: 8 } : { top: '100%', marginTop: 8 }),
-                    right: 0,
-                    minWidth: 260,
-                    zIndex: 32,
-                  }
-            }
-          >
-            <div className="menu-group ai-parameter-popover__heading">
-              <span style={{ display: 'flex', alignItems: 'center', color: 'var(--t-text2)', opacity: 0.75 }}>
-                {icon}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t-text)', fontFamily: 'var(--font-sans)' }}>
-                {label}
-              </span>
-            </div>
-            <div className="menu-group" style={{ padding: 8 }}>{children}</div>
+        <div
+          id={popoverId}
+          className="nodrag nowheel menu-surface ui-menu-popover workflow-panel-popover"
+          data-direction={direction}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="menu-group workflow-panel-popover-heading">
+            <span aria-hidden="true">{icon}</span>
+            <span>{label}</span>
           </div>
-        </>
+          <div className="menu-group workflow-panel-popover-content">{children}</div>
+        </div>
       )}
     </div>
   );

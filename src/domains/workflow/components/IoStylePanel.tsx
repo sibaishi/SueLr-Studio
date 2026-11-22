@@ -1,3 +1,5 @@
+import { NodeInputAttachments, NodeAttachmentStrip, NodeAttachmentChip, NodeAttachmentThumbnail } from './nodes/WorkflowContentPrimitives';
+import { TextComposer } from '@/ui/TextComposer';
 import FileSourceButton from './FileSourceButton';
 import { addIoFiles } from '../lib/addIoFiles';
 import { resolveWorkflowConnections } from '@/domains/workflow/lib/executionGraph';
@@ -85,9 +87,7 @@ export default function IoStylePanel() {
 
   // Only show panel when exactly one panel-capable node is selected across all types
   const ioNode = (() => {
-    const selectedPanelNodes = nodes.filter(
-      (n) => n.selected && (n.type === 'io' || n.type === 'ai'),
-    );
+    const selectedPanelNodes = nodes.filter((n) => n.selected && (n.type === 'io' || n.type === 'ai'));
     if (selectedPanelNodes.length !== 1) return null;
     return selectedPanelNodes[0].type === 'io' ? selectedPanelNodes[0] : null;
   })();
@@ -95,9 +95,6 @@ export default function IoStylePanel() {
   const nodeData = (ioNode?.data || {}) as Record<string, unknown>;
   const hasUpstream = !!selectedNodeId && edges.some((e) => e.target === selectedNodeId);
 
-  const [draggedGroupIdx, setDraggedGroupIdx] = useState<number | null>(null);
-  const [dragOverGroupIdx, setDragOverGroupIdx] = useState<number | null>(null);
-  const [draggedGroupType, setDraggedGroupType] = useState<string | null>(null);
   const [srcDraggedIdx, setSrcDraggedIdx] = useState<number | null>(null);
   const [srcDragOverIdx, setSrcDragOverIdx] = useState<number | null>(null);
   const typeGroupsRef = useRef<typeof inputGroups>({});
@@ -444,165 +441,19 @@ export default function IoStylePanel() {
   const fileOrder: number[] = (nodeData._fileOrder as number[]) || [];
   const sortedFiles = useMemo(() => sortFilesByOrder(files, fileOrder), [files, fileOrder]);
 
-  const srcThumbLetter = (f: FileThumb) => {
-    const map: Record<string, string> = { image: '图', video: '视', audio: '音', other: '?' };
-    return map[f.kind] || '?';
-  };
-
   if (!ioNode) return null;
 
   // ═══ PANEL ═══
   return (
     <WorkflowStylePanelShell>
-      {/* ── UPSTREAM FILE ITEMS (compact horizontal, all types one line) ── */}
-      {hasUpstream &&
-        rawInputs.length > 0 &&
-        (() => {
-          // Flatten all type groups into one array for mixed rendering
-          const flatGroups: { type: string; nodeGroup: (typeof inputGroups)[string][number]; gIdx: number }[] = [];
-          for (const type of TYPE_ORDER_KEYS) {
-            const groups = inputGroups[type];
-            if (!groups) continue;
-            for (let i = 0; i < groups.length; i++) {
-              flatGroups.push({ type, nodeGroup: groups[i], gIdx: i });
-            }
-          }
-          return (
-            <div
-              className="nodrag"
-              style={{ flexShrink: 0, display: 'flex', gap: 6, padding: '0 4px', flexWrap: 'wrap', cursor: 'default' }}
-            >
-              {flatGroups.map(({ type, nodeGroup, gIdx }) => (
-                <div
-                  key={`${type}-${nodeGroup.sourceNodeId}`}
-                  draggable
-                  onDragStart={(e) => {
-                    setDraggedGroupIdx(gIdx);
-                    setDraggedGroupType(type);
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onDragOver={(e) => {
-                    if (draggedGroupType === type) {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                      setDragOverGroupIdx(gIdx);
-                    }
-                  }}
-                  onDragLeave={() => setDragOverGroupIdx(null)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggedGroupIdx !== null && draggedGroupType === type && draggedGroupIdx !== gIdx)
-                      handleGroupReorder(type, draggedGroupIdx, gIdx);
-                    setDraggedGroupIdx(null);
-                    setDragOverGroupIdx(null);
-                    setDraggedGroupType(null);
-                  }}
-                  onDragEnd={() => {
-                    setDraggedGroupIdx(null);
-                    setDragOverGroupIdx(null);
-                    setDraggedGroupType(null);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '3px 8px 3px 4px',
-                    borderRadius: 10,
-                    background:
-                      dragOverGroupIdx === gIdx && draggedGroupType === type ? 'var(--t-border)' : 'var(--t-bg2)',
-                    border: '1px solid var(--t-border)',
-                    cursor: 'grab',
-                    opacity: draggedGroupIdx === gIdx && draggedGroupType === type ? 0.4 : 1,
-                    transition: 'background 120ms ease, opacity 120ms ease',
-                  }}
-                >
-                  <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--t-text3)', flexShrink: 0 }}>
-                    {type === 'image'
-                      ? '图'
-                      : type === 'video'
-                        ? '视'
-                        : type === 'audio'
-                          ? '音'
-                          : type === 'text'
-                            ? '文'
-                            : type}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 500,
-                      color: 'var(--t-text3)',
-                      whiteSpace: 'nowrap',
-                      maxWidth: 56,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {nodeGroup.sourceNodeLabel}
-                  </span>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {nodeGroup.items.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          width: 26,
-                          height: 26,
-                          borderRadius: 6,
-                          background: 'var(--t-bg)',
-                          overflow: 'hidden',
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '1px solid var(--t-border)',
-                        }}
-                        title={item.type === 'text' ? item.value : item.label}
-                      >
-                        {(item.type === 'image' || item.type === 'video') && item.value ? (
-                          <img
-                            src={inferImageThumbnailUrl(item.value) || item.value}
-                            alt=""
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : item.type === 'text' ? (
-                          <span
-                            style={{
-                              fontSize: 8,
-                              lineHeight: 1.2,
-                              color: 'var(--t-text2)',
-                              padding: 2,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                            }}
-                          >
-                            {String(item.value || '').slice(0, 30)}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--t-text3)' }}>
-                            {item.type === 'video' ? '🎬' : item.type === 'audio' ? '🎵' : '?'}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
+      {hasUpstream && rawInputs.length > 0 && (
+        <NodeInputAttachments groups={inputGroups} onReorder={handleGroupReorder}
+          resolveThumbnail={inferImageThumbnailUrl} />
+      )}
 
       {/* ── SOURCE MODE: user-uploaded file chips ── */}
       {!hasUpstream && (
-        <div
-          className="nodrag"
-          style={{ flexShrink: 0, display: 'flex', gap: 6, padding: '0 4px', flexWrap: 'wrap' }}
+        <NodeAttachmentStrip aria-label="上传附件"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
@@ -610,7 +461,7 @@ export default function IoStylePanel() {
           }}
         >
           {sortedFiles.map((f, idx) => (
-            <div
+            <NodeAttachmentChip
               key={f._id >= 0 ? f._id : `p${idx}`}
               draggable
               onDragStart={(e) => {
@@ -645,82 +496,38 @@ export default function IoStylePanel() {
                 setSrcDraggedIdx(null);
                 setSrcDragOverIdx(null);
               }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '3px 8px 3px 4px',
-                borderRadius: 10,
-                background: srcDragOverIdx === idx ? 'var(--t-border)' : 'var(--t-bg2)',
-                border: '1px solid var(--t-border)',
-                cursor: 'grab',
-                fontSize: 11,
-                color: 'var(--t-text2)',
-                opacity: srcDraggedIdx === idx ? 0.4 : 1,
-                transition: 'background 120ms ease, opacity 120ms ease',
-              }}
+              dragging={srcDraggedIdx === idx}
+              dropTarget={srcDragOverIdx === idx}
               title={f.name || '暂无内容（拖动可调整顺序）'}
             >
-              <div
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 6,
-                  background: 'var(--t-bg)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                }}
-              >
-                {(f.kind === 'image' || f.kind === 'video') && (f.objectUrl || f.thumbnail) ? (
-                  <img
-                    src={f.objectUrl || f.thumbnail}
-                    alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 9, fontWeight: 700 }}>{srcThumbLetter(f)}</span>
-                )}
-              </div>
-              <span style={{ maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {f.name ? `${f.name.slice(0, 1)}…` : '?'}
-              </span>
+              <NodeAttachmentThumbnail type={f.kind} src={f.objectUrl || f.thumbnail} label={f.name} compact />
+              <span className="workflow-attachment-label" title={f.name}>{f.name || '?'}</span>
               <button
-                onPointerDown={(e) => {
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
                   e.stopPropagation();
                   const realIdx = files.findIndex((x) => x._id === f._id);
                   if (realIdx >= 0) removeFile(realIdx);
                 }}
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: 8,
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--t-text3)',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  lineHeight: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginLeft: 2,
-                }}
+                type="button"
+                className="workflow-attachment-remove"
+                aria-label={`移除 ${f.name || '附件'}`}
                 title="移除"
               >
                 ×
               </button>
-            </div>
+            </NodeAttachmentChip>
           ))}
-          {selectedNodeId && <FileSourceButton className="node-v2-secondary-button nodrag"
-            onLocal={() => fileInputRef.current?.click()}
-            onAsset={(asset) => addIoFiles(selectedNodeId, [asset])}>添加文件</FileSourceButton>}
-        </div>
+          {selectedNodeId && (
+            <FileSourceButton
+              className="node-v2-secondary-button nodrag"
+              onLocal={() => fileInputRef.current?.click()}
+              onAsset={(asset) => addIoFiles(selectedNodeId, [asset])}
+            >
+              添加文件
+            </FileSourceButton>
+          )}
+        </NodeAttachmentStrip>
       )}
       <input
         ref={fileInputRef}
@@ -736,15 +543,17 @@ export default function IoStylePanel() {
 
       {/* ── Text area ── */}
       {!hasUpstream && (
-        <div className="text-composer node-text-composer">
-          <textarea
-            className="nodrag nowheel"
-            value={textValue}
-            onChange={(e) => setTextValue(e.target.value)}
-            placeholder="输入文本内容..."
-            onPointerDown={(e) => e.stopPropagation()}
-          />
-        </div>
+        <TextComposer
+          className="node-text-composer"
+          label="IO 文本内容"
+          textareaProps={{
+            className: 'nodrag nowheel',
+            value: textValue,
+            onChange: (e) => setTextValue(e.target.value),
+            placeholder: '输入文本内容...',
+            onPointerDown: (e) => e.stopPropagation(),
+          }}
+        ></TextComposer>
       )}
 
       {/* ── Upstream locked indicator ── */}

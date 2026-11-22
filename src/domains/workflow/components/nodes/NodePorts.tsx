@@ -1,5 +1,6 @@
+import { WorkflowNodeHandle } from './WorkflowNodePrimitives';
 import type { PortDef } from '@/domains/workflow/lib/types';
-import { Handle, Position } from '@xyflow/react';
+import { Position } from '@xyflow/react';
 import type { CSSProperties } from 'react';
 import { NODE_PORT_GUTTER, PORT_TYPE_COLORS, PORT_TYPE_LABELS } from './nodeConstants';
 
@@ -23,13 +24,14 @@ export function InputPort({
   return (
     <div
       className={['node-port', 'node-port--input', connected ? 'node-port--connected' : ''].filter(Boolean).join(' ')}
-      title={connected ? 'Connected' : undefined}
+      title={connected ? '已连接' : undefined}
       style={{ '--port-color': portColor } as CSSProperties}
     >
-      <Handle
+      <WorkflowNodeHandle
         type="target"
         position={Position.Left}
         id={input.id}
+        aria-label={`输入端口：${input.label}`}
         isConnectable={isConnectable}
         style={{
           background: portColor,
@@ -60,10 +62,11 @@ export function OutputPort({
     <div className="node-port node-port--output" style={{ '--port-color': portColor } as CSSProperties}>
       <span className="node-port__type">{PORT_TYPE_LABELS[output.type] || output.type}</span>
       <span className="node-port__label">{output.label}</span>
-      <Handle
+      <WorkflowNodeHandle
         type="source"
         position={Position.Right}
         id={output.id}
+        aria-label={`输出端口：${output.label}`}
         isConnectable={isConnectable}
         style={{
           background: portColor,

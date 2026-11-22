@@ -1,11 +1,9 @@
-import { agentResizeEdges, useAgentWindow } from './useAgentWindow';
-import SkillLibrary from './SkillLibrary';
-import { builtinSkills } from './builtinSkills';
-import { ArcIcon } from './ArcIcon';
-import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
+import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { readLibraryFile } from '@/domains/workflow/lib/addIoFiles';
-import { AgentMediaPreview, type AgentPreview } from './AgentMediaPreview';
+import type { CanvasPlan, CanvasPlanTarget } from '@/domains/workflow/lib/agentCanvasPlan';
+import { loadJSON, saveJSON } from '@/shared/runtime';
+import { PanelSurface } from '@/ui/PanelPrimitives';
 import {
   ArrowUp,
   CaretRight,
@@ -13,12 +11,8 @@ import {
   File,
   Graph,
   Image,
-  ListBullets,
   MagnifyingGlassPlus,
-  CornersOut,
-  SidebarSimple,
   Paperclip,
-  Plus,
   PuzzlePiece,
   Stop,
   Trash,
@@ -27,22 +21,31 @@ import {
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import AgentAttachment, { getAttachmentKind } from './AgentAttachment';
-import type { CanvasPlan, CanvasPlanTarget } from '@/domains/workflow/lib/agentCanvasPlan';
-import { loadJSON, saveJSON } from '@/shared/runtime';
+import AgentMarkdown from './AgentMarkdown';
+import { AgentMediaPreview, type AgentPreview } from './AgentMediaPreview';
+import {
+  AgentComposer,
+  AgentEmptyState,
+  AgentMessage,
+  AgentPanelHeader,
+  AgentPlanCard,
+  AgentReply,
+} from './AgentPresentation';
+import SkillLibrary from './SkillLibrary';
 import {
   type ContentPart,
   type GeneratedMedia,
   type GenerationPlan,
-  requestAgentGeneration,
   buildAgentHistory,
   prepareAgentMessage,
   prepareCanvasOutputs,
   requestAgentChat,
+  requestAgentGeneration,
 } from './agentChat';
 import { readAgentSessions, writeAgentSessions } from './agentSessions';
-import { buildSkillCatalog, parseSkill, readSkillPreview, type PreviewSkill } from './skillPreview';
-import '@/domains/workflow/components/ai-parameters.css';
-import AgentMarkdown from './AgentMarkdown';
+import { builtinSkills } from './builtinSkills';
+import { type PreviewSkill, buildSkillCatalog, parseSkill, readSkillPreview } from './skillPreview';
+import { agentResizeEdges, useAgentWindow } from './useAgentWindow';
 import './agent-panel.css';
 
 type ModelOption = { value: string; label: string; configName?: string; group?: string };
@@ -64,7 +67,13 @@ type DraftMessage = {
   answer?: string;
 };
 
-type AgentSession = { id: string; messages: DraftMessage[]; draft?: string; attachments?: File[]; includeCanvas?: boolean };
+type AgentSession = {
+  id: string;
+  messages: DraftMessage[];
+  draft?: string;
+  attachments?: File[];
+  includeCanvas?: boolean;
+};
 type AgentWorkspace = { activeId: string; sessions: AgentSession[] };
 
 function createSession(): AgentSession {
@@ -224,7 +233,7 @@ export default function AgentPanel({
     setWorkspace((current) => {
       const sessions = current.sessions
         .filter((item) => item.id !== removeId)
-        .map((item) => item.id === current.activeId ? { ...item, draft, attachments } : item);
+        .map((item) => (item.id === current.activeId ? { ...item, draft, attachments } : item));
       return { activeId: target.id, sessions: create ? [target, ...sessions] : sessions };
     });
     setSessionListOpen(false);
@@ -351,7 +360,16 @@ export default function AgentPanel({
         setMessages((current) =>
           current.map((turn) =>
             turn.id === message.id
-              ? { ...turn, canvas: { label: snapshot.label, runId: snapshot.runId, contentStart, documentId: snapshot.documentId, workflowId: snapshot.workflowId } }
+              ? {
+                  ...turn,
+                  canvas: {
+                    label: snapshot.label,
+                    runId: snapshot.runId,
+                    contentStart,
+                    documentId: snapshot.documentId,
+                    workflowId: snapshot.workflowId,
+                  },
+                }
               : turn,
           ),
         );
@@ -366,12 +384,13 @@ export default function AgentPanel({
             .map((turn) => {
               if (!turn.canvas) return turn;
               const { contentStart } = turn.canvas;
-              const content: ContentPart[] = contentStart === undefined
-                ? [
-                    ...(turn.text ? [{ type: 'text' as const, text: turn.text }] : []),
-                    ...turn.attachments.map(({ name }) => ({ type: 'text' as const, text: `参考附件：${name}` })),
-                  ]
-                : turn.content.slice(0, contentStart);
+              const content: ContentPart[] =
+                contentStart === undefined
+                  ? [
+                      ...(turn.text ? [{ type: 'text' as const, text: turn.text }] : []),
+                      ...turn.attachments.map(({ name }) => ({ type: 'text' as const, text: `参考附件：${name}` })),
+                    ]
+                  : turn.content.slice(0, contentStart);
               return { content, answer: turn.answer };
             }),
           [],
@@ -420,73 +439,32 @@ export default function AgentPanel({
   }
 
   return (
-    <aside
+    <PanelSurface
       ref={agentWindow.panel}
       hidden={hidden}
       inert={hidden || motionState === 'leaving'}
-      className={`workflow-panel glass agent-panel ${floating ? 'agent-panel--floating' : `workflow-results workflow-results--${motionState}`}`}
+      className={`workflow-panel agent-panel ${floating ? 'agent-panel--floating' : `workflow-results workflow-results--${motionState}`}`}
       style={bounds ? { left: bounds.x, top: bounds.y, width: bounds.width, height: bounds.height } : undefined}
       aria-label="弧光"
       data-testid="workflow-agent-panel"
     >
-      <header
-        className="workflow-panel__header agent-panel__header"
+      <AgentPanelHeader
+        floating={floating}
+        sessionsOpen={sessionListOpen}
+        loading={storageState === 'loading'}
+        onSessions={() => setSessionListOpen(!sessionListOpen)}
+        onNew={() => switchSession(createSession(), true)}
+        onToggleMode={() => {
+          if (!floating) agentWindow.place();
+          onToggleMode();
+        }}
+        onClose={onClose}
         onPointerDown={floating ? (event) => agentWindow.begin(event) : undefined}
         onPointerMove={agentWindow.move}
         onPointerUp={agentWindow.end}
         onPointerCancel={agentWindow.end}
         onLostPointerCapture={agentWindow.end}
-      >
-        <div>
-          <h2 className="workflow-panel__title">弧光</h2>
-          <p className="workflow-panel__desc">一起构思、打磨创意</p>
-        </div>
-        <div className="agent-panel__header-actions">
-          <button
-            type="button"
-            className="agent-panel__icon-button"
-            aria-label="对话列表"
-            title="对话列表"
-            aria-expanded={sessionListOpen}
-            onClick={() => setSessionListOpen(!sessionListOpen)}
-          >
-            <ListBullets size={18} />
-          </button>
-          <button
-            type="button"
-            className="agent-panel__icon-button"
-            aria-label="新会话"
-            title="新会话"
-            disabled={storageState === 'loading'}
-            onClick={() => switchSession(createSession(), true)}
-          >
-            <Plus size={19} />
-          </button>
-          <button
-            type="button"
-            className="agent-panel__icon-button"
-            aria-label={floating ? '停靠到右侧' : '脱离为浮动窗口'}
-            title={floating ? '停靠到右侧' : '脱离为浮动窗口'}
-            onClick={() => {
-              if (!floating) agentWindow.place();
-              onToggleMode();
-            }}
-          >
-            {floating ? <SidebarSimple size={18} /> : <CornersOut size={18} />}
-          </button>
-          {floating && (
-            <button
-              type="button"
-              className="agent-panel__icon-button"
-              aria-label="关闭弧光"
-              title="关闭弧光"
-              onClick={onClose}
-            >
-              <X size={18} />
-            </button>
-          )}
-        </div>
-      </header>
+      />
       {sessionListOpen && (
         <nav className="agent-panel__session-list" aria-label="对话列表">
           {workspace.sessions.map((item) => {
@@ -526,49 +504,31 @@ export default function AgentPanel({
       )}
       <div ref={timeline} className="workflow-panel__body agent-panel__timeline" role="log" aria-label="对话">
         {messages.length === 0 ? (
-          <div className="agent-panel__empty">
-            <ArcIcon size={24} />
-            <h3>你想做点什么？</h3>
-            <p>聊聊你的想法，或添加一份参考素材。</p>
-            <div className="agent-panel__starters">
-              {['一起构思几个方向', '打磨我的创意草稿'].map((text) => (
-                <button
-                  key={text}
-                  type="button"
-                  disabled={busy || storageState === 'loading'}
-                  onClick={() => {
-                    setDraft(text);
-                    composer.current?.focus();
-                  }}
-                >
-                  {text}
-                </button>
-              ))}
-            </div>
-          </div>
+          <AgentEmptyState
+            disabled={busy || storageState === 'loading'}
+            onStarter={(text) => {
+              setDraft(text);
+              composer.current?.focus();
+            }}
+          />
         ) : (
           <>
             {messages.map((message) => (
               <article className="agent-panel__turn" key={message.id}>
-                <div className="agent-panel__message">
+                <AgentMessage>
                   {message.attachments.map((file, fileIndex) => (
                     <AgentAttachment key={fileIndex} file={file} />
                   ))}
                   {message.text && <div>{message.text}</div>}
-                  {message.canvas && (
-                    <div className="agent-panel__message-options">
-                      画布 · {message.canvas.label}
-                    </div>
-                  )}
+                  {message.canvas && <div className="agent-panel__message-options">画布 · {message.canvas.label}</div>}
                   {(message.models.length > 0 || message.skills.length > 0) && (
                     <div className="agent-panel__message-options">
                       {[...message.models, ...message.skills].filter(Boolean).join(' · ')}
                     </div>
                   )}
-                </div>
+                </AgentMessage>
                 {message.answer && (
-                  <div className="agent-panel__reply">
-                    <strong className="agent-panel__reply-author">弧光</strong>
+                  <AgentReply>
                     <AgentMarkdown source={message.answer} />
                     {/```(?:markdown|md)?[ \t]*\r?\n---[ \t]*\r?\n/.test(message.answer) && (
                       <button
@@ -589,10 +549,10 @@ export default function AgentPanel({
                         {savedReplies.includes(message.answer) ? '已保存' : '保存为 Skill'}
                       </button>
                     )}
-                  </div>
+                  </AgentReply>
                 )}
                 {message.generation && (
-                  <section className="agent-panel__canvas-plan agent-panel__generation" aria-label="生成方案">
+                  <AgentPlanCard className="agent-panel__generation" aria-label="生成方案">
                     <h3>{message.generation.plan.kind === 'image' ? '直接生成图像' : '直接生成视频'}</h3>
                     <p className="agent-panel__generation-meta">
                       {message.generation.model.label} · {message.generation.plan.ratio ?? '自动比例'}
@@ -635,14 +595,19 @@ export default function AgentPanel({
                         })}
                       </div>
                     ) : (
-                      <button type="button" disabled={busy} onClick={() => void generate(message)}>
+                      <button
+                        type="button"
+                        className="ui-panel-button"
+                        disabled={busy}
+                        onClick={() => void generate(message)}
+                      >
                         {generatingId === message.id ? '生成中…' : '确认生成'}
                       </button>
                     )}
-                  </section>
+                  </AgentPlanCard>
                 )}
                 {message.plan && (
-                  <section className="agent-panel__canvas-plan" aria-label="画布修改方案">
+                  <AgentPlanCard aria-label="画布修改方案">
                     <strong>画布修改方案</strong>
                     <ol>
                       {message.plan.changes.operations.map((operation, index) => (
@@ -668,7 +633,7 @@ export default function AgentPanel({
                               断开 {operation.source} → {operation.target}
                             </>
                           )}
-                          {operation.kind === 'clear' && <>清空当前画布的全部节点和连线</>}
+                          {operation.kind === 'clear' && '清空当前画布的全部节点和连线'}
                           {operation.kind === 'remove' && <>删除节点 {operation.nodeId}</>}
                           {operation.kind === 'disable' && (
                             <>
@@ -680,7 +645,7 @@ export default function AgentPanel({
                               移动 {operation.nodeId} 到 ({operation.x}, {operation.y})
                             </>
                           )}
-                          {operation.kind === 'run' && <>运行当前工作流</>}
+                          {operation.kind === 'run' && '运行当前工作流'}
                           {operation.kind === 'configure' && (
                             <>
                               设置节点 {operation.nodeId}
@@ -705,6 +670,7 @@ export default function AgentPanel({
                     </ol>
                     <button
                       type="button"
+                      className="ui-panel-button"
                       disabled={
                         busy ||
                         (message.plan.applied &&
@@ -747,7 +713,7 @@ export default function AgentPanel({
                           ? '确认并运行'
                           : '应用到画布'}
                     </button>
-                  </section>
+                  </AgentPlanCard>
                 )}
                 {message.status === 'pending' && (
                   <p role="status" className="agent-panel__notice">
@@ -763,7 +729,7 @@ export default function AgentPanel({
                 {(message.status === 'failed' || message.status === 'stopped') && (
                   <button
                     type="button"
-                    className="agent-panel__restore"
+                    className="ui-panel-button agent-panel__restore"
                     disabled={busy || Boolean(draft || attachments.length)}
                     onClick={() => {
                       setDraft(message.text);
@@ -785,8 +751,7 @@ export default function AgentPanel({
         )}
         {!selectedModel('chat') && <p className="agent-panel__notice">请先在工作室设置中配置对话模型。</p>}
       </div>
-      <form
-        className="text-composer agent-panel__composer"
+      <AgentComposer
         onSubmit={(event) => {
           event.preventDefault();
           send();
@@ -860,7 +825,7 @@ export default function AgentPanel({
             }}
           />
           <FileSourceButton
-            className="agent-panel__icon-button"
+            className="ui-icon-button ui-icon-button--compact agent-panel__icon-button"
             label="添加附件"
             disabled={busy || storageState === 'loading'}
             onLocal={() => {
@@ -878,24 +843,26 @@ export default function AgentPanel({
           </FileSourceButton>
           <button
             type="button"
-            className="agent-panel__icon-button"
+            className="ui-icon-button ui-icon-button--compact agent-panel__icon-button"
             aria-label="引用画布"
             title="引用当前画布、最近运行和可用产物"
             aria-pressed={includeCanvas}
             disabled={busy}
-            onClick={() => setWorkspace((current) => ({
-              ...current,
-              sessions: current.sessions.map((item) =>
-                item.id === session.id ? { ...item, includeCanvas: !includeCanvas } : item,
-              ),
-            }))}
+            onClick={() =>
+              setWorkspace((current) => ({
+                ...current,
+                sessions: current.sessions.map((item) =>
+                  item.id === session.id ? { ...item, includeCanvas: !includeCanvas } : item,
+                ),
+              }))
+            }
           >
             <Graph size={18} />
           </button>
           <button
             ref={modelTrigger}
             type="button"
-            className="agent-panel__icon-button"
+            className="ui-icon-button ui-icon-button--compact agent-panel__icon-button"
             aria-label="选择模型"
             title="选择模型"
             aria-expanded={openMenu === 'models'}
@@ -906,7 +873,7 @@ export default function AgentPanel({
           <button
             ref={skillTrigger}
             type="button"
-            className="agent-panel__icon-button"
+            className="ui-icon-button ui-icon-button--compact agent-panel__icon-button"
             aria-label="Skills 清单"
             title="Skills 清单"
             aria-expanded={openMenu === 'skills'}
@@ -915,11 +882,11 @@ export default function AgentPanel({
             <PuzzlePiece size={18} />
           </button>
           {openMenu === 'models' && !hidden && (
-            <section className="menu-surface ai-parameter-popover agent-panel__popover" aria-label="模型配置">
+            <section className="menu-surface ui-menu-popover agent-panel__popover" aria-label="模型配置">
               {modelOrder.map((kind) => (
-                <label key={kind} className="menu-group ai-menu-module agent-panel__model-group">
-                  <span className="ai-menu-module-label">{modelKinds[kind]}</span>
-                  <span className="ai-menu-module-body">
+                <label key={kind} className="menu-group ui-menu-group agent-panel__model-group">
+                  <span className="ui-menu-group-label">{modelKinds[kind]}</span>
+                  <span className="ui-menu-group-body">
                     <select
                       value={selectedModel(kind)?.value ?? ''}
                       disabled={!models[kind].length}
@@ -939,7 +906,7 @@ export default function AgentPanel({
           )}
           {openMenu === 'skills' && !hidden && (
             <section
-              className="menu-surface ai-parameter-popover agent-panel__popover agent-skills-popover"
+              className="menu-surface ui-menu-popover agent-panel__popover agent-skills-popover"
               aria-label="Skills 清单"
             >
               <header className="agent-skills-header menu-group">
@@ -952,6 +919,7 @@ export default function AgentPanel({
                     type="checkbox"
                     className="agent-skill-switch"
                     role="switch"
+                    aria-checked={autoSkills}
                     checked={autoSkills}
                     onChange={(event) => {
                       setAutoSkills(event.target.checked);
@@ -1038,21 +1006,22 @@ export default function AgentPanel({
             </button>
           )}
         </div>
-      </form>
+      </AgentComposer>
       {!hidden && mediaPreview && <AgentMediaPreview item={mediaPreview} onClose={() => setMediaPreview(undefined)} />}
-      {floating && agentResizeEdges.map((edge) => (
-        <div
-          key={edge}
-          className="agent-panel__resize"
-          data-resize-edge={edge}
-          aria-hidden="true"
-          onPointerDown={(event) => agentWindow.begin(event, edge)}
-          onPointerMove={agentWindow.move}
-          onPointerUp={agentWindow.end}
-          onPointerCancel={agentWindow.end}
-          onLostPointerCapture={agentWindow.end}
-        />
-      ))}
-    </aside>
+      {floating &&
+        agentResizeEdges.map((edge) => (
+          <div
+            key={edge}
+            className="agent-panel__resize"
+            data-resize-edge={edge}
+            aria-hidden="true"
+            onPointerDown={(event) => agentWindow.begin(event, edge)}
+            onPointerMove={agentWindow.move}
+            onPointerUp={agentWindow.end}
+            onPointerCancel={agentWindow.end}
+            onLostPointerCapture={agentWindow.end}
+          />
+        ))}
+    </PanelSurface>
   );
 }

@@ -1,3 +1,11 @@
+import {
+  NodeContentSurface,
+  NodeContentFrame,
+  NodeEmptyState,
+  NodeTextPreview,
+  NodeImagePreview,
+  NodeMediaPreview,
+} from '../../WorkflowContentPrimitives';
 import { resolveWorkflowConnections } from '@/domains/workflow/lib/executionGraph';
 import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
 import { addIoFiles } from '@/domains/workflow/lib/addIoFiles';
@@ -268,7 +276,9 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
     .map((item) => ({ src: resizedSrcs[item.idx] || item.value }));
   const canEditSourceImages = !useUpstreamTypes && imagePreviewItems.length > 0;
 
-  const canDrawSketch = Boolean(nodeId && !isNodeLockedWithAncestors(nodeId, nodes) && !upstreamSlots && !hasContent && !data.fileUrl);
+  const canDrawSketch = Boolean(
+    nodeId && !isNodeLockedWithAncestors(nodeId, nodes) && !upstreamSlots && !hasContent && !data.fileUrl,
+  );
 
   const appendBoardImage = async (file: File) => {
     const { activeDocumentId } = useWorkflowStore.getState();
@@ -278,7 +288,9 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
     const entry = await createIoImageFileEntry(file);
     const store = useWorkflowStore.getState();
     const node = store.nodes.find((item) => item.id === nodeId && item.type === 'io');
-    const hasUpstream = resolveWorkflowConnections(store.nodes, store.edges).some((edge) => edge.target === nodeId && edge.targetHandle === 'input');
+    const hasUpstream = resolveWorkflowConnections(store.nodes, store.edges).some(
+      (edge) => edge.target === nodeId && edge.targetHandle === 'input',
+    );
     if (!nodeId || !node || store.activeDocumentId !== activeDocumentId || hasUpstream) {
       fileRawStore.remove(entry.fileId);
       throw new Error('当前 IO 节点已发生变化，请重新打开画板。');
@@ -306,23 +318,34 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
   };
 
   return (
-    <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
+    <NodeContentSurface style={{ ...outerStyle, overflow: 'hidden' }}>
       {!hasContent ? (
-        <div className="node-gallery-frame-v2" style={{ flexDirection: 'column', gap: 8 }}>
-          <div className="node-gallery-empty-v2">
-            <Stack size={32} weight="light" />
-            <span>待输入</span>
-          </div>
+        <NodeContentFrame layout="empty">
+          <NodeEmptyState icon={<Stack size={32} weight="light" />}>待输入</NodeEmptyState>
           {canDrawSketch && nodeId && (
             <div className="node-v2-empty-io-actions">
-              <button type="button" className="node-v2-secondary-button nodrag nopan" onClick={(event) => {
-                event.stopPropagation();
-                setIsSketchOpen(true);
-              }}>绘制草图</button>
-              <FileSourceButton className="node-v2-secondary-button nodrag nopan"
+              <button
+                type="button"
+                className="node-v2-secondary-button nodrag nopan"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsSketchOpen(true);
+                }}
+              >
+                绘制草图
+              </button>
+              <FileSourceButton
+                className="node-v2-secondary-button nodrag nopan"
                 onLocal={() => filePicker.current?.click()}
-                onAsset={(asset) => addIoFiles(nodeId, [asset])}>添加文件</FileSourceButton>
-              <input type="file" ref={filePicker} multiple hidden
+                onAsset={(asset) => addIoFiles(nodeId, [asset])}
+              >
+                添加文件
+              </FileSourceButton>
+              <input
+                type="file"
+                ref={filePicker}
+                multiple
+                hidden
                 accept="image/*,video/*,audio/*,text/*,.json,.md,.csv,.yaml,.yml"
                 onChange={(event) => {
                   const files = Array.from(event.currentTarget.files ?? []);
@@ -331,45 +354,27 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
                     setFileError('');
                     void addIoFiles(nodeId, files).catch((error) => setFileError(error.message));
                   }
-                }} />
+                }}
+              />
             </div>
           )}
           {fileError && <span role="alert">{fileError}</span>}
-        </div>
+        </NodeContentFrame>
       ) : (
-        <div
-          className="node-gallery-frame-v2"
-          style={{
-            padding: 8,
-            flexDirection: 'column',
-            alignItems: 'stretch',
-            justifyContent: 'flex-start',
-            gap: 6,
-            overflowY: 'auto',
-          }}
-        >
+        <NodeContentFrame layout="list">
           {/* Image thumbnails */}
           {imageItems.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            <div className="workflow-thumbnail-list">
               {imageItems.map((img, idx) => {
                 const previewIndex = previewable.findIndex((item) => item.type === 'image' && item.value === img);
                 return (
-                  <div
+                  <NodeImagePreview
                     key={idx}
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 8,
-                      overflow: 'hidden',
-                      background: 'var(--node-card-bg-soft)',
-                      cursor: 'pointer',
-                      border: '1px solid var(--node-card-line)',
-                    }}
-                    title="双击全屏查看"
-                    onDoubleClick={() => setPreviewIdx(previewIndex)}
-                  >
-                    <img src={String(img)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
+                    thumbnail
+                    src={String(img)}
+                    alt={`输入图片 ${idx + 1}`}
+                    onPreview={() => setPreviewIdx(previewIndex)}
+                  />
                 );
               })}
             </div>
@@ -377,54 +382,22 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
 
           {/* Text snippets */}
           {textItems.map((text, idx) => (
-            <div
+            <NodeTextPreview
               key={`t${idx}`}
-              onDoubleClick={() => setTextModalIdx(idx)}
-              style={{
-                fontSize: 10,
-                lineHeight: 1.5,
-                color: 'var(--node-card-ink)',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                cursor: 'pointer',
-                padding: '4px 6px',
-                borderRadius: 6,
-                border: '1px solid transparent',
-                transition: 'background 0.15s, border-color 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--node-card-bg-soft)';
-                e.currentTarget.style.borderColor = 'var(--node-card-line)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '';
-                e.currentTarget.style.borderColor = 'transparent';
-              }}
+              variant="snippet"
+              title="双击或按 Enter 查看文本"
+              onPreview={() => setTextModalIdx(idx)}
             >
               {String(text)}
-            </div>
+            </NodeTextPreview>
           ))}
 
           {audioItems.map((src, index) => (
-            <audio
-              key={index}
-              className="nodrag nopan"
-              src={src}
-              controls
-              preload="metadata"
-              style={{ width: '100%' }}
-            />
+            <NodeMediaPreview key={index} kind="audio" src={src} />
           ))}
 
           {videoItems.map((src, index) => (
-            <video
-              className="nodrag nopan"
-              key={index}
-              src={src}
-              controls
-              preload="metadata"
-              style={{ width: '100%' }}
-            />
+            <NodeMediaPreview key={index} kind="video" src={src} />
           ))}
 
           {/* Modal viewer */}
@@ -547,7 +520,7 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
               onClose={() => setTextModalIdx(null)}
             />
           )}
-        </div>
+        </NodeContentFrame>
       )}
       {isSketchOpen && (
         <NodeCanvasEditorModal
@@ -557,6 +530,6 @@ export function IoContent({ params: _params, nodeId, data, outerStyle, onChange:
           onExportLayer={appendBoardImage}
         />
       )}
-    </div>
+    </NodeContentSurface>
   );
 }

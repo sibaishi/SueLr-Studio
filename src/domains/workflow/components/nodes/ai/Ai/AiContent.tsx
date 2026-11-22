@@ -1,3 +1,11 @@
+import {
+  NodeContentSurface,
+  NodeContentFrame,
+  NodeEmptyState,
+  NodeTextPreview,
+  NodeImagePreview,
+  NodeMediaPreview,
+} from '../../WorkflowContentPrimitives';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import type { ParamDef } from '@/domains/workflow/lib/types';
@@ -33,23 +41,14 @@ export function AiContent({ params: _params, nodeId, data, outerStyle, onChange:
     const hasImage = outputImages.length > 0;
     const EmptyIcon = mode === 'midjourney' ? Palette : Image;
     return (
-      <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
-        <div className="node-gallery-frame-v2">
+      <NodeContentSurface style={{ ...outerStyle, overflow: 'hidden' }}>
+        <NodeContentFrame>
           {hasImage ? (
-            <img
-              src={outputImages[0]}
-              alt=""
-              className="node-gallery-image-v2"
-              title="双击全屏查看"
-              onDoubleClick={() => setPreviewImage(outputImages[0])}
-            />
+            <NodeImagePreview src={outputImages[0]} alt="生成图片" onPreview={() => setPreviewImage(outputImages[0])} />
           ) : (
-            <div className="node-gallery-empty-v2">
-              <EmptyIcon size={32} weight="light" />
-              <span>待生成</span>
-            </div>
+            <NodeEmptyState icon={<EmptyIcon size={32} weight="light" />}>待生成</NodeEmptyState>
           )}
-        </div>
+        </NodeContentFrame>
         {previewImage && (
           <ImagePreviewModal
             src={previewImage}
@@ -58,25 +57,22 @@ export function AiContent({ params: _params, nodeId, data, outerStyle, onChange:
             onClose={() => setPreviewImage(null)}
           />
         )}
-      </div>
+      </NodeContentSurface>
     );
   }
 
   if (mode === 'audio') {
     const audioUrl = typeof outputs?.result === 'string' ? outputs.result : '';
     return (
-      <div className="node-gallery-shell-v2" style={outerStyle}>
-        <div className="node-gallery-frame-v2">
+      <NodeContentSurface style={outerStyle}>
+        <NodeContentFrame>
           {audioUrl ? (
-            <audio className="nodrag nopan" src={audioUrl} controls preload="metadata" style={{ width: '100%' }} />
+            <NodeMediaPreview kind="audio" src={audioUrl} />
           ) : (
-            <div className="node-gallery-empty-v2">
-              <SpeakerHigh size={32} />
-              <span>待合成</span>
-            </div>
+            <NodeEmptyState icon={<SpeakerHigh size={32} />}>待合成</NodeEmptyState>
           )}
-        </div>
-      </div>
+        </NodeContentFrame>
+      </NodeContentSurface>
     );
   }
 
@@ -88,23 +84,15 @@ export function AiContent({ params: _params, nodeId, data, outerStyle, onChange:
           ? outputs.video
           : null;
     return (
-      <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
-        <div className="node-gallery-frame-v2">
+      <NodeContentSurface style={{ ...outerStyle, overflow: 'hidden' }}>
+        <NodeContentFrame>
           {videoUrl ? (
-            <video
-              src={videoUrl}
-              controls
-              className="node-gallery-video-v2"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
+            <NodeMediaPreview kind="video" src={videoUrl} fill />
           ) : (
-            <div className="node-gallery-empty-v2">
-              <FilmSlate size={32} weight="light" />
-              <span>待生成</span>
-            </div>
+            <NodeEmptyState icon={<FilmSlate size={32} weight="light" />}>待生成</NodeEmptyState>
           )}
-        </div>
-      </div>
+        </NodeContentFrame>
+      </NodeContentSurface>
     );
   }
 
@@ -116,34 +104,16 @@ export function AiContent({ params: _params, nodeId, data, outerStyle, onChange:
         ? outputs.response
         : null;
   return (
-    <div className="node-gallery-shell-v2" style={{ ...outerStyle, overflow: 'hidden' }}>
-      <div className="node-gallery-frame-v2" style={{ padding: 10 }}>
+    <NodeContentSurface style={{ ...outerStyle, overflow: 'hidden' }}>
+      <NodeContentFrame layout="text">
         {response ? (
-          <div
-            className="node-chat-response-v2"
-            title="双击全屏查看"
-            onDoubleClick={() => setFullscreenText(response)}
-            style={{
-              width: '100%',
-              fontSize: 11,
-              lineHeight: 1.6,
-              color: 'var(--node-card-ink)',
-              overflow: 'auto',
-              height: '100%',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              cursor: 'default',
-            }}
-          >
+          <NodeTextPreview title="双击或按 Enter 全屏查看" onPreview={() => setFullscreenText(response)}>
             {response}
-          </div>
+          </NodeTextPreview>
         ) : (
-          <div className="node-gallery-empty-v2">
-            <Robot size={32} weight="light" />
-            <span>待生成</span>
-          </div>
+          <NodeEmptyState icon={<Robot size={32} weight="light" />}>待生成</NodeEmptyState>
         )}
-      </div>
+      </NodeContentFrame>
       {fullscreenText && (
         <ImagePreviewModal
           src=""
@@ -152,6 +122,6 @@ export function AiContent({ params: _params, nodeId, data, outerStyle, onChange:
           onClose={() => setFullscreenText(null)}
         />
       )}
-    </div>
+    </NodeContentSurface>
   );
 }

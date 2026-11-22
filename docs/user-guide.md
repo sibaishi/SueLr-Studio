@@ -19,6 +19,22 @@ Current product status:
 - Image, video, chat, and Midjourney generation are routed through enabled project models
 - The workflow canvas and workflow library are the primary product surfaces
 
+## Canvas Appearance
+
+Updated 2026-11-22: dark and light themes share the same canvas control geometry and a unified frosted floating surface. The title, workflow-library entry, tool rail, minimap, execution controls, document bar, and results panel use theme-specific surface colors, borders, shadows, and control feedback. Light mode also has a softer mouse glow and minimap mask. Its primary execution button uses a saturated blue-to-violet gradient calibrated independently from dark mode.
+
+Canvas layout follows a 4px step, preferring 12px rhythm where practical: 24px outer insets, 36px standard controls, 32px compact controls, and 24px panel radii. Tool and document containers use 8px padding; a 36px control therefore fits a 52px container. Hairline borders, typography, and optical drawing details are exceptions. Selected toggles and pending-save actions have a tinted background; disabled controls have no hover response. Existing workflow commands and shortcuts are unchanged.
+
+Document labels now expose separate keyboard-focusable buttons for switching and closing; Tab moves between them and Enter or Space activates each action. Unsaved and running states are also included in accessible document names.
+
+For development review, `/?view=canvas-components` opens one interactive example canvas. Select and drag AI/IO nodes, edit a containing group, use the minimap and inspect the selected node’s editor. The header switches dark/light themes while retaining the same example state. The optional inspector changes content types and execution/input states. All examples stay local and do not run models or modify project documents.
+
+Node cards now share dark/light shell colours, port styling and status badges while keeping their existing content layouts. Running, success, failure and warning feedback use theme-specific colours. Selection, locking and disabling remain separate from execution results; disabled nodes and reduced-motion settings do not play the running pulse. AI/IO floating titles can also be focused with Tab and activated with Enter or Space to rename.
+
+Corrected 2026-11-22: the development catalogue uses the current AI/IO floating action bar, centred side ports and external status badges, plus the current group title, locking and expand/collapse controls. It does not list the old generic-node structure as a current node. Preview actions use local state and do not run models or modify documents; AI/IO examples show the shared empty content frame; model execution and file operations are demonstrated separately from these isolated previews.
+
+Updated 2026-11-22: AI prompts (including system prompts and speech text) and IO text editing use the same text composer, with 12px padding, 16px corners and the existing neutral focus indication. AI and IO share content frames, empty states, text/image previews and native audio/video controls. Text and image previews can be opened with Enter/Space when focused, as well as double-click. The catalogue includes editable, read-only, disabled and invalid input examples plus content-type previews; its examples do not update project data.
+
 ## Install
 
 ### Environment
@@ -463,3 +479,30 @@ Skills 支持启用内置指导、导入 Markdown 正文，或通过对话生成
 弧光、IO 节点和 AI 能力节点共用输入区样式，编辑时以中性色边框提示焦点。多行文字在输入框内滚动。
 
 弧光的独立圆形按钮位于画布左侧胶囊工具栏上方。默认停靠在右侧，与结果栏互斥。点标题栏的「脱离为浮动窗口」后，可拖动标题栏移动，拖动任一边或角改变宽高，并可与结果栏同时使用。点击画布不会关闭浮窗，可用右上角关闭按钮收起，或点「停靠到右侧」恢复。
+
+
+### 画布共用菜单与参数控件
+
+模型菜单、参数选项和文件来源选项使用统一的菜单控件，深浅主题均提供选中、禁用和键盘焦点提示。参数触发按钮为 28px，选项和输入框最小高度为 32px，布局使用 4px 步进。模型仍按「渠道 → 类型 → 模型」选择，也可搜索；只有在设置中启用的模型才会出现。参数浮层可按 Escape 关闭并回到原按钮。
+
+开发模式的 `/?view=canvas-components` 新增「共用菜单与参数控件」，可在两种主题下操作演示模型、搜索、参数和文件来源选项，也可模拟没有已启用模型。演示不调用模型、不打开文件选择器，也不修改工作流或模型设置。
+
+
+组件展示页按「节点」与「分组」组织。节点模块先显示 AI / IO 完整实例和状态开关，展开「组成部分」后可检查输入、内容预览及菜单参数；分组在独立模块中检查标题、选中、锁定和折叠。深浅主题使用相同层级，演示数据彼此独立。
+
+节点「组成部分」中增加共用附件示例，可拖动两个文本分组验证排序，检查图片和音视频占位以及附件移除、恢复。AI 和 IO 的上游附件统一使用同一套外观；上传文件保留完整文件名供悬停查看，移除按钮支持键盘操作。演示操作不会修改工作流数据。
+
+更新于 2026-11-22（替代上文分区展示说明）：组件库现在是一张完整的虚拟画布，不再分别排列节点、分组及组成部分。点击 AI / IO 节点后，下方显示对应的附件、文本编辑和参数面板；右侧「检查组件」可切换空白、文本、图片、音视频控件及执行状态。分组支持拖动、改名、锁定和折叠，节点和小地图共用真实视口；双击图片或文本可打开预览。顶部切换深浅模式会保留当前示例状态，也可收起检查面板或重置示例。执行、保存、文件来源和模型菜单均为本地演示，不会请求模型、读取用户文件或保存项目。
+
+
+更新于 2026-11-22：演示画板现在沿用真实画布布局：左上角标题、顶部中央工作流库入口、左侧居中的竖向工具栏、左下角小地图、底部文档与操作栏、底部中央节点编辑面板、右下角执行按钮组。顶部右侧的「组件库」工具仅用于切换主题、检查与重置；检查面板默认收起，展开后浮在画布上，不会压缩或重排画布。未接入的工作流库、资产和设置入口只显示演示反馈，可在检查面板查看；它们不会打开实际业务页面或读取项目数据。
+
+
+更新于 2026-11-22（结果栏与弧光）：两者统一使用侧栏容器、卡片、按钮、空白态和深浅主题状态色，布局沿用 4px 步进及 12px 间距基准。结果栏保留结果、记录、历史，以及复制、预览、视频取回和文本回填操作；弧光保留原有模型、技能、附件、会话及停靠／浮动操作。
+
+演示画板的左侧入口现在可以打开结果栏与弧光；在「检查组件」中切换侧栏和有内容、空白、处理中、错误状态。结果栏可查看演示记录和历史，弧光可检查消息、Markdown、方案、输入区及浮动布局。演示操作不会发送消息、调用模型、恢复视频、修改真实画布或保存会话。设置、资产库、工作流库及其他弹窗将在后续统一。
+
+
+更新于 2026-11-22（结果的生成信息）：工作流 AI 节点生成并经 IO 保存的新结果，会在同一张结果卡片内显示「使用提示词」「使用参考」「使用参数」。提示词复制当次实际发送的正文；参数以中文名称展示，点击「复用参数」应用到唯一选中的 AI 节点，没有选中 AI 时新建节点，不修改提示词和参考，不自动执行。模型必须已在设置中启用；多个 AI 被选中或目标锁定时会提示处理。参考以缩略图或媒体控件显示，点击「回填到画布」将当次参考加入新的 IO 节点；原始素材需仍可访问。参数复用与参考回填是两个独立操作，不自动连线。
+
+生成记录随结果保存在本地，修改原节点不会改写旧结果的信息。没有生成记录的旧文件会显示「此结果未记录生成信息」，不会用当前画布信息补齐；弧光直接生成及视频失败后的恢复文件目前也不补造记录。演示画板共用正式结果详情组件，复用与回填按钮只显示演示反馈，不修改实际画布。

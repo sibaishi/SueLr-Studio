@@ -1,70 +1,8 @@
 /*
   Node UI v2
-  A complete node-specific styling layer. The React components provide behavior;
-  this file owns the visual system for node cards, ports, content, and controls.
+  AI/IO content and appendix layout. Shared shell, palette, ports and states
+  are owned by node-foundations.css.
 */
-
-[data-theme="light"] {
-  --node-card-bg: #fdfefe;
-  --node-card-bg-soft: #f7fafc;
-  --node-card-line: rgba(27, 39, 56, 0.1);
-  --node-card-line-strong: rgba(27, 39, 56, 0.18);
-  --node-card-ink: rgba(16, 24, 39, 0.92);
-  --node-card-muted: rgba(16, 24, 39, 0.58);
-  --node-card-faint: rgba(16, 24, 39, 0.38);
-  --node-card-panel: rgba(255, 255, 255, 0.76);
-  --node-card-panel-strong: rgba(255, 255, 255, 0.94);
-  --node-card-field: rgba(255, 255, 255, 0.9);
-  --node-card-field-focus: #ffffff;
-  --node-card-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
-  --node-card-shadow-lift: 0 26px 68px rgba(15, 23, 42, 0.17);
-  --node-field-border: rgba(27, 39, 56, 0.12);
-  --node-handle-ring: #ffffff;
-
-  --workflow-node-content-surface: var(--node-card-panel);
-  --workflow-node-input-surface: var(--node-card-field);
-  --workflow-node-input-surface-focus: var(--node-card-field-focus);
-  --workflow-node-badge-surface: rgba(255, 255, 255, 0.88);
-  --workflow-node-border: var(--node-card-line);
-  --workflow-node-divider: var(--node-card-line);
-  --workflow-node-group-border: rgba(83, 100, 126, 0.32);
-  --workflow-node-highlight: rgba(255, 255, 255, 0.95);
-  --workflow-node-text: var(--node-card-muted);
-  --workflow-node-text-strong: var(--node-card-ink);
-  --workflow-node-title-text: var(--node-card-ink);
-  --workflow-node-handle-ring: var(--node-handle-ring);
-}
-
-[data-theme="dark"] {
-  --node-card-bg: #181b22;
-  --node-card-bg-soft: #20242d;
-  --node-card-line: rgba(255, 255, 255, 0.09);
-  --node-card-line-strong: rgba(255, 255, 255, 0.16);
-  --node-card-ink: rgba(248, 250, 252, 0.94);
-  --node-card-muted: rgba(248, 250, 252, 0.62);
-  --node-card-faint: rgba(248, 250, 252, 0.4);
-  --node-card-panel: rgba(255, 255, 255, 0.055);
-  --node-card-panel-strong: rgba(255, 255, 255, 0.075);
-  --node-card-field: rgba(255, 255, 255, 0.055);
-  --node-card-field-focus: rgba(255, 255, 255, 0.085);
-  --node-card-shadow: 0 20px 48px rgba(0, 0, 0, 0.34);
-  --node-card-shadow-lift: 0 30px 76px rgba(0, 0, 0, 0.46);
-  --node-field-border: rgba(255, 255, 255, 0.11);
-  --node-handle-ring: rgba(14, 17, 23, 0.95);
-
-  --workflow-node-content-surface: var(--node-card-panel);
-  --workflow-node-input-surface: var(--node-card-field);
-  --workflow-node-input-surface-focus: var(--node-card-field-focus);
-  --workflow-node-badge-surface: rgba(12, 15, 20, 0.66);
-  --workflow-node-border: var(--node-card-line);
-  --workflow-node-divider: var(--node-card-line);
-  --workflow-node-group-border: rgba(205, 213, 224, 0.34);
-  --workflow-node-highlight: rgba(255, 255, 255, 0.08);
-  --workflow-node-text: var(--node-card-muted);
-  --workflow-node-text-strong: var(--node-card-ink);
-  --workflow-node-title-text: var(--node-card-ink);
-  --workflow-node-handle-ring: var(--node-handle-ring);
-}
 
 .react-flow__node {
   padding: 0 !important;
@@ -73,67 +11,6 @@
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
-}
-
-.flow-node-v2 {
-  display: flex;
-  flex-direction: column;
-  border-radius: 25px;
-  background: var(--node-card-bg);
-  border: 0.5px solid var(--node-card-line);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08);
-  overflow: visible;
-  transition: border-color 200ms ease, box-shadow 200ms ease;
-  --appendix-gap: 10px;
-}
-
-.flow-node-v2:hover {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 24px rgba(0, 0, 0, 0.08), 0 16px 48px rgba(0, 0, 0, 0.1), 0 0 12px
-    4px color-mix(in srgb, var(--node-color) 14%, transparent);
-}
-
-.flow-node-v2--selected {
-  border-color: color-mix(in srgb, var(--node-color) 60%, var(--node-card-line));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 16px
-    6px color-mix(in srgb, var(--node-color) 18%, transparent);
-  animation: nodeGlowBreatheV2 3s ease-in-out infinite;
-}
-
-@keyframes nodeGlowBreatheV2 {
-  0%,
-  100% {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 12px
-      4px color-mix(in srgb, var(--node-color) 14%, transparent);
-  }
-  50% {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 22px
-      10px color-mix(in srgb, var(--node-color) 24%, transparent);
-  }
-}
-
-.flow-node-v2--error {
-  border-color: #ff3b30;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 0 3px
-    rgba(255, 59, 48, 0.14);
-}
-
-.flow-node-v2--warning {
-  border-color: #ff9500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08), 0 0 0 3px
-    rgba(255, 149, 0, 0.14);
-}
-
-.flow-node-v2--disabled {
-  opacity: 0.5;
-  filter: saturate(0.3);
-}
-
-.flow-node-v2--locked {
-  border-color: color-mix(in srgb, var(--node-color) 36%, var(--node-card-line-strong));
-}
-
-.flow-node-v2--running {
-  animation: pulse-border 1.5s ease-in-out infinite;
 }
 
 .flow-node-v2__frame {
@@ -150,20 +27,6 @@
   flex: 1;
   flex-direction: column;
   gap: 8px;
-}
-
-.flow-node-v2__header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 9px;
-  flex-shrink: 0;
-  min-height: 34px;
-  border-radius: 9px;
-  padding: 6px 8px;
-  background: var(--node-card-panel-strong);
-  border: 1px solid var(--node-card-line);
-  box-shadow: inset 3px 0 0 var(--node-color);
 }
 
 .flow-node-v2__icon {
@@ -465,27 +328,6 @@
 
 .node-v2-port--connected .node-v2-port__label {
   color: color-mix(in srgb, var(--port-color) 50%, var(--node-card-ink));
-}
-
-.react-flow__handle {
-  width: 12px !important;
-  height: 12px !important;
-  border: 3px solid var(--node-handle-ring) !important;
-  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 18%, transparent);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.react-flow__handle:hover {
-  transform: translateY(-50%) scale(1.25) !important;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--node-color, var(--color-accent)) 18%, transparent);
-}
-
-.react-flow__handle.connecting {
-  box-shadow: 0 0 0 5px rgba(0, 122, 255, 0.22);
-}
-
-.react-flow__handle.valid {
-  box-shadow: 0 0 0 5px rgba(48, 209, 88, 0.22);
 }
 
 .node-content-shell-v2 {
@@ -2017,75 +1859,6 @@
   right: -6px;
 }
 
-@keyframes pulse-border {
-  0%,
-  100% {
-    box-shadow: 0 0 10px 3px rgba(255, 149, 0, 0.22), var(--node-card-shadow-lift);
-  }
-  50% {
-    box-shadow: 0 0 20px 8px rgba(255, 149, 0, 0.34), var(--node-card-shadow-lift);
-  }
-}
-
-/* ── Gallery Frame (ai node card) ── */
-
-.node-gallery-shell-v2 {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  margin-inline: 0 !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  overflow: hidden;
-}
-
-.node-gallery-frame-v2 {
-  flex: 1;
-  min-height: 0;
-  margin: 6px;
-  border-radius: 15px;
-  background: var(--node-card-bg-soft);
-  border: 1px solid var(--node-card-line);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  transition: background 200ms ease, border-color 200ms ease;
-}
-
-.flow-node-v2--selected .node-gallery-frame-v2 {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 2px color-mix(in srgb, var(--node-color) 22%, transparent);
-  border-color: color-mix(in srgb, var(--node-color) 32%, var(--node-card-line));
-}
-
-.node-gallery-image-v2 {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  cursor: pointer;
-}
-
-.node-gallery-empty-v2 {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  color: var(--node-card-faint);
-  opacity: 0.52;
-}
-
-.node-gallery-empty-v2 span {
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
 /* Appendix buttons & status pills — V2 node shell palette */
 /* Appendix bar — unified button container */
 .node-v2-appendix-bar {
@@ -2175,21 +1948,6 @@
   color: var(--node-color);
 }
 
-.node-v2-status-pill {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 40px;
-  padding: 0 14px;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1;
-  border-radius: 999px;
-  background: var(--node-card-bg);
-  backdrop-filter: blur(40px);
-  border: 0.5px solid var(--node-card-line);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
 
 .node-v2-empty-io-actions {
   display: flex;

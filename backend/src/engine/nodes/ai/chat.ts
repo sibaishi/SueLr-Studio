@@ -2,6 +2,7 @@ import { runChatCompletion } from '../../../platform/ai/chat-service.ts';
 import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import { cleanModelText } from '../cleanModelText.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
+import { recordGenerationResult } from './generation-record.ts';
 import { buildChatContent, parseChatResult } from './helpers.ts';
 
 export async function executeChatMode(
@@ -41,5 +42,11 @@ export async function executeChatMode(
   });
   const result = await parseChatResult(resp);
   if (!result.content) throw new Error('AI 返回了空内容');
-  return { result: cleanModelText(result.content) };
+  return recordGenerationResult(
+    { result: cleanModelText(result.content) },
+    { mode: 'chat', model, prompt, systemPrompt, enableWebSearch: nodeData.enableWebSearch === true },
+    images.map((url) => ({ url: String(url), kind: 'image' as const })),
+    nodeData,
+    apiConfig,
+  );
 }

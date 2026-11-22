@@ -1,3 +1,4 @@
+import CanvasNavigation from './CanvasNavigation';
 import { isWorkflowModalOpen } from './workflowModalIsolation';
 import {
   GRID_SIZE,
@@ -19,14 +20,11 @@ import { AnimatedSvgSmoothStepEdge } from '@/shared/ui/AnimatedSvgSmoothStepEdge
 import {
   ConnectionLineType,
   ConnectionMode,
-  Controls,
   type EdgeChange,
   type EdgeMouseHandler,
   type Node as FlowNodeType,
-  MiniMap,
   type NodeChange,
   type OnNodeDrag,
-  Panel,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
@@ -703,7 +701,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         size={1.5}
         hoverSize={2}
         color="var(--color-grid-dot)"
-        glowColor="rgba(10, 132, 255, 0.7)"
+        glowColor="var(--canvas-grid-glow)"
         glowRadius={GRID_SIZE * 4}
         containerWidth={containerSize.width}
         containerHeight={containerSize.height}
@@ -781,19 +779,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         selectionOnDrag={!spaceHeld && !edgeCut.edgeCuttingActive}
         selectNodesOnDrag={!spaceHeld && !edgeCut.edgeCuttingActive}
       >
-        <Panel position="bottom-left" className="workflow-minimap-group">
-          <Controls showInteractive={false} />
-          <MiniMap
-            nodeColor={miniMapNodeColor}
-            maskColor="rgba(0, 0, 0, 0.15)"
-            style={{
-              width: 148,
-              height: 106,
-            }}
-            pannable
-            zoomable
-          />
-        </Panel>
+        <CanvasNavigation nodeColor={miniMapNodeColor} />
       </ReactFlow>
 
       {ctxMenu.contextMenu &&

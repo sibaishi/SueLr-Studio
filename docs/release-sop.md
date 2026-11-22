@@ -107,3 +107,6 @@ This document defines the standard release workflow for SueLr Studio. The active
 - `local-web` release validation should explicitly cover both `build:local-web` and `start:local-web`.
 - Variant-specific launchers and packaging steps must stay documented in this SOP and the user/developer guides.
 - Server deployment, Docker image publishing, and independent admin-console release flows have been retired from this repository.
+
+
+2026-11-22：后端执行器与前端共用 `src/shared/types/generation.ts` 中的生成记录契约和参数白名单。Electron 打包 files 清单须包含该文件，避免安装包内后端运行时缺少导入模块。生成元信息通过运行时存储解析器持久化，不写入安装目录。

@@ -1,7 +1,10 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import App from '@/app/App';
+const Entry =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).get('view') === 'canvas-components'
+    ? lazy(() => import('@/domains/workflow/components/CanvasComponentGallery'))
+    : lazy(() => import('@/app/App'));
 
 const root = document.getElementById('root');
 if (!root) {
@@ -10,6 +13,8 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <Suspense fallback={<p role="status">正在加载…</p>}>
+      <Entry />
+    </Suspense>
   </StrictMode>,
 );

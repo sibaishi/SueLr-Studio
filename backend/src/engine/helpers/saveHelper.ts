@@ -2,6 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ensureGeneratedThumbnailFromFile } from '../../platform/media/image-thumbnails.ts';
 import { getMimeType } from '../../platform/media/media-resolver.ts';
+import {
+  type GenerationRecords,
+  generationValueKey,
+  writeOutputGeneration,
+} from '../../platform/media/output-generation.ts';
 import type { RequestScope } from '../../platform/runtime/request-scope.ts';
 import { PROJECT_ROOT, STORAGE_PATHS, getScopedStoragePaths, safeResolveWithin } from '../../platform/storage/index.ts';
 
@@ -33,6 +38,7 @@ type ContentType = keyof typeof TYPE_DIRS;
 type MimeType = keyof typeof MIME_EXT;
 
 interface SaveOptions {
+  generationRecords?: GenerationRecords;
   exposeHostPaths?: boolean;
   outputPath?: string;
   prefix?: string;
@@ -204,7 +210,18 @@ export async function saveContentByType(content: unknown, options: SaveOptions =
     return results;
   }
 
-  if (typeof content === 'string') return [await saveString(content, options)];
+  if (typeof content === 'string') {
+    const file = await saveString(content, options);
+    const generation = options.generationRecords?.get(generationValueKey(content));
+    if (generation) {
+      const relativePath = path
+        .relative(getScopedStoragePaths(options.scope).generatedDir, file.path)
+        .split(path.sep)
+        .join('/');
+      writeOutputGeneration(relativePath, generation, options.scope);
+    }
+    return [file];
+  }
 
   const filePath = targetPath('data', options, 'json');
   fs.writeFileSync(filePath, JSON.stringify(content, null, 2), 'utf-8');

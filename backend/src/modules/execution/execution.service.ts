@@ -410,6 +410,8 @@ export class ExecutionService {
           {
             ...apiConfig,
             runId: snapshot.runId,
+            generationWorkflowId: snapshot.workflowId,
+            generationRecords: new Map(),
             scope,
             abortSignal: abortController.signal,
             recordVideoRecovery(task: Omit<VideoRecovery, 'id'>) {

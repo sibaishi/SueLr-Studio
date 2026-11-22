@@ -1,3 +1,4 @@
+import { useT } from '@/providers/ThemeContext';
 import { useViewport } from '@xyflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 
@@ -15,10 +16,10 @@ interface GridDotsProps {
 }
 
 /** Resolve a CSS custom property (var(--xxx)) to its computed value. */
-function resolveColor(raw: string): string {
+function resolveColor(raw: string, element: HTMLElement): string {
   if (raw.startsWith('var(')) {
     const varName = raw.slice(4, -1).trim();
-    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || raw;
+    return getComputedStyle(element).getPropertyValue(varName).trim() || raw;
   }
   return raw;
 }
@@ -35,6 +36,7 @@ export function GridDots({
   mouseFlowPos,
   fadeOut,
 }: GridDotsProps) {
+  const themeColors = useT();
   const { x: vpX, y: vpY, zoom } = useViewport();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
@@ -133,7 +135,7 @@ export function GridDots({
       ctx.scale(zoom, zoom);
 
       // Layer 1: baseline dots
-      const dotColor = resolveColor(color);
+      const dotColor = resolveColor(color, canvas);
       ctx.fillStyle = dotColor;
       for (let i = 0; i < baseDots.length; i++) {
         const d = baseDots[i];
@@ -144,7 +146,7 @@ export function GridDots({
 
       // Layer 2: glow dots with shadow blur for the halo
       if (glowDots.length > 0) {
-        const resolvedGlow = resolveColor(glowColor);
+        const resolvedGlow = resolveColor(glowColor, canvas);
         ctx.shadowColor = resolvedGlow;
         ctx.shadowBlur = 4;
         for (let i = 0; i < glowDots.length; i++) {
@@ -169,7 +171,7 @@ export function GridDots({
         rafRef.current = 0;
       }
     };
-  }, [baseDots, glowDots, color, glowColor, size, vpX, vpY, zoom, containerWidth, containerHeight]);
+  }, [baseDots, glowDots, color, glowColor, size, vpX, vpY, zoom, containerWidth, containerHeight, themeColors]);
 
   if (!containerWidth || !containerHeight) return null;
 

@@ -6,11 +6,25 @@ import {
   workflowModalPointerBoundary,
 } from './workflowModalIsolation';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
-import { NodeCanvasEditorModal } from '@/domains/workflow/components/NodeCanvasEditorModal';
 import { loadWorkflowImage } from '@/domains/workflow/lib/browserImage';
 import { CaretLeft, CaretRight, Columns, Copy, Download, Minus, PaintBrush, Plus, X } from '@phosphor-icons/react';
-import { type CSSProperties, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
+
+const NodeCanvasEditorModal = lazy(() =>
+  import('./NodeCanvasEditorModal').then((module) => ({ default: module.NodeCanvasEditorModal })),
+);
 
 const FIT_VIEW = { zoom: 1, x: 0, y: 0 };
 const MAX_ZOOM = 8;
@@ -23,6 +37,7 @@ export interface PreviewImageItem {
 }
 
 export function ImagePreviewModal({
+  theme,
   src,
   textContent,
   onTextChange,
@@ -40,6 +55,7 @@ export function ImagePreviewModal({
   renderActions,
   children,
 }: {
+  theme?: 'dark' | 'light';
   src: string;
   textContent?: string;
   onTextChange?: (text: string) => void;
@@ -115,9 +131,10 @@ export function ImagePreviewModal({
   const resizedSrcsRef = useRef<Record<number, string>>({});
   const isCompareMode = comparePair !== null && gallery.length >= 2;
   const compareA = comparePair && gallery[comparePair[0]] ? comparePair[0] : 0;
-  const compareB = comparePair && gallery[comparePair[1]] && comparePair[1] !== compareA
-    ? comparePair[1]
-    : (compareA + 1) % gallery.length;
+  const compareB =
+    comparePair && gallery[comparePair[1]] && comparePair[1] !== compareA
+      ? comparePair[1]
+      : (compareA + 1) % gallery.length;
 
   const activeImage = gallery[activeIndex] || gallery[0];
   const displaySrc = resizedSrcs[activeIndex] || activeImage.src;
@@ -342,6 +359,7 @@ export function ImagePreviewModal({
       rootProps={{
         ...workflowModalPointerBoundary,
         'data-workflow-modal-overlay': '',
+        ...(theme ? { 'data-theme': theme } : {}),
         onClick: stopWorkflowModalEvent,
         onMouseDown: stopWorkflowModalEvent,
       }}
@@ -479,11 +497,7 @@ export function ImagePreviewModal({
               {renderActions?.(activeImage, activeIndex)}
 
               {canCompare && (
-                <ImagePreviewActionButton
-                  icon={<Columns size={14} />}
-                  label="对比"
-                  onClick={enterCompareMode}
-                />
+                <ImagePreviewActionButton icon={<Columns size={14} />} label="对比" onClick={enterCompareMode} />
               )}
 
               {copyStatus && <span className="workflow-image-preview-modal__status">{copyStatus}</span>}
@@ -509,10 +523,12 @@ export function ImagePreviewModal({
             <div
               ref={stageRef}
               className={`workflow-image-preview-modal__stage ${isSlider ? 'is-slider' : ''} ${paneCount === 2 ? 'is-side-by-side' : ''} ${view.zoom > 1 ? 'is-zoomed' : ''}`}
-              style={{
-                '--divider': `${sliderPosition}%`,
-                '--image-transform': `translate(${view.x * 100}%, ${view.y * 100}%) scale(${view.zoom})`,
-              } as CSSProperties}
+              style={
+                {
+                  '--divider': `${sliderPosition}%`,
+                  '--image-transform': `translate(${view.x * 100}%, ${view.y * 100}%) scale(${view.zoom})`,
+                } as CSSProperties
+              }
               onPointerDown={startGesture}
               onPointerMove={moveGesture}
               onPointerUp={endGesture}
@@ -530,7 +546,12 @@ export function ImagePreviewModal({
               </div>
               {isCompareMode && (
                 <div className="workflow-image-preview-modal__pane is-b">
-                  <img src={compareSrcB} alt="对比图 B" className="workflow-image-preview-modal__image" draggable={false} />
+                  <img
+                    src={compareSrcB}
+                    alt="对比图 B"
+                    className="workflow-image-preview-modal__image"
+                    draggable={false}
+                  />
                   <span className="workflow-image-preview-modal__pane-label">B</span>
                 </div>
               )}
@@ -560,7 +581,10 @@ export function ImagePreviewModal({
                     setSliderPosition(clamp(position, 0, 100));
                   }}
                 >
-                  <span aria-hidden="true"><CaretLeft size={12} /><CaretRight size={12} /></span>
+                  <span aria-hidden="true">
+                    <CaretLeft size={12} />
+                    <CaretRight size={12} />
+                  </span>
                 </div>
               )}
             </div>
@@ -568,12 +592,28 @@ export function ImagePreviewModal({
               <div className="workflow-image-preview-modal__compare-strip">
                 <div className="workflow-image-preview-modal__compare-controls">
                   <div role="group" aria-label="对比方式">
-                    <ImagePreviewActionButton label="滑动" active={isSlider} onClick={() => setCompareLayout('slider')} />
-                    <ImagePreviewActionButton label="并排" active={!isSlider} onClick={() => setCompareLayout('side-by-side')} />
+                    <ImagePreviewActionButton
+                      label="滑动"
+                      active={isSlider}
+                      onClick={() => setCompareLayout('slider')}
+                    />
+                    <ImagePreviewActionButton
+                      label="并排"
+                      active={!isSlider}
+                      onClick={() => setCompareLayout('side-by-side')}
+                    />
                   </div>
                   <div role="group" aria-label="选择要替换的图片">
-                    <ImagePreviewActionButton label="选 A" active={selectingSlot === 0} onClick={() => setSelectingSlot(0)} />
-                    <ImagePreviewActionButton label="选 B" active={selectingSlot === 1} onClick={() => setSelectingSlot(1)} />
+                    <ImagePreviewActionButton
+                      label="选 A"
+                      active={selectingSlot === 0}
+                      onClick={() => setSelectingSlot(0)}
+                    />
+                    <ImagePreviewActionButton
+                      label="选 B"
+                      active={selectingSlot === 1}
+                      onClick={() => setSelectingSlot(1)}
+                    />
                   </div>
                   <ImagePreviewActionButton label="交换 A/B" onClick={() => setComparePair([compareB, compareA])} />
                 </div>
@@ -601,13 +641,15 @@ export function ImagePreviewModal({
           </div>
 
           {canvasEditorOpen && canEditImage && !isCompareMode && (
-            <NodeCanvasEditorModal
-              src={displaySrc}
-              nodeLabel={activeImage.name || '画板'}
-              onClose={() => setCanvasEditorOpen(false)}
-              onSavePaint={handleCanvasSave}
-              onExportLayer={onExportLayer}
-            />
+            <Suspense fallback={<span role="status">正在加载画板…</span>}>
+              <NodeCanvasEditorModal
+                src={displaySrc}
+                nodeLabel={activeImage.name || '画板'}
+                onClose={() => setCanvasEditorOpen(false)}
+                onSavePaint={handleCanvasSave}
+                onExportLayer={onExportLayer}
+              />
+            </Suspense>
           )}
         </>
       )}

@@ -2,6 +2,7 @@ import { runImageGeneration } from '../../../platform/ai/image-service.ts';
 import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import { normalizeImageResolution } from '../../helpers/imageGeneration.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
+import { recordGenerationResult } from './generation-record.ts';
 import { dedupePreferUrl } from './helpers.ts';
 
 export async function executeImageMode(
@@ -29,9 +30,21 @@ export async function executeImageMode(
   const imgConfig = { ...runtimeConfig, abortSignal: apiConfig?.abortSignal, persistGeneratedOutputs: false };
   const result = (await runImageGeneration(request, imgConfig, sendProgress)) as {
     images: DynamicValue[];
-    request?: { model?: DynamicValue };
+    request?: Record<string, unknown>;
   };
 
   const deduped = dedupePreferUrl(result.images);
-  return { result: deduped, meta: { model: result.request?.model || request.model, count: deduped.length } };
+  const effective = { ...request, ...result.request };
+  return recordGenerationResult(
+    { result: deduped, meta: { model: result.request?.model || request.model, count: deduped.length } },
+    { ...effective, mode: 'image', imageResolution: effective.resolution },
+    [
+      ...images.map((url) => ({ url: String(url), kind: 'image' as const })),
+      ...(typeof effective.mask === 'string' && effective.mask
+        ? [{ url: effective.mask, kind: 'image' as const, role: 'mask' as const }]
+        : []),
+    ],
+    nodeData,
+    apiConfig,
+  );
 }

@@ -3,6 +3,7 @@ import { readDownloadBuffer } from '../../../platform/http/remote-download.ts';
 import { getProviderAdapter } from '../../../platform/providers/index.ts';
 import { resolveModelRuntime, type resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import type { ProgressCallback, RuntimeApiConfig } from '../types.ts';
+import { recordGenerationResult } from './generation-record.ts';
 
 const AUDIO_TIMEOUT_MS = 120_000;
 const AUDIO_MAX_BYTES = 25 * 1024 * 1024;
@@ -11,9 +12,10 @@ export async function executeAudioMode(
   prompt: string,
   nodeData: Record<string, unknown>,
   runtimeConfig: ReturnType<typeof resolveRuntimeApiConfig>,
-  { abortSignal }: RuntimeApiConfig,
+  apiConfig: RuntimeApiConfig,
   sendProgress: ProgressCallback,
 ) {
+  const { abortSignal } = apiConfig;
   const input = prompt.trim();
   if (!input) throw new Error('请输入要合成的文本，或连接上游文本节点。');
 
@@ -43,5 +45,11 @@ export async function executeAudioMode(
   const isMp3 =
     audio.length >= 4 && (audio.toString('ascii', 0, 3) === 'ID3' || (audio[0] === 0xff && (audio[1] & 0xe0) === 0xe0));
   if (!isMp3) throw new ProviderError('AUDIO_RESULT_INVALID', '语音合成接口未返回有效的 MP3 音频');
-  return { result: `data:audio/mpeg;base64,${audio.toString('base64')}` };
+  return recordGenerationResult(
+    { result: `data:audio/mpeg;base64,${audio.toString('base64')}` },
+    { mode: 'audio', model: model.modelId, prompt: input, voice },
+    [],
+    nodeData,
+    apiConfig,
+  );
 }

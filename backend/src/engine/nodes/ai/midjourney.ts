@@ -2,6 +2,7 @@ import { type MidjourneyMode, executeMidjourneyImagine } from '../../../platform
 import type { resolveRuntimeApiConfig } from '../../helpers/apiConfig.ts';
 import { fetchImageBuffer, persistImageBuffer } from '../../helpers/downloadRemoteImageFile.ts';
 import type { DynamicValue, ProgressCallback, RuntimeApiConfig } from '../types.ts';
+import { recordGenerationResult } from './generation-record.ts';
 
 export async function executeMidjourneyMode(
   prompt: string,
@@ -69,12 +70,18 @@ export async function executeMidjourneyMode(
     }
   }
 
-  return {
-    result: workflowImages,
-    meta: {
-      model,
-      count: workflowImages.length,
-      task: result.task,
+  return recordGenerationResult(
+    {
+      result: workflowImages,
+      meta: {
+        model,
+        count: workflowImages.length,
+        task: result.task,
+      },
     },
-  };
+    { ...nodeData, mode: 'midjourney', model, prompt: midjourneyPrompt },
+    [],
+    nodeData,
+    apiConfig,
+  );
 }

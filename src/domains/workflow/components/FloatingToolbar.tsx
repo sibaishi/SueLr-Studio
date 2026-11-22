@@ -2,7 +2,7 @@ import { THEME_LABELS } from '@/app/theme/constants';
 import { ArcIcon } from '@/domains/agent/ArcIcon';
 import type { ThemeMode } from '@/shared/types';
 import { FolderOpen, Gear, GridNine, Monitor, Moon, Plus, Sun } from '@phosphor-icons/react';
-import type { ReactNode } from 'react';
+import { IconButton as FloatingToolbarButton, ToolGroup } from '@/ui/CanvasPrimitives';
 import { ArrangeNodesIcon, ResultsSidebarIcon } from './CanvasToolIcons';
 
 const THEME_ICONS = { dark: Moon, light: Sun, system: Monitor };
@@ -41,7 +41,7 @@ export default function FloatingToolbar({
     <div className="workflow-floating-tools">
       <button
         type="button"
-        className="workflow-agent-launcher"
+        className="workflow-agent-launcher ui-floating-surface"
         aria-label={agentOpen ? '收起弧光' : '打开弧光'}
         title={agentOpen ? '收起弧光' : '打开弧光'}
         data-testid="workflow-toggle-agent"
@@ -50,7 +50,7 @@ export default function FloatingToolbar({
       >
         <ArcIcon size={20} />
       </button>
-      <div className="workflow-floating-toolbar" aria-label="工作流工具">
+      <ToolGroup vertical className="workflow-floating-toolbar" label="工作流工具">
         <FloatingToolbarButton
           icon={<Plus size={16} />}
           label="添加节点"
@@ -74,7 +74,7 @@ export default function FloatingToolbar({
           icon={<GridNine size={16} />}
           label={snapToGridEnabled ? '关闭网格吸附' : '开启网格吸附'}
           onClick={onToggleSnapToGrid}
-          active={snapToGridEnabled}
+          pressed={snapToGridEnabled}
           testId="workflow-toggle-snap-grid"
         />
         <FloatingToolbarButton
@@ -95,40 +95,7 @@ export default function FloatingToolbar({
           onClick={onToggleTheme}
           testId="workflow-toggle-theme"
         />
-      </div>
+      </ToolGroup>
     </div>
-  );
-}
-
-function FloatingToolbarButton({
-  icon,
-  label,
-  onClick,
-  testId,
-  active = false,
-  pressed,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-  testId: string;
-  active?: boolean;
-  pressed?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className="workflow-floating-toolbar__button"
-      aria-label={label}
-      aria-pressed={pressed}
-      title={label}
-      data-testid={testId}
-      onClick={onClick}
-      style={active || pressed ? { color: 'var(--color-accent)' } : undefined}
-    >
-      <span className="workflow-floating-toolbar__icon" aria-hidden="true">
-        {icon}
-      </span>
-    </button>
   );
 }

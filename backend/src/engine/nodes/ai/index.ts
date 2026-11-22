@@ -104,21 +104,32 @@ export async function execute(
     prompt = prompt ? `${prompt}\n${extra}` : extra;
   }
 
+  const generationConfig = { ...apiConfig, generationNodeId: node.id };
   const runtimeConfig = resolveRuntimeApiConfig({}, apiConfig, nodeData.model);
   if (!runtimeConfig.apiKey) throw new Error('未配置 API Key，请在工作室设置的「连接」中填写。');
 
   if (mode === 'image') {
-    return executeImageMode(prompt, images, nodeData, runtimeConfig, apiConfig, sendProgress);
+    return executeImageMode(prompt, images, nodeData, runtimeConfig, generationConfig, sendProgress);
   }
   if (mode === 'audio') {
-    return executeAudioMode(prompt, nodeData, runtimeConfig, apiConfig, sendProgress);
+    return executeAudioMode(prompt, nodeData, runtimeConfig, generationConfig, sendProgress);
   }
   if (mode === 'video') {
-    return executeVideoMode(prompt, images, video, audio, nodeData, runtimeConfig, apiConfig, sendProgress, String(node.id || ''));
+    return executeVideoMode(
+      prompt,
+      images,
+      video,
+      audio,
+      nodeData,
+      runtimeConfig,
+      generationConfig,
+      sendProgress,
+      String(node.id || ''),
+    );
   }
   if (mode === 'midjourney') {
-    return executeMidjourneyMode(prompt, images, nodeData, runtimeConfig, apiConfig, sendProgress);
+    return executeMidjourneyMode(prompt, images, nodeData, runtimeConfig, generationConfig, sendProgress);
   }
   // default: chat
-  return executeChatMode(prompt, images, nodeData, runtimeConfig, apiConfig, sendProgress);
+  return executeChatMode(prompt, images, nodeData, runtimeConfig, generationConfig, sendProgress);
 }

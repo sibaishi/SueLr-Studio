@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./ui/foundations.css";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
 
@@ -409,44 +410,6 @@ textarea {
 textarea:focus-visible {
   outline: 1px solid color-mix(in srgb, var(--color-text-primary) 45%, transparent);
   outline-offset: -1px;
-}
-
-.text-composer {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  border: 1px solid var(--overlay-border);
-  border-radius: 15px;
-  background: var(--modal-panel-bg);
-}
-
-.text-composer:has(> textarea:focus) {
-  border-color: color-mix(in srgb, var(--color-text-primary) 42%, transparent);
-}
-
-.text-composer > textarea {
-  display: block;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  width: 100%;
-  padding: 10px 14px;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.text-composer > textarea:focus-visible {
-  outline: none;
-}
-
-.text-composer > textarea::placeholder {
-  color: var(--color-text-secondary);
 }
 
 /* --- Component-scoped focus-visible --- */

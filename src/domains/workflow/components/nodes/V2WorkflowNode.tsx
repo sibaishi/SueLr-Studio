@@ -2,12 +2,10 @@ import { getNodeDef, getNodeDefaultSize } from '@/domains/workflow/lib/constants
 import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { isNodeLockedWithAncestors } from '@/domains/workflow/lib/store/editorShared';
-import { NodeAppendix } from '@/shared/ui/NodeAppendix';
-import { Copy, LockOpen, LockSimple, Play, Prohibit, Warning } from '@phosphor-icons/react';
-import { Handle, NodeResizer, Position, useUpdateNodeInternals } from '@xyflow/react';
+import { NodeResizer, useUpdateNodeInternals } from '@xyflow/react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeContent } from './NodeContent';
-import { STATUS_BADGE } from './nodeConstants';
+import { WorkflowCardPresentation, WorkflowCardToolbar } from './WorkflowCardPresentation';
 import { WorkflowNodeIcon } from './WorkflowNodeIcon';
 import './node-v2.css';
 import './nodeAnimations.css';
@@ -56,13 +54,14 @@ export function V2WorkflowNodeShell({
   const isError = execStatus === 'error';
   const warningMessage = typeof data.warning === 'string' ? data.warning : '';
   const hasWarning = !isError && Boolean(warningMessage);
-  const badge = STATUS_BADGE[execStatus];
   const defaultLabel = def?.label || fallbackLabel;
   const customLabel = typeof data.label === 'string' ? data.label : '';
   const displayLabel = customLabel || defaultLabel;
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState('');
   const labelInputRef = useRef<HTMLInputElement>(null);
+  const labelButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreLabelFocusRef = useRef(false);
 
   const startEditing = useCallback(
     (event: React.MouseEvent) => {
@@ -80,9 +79,13 @@ export function V2WorkflowNodeShell({
   }, [defaultLabel, id, labelDraft, updateNodeData]);
 
   useEffect(() => {
-    if (!isEditingLabel) return;
-    labelInputRef.current?.focus();
-    labelInputRef.current?.select();
+    if (isEditingLabel) {
+      labelInputRef.current?.focus();
+      labelInputRef.current?.select();
+    } else if (restoreLabelFocusRef.current) {
+      restoreLabelFocusRef.current = false;
+      labelButtonRef.current?.focus();
+    }
   }, [isEditingLabel]);
 
   const minSize = def ? getNodeDefaultSize(type, 0) : { w: 280, h: 280 };
@@ -124,7 +127,16 @@ export function V2WorkflowNodeShell({
     .join(' ');
 
   return (
-    <div
+    <WorkflowCardPresentation
+      color={def.color}
+      isConnectable={isConnectable}
+      status={execStatus}
+      warning={hasWarning ? warningMessage : undefined}
+      disabled={isDisabled}
+      locked={isLocked}
+      selected={selected}
+      error={execError}
+      duration={statusText}
       className={className}
       style={
         {
@@ -133,186 +145,104 @@ export function V2WorkflowNodeShell({
           height: '100%',
           minWidth: minSize.w,
           minHeight: minSize.h,
-          animation: isRunning ? 'pulse-border 1.5s ease-in-out infinite' : undefined,
           boxSizing: 'border-box',
           position: 'relative',
         } as CSSProperties
       }
-    >
-      <NodeAppendix position="top">
-        <div className="node-v2-appendix-bar">
+      toolbar={
+        <WorkflowCardToolbar
+          disabled={isDisabled}
+          locked={isLocked}
+          onToggleDisabled={() => updateNodeData(id, { disabled: !isDisabled })}
+          onToggleLocked={() => toggleNodesLocked([id], !isDirectlyLocked)}
+          onDuplicate={() => duplicateNode(id)}
+          onExecute={() => executeWorkflowToNode(id)}
+        >
           {isEditingLabel ? (
             <input
               ref={labelInputRef}
               className="node-v2-appendix-label-input"
+              aria-label="节点名称"
               value={labelDraft}
               onChange={(event) => setLabelDraft(event.target.value)}
               onBlur={commitLabel}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') commitLabel();
-                if (event.key === 'Escape') setIsEditingLabel(false);
+                event.stopPropagation();
+                if (event.key === 'Enter' || event.key === 'Escape') {
+                  event.preventDefault();
+                  restoreLabelFocusRef.current = true;
+                  if (event.key === 'Enter') commitLabel();
+                  else setIsEditingLabel(false);
+                }
               }}
               onMouseDown={(event) => event.stopPropagation()}
             />
           ) : (
-            <span className="node-v2-appendix-label" onClick={startEditing} title="点击重命名">
+            <button
+              ref={labelButtonRef}
+              type="button"
+              className="node-v2-appendix-label nodrag"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={startEditing}
+              title="点击重命名"
+            >
               <span className="node-v2-appendix-type-icon" style={{ color: nodeColor }}>
                 <WorkflowNodeIcon name={def.icon} size={14} />
               </span>
               <span className="node-v2-appendix-label-text">{displayLabel}</span>
-            </span>
+            </button>
           )}
-          <div className="node-v2-appendix-divider" />
-          <button
-            type="button"
-            className="node-v2-appendix-btn"
-            onClick={(event) => {
-              event.stopPropagation();
-              updateNodeData(id, { disabled: !isDisabled });
-            }}
-            title={isDisabled ? '启用' : '禁用'}
-            aria-label={isDisabled ? '启用' : '禁用'}
-          >
-            <Prohibit size={15} style={{ color: isDisabled ? '#ff3b30' : undefined }} />
-          </button>
-          <div className="node-v2-appendix-divider" />
-          <button
-            type="button"
-            className="node-v2-appendix-btn"
-            onClick={(event) => {
-              event.stopPropagation();
-              toggleNodesLocked([id], !isDirectlyLocked);
-            }}
-            title={isLocked ? '解锁' : '锁定'}
-            aria-label={isLocked ? '解锁' : '锁定'}
-          >
-            {isLocked ? <LockSimple size={15} /> : <LockOpen size={15} />}
-          </button>
-          <div className="node-v2-appendix-divider" />
-          <button
-            type="button"
-            className="node-v2-appendix-btn"
-            onClick={(event) => {
-              event.stopPropagation();
-              duplicateNode(id);
-            }}
-            title="复制"
-            aria-label="复制"
-          >
-            <Copy size={15} />
-          </button>
-          <div className="node-v2-appendix-divider" />
-          <button
-            type="button"
-            className="node-v2-appendix-btn node-v2-appendix-btn--primary"
-            onClick={(event) => {
-              event.stopPropagation();
-              executeWorkflowToNode(id);
-            }}
-            title="执行到此节点"
-            aria-label="执行到此节点"
-          >
-            <Play size={15} />
-          </button>
-        </div>
-      </NodeAppendix>
-
-      {(isDisabled || hasWarning || execStatus !== 'idle') && (
-        <NodeAppendix position="bottom" showOnHover={false}>
-          {isDisabled && (
-            <span className="node-v2-status-pill" style={{ color: 'var(--node-card-muted)' }}>
-              已禁用
-            </span>
-          )}
-          {hasWarning && (
-            <span className="node-v2-status-pill" style={{ color: '#ff9500' }} title={warningMessage}>
-              <Warning size={14} aria-hidden="true" />
-              {warningMessage}
-            </span>
-          )}
-          {execStatus !== 'idle' && statusText && (
-            <span
-              className="node-v2-status-pill"
-              style={{ color: badge.color || 'var(--node-card-ink)' }}
-              title={badge.label + (execError ? `: ${execError}` : '')}
-            >
-              {badge.label === 'running'
-                ? '执行中'
-                : badge.label === 'error'
-                  ? '出错'
-                  : badge.label === 'success'
-                    ? '完成'
-                    : badge.label}{' '}
-              {statusText}
-            </span>
-          )}
-        </NodeAppendix>
-      )}
-
-      <NodeResizer
-        isVisible={selected && !isLocked}
-        minWidth={minSize.w}
-        minHeight={minSize.h}
-        onResizeEnd={(_, params) => {
-          if (!snapToGridEnabled) return;
-          const gridSize = 28;
-          setNodeSize(id, {
-            width: Math.max(minSize.w, Math.round(params.width / gridSize) * gridSize),
-            height: Math.max(minSize.h, Math.round(params.height / gridSize) * gridSize),
-          });
-          useWorkflowStore.setState((state) => ({
-            nodes: state.nodes.map((node) =>
-              node.id === id
-                ? {
-                    ...node,
-                    position: {
-                      x: Math.round(params.x / gridSize) * gridSize,
-                      y: Math.round(params.y / gridSize) * gridSize,
-                    },
-                  }
-                : node,
-            ),
-            hasUnsavedChanges: true,
-          }));
-        }}
-        lineStyle={{ borderColor: nodeColor, borderWidth: 1, borderStyle: 'dashed', opacity: 0.3 }}
-        handleStyle={{
-          width: 14,
-          height: 14,
-          borderRadius: 7,
-          backgroundColor: nodeColor,
-          border: '2px solid var(--color-bg-primary)',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-        }}
-      />
-
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="input"
-        isConnectable={isConnectable}
-        style={{ left: -6, top: '50%', transform: 'translateY(-50%)' }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="result"
-        isConnectable={isConnectable}
-        style={{ right: -6, top: '50%', transform: 'translateY(-50%)' }}
-      />
-
-      <div className="flow-node-v2__frame">
-        <NodeContent
-          type={type}
-          data={data}
-          nodeId={id}
-          def={def}
-          updateNodeData={updateNodeData}
-          outputs={nodeOutputs}
-          showBottomBorder={false}
-          connectedInputCount={0}
+        </WorkflowCardToolbar>
+      }
+      resizer={
+        <NodeResizer
+          isVisible={selected && !isLocked}
+          minWidth={minSize.w}
+          minHeight={minSize.h}
+          onResizeEnd={(_, params) => {
+            if (!snapToGridEnabled) return;
+            const gridSize = 28;
+            setNodeSize(id, {
+              width: Math.max(minSize.w, Math.round(params.width / gridSize) * gridSize),
+              height: Math.max(minSize.h, Math.round(params.height / gridSize) * gridSize),
+            });
+            useWorkflowStore.setState((state) => ({
+              nodes: state.nodes.map((node) =>
+                node.id === id
+                  ? {
+                      ...node,
+                      position: {
+                        x: Math.round(params.x / gridSize) * gridSize,
+                        y: Math.round(params.y / gridSize) * gridSize,
+                      },
+                    }
+                  : node,
+              ),
+              hasUnsavedChanges: true,
+            }));
+          }}
+          lineStyle={{ borderColor: nodeColor, borderWidth: 1, borderStyle: 'dashed', opacity: 0.3 }}
+          handleStyle={{
+            width: 14,
+            height: 14,
+            borderRadius: 7,
+            backgroundColor: nodeColor,
+            border: '2px solid var(--color-bg-primary)',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+          }}
         />
-      </div>
-    </div>
+      }
+    >
+      <NodeContent
+        type={type}
+        data={data}
+        nodeId={id}
+        def={def}
+        updateNodeData={updateNodeData}
+        outputs={nodeOutputs}
+        showBottomBorder={false}
+        connectedInputCount={0}
+      />
+    </WorkflowCardPresentation>
   );
 }

@@ -1,5 +1,7 @@
+import { FloatingSurface } from '@/ui/CanvasPrimitives';
+import CanvasRunControls from './CanvasRunControls';
 import type { WorkflowListItem } from '@/domains/workflow/lib/api';
-import { Play, ShareNetwork, Stop } from '@phosphor-icons/react';
+import { ShareNetwork } from '@phosphor-icons/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface ToolbarProps {
@@ -65,7 +67,7 @@ export default function Toolbar({
 
   return (
     <>
-      <div className="workflow-canvas-identity">
+      <FloatingSurface className="workflow-canvas-identity">
         <div className="workflow-toolbar__badge">
           <ShareNetwork size={16} />
         </div>
@@ -93,11 +95,11 @@ export default function Toolbar({
             </button>
           )}
         </div>
-      </div>
+      </FloatingSurface>
 
       <button
         type="button"
-        className="workflow-library-fab"
+        className="workflow-library-fab ui-floating-surface"
         onClick={onOpenWorkflowLibrary}
         data-testid="workflow-open-library"
         title={`工作流库 · ${workflows.length}`}
@@ -107,33 +109,12 @@ export default function Toolbar({
         {workflows.length > 0 && <span className="workflow-library-fab__badge">{workflows.length}</span>}
       </button>
 
-      <div
-        className={`workflow-canvas-run-controls ${
-          rightPanelCollapsed ? '' : 'workflow-canvas-run-controls--with-results'
-        }`}
-      >
-        <button
-          type="button"
-          onClick={onExecute}
-          disabled={isExecuting}
-          className="workflow-toolbar__primary-action"
-          data-testid="workflow-execute"
-        >
-          <Play size={14} weight="fill" />
-          执行
-        </button>
-
-        <button
-          type="button"
-          onClick={onCancelExecution}
-          disabled={!isExecuting}
-          className="workflow-toolbar__danger-action"
-          data-testid="workflow-cancel-execution"
-        >
-          <Stop size={13} weight="fill" />
-          停止
-        </button>
-      </div>
+      <CanvasRunControls
+        className={`workflow-canvas-run-controls ${rightPanelCollapsed ? '' : 'workflow-canvas-run-controls--with-results'}`}
+        isExecuting={isExecuting}
+        onExecute={onExecute}
+        onCancelExecution={onCancelExecution}
+      />
     </>
   );
 }
