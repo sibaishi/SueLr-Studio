@@ -1,3 +1,4 @@
+import { ConnectionTestStatus, type ConnectionTestState } from './ConnectionTestStatus';
 import {
   loadClientDownloadDirectoryState,
   loadStorageSettings,
@@ -11,11 +12,11 @@ import {
   waitForBackendReady,
 } from '@/features/settings';
 import type { StorageSettingsPayload } from '@/features/settings';
-import { useT } from '@/providers/ThemeContext';
+import { themeColors as T, themeTint } from '@/ui/theme';
 import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
 import type { ApiConfig, ModelInfo } from '@/shared/types';
-import { IOSButton, IOSInput, IOSLabel } from '@/shared/ui/ios';
-import { ArrowRight, CheckCircle, Database, FolderOpen, Key, ShieldCheck, Spinner } from '@phosphor-icons/react';
+import { Button, TextInput, FieldLabel } from '@/ui/FormPrimitives';
+import { ArrowRight, CheckCircle, Database, FolderOpen, Key, ShieldCheck } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 type Props = {
   activeConfigId: string;
@@ -74,16 +75,16 @@ export function FirstRunOnboarding({
   setBase,
   setModels,
 }: Props) {
-  const T = useT();
   const [storage, setStorage] = useState<StorageSettingsPayload | null>(null);
   const [storageDraft, setStorageDraft] = useState('');
   const [storageBusy, setStorageBusy] = useState(false);
   const [configName, setConfigName] = useState('默认配置');
   const [baseUrl, setBaseUrl] = useState('');
   const [secret, setSecret] = useState('');
-  const [testing, setTesting] = useState(false);
   const [testedModels, setTestedModels] = useState<ModelInfo[]>([]);
   const [connectionVerified, setConnectionVerified] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionTestState>('idle');
+  const testing = connectionStatus === 'testing';
   const [message, setMessage] = useState('');
   const [guidance, setGuidance] = useState('');
 
@@ -183,12 +184,13 @@ export function FirstRunOnboarding({
     const cleanBase = baseUrl.trim();
     const cleanSecret = secret.trim();
     if (!cleanBase || !cleanSecret) {
+      setConnectionStatus('error');
       setMessage('请先填写接口地址和 API Key。');
       setGuidance('接口地址通常类似 https://api.example.com/v1，API Key 请使用你自己的服务商密钥。');
       return;
     }
 
-    setTesting(true);
+    setConnectionStatus('testing');
     setConnectionVerified(false);
     setMessage('');
     setGuidance('');
@@ -213,6 +215,7 @@ export function FirstRunOnboarding({
         providerConfig: activeConfig?.providerConfig || DEFAULT_PROVIDER_CONFIG,
       });
       setConnectionVerified(true);
+      setConnectionStatus('success');
       setMessage(nextModels.length ? `连接成功，已发现 ${nextModels.length} 个模型。` : '连接成功，模型列表为空。');
       setGuidance(
         nextModels.length ? '下一步，在项目模型中选择并导入需要的模型。' : '下一步，在项目模型中手动添加可用模型。',
@@ -220,11 +223,10 @@ export function FirstRunOnboarding({
       addLog('success', `首次配置连接成功，发现 ${nextModels.length} 个模型`);
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
+      setConnectionStatus('error');
       setMessage(text);
       setGuidance(getConnectionFailureGuidance(text));
       addLog('error', text);
-    } finally {
-      setTesting(false);
     }
   };
 
@@ -314,7 +316,7 @@ export function FirstRunOnboarding({
               </div>
             </div>
 
-            <IOSLabel>{isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径'}</IOSLabel>
+            <FieldLabel>{isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径'}</FieldLabel>
             <div
               style={{
                 display: 'grid',
@@ -324,13 +326,13 @@ export function FirstRunOnboarding({
                 marginBottom: 12,
               }}
             >
-              <IOSInput
+              <TextInput
                 value={storageDraft}
                 onChange={setStorageDraft}
                 placeholder={isServerRuntime ? '授权后用于接收 ?????? 输出的本地下载目录' : '留空则使用默认位置'}
                 disabled={isServerRuntime}
               />
-              <IOSButton
+              <Button
                 label={storageBusy ? '选择中...' : isServerRuntime ? '授权目录' : '选择'}
                 onClick={() => {
                   void chooseStorage();
@@ -346,7 +348,7 @@ export function FirstRunOnboarding({
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <IOSButton
+              <Button
                 label={
                   storageBusy
                     ? '处理中...'
@@ -364,7 +366,7 @@ export function FirstRunOnboarding({
                 style={{ width: 'auto' }}
               />
               {isServerRuntime ? (
-                <IOSButton
+                <Button
                   label={storageBusy ? '处理中...' : '清除授权'}
                   onClick={() => {
                     void (async () => {
@@ -405,8 +407,8 @@ export function FirstRunOnboarding({
               }}
             >
               <div>
-                <IOSLabel>配置名称</IOSLabel>
-                <IOSInput
+                <FieldLabel>配置名称</FieldLabel>
+                <TextInput
                   value={configName}
                   onChange={(value) => {
                     setConfigName(value);
@@ -415,8 +417,8 @@ export function FirstRunOnboarding({
                 />
               </div>
               <div>
-                <IOSLabel>接口地址</IOSLabel>
-                <IOSInput
+                <FieldLabel>接口地址</FieldLabel>
+                <TextInput
                   value={baseUrl}
                   disabled={testing}
                   onChange={(value) => {
@@ -431,8 +433,8 @@ export function FirstRunOnboarding({
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <IOSLabel>API Key</IOSLabel>
-              <IOSInput
+              <FieldLabel>API Key</FieldLabel>
+              <TextInput
                 value={secret}
                 disabled={testing}
                 onChange={(value) => {
@@ -447,7 +449,7 @@ export function FirstRunOnboarding({
             </div>
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
-              <IOSButton
+              <Button
                 label={testing ? '测试中...' : '测试连接并发现模型'}
                 onClick={() => {
                   void testConnection();
@@ -456,18 +458,15 @@ export function FirstRunOnboarding({
                 small
                 style={{ width: 'auto' }}
               />
-              {testing && <Spinner size={16} color={T.text2} />}
-              {message && (
-                <span style={{ fontSize: 12, color: message.includes('成功') ? T.green : T.orange }}>{message}</span>
-              )}
+              <ConnectionTestStatus status={connectionStatus} result={message} />
             </div>
 
             {guidance && (
               <div
                 style={{
                   borderRadius: 8,
-                  border: `1px solid ${canComplete ? `${T.green}44` : `${T.orange}44`}`,
-                  background: canComplete ? `${T.green}12` : `${T.orange}12`,
+                  border: `1px solid ${canComplete ? themeTint(T.green, 27) : themeTint(T.orange, 27)}`,
+                  background: canComplete ? themeTint(T.green, 7) : themeTint(T.orange, 7),
                   padding: 12,
                   marginBottom: 14,
                 }}
@@ -521,7 +520,7 @@ export function FirstRunOnboarding({
                 {canComplete ? <CheckCircle size={16} /> : <Database size={16} />}
                 {canComplete ? '连接信息已保存。' : '测试连接后可继续配置项目模型。'}
               </div>
-              <IOSButton
+              <Button
                 label="配置项目模型"
                 onClick={() => onComplete(true)}
                 disabled={!canComplete}

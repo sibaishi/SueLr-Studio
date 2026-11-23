@@ -1,3 +1,5 @@
+import { PanelButton } from '@/ui/PanelPrimitives';
+import { MediaPlayer } from '@/ui/MediaPlayer';
 import type { GenerationRecord } from '@/shared/types/generation';
 import { ArrowCounterClockwise, ArrowSquareOut, Clipboard } from '@phosphor-icons/react';
 import { type ReactNode, useState } from 'react';
@@ -36,9 +38,7 @@ export function ResultGenerationDetails({
         title="使用提示词"
         action={
           record.prompt && (
-            <button
-              type="button"
-              className="ui-panel-button"
+            <PanelButton
               disabled={busy}
               onClick={() =>
                 void act(async () => {
@@ -49,7 +49,7 @@ export function ResultGenerationDetails({
             >
               <Clipboard size={12} />
               复制提示词
-            </button>
+            </PanelButton>
           )
         }
       >
@@ -79,16 +79,14 @@ export function ResultGenerationDetails({
         title="使用参考"
         action={
           record.references.length > 0 && (
-            <button
-              type="button"
-              className="ui-panel-button"
+            <PanelButton
               disabled={busy || !onBackfillReferences}
               title="将当次参考素材添加为新的 IO 节点"
               onClick={() => onBackfillReferences && void act(() => onBackfillReferences(record))}
             >
               <ArrowSquareOut size={12} />
               回填到画布
-            </button>
+            </PanelButton>
           )
         }
       >
@@ -105,9 +103,9 @@ export function ResultGenerationDetails({
                     <img src={reference.url} alt={`参考 ${index + 1}`} loading="lazy" />
                   </button>
                 ) : reference.kind === 'video' ? (
-                  <video src={reference.url} controls preload="metadata" />
+                  <MediaPlayer kind="video" src={reference.url} />
                 ) : (
-                  <audio src={reference.url} controls preload="metadata" />
+                  <MediaPlayer kind="audio" src={reference.url} />
                 )}
                 <span>
                   {reference.role === 'mask'
@@ -129,16 +127,14 @@ export function ResultGenerationDetails({
       <RecipeSection
         title="使用参数"
         action={
-          <button
-            type="button"
-            className="ui-panel-button"
+          <PanelButton
             disabled={busy || !onReuseParameters}
             title="复用到选中的 AI 节点；未选中时新建 AI 节点"
             onClick={() => onReuseParameters && void act(() => onReuseParameters(record))}
           >
             <ArrowCounterClockwise size={12} />
             复用参数
-          </button>
+          </PanelButton>
         }
       >
         <dl className="workflow-result-recipe__parameters">

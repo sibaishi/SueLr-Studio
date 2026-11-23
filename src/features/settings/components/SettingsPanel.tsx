@@ -1,34 +1,20 @@
+import { projectSettingsServices, type SettingsPanelServices } from './settingsPanelServices';
+import { Badge } from '@/ui/PanelPrimitives';
 import { THEME_LABELS } from '@/app/theme/constants';
 import {
   createImportedProjectModels,
   createManualProjectModel,
   normalizeProjectModels,
 } from '@/domains/workflow/lib/projectModels';
-import {
-  checkSettingsServer,
-  getBackendStatus,
-  getRuntimeCapabilitiesSnapshot,
-  loadClientDownloadDirectoryState,
-  loadStorageSettings,
-  pickClientDownloadDirectory,
-  pickStorageDirectory,
-  resetClientDownloadDirectory,
-  resetStorageSettings,
-  restartBackendRequest,
-  saveStorageSettings,
-  useSettingsPanelController,
-  waitForBackendReady,
-} from '@/features/settings';
+import { useSettingsPanelController } from '@/features/settings';
 import type {
   ClientDownloadDirectoryState,
   OutboundProxyRuntimePatch,
   SettingsPanelProps,
   StorageSettingsPayload,
 } from '@/features/settings';
-import { loadStudioSettings } from '@/features/settings/api';
-import { useT } from '@/providers/ThemeContext';
+import { themeColors as T, themeTint } from '@/ui/theme';
 import { useToast } from '@/providers/ToastContext';
-import { apiRequest } from '@/shared/api/client';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
 import { Database, Gauge, Key, Stack, Target } from '@phosphor-icons/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -37,7 +23,7 @@ import { DefaultsSection } from './DefaultsSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
 import { ModelsSection } from './ModelsSection';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
-import { chipStyle, eyebrowStyle, fuzzyMatch, mutedPanelStyle, sectionTitleStyle } from './styles';
+import { eyebrowStyle, fuzzyMatch, mutedPanelStyle, sectionTitleStyle } from './styles';
 import './settings-panel.css';
 
 export function SettingsPanel({
@@ -66,8 +52,8 @@ export function SettingsPanel({
   workflowConcurrency,
   setWorkflowConcurrency,
   projectBusy,
-}: SettingsPanelProps) {
-  const T = useT();
+  services = projectSettingsServices,
+}: SettingsPanelProps & { services?: SettingsPanelServices }) {
   const toast = useToast();
   const [projectModelSearch, setProjectModelSearch] = useState('');
   const [discoveries, setDiscoveries] = useState<Record<string, ModelInfo[]>>({});
@@ -113,6 +99,7 @@ export function SettingsPanel({
     setApiKey,
     setBase,
     setModels,
+    testConnectionRequest: services.testSettingsConnection,
   });
 
   const projectModels = useMemo(
@@ -141,8 +128,8 @@ export function SettingsPanel({
     () => projectModels.filter((model) => fuzzyMatch(model.modelId, projectModelSearch)),
     [projectModelSearch, projectModels],
   );
-  const themeOptions = Object.entries(THEME_LABELS).map(([value, label]) => ({ l: label, v: value }));
-  const runtimeCapabilities = getRuntimeCapabilitiesSnapshot();
+  const themeOptions = Object.entries(THEME_LABELS).map(([value, label]) => ({ label, value }));
+  const runtimeCapabilities = services.getRuntimeCapabilitiesSnapshot();
   const canSelectDirectory = runtimeCapabilities?.canSelectDirectory ?? false;
   const canRestartBackend = runtimeCapabilities?.canRestartBackend ?? false;
   const isServerRuntime = false;
@@ -153,7 +140,7 @@ export function SettingsPanel({
     const load = async () => {
       setStorageSettingsLoading(true);
       try {
-        const serverOk = await checkSettingsServer().catch(() => false);
+        const serverOk = await services.checkSettingsServer().catch(() => false);
         if (!serverOk) {
           if (!cancelled) {
             setStorageSettings(null);
@@ -162,11 +149,11 @@ export function SettingsPanel({
           return;
         }
 
-        const next = await loadStorageSettings();
+        const next = await services.loadStorageSettings();
         if (cancelled) return;
         setStorageSettings(next);
         setStoragePathDraft(next?.customRoot || '');
-        setClientDownloadDirectory(loadClientDownloadDirectoryState());
+        setClientDownloadDirectory(services.loadClientDownloadDirectoryState());
       } catch (error) {
         if (!cancelled) {
           addLog('error', error instanceof Error ? error.message : String(error));
@@ -182,14 +169,14 @@ export function SettingsPanel({
     return () => {
       cancelled = true;
     };
-  }, [addLog]);
+  }, [addLog, services]);
 
   // Load outbound proxy settings from backend on mount
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const studio = await loadStudioSettings();
+        const studio = await services.loadStudioSettings();
         if (cancelled || !studio) return;
         setOutboundProxy({
           outboundProxy: {
@@ -207,7 +194,7 @@ export function SettingsPanel({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [services]);
 
   useEffect(
     () => () => {
@@ -225,10 +212,7 @@ export function SettingsPanel({
     }
     outboundProxySettingsSaveTimer.current = setTimeout(() => {
       outboundProxySettingsSaveTimer.current = null;
-      apiRequest('/api/settings/studio', {
-        method: 'PUT',
-        body: JSON.stringify({ runtime: payload }),
-      }).catch(() => {});
+      services.saveOutboundProxy(payload).catch(() => {});
     }, 800);
   };
 
@@ -376,7 +360,7 @@ export function SettingsPanel({
 
     setStorageSettingsSaving(true);
     try {
-      const next = await saveStorageSettings(nextPath);
+      const next = await services.saveStorageSettings(nextPath);
       setStorageSettings(next);
       setStoragePathDraft(next.customRoot || '');
       addLog('success', '存储路径已保存，重启后端后生效');
@@ -391,7 +375,7 @@ export function SettingsPanel({
     if (isServerRuntime) {
       setStorageSettingsSaving(true);
       try {
-        await resetClientDownloadDirectory();
+        await services.resetClientDownloadDirectory();
         setClientDownloadDirectory(null);
         setStoragePathDraft('');
         addLog('success', '已清除浏览器自动下载目录，下次将回退到手动下载');
@@ -405,7 +389,7 @@ export function SettingsPanel({
 
     setStorageSettingsSaving(true);
     try {
-      const next = await resetStorageSettings();
+      const next = await services.resetStorageSettings();
       setStorageSettings(next);
       setStoragePathDraft('');
       addLog('success', '存储路径已恢复默认，重启后端后生效');
@@ -420,14 +404,14 @@ export function SettingsPanel({
     setStoragePathPicking(true);
     try {
       if (isServerRuntime) {
-        const next = await pickClientDownloadDirectory();
+        const next = await services.pickClientDownloadDirectory();
         setClientDownloadDirectory(next);
         setStoragePathDraft(next.label);
         addLog('success', `已授权浏览器自动下载目录：${next.label}`);
         return;
       }
 
-      const selectedPath = await pickStorageDirectory();
+      const selectedPath = await services.pickStorageDirectory();
       if (!selectedPath) return;
       setStoragePathDraft(selectedPath);
       addLog('success', '已选择自定义存储路径');
@@ -448,15 +432,15 @@ export function SettingsPanel({
 
     setBackendRestarting(true);
     try {
-      const previousStatus = await getBackendStatus().catch(() => null);
+      const previousStatus = await services.getBackendStatus().catch(() => null);
       addLog('info', '正在重启后端...');
       toast('正在重启后端...', 'info');
 
-      const result = await restartBackendRequest();
+      const result = await services.restartBackendRequest();
 
       if (result.mode === 'desktop') {
         const message = '设置已保存，请重启桌面应用以应用新的后端配置。';
-        const next = await loadStorageSettings().catch(() => null);
+        const next = await services.loadStorageSettings().catch(() => null);
         if (next) {
           setStorageSettings(next);
           setStoragePathDraft(next.customRoot || '');
@@ -473,13 +457,13 @@ export function SettingsPanel({
         return;
       }
 
-      await waitForBackendReady({
+      await services.waitForBackendReady({
         previousProcessInstanceId: previousStatus?.processInstanceId,
         timeoutMs: result.mode === 'spawn' ? 25000 : 20000,
         intervalMs: 500,
       });
 
-      const next = await loadStorageSettings().catch(() => null);
+      const next = await services.loadStorageSettings().catch(() => null);
       if (next) {
         setStorageSettings(next);
         setStoragePathDraft(next.customRoot || '');
@@ -783,8 +767,8 @@ export function SettingsPanel({
             </div>
           </div>
           <div className="settings-panel__badges">
-            <span style={chipStyle(hasConnectionDetails ? T.blue : T.orange)}>{connectionLabel}</span>
-            <span style={chipStyle(models.length > 0 ? T.blue : undefined)}>{models.length} 个已发现</span>
+            <Badge accent={hasConnectionDetails ? T.blue : T.orange}>{connectionLabel}</Badge>
+            <Badge accent={models.length > 0 ? T.blue : undefined}>{models.length} 个已发现</Badge>
           </div>
         </div>
       </div>
@@ -834,9 +818,9 @@ export function SettingsPanel({
                     textAlign: 'left',
                     padding: 12,
                     cursor: 'pointer',
-                    background: active ? `${module.accent}16` : 'var(--color-bg-secondary)',
-                    borderColor: active ? `${module.accent}44` : 'var(--color-border)',
-                    boxShadow: active ? `0 16px 32px ${module.accent}18` : 'none',
+                    background: active ? themeTint(module.accent, 9) : 'var(--color-bg-secondary)',
+                    borderColor: active ? themeTint(module.accent, 27) : 'var(--color-border)',
+                    boxShadow: active ? `0 16px 32px ${themeTint(module.accent, 9)}` : 'none',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -850,7 +834,7 @@ export function SettingsPanel({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          background: `${module.accent}20`,
+                          background: themeTint(module.accent, 13),
                           color: module.accent,
                         }}
                       >
@@ -874,9 +858,9 @@ export function SettingsPanel({
                         </div>
                       </div>
                     </div>
-                    <span style={{ ...chipStyle(active ? module.accent : undefined), padding: '5px 8px' }}>
+                    <Badge compact accent={active ? module.accent : undefined}>
                       {module.stat}
-                    </span>
+                    </Badge>
                   </div>
                 </button>
               );
@@ -894,7 +878,7 @@ export function SettingsPanel({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: `${activeModuleMeta.accent}20`,
+                  background: themeTint(activeModuleMeta.accent, 13),
                   color: activeModuleMeta.accent,
                 }}
               >
@@ -927,7 +911,7 @@ export function SettingsPanel({
                 <div style={eyebrowStyle()}>{activeModuleMeta.label}</div>
                 <h2 style={{ ...sectionTitleStyle(), marginTop: 8 }}>{activeModuleMeta.desc}</h2>
               </div>
-              <span style={chipStyle(activeModuleMeta.accent)}>{activeModuleMeta.stat}</span>
+              <Badge accent={activeModuleMeta.accent}>{activeModuleMeta.stat}</Badge>
             </div>
             {workspaceContent}
           </div>

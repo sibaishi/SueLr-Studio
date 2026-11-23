@@ -2,12 +2,13 @@ import { ErrorBoundary } from '@/app/bootstrap/ErrorBoundary';
 import type { ModelOption } from '@/domains/workflow/lib/projectModels';
 import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { useStudioSettingsState } from '@/features/settings';
-import { TCtx } from '@/providers/ThemeContext';
+import { ResolvedThemeContext } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
 import { getModelDisplayName, getModelGroupName } from '@/shared/providers/model-routing';
-import { SplashScreen } from '@/shared/ui/ios';
-import { ModalSurface } from '@/ui/ModalSurface';
-import { type ReactNode, Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { SplashScreen } from './bootstrap/SplashScreen';
+import { ErrorPanel } from '@/ui/FeedbackPrimitives';
+import { SettingsModal } from '@/features/settings/components/SettingsModal';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useAppBootstrap } from './bootstrap/useAppBootstrap';
 import { useThemeState } from './theme/useThemeState';
 import '@/domains/workflow/index.css';
@@ -24,72 +25,15 @@ const FirstRunOnboarding = lazy(() =>
 
 function BootstrapBlocker({ message, onRetry }: { message: string | null; onRetry: () => void }) {
   return (
-    <div
-      data-testid="bootstrap-blocker"
-      style={{
-        minHeight: '100vh',
-        display: 'grid',
-        placeItems: 'center',
-        padding: 24,
-        color: 'rgba(255, 255, 255, 0.86)',
-      }}
-    >
-      <div
-        style={{
-          width: 'min(420px, 100%)',
-          borderRadius: 16,
-          border: '1px solid rgba(255, 255, 255, 0.14)',
-          background: 'rgba(15, 23, 42, 0.72)',
-          padding: 24,
-          textAlign: 'center',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.24)',
-        }}
-      >
-        <div style={{ fontSize: 18, fontWeight: 700 }}>无法确认登录状态</div>
-        <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.7, color: 'rgba(255, 255, 255, 0.68)' }}>
-          {message || '请刷新页面后重试。'}
-        </div>
-        <button
-          type="button"
-          data-testid="bootstrap-retry"
-          onClick={onRetry}
-          style={{
-            marginTop: 18,
-            border: 0,
-            borderRadius: 12,
-            background: '#38bdf8',
-            color: '#082f49',
-            cursor: 'pointer',
-            fontSize: 14,
-            fontWeight: 700,
-            padding: '10px 16px',
-          }}
-        >
-          重试
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SettingsModal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return (
-    <ModalSurface
-      ariaLabel="工作室设置"
-      rootClassName="settings-modal"
-      panelClassName="settings-modal__panel"
-      backdropClassName="settings-modal__backdrop"
-      backdropLabel="关闭设置"
-      onClose={onClose}
-    >
-      {children}
-    </ModalSurface>
+    <ErrorPanel data-testid="bootstrap-blocker" title="无法确认登录状态" onRetry={onRetry}>
+      {message || '请刷新页面后重试。'}
+    </ErrorPanel>
   );
 }
 
 export default function App() {
   const hydratedRef = useRef(false);
-  const { colors, themeMode, setThemeMode } = useThemeState();
+  const { theme, themeMode, setThemeMode } = useThemeState();
   const settings = useStudioSettingsState();
   const workflowBusy = useWorkflowStore((state) => state.isExecuting);
   const [settingsModule, setSettingsModule] = useState<'overview' | 'connection' | 'models' | null>(null);
@@ -149,7 +93,7 @@ export default function App() {
   }, [settings.edgeStyle]);
 
   return (
-    <TCtx.Provider value={colors}>
+    <ResolvedThemeContext.Provider value={theme}>
       <ToastProvider>
         {!splashHidden && <SplashScreen done={splashDone} onHidden={() => setSplashHidden(true)} />}
         {showBootstrapBlocker && (
@@ -188,7 +132,7 @@ export default function App() {
               height: '100vh',
               fontFamily: 'var(--font-sans)',
               background: 'transparent',
-              color: colors.text,
+              color: 'var(--color-text-primary)',
               minWidth: 1280,
               position: 'relative',
             }}
@@ -240,6 +184,6 @@ export default function App() {
           </div>
         )}
       </ToastProvider>
-    </TCtx.Provider>
+    </ResolvedThemeContext.Provider>
   );
 }

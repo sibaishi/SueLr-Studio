@@ -1,8 +1,9 @@
 import type { ThemeMode } from '@/shared/types';
-import { IOSButton, IOSInput, IOSLabel, IOSSegmentedControl } from '@/shared/ui/ios';
+import { Button, TextInput, FieldLabel, SegmentedControl } from '@/ui/FormPrimitives';
 import { formatRuntimeModeLabel, getRuntimeActionHint } from '../runtimePresentation';
 import type { SettingsActions, SettingsViewModel } from './shared';
-import { SectionCard, eyebrowStyle, mutedPanelStyle } from './styles';
+import { SectionCard } from '@/ui/PanelPrimitives';
+import { eyebrowStyle, mutedPanelStyle } from './styles';
 
 type Props = {
   actions: SettingsActions;
@@ -10,8 +11,8 @@ type Props = {
 };
 
 const concurrencyModeOptions = [
-  { l: '关闭', v: 'off' },
-  { l: '开启', v: 'on' },
+  { label: '关闭', value: 'off' },
+  { label: '开启', value: 'on' },
 ];
 
 export function DefaultsSection({ actions, view }: Props) {
@@ -57,19 +58,21 @@ export function DefaultsSection({ actions, view }: Props) {
       <SectionCard title="主题与界面偏好" description="切换当前工作室的颜色主题和连线风格。">
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 180px', minWidth: 160 }}>
-            <IOSLabel>颜色主题</IOSLabel>
-            <IOSSegmentedControl
+            <FieldLabel>颜色主题</FieldLabel>
+            <SegmentedControl
+              label="颜色主题"
               options={view.themeOptions}
               value={view.themeMode}
               onChange={(value) => actions.setThemeMode(value as ThemeMode)}
             />
           </div>
           <div style={{ flex: '1 1 160px', minWidth: 140 }}>
-            <IOSLabel>连线风格</IOSLabel>
-            <IOSSegmentedControl
+            <FieldLabel>连线风格</FieldLabel>
+            <SegmentedControl
+              label="连线风格"
               options={[
-                { l: '贝塞尔', v: 'bezier' },
-                { l: '平滑阶梯', v: 'smoothstep' },
+                { label: '贝塞尔', value: 'bezier' },
+                { label: '平滑阶梯', value: 'smoothstep' },
               ]}
               value={view.edgeStyle}
               onChange={(value) => actions.setEdgeStyle(value as 'bezier' | 'smoothstep')}
@@ -84,8 +87,9 @@ export function DefaultsSection({ actions, view }: Props) {
       >
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ flex: '1 1 140px', minWidth: 120 }}>
-            <IOSLabel>并发执行</IOSLabel>
-            <IOSSegmentedControl
+            <FieldLabel>并发执行</FieldLabel>
+            <SegmentedControl
+              label="并发执行"
               options={concurrencyModeOptions}
               value={view.workflowConcurrency.enabled ? 'on' : 'off'}
               onChange={(value) =>
@@ -98,8 +102,8 @@ export function DefaultsSection({ actions, view }: Props) {
           </div>
 
           <div style={{ flex: '1 1 200px', minWidth: 160 }}>
-            <IOSLabel>最大并发数</IOSLabel>
-            <IOSInput
+            <FieldLabel>最大并发数</FieldLabel>
+            <TextInput
               value={String(view.workflowConcurrency.maxConcurrency)}
               onChange={(value) => {
                 const parsed = Number(value);
@@ -119,12 +123,13 @@ export function DefaultsSection({ actions, view }: Props) {
       <SectionCard title="网络代理" description="出站请求代理配置。选择「跟随系统」将自动读取系统代理。">
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ maxWidth: 360 }}>
-            <IOSLabel>代理模式</IOSLabel>
-            <IOSSegmentedControl
+            <FieldLabel>代理模式</FieldLabel>
+            <SegmentedControl
+              label="代理模式"
               options={[
-                { l: '系统', v: 'system' },
-                { l: '直连', v: 'direct' },
-                { l: '自定义', v: 'custom' },
+                { label: '系统', value: 'system' },
+                { label: '直连', value: 'direct' },
+                { label: '自定义', value: 'custom' },
               ]}
               value={view.outboundProxySettings.outboundProxy?.mode || 'system'}
               onChange={(value) => actions.setOutboundProxyMode(value as 'system' | 'direct' | 'custom')}
@@ -133,16 +138,16 @@ export function DefaultsSection({ actions, view }: Props) {
           {view.outboundProxySettings.outboundProxy?.mode === 'custom' && (
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 180px', minWidth: 160 }}>
-                <IOSLabel>HTTP Proxy</IOSLabel>
-                <IOSInput
+                <FieldLabel>HTTP Proxy</FieldLabel>
+                <TextInput
                   value={view.outboundProxySettings.outboundProxy?.httpProxy || ''}
                   onChange={actions.setOutboundProxyHttpProxy}
                   placeholder="http://127.0.0.1:7890"
                 />
               </div>
               <div style={{ flex: '1 1 180px', minWidth: 160 }}>
-                <IOSLabel>HTTPS Proxy</IOSLabel>
-                <IOSInput
+                <FieldLabel>HTTPS Proxy</FieldLabel>
+                <TextInput
                   value={view.outboundProxySettings.outboundProxy?.httpsProxy || ''}
                   onChange={actions.setOutboundProxyHttpsProxy}
                   placeholder="http://127.0.0.1:7890"
@@ -151,8 +156,8 @@ export function DefaultsSection({ actions, view }: Props) {
             </div>
           )}
           <div style={{ maxWidth: 400 }}>
-            <IOSLabel>No Proxy</IOSLabel>
-            <IOSInput
+            <FieldLabel>No Proxy</FieldLabel>
+            <TextInput
               value={view.outboundProxySettings.outboundProxy?.noProxy || ''}
               onChange={actions.setOutboundProxyNoProxy}
               placeholder="127.0.0.1,localhost,.internal"
@@ -211,15 +216,15 @@ export function DefaultsSection({ actions, view }: Props) {
           </div>
 
           <div>
-            <IOSLabel>{pathTitle}</IOSLabel>
+            <FieldLabel>{pathTitle}</FieldLabel>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'center' }}>
-              <IOSInput
+              <TextInput
                 value={view.storagePathDraft}
                 onChange={actions.setStoragePathDraft}
                 placeholder={pathPlaceholder}
                 disabled={isServerRuntime || !canManageStoragePath}
               />
-              <IOSButton
+              <Button
                 label={view.storagePathPicking ? '选择中...' : isServerRuntime ? '授权目录' : '选择文件夹'}
                 onClick={() => {
                   void actions.pickStoragePath();
@@ -255,7 +260,7 @@ export function DefaultsSection({ actions, view }: Props) {
             }}
           >
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <IOSButton
+              <Button
                 label={view.storageSettingsSaving ? '保存中...' : isServerRuntime ? '应用目录' : '保存路径'}
                 onClick={() => {
                   void actions.saveStoragePath();
@@ -268,7 +273,7 @@ export function DefaultsSection({ actions, view }: Props) {
                 small
                 style={{ width: 'auto' }}
               />
-              <IOSButton
+              <Button
                 label={view.storageSettingsSaving ? '处理中...' : isServerRuntime ? '清除授权' : '恢复默认'}
                 onClick={() => {
                   void actions.resetStoragePath();
@@ -285,7 +290,7 @@ export function DefaultsSection({ actions, view }: Props) {
               />
             </div>
             {view.canRestartBackend ? (
-              <IOSButton
+              <Button
                 label={view.backendRestarting ? '重启中...' : '重启后端'}
                 onClick={() => {
                   void actions.restartBackend();

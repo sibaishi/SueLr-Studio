@@ -1,3 +1,6 @@
+import { TextComposer } from '@/ui/TextComposer';
+import { DialogCloseButton, DialogHeader } from '@/ui/DialogPrimitives';
+import './long-text-editor.css';
 import { ModalSurface } from '@/ui/ModalSurface';
 import {
   isolateWorkflowModalKey,
@@ -5,7 +8,6 @@ import {
   useWorkflowModalIsolation,
   workflowModalPointerBoundary,
 } from '../workflowModalIsolation';
-import { X } from '@phosphor-icons/react';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -52,9 +54,9 @@ export function LongTextEditorModal({
     <ModalSurface
       ariaLabel={title}
       onClose={onClose}
-      rootClassName="settings-modal long-text-editor-modal"
-      panelClassName="settings-modal__panel long-text-editor-modal__dialog"
-      backdropClassName="settings-modal__backdrop"
+      size="workspace"
+      rootClassName="long-text-editor-modal"
+      panelClassName="long-text-editor-modal__dialog"
       panelRef={dialogRef}
       manageFocus={false}
       closeOnEscape={false}
@@ -78,19 +80,11 @@ export function LongTextEditorModal({
         },
       }}
     >
-      <div className="long-text-editor-modal__header">
-        <div>
-          <div className="long-text-editor-modal__title">{title}</div>
-        </div>
-        <button
-          type="button"
-          className="long-text-editor-modal__close"
-          onClick={onClose}
-          aria-label={readOnly ? '关闭全屏查看' : '关闭全屏编辑'}
-        >
-          <X size={18} />
-        </button>
-      </div>
+      <DialogHeader
+        className="long-text-editor-modal__header"
+        title={title}
+        actions={<DialogCloseButton label={readOnly ? '关闭全屏查看' : '关闭全屏编辑'} onClick={onClose} />}
+      />
       {segments ? (
         <div className="long-text-editor-modal__segments">
           {segments.map((segment, index) => (
@@ -98,43 +92,49 @@ export function LongTextEditorModal({
               <label className="long-text-editor-modal__segment-title" htmlFor={`segment-editor-${index + 1}`}>
                 片段 {index + 1}
               </label>
-              <textarea
-                id={`segment-editor-${index + 1}`}
-                ref={(element) => {
-                  segmentRefs.current[index] = element;
-                }}
-                className="long-text-editor-modal__segment-text"
-                value={segment}
-                placeholder="输入片段内容..."
-                readOnly={readOnly || !onSegmentsChange}
-                onChange={(event) => {
-                  const nextSegments = [...segments];
-                  nextSegments[index] = event.target.value;
-                  event.currentTarget.style.height = 'auto';
-                  event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
-                  onSegmentsChange?.(nextSegments);
-                }}
-                onCompositionStart={onCompositionStart}
-                onCompositionEnd={(event) => {
-                  const nextSegments = [...segments];
-                  nextSegments[index] = event.currentTarget.value;
-                  onSegmentsChange?.(nextSegments);
-                  onCompositionEnd?.(event.currentTarget.value);
+              <TextComposer
+                label={`片段 ${index + 1}`}
+                className="long-text-editor-modal__segment-composer"
+                textareaProps={{
+                  id: `segment-editor-${index + 1}`,
+                  ref: (element) => {
+                    segmentRefs.current[index] = element;
+                  },
+                  value: segment,
+                  placeholder: '输入片段内容...',
+                  readOnly: readOnly || !onSegmentsChange,
+                  onChange: (event) => {
+                    const nextSegments = [...segments];
+                    nextSegments[index] = event.target.value;
+                    event.currentTarget.style.height = 'auto';
+                    event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
+                    onSegmentsChange?.(nextSegments);
+                  },
+                  onCompositionStart,
+                  onCompositionEnd: (event) => {
+                    const nextSegments = [...segments];
+                    nextSegments[index] = event.currentTarget.value;
+                    onSegmentsChange?.(nextSegments);
+                    onCompositionEnd?.(event.currentTarget.value);
+                  },
                 }}
               />
             </section>
           ))}
         </div>
       ) : (
-        <textarea
-          ref={editorRef}
-          value={value}
-          placeholder={placeholder}
+        <TextComposer
+          label={title}
           className="long-text-editor-modal__textarea"
-          readOnly={readOnly}
-          onChange={(event) => onChange(event.target.value)}
-          onCompositionStart={onCompositionStart}
-          onCompositionEnd={(event) => onCompositionEnd?.(event.currentTarget.value)}
+          textareaProps={{
+            ref: editorRef,
+            value,
+            placeholder,
+            readOnly,
+            onChange: (event) => onChange(event.target.value),
+            onCompositionStart,
+            onCompositionEnd: (event) => onCompositionEnd?.(event.currentTarget.value),
+          }}
         />
       )}
       <div className="long-text-editor-modal__meta">

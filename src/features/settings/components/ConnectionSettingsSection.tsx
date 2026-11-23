@@ -1,7 +1,9 @@
-import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
+import { Button, TextInput, FieldLabel, Select, ToggleSwitch } from '@/ui/FormPrimitives';
 import { Gear } from '@phosphor-icons/react';
+import { ConnectionTestStatus } from './ConnectionTestStatus';
 import type { SettingsActions, SettingsViewModel } from './shared';
-import { EmptyStateCard, SectionCard, mutedPanelStyle } from './styles';
+import { EmptyStateCard, SectionCard } from '@/ui/PanelPrimitives';
+import { mutedPanelStyle } from './styles';
 
 type Props = {
   T: Record<string, string>;
@@ -26,76 +28,28 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
               return (
                 <div
                   key={config.id}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '4px 6px 4px 10px',
-                    borderRadius: 20,
-                    background: isActive ? `${T.purple}16` : `${T.purple}08`,
-                    border: isActive ? `1px solid ${T.purple}30` : `1px solid ${T.purple}18`,
-                    opacity: isEnabled ? 1 : 0.6,
-                    transition: 'opacity 0.2s, background 0.2s',
-                  }}
+                  className="settings-config-choice"
                 >
-                  <button
-                    onClick={() => actions.applyConfig(config.id)}
-                    style={{
-                      cursor: 'pointer',
-                      background: 'transparent',
-                      border: 'none',
-                      padding: 0,
-                      fontSize: 13,
-                      fontWeight: isActive ? 600 : 400,
-                      color: isActive ? T.purple : 'var(--color-text-primary)',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <Button small variant="secondary" aria-pressed={isActive} onClick={() => actions.applyConfig(config.id)}>
                     {config.name || '未命名配置'}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      actions.toggleConfigEnabled(config.id);
-                    }}
+                  </Button>
+                  <ToggleSwitch
+                    aria-label={`启用 ${config.name || '未命名配置'}`}
                     title={isEnabled ? '禁用此配置' : '启用此配置'}
-                    style={{
-                      width: 32,
-                      height: 18,
-                      borderRadius: 9,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: isEnabled ? T.purple : 'var(--color-bg-tertiary)',
-                      position: 'relative',
-                      transition: 'background 0.2s',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: 'absolute',
-                        top: 2,
-                        left: isEnabled ? 16 : 2,
-                        width: 14,
-                        height: 14,
-                        borderRadius: '50%',
-                        background: '#fff',
-                        transition: 'left 0.2s',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                      }}
-                    />
-                  </button>
+                    checked={isEnabled}
+                    onChange={() => actions.toggleConfigEnabled(config.id)}
+                  />
                 </div>
               );
             })}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <div style={{ minWidth: 0 }} data-testid="settings-config-name-field">
-              <IOSLabel>配置名称</IOSLabel>
-              <IOSInput value={view.activeConfig?.name || ''} onChange={actions.setActiveConfigName} />
+              <FieldLabel>配置名称</FieldLabel>
+              <TextInput value={view.activeConfig?.name || ''} onChange={actions.setActiveConfigName} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <IOSLabel>认证状态</IOSLabel>
+              <FieldLabel>认证状态</FieldLabel>
               <div
                 title={hasApiKey ? '已设置 API Key，可以开始连接测试' : '还没有提供 API Key'}
                 style={{
@@ -114,19 +68,19 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <IOSButton
+            <Button
               small
               label="测试连接"
               onClick={() => void actions.testConnection()}
               data-testid="settings-test-connection"
             />
             <ConnectionTestStatus status={view.connectionStatus} result={view.connectionResult} />
-            <IOSButton small label="添加配置" onClick={actions.addConfig} color={T.green} />
+            <Button small label="添加配置" onClick={actions.addConfig} accent={T.green} />
             {view.apiConfigs.length > 1 && (
-              <IOSButton
+              <Button
                 small
                 label="删除当前"
-                color={T.red}
+                accent={T.red}
                 onClick={() => actions.deleteConfig(view.activeConfigId)}
               />
             )}
@@ -137,12 +91,12 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
       <SectionCard title="连接参数" description="基础地址和密钥是大多数模型能力的入口。">
         <div className="flex-col" style={{ gap: 12 }}>
           <div data-testid="settings-base-url-field">
-            <IOSLabel>接口地址</IOSLabel>
-            <IOSInput value={view.base} onChange={actions.setConnectionBase} placeholder="https://..." />
+            <FieldLabel>接口地址</FieldLabel>
+            <TextInput value={view.base} onChange={actions.setConnectionBase} placeholder="https://..." />
           </div>
           <div data-testid="settings-api-key-field">
-            <IOSLabel>API 密钥</IOSLabel>
-            <IOSInput
+            <FieldLabel>API 密钥</FieldLabel>
+            <TextInput
               value={view.apiKey}
               onChange={actions.setConnectionApiKey}
               type="password"
@@ -171,8 +125,8 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
         <div className="flex-col" style={{ gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <div>
-              <IOSLabel>认证方式</IOSLabel>
-              <IOSSelect
+              <FieldLabel>认证方式</FieldLabel>
+              <Select
                 value={view.providerConfig.authType}
                 onChange={(value) => actions.setProviderAuthType(value as typeof view.providerConfig.authType)}
                 data-testid="settings-provider-auth-type"
@@ -180,11 +134,11 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
                 <option value="bearer">Bearer Token</option>
                 <option value="api-key">API Key Header</option>
                 <option value="custom">自定义 Header</option>
-              </IOSSelect>
+              </Select>
             </div>
             <div>
-              <IOSLabel>模型列表接口</IOSLabel>
-              <IOSInput
+              <FieldLabel>模型列表接口</FieldLabel>
+              <TextInput
                 value={view.providerConfig.modelsEndpoint ?? ''}
                 onChange={actions.setProviderModelsEndpoint}
                 data-testid="settings-provider-models-endpoint"
@@ -194,83 +148,24 @@ export function ConnectionSettingsSection({ T, actions, view }: Props) {
           {view.providerConfig.authType === 'custom' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
               <div>
-                <IOSLabel>Header 名称</IOSLabel>
-                <IOSInput
+                <FieldLabel>Header 名称</FieldLabel>
+                <TextInput
                   value={view.providerConfig.customHeaderName ?? ''}
                   onChange={actions.setProviderCustomHeaderName}
                 />
               </div>
               <div>
-                <IOSLabel>Header 前缀</IOSLabel>
-                <IOSInput value={view.providerConfig.customPrefix ?? ''} onChange={actions.setProviderCustomPrefix} />
+                <FieldLabel>Header 前缀</FieldLabel>
+                <TextInput value={view.providerConfig.customPrefix ?? ''} onChange={actions.setProviderCustomPrefix} />
               </div>
             </div>
           )}
           <div>
-            <IOSLabel>图像请求超时（毫秒）</IOSLabel>
-            <IOSInput value={String(view.providerConfig.imageTimeoutMs)} onChange={actions.setProviderImageTimeoutMs} />
+            <FieldLabel>图像请求超时（毫秒）</FieldLabel>
+            <TextInput value={String(view.providerConfig.imageTimeoutMs)} onChange={actions.setProviderImageTimeoutMs} />
           </div>
         </div>
       </SectionCard>
     </div>
-  );
-}
-
-function ConnectionTestStatus({
-  status,
-  result,
-}: { status: 'idle' | 'testing' | 'success' | 'error'; result: string }) {
-  if (status === 'idle') return null;
-
-  if (status === 'testing') {
-    return (
-      <span
-        style={{
-          fontSize: 12,
-          color: 'var(--color-text-secondary)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-        }}
-      >
-        <span
-          className="cn-spinner"
-          style={{
-            width: 12,
-            height: 12,
-            border: '2px solid var(--color-border-primary)',
-            borderTopColor: 'var(--color-text-secondary)',
-            borderRadius: '50%',
-            display: 'inline-block',
-          }}
-        />
-        检测中…
-      </span>
-    );
-  }
-
-  if (status === 'success') {
-    return (
-      <span
-        style={{
-          fontSize: 12,
-          color: 'var(--color-green)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          fontWeight: 500,
-        }}
-      >
-        ✓ {result}
-      </span>
-    );
-  }
-
-  return (
-    <span
-      style={{ fontSize: 12, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}
-    >
-      ✗ {result}
-    </span>
   );
 }

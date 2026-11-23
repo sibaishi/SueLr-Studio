@@ -1,19 +1,25 @@
+import { containDialogTab } from './dialogKeyboard';
 import {
   type MouseEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type HTMLAttributes,
   type Ref,
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
 } from 'react';
+
+const openDialogs: HTMLDivElement[] = [];
 
 interface ModalSurfaceProps {
   ariaLabel: string;
   children: ReactNode;
   onClose: () => void;
-  panelClassName: string;
-  rootClassName: string;
+  panelClassName?: string;
+  rootClassName?: string;
+  size?: 'workspace';
   backdropClassName?: string;
   backdropLabel?: string;
   closeOnRootClick?: boolean;
@@ -31,9 +37,10 @@ export function ModalSurface({
   ariaLabel,
   children,
   onClose,
-  panelClassName,
-  rootClassName,
-  backdropClassName,
+  panelClassName = '',
+  rootClassName = '',
+  size,
+  backdropClassName = size === 'workspace' ? 'ui-workspace-dialog__backdrop' : undefined,
   backdropLabel = '关闭',
   closeOnRootClick = false,
   isolateKeyboard = false,
@@ -45,7 +52,24 @@ export function ModalSurface({
   closeOnEscape = true,
   dialogOnPanel = false,
 }: ModalSurfaceProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const assignPanelRef = useCallback(
+    (panel: HTMLDivElement | null) => {
+      panelRef.current = panel;
+      if (typeof externalPanelRef === 'function') {
+        const cleanup = externalPanelRef(panel);
+        if (cleanup)
+          return () => {
+            cleanup();
+            panelRef.current = null;
+          };
+      } else if (externalPanelRef) {
+        externalPanelRef.current = panel;
+      }
+    },
+    [externalPanelRef],
+  );
 
   useEffect(() => {
     if (!manageFocus) return;
@@ -54,10 +78,28 @@ export function ModalSurface({
     return () => previouslyFocused?.focus();
   }, [manageFocus]);
 
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    openDialogs.push(root);
+    return () => {
+      const index = openDialogs.indexOf(root);
+      if (index >= 0) openDialogs.splice(index, 1);
+    };
+  }, []);
+
   useEffect(() => {
-    if (inactive || !closeOnEscape || isolateKeyboard) return;
+    if (inactive) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      const root = rootRef.current;
+      if (!root || root !== openDialogs.at(-1) || event.defaultPrevented) return;
+      if (isolateKeyboard && event.target instanceof Node && root.contains(event.target)) return;
+      if (closeOnEscape && event.key === 'Escape' && !event.isComposing) {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (isolateKeyboard && panelRef.current) containDialogTab(event, panelRef.current);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -69,28 +111,14 @@ export function ModalSurface({
   };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (!isolateKeyboard) return;
+    if (!isolateKeyboard || inactive) return;
     event.stopPropagation();
-    if (closeOnEscape && event.key === 'Escape' && !event.nativeEvent.isComposing) onClose();
-    if (event.key !== 'Tab') return;
-    const elements = Array.from(
-      panelRef.current?.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), input:not(:disabled):not([hidden]), select:not(:disabled), a[href], video[controls], audio[controls], [tabindex="0"]',
-      ) || [],
-    ).filter((element) => element.getClientRects().length > 0);
-    const first = elements[0];
-    const last = elements.at(-1);
-    if (!first) {
+    if (closeOnEscape && event.key === 'Escape' && !event.nativeEvent.isComposing && !event.defaultPrevented) {
       event.preventDefault();
+      onClose();
       return;
     }
-    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) {
-      event.preventDefault();
-      first.focus();
-    }
+    if (panelRef.current) containDialogTab(event, panelRef.current);
   };
 
   const dialogProps = { role: 'dialog', 'aria-modal': true, 'aria-label': ariaLabel } as const;
@@ -98,8 +126,9 @@ export function ModalSurface({
   return (
     <div
       {...rootProps}
+      ref={rootRef}
       {...(!dialogOnPanel && dialogProps)}
-      className={rootClassName}
+      className={`${size === 'workspace' ? 'ui-workspace-dialog' : ''} ${rootClassName}`}
       inert={inactive}
       onClick={handleRootClick}
       onKeyDown={(event) => {
@@ -108,13 +137,19 @@ export function ModalSurface({
       }}
     >
       {backdropClassName && (
-        <button type="button" className={backdropClassName} aria-label={backdropLabel} onClick={onClose} />
+        <button
+          type="button"
+          tabIndex={-1}
+          className={backdropClassName}
+          aria-label={backdropLabel}
+          onClick={onClose}
+        />
       )}
       <div
         {...panelProps}
         {...(dialogOnPanel && dialogProps)}
-        ref={externalPanelRef ?? panelRef}
-        className={`modal-surface ${panelClassName}`}
+        ref={assignPanelRef}
+        className={`modal-surface ${size === 'workspace' ? 'ui-workspace-dialog__panel' : ''} ${panelClassName}`}
         tabIndex={-1}
         onClick={(event) => {
           panelProps?.onClick?.(event);

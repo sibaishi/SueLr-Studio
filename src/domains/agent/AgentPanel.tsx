@@ -1,9 +1,12 @@
+import { StatusNotice } from '@/ui/FeedbackPrimitives';
+import { Select, ToggleSwitch } from '@/ui/FormPrimitives';
+import { MediaPlayer } from '@/ui/MediaPlayer';
 import FileSourceButton from '@/domains/workflow/components/FileSourceButton';
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import { readLibraryFile } from '@/domains/workflow/lib/addIoFiles';
 import type { CanvasPlan, CanvasPlanTarget } from '@/domains/workflow/lib/agentCanvasPlan';
 import { loadJSON, saveJSON } from '@/shared/runtime';
-import { PanelSurface } from '@/ui/PanelPrimitives';
+import { PanelButton, PanelSurface } from '@/ui/PanelPrimitives';
 import {
   ArrowUp,
   CaretRight,
@@ -498,9 +501,9 @@ export default function AgentPanel({
         </nav>
       )}
       {(storageError || storageState === 'unavailable') && (
-        <p role="status" className="agent-panel__notice">
+        <StatusNotice className="ui-status-notice--compact" role="status">
           当前无法保存会话，刷新前请保留需要的内容。
-        </p>
+        </StatusNotice>
       )}
       <div ref={timeline} className="workflow-panel__body agent-panel__timeline" role="log" aria-label="对话">
         {messages.length === 0 ? (
@@ -575,12 +578,7 @@ export default function AgentPanel({
                           const open = () => setMediaPreview({ kind, name, source: url });
                           return (
                             <div className="agent-panel__generation-item" key={index} onDoubleClick={open}>
-                              {kind === 'image' ? (
-                                <img src={url} alt={name} />
-                              ) : (
-                                // biome-ignore lint/a11y/useMediaCaption: Generated videos may have no caption track.
-                                <video src={url} controls playsInline preload="metadata" />
-                              )}
+                              {kind === 'image' ? <img src={url} alt={name} /> : <MediaPlayer kind="video" src={url} />}
                               <button
                                 type="button"
                                 className="agent-preview-trigger"
@@ -595,14 +593,9 @@ export default function AgentPanel({
                         })}
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        className="ui-panel-button"
-                        disabled={busy}
-                        onClick={() => void generate(message)}
-                      >
+                      <PanelButton disabled={busy} onClick={() => void generate(message)}>
                         {generatingId === message.id ? '生成中…' : '确认生成'}
-                      </button>
+                      </PanelButton>
                     )}
                   </AgentPlanCard>
                 )}
@@ -668,9 +661,7 @@ export default function AgentPanel({
                         </li>
                       ))}
                     </ol>
-                    <button
-                      type="button"
-                      className="ui-panel-button"
+                    <PanelButton
                       disabled={
                         busy ||
                         (message.plan.applied &&
@@ -712,24 +703,23 @@ export default function AgentPanel({
                         : message.plan.changes.operations.some(({ kind }) => kind === 'run')
                           ? '确认并运行'
                           : '应用到画布'}
-                    </button>
+                    </PanelButton>
                   </AgentPlanCard>
                 )}
                 {message.status === 'pending' && (
-                  <p role="status" className="agent-panel__notice">
+                  <StatusNotice className="ui-status-notice--compact" role="status">
                     弧光正在处理消息…
-                  </p>
+                  </StatusNotice>
                 )}
                 {message.status === 'stopped' && <p className="agent-panel__notice">已停止回复。</p>}
                 {message.status === 'failed' && (
-                  <p role="alert" className="agent-panel__notice">
+                  <StatusNotice tone="error" className="ui-status-notice--compact" role="alert">
                     {message.error}
-                  </p>
+                  </StatusNotice>
                 )}
                 {(message.status === 'failed' || message.status === 'stopped') && (
-                  <button
-                    type="button"
-                    className="ui-panel-button agent-panel__restore"
+                  <PanelButton
+                    className="agent-panel__restore"
                     disabled={busy || Boolean(draft || attachments.length)}
                     onClick={() => {
                       setDraft(message.text);
@@ -738,16 +728,16 @@ export default function AgentPanel({
                     }}
                   >
                     恢复到输入框
-                  </button>
+                  </PanelButton>
                 )}
               </article>
             ))}
           </>
         )}
         {error && (
-          <p role="alert" className="agent-panel__notice">
+          <StatusNotice tone="error" className="ui-status-notice--compact" role="alert">
             {error}
-          </p>
+          </StatusNotice>
         )}
         {!selectedModel('chat') && <p className="agent-panel__notice">请先在工作室设置中配置对话模型。</p>}
       </div>
@@ -756,48 +746,51 @@ export default function AgentPanel({
           event.preventDefault();
           send();
         }}
-      >
-        {attachments.length > 0 && (
-          <ul className="agent-panel__attachments" aria-label="待发送附件">
-            {attachments.map((file, index) => {
-              const kind = getAttachmentKind(file);
-              const Icon = kind === 'image' ? Image : kind === 'video' ? VideoCamera : File;
-              return (
-                <li key={index} title={file.name}>
-                  <Icon size={15} />
-                  <span>{file.name}</span>
-                  <button
-                    type="button"
-                    disabled={busy || storageState === 'loading'}
-                    aria-label={`移除 ${file.name}`}
-                    onClick={() => {
-                      setAttachments((previous) => previous.filter((_, fileIndex) => fileIndex !== index));
-                    }}
-                  >
-                    <X size={13} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {includeCanvas && <p className="agent-panel__notice">当前画布已关联 · 点击画布图标可关闭</p>}
-        <textarea
-          ref={composer}
-          aria-label="消息"
-          placeholder="说说你的创意，或添加参考文件…"
-          value={draft}
-          disabled={busy || storageState === 'loading'}
-          maxLength={12000}
-          rows={3}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
+        textareaProps={{
+          ref: composer,
+          placeholder: '说说你的创意，或添加参考文件…',
+          value: draft,
+          disabled: busy || storageState === 'loading',
+          maxLength: 12000,
+          rows: 3,
+          onChange: (event) => setDraft(event.target.value),
+          onKeyDown: (event) => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
               send();
             }
-          }}
-        />
+          },
+        }}
+        leadingContent={
+          <>
+            {attachments.length > 0 && (
+              <ul className="agent-panel__attachments" aria-label="待发送附件">
+                {attachments.map((file, index) => {
+                  const kind = getAttachmentKind(file);
+                  const Icon = kind === 'image' ? Image : kind === 'video' ? VideoCamera : File;
+                  return (
+                    <li key={index} title={file.name}>
+                      <Icon size={15} />
+                      <span>{file.name}</span>
+                      <button
+                        type="button"
+                        disabled={busy || storageState === 'loading'}
+                        aria-label={`移除 ${file.name}`}
+                        onClick={() => {
+                          setAttachments((previous) => previous.filter((_, fileIndex) => fileIndex !== index));
+                        }}
+                      >
+                        <X size={13} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {includeCanvas && <p className="agent-panel__notice">当前画布已关联 · 点击画布图标可关闭</p>}
+          </>
+        }
+      >
         <div
           className="agent-panel__composer-actions"
           ref={menuRoot}
@@ -887,10 +880,10 @@ export default function AgentPanel({
                 <label key={kind} className="menu-group ui-menu-group agent-panel__model-group">
                   <span className="ui-menu-group-label">{modelKinds[kind]}</span>
                   <span className="ui-menu-group-body">
-                    <select
+                    <Select
                       value={selectedModel(kind)?.value ?? ''}
                       disabled={!models[kind].length}
-                      onChange={(event) => setModelIds({ ...modelIds, [kind]: event.target.value })}
+                      onChange={(value) => setModelIds({ ...modelIds, [kind]: value })}
                     >
                       {!models[kind].length && <option value="">暂无已配置模型</option>}
                       {models[kind].map((option) => (
@@ -898,7 +891,7 @@ export default function AgentPanel({
                           {[option.label, option.configName || option.group].filter(Boolean).join(' · ')}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </span>
                 </label>
               ))}
@@ -915,15 +908,11 @@ export default function AgentPanel({
                   <span>已启用 {selectedSkills.length}</span>
                 </div>
                 <label className="agent-panel__skill-auto">
-                  <input
-                    type="checkbox"
-                    className="agent-skill-switch"
-                    role="switch"
-                    aria-checked={autoSkills}
+                  <ToggleSwitch
                     checked={autoSkills}
-                    onChange={(event) => {
-                      setAutoSkills(event.target.checked);
-                      saveJSON('agent_auto_skills', event.target.checked);
+                    onChange={(enabled) => {
+                      setAutoSkills(enabled);
+                      saveJSON('agent_auto_skills', enabled);
                     }}
                   />
                   <span>按任务自动选用</span>

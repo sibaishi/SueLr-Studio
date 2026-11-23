@@ -1,4 +1,4 @@
-import { useT } from '@/providers/ThemeContext';
+import { useResolvedTheme } from '@/providers/ThemeContext';
 import { useViewport } from '@xyflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 
@@ -36,7 +36,7 @@ export function GridDots({
   mouseFlowPos,
   fadeOut,
 }: GridDotsProps) {
-  const themeColors = useT();
+  const theme = useResolvedTheme();
   const { x: vpX, y: vpY, zoom } = useViewport();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
@@ -171,7 +171,7 @@ export function GridDots({
         rafRef.current = 0;
       }
     };
-  }, [baseDots, glowDots, color, glowColor, size, vpX, vpY, zoom, containerWidth, containerHeight, themeColors]);
+  }, [baseDots, glowDots, color, glowColor, size, vpX, vpY, zoom, containerWidth, containerHeight, theme]);
 
   if (!containerWidth || !containerHeight) return null;
 

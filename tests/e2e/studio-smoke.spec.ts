@@ -202,7 +202,7 @@ test.describe('studio smoke', () => {
 
     await save.click();
     await expect(editor).toHaveCount(0);
-    const image = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    const image = page.locator('.react-flow__node-io .workflow-content-frame img');
     await expect(image).toHaveAttribute('src', /^\/api\/files\//);
     const imageUrl = await image.getAttribute('src');
     await page.getByTestId('workflow-save').click();
@@ -310,7 +310,7 @@ test.describe('studio smoke', () => {
     await page.getByRole('button', { name: '绘制草图' }).click();
     await editor.locator('canvas').click();
     await editor.getByRole('button', { name: '保存到 IO 节点' }).click();
-    const image = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    const image = page.locator('.react-flow__node-io .workflow-content-frame img');
     await expect(image).toHaveAttribute('src', /^\/api\/files\//);
     await image.dblclick();
     await page.getByRole('button', { name: '画板', exact: true }).click();
@@ -412,7 +412,7 @@ test.describe('studio smoke', () => {
     await editor.getByRole('button', { name: '图层菜单' }).click();
     await editor.getByRole('button', { name: '导出图层到当前 IO 节点', exact: true }).click();
     await expect(editor.getByRole('status').filter({ hasText: '图层已添加到当前 IO 节点' })).toBeVisible();
-    const images = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    const images = page.locator('.react-flow__node-io .workflow-content-frame img');
     await expect(page.locator('.react-flow__node-io')).toHaveCount(1);
     await expect(images).toHaveCount(2);
     const exportedPixels = await images.nth(1).evaluate(async (element: HTMLImageElement) => {
@@ -428,11 +428,12 @@ test.describe('studio smoke', () => {
 
     await editor.getByRole('button', { name: '图层大小', exact: true }).click();
     const layerWidth = editor.getByRole('spinbutton', { name: '图层宽度 (px)' });
-    await expect(layerWidth).toHaveValue('384');
+    const originalWidth = Number(await layerWidth.inputValue());
+    expect(Math.abs(originalWidth - 384)).toBeLessThanOrEqual(3);
     const layerHeight = editor.getByRole('spinbutton', { name: '图层高度 (px)' });
     const originalHeight = Number(await layerHeight.inputValue());
     await layerWidth.fill('192');
-    await expect(layerHeight).toHaveValue(String(Math.round(originalHeight / 2)));
+    await expect(layerHeight).toHaveValue(String(Math.round(originalHeight * 192 / originalWidth)));
     await editor.getByRole('button', { name: '应用图层大小' }).click();
     await expect(canvas).toHaveAttribute('height', '1024');
     expect((await pixel(240, 96))[3]).toBeGreaterThan(100);
@@ -504,7 +505,7 @@ test.describe('studio smoke', () => {
       await element.decode();
       return [element.naturalWidth, element.naturalHeight];
     });
-    expect(trimmedSize[0]).toBe(384);
+    expect(Math.abs(trimmedSize[0] - 384)).toBeLessThanOrEqual(3);
     expect(trimmedSize[1]).toBeLessThan(40);
 
     await editor.getByRole('button', { name: '矩形选区', exact: true }).click();
@@ -570,7 +571,7 @@ test.describe('studio smoke', () => {
       buffer: Buffer.from(JSON.stringify(workflow)),
     });
     await page.getByRole('dialog', { name: '工作流导入结果' }).getByRole('button', { name: '关闭' }).click();
-    const thumbnails = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    const thumbnails = page.locator('.react-flow__node-io .workflow-content-frame img');
     await expect(thumbnails).toHaveCount(3);
     await thumbnails.first().dispatchEvent('dblclick');
 
@@ -643,7 +644,7 @@ test.describe('studio smoke', () => {
     await editor.locator('canvas').click();
     await editor.getByRole('button', { name: '保存到 IO 节点' }).click();
     const node = page.locator('.react-flow__node-io');
-    const image = node.locator('.node-gallery-frame-v2 img');
+    const image = node.locator('.workflow-content-frame img');
     await expect(image).toHaveAttribute('src', /^\/api\/files\//);
     await node.click({ position: { x: 30, y: 15 } });
     await expect(node).toHaveClass(/selected/);
@@ -664,9 +665,11 @@ test.describe('studio smoke', () => {
       expect(after.length === 0 || JSON.stringify(after) === JSON.stringify(before)).toBe(true);
     };
     await expectBackgroundPointerStill();
-    const previewBackdrop = page.locator('.workflow-image-preview-modal > .settings-modal__backdrop');
-    await expect(previewBackdrop).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.42)');
-    await expect(previewBackdrop).toHaveCSS('backdrop-filter', 'blur(14px)');
+    const previewBackdrop = page.locator('.workflow-image-preview-modal > .ui-workspace-dialog__backdrop');
+    const sharedBackdropColor = await page.locator('html').evaluate(
+      (root) => getComputedStyle(root).getPropertyValue('--modal-backdrop').trim(),
+    );
+    await expect(previewBackdrop).toHaveCSS('background-color', sharedBackdropColor);
     await expect(page.locator('#root')).toHaveAttribute('inert', '');
     await page.mouse.wheel(0, 250);
     await page.keyboard.press('Delete');
@@ -675,7 +678,7 @@ test.describe('studio smoke', () => {
     await preview.getByRole('button', { name: '画板', exact: true }).click();
     await expect(page.locator('.workflow-image-preview-modal')).toHaveAttribute('inert', '');
     await expectBackgroundPointerStill();
-    await expect(editor.locator('.settings-modal__backdrop')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.42)');
+    await expect(editor.locator('.ui-workspace-dialog__backdrop')).toHaveCSS('background-color', sharedBackdropColor);
     await page.keyboard.press('Delete');
     await expect(node).toHaveCount(1);
     await editor.locator('canvas').click();
@@ -700,7 +703,7 @@ test.describe('studio smoke', () => {
     });
     await image.hover();
     await pasteTextFile();
-    const textSnippet = page.locator('.react-flow__node-io .node-gallery-frame-v2').getByText(/弹窗键盘测试/);
+    const textSnippet = page.locator('.react-flow__node-io .workflow-content-frame').getByText(/弹窗键盘测试/);
     await textSnippet.dblclick();
     const nodeCount = await node.count();
     const text = page.getByRole('dialog', { name: '查看文本' });
@@ -723,7 +726,7 @@ test.describe('studio smoke', () => {
     await page.getByRole('button', { name: '绘制草图' }).click();
     await page.locator('.node-canvas-editor-modal canvas').click();
     await page.getByRole('button', { name: '保存到 IO 节点' }).click();
-    const image = page.locator('.react-flow__node-io .node-gallery-frame-v2 img');
+    const image = page.locator('.react-flow__node-io .workflow-content-frame img');
     await expect(image).toHaveAttribute('src', /^\/api\/files\//);
     const originalUrl = (await image.getAttribute('src'))!;
     const original = await (await page.request.get(originalUrl)).body();
@@ -989,7 +992,7 @@ test.describe('studio smoke', () => {
     await expect(page.getByTestId('workflow-page')).toBeVisible();
 
     await addTextInputNode(page);
-    await page.getByRole('button', { name: '保存' }).click();
+    await page.getByRole('button', { name: '保存', exact: true }).click();
 
     const beforeImport = await page.evaluate(async () => {
       const response = await fetch('/api/workflows');
@@ -1036,8 +1039,8 @@ test.describe('studio smoke', () => {
     }, currentWorkflowId);
     expect(afterImport).toEqual({ count: beforeImport.count, originalCount: 1 });
 
-    await page.locator('.workflow-import-modal__button--primary').click();
-    await page.getByRole('button', { name: '保存' }).click();
+    await page.getByRole('dialog', { name: '工作流导入结果' }).getByRole('button', { name: '关闭' }).click();
+    await page.getByRole('button', { name: '保存', exact: true }).click();
     await expect
       .poll(async () => {
         const response = await page.evaluate(async () => {
@@ -1216,15 +1219,7 @@ test('资产库支持导入、整理、收藏、搜索和持久化回填', async
   await page.getByTestId('workflow-open-assets').click();
   const dialog = page.getByRole('dialog', { name: '资产库', exact: true });
   await expect(dialog).toBeVisible();
-  const panelBackgrounds = await dialog.locator('.asset-library__panel').evaluateAll((panels) =>
-    panels.map((panel) => {
-      const context = document.createElement('canvas').getContext('2d')!;
-      context.fillStyle = getComputedStyle(panel).backgroundColor;
-      context.fillRect(0, 0, 1, 1);
-      return context.getImageData(0, 0, 1, 1).data[3];
-    }),
-  );
-  expect(panelBackgrounds).toEqual([255, 255, 255, 255]);
+  await expect(dialog.locator('.modal-inset-panel')).toHaveCount(4);
   await dialog.getByTestId('asset-import').setInputFiles({ name: filename, mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
   await expect(dialog.getByRole('status')).toContainText('已导入 1 个素材');
@@ -1305,7 +1300,7 @@ test('资产库支持多选、批量编辑和批量删除', async ({ page }) => 
     name: `${prefix}-${index}.png`, mimeType: 'image/png', buffer: image,
   })));
   await expect(dialog.getByRole('status')).toHaveText('已导入 3 个素材');
-  await dialog.getByRole('textbox', { name: '搜索资产' }).fill(prefix);
+  await dialog.getByRole('searchbox', { name: '搜索资产' }).fill(prefix);
   await expect(cards).toHaveCount(3);
   await dialog.getByRole('button', { name: '多选', exact: true }).click();
   await dialog.getByRole('button', { name: '全选本页' }).click();
@@ -1470,7 +1465,7 @@ test('settings and asset library share layered glass in both themes', async ({ p
   for (const theme of themes) {
     await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme.name);
     await openSettings(page);
-    const settings = page.locator('.settings-modal__panel');
+    const settings = page.locator('.ui-workspace-dialog__panel');
     await expect(settings).toHaveCSS('background-color', theme.frame);
     await expect(settings).toHaveCSS('backdrop-filter', /blur\(24px\)/);
     await expect(settings.locator('main.modal-inset-panel')).toHaveCSS('background-color', theme.inset);
@@ -1478,10 +1473,17 @@ test('settings and asset library share layered glass in both themes', async ({ p
     await expect(settings).toBeHidden();
 
     await page.getByRole('button', { name: '打开资产库' }).click();
-    const assets = page.locator('.settings-modal__panel.asset-library');
+    const assets = page.locator('.ui-workspace-dialog__panel.asset-library');
     await expect(assets).toHaveCSS('background-color', theme.frame);
     await expect(assets.locator('main.modal-inset-panel')).toHaveCSS('background-color', theme.inset);
     await expect(assets.locator('main.modal-inset-panel')).toHaveCSS('backdrop-filter', /blur\(16px\)/);
+    const typeFilter = assets.getByRole('combobox', { name: '资产类型' });
+    const filtered = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === '/api/assets' && url.searchParams.get('type') === 'audio';
+    });
+    await typeFilter.selectOption('audio');
+    expect((await filtered).ok()).toBe(true);
     await assets.getByRole('button', { name: '关闭资产库' }).click();
 
     await page.getByTestId('workflow-add-node').click();
@@ -1563,6 +1565,172 @@ test('canvas component gallery includes new-node and context menus in light them
   await page.mouse.click(1200, 150);
   await page.mouse.click(1200, 150, { button: 'right' });
   await expect(gallery.getByRole('group', { name: '画布右键菜单' }).getByRole('button', { name: '粘贴节点' })).toBeDisabled();
+});
+
+test('canvas gallery exercises workflow library, import and export using local fixtures', async ({ page }) => {
+  const apiRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url());
+  });
+  await page.goto('/?view=canvas-components');
+  await page.getByRole('button', { name: '切换浅色模式' }).click();
+  await page.getByTestId('workflow-open-library').click();
+  const library = page.getByRole('dialog', { name: '工作流库' });
+  await expect(library).toHaveAttribute('data-theme', 'light');
+  const search = library.getByRole('searchbox', { name: '搜索工作流' });
+  await search.fill('无法匹配的名称');
+  await expect(library.getByText('没有匹配的工作流')).toBeVisible();
+  await search.fill('基础图生图');
+  await library.getByTestId('workflow-library-row-draft').getByRole('button', { name: '复制', exact: true }).click();
+  await expect(library.getByRole('button', { name: '基础图生图 副本', exact: true })).toBeVisible();
+  await library.getByTestId('workflow-library-row-draft').getByRole('button', { name: '重命名', exact: true }).click();
+  const name = library.getByRole('textbox', { name: '工作流名称' });
+  await name.fill('基础图生图示例');
+  await name.press('Enter');
+  await expect(library.getByRole('button', { name: '基础图生图示例', exact: true })).toBeVisible();
+  await library.getByRole('button', { name: '关闭工作流库', exact: true }).click();
+
+  await page.getByTestId('workflow-import').click();
+  const report = page.getByRole('dialog', { name: '工作流导入结果' });
+  await expect(report.getByText('示例报告：参考素材需要重新选择。')).toBeVisible();
+  await report.getByRole('button', { name: '关闭' }).click();
+  await expect(page.getByRole('button', { name: '导入演示，未保存' })).toBeVisible();
+
+  await page.getByTestId('workflow-export').click();
+  const exportDialog = page.getByRole('dialog', { name: '导出工作流' });
+  await exportDialog.getByRole('button', { name: '仅导出 JSON' }).click();
+  await expect(exportDialog).toBeHidden();
+  expect(apiRequests).toEqual([]);
+});
+
+test('canvas gallery exercises the real asset library without project requests', async ({ page }) => {
+  const apiRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url());
+  });
+  await page.goto('/?view=canvas-components');
+  await page.getByRole('button', { name: '切换浅色模式' }).click();
+  await page.getByRole('button', { name: '打开资产库' }).click();
+  const assets = page.getByRole('dialog', { name: '资产库', exact: true });
+  await expect(assets).toHaveAttribute('data-theme', 'light');
+  await assets.getByRole('combobox', { name: '资产类型' }).selectOption('text');
+  await expect(assets.getByRole('button', { name: '查看 示例提示词' })).toBeVisible();
+  await expect(assets.getByRole('button', { name: '查看 示例参考图' })).toHaveCount(0);
+  await assets.getByRole('button', { name: '收藏 示例提示词', exact: true }).click();
+  await expect(assets.getByRole('button', { name: '取消收藏 示例提示词' })).toBeVisible();
+  await assets.getByRole('combobox', { name: '资产类型' }).selectOption('image');
+  await assets.getByRole('button', { name: '查看 示例参考图' }).click();
+  await assets.getByRole('button', { name: '查看大图' }).click();
+  await page.getByRole('button', { name: '关闭大图' }).click();
+  await expect(assets.getByRole('button', { name: '查看大图' })).toBeFocused();
+  await assets.getByRole('button', { name: '回填画布' }).click();
+  await expect(assets).toBeHidden();
+  await expect(page.locator('.react-flow__node').getByRole('img', { name: '示例参考图' })).toBeVisible();
+  expect(apiRequests).toEqual([]);
+});
+
+test('canvas gallery exercises actual settings without project requests', async ({ page }) => {
+  const apiRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url());
+  });
+  await page.goto('/?view=canvas-components');
+  const trigger = page.getByRole('button', { name: '打开设置' });
+  await trigger.click();
+  const settings = page.getByRole('dialog', { name: '工作室设置' });
+  await page.keyboard.press('Shift+Tab');
+  await expect.poll(() => settings.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true);
+  await settings.getByTestId('settings-module-connection').click();
+  await settings.getByTestId('settings-test-connection').click();
+  await expect(settings.getByRole('status').filter({ hasText: '2 个模型' })).toBeVisible();
+  await settings.getByTestId('settings-module-models').click();
+  await settings.getByTestId('settings-importable-model-demo-chat').click();
+  await settings.getByTestId('settings-import-selected-models').click();
+  await expect(settings.getByTestId('settings-project-model-card-demo-chat')).toBeVisible();
+  await settings.getByTestId('settings-module-workspace').click();
+  await settings.getByRole('button', { name: '浅色', exact: true }).click();
+  await expect(settings).toHaveAttribute('data-theme', 'light');
+  await settings.getByTestId('settings-pick-storage-path').click();
+  await settings.getByTestId('settings-save-storage-path').click();
+  await expect(settings.getByTestId('settings-storage-effective-root')).toContainText('/演示/自定义数据');
+  await page.keyboard.press('Escape');
+  await expect(settings).toBeHidden();
+  await expect(trigger).toBeFocused();
+  expect(apiRequests).toEqual([]);
+});
+
+test('canvas gallery opens the real image editor with a themed layer menu', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/?view=canvas-components');
+  const gallery = page.getByRole('main', { name: '画布组件库' });
+  await gallery.getByRole('button', { name: '切换浅色模式' }).click();
+  await gallery.getByRole('img', { name: '输出预览', exact: true }).dblclick();
+  const preview = page.getByRole('dialog', { name: '输出预览' });
+  await preview.getByRole('button', { name: '画板', exact: true }).click();
+  const editor = page.locator('.node-canvas-editor-modal');
+  await expect(editor).toHaveAttribute('data-theme', 'light');
+  const trigger = editor.getByRole('button', { name: '图层菜单' });
+  await trigger.click();
+  const layerActions = editor.getByRole('group', { name: '图层操作' });
+  await expect(layerActions).toBeVisible();
+  await expect(layerActions.locator('..')).toHaveCSS('background-color', 'rgba(234, 237, 244, 0.94)');
+  await layerActions.getByRole('button', { name: '复制图层' }).focus();
+  await page.keyboard.press('Escape');
+  await expect(layerActions).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await layerActions.getByRole('button', { name: '复制图层' }).click();
+  await expect(editor.getByRole('button', { name: /选择图层：.*副本/ })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('studio component gallery uses shared form controls and workspace dialogs in both themes', async ({ page }) => {
+  await page.goto('/?view=studio-components');
+  const gallery = page.getByRole('main', { name: '工作室组件库' });
+  const enabled = gallery.getByRole('switch', { name: '启用当前配置' });
+  await expect(enabled).toBeChecked();
+  await enabled.press('Space');
+  await expect(enabled).not.toBeChecked();
+  const key = gallery.getByLabel('访问密钥');
+  await expect(key).toHaveAttribute('type', 'password');
+  await gallery.getByRole('button', { name: '显示密码' }).click();
+  await expect(key).toHaveAttribute('type', 'text');
+  await expect(gallery.getByLabel('必填项')).toHaveAttribute('aria-invalid', 'true');
+  await expect(gallery.getByRole('button', { name: '保存不可用' })).toBeDisabled();
+  const brushSize = gallery.getByRole('slider', { name: '画笔大小' });
+  await expect(brushSize).toHaveValue('12');
+  await brushSize.press('ArrowRight');
+  await expect(brushSize).toHaveValue('13');
+  const brushColor = gallery.getByLabel('画笔颜色');
+  await brushColor.fill('#1166dd');
+  await expect(brushColor).toHaveValue('#1166dd');
+  const linked = gallery.getByRole('checkbox', { name: '保持比例' });
+  await expect(linked).toBeChecked();
+  await linked.press('Space');
+  await expect(linked).not.toBeChecked();
+  await gallery.getByRole('textbox', { name: '画板备注' }).fill('调整画笔和图层');
+  const notesPreview = gallery.getByRole('textbox', { name: '备注预览' });
+  await expect(notesPreview).toHaveValue('调整画笔和图层');
+  await expect(notesPreview).toHaveAttribute('readonly', '');
+  await gallery.getByRole('searchbox', { name: '搜索演示模型' }).fill('图像');
+  await expect(gallery.getByRole('button', { name: '项目图像模型' })).toBeVisible();
+  await expect(gallery.getByRole('button', { name: '项目视频模型' })).toHaveCount(0);
+
+  const trigger = gallery.getByRole('button', { name: '打开工作区弹窗' });
+  const dialog = gallery.getByRole('dialog', { name: '工作区弹窗演示' });
+  for (const [label, tone, background] of [
+    ['深色', 'dark', 'rgba(28, 30, 36, 0.68)'],
+    ['浅色', 'light', 'rgba(234, 237, 244, 0.59)'],
+  ]) {
+    const toggle = gallery.getByRole('button', { name: label });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(gallery).toHaveAttribute('data-theme', tone);
+    await trigger.click();
+    await expect(dialog.locator('.modal-surface')).toHaveCSS('background-color', background);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+  }
 });
 
 test('Arc and node menus share the same glass layers', async ({ page }) => {

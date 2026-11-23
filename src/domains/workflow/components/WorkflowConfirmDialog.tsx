@@ -1,3 +1,6 @@
+import { DialogFooter, DialogHeader } from '@/ui/DialogPrimitives';
+import { Button } from '@/ui/FormPrimitives';
+import { ModalSurface } from '@/ui/ModalSurface';
 import {
   isolateWorkflowModalKey,
   stopWorkflowModalEvent,
@@ -23,7 +26,10 @@ type PendingConfirmRequest = WorkflowConfirmRequest & {
 
 const WorkflowConfirmContext = createContext<((request: WorkflowConfirmRequest) => Promise<boolean>) | null>(null);
 
-export function WorkflowConfirmProvider({ children }: { children: ReactNode }) {
+export function WorkflowConfirmProvider({
+  children,
+  theme,
+}: { children: ReactNode; theme?: 'dark' | 'light' }) {
   const [pendingRequest, setPendingRequest] = useState<PendingConfirmRequest | null>(null);
   const pendingResolverRef = useRef<((confirmed: boolean) => void) | null>(null);
 
@@ -56,7 +62,7 @@ export function WorkflowConfirmProvider({ children }: { children: ReactNode }) {
   return (
     <WorkflowConfirmContext.Provider value={contextValue}>
       {children}
-      {pendingRequest && <WorkflowConfirmDialog request={pendingRequest} onClose={close} />}
+      {pendingRequest && <WorkflowConfirmDialog request={pendingRequest} onClose={close} theme={theme} />}
     </WorkflowConfirmContext.Provider>
   );
 }
@@ -70,8 +76,10 @@ export function useWorkflowConfirm() {
 function WorkflowConfirmDialog({
   request,
   onClose,
+  theme,
 }: {
   request: WorkflowConfirmRequest;
+  theme?: 'dark' | 'light';
   onClose: (confirmed: boolean) => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -82,60 +90,48 @@ function WorkflowConfirmDialog({
   const tone = request.tone || 'default';
 
   return createPortal(
-    <div
-      className="workflow-confirm-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="workflow-confirm-title"
-      ref={dialogRef}
-      tabIndex={-1}
-      data-workflow-modal-overlay
-      {...workflowModalPointerBoundary}
-      onKeyDown={(event) => {
-        isolateWorkflowModalKey(event);
-        if (event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) {
-          event.preventDefault();
-          onClose(false);
-        }
+    <ModalSurface
+      ariaLabel={request.title}
+      rootClassName="workflow-confirm-modal"
+      panelClassName={`workflow-confirm-modal__dialog workflow-confirm-modal__dialog--${tone}`}
+      panelRef={dialogRef}
+      onClose={() => onClose(false)}
+      manageFocus={false}
+      closeOnEscape={false}
+      dialogOnPanel
+      rootProps={{
+        ...workflowModalPointerBoundary,
+        'data-workflow-modal-overlay': '',
+        ...(theme ? { 'data-theme': theme } : {}),
+        onClick: stopWorkflowModalEvent,
+        onMouseDown: (event) => {
+          event.stopPropagation();
+          if (event.target === event.currentTarget) onClose(false);
+        },
       }}
-      onKeyUp={stopWorkflowModalEvent}
-      onKeyPress={stopWorkflowModalEvent}
-      onPaste={stopWorkflowModalEvent}
-      onClick={stopWorkflowModalEvent}
-      onMouseDown={(event) => {
-        event.stopPropagation();
-        if (event.target === event.currentTarget) onClose(false);
+      panelProps={{
+        onKeyDown: (event) => {
+          isolateWorkflowModalKey(event);
+          if (event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            onClose(false);
+          }
+        },
+        onKeyUp: stopWorkflowModalEvent,
+        onKeyPress: stopWorkflowModalEvent,
+        onPaste: stopWorkflowModalEvent,
+        onMouseDown: stopWorkflowModalEvent,
       }}
     >
-      <div
-        className={`modal-surface workflow-confirm-modal__dialog workflow-confirm-modal__dialog--${tone}`}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="workflow-confirm-modal__header">
-          <div className="min-w-0 flex-1">
-            <div className="workflow-confirm-modal__eyebrow">风险确认</div>
-            <div id="workflow-confirm-title" className="workflow-confirm-modal__title">
-              {request.title}
-            </div>
-          </div>
-        </div>
-
-        {request.message && <div className="workflow-confirm-modal__body">{request.message}</div>}
-
-        <div className="workflow-confirm-modal__footer">
-          <button type="button" className="workflow-confirm-modal__button" onClick={() => onClose(false)}>
-            {request.cancelText || '取消'}
-          </button>
-          <button
-            type="button"
-            className={`workflow-confirm-modal__button workflow-confirm-modal__button--${tone === 'danger' ? 'danger' : 'primary'}`}
-            onClick={() => onClose(true)}
-          >
-            {request.confirmText || '确认'}
-          </button>
-        </div>
-      </div>
-    </div>,
+      <DialogHeader className="workflow-confirm-modal__header" eyebrow="风险确认" title={request.title} />
+      {request.message && <div className="workflow-confirm-modal__body">{request.message}</div>}
+      <DialogFooter className="workflow-confirm-modal__footer">
+        <Button small variant="secondary" onClick={() => onClose(false)}>{request.cancelText || '取消'}</Button>
+        <Button small variant={tone === 'danger' ? 'danger' : 'primary'} onClick={() => onClose(true)}>
+          {request.confirmText || '确认'}
+        </Button>
+      </DialogFooter>
+    </ModalSurface>,
     document.body,
   );
 }

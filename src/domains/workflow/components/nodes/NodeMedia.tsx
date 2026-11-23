@@ -1,3 +1,4 @@
+import { MediaPlayer } from '@/ui/MediaPlayer';
 import { ImagePreviewModal } from '@/domains/workflow/components/ImagePreviewModal';
 import { ImageSizeLabel } from '@/domains/workflow/components/ImageSizeLabel';
 import { type CSSProperties, useEffect, useState } from 'react';
@@ -164,10 +165,10 @@ export function MediaPreview({
 
   if (kind === 'video') {
     return (
-      <video
+      <MediaPlayer
+        kind="video"
         className="node-media-preview node-media-preview--video"
         src={value}
-        controls
         style={{
           ...baseFrameStyle,
           maxHeight: fill ? undefined : compact ? '100%' : 240,
@@ -178,7 +179,7 @@ export function MediaPreview({
   }
 
   if (kind === 'audio') {
-    return <audio className="node-media-preview node-media-preview--audio" src={value} controls />;
+    return <MediaPlayer kind="audio" className="node-media-preview node-media-preview--audio" src={value} />;
   }
 
   return <TextCard text={value} />;

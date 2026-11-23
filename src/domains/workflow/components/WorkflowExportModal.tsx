@@ -1,3 +1,6 @@
+import { DialogFooter, DialogHeader } from '@/ui/DialogPrimitives';
+import { StatusNotice } from '@/ui/FeedbackPrimitives';
+import { Button } from '@/ui/FormPrimitives';
 import { ModalSurface } from '@/ui/ModalSurface';
 
 export default function WorkflowExportModal({
@@ -22,9 +25,7 @@ export default function WorkflowExportModal({
       closeOnRootClick
       isolateKeyboard
     >
-      <header className="workflow-import-modal__header">
-        <h2 className="workflow-panel__title">导出工作流</h2>
-      </header>
+      <DialogHeader className="workflow-import-modal__header" title="导出工作流" />
       <div className="workflow-import-modal__body">
         <p className="workflow-import-modal__item">
           引用了 {references.length} 个本地文件。选择 ZIP 可将支持的媒体随工作流一起迁移。
@@ -36,30 +37,14 @@ export default function WorkflowExportModal({
             </li>
           ))}
         </ul>
-        {error && <p role="alert" className="workflow-import-modal__item">{error}</p>}
-        {busy && <p role="status" className="workflow-import-modal__item">正在打包素材…</p>}
+        {error && <StatusNotice tone="error" role="alert">{error}</StatusNotice>}
+        {busy && <StatusNotice role="status">正在打包素材…</StatusNotice>}
       </div>
-      <footer className="workflow-import-modal__footer">
-        <button type="button" className="workflow-import-modal__button" disabled={busy} onClick={onClose}>
-          取消
-        </button>
-        <button
-          type="button"
-          className="workflow-import-modal__button"
-          disabled={busy}
-          onClick={() => onDownload(false)}
-        >
-          仅导出 JSON
-        </button>
-        <button
-          type="button"
-          className="workflow-import-modal__button workflow-import-modal__button--primary"
-          disabled={busy}
-          onClick={() => onDownload(true)}
-        >
-          带素材导出 ZIP
-        </button>
-      </footer>
+      <DialogFooter className="workflow-import-modal__footer">
+        <Button small variant="secondary" disabled={busy} onClick={onClose}>取消</Button>
+        <Button small variant="secondary" disabled={busy} onClick={() => onDownload(false)}>仅导出 JSON</Button>
+        <Button small disabled={busy} onClick={() => onDownload(true)}>带素材导出 ZIP</Button>
+      </DialogFooter>
     </ModalSurface>
   );
 }

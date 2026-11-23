@@ -1,3 +1,6 @@
+import { TextComposer } from '@/ui/TextComposer';
+import { IconButton } from '@/ui/CanvasPrimitives';
+import { Button } from '@/ui/FormPrimitives';
 import { ModalSurface } from '@/ui/ModalSurface';
 import {
   isolateWorkflowModalKey,
@@ -12,8 +15,6 @@ import {
   type CSSProperties,
   type PointerEvent,
   type ReactNode,
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -21,10 +22,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-
-const NodeCanvasEditorModal = lazy(() =>
-  import('./NodeCanvasEditorModal').then((module) => ({ default: module.NodeCanvasEditorModal })),
-);
+import { NodeCanvasEditorModal } from './NodeCanvasEditorModal';
 
 const FIT_VIEW = { zoom: 1, x: 0, y: 0 };
 const MAX_ZOOM = 8;
@@ -349,9 +347,9 @@ export function ImagePreviewModal({
     <ModalSurface
       ariaLabel={title || (textContent != null ? '查看文本' : alt)}
       onClose={onClose}
-      rootClassName={['settings-modal', 'workflow-image-preview-modal', overlayClassName].filter(Boolean).join(' ')}
-      panelClassName="settings-modal__panel workflow-image-preview-modal__dialog"
-      backdropClassName="settings-modal__backdrop"
+      size="workspace"
+      rootClassName={['workflow-image-preview-modal', overlayClassName].filter(Boolean).join(' ')}
+      panelClassName="workflow-image-preview-modal__dialog"
       panelRef={dialogRef}
       manageFocus={false}
       closeOnEscape={false}
@@ -395,31 +393,28 @@ export function ImagePreviewModal({
               </span>
               <div style={{ flex: 1, minWidth: 12 }} />
               {renderTextActions?.()}
-              <button
-                type="button"
-                onClick={handleCopyText}
-                className="workflow-image-preview-modal__icon-button"
-                aria-label="复制文本"
+              <IconButton
+                compact
+                icon={<Copy size={14} />}
+                label="复制文本"
                 title={textCopyStatus || '复制文本'}
+                className="ui-foreground-surface workflow-image-preview-modal__icon-button"
                 disabled={!!textCopyStatus}
-              >
-                <Copy size={14} />
-              </button>
-              <button
-                type="button"
+                onClick={handleCopyText}
+              />
+              <IconButton
+                compact
+                icon={<X size={16} />}
+                label={closeLabel}
+                className="ui-foreground-surface workflow-image-preview-modal__icon-button"
                 onClick={onClose}
-                className="workflow-image-preview-modal__icon-button"
-                aria-label={closeLabel}
-                title={closeLabel}
-              >
-                <X size={16} />
-              </button>
+              />
             </div>
             {onTextChange ? (
-              <textarea
+              <TextComposer
+                label={title || '编辑文本'}
                 className="workflow-image-preview-modal__text-editor"
-                value={localText}
-                onChange={(e) => handleTextChange(e.target.value)}
+                textareaProps={{ value: localText, onChange: (event) => handleTextChange(event.target.value) }}
               />
             ) : (
               <pre className="workflow-image-preview-modal__text-content">{localText}</pre>
@@ -432,7 +427,10 @@ export function ImagePreviewModal({
             {isCompareMode ? (
               <ImagePreviewActionButton label="退出对比" onClick={exitCompareMode} />
             ) : (
-              <ImageSizeLabel src={displaySrc} className="workflow-image-preview-modal__size-badge" />
+              <ImageSizeLabel
+                src={displaySrc}
+                className="ui-foreground-surface workflow-image-preview-modal__size-badge"
+              />
             )}
             <div className="workflow-image-preview-modal__zoom" role="group" aria-label="图片缩放">
               <ImagePreviewActionButton
@@ -442,15 +440,16 @@ export function ImagePreviewModal({
                 disabled={view.zoom === 1}
                 onClick={() => changeZoom(1 / 1.25)}
               />
-              <button
-                type="button"
-                className="workflow-image-preview-modal__action"
+              <Button
+                small
+                variant="secondary"
+                className="ui-foreground-surface"
                 aria-label={`适应窗口，当前缩放 ${Math.round(view.zoom * 100)}%`}
                 title="适应窗口"
                 onClick={() => setView(FIT_VIEW)}
               >
                 {Math.round(view.zoom * 100)}%
-              </button>
+              </Button>
               <ImagePreviewActionButton
                 icon={<Plus size={14} />}
                 label="放大"
@@ -459,35 +458,29 @@ export function ImagePreviewModal({
                 onClick={() => changeZoom(1.25)}
               />
             </div>
-            <button
-              type="button"
+            <IconButton
+              compact
+              icon={<X size={16} />}
+              label={closeLabel}
+              className="ui-foreground-surface workflow-image-preview-modal__icon-button"
               onClick={onClose}
-              className="workflow-image-preview-modal__icon-button"
-              aria-label={closeLabel}
-              title={closeLabel}
-            >
-              <X size={16} />
-            </button>
+            />
           </div>
 
           {canNavigate && (
             <>
-              <button
-                type="button"
+              <IconButton
+                icon={<CaretLeft size={26} />}
+                label="上一张"
                 onClick={goPrevious}
-                className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--prev"
-                aria-label="上一张"
-              >
-                <CaretLeft size={26} />
-              </button>
-              <button
-                type="button"
+                className="ui-foreground-surface workflow-image-preview-modal__nav workflow-image-preview-modal__nav--prev"
+              />
+              <IconButton
+                icon={<CaretRight size={26} />}
+                label="下一张"
                 onClick={goNext}
-                className="workflow-image-preview-modal__nav workflow-image-preview-modal__nav--next"
-                aria-label="下一张"
-              >
-                <CaretRight size={26} />
-              </button>
+                className="ui-foreground-surface workflow-image-preview-modal__nav workflow-image-preview-modal__nav--next"
+              />
             </>
           )}
 
@@ -641,15 +634,14 @@ export function ImagePreviewModal({
           </div>
 
           {canvasEditorOpen && canEditImage && !isCompareMode && (
-            <Suspense fallback={<span role="status">正在加载画板…</span>}>
-              <NodeCanvasEditorModal
-                src={displaySrc}
-                nodeLabel={activeImage.name || '画板'}
-                onClose={() => setCanvasEditorOpen(false)}
-                onSavePaint={handleCanvasSave}
-                onExportLayer={onExportLayer}
-              />
-            </Suspense>
+            <NodeCanvasEditorModal
+              src={displaySrc}
+              theme={theme}
+              nodeLabel={activeImage.name || '画板'}
+              onClose={() => setCanvasEditorOpen(false)}
+              onSavePaint={handleCanvasSave}
+              onExportLayer={onExportLayer}
+            />
           )}
         </>
       )}
@@ -673,19 +665,25 @@ function ImagePreviewActionButton({
   disabled?: boolean;
   onClick: () => void;
 }) {
+  const className = 'ui-foreground-surface workflow-image-preview-modal__action';
+  if (iconOnly) {
+    return (
+      <IconButton
+        compact
+        className={className}
+        label={label}
+        icon={icon}
+        pressed={active}
+        disabled={disabled}
+        onClick={onClick}
+      />
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`workflow-image-preview-modal__action ${active ? 'is-active' : ''}`}
-      aria-label={label}
-      aria-pressed={active}
-      disabled={disabled}
-      title={label}
-    >
+    <Button small variant="secondary" className={className} aria-pressed={active} disabled={disabled} onClick={onClick}>
       {icon}
-      {!iconOnly && label}
-    </button>
+      {label}
+    </Button>
   );
 }
 

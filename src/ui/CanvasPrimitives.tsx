@@ -10,6 +10,7 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
   pressed?: boolean;
   compact?: boolean;
+  tone?: 'danger';
   testId?: string;
 }
 
@@ -19,6 +20,7 @@ export function IconButton({
   active,
   pressed,
   compact,
+  tone,
   testId,
   className = '',
   ...props
@@ -31,6 +33,7 @@ export function IconButton({
       aria-pressed={pressed}
       data-active={active || undefined}
       data-testid={testId}
+      data-tone={tone}
       className={`ui-icon-button ${compact ? 'ui-icon-button--compact' : ''} ${className}`}
       {...props}
     >

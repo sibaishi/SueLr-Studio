@@ -1,7 +1,10 @@
+import { Button, FieldLabel, TextInput, ToggleSwitch } from '@/ui/FormPrimitives';
+import { TextComposer } from '@/ui/TextComposer';
 import { ArrowLeft, CaretRight, MagnifyingGlass } from '@phosphor-icons/react';
 import { downloadArchive } from '@/domains/workflow/lib/fileArchive';
+import { SearchInput } from '@/ui/MenuPrimitives';
 import { builtinSkills } from './builtinSkills';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { skillArchive, skillSlug, type PreviewSkill } from './skillPreview';
 
 export default function SkillLibrary({
@@ -21,6 +24,7 @@ export default function SkillLibrary({
   const [draft, setDraft] = useState<PreviewSkill>();
   const [previewId, setPreviewId] = useState<string>();
   const [deleteId, setDeleteId] = useState<string>();
+  const editorId = useId();
   const matches = skills.filter(({ name, description }) =>
     `${name} ${description}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
@@ -41,29 +45,35 @@ export default function SkillLibrary({
           <h3>{skill.name}</h3>
           {skill.description && <p>{skill.description}</p>}
           <div className="agent-panel__skill-actions">
-            <button type="button" onClick={() => downloadArchive(skillArchive(skill), `${skillSlug(skill)}.zip`)}>
+            <Button
+              variant="secondary"
+              small
+              onClick={() => downloadArchive(skillArchive(skill), `${skillSlug(skill)}.zip`)}
+            >
               导出
-            </button>
+            </Button>
             {!builtinSkills.some(({ id }) => id === skill.id) && (
               <>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  small
                   onClick={() => {
                     setDraft(skill);
                     setDeleteId(undefined);
                   }}
                 >
                   编辑
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="danger"
+                  small
                   onClick={() => {
                     setDeleteId(skill.id);
                     setDraft(undefined);
                   }}
                 >
                   删除
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -80,50 +90,57 @@ export default function SkillLibrary({
           )}
           {deleteId === skill.id && (
             <div className="agent-panel__skill-actions">
-              <button
-                type="button"
+              <Button
+                variant="danger"
+                small
                 onClick={() => {
                   onRemove(skill.id);
                   closeDetail();
                 }}
               >
                 确认删除
-              </button>
-              <button type="button" onClick={() => setDeleteId(undefined)}>
+              </Button>
+              <Button variant="secondary" small onClick={() => setDeleteId(undefined)}>
                 取消
-              </button>
+              </Button>
             </div>
           )}
           {draft?.id === skill.id && (
             <div className="agent-skill-edit">
-              <label>
-                名称
-                <input
+              <div>
+                <FieldLabel htmlFor={`${editorId}-name`}>名称</FieldLabel>
+                <TextInput
+                  id={`${editorId}-name`}
                   value={draft.name}
                   maxLength={100}
-                  onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                  onChange={(name) => setDraft({ ...draft, name })}
                 />
-              </label>
-              <label>
-                描述
-                <input
+              </div>
+              <div>
+                <FieldLabel htmlFor={`${editorId}-description`}>描述</FieldLabel>
+                <TextInput
+                  id={`${editorId}-description`}
                   value={draft.description}
                   maxLength={500}
-                  onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                  onChange={(description) => setDraft({ ...draft, description })}
                 />
-              </label>
-              <label>
-                正文
-                <textarea
-                  rows={5}
-                  maxLength={240000}
-                  value={draft.instructions}
-                  onChange={(event) => setDraft({ ...draft, instructions: event.target.value })}
+              </div>
+              <div>
+                <FieldLabel htmlFor={`${editorId}-instructions`}>正文</FieldLabel>
+                <TextComposer
+                  label="正文"
+                  textareaProps={{
+                    id: `${editorId}-instructions`,
+                    rows: 5,
+                    maxLength: 240000,
+                    value: draft.instructions ?? '',
+                    onChange: (event) => setDraft({ ...draft, instructions: event.target.value }),
+                  }}
                 />
-              </label>
+              </div>
               <div className="agent-panel__skill-actions">
-                <button
-                  type="button"
+                <Button
+                  small
                   disabled={!draft.name.trim() || !draft.instructions?.trim()}
                   onClick={() => {
                     onSave({
@@ -136,10 +153,10 @@ export default function SkillLibrary({
                   }}
                 >
                   保存 Skill
-                </button>
-                <button type="button" onClick={() => setDraft(undefined)}>
+                </Button>
+                <Button variant="secondary" small onClick={() => setDraft(undefined)}>
                   取消
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -147,15 +164,14 @@ export default function SkillLibrary({
       ) : (
         <>
           {skills.length > 4 && (
-            <label className="agent-skill-search-row">
-              <MagnifyingGlass size={15} aria-hidden="true" />
-              <input
-                aria-label="搜索 Skills"
-                placeholder="搜索 Skills"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
+            <SearchInput
+              className="agent-skill-search-row"
+              icon={<MagnifyingGlass size={15} />}
+              aria-label="搜索 Skills"
+              placeholder="搜索 Skills"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
           )}
           {matches.length === 0 && <p className="agent-skill-empty">没有匹配的 Skill。</p>}
           <ul className="agent-skill-list">
@@ -173,14 +189,11 @@ export default function SkillLibrary({
                     <span>{item.name}</span>
                     <CaretRight size={13} aria-hidden="true" />
                   </button>
-                  <input
-                    className="agent-skill-switch"
-                    type="checkbox"
-                    role="switch"
+                  <ToggleSwitch
                     aria-label={`启用 ${item.name}`}
                     checked={enabled}
                     disabled={!enabled && selected.length >= 12}
-                    onChange={(event) => onToggle(item.id, event.target.checked)}
+                    onChange={(checked) => onToggle(item.id, checked)}
                   />
                 </li>
               );

@@ -23,6 +23,7 @@ export type GalleryData = Record<string, unknown> &
     title: string;
     content: GalleryContent;
     text: string;
+    src?: string;
     collapsed?: boolean;
   };
 export type GalleryNode = Node<GalleryData, 'gallery'>;
@@ -120,10 +121,10 @@ function GalleryNodeView({ id, data, selected, isConnectable }: NodeProps<Galler
             <NodeTextPreview onPreview={() => actions.preview(data)}>{data.text || '请输入文本'}</NodeTextPreview>
           )}
           {data.content === 'image' && (
-            <NodeImagePreview src={galleryImage} alt={data.title} onPreview={() => actions.preview(data)} />
+            <NodeImagePreview src={data.src || galleryImage} alt={data.title} onPreview={() => actions.preview(data)} />
           )}
-          {data.content === 'audio' && <NodeMediaPreview kind="audio" src="" />}
-          {data.content === 'video' && <NodeMediaPreview kind="video" src="" fill />}
+          {data.content === 'audio' && <NodeMediaPreview kind="audio" src={data.src || ''} />}
+          {data.content === 'video' && <NodeMediaPreview kind="video" src={data.src || ''} fill />}
         </NodeContentFrame>
       </NodeContentSurface>
     </WorkflowCardPresentation>

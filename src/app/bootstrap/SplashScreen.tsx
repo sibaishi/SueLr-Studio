@@ -1,9 +1,8 @@
-import { useT } from '@/providers/ThemeContext';
+import { themeColors as T, themeTint } from '@/ui/theme';
 import { Robot } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 
 export function SplashScreen({ done, onHidden }: { done: boolean; onHidden: () => void }) {
-  const T = useT();
   const [fading, setFading] = useState(false);
   const hiddenRef = useRef(false);
   const mountTimeRef = useRef(Date.now());
@@ -34,7 +33,7 @@ export function SplashScreen({ done, onHidden }: { done: boolean; onHidden: () =
       className="splash-overlay"
       style={{ background: T.bg, opacity: fading ? 0 : 1, pointerEvents: fading ? 'none' : 'auto' }}
     >
-      <div className="splash-logo" style={{ background: T.blue, boxShadow: `0 12px 40px ${T.blue}50` }}>
+      <div className="splash-logo" style={{ background: T.blue, boxShadow: `0 12px 40px ${themeTint(T.blue, 31)}` }}>
         <Robot size={36} color="#fff" />
       </div>
       <div className="splash-title" style={{ color: T.text }}>

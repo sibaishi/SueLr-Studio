@@ -1,0 +1,42 @@
+.diagnostics-log {
+  display: flex;
+  flex-direction: column;
+  height: 360px;
+  overflow: hidden;
+}
+
+.diagnostics-log__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-2) var(--ui-space-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.diagnostics-log__header > * {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.diagnostics-log__entries {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--ui-space-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.diagnostics-log__entry {
+  display: grid;
+  grid-template-columns: 8ch auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--ui-space-2);
+  padding-block: 2px;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}

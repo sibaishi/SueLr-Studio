@@ -38,7 +38,7 @@ The reusable React entry is `src/ui/CanvasPrimitives.tsx`: `FloatingSurface`, `I
 
 Workflow-specific `CanvasRunControls`, `CanvasDocumentTab`, and `CanvasNavigation` live under `src/domains/workflow/components/` and are used by the editor and component catalogue. Document selection and close controls are sibling native buttons; `aria-current` identifies the selected document. Navigation must stay inside React Flow and consumes its viewport directly.
 
-In Vite development, `/?view=canvas-components` opens one interactive virtual canvas. Nodes, a containing group, edges, document tabs, tools, minimap, run controls and the selected-node editor share this canvas. Switch themes without remounting the fixture; use the optional inspector for content/state variants. React Flow owns fixture nodes, edges and viewport through local hooks. No App, workflow store, API requests or project persistence are initialized. The route is excluded from production builds. Layout stays in the workflow stylesheet, with no component-specific style files. `WorkflowGalleryNode` adapts production card/group presentations; `WorkflowGalleryPanel` composes the production input, attachment, model and parameter components with local demo callbacks. The real image/text preview modal is reused with an optional portal theme; its canvas editor dependency loads only when editing is requested. Upload sources use bundled sample data rather than reading local files or assets. Other app domains still require migration.
+In Vite development, `/?view=canvas-components` opens one interactive virtual canvas. Nodes, a containing group, edges, document tabs, tools, minimap, run controls and the selected-node editor share this canvas. Switch themes without remounting the fixture; use the optional inspector for content/state variants. React Flow owns fixture nodes, edges and viewport through local hooks. No App, workflow store, API requests or project persistence are initialized. The route is excluded from production builds. Layout stays in the workflow stylesheet, with no component-specific style files. `WorkflowGalleryNode` adapts production card/group presentations; `WorkflowGalleryPanel` composes the production input, attachment, model and parameter components with local demo callbacks. The real image/text preview modal is reused with an optional portal theme; the canvas editor mounts when editing is requested. Upload sources use bundled sample data rather than reading local files or assets. Other app domains still require migration.
 
 ### Shared node presentation
 
@@ -66,6 +66,19 @@ Updated 2026-11-22: `src/ui/MenuPrimitives.tsx` provides `MenuTrigger`, `MenuGro
 
 The former `ai-parameters.css` and `file-source.css` have been removed. The agent panel no longer imports workflow parameter styles; its existing menus reference the shared foundation classes/tokens. `WorkflowGalleryPanel` mounts the production workflow model selector and popover in the selected-node editor using local fixture models. It covers search, cascade navigation, selected/no-result/no-enabled-model states, parameter choices/quantity, toggles and file-source options without opening files or writing settings. Model IDs, capability routing, numeric constraints and runtime handlers remain with existing business callers.
 
+## 工作室共用样式与组件
+
+页面由 `src/index.css` 一次性加载 `src/ui/theme.css` 和 `src/ui/foundations.css`。前者维护深浅主题色、常用语义变量与玻璃层色值，后者维护共享组件的尺寸、状态和可视焦点。设置、库与工作流媒体弹窗共用 Tab 焦点循环，媒体编辑器继续控制画布的快捷键隔离。需要在 React 属性中引用颜色时，`src/ui/theme.ts` 返回 CSS 变量。React 主题上下文只提供已解析的深浅模式，供画布网格等 Canvas 绘制代码在切换时重读当前容器样式。画布网格和光效继续由工作流样式表维护。
+
+- `PanelPrimitives.tsx` 的分区卡、空态、徽标与小标题为设置和库界面提供共享展示。库界面从 `src/ui` 获取视觉组件。
+- `FormPrimitives.tsx` 提供通用按钮、文本输入、密码显示、选择、分段、开关、复选、颜色和滑杆控件。设置、引导、弧光和资产库复用表单状态，画板复用颜色、滑杆和复选。设置与引导共用连接检测反馈。
+- `SearchInput` 共用于画布模型选择、设置模型库、资产库、工作流库和弧光 Skills。搜索、筛选和分页状态由调用方维护。
+- 模型库的渠道、类型和模型行使用 `MenuItem`，批量操作与资产库使用相同的按钮、复选和反馈元件。工作流卡片的重命名、复制和删除复用图标按钮，封面上的按钮与媒体预览共用浮层样式。
+- `ModalSurface` 的工作区规格负责共享外框。设置、库和媒体编辑器可在自己的样式表中调整布局，工作流媒体编辑器继续保留专用键盘隔离。`DialogPrimitives.tsx` 提供标题、关闭按钮和底部操作区，资产库、工作流库、导入导出、错误提示与确认弹窗共用。
+- `MediaPlayer.tsx` 统一节点、资产、结果、参考图旁的音视频和弧光播放器。使用原生控制条。长文本窗口由其组件加载单一领域样式表。
+- `FeedbackPrimitives.tsx` 提供状态反馈和错误卡，已接入应用启动失败、渲染异常与 Toast。各类反馈按语义色适配主题。设置诊断日志、工作流日志和运行历史共用状态徽标。
+- 开发模式的 `/?view=studio-components` 用正式组件展示表单、滑杆、可编辑和只读文本、菜单、反馈和工作区弹窗，具备本地交互和深浅主题。画布组件库的资产库、工作流库和导入导出入口可打开正式弹窗。资产库通过数据源接口加载示例资产，收藏、分类、导入和回填作用于演示数据。工作流库使用示例记录，导入创建本地示例草稿，导出记录所选选项。
+
 ## Encoding Baseline
 
 Repository text files should remain `UTF-8` without BOM.
@@ -81,7 +94,7 @@ If a new regression test covers text handling, prefer asserting against the actu
 
 High-signal UI surfaces that deserve extra care during refactors:
 
-- `src/shared/ui/ios/`
+- `src/ui/`
 - `src/features/settings/components/`
 
 These files are user-facing and Chinese-first. If text becomes mojibake during a move or mass edit, fix the source string directly and rerun `npm run check:encoding`.
@@ -133,7 +146,7 @@ Current cleanup and ownership notes:
   - shared frontend contracts in `src/shared/types/`
   - domain-owned constants and helpers in `src/domains/*`
 - `src/components/`, `src/hooks/`, and `src/utils/` are no longer growth targets
-- `src/components/ios/` has been drained into `src/shared/ui/ios/`; do not place new work back into the old path
+- 可复用界面控件集中在 `src/ui/`。启动画面由 `src/app/bootstrap/` 维护，诊断日志由设置模块维护。
 
 ## Frontend Structure
 
@@ -276,8 +289,8 @@ Current cleanup and ownership notes:
   - shared browser/runtime helpers such as file/image conversion, task polling, and runtime mode contracts
 - `src/shared/types/`
   - shared frontend contracts such as API config, models, chat messages, tabs, and theme types
-- `src/shared/ui/ios/index.ts`
-  - shared iOS-style UI exports
+- `src/ui/`
+  - shared theme, form, feedback, media, dialog, and panel primitives
 - `src/shared/ui/workbench/MediaWorkbench.tsx`
   - reusable asset preview and reuse surface
 - `src/shared/workflow/node-registry.js`
@@ -688,6 +701,7 @@ Updated 2026-11-22 (supersedes the earlier sectional catalogue notes): the multi
 
 | 层级 | 部分 | 负责模块／组件 | 当前状态 |
 | --- | --- | --- | --- |
+| L0 页面层 | 工作室共用组件演示 | `StudioComponentGallery.tsx` | 开发模式中可操作正式表单、搜索、菜单、反馈与工作区弹窗 |
 | L0 页面层 | 演示页入口和演示状态 | `CanvasComponentGallery.tsx` | 仅供开发检查；演示画布状态由本页的 React Flow 管理 |
 | L1 画布基础层 | 节点、连线、选中状态和视口 | `ReactFlow` | 复用画布引擎；使用独立演示数据 |
 | L1 画布基础层 | 网格和鼠标光效 | `GridDots`、`GridGlow` | 复用正式画布的绘制组件 |
@@ -702,7 +716,8 @@ Updated 2026-11-22 (supersedes the earlier sectional catalogue notes): the multi
 | L2 业务组合层 | 选中节点的编辑面板容器 | `WorkflowStylePanelShell` | 复用底部位置及尺寸调整交互 |
 | L2 业务组合层 | 新建节点、端口拖出后的节点选择、画布与节点右键菜单 | `CanvasNodeCatalog`、`CanvasContextMenu`（`flowCanvasCatalog.tsx`） | 正式画布共用菜单项、浮层和键盘状态；演示画板复用新建与右键菜单展示，操作本地节点 |
 | L2 业务组合层 | 模型选择器和参数弹层 | `ModelTreeSelector`、`StylePanelPopoverButton` | 复用正式控件；模型列表使用演示数据 |
-| L2 业务组合层 | 图片和文本预览弹窗 | `ImagePreviewModal` | 复用正式弹窗，跟随演示页主题 |
+| L2 业务组合层 | 图片画板与图层菜单 | `NodeCanvasEditorModal` | 从演示图片预览进入正式画板。弹窗标题、工具项、笔刷滑杆、颜色、图层菜单与保存按钮使用基础控件，专用布局收在同名样式表 |
+| L2 业务组合层 | 图片与文本预览、长文本编辑 | `ImagePreviewModal`、`LongTextEditorModal` | 预览工具使用共用按钮；文本预览和全屏编辑复用 `TextComposer`，保留分片和输入法处理 |
 | L2 业务组合层 | 当次提示词、参考、参数及操作反馈 | `ResultGenerationDetails.tsx` | 正式结果与演示共用；三段内容分别提供复制、回填、复用 |
 | L2 业务流程层 | 参数复用、参考回填 | `generationActions.ts`、`generationReuse.ts` | 使用现有画布操作；检查模型启用及节点锁定，不自动执行 |
 | L3 数据契约层 | 当次生成记录及参数白名单 | `src/shared/types/generation.ts` | 前后端共用；不包含渠道凭证 |
@@ -712,9 +727,11 @@ Updated 2026-11-22 (supersedes the earlier sectional catalogue notes): the multi
 | L2 演示适配层 | 演示节点和编辑面板的交互适配 | `WorkflowGalleryNode`、`WorkflowGalleryPanel` | 仅处理演示回调，不承担正式业务逻辑 |
 | L3 节点基础组件层 | 节点外壳、标题、连接端口和状态 | `WorkflowNodePrimitives.tsx` | 正式页面与演示页共用 |
 | L3 节点基础组件层 | 内容容器、空白态、文本、图片、音视频和附件 | `WorkflowContentPrimitives.tsx` | 正式页面与演示页共用；目前集中在一个源码模块中 |
-| L3 通用界面组件层 | 文本编辑器、菜单和表单控件 | `TextComposer`、`MenuPrimitives` | 共用基础组件 |
+| L3 通用界面组件层 | 文本编辑器、菜单和表单控件 | `TextComposer`、`MenuPrimitives`、`FormPrimitives` | 共享文本与交互状态，滑杆、复选和选色保留原生行为 |
 | L3 通用界面组件层 | 侧栏容器、标题、卡片、空白态和切换按钮 | `PanelPrimitives.tsx` | 统一展示规则；接收领域提供的数据与回调 |
 | L3 通用界面组件层 | 悬浮容器、按钮和工具组 | `CanvasPrimitives` | 共用基础组件 |
+| L3 通用界面组件层 | 表单、工作区弹窗与基础反馈 | `FormPrimitives`、`ModalSurface`、`FeedbackPrimitives` | 设置与引导复用表单，设置、库和媒体复用弹窗规格，应用外壳复用反馈 |
+| L4 样式基础层 | 工作室语义色与玻璃层 | `src/ui/theme.css` | 全局入口加载，示例可通过最近的主题作用域切换 |
 | L4 样式基础层 | 通用视觉变量和交互状态 | `src/ui/foundations.css` | 集中维护深色、浅色样式基准；包含侧栏底色、边界、文字、状态色和交互 |
 | L4 样式基础层 | 节点配色、内容和附件样式 | `node-foundations.css` | 集中维护节点样式基准 |
 | L4 领域排版层 | 结果排版与弧光消息、方案、Markdown 排版 | `workflow/index.css`、`agent-panel.css` | 保留领域布局；卡片、按钮和状态色使用共用基准，无新增组件样式文件 |
@@ -724,7 +741,7 @@ Updated 2026-11-22 (supersedes the earlier sectional catalogue notes): the multi
 
 更新日期：2026-11-22（侧栏整理）。结果栏和弧光已纳入同一虚拟画布，左侧入口可切换侧栏；检查面板可选择侧栏及四种展示状态。结果页的记录、历史、错误及视频恢复入口复用正式展示；弧光的消息、Markdown、画布方案、生成方案、模型与技能菜单、输入区、停靠及浮动展示复用正式组件或排版。演示恢复、应用和发送只改变演示状态，不产生真实任务。领域展示模块不读取正式 store，业务容器保留原有请求、持久化和恢复流程。
 
-待整理项：资产库、设置、工作流库和各种预览、画板、文字编辑窗口进入后续整理；本轮未统一其完整样式。未接入的弹窗入口仍仅显示本地演示反馈。画板中的流程是示意数据，并非用户已保存工作流的副本。真实模型执行、文件选择、导入导出和项目保存不属于当前演示范围。
+设置已接入正式弹窗和组件，演示服务在内存中处理连接检测、模型、目录、代理和重启。画板中的流程使用独立的示意数据。模型执行、文件选择和项目保存只影响演示状态。
 
 
 更新日期：2026-11-22（真实结果生成信息）。执行服务为每次运行建立独立的生成记录映射；AI 各模式在获得结果后按实际请求记录提示词、参考及允许的参数。IO 保存结果时将记录绑定到输出文件，元信息保存在运行时存储解析器给出的 logsDir/output-generation 下，不混入输出文件列表。文件列表读取经校验的记录，清空结果时同步删除记录；同内容跨节点来源不明确时不强行归属。记录不改变节点结果、端口或调度协议，不持久化 API Key、渠道配置和供应商原始响应。

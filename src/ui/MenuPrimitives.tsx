@@ -122,11 +122,15 @@ export function ControlField({
   );
 }
 
-export function SearchInput({ icon, ...props }: ComponentProps<'input'> & { icon: ReactNode }) {
+export function SearchInput({
+  icon,
+  className = '',
+  ...props
+}: ComponentProps<'input'> & { icon: ReactNode }) {
   return (
-    <label className="ui-menu-search">
+    <label className={`ui-menu-search ${className}`}>
       <span aria-hidden="true">{icon}</span>
-      <input type="search" {...props} />
+      <input type="search" className="ui-search-input" {...props} />
     </label>
   );
 }

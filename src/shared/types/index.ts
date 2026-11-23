@@ -17,23 +17,6 @@ export interface LogEntry {
   msg: string;
 }
 
-export interface Colors {
-  bg: string;
-  card: string;
-  card2: string;
-  menuBg: string;
-  border: string;
-  text: string;
-  text2: string;
-  text3: string;
-  blue: string;
-  green: string;
-  red: string;
-  orange: string;
-  purple: string;
-  neutral: string;
-}
-
 export interface ApiConfig {
   id: string;
   name: string;

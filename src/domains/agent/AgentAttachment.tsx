@@ -1,3 +1,4 @@
+import { MediaPlayer } from '@/ui/MediaPlayer';
 import { AgentMediaPreview, type AgentPreview } from './AgentMediaPreview';
 import { File as FileIcon, MagnifyingGlassPlus } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
@@ -69,15 +70,7 @@ export default function AgentAttachment({ file }: { file: File }) {
     <figure className="agent-panel__attachment-preview" onDoubleClick={() => void open()}>
       {!failed && preview && kind === 'image' && <img src={preview} alt={file.name} onError={() => setFailed(true)} />}
       {!failed && preview && kind === 'video' && (
-        // biome-ignore lint/a11y/useMediaCaption: Local user-supplied videos may not include captions.
-        <video
-          src={preview}
-          aria-label={file.name}
-          controls
-          playsInline
-          preload="metadata"
-          onError={() => setFailed(true)}
-        />
+        <MediaPlayer kind="video" src={preview} aria-label={file.name} onError={() => setFailed(true)} />
       )}
       {!failed && kind === 'text' && (
         <pre tabIndex={0} aria-label={`${file.name} 文本预览`}>

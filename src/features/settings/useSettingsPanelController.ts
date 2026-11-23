@@ -10,6 +10,7 @@ type SettingsPanelControllerParams = {
   apiConfigs: ApiConfig[];
   apiKey: string;
   base: string;
+  testConnectionRequest?: typeof testSettingsConnection;
   addLog: (level: string, message: string) => void;
   setApiConfigs: Dispatch<SetStateAction<ApiConfig[]>>;
   setApiKey: (value: string) => void;
@@ -27,6 +28,7 @@ export function useSettingsPanelController({
   setApiKey,
   setBase,
   setModels,
+  testConnectionRequest = testSettingsConnection,
 }: SettingsPanelControllerParams) {
   const activeConfig = useMemo(
     () => apiConfigs.find((config) => config.id === activeConfigId),
@@ -154,7 +156,7 @@ export function useSettingsPanelController({
   const testConnectionAndSyncModels = useCallback(async () => {
     addLog('info', `测试连接: ${base}`);
     try {
-      const result = await testSettingsConnection(
+      const result = await testConnectionRequest(
         apiKey || 'use-stored',
         base,
         activeConfig?.id,
@@ -170,7 +172,7 @@ export function useSettingsPanelController({
       addLog('error', error instanceof Error ? error.message : String(error));
       return [];
     }
-  }, [activeConfig?.providerConfig, addLog, apiKey, base, setModels, updateActiveConfig]);
+  }, [activeConfig?.providerConfig, addLog, apiKey, base, setModels, testConnectionRequest, updateActiveConfig]);
 
   return {
     activeConfig,

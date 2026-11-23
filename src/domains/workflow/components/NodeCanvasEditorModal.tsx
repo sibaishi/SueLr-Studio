@@ -1,3 +1,7 @@
+import { Button, Checkbox, ColorInput, RangeInput, Select, TextInput } from '@/ui/FormPrimitives';
+import { IconButton } from '@/ui/CanvasPrimitives';
+import { DialogCloseButton, DialogFooter, DialogHeader } from '@/ui/DialogPrimitives';
+import { MenuGroup, MenuItem } from '@/ui/MenuPrimitives';
 import FileSourceButton from './FileSourceButton';
 import { readLibraryFile } from '../lib/addIoFiles';
 import { ModalSurface } from '@/ui/ModalSurface';
@@ -49,7 +53,6 @@ import {
   Shapes,
   ScribbleLoop,
   Trash,
-  X,
 } from '@phosphor-icons/react';
 import {
   type CSSProperties,
@@ -94,6 +97,7 @@ function brushMidpoint(a: BrushPoint, b: BrushPoint): BrushPoint {
 
 interface NodeCanvasEditorModalProps {
   src?: string;
+  theme?: 'dark' | 'light';
   nodeLabel?: string;
   onClose: () => void;
   onSavePaint: (file: File) => Promise<void>;
@@ -224,6 +228,7 @@ function formatCanvasEditorError(message?: string | null) {
 
 export function NodeCanvasEditorModal({
   src,
+  theme,
   nodeLabel = '画板',
   onClose,
   onSavePaint,
@@ -244,7 +249,12 @@ export function NodeCanvasEditorModal({
   const [shapeFill, setShapeFill] = useState(false);
   const [shapeFillColor, setShapeFillColor] = useState('#ffffff');
   const [recognitionTrail, setRecognitionTrail] = useState<CanvasPoint[]>([]);
-  const shapeGesture = useRef<{ pointerId: number; start: CanvasPoint; points?: CanvasPoint[]; snapTargets: CanvasRect[] } | null>(null);
+  const shapeGesture = useRef<{
+    pointerId: number;
+    start: CanvasPoint;
+    points?: CanvasPoint[];
+    snapTargets: CanvasRect[];
+  } | null>(null);
   const isShapeTool = tool === 'shape' || tool === 'recognize';
   const isBrushTool = tool === 'brush' || tool === 'eraser';
   const [paintColor, setPaintColor] = useState(isSketch ? '#222222' : '#ff375f');
@@ -993,14 +1003,22 @@ export function NodeCanvasEditorModal({
     const canvas = paintCanvasRef.current;
     if (!canvas) return false;
     const point = getBrushPoint(event.nativeEvent, canvas.getBoundingClientRect(), canvas);
-    const aligned = start.move || start.points ? point : alignPoint(point, start.snapTargets, event.altKey || event.shiftKey);
+    const aligned =
+      start.move || start.points ? point : alignPoint(point, start.snapTargets, event.altKey || event.shiftKey);
     const endX = Math.round(aligned.x);
     const endY = Math.round(aligned.y);
     if (start.move && start.previous) {
       const previous = start.previous;
-      const result = snapCanvasMove({
-        ...previous, x: previous.x + endX - start.x, y: previous.y + endY - start.y, angle: 0,
-      }, event.altKey ? [] : start.snapTargets, 6 / zoom);
+      const result = snapCanvasMove(
+        {
+          ...previous,
+          x: previous.x + endX - start.x,
+          y: previous.y + endY - start.y,
+          angle: 0,
+        },
+        event.altKey ? [] : start.snapTargets,
+        6 / zoom,
+      );
       setSnapGuides(result.guides);
       setSelection({ ...previous, x: Math.round(result.frame.x), y: Math.round(result.frame.y) });
       return true;
@@ -1252,9 +1270,10 @@ export function NodeCanvasEditorModal({
       editFrame(dragTransform(drag.frame, drag.handle, drag.point, point, event.shiftKey));
       return;
     }
-    const result = drag.handle === 'move'
-      ? snapCanvasMove(dragTransform(drag.frame, drag.handle, drag.point, point, false), drag.snapTargets, 6 / zoom)
-      : snapCanvasResize(drag.frame, drag.handle, drag.point, point, event.shiftKey, drag.snapTargets, 6 / zoom);
+    const result =
+      drag.handle === 'move'
+        ? snapCanvasMove(dragTransform(drag.frame, drag.handle, drag.point, point, false), drag.snapTargets, 6 / zoom)
+        : snapCanvasResize(drag.frame, drag.handle, drag.point, point, event.shiftKey, drag.snapTargets, 6 / zoom);
     setSnapGuides(result.guides);
     editFrame(result.frame);
   }
@@ -1301,8 +1320,10 @@ export function NodeCanvasEditorModal({
       if (isDrawing || isSaving || isImporting) return;
       event.preventDefault();
       if (transform) endTransform(false);
-      else if (menuOpen) setMenuOpen(false);
-      else if (selection) setSelection(null);
+      else if (menuOpen) {
+        setMenuOpen(false);
+        menuRef.current?.querySelector('button')?.focus();
+      } else if (selection) setSelection(null);
       else void handleClose();
       return;
     }
@@ -1421,9 +1442,9 @@ export function NodeCanvasEditorModal({
     <ModalSurface
       ariaLabel={nodeLabel}
       onClose={() => (shapeDraft || shapeGesture.current ? endShape(false) : void handleClose())}
-      rootClassName="settings-modal node-canvas-editor-modal"
-      panelClassName="settings-modal__panel node-canvas-editor-modal__dialog"
-      backdropClassName="settings-modal__backdrop"
+      size="workspace"
+      rootClassName="node-canvas-editor-modal"
+      panelClassName="node-canvas-editor-modal__dialog"
       panelRef={dialogRef}
       manageFocus={false}
       closeOnEscape={false}
@@ -1431,6 +1452,7 @@ export function NodeCanvasEditorModal({
       rootProps={{
         ...workflowModalPointerBoundary,
         'data-workflow-modal-overlay': '',
+        ...(theme ? { 'data-theme': theme } : {}),
         onClick: stopWorkflowModalEvent,
         onMouseDown: stopWorkflowModalEvent,
       }}
@@ -1448,26 +1470,23 @@ export function NodeCanvasEditorModal({
         },
       }}
     >
-      <div className="node-canvas-editor-modal__header glass">
-        <div className="min-w-0 flex-1">
-          <h2 className="node-canvas-editor-modal__title">画板</h2>
-          {nodeLabel !== '画板' && (
-            <p className="canvas-document-name" title={nodeLabel}>
-              {nodeLabel}
-            </p>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() =>
-            shapeDraft || shapeGesture.current ? endShape(false) : transform ? endTransform(false) : void handleClose()
-          }
-          className="node-canvas-editor-modal__icon-button"
-          aria-label="关闭画板"
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        className="node-canvas-editor-modal__header modal-inset-panel"
+        title="画板"
+        description={nodeLabel !== '画板' ? <span title={nodeLabel}>{nodeLabel}</span> : undefined}
+        actions={
+          <DialogCloseButton
+            label="关闭画板"
+            onClick={() =>
+              shapeDraft || shapeGesture.current
+                ? endShape(false)
+                : transform
+                  ? endTransform(false)
+                  : void handleClose()
+            }
+          />
+        }
+      />
 
       <div className="canvas-options" aria-label="工具选项">
         {isShapeTool ? (
@@ -1475,11 +1494,11 @@ export function NodeCanvasEditorModal({
             {(tool === 'shape' || (shapeDraft && !isDrawing)) && (
               <label>
                 形状
-                <select
+                <Select
                   value={shapeDraft?.kind ?? shapeKind}
                   disabled={isDrawing}
-                  onChange={(event) => {
-                    const kind = event.target.value as ShapeKind;
+                  onChange={(value) => {
+                    const kind = value as ShapeKind;
                     setShapeKind(kind);
                     if (shapeDraft) setShapeDraft({ ...shapeDraft, kind });
                   }}
@@ -1490,17 +1509,11 @@ export function NodeCanvasEditorModal({
                       {name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             )}
             <label>
-              描边颜色{' '}
-              <input
-                type="color"
-                disabled={isDrawing}
-                value={paintColor}
-                onChange={(event) => setPaintColor(event.target.value)}
-              />
+              描边颜色 <ColorInput compact disabled={isDrawing} value={paintColor} onChange={setPaintColor} />
             </label>
             <label>
               描边宽度{' '}
@@ -1509,17 +1522,11 @@ export function NodeCanvasEditorModal({
             {shapeDraft && !isDrawing && !['line', 'arrow', 'freehand'].includes(shapeDraft.kind) && (
               <>
                 <label>
-                  <input type="checkbox" checked={shapeFill} onChange={(event) => setShapeFill(event.target.checked)} />{' '}
-                  填充
+                  <Checkbox checked={shapeFill} onChange={setShapeFill} /> 填充
                 </label>
                 {shapeFill && (
                   <label>
-                    填充颜色{' '}
-                    <input
-                      type="color"
-                      value={shapeFillColor}
-                      onChange={(event) => setShapeFillColor(event.target.value)}
-                    />
+                    填充颜色 <ColorInput compact value={shapeFillColor} onChange={setShapeFillColor} />
                   </label>
                 )}
               </>
@@ -1629,15 +1636,13 @@ export function NodeCanvasEditorModal({
                 {isBrushTool && (
                   <label className="node-canvas-editor-modal__slider">
                     <span>笔刷 {brushSize}px</span>
-                    <input
-                      type="range"
+                    <RangeInput
                       min={4}
                       max={96}
                       step={2}
                       disabled={isBusy}
                       value={brushSize}
-                      style={{ '--range-progress': `${((brushSize - 4) / 92) * 100}%` } as CSSProperties}
-                      onChange={(event) => handleBrushSizeChange(Number(event.target.value))}
+                      onChange={handleBrushSizeChange}
                     />
                   </label>
                 )}
@@ -1645,46 +1650,24 @@ export function NodeCanvasEditorModal({
                 {isBrushTool && (
                   <label className="node-canvas-editor-modal__slider">
                     <span>防抖 {stabilization}</span>
-                    <input
-                      type="range"
+                    <RangeInput
                       aria-label="防抖"
                       min={0}
                       max={100}
                       value={stabilization}
                       disabled={isBusy}
-                      style={{ '--range-progress': `${stabilization}%` } as CSSProperties}
-                      onChange={(event) => setStabilization(Number(event.target.value))}
+                      onChange={setStabilization}
                     />
                   </label>
                 )}
                 <label className="node-canvas-editor-modal__color-picker">
                   <span>{tool === 'gradient' ? '起始颜色' : '颜色'}</span>
-                  <span
-                    className="node-canvas-editor-modal__color-swatch"
-                    style={{ '--paint-color': paintColor } as CSSProperties}
-                  >
-                    <input
-                      type="color"
-                      disabled={isBusy}
-                      value={paintColor}
-                      onChange={(event) => setPaintColor(event.target.value)}
-                    />
-                  </span>
+                  <ColorInput disabled={isBusy} value={paintColor} onChange={setPaintColor} />
                 </label>
                 {tool === 'gradient' && (
                   <label className="node-canvas-editor-modal__color-picker">
                     <span>结束颜色</span>
-                    <span
-                      className="node-canvas-editor-modal__color-swatch"
-                      style={{ '--paint-color': gradientEndColor } as CSSProperties}
-                    >
-                      <input
-                        type="color"
-                        disabled={isBusy}
-                        value={gradientEndColor}
-                        onChange={(event) => setGradientEndColor(event.target.value)}
-                      />
-                    </span>
+                    <ColorInput disabled={isBusy} value={gradientEndColor} onChange={setGradientEndColor} />
                   </label>
                 )}
                 {tool === 'fill' && (
@@ -1704,16 +1687,16 @@ export function NodeCanvasEditorModal({
               <>
                 <label>
                   选区模式
-                  <select
+                  <Select
                     value={selectionMode}
                     disabled={isBusy}
-                    onChange={(event) => setSelectionMode(event.target.value as SelectionMode)}
+                    onChange={(value) => setSelectionMode(value as SelectionMode)}
                   >
                     <option value="replace">新建</option>
                     <option value="add">添加</option>
                     <option value="subtract">减去</option>
                     <option value="intersect">相交</option>
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   羽化 (px)
@@ -1798,14 +1781,17 @@ export function NodeCanvasEditorModal({
                 ['自由变换', 'Ctrl / ⌘ T', BoundingBox, Boolean(transform), beginTransform],
               ] as const
             ).map(([label, shortcut, Icon, pressed, action]) => (
-              <button
+              <MenuItem
                 key={label}
-                type="button"
                 className="canvas-icon"
                 title={shortcut ? `${label} (${shortcut})` : label}
                 aria-label={label}
                 aria-pressed={
-                  pressed && (label === '平移' || label === '自由变换' || label === '智能对齐' || (!transform && viewMode === 'draw'))
+                  pressed &&
+                  (label === '平移' ||
+                    label === '自由变换' ||
+                    label === '智能对齐' ||
+                    (!transform && viewMode === 'draw'))
                 }
                 disabled={
                   isBusy || !snapshot || (label === '自由变换' && (!activeLayer?.visible || activeLayer.locked))
@@ -1816,7 +1802,7 @@ export function NodeCanvasEditorModal({
                   <Icon size={16} />
                 </span>
                 <span className="canvas-tool-label">{label}</span>
-              </button>
+              </MenuItem>
             ))}
           </div>
           <div className="canvas-tool-history">
@@ -2114,10 +2100,22 @@ export function NodeCanvasEditorModal({
                 {(snapGuides.x !== undefined || snapGuides.y !== undefined) && imageDimensions && (
                   <svg className="canvas-smart-guides" aria-hidden="true">
                     {snapGuides.x !== undefined && (
-                      <line x1={snapGuides.x} x2={snapGuides.x} y1={0} y2={imageDimensions.height} vectorEffect="non-scaling-stroke" />
+                      <line
+                        x1={snapGuides.x}
+                        x2={snapGuides.x}
+                        y1={0}
+                        y2={imageDimensions.height}
+                        vectorEffect="non-scaling-stroke"
+                      />
                     )}
                     {snapGuides.y !== undefined && (
-                      <line y1={snapGuides.y} y2={snapGuides.y} x1={0} x2={imageDimensions.width} vectorEffect="non-scaling-stroke" />
+                      <line
+                        y1={snapGuides.y}
+                        y2={snapGuides.y}
+                        x1={0}
+                        x2={imageDimensions.width}
+                        vectorEffect="non-scaling-stroke"
+                      />
                     )}
                   </svg>
                 )}
@@ -2251,27 +2249,23 @@ export function NodeCanvasEditorModal({
                   图层 <small>{snapshot.layers.length}</small>
                 </h3>
                 <div className="canvas-layer-menu" ref={menuRef}>
-                  <button
-                    type="button"
-                    className="canvas-icon"
-                    aria-label="图层菜单"
-                    title="图层菜单"
+                  <IconButton
+                    compact
+                    label="图层菜单"
+                    icon={<DotsThree size={19} weight="bold" />}
                     aria-expanded={menuOpen}
                     disabled={isBusy}
                     onClick={() => setMenuOpen(!menuOpen)}
-                  >
-                    <DotsThree size={19} weight="bold" />
-                  </button>
+                  />
                   {menuOpen && !isBusy && (
                     <div
-                      className="canvas-layer-menu__items menu-surface"
+                      className="canvas-layer-menu__items menu-surface ui-menu-surface"
                       onBlur={(event) => {
                         if (!event.currentTarget.parentElement?.contains(event.relatedTarget)) setMenuOpen(false);
                       }}
                     >
-                      <div className="menu-group">
-                        <button
-                          type="button"
+                      <MenuGroup label="图层操作">
+                        <MenuItem
                           onClick={() => {
                             setMenuOpen(false);
                             beginTransform();
@@ -2279,28 +2273,25 @@ export function NodeCanvasEditorModal({
                           disabled={!activeLayer.visible || activeLayer.locked}
                         >
                           自由变换 <kbd>Ctrl / ⌘ T</kbd>
-                        </button>
-                        <button
-                          type="button"
+                        </MenuItem>
+                        <MenuItem
                           onClick={() => {
                             setMenuOpen(false);
                             duplicateLayer();
                           }}
                         >
                           {selection ? '选区复制到新图层' : '复制图层'}
-                        </button>
+                        </MenuItem>
                         {onExportLayer && (
                           <>
-                            <button type="button" onClick={() => void exportActiveLayer()}>
-                              导出图层到当前 IO 节点
-                            </button>
-                            <button type="button" onClick={() => void exportActiveLayer(true)}>
+                            <MenuItem onClick={() => void exportActiveLayer()}>导出图层到当前 IO 节点</MenuItem>
+                            <MenuItem onClick={() => void exportActiveLayer(true)}>
                               导出图层到当前 IO 节点（裁紧）
-                            </button>
+                            </MenuItem>
                           </>
                         )}
-                        <button
-                          type="button"
+                        <MenuItem
+                          tone="danger"
                           onClick={() => {
                             setMenuOpen(false);
                             clearLayer();
@@ -2308,9 +2299,8 @@ export function NodeCanvasEditorModal({
                           disabled={!activeLayer.visible || activeLayer.locked}
                         >
                           {selection ? '清除选区像素' : '清空图层'}
-                        </button>
-                        <button
-                          type="button"
+                        </MenuItem>
+                        <MenuItem
                           onClick={() => {
                             setMenuOpen(false);
                             reorderLayer(1);
@@ -2318,9 +2308,8 @@ export function NodeCanvasEditorModal({
                           disabled={snapshot.layers.at(-1) === activeLayer}
                         >
                           图层上移
-                        </button>
-                        <button
-                          type="button"
+                        </MenuItem>
+                        <MenuItem
                           onClick={() => {
                             setMenuOpen(false);
                             reorderLayer(-1);
@@ -2328,8 +2317,8 @@ export function NodeCanvasEditorModal({
                           disabled={snapshot.layers[0] === activeLayer}
                         >
                           图层下移
-                        </button>
-                      </div>
+                        </MenuItem>
+                      </MenuGroup>
                     </div>
                   )}
                 </div>
@@ -2337,17 +2326,17 @@ export function NodeCanvasEditorModal({
               <div className="canvas-layer-properties">
                 <label>
                   混合模式
-                  <select
+                  <Select
                     value={activeLayer.blend}
                     disabled={isBusy || activeLayer.locked}
-                    onChange={(event) => updateLayer({ blend: event.target.value as GlobalCompositeOperation })}
+                    onChange={(value) => updateLayer({ blend: value as GlobalCompositeOperation })}
                   >
                     {BLEND_MODES.map(([value, name]) => (
                       <option key={value} value={value}>
                         {name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   不透明度
@@ -2461,9 +2450,14 @@ export function NodeCanvasEditorModal({
                   <ArrowDown size={15} />
                 </button>
                 <span />
-                <FileSourceButton className="canvas-icon" label="导入图片" assetType="image" disabled={isBusy}
+                <FileSourceButton
+                  className="canvas-icon"
+                  label="导入图片"
+                  assetType="image"
+                  disabled={isBusy}
                   onLocal={() => importInput.current?.click()}
-                  onAsset={async (asset) => importLayer(await readLibraryFile(asset))}>
+                  onAsset={async (asset) => importLayer(await readLibraryFile(asset))}
+                >
                   <UploadSimple size={16} />
                 </FileSourceButton>
                 <button
@@ -2503,14 +2497,14 @@ export function NodeCanvasEditorModal({
         )}
       </div>
 
-      <div className="node-canvas-editor-modal__footer glass">
+      <DialogFooter className="node-canvas-editor-modal__footer modal-inset-panel">
         <div className="node-canvas-editor-modal__status" role="status">
           {error || exportMessage || (isDirty ? '有未保存修改' : '保存为合成 PNG · 图层保留在本次编辑中')}
         </div>
         <div className="node-canvas-editor-modal__actions">
-          <button
-            type="button"
-            className="node-canvas-editor-modal__secondary"
+          <Button
+            small
+            variant="secondary"
             onClick={() =>
               shapeDraft || shapeGesture.current
                 ? endShape(false)
@@ -2521,31 +2515,30 @@ export function NodeCanvasEditorModal({
             disabled={isSaving || isImporting || isDrawing}
           >
             取消
-          </button>
+          </Button>
           {!isSketch && (
-            <button
-              type="button"
-              className="node-canvas-editor-modal__secondary"
+            <Button
+              small
+              variant="secondary"
               onClick={() => {
                 void save(false);
               }}
               disabled={isBusy || !snapshot}
             >
               <Check size={14} /> 仅保存
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="node-canvas-editor-modal__primary"
+          <Button
+            small
             onClick={() => {
               void save(true);
             }}
             disabled={isBusy || !snapshot || (isSketch && !isDirty)}
           >
             {isSaving ? '保存中...' : isSketch ? '保存到 IO 节点' : '保存图片'}
-          </button>
+          </Button>
         </div>
-      </div>
+      </DialogFooter>
     </ModalSurface>,
     document.body,
   );
@@ -2567,13 +2560,13 @@ function CommitNumber({
   const [draft, setDraft] = useState<string | null>(null);
   const cancelled = useRef(false);
   return (
-    <input
+    <TextInput
       type="number"
       min={min}
       max={max}
       disabled={disabled}
-      value={draft ?? value}
-      onChange={(event) => setDraft(event.target.value)}
+      value={draft ?? String(value)}
+      onChange={setDraft}
       onBlur={() => {
         if (!cancelled.current && draft?.trim() && Number.isFinite(Number(draft))) {
           const next = Math.max(min, Math.min(max, Math.round(Number(draft))));
@@ -2738,12 +2731,12 @@ function CanvasSizeControls({
     >
       <label>
         画布比例
-        <select
+        <Select
           value={ratio?.join(':') ?? ''}
           disabled={disabled}
-          onChange={(event) => {
-            if (!event.target.value) return;
-            const [x, y] = event.target.value.split(':').map(Number);
+          onChange={(value) => {
+            if (!value) return;
+            const [x, y] = value.split(':').map(Number);
             const longest = Math.max(dimensions.width, dimensions.height);
             const fit = isSketch
               ? Math.floor(longest / Math.max(x, y))
@@ -2759,28 +2752,28 @@ function CanvasSizeControls({
               {x}:{y}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <label>
         宽度 (px)
-        <input
+        <TextInput
           type="number"
           min={MIN_SKETCH_SIDE}
           max={maxSide}
           value={width}
           disabled={disabled}
-          onChange={(event) => setWidth(event.target.value)}
+          onChange={setWidth}
         />
       </label>
       <label>
         高度 (px)
-        <input
+        <TextInput
           type="number"
           min={MIN_SKETCH_SIDE}
           max={maxSide}
           value={height}
           disabled={disabled}
-          onChange={(event) => setHeight(event.target.value)}
+          onChange={setHeight}
         />
       </label>
       <fieldset className="canvas-anchor">
@@ -2811,13 +2804,15 @@ function CanvasSizeControls({
           ))}
         </div>
       </fieldset>
-      <button
+      <Button
+        small
+        variant="secondary"
         type="submit"
-        className="node-canvas-editor-modal__secondary"
+        className="canvas-size-submit"
         disabled={disabled || !validSize || (pixelWidth === dimensions.width && pixelHeight === dimensions.height)}
       >
         应用尺寸
-      </button>
+      </Button>
       {!validSize && (
         <span role="status">
           宽高需为 {MIN_SKETCH_SIDE}–{maxSide} px 的整数，且总像素不超过 3200 万
@@ -2874,32 +2869,29 @@ function PixelSizeControls({
         <label key={axis}>
           {label}
           {axis === 'width' ? '宽度' : '高度'} (px)
-          <input
+          <TextInput
             type="number"
             min={1}
             max={maxSide}
             value={size[axis]}
             disabled={disabled}
-            onChange={(event) => edit(axis, event.target.value)}
+            onChange={(value) => edit(axis, value)}
           />
         </label>
       ))}
       <label className="canvas-size-link">
-        <input
-          type="checkbox"
-          checked={linked}
-          disabled={disabled}
-          onChange={(event) => setLinked(event.target.checked)}
-        />
+        <Checkbox checked={linked} disabled={disabled} onChange={setLinked} />
         保持比例
       </label>
-      <button
+      <Button
+        small
+        variant="secondary"
         type="submit"
-        className="node-canvas-editor-modal__secondary"
+        className="canvas-size-submit"
         disabled={disabled || !valid || (width === dimensions.width && height === dimensions.height)}
       >
         应用{label}大小
-      </button>
+      </Button>
       {message && <span className="canvas-size-message">{message}</span>}
       {!valid && <span role="status">宽高需为 1–{maxSide} px 的整数，总像素不超过 3200 万。</span>}
     </form>

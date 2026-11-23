@@ -1,3 +1,6 @@
+import { PanelButton } from '@/ui/PanelPrimitives';
+import { Button } from '@/ui/FormPrimitives';
+import { StatusNotice } from '@/ui/FeedbackPrimitives';
 import { ImagePreviewModal, type PreviewImageItem } from '@/domains/workflow/components/ImagePreviewModal';
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import {
@@ -187,31 +190,29 @@ export default function ResultsPanel({ motionState = 'entering', onOpenSettings 
     >
       {isServerRuntime && tab === 'results' && generatedOutputs.length > 0 ? (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-          <button
-            type="button"
+          <PanelButton
             onClick={() => {
               void handleClearGeneratedOutputs();
             }}
-            className="ui-panel-button"
             disabled={isClearingOutputs}
           >
             {isClearingOutputs ? '清除中...' : '清空服务器结果'}
-          </button>
+          </PanelButton>
         </div>
       ) : null}
 
       <div className="workflow-panel__body workflow-results__body">
         {lastExecutionError && !workflowWarningMessage && (
-          <div className="workflow-results__banner workflow-results__banner--warning" role="alert">
+          <StatusNotice tone="warning" className="workflow-results__banner ui-status-notice--compact" role="alert">
             <Warning size={14} />
             <span>{lastExecutionError}</span>
-          </div>
+          </StatusNotice>
         )}
         {workflowWarningMessage && (
-          <div className="workflow-results__banner workflow-results__banner--warning" role="alert">
+          <StatusNotice tone="warning" className="workflow-results__banner ui-status-notice--compact" role="alert">
             <Warning size={14} />
             <span>{workflowWarningMessage}</span>
-          </div>
+          </StatusNotice>
         )}
 
         {warningItems.length > 0 && (
@@ -283,24 +284,26 @@ export default function ResultsPanel({ motionState = 'entering', onOpenSettings 
           onClose={() => setPreviewImage(null)}
           renderActions={(activeImage) => (
             <>
-              <button
-                type="button"
-                className="workflow-image-preview-modal__action"
+              <Button
+                small
+                variant="secondary"
+                className="ui-foreground-surface"
                 onClick={() => {
                   void useWorkflowStore.getState().setWorkflowCover(activeImage.src);
                 }}
               >
                 设为封面
-              </button>
-              <button
-                type="button"
-                className="workflow-image-preview-modal__action"
+              </Button>
+              <Button
+                small
+                variant="secondary"
+                className="ui-foreground-surface"
                 onClick={() => {
                   void handleBackfillImageToCanvas(activeImage);
                 }}
               >
                 填回到画板
-              </button>
+              </Button>
             </>
           )}
         />

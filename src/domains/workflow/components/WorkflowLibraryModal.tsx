@@ -1,8 +1,13 @@
+import { DialogCloseButton, DialogHeader } from '@/ui/DialogPrimitives';
+import { IconButton } from '@/ui/CanvasPrimitives';
+import { Button, TextInput } from '@/ui/FormPrimitives';
 import { useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import type { WorkflowListItem } from '@/domains/workflow/lib/api';
-import { chipStyle, eyebrowStyle, mutedPanelStyle, sectionTitleStyle } from '@/features/settings/components/styles';
+import { Badge, Eyebrow, PanelEmptyState } from '@/ui/PanelPrimitives';
+import { StatusNotice } from '@/ui/FeedbackPrimitives';
+import { SearchInput } from '@/ui/MenuPrimitives';
 import { ModalSurface } from '@/ui/ModalSurface';
-import { Copy, FolderOpen, MagnifyingGlass, NotePencil, ShareNetwork, Trash, X } from '@phosphor-icons/react';
+import { Copy, FolderOpen, MagnifyingGlass, NotePencil, ShareNetwork, Trash } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -11,6 +16,7 @@ type WorkflowLibraryModalProps = {
   activeWorkflowId: string;
   openDocumentWorkflowIds: string[];
   isBusy?: boolean;
+  theme?: 'dark' | 'light';
   onClose: () => void;
   onOpenWorkflow: (workflowId: string) => void;
   onRenameWorkflow: (workflowId: string, name: string) => Promise<boolean>;
@@ -33,6 +39,7 @@ export default function WorkflowLibraryModal({
   activeWorkflowId,
   openDocumentWorkflowIds,
   isBusy = false,
+  theme,
   onClose,
   onOpenWorkflow,
   onRenameWorkflow,
@@ -65,7 +72,10 @@ export default function WorkflowLibraryModal({
         const d = ctx.getImageData(0, 0, 32, 32).data;
         let sum = 0;
         for (let i = 0; i < d.length; i += 4) sum += d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-        setCoverDarkness((prev) => ({ ...prev, [cover]: sum / (32 * 32) < 140 }));
+        setCoverDarkness((prev) => ({
+          ...prev,
+          [cover]: sum / (32 * 32) < 140,
+        }));
       };
       img.onerror = () => setCoverDarkness((prev) => ({ ...prev, [cover]: false }));
       img.src = cover;
@@ -126,73 +136,53 @@ export default function WorkflowLibraryModal({
   return createPortal(
     <ModalSurface
       ariaLabel="工作流库"
-      rootClassName="settings-modal workflow-library-modal"
-      panelClassName="settings-modal__panel workflow-library-modal__panel"
-      backdropClassName="settings-modal__backdrop"
+      size="workspace"
+      rootProps={theme ? { 'data-theme': theme } : undefined}
+      rootClassName="workflow-library-modal"
+      panelClassName="workflow-library-modal__panel"
       backdropLabel="点击背景关闭工作流库"
       onClose={onClose}
       isolateKeyboard
     >
-      <div className="workflow-library-modal__header modal-inset-panel">
-        <div>
-          <div style={eyebrowStyle()}>Workflow Library</div>
-          <h2 style={{ ...sectionTitleStyle(), marginTop: 6 }}>工作流库</h2>
-          <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)', margin: '7px 0 0' }}>
-            管理已保存的工作流记录，打开后会进入独立标签页编辑。
-          </p>
-        </div>
-        <button type="button" className="workflow-library-modal__close" onClick={onClose} aria-label="关闭工作流库">
-          <X size={17} />
-        </button>
-      </div>
+      <DialogHeader
+        className="modal-inset-panel"
+        eyebrow="Workflow Library"
+        title="工作流库"
+        description="管理已保存的工作流记录，打开后会进入独立标签页编辑。"
+        actions={<DialogCloseButton label="关闭工作流库" onClick={onClose} />}
+      />
 
       <div className="workflow-library-modal__toolbar modal-inset-panel">
-        <div className="workflow-library-modal__search">
-          <MagnifyingGlass size={14} />
-          <input
-            aria-label="搜索工作流"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索名称或 ID"
-          />
-        </div>
-        <span style={{ ...chipStyle(), height: 40, padding: '0 14px', fontSize: 12, fontWeight: 700 }}>
-          {workflows.length} 个已保存
-        </span>
+        <SearchInput
+          className="workflow-library-modal__search"
+          icon={<MagnifyingGlass size={14} />}
+          aria-label="搜索工作流"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="搜索名称或 ID"
+        />
+        <Badge>{workflows.length} 个已保存</Badge>
       </div>
 
-      {errorMessage && <div className="workflow-library-modal__error">{errorMessage}</div>}
+      {errorMessage && (
+        <StatusNotice tone="error" role="alert">
+          {errorMessage}
+        </StatusNotice>
+      )}
 
       <section className="workflow-library-modal__content modal-inset-panel" aria-label="已保存的工作流">
         <div>
-          <div style={eyebrowStyle()}>工作流浏览</div>
-          <h3 style={{ ...sectionTitleStyle(), marginTop: 8 }}>已保存的工作流</h3>
+          <Eyebrow>工作流浏览</Eyebrow>
+          <h3 className="workflow-library-modal__section-title">已保存的工作流</h3>
         </div>
         <div className="workflow-library-modal__body" data-testid="workflow-library-modal">
           {filteredWorkflows.length === 0 ? (
-            <div
-              style={{
-                ...mutedPanelStyle(),
-                width: '100%',
-                minHeight: 220,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: 24,
-                color: 'var(--color-text-secondary)',
-                textAlign: 'center',
-              }}
+            <PanelEmptyState
+              icon={<FolderOpen size={22} />}
+              title={workflows.length === 0 ? '还没有已保存工作流' : '没有匹配的工作流'}
             >
-              <FolderOpen size={22} />
-              <strong style={{ color: 'var(--color-text-primary)', fontSize: 14 }}>
-                {workflows.length === 0 ? '还没有已保存工作流' : '没有匹配的工作流'}
-              </strong>
-              <span style={{ fontSize: 12 }}>
-                {workflows.length === 0 ? '保存当前草稿后，这里会出现对应记录。' : '换一个关键词继续查找。'}
-              </span>
-            </div>
+              {workflows.length === 0 ? '保存当前草稿后，这里会出现对应记录。' : '换一个关键词继续查找。'}
+            </PanelEmptyState>
           ) : (
             filteredWorkflows.map((workflow) => {
               const isEditing = editingWorkflowId === workflow.id;
@@ -221,12 +211,20 @@ export default function WorkflowLibraryModal({
                   }}
                   onClick={() => onOpenWorkflow(workflow.id)}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      minWidth: 0,
+                    }}
+                  >
                     {isEditing ? (
-                      <input
+                      <TextInput
                         className="workflow-library-modal__rename-input"
+                        aria-label="工作流名称"
                         value={draftName}
-                        onChange={(event) => setDraftName(event.target.value)}
+                        onChange={setDraftName}
                         onClick={(event) => event.stopPropagation()}
                         onKeyDown={(event) => {
                           event.stopPropagation();
@@ -248,13 +246,11 @@ export default function WorkflowLibraryModal({
                       </button>
                     )}
                     {isActive && (
-                      <span style={{ ...chipStyle('var(--color-accent)'), fontSize: 10, padding: '3px 6px' }}>
+                      <Badge compact accent="var(--color-accent)">
                         当前
-                      </span>
+                      </Badge>
                     )}
-                    {isOpen && !isActive && (
-                      <span style={{ ...chipStyle(), fontSize: 10, padding: '3px 6px' }}>已打开</span>
-                    )}
+                    {isOpen && !isActive && <Badge compact>已打开</Badge>}
                   </div>
 
                   <div
@@ -281,9 +277,8 @@ export default function WorkflowLibraryModal({
                     <div className="workflow-library-modal__card-actions" style={{ marginTop: 0 }}>
                       {isEditing ? (
                         <>
-                          <button
-                            type="button"
-                            className="workflow-library-modal__action workflow-library-modal__action--primary"
+                          <Button
+                            small
                             disabled={isPending}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -291,10 +286,11 @@ export default function WorkflowLibraryModal({
                             }}
                           >
                             保存
-                          </button>
-                          <button
-                            type="button"
-                            className="workflow-library-modal__action"
+                          </Button>
+                          <Button
+                            small
+                            variant="secondary"
+                            className="ui-foreground-surface"
                             disabled={isPending}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -304,49 +300,44 @@ export default function WorkflowLibraryModal({
                             }}
                           >
                             取消
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <button
-                            type="button"
-                            className="workflow-library-modal__icon-action"
+                          <IconButton
+                            compact
+                            className="ui-foreground-surface"
+                            label="重命名"
+                            icon={<NotePencil size={14} />}
                             disabled={isPending}
                             onClick={(e) => {
                               e.stopPropagation();
                               startRename(workflow);
                             }}
-                            title="重命名"
-                            aria-label="重命名"
-                          >
-                            <NotePencil size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="workflow-library-modal__icon-action"
+                          />
+                          <IconButton
+                            compact
+                            className="ui-foreground-surface"
+                            label="复制"
+                            icon={<Copy size={14} />}
                             disabled={isPending}
                             onClick={(e) => {
                               e.stopPropagation();
                               void onDuplicateWorkflow(workflow.id);
                             }}
-                            title="复制"
-                            aria-label="复制"
-                          >
-                            <Copy size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="workflow-library-modal__icon-action workflow-library-modal__icon-action--danger"
+                          />
+                          <IconButton
+                            compact
+                            tone="danger"
+                            className="ui-foreground-surface"
+                            label="删除"
+                            icon={<Trash size={14} />}
                             disabled={isPending}
                             onClick={(e) => {
                               e.stopPropagation();
                               void deleteWorkflow(workflow);
                             }}
-                            title="删除"
-                            aria-label="删除"
-                          >
-                            <Trash size={14} />
-                          </button>
+                          />
                         </>
                       )}
                     </div>

@@ -1,4 +1,5 @@
 import { ActionButton, FloatingSurface, IconButton } from '@/ui/CanvasPrimitives';
+import { Checkbox, Select, TextInput } from '@/ui/FormPrimitives';
 import { ArrowCounterClockwise, Moon, SlidersHorizontal, Sun, X } from '@phosphor-icons/react';
 import type { GalleryContent, GalleryData, GalleryNode } from './WorkflowGalleryNode';
 import type { GalleryPanelScenario, GallerySidePanel } from './WorkflowGallerySidePanels';
@@ -57,35 +58,35 @@ export function CanvasGalleryInspector({
       <p className="canvas-gallery-hint">{message}</p>
       <label>
         画布侧栏
-        <select
+        <Select
           aria-label="演示侧栏"
           value={sidePanel || ''}
-          onChange={(event) => onSidePanelChange((event.target.value || null) as GallerySidePanel)}
+          onChange={(value) => onSidePanelChange((value || null) as GallerySidePanel)}
         >
           <option value="">收起侧栏</option>
           <option value="results">结果栏</option>
           <option value="agent">弧光</option>
-        </select>
+        </Select>
       </label>
       {sidePanel && (
         <label>
           侧栏状态
-          <select
+          <Select
             aria-label="演示侧栏状态"
             value={scenario}
-            onChange={(event) => onScenarioChange(event.target.value as GalleryPanelScenario)}
+            onChange={(value) => onScenarioChange(value as GalleryPanelScenario)}
           >
             <option value="content">有内容</option>
             <option value="empty">空白态</option>
             <option value="loading">加载／处理中</option>
             <option value="error">错误态</option>
-          </select>
+          </Select>
         </label>
       )}
       <div className="canvas-gallery-inspector-divider" />
       <label>
         当前对象
-        <select aria-label="选择演示对象" value={selected?.id || ''} onChange={(event) => onSelect(event.target.value)}>
+        <Select aria-label="选择演示对象" value={selected?.id || ''} onChange={onSelect}>
           <option value="">未选择</option>
           {nodes
             .filter((node) => !node.hidden)
@@ -94,24 +95,20 @@ export function CanvasGalleryInspector({
                 {node.data.title}
               </option>
             ))}
-        </select>
+        </Select>
       </label>
       {selected && (
         <>
           <label>
             标题
-            <input
+            <TextInput
               aria-label="演示对象标题"
               value={selected.data.title}
-              onChange={(event) => patch({ title: event.target.value })}
+              onChange={(value) => patch({ title: value })}
             />
           </label>
           <label className="canvas-gallery-check">
-            <input
-              type="checkbox"
-              checked={Boolean(selected.data.locked)}
-              onChange={(event) => patch({ locked: event.target.checked })}
-            />
+            <Checkbox checked={Boolean(selected.data.locked)} onChange={(checked) => patch({ locked: checked })} />
             锁定
           </label>
           {selected.data.kind === 'group' ? (
@@ -122,67 +119,57 @@ export function CanvasGalleryInspector({
             <>
               <label>
                 内容
-                <select
+                <Select
                   aria-label="演示节点内容类型"
                   value={selected.data.content}
-                  onChange={(event) => patch({ content: event.target.value as GalleryContent })}
+                  onChange={(value) => patch({ content: value as GalleryContent })}
                 >
                   <option value="empty">空白态</option>
                   <option value="text">文本</option>
                   <option value="image">图片</option>
                   <option value="audio">音频控件</option>
                   <option value="video">视频控件</option>
-                </select>
+                </Select>
               </label>
               <label>
                 执行状态
-                <select
+                <Select
                   aria-label="演示节点执行状态"
                   value={selected.data.status || 'idle'}
-                  onChange={(event) => patch({ status: event.target.value as GalleryData['status'] })}
+                  onChange={(value) => patch({ status: value as GalleryData['status'] })}
                 >
                   <option value="idle">待执行</option>
                   <option value="running">执行中</option>
                   <option value="success">完成</option>
                   <option value="error">出错</option>
-                </select>
+                </Select>
               </label>
               <label className="canvas-gallery-check">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={Boolean(selected.data.disabled)}
-                  onChange={(event) => patch({ disabled: event.target.checked })}
+                  onChange={(checked) => patch({ disabled: checked })}
                 />
                 禁用
               </label>
               <label className="canvas-gallery-check">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={Boolean(selected.data.warning)}
-                  onChange={(event) => patch({ warning: event.target.checked })}
+                  onChange={(checked) => patch({ warning: checked })}
                 />
                 输入警告
               </label>
               <label>
                 输入状态
-                <select
-                  aria-label="演示输入状态"
-                  value={inputState}
-                  onChange={(event) => onInputStateChange(event.target.value)}
-                >
+                <Select aria-label="演示输入状态" value={inputState} onChange={onInputStateChange}>
                   <option value="editable">可编辑</option>
                   <option value="readonly">只读</option>
                   <option value="disabled">禁用</option>
                   <option value="invalid">错误</option>
-                </select>
+                </Select>
               </label>
               {selected.data.kind === 'ai' && (
                 <label className="canvas-gallery-check">
-                  <input
-                    type="checkbox"
-                    checked={emptyModels}
-                    onChange={(event) => onEmptyModelsChange(event.target.checked)}
-                  />
+                  <Checkbox checked={emptyModels} onChange={onEmptyModelsChange} />
                   没有已启用模型
                 </label>
               )}
@@ -192,7 +179,7 @@ export function CanvasGalleryInspector({
       )}
       <div className="canvas-gallery-inspector-divider" />
       <label className="canvas-gallery-check">
-        <input type="checkbox" checked={grid} onChange={(event) => onGridChange(event.target.checked)} />
+        <Checkbox checked={grid} onChange={onGridChange} />
         显示画布网格
       </label>
       <p className="canvas-gallery-hint">

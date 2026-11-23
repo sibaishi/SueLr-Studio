@@ -1,5 +1,6 @@
 import { IconButton } from '@/ui/CanvasPrimitives';
-import { PanelEmptyState, PanelHeader } from '@/ui/PanelPrimitives';
+import { PanelButton, PanelEmptyState, PanelHeader } from '@/ui/PanelPrimitives';
+import { TextComposer } from '@/ui/TextComposer';
 import { CornersOut, ListBullets, Plus, SidebarSimple, X } from '@phosphor-icons/react';
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react';
 import { ArcIcon } from './ArcIcon';
@@ -62,15 +63,9 @@ export function AgentEmptyState({ disabled, onStarter }: { disabled?: boolean; o
         action={
           <div className="agent-panel__starters">
             {['一起构思几个方向', '打磨我的创意草稿'].map((text) => (
-              <button
-                key={text}
-                type="button"
-                className="ui-panel-button"
-                disabled={disabled}
-                onClick={() => onStarter(text)}
-              >
+              <PanelButton key={text} disabled={disabled} onClick={() => onStarter(text)}>
                 {text}
-              </button>
+              </PanelButton>
             ))}
           </div>
         }
@@ -98,6 +93,23 @@ export function AgentPlanCard({ className = '', ...props }: HTMLAttributes<HTMLE
   return <section className={`ui-panel-card agent-panel__canvas-plan ${className}`} {...props} />;
 }
 
-export function AgentComposer({ className = '', ...props }: ComponentProps<'form'>) {
-  return <form className={`text-composer agent-panel__composer ${className}`} {...props} />;
+export function AgentComposer({
+  onSubmit,
+  textareaProps,
+  leadingContent,
+  children,
+}: Pick<ComponentProps<'form'>, 'onSubmit' | 'children'> &
+  Pick<ComponentProps<typeof TextComposer>, 'textareaProps' | 'leadingContent'>) {
+  return (
+    <form className="agent-panel__composer-form" onSubmit={onSubmit}>
+      <TextComposer
+        className="agent-panel__composer"
+        label="消息"
+        textareaProps={textareaProps}
+        leadingContent={leadingContent}
+      >
+        {children}
+      </TextComposer>
+    </form>
+  );
 }

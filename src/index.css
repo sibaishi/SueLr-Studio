@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./ui/theme.css";
 @import "./ui/foundations.css";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
@@ -9,7 +10,7 @@
 
 /* ==================== Tailwind 4 Design Tokens ==================== */
 
-@theme {
+@theme static {
   --color-accent: var(--t-blue);
   --color-bg-primary: var(--t-bg);
   --color-bg-secondary: var(--t-card2);
@@ -33,120 +34,6 @@
   --radius-xl: 24px;
 }
 
-/* ==================== Theme CSS Variables ==================== */
-[data-theme="dark"] {
-  --t-bg: #000000;
-  --t-card: rgba(255, 255, 255, 0.06);
-  --t-card2: rgba(255, 255, 255, 0.1);
-  --t-border: rgba(255, 255, 255, 0.08);
-  --t-text: rgba(255, 255, 255, 0.95);
-  --t-text2: rgba(255, 255, 255, 0.5);
-  --t-text3: rgba(255, 255, 255, 0.28);
-  --t-blue: #0a84ff;
-  --t-green: #30d158;
-  --t-red: #ff453a;
-  --t-orange: #ff9f0a;
-  --t-purple: #bf5af2;
-  --t-chat: #30d158;
-}
-[data-theme="light"] {
-  --t-bg: #f5f5f7;
-  --t-card: rgba(255, 255, 255, 0.65);
-  --t-card2: rgba(255, 255, 255, 0.8);
-  --t-border: rgba(0, 0, 0, 0.06);
-  --t-text: rgba(0, 0, 0, 0.88);
-  --t-text2: rgba(0, 0, 0, 0.5);
-  --t-text3: rgba(0, 0, 0, 0.28);
-  --t-blue: #007aff;
-  --t-green: #34c759;
-  --t-red: #ff3b30;
-  --t-orange: #ff9500;
-  --t-purple: #af52de;
-  --t-chat: #30d158;
-}
-
-/* ==================== Component-Scoped Tokens (Tier 3) ==================== */
-
-:root {
-  --btn-radius: 10px;
-  --btn-padding: 10px 20px;
-  --btn-padding-sm: 6px 14px;
-  --btn-primary-bg: var(--t-blue);
-  --btn-primary-color: #fff;
-  --btn-font-size: 14px;
-  --btn-font-size-sm: 12px;
-  --btn-font-weight: 600;
-  --btn-transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-  --input-radius: 10px;
-  --input-padding: 10px 14px;
-  --input-font-size: 14px;
-  --card-radius: 18px;
-  --card-padding: 16px;
-  --card-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
-  --card-transition: transform 0.3s ease, box-shadow 0.3s ease;
-  --toast-radius: 12px;
-  --toast-padding: 10px 18px;
-  --toast-font-size: 13px;
-  --toast-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  --chip-radius: 14px;
-  --modal-radius: 20px;
-  --modal-glass-bg: rgba(28, 30, 36, 0.68);
-  --modal-panel-bg: rgba(39, 41, 48, 0.92);
-  --menu-glass-bg: rgba(28, 30, 36, 0.94);
-  --overlay-border: rgba(255, 255, 255, 0.13);
-  --overlay-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
-  --modal-backdrop: rgba(7, 9, 13, 0.24);
-}
-
-[data-theme="light"] {
-  --card-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
-  --modal-glass-bg: rgba(234, 237, 244, 0.59);
-  --modal-panel-bg: rgba(255, 255, 255, 0.91);
-  --menu-glass-bg: rgba(234, 237, 244, 0.94);
-  --overlay-border: rgba(15, 23, 42, 0.12);
-  --overlay-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
-}
-
-.modal-surface,
-.menu-surface {
-  border: 1px solid var(--overlay-border);
-  box-shadow: var(--overlay-shadow);
-}
-
-.modal-surface {
-  border-radius: var(--modal-radius);
-  background: var(--modal-glass-bg);
-  backdrop-filter: blur(24px) saturate(145%);
-}
-
-.modal-inset-panel,
-.menu-group {
-  background: var(--modal-panel-bg);
-  backdrop-filter: blur(16px) saturate(130%);
-}
-
-.modal-inset-panel {
-  border: 1px solid var(--overlay-border);
-  border-radius: 15px;
-}
-
-.menu-surface {
-  padding: 6px;
-  border-radius: var(--radius-md);
-  background: var(--menu-glass-bg);
-  backdrop-filter: blur(28px) saturate(145%);
-}
-
-.menu-group {
-  min-width: 0;
-  border: 1px solid var(--overlay-border);
-  border-radius: var(--radius-sm);
-}
-
-.menu-group > :where(button) {
-  border-radius: calc(var(--radius-sm) - 2px);
-}
-
 /* ==================== Reset (Layer: reset) ==================== */
 
 @layer reset {
@@ -164,10 +51,13 @@
     overflow: hidden;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     line-height: 1.6;
+    background: transparent;
+    color: var(--color-text-primary);
   }
 
   h1,
@@ -182,19 +72,16 @@
   }
 } /* end @layer reset */
 
-[data-theme="dark"] #root {
-  background: #000000;
+[data-theme] #root {
+  background: var(--t-bg);
 }
-
-[data-theme="light"] #root {
-  background: #f5f5f7;
-}
-
-/* ==================== Glassmorphism Base ==================== */
 
 .glass {
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 .glass-light {
@@ -394,12 +281,7 @@ button:active {
 input:focus,
 select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.3), 0 0 20px rgba(10, 132, 255, 0.08);
-}
-
-[data-theme="light"] input:focus,
-[data-theme="light"] select:focus {
-  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25), 0 0 16px rgba(0, 122, 255, 0.06);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-focus-color) 28%, transparent);
 }
 
 /* Multiline editors use a neutral focus indicator instead of the input glow. */
@@ -412,35 +294,11 @@ textarea:focus-visible {
   outline-offset: -1px;
 }
 
-/* --- Component-scoped focus-visible --- */
-
-.ios-btn:focus-visible {
-  outline: 2px solid rgba(10, 132, 255, 0.6);
-  outline-offset: 2px;
-}
-
-[data-theme="light"] .ios-btn:focus-visible {
-  outline-color: rgba(0, 122, 255, 0.5);
-}
-
-.ios-input:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.3), 0 0 20px rgba(10, 132, 255, 0.08);
-}
-
-[data-theme="light"] .ios-input:focus-visible {
-  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25), 0 0 16px rgba(0, 122, 255, 0.06);
-}
-
 /* ==================== Button Focus (Accessibility) ==================== */
 
 button:focus-visible {
-  outline: 2px solid rgba(10, 132, 255, 0.6);
+  outline: 2px solid var(--ui-focus-color);
   outline-offset: 2px;
-}
-
-[data-theme="light"] button:focus-visible {
-  outline-color: rgba(0, 122, 255, 0.5);
 }
 
 /* ==================== Scrollbar ==================== */

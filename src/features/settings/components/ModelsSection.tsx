@@ -1,6 +1,8 @@
+import { MenuItem, SearchInput } from '@/ui/MenuPrimitives';
+import { themeTint } from '@/ui/theme';
 import { inferEndpointCategory } from '@/domains/workflow/lib/projectModels';
 import type { ModelInfo, ProjectModel } from '@/shared/types';
-import { IOSButton, IOSInput, IOSLabel, IOSSelect } from '@/shared/ui/ios';
+import { Button, Checkbox, TextInput, FieldLabel, SegmentedControl, Select } from '@/ui/FormPrimitives';
 import {
   CaretRight,
   Check,
@@ -14,7 +16,8 @@ import {
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import type { SettingsActions, SettingsViewModel } from './shared';
-import { EmptyStateCard, SectionCard, fuzzyMatch, mutedPanelStyle } from './styles';
+import { Badge, EmptyStateCard, SectionCard } from '@/ui/PanelPrimitives';
+import { fuzzyMatch, mutedPanelStyle } from './styles';
 import './model-library.css';
 
 type Props = {
@@ -23,7 +26,14 @@ type Props = {
   view: SettingsViewModel;
 };
 
-const CATEGORY_ORDER: Record<string, number> = { chat: 0, image: 1, 'image-edit': 2, video: 3, audio: 4, midjourney: 5 };
+const CATEGORY_ORDER: Record<string, number> = {
+  chat: 0,
+  image: 1,
+  'image-edit': 2,
+  video: 3,
+  audio: 4,
+  midjourney: 5,
+};
 const CATEGORY_LABELS: Record<string, string> = {
   chat: '对话',
   image: '图像',
@@ -196,103 +206,75 @@ export function ModelsSection({ T, actions, view }: Props) {
         description="管理当前工作室在对话、图像、视频等场景下可用的模型资产。"
         action={
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button
-              type="button"
+            <Button
+              small
+              variant="secondary"
+              aria-expanded={showAddForm}
               onClick={() => {
                 setLibraryView('project');
                 setShowAddForm(!showAddForm);
                 setNewModelId('');
                 setNewModelType('image');
               }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '5px 10px',
-                borderRadius: 8,
-                border: '1px solid var(--color-border)',
-                background: showAddForm ? `${T.green}18` : 'var(--color-bg-tertiary)',
-                color: showAddForm ? T.green : 'var(--color-text-secondary)',
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
             >
               <Plus size={13} />
               添加模型
-            </button>
+            </Button>
             {!isImportView && (batchMode || view.projectModels.length > 0) && (
-              <button
-                type="button"
-                onClick={toggleBatch}
-                aria-pressed={batchMode}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '5px 10px',
-                  borderRadius: 8,
-                  border: '1px solid var(--color-border)',
-                  background: batchMode ? `${T.blue}18` : 'var(--color-bg-tertiary)',
-                  color: batchMode ? T.blue : 'var(--color-text-secondary)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
+              <Button small variant="secondary" onClick={toggleBatch} aria-pressed={batchMode}>
                 {batchMode ? '退出批量管理' : '批量管理'}
-              </button>
+              </Button>
             )}
           </div>
         }
       >
         <div className="flex-col model-library-content" style={{ gap: 12 }}>
-          <div className="model-library-views" role="group" aria-label="模型列表">
-            <button type="button" aria-pressed={!isImportView} onClick={() => setLibraryView('project')}>
-              已入库 <span>{view.projectModels.length}</span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={isImportView}
-              onClick={() => {
-                setLibraryView('import');
+          <SegmentedControl
+            label="模型列表"
+            value={isImportView ? 'import' : 'project'}
+            options={[
+              {
+                value: 'project',
+                label: (
+                  <>
+                    已入库 <Badge compact>{view.projectModels.length}</Badge>
+                  </>
+                ),
+              },
+              {
+                value: 'import',
+                label: (
+                  <>
+                    待导入 <Badge compact>{view.importableModels.length}</Badge>
+                  </>
+                ),
+              },
+            ]}
+            onChange={(value) => {
+              setLibraryView(value);
+              if (value === 'import') {
                 setShowAddForm(false);
                 setBatchMode(false);
                 setShowBatchConfig(false);
                 setBatchSelected(new Set());
-              }}
-            >
-              待导入 <span>{view.importableModels.length}</span>
-            </button>
-          </div>
-          <div style={{ position: 'relative' }}>
-            <MagnifyingGlass
-              size={15}
-              style={{
-                position: 'absolute',
-                left: 13,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--color-text-tertiary)',
-                pointerEvents: 'none',
-              }}
-            />
-            <IOSInput
-              value={view.projectModelSearch}
-              onChange={actions.setProjectModelSearch}
-              aria-label="搜索当前渠道的模型"
-              placeholder="搜索当前渠道的模型"
-              style={{ paddingLeft: 38 }}
-            />
-          </div>
+              }
+            }}
+          />
+          <SearchInput
+            icon={<MagnifyingGlass size={15} />}
+            value={view.projectModelSearch}
+            onChange={(event) => actions.setProjectModelSearch(event.target.value)}
+            aria-label="搜索当前渠道的模型"
+            placeholder="搜索当前渠道的模型"
+          />
 
           {!isImportView && showAddForm && (
             <div
               style={{
                 ...mutedPanelStyle(),
                 overflow: 'hidden',
-                borderColor: `${T.green}36`,
-                background: `linear-gradient(180deg, ${T.green}12, var(--color-bg-secondary) 42%)`,
+                borderColor: themeTint(T.green, 21),
+                background: `linear-gradient(180deg, ${themeTint(T.green, 7)}, var(--color-bg-secondary) 42%)`,
               }}
             >
               <div
@@ -306,7 +288,14 @@ export function ModelsSection({ T, actions, view }: Props) {
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 9,
+                      flexWrap: 'wrap',
+                    }}
+                  >
                     <div
                       style={{
                         width: 30,
@@ -315,22 +304,42 @@ export function ModelsSection({ T, actions, view }: Props) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: `${T.green}20`,
+                        background: themeTint(T.green, 13),
                         color: T.green,
                       }}
                     >
                       <Plus size={15} />
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: 'var(--color-text-primary)',
+                      }}
+                    >
                       手动添加模型
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      color: 'var(--color-text-secondary)',
+                      marginTop: 8,
+                    }}
+                  >
                     适用于不提供模型列表接口的渠道，直接录入模型标识与类型。
                   </div>
                 </div>
               </div>
-              <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div
+                style={{
+                  padding: 12,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
                 <div
                   style={{
                     display: 'grid',
@@ -340,33 +349,30 @@ export function ModelsSection({ T, actions, view }: Props) {
                   }}
                 >
                   <div>
-                    <IOSLabel>模型标识</IOSLabel>
-                    <IOSInput value={newModelId} onChange={setNewModelId} placeholder="如 midjourney" />
+                    <FieldLabel>模型标识</FieldLabel>
+                    <TextInput value={newModelId} onChange={setNewModelId} placeholder="如 midjourney" />
                   </div>
                   <div>
-                    <IOSLabel>类型</IOSLabel>
-                    <IOSSelect
-                      value={newModelType}
-                      onChange={(value) => setNewModelType(value as ProjectModel['type'])}
-                    >
+                    <FieldLabel>类型</FieldLabel>
+                    <Select value={newModelType} onChange={(value) => setNewModelType(value as ProjectModel['type'])}>
                       <option value="chat">对话</option>
                       <option value="image">图像</option>
                       <option value="video">视频</option>
                       <option value="audio">音频</option>
                       <option value="midjourney">Midjourney</option>
-                    </IOSSelect>
+                    </Select>
                   </div>
                   <div style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
-                    <IOSButton
+                    <Button
                       small
                       label="添加"
-                      color={T.green}
+                      accent={T.green}
                       onClick={() => {
                         actions.addManualProjectModel(newModelId, newModelType);
                         setShowAddForm(false);
                       }}
                     />
-                    <IOSButton small label="取消" onClick={() => setShowAddForm(false)} />
+                    <Button small label="取消" onClick={() => setShowAddForm(false)} />
                   </div>
                 </div>
               </div>
@@ -378,48 +384,69 @@ export function ModelsSection({ T, actions, view }: Props) {
               <div className="model-library-batch" role="group" aria-label="批量操作">
                 <div>
                   <strong aria-live="polite">已选 {selectedIds.length} 个</strong>
-                  <button
-                    type="button"
+                  <Button
+                    small
+                    variant="secondary"
                     disabled={visibleModels.length === 0}
                     onClick={() => toggleBatchSelection(visibleModels, allOfTypeSelected)}
                   >
                     {allOfTypeSelected ? '取消全选本类型' : '全选本类型'}
-                  </button>
+                  </Button>
                   {projectGroups.length > 1 && (
-                    <button type="button" onClick={() => toggleBatchSelection(localFilteredModels, allMatchesSelected)}>
+                    <Button
+                      small
+                      variant="secondary"
+                      onClick={() => toggleBatchSelection(localFilteredModels, allMatchesSelected)}
+                    >
                       {allMatchesSelected ? '取消全选匹配模型' : '全选匹配模型'}
-                    </button>
+                    </Button>
                   )}
-                  <button type="button" disabled={selectedIds.length === 0} onClick={() => setBatchSelected(new Set())}>
+                  <Button
+                    small
+                    variant="secondary"
+                    disabled={selectedIds.length === 0}
+                    onClick={() => setBatchSelected(new Set())}
+                  >
                     清空选择
-                  </button>
+                  </Button>
                 </div>
                 <div>
-                  <button
-                    type="button"
+                  <Button
+                    small
+                    variant="secondary"
                     aria-expanded={showBatchConfig}
                     disabled={selectedIds.length === 0}
                     onClick={() => setShowBatchConfig((open) => !open)}
                   >
                     批量配置
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    small
+                    variant="secondary"
                     disabled={!selectedModels.some((model) => !model.enabled)}
-                    onClick={() => actions.updateProjectModels(selectedIds, { enabled: true })}
+                    onClick={() =>
+                      actions.updateProjectModels(selectedIds, {
+                        enabled: true,
+                      })
+                    }
                   >
                     批量启用
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    small
+                    variant="secondary"
                     disabled={!selectedModels.some((model) => model.enabled)}
-                    onClick={() => actions.updateProjectModels(selectedIds, { enabled: false })}
+                    onClick={() =>
+                      actions.updateProjectModels(selectedIds, {
+                        enabled: false,
+                      })
+                    }
                   >
                     批量停用
-                  </button>
-                  <button
-                    type="button"
-                    className="model-library-batch-remove"
+                  </Button>
+                  <Button
+                    small
+                    variant="danger"
                     disabled={selectedIds.length === 0}
                     onClick={() => {
                       actions.removeProjectModels(selectedIds);
@@ -429,7 +456,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                     }}
                   >
                     批量移除
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -452,9 +479,8 @@ export function ModelsSection({ T, actions, view }: Props) {
                 {view.apiConfigs
                   .filter((config) => config.enabled !== false || config.id === view.activeConfigId)
                   .map((config) => (
-                    <button
+                    <MenuItem
                       key={config.id}
-                      type="button"
                       aria-pressed={config.id === view.activeConfigId}
                       className="model-library-option"
                       onClick={() => switchChannel(config.id)}
@@ -462,14 +488,13 @@ export function ModelsSection({ T, actions, view }: Props) {
                       <Database size={16} aria-hidden="true" />
                       <span>{config.name || config.base || config.id}</span>
                       <CaretRight size={12} aria-hidden="true" />
-                    </button>
+                    </MenuItem>
                   ))}
               </LibraryColumn>
               <LibraryColumn label="类型">
                 {groups.map(([type, models]) => (
-                  <button
+                  <MenuItem
                     key={type}
-                    type="button"
                     aria-pressed={type === (isImportView ? activeImportGroup : activeGroup)?.[0]}
                     className="model-library-option"
                     onClick={() => setActiveType(type)}
@@ -482,15 +507,14 @@ export function ModelsSection({ T, actions, view }: Props) {
                         : models.length}
                     </small>
                     <CaretRight size={12} aria-hidden="true" />
-                  </button>
+                  </MenuItem>
                 ))}
               </LibraryColumn>
               <LibraryColumn label="模型">
                 {isImportView
                   ? visibleImports.map(({ id }) => (
-                      <button
+                      <MenuItem
                         key={id}
-                        type="button"
                         data-testid={`settings-importable-model-${id}`}
                         aria-pressed={isSelected(id, view.selectedImports)}
                         className="model-library-option"
@@ -498,14 +522,13 @@ export function ModelsSection({ T, actions, view }: Props) {
                       >
                         <span className="model-library-name">{id}</span>
                         {isSelected(id, view.selectedImports) && <Check size={15} weight="bold" aria-hidden="true" />}
-                      </button>
+                      </MenuItem>
                     ))
                   : visibleModels.map((model) => {
                       const selected = batchMode ? batchSelected.has(model.modelId) : editingModelId === model.modelId;
                       return (
-                        <button
+                        <MenuItem
                           key={model.modelId}
-                          type="button"
                           data-testid={`settings-project-model-card-${model.modelId}`}
                           aria-pressed={selected}
                           className="model-library-option"
@@ -525,33 +548,24 @@ export function ModelsSection({ T, actions, view }: Props) {
                             <small>{!model.enabled ? '已停用' : model.configured ? '可用' : '待完善配置'}</small>
                           </span>
                           {!batchMode && selected && <Check size={15} weight="bold" aria-hidden="true" />}
-                        </button>
+                        </MenuItem>
                       );
                     })}
               </LibraryColumn>
             </div>
             {isImportView && (
               <div className="model-library-import-actions">
-                <IOSButton
-                  type="button"
+                <Button
                   small
+                  variant="secondary"
                   label={allVisibleSelected ? '取消选择本类型' : '全选本类型可见模型'}
                   disabled={visibleImports.length === 0}
                   onClick={toggleVisibleImports}
-                  style={
-                    visibleImports.length > 0
-                      ? {
-                          background: 'var(--color-bg-secondary)',
-                          color: 'var(--color-text-primary)',
-                        }
-                      : undefined
-                  }
                 />
                 <div>
                   <span aria-live="polite">已选 {view.selectedImports.length} 个</span>
-                  <button
-                    type="button"
-                    className="model-library-primary-button"
+                  <Button
+                    small
                     data-testid="settings-import-selected-models"
                     disabled={view.selectedImports.length === 0}
                     onClick={() => {
@@ -561,7 +575,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                   >
                     <CloudArrowUp size={15} aria-hidden="true" />
                     导入选中模型
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -576,7 +590,7 @@ export function ModelsSection({ T, actions, view }: Props) {
                   }
                 />
                 {view.importableModels.length === 0 && (
-                  <IOSButton
+                  <Button
                     type="button"
                     small
                     label="前往连接设置"
@@ -590,11 +604,12 @@ export function ModelsSection({ T, actions, view }: Props) {
                 <header>
                   <strong>{editingModel.modelId}</strong>
                   <label>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={editingModel.enabled}
-                      onChange={(event) =>
-                        actions.updateProjectModel(editingModel.modelId, { enabled: event.target.checked })
+                      onChange={(enabled) =>
+                        actions.updateProjectModel(editingModel.modelId, {
+                          enabled,
+                        })
                       }
                     />
                     启用
@@ -602,8 +617,8 @@ export function ModelsSection({ T, actions, view }: Props) {
                 </header>
                 <div className="model-library-fields">
                   <div>
-                    <IOSLabel>模型类型</IOSLabel>
-                    <IOSSelect
+                    <FieldLabel>模型类型</FieldLabel>
+                    <Select
                       value={editingModel.type}
                       onChange={(value) => {
                         const type = value as ProjectModel['type'];
@@ -615,26 +630,28 @@ export function ModelsSection({ T, actions, view }: Props) {
                       }}
                     >
                       <ConfigOptions options={MODEL_TYPES} />
-                    </IOSSelect>
+                    </Select>
                   </div>
                   {editingModel.type === 'chat' && (
                     <div>
-                      <IOSLabel>原生联网</IOSLabel>
-                      <IOSSelect
+                      <FieldLabel>原生联网</FieldLabel>
+                      <Select
                         aria-label="原生联网"
                         value={editingModel.nativeWebSearch ? 'on' : 'off'}
                         onChange={(value) =>
-                          actions.updateProjectModel(editingModel.modelId, { nativeWebSearch: value === 'on' })
+                          actions.updateProjectModel(editingModel.modelId, {
+                            nativeWebSearch: value === 'on',
+                          })
                         }
                       >
                         <option value="off">关闭</option>
                         <option value="on">开启（Responses API）</option>
-                      </IOSSelect>
+                      </Select>
                     </div>
                   )}
                   <div>
-                    <IOSLabel>接口模式</IOSLabel>
-                    <IOSSelect
+                    <FieldLabel>接口模式</FieldLabel>
+                    <Select
                       value={editingModel.endpointMode}
                       onChange={(value) =>
                         actions.updateProjectModel(editingModel.modelId, {
@@ -643,12 +660,12 @@ export function ModelsSection({ T, actions, view }: Props) {
                       }
                     >
                       <ConfigOptions options={ENDPOINT_MODES} />
-                    </IOSSelect>
+                    </Select>
                   </div>
                   {editingModel.endpointMode === 'category' ? (
                     <div>
-                      <IOSLabel>接口类别</IOSLabel>
-                      <IOSSelect
+                      <FieldLabel>接口类别</FieldLabel>
+                      <Select
                         value={editingModel.endpointCategory}
                         onChange={(value) =>
                           actions.updateProjectModel(editingModel.modelId, {
@@ -657,26 +674,28 @@ export function ModelsSection({ T, actions, view }: Props) {
                         }
                       >
                         <ConfigOptions options={ENDPOINT_CATEGORIES} />
-                      </IOSSelect>
+                      </Select>
                     </div>
                   ) : (
                     <div>
-                      <IOSLabel>自定义接口路径</IOSLabel>
-                      <IOSInput
+                      <FieldLabel>自定义接口路径</FieldLabel>
+                      <TextInput
                         value={editingModel.customEndpoint}
                         onChange={(value) =>
-                          actions.updateProjectModel(editingModel.modelId, { customEndpoint: value })
+                          actions.updateProjectModel(editingModel.modelId, {
+                            customEndpoint: value,
+                          })
                         }
                         placeholder="/v1/your/custom/path"
                       />
                     </div>
                   )}
                 </div>
-                <IOSButton
+                <Button
                   small
                   type="button"
                   label="移除模型"
-                  color={T.red}
+                  accent={T.red}
                   onClick={() => {
                     actions.removeProjectModels([editingModel.modelId]);
                     setEditingModelId(null);
@@ -753,39 +772,39 @@ function BatchModelConfig({
       </header>
       <div className="model-library-fields">
         <div>
-          <IOSLabel>模型类型</IOSLabel>
-          <IOSSelect aria-label="批量模型类型" value={type} onChange={(value) => setType(value as typeof type)}>
+          <FieldLabel>模型类型</FieldLabel>
+          <Select aria-label="批量模型类型" value={type} onChange={(value) => setType(value as typeof type)}>
             <option value={KEEP_CONFIG}>保持原值</option>
             <ConfigOptions options={MODEL_TYPES} />
-          </IOSSelect>
+          </Select>
         </div>
         <div>
-          <IOSLabel>接口模式</IOSLabel>
-          <IOSSelect aria-label="批量接口模式" value={mode} onChange={(value) => setMode(value as typeof mode)}>
+          <FieldLabel>接口模式</FieldLabel>
+          <Select aria-label="批量接口模式" value={mode} onChange={(value) => setMode(value as typeof mode)}>
             <option value={KEEP_CONFIG}>保持原值</option>
             <ConfigOptions options={ENDPOINT_MODES} />
-          </IOSSelect>
+          </Select>
         </div>
         {hasCategory && (
           <div>
-            <IOSLabel>接口类别</IOSLabel>
-            <IOSSelect
+            <FieldLabel>接口类别</FieldLabel>
+            <Select
               aria-label="批量接口类别"
               value={category}
               onChange={(value) => setCategory(value as typeof category)}
             >
               <option value={KEEP_CONFIG}>保持原值</option>
               <ConfigOptions options={ENDPOINT_CATEGORIES} />
-            </IOSSelect>
+            </Select>
           </div>
         )}
         {hasCustom && (
           <div>
             <label className="model-library-edit-path">
-              <input type="checkbox" checked={editPath} onChange={(event) => setEditPath(event.target.checked)} />
+              <Checkbox checked={editPath} onChange={setEditPath} />
               更新自定义接口路径
             </label>
-            <IOSInput
+            <TextInput
               aria-label="批量自定义接口路径"
               value={path}
               onChange={setPath}
@@ -800,14 +819,10 @@ function BatchModelConfig({
       )}
       {hasCategory && hasCustom && <small>接口类别和自定义路径分别应用到对应接口模式的模型。</small>}
       <div className="model-library-config-actions">
-        <button
-          type="submit"
-          className="model-library-primary-button"
-          disabled={models.length === 0 || Object.keys(patch).length === 0}
-        >
+        <Button small type="submit" disabled={models.length === 0 || Object.keys(patch).length === 0}>
           应用配置
-        </button>
-        <IOSButton type="button" small label="取消" onClick={onCancel} />
+        </Button>
+        <Button small variant="secondary" label="取消" onClick={onCancel} />
       </div>
     </form>
   );

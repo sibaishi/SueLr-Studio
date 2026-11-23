@@ -35,6 +35,10 @@ Corrected 2026-11-22: the development catalogue uses the current AI/IO floating 
 
 Updated 2026-11-22: AI prompts (including system prompts and speech text) and IO text editing use the same text composer, with 12px padding, 16px corners and the existing neutral focus indication. AI and IO share content frames, empty states, text/image previews and native audio/video controls. Text and image previews can be opened with Enter/Space when focused, as well as double-click. The catalogue includes editable, read-only, disabled and invalid input examples plus content-type previews; its examples do not update project data.
 
+## 工作室组件演示
+
+开发模式下可访问 `/?view=studio-components`，查看通用表单、滑杆、文本编辑与预览、搜索、反馈和弹窗在深浅主题下的效果。输入、搜索与选择只作用于当前示例。可从该页进入画布组件库。双击演示图片的「输出预览」，再点击「画板」，可操作工具和图层菜单。画板保存只更新演示预览。工作流库可搜索、复制和管理示例记录，导入导出显示正式弹窗，操作只影响演示数据。
+
 ## Install
 
 ### Environment
@@ -498,6 +502,8 @@ Skills 支持启用内置指导、导入 Markdown 正文，或通过对话生成
 
 
 更新于 2026-11-22：演示画板现在沿用真实画布布局：左上角标题、顶部中央工作流库入口、左侧居中的竖向工具栏、左下角小地图、底部文档与操作栏、底部中央节点编辑面板、右下角执行按钮组。顶部右侧的「组件库」工具仅用于切换主题、检查与重置；检查面板默认收起，展开后浮在画布上，不会压缩或重排画布。未接入的工作流库、资产和设置入口只显示演示反馈，可在检查面板查看；它们不会打开实际业务页面或读取项目数据。
+
+更新于 2026-11-23：工作流库已接入正式组件，使用独立的示例记录。导入导出也打开正式弹窗。资产库使用同一个正式界面和本地示例素材，可筛选、收藏、预览并回填演示画布。设置入口也会打开正式界面，连接测试、模型导入、目录和主题操作只影响演示。
 
 
 更新于 2026-11-22（结果栏与弧光）：两者统一使用侧栏容器、卡片、按钮、空白态和深浅主题状态色，布局沿用 4px 步进及 12px 间距基准。结果栏保留结果、记录、历史，以及复制、预览、视频取回和文本回填操作；弧光保留原有模型、技能、附件、会话及停靠／浮动操作。

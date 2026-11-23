@@ -1,4 +1,4 @@
-import type { ComponentProps, HTMLAttributes, ReactNode } from 'react';
+import type { ComponentProps, CSSProperties, HTMLAttributes, ReactNode } from 'react';
 
 /** 结果、助手等侧栏共用的展示组件；数据与操作由领域模块注入。 */
 export function PanelSurface({ className = '', ...props }: ComponentProps<'aside'>) {
@@ -29,22 +29,28 @@ export function PanelCard({ className = '', ...props }: HTMLAttributes<HTMLDivEl
   return <div className={`ui-panel-card ${className}`} {...props} />;
 }
 
+export function PanelButton({ className = '', ...props }: ComponentProps<'button'>) {
+  return <button type="button" className={`ui-panel-button ${className}`} {...props} />;
+}
+
 export function PanelEmptyState({
   icon,
   title,
   children,
   action,
 }: {
-  icon: ReactNode;
+  icon?: ReactNode;
   title: string;
   children: ReactNode;
   action?: ReactNode;
 }) {
   return (
     <div className="ui-panel-empty">
-      <span className="ui-panel-empty-icon" aria-hidden="true">
-        {icon}
-      </span>
+      {icon && (
+        <span className="ui-panel-empty-icon" aria-hidden="true">
+          {icon}
+        </span>
+      )}
       <h3>{title}</h3>
       <div className="ui-panel-description">{children}</div>
       {action && <div className="ui-panel-empty-action">{action}</div>}
@@ -76,5 +82,58 @@ export function PanelTabs<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+export function Badge({
+  accent,
+  compact,
+  className = '',
+  ...props
+}: ComponentProps<'span'> & {
+  accent?: string;
+  compact?: boolean;
+}) {
+  return (
+    <span
+      {...props}
+      className={`ui-badge ${className}`}
+      data-compact={compact || undefined}
+      style={accent ? ({ '--ui-badge-accent': accent, ...props.style } as CSSProperties) : props.style}
+    />
+  );
+}
+
+export function Eyebrow({ className = '', ...props }: ComponentProps<'div'>) {
+  return <div {...props} className={`ui-eyebrow ${className}`} />;
+}
+
+export function SectionCard({
+  title,
+  description,
+  children,
+  action,
+}: { title: string; description?: string; children: ReactNode; action?: ReactNode }) {
+  return (
+    <section className="ui-panel-card ui-section-card">
+      <header className="ui-section-card__header">
+        <div>
+          <h3>{title}</h3>
+          {description && <p>{description}</p>}
+        </div>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+export function EmptyStateCard({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
+  return (
+    <PanelCard>
+      <PanelEmptyState title={title} action={action}>
+        {body}
+      </PanelEmptyState>
+    </PanelCard>
   );
 }

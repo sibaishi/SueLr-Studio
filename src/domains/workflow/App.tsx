@@ -12,7 +12,7 @@ import StatusBar from '@/domains/workflow/components/StatusBar';
 import Toolbar from '@/domains/workflow/components/Toolbar';
 import { WorkflowConfirmProvider, useWorkflowConfirm } from '@/domains/workflow/components/WorkflowConfirmDialog';
 import WorkflowExportModal from '@/domains/workflow/components/WorkflowExportModal';
-import WorkflowImportReportModal from '@/domains/workflow/components/WorkflowImportReportModal';
+import WorkflowImportReportModal, { WorkflowIssueDialog } from '@/domains/workflow/components/WorkflowImportReportModal';
 import WorkflowLibraryModal from '@/domains/workflow/components/WorkflowLibraryModal';
 import { useWorkflowHistory } from '@/domains/workflow/hooks/useWorkflowHistory';
 import { useWorkflowImport } from '@/domains/workflow/hooks/useWorkflowImport';
@@ -479,51 +479,19 @@ function WorkflowPageContent({ onOpenStudioSettings, onToggleTheme, themeMode }:
       </div>
 
       {importErrorMessage && (
-        <div className="workflow-import-modal" onClick={() => setImportErrorMessage(null)}>
-          <div className="workflow-import-modal__dialog modal-surface" onClick={(e) => e.stopPropagation()}>
-            <div className="workflow-import-modal__header">
-              <div>
-                <div className="workflow-panel__title">导入没有完成</div>
-              </div>
-            </div>
-            <div className="workflow-import-modal__body">
-              <p className="workflow-import-modal__item">{importErrorMessage}</p>
-            </div>
-            <div className="workflow-import-modal__footer">
-              <button
-                type="button"
-                onClick={() => setImportErrorMessage(null)}
-                className="workflow-import-modal__button workflow-import-modal__button--primary"
-              >
-                知道了
-              </button>
-            </div>
-          </div>
-        </div>
+        <WorkflowIssueDialog
+          title="导入没有完成"
+          message={importErrorMessage}
+          onClose={() => setImportErrorMessage(null)}
+        />
       )}
 
       {workflowErrorMessage && (
-        <div className="workflow-import-modal" onClick={() => setWorkflowErrorMessage(null)}>
-          <div className="workflow-import-modal__dialog modal-surface" onClick={(e) => e.stopPropagation()}>
-            <div className="workflow-import-modal__header">
-              <div>
-                <div className="workflow-panel__title">操作没有完成</div>
-              </div>
-            </div>
-            <div className="workflow-import-modal__body">
-              <p className="workflow-import-modal__item">{workflowErrorMessage}</p>
-            </div>
-            <div className="workflow-import-modal__footer">
-              <button
-                type="button"
-                onClick={() => setWorkflowErrorMessage(null)}
-                className="workflow-import-modal__button workflow-import-modal__button--primary"
-              >
-                知道了
-              </button>
-            </div>
-          </div>
-        </div>
+        <WorkflowIssueDialog
+          title="操作没有完成"
+          message={workflowErrorMessage}
+          onClose={() => setWorkflowErrorMessage(null)}
+        />
       )}
 
       {exportRequest && (

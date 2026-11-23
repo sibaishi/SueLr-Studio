@@ -3,7 +3,6 @@ import type { ThemeMode } from '@/shared/types';
 import { useEffect, useState } from 'react';
 import darkIcon from '../../../build/icon.svg?inline';
 import lightIcon from '../../../build/icon-light.svg?inline';
-import { DARK, LIGHT } from './constants';
 
 export function useThemeState() {
   const [themeMode, setThemeMode] = useState<ThemeMode>(loadJSON('ai_theme', 'dark'));
@@ -24,10 +23,8 @@ export function useThemeState() {
     window.electronAPI?.setIconTheme?.(theme);
   }, [theme]);
 
-  const colors = theme === 'dark' ? DARK : LIGHT;
-
   return {
-    colors,
+    theme,
     systemDark,
     themeMode,
     setThemeMode,

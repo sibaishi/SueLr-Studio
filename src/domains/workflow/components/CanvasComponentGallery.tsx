@@ -1,7 +1,15 @@
-import { DARK, LIGHT } from '@/app/theme/constants';
+import { SettingsGallery } from '@/features/settings/components/SettingsGallery';
+import { ToastProvider } from '@/providers/ToastContext';
+import { AssetLibraryView } from './AssetLibraryModal';
+import { createGalleryAssetSource } from './galleryAssetSource';
+import type { WorkflowListItem } from '@/domains/workflow/lib/api/workflows';
+import WorkflowExportModal from './WorkflowExportModal';
+import WorkflowImportReportModal from './WorkflowImportReportModal';
+import WorkflowLibraryModal from './WorkflowLibraryModal';
+import { WorkflowConfirmProvider } from './WorkflowConfirmDialog';
 import { NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import { getCollapsedGroupNodeSize } from '@/domains/workflow/lib/groupLayout';
-import { TCtx } from '@/providers/ThemeContext';
+import { ResolvedThemeContext } from '@/providers/ThemeContext';
 import {
   type Edge,
   ReactFlow,
@@ -48,6 +56,13 @@ const initialDocuments = [
   { documentId: 'running', name: '批量图片处理', hasUnsavedChanges: false, isExecuting: true },
   { documentId: 'long', name: '这是一个用于检查长标题截断的工作流标签', hasUnsavedChanges: false, isExecuting: false },
 ];
+const initialSavedWorkflows: WorkflowListItem[] = initialDocuments.map(({ documentId, name }) => ({
+  id: documentId,
+  name,
+  nodeCount: 4,
+  updatedAt: 0,
+}));
+
 const initialNodes: GalleryNode[] = [
   {
     id: 'group',
@@ -86,10 +101,12 @@ const fitOptions = { padding: { top: '108px', right: '108px', bottom: '336px', l
 function VirtualCanvas({
   theme,
   onThemeChange,
+  onSetTheme,
   onReset,
 }: {
   theme: 'dark' | 'light';
   onThemeChange: () => void;
+  onSetTheme: (theme: 'dark' | 'light') => void;
   onReset: () => void;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<GalleryNode>(initialNodes);
@@ -105,6 +122,9 @@ function VirtualCanvas({
   const [inspector, setInspector] = useState(false);
   const [documents, setDocuments] = useState(initialDocuments);
   const [activeId, setActiveId] = useState('draft');
+  const [galleryAssetSource] = useState(createGalleryAssetSource);
+  const [savedWorkflows, setSavedWorkflows] = useState(initialSavedWorkflows);
+  const [workflowDialog, setWorkflowDialog] = useState<'library' | 'assets' | 'settings' | 'import' | 'export' | null>(null);
   const [emptyModels, setEmptyModels] = useState(false);
   const [inputState, setInputState] = useState('editable');
   const [menu, setMenu] = useState<GalleryMenu | null>(null);
@@ -287,12 +307,7 @@ function VirtualCanvas({
           </div>
           <Toolbar
             workflowName={documents.find((document) => document.documentId === activeId)?.name || '组件示例'}
-            workflows={documents.map((document) => ({
-              id: document.documentId,
-              name: document.name,
-              nodeCount: initialNodes.length,
-              updatedAt: 0,
-            }))}
+            workflows={savedWorkflows}
             onWorkflowNameSave={(name) =>
               setDocuments((current) =>
                 current.map((document) =>
@@ -300,7 +315,7 @@ function VirtualCanvas({
                 ),
               )
             }
-            onOpenWorkflowLibrary={() => setMessage('工作流库入口演示，未读取项目工作流。')}
+            onOpenWorkflowLibrary={() => setWorkflowDialog('library')}
             isExecuting={executing}
             rightPanelCollapsed={!docked}
             onExecute={() => run(true)}
@@ -313,8 +328,8 @@ function VirtualCanvas({
               const rect = stageRef.current?.getBoundingClientRect();
               if (rect) openCatalog(rect.left + rect.width / 2, rect.top + rect.height / 2);
             }}
-            onOpenAssetLibrary={() => setMessage('资产库入口演示，不读取本地文件或资产。')}
-            onOpenSettings={() => setMessage('设置入口演示，不修改用户设置。')}
+            onOpenAssetLibrary={() => setWorkflowDialog('assets')}
+            onOpenSettings={() => setWorkflowDialog('settings')}
             onToggleRightPanel={() => {
               setSidePanel(sidePanel === 'results' ? null : 'results');
               setAgentFloating(false);
@@ -394,8 +409,16 @@ function VirtualCanvas({
               setActiveId(remaining[0]?.documentId || '');
               setMessage('已移除演示标签，可重置恢复。');
             }}
-            onImportWorkflow={() => setMessage('导入按钮演示，不打开文件。')}
-            onExportWorkflow={() => setMessage('导出按钮演示，不写入文件。')}
+            onImportWorkflow={() => {
+              const documentId = `document-${++serial.current}`;
+              setDocuments((current) => [
+                ...current,
+                { documentId, name: '导入演示', hasUnsavedChanges: true, isExecuting: false },
+              ]);
+              setActiveId(documentId);
+              setWorkflowDialog('import');
+            }}
+            onExportWorkflow={() => setWorkflowDialog('export')}
             onUndo={() => {}}
             onRedo={() => {}}
             canUndo={false}
@@ -406,7 +429,14 @@ function VirtualCanvas({
                   document.documentId === activeId ? { ...document, hasUnsavedChanges: false } : document,
                 ),
               );
-              setMessage('已清除当前标签的未保存标记，不保存项目。');
+              const active = documents.find((document) => document.documentId === activeId);
+              if (active) {
+                setSavedWorkflows((current) => [
+                  ...current.filter((workflow) => workflow.id !== activeId),
+                  { id: activeId, name: active.name, nodeCount: nodes.length, updatedAt: Date.now() },
+                ]);
+              }
+              setMessage('演示工作流已保存到示例库。');
             }}
             isSavingWorkflow={false}
             hasUnsavedChanges={Boolean(
@@ -534,12 +564,96 @@ function VirtualCanvas({
       <div className="sr-only" role="status">
         {message}
       </div>
+      {workflowDialog === 'library' && (
+        <WorkflowLibraryModal
+          theme={theme}
+          workflows={savedWorkflows}
+          activeWorkflowId={activeId}
+          openDocumentWorkflowIds={documents.map(({ documentId }) => documentId)}
+          onClose={() => setWorkflowDialog(null)}
+          onOpenWorkflow={(id) => {
+            const workflow = savedWorkflows.find((item) => item.id === id);
+            if (!workflow) return;
+            setDocuments((current) => current.some(({ documentId }) => documentId === id)
+              ? current
+              : [...current, { documentId: id, name: workflow.name, hasUnsavedChanges: false, isExecuting: false }]);
+            setActiveId(id);
+            setWorkflowDialog(null);
+          }}
+          onRenameWorkflow={async (id, name) => {
+            setSavedWorkflows((current) => current.map((item) => item.id === id ? { ...item, name } : item));
+            setDocuments((current) => current.map((item) => item.documentId === id ? { ...item, name } : item));
+            return true;
+          }}
+          onDeleteWorkflow={async (id) => {
+            const remaining = documents.filter(({ documentId }) => documentId !== id);
+            setSavedWorkflows((current) => current.filter((item) => item.id !== id));
+            setDocuments(remaining);
+            if (activeId === id) setActiveId(remaining[0]?.documentId || '');
+            return true;
+          }}
+          onDuplicateWorkflow={async (id) => {
+            const workflow = savedWorkflows.find((item) => item.id === id);
+            if (!workflow) return false;
+            const copy = { ...workflow, id: `document-${++serial.current}`, name: `${workflow.name} 副本` };
+            setSavedWorkflows((current) => [...current, copy]);
+            return true;
+          }}
+        />
+      )}
+      <SettingsGallery open={workflowDialog === 'settings'} theme={theme} onSetTheme={onSetTheme}
+        onClose={() => setWorkflowDialog(null)} />
+      {workflowDialog === 'assets' && (
+        <AssetLibraryView
+          theme={theme}
+          sourceApi={galleryAssetSource}
+          onClose={() => setWorkflowDialog(null)}
+          onBackfill={async (asset) => {
+            const content = asset.type === 'data' || asset.type === 'file' ? 'text' : asset.type;
+            const text = content === 'text' ? await (await fetch(asset.url)).text() : '';
+            const bounds = stageRef.current?.getBoundingClientRect();
+            addGalleryNode(flow.screenToFlowPosition({
+              x: (bounds?.left || 0) + size.width / 2,
+              y: (bounds?.top || 0) + size.height / 2,
+            }), { kind: 'io', title: asset.name, content, text, src: asset.url, status: 'idle' });
+          }}
+        />
+      )}
+      {workflowDialog === 'import' && (
+        <WorkflowImportReportModal
+          fileName="导入演示.json"
+          report={{
+            sourceVersion: 1,
+            targetVersion: 1,
+            appliedMigrations: [],
+            warnings: ['示例报告：参考素材需要重新选择。'],
+            rejectedFields: [],
+            result: 'imported_with_warnings',
+          }}
+          onClose={() => setWorkflowDialog(null)}
+        />
+      )}
+      {workflowDialog === 'export' && (
+        <WorkflowExportModal
+          references={['演示参考图.png']}
+          busy={false}
+          error=""
+          onClose={() => setWorkflowDialog(null)}
+          onDownload={(withMedia) => {
+            setMessage(withMedia ? '已选择带素材导出 ZIP。' : '已选择仅导出 JSON。');
+            setWorkflowDialog(null);
+          }}
+        />
+      )}
       {preview && (
         <ImagePreviewModal
           theme={theme}
-          src={preview.content === 'image' ? galleryImage : ''}
+          src={preview.content === 'image' ? preview.src || galleryImage : ''}
           textContent={preview.content === 'text' ? preview.text : undefined}
           title={preview.title}
+          showEditActions={preview.content === 'image'}
+          onSaveBoardImage={async () => setMessage('已更新演示预览。')}
+          onExportLayer={async () => setMessage('图层已导出演示，项目文件未写入。')}
           onClose={() => setPreview(null)}
         />
       )}
@@ -560,16 +674,21 @@ export default function CanvasComponentGallery() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [revision, setRevision] = useState(0);
   return (
-    <TCtx.Provider value={theme === 'dark' ? DARK : LIGHT}>
+    <ResolvedThemeContext.Provider value={theme}>
       <main data-theme={theme} className="workflow-page canvas-gallery-page" aria-label="画布组件库">
         <ReactFlowProvider key={revision}>
-          <VirtualCanvas
-            theme={theme}
-            onThemeChange={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-            onReset={() => setRevision((current) => current + 1)}
-          />
+          <ToastProvider>
+          <WorkflowConfirmProvider theme={theme}>
+            <VirtualCanvas
+              theme={theme}
+              onSetTheme={setTheme}
+              onThemeChange={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+              onReset={() => setRevision((current) => current + 1)}
+            />
+          </WorkflowConfirmProvider>
+          </ToastProvider>
         </ReactFlowProvider>
       </main>
-    </TCtx.Provider>
+    </ResolvedThemeContext.Provider>
   );
 }

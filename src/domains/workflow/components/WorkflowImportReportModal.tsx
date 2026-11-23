@@ -1,5 +1,8 @@
 import { buildImportReportSections } from '@/domains/workflow/lib/importExport';
 import type { WorkflowImportReport } from '@/domains/workflow/lib/persistenceTypes';
+import { DialogFooter, DialogHeader } from '@/ui/DialogPrimitives';
+import { StatusNotice } from '@/ui/FeedbackPrimitives';
+import { Button } from '@/ui/FormPrimitives';
 import { ModalSurface } from '@/ui/ModalSurface';
 import { CheckCircle, Warning } from '@phosphor-icons/react';
 
@@ -19,21 +22,23 @@ export default function WorkflowImportReportModal({ fileName, report, onClose }:
       rootClassName="workflow-import-modal"
       panelClassName="workflow-import-modal__dialog"
       closeOnRootClick
+      isolateKeyboard
       onClose={onClose}
     >
-      <div className="workflow-import-modal__header">
-        <div>
-          <div className="workflow-panel__eyebrow">导入结果</div>
-          <div className="workflow-panel__title">{fileName || 'workflow.json'}</div>
-          <div className="workflow-panel__desc">已打开为新的未保存标签页。保存时会创建新的工作流记录。</div>
-        </div>
-        <div
-          className={`workflow-import-modal__status ${hasWarnings ? 'workflow-import-modal__status--warning' : 'workflow-import-modal__status--success'}`}
-        >
-          {hasWarnings ? <Warning size={14} /> : <CheckCircle size={14} />}
-          <span>{hasWarnings ? '已导入，含提示' : '导入成功'}</span>
-        </div>
-      </div>
+      <DialogHeader
+        className="workflow-import-modal__header"
+        eyebrow="导入结果"
+        title={fileName || 'workflow.json'}
+        description="已打开为新的未保存标签页。保存时会创建新的工作流记录。"
+        actions={
+          <span
+            className={`workflow-import-modal__status ${hasWarnings ? 'workflow-import-modal__status--warning' : 'workflow-import-modal__status--success'}`}
+          >
+            {hasWarnings ? <Warning size={14} /> : <CheckCircle size={14} />}
+            <span>{hasWarnings ? '已导入，含提示' : '导入成功'}</span>
+          </span>
+        }
+      />
 
       <div className="workflow-import-modal__body">
         {sections.map((section) => (
@@ -50,15 +55,29 @@ export default function WorkflowImportReportModal({ fileName, report, onClose }:
         ))}
       </div>
 
-      <div className="workflow-import-modal__footer">
-        <button
-          type="button"
-          className="workflow-import-modal__button workflow-import-modal__button--primary"
-          onClick={onClose}
-        >
-          关闭
-        </button>
-      </div>
+      <DialogFooter className="workflow-import-modal__footer">
+        <Button small onClick={onClose}>关闭</Button>
+      </DialogFooter>
+    </ModalSurface>
+  );
+}
+
+
+export function WorkflowIssueDialog({ title, message, onClose }: { title: string; message: string; onClose: () => void }) {
+  return (
+    <ModalSurface
+      ariaLabel={title}
+      rootClassName="workflow-import-modal"
+      panelClassName="workflow-import-modal__dialog"
+      onClose={onClose}
+      closeOnRootClick
+      isolateKeyboard
+    >
+      <DialogHeader className="workflow-import-modal__header" title={title} />
+      <StatusNotice tone="error" role="alert">{message}</StatusNotice>
+      <DialogFooter className="workflow-import-modal__footer">
+        <Button small onClick={onClose}>知道了</Button>
+      </DialogFooter>
     </ModalSurface>
   );
 }

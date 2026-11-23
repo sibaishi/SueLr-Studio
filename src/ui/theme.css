@@ -1,0 +1,98 @@
+/* ==================== Theme CSS Variables ==================== */
+:root,
+[data-theme="dark"] {
+  --t-bg: #000000;
+  --t-card: rgba(255, 255, 255, 0.06);
+  --t-card2: rgba(255, 255, 255, 0.1);
+  --t-border: rgba(255, 255, 255, 0.08);
+  --t-text: rgba(255, 255, 255, 0.95);
+  --t-text2: rgba(255, 255, 255, 0.5);
+  --t-text3: rgba(255, 255, 255, 0.28);
+  --t-blue: #0a84ff;
+  --t-green: #30d158;
+  --t-red: #ff453a;
+  --t-orange: #ff9f0a;
+  --t-purple: #bf5af2;
+  --t-neutral: #d1d5db;
+  --t-menu-bg: #1c1c1e;
+  --t-chat: #30d158;
+  --modal-glass-bg: rgba(28, 30, 36, 0.68);
+  --modal-panel-bg: rgba(39, 41, 48, 0.92);
+  --menu-glass-bg: rgba(28, 30, 36, 0.94);
+  --overlay-border: rgba(255, 255, 255, 0.13);
+  --overlay-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+  --card-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
+  --color-bg-secondary: rgba(255, 255, 255, 0.055);
+  --color-bg-tertiary: rgba(255, 255, 255, 0.075);
+  --color-text-quaternary: rgba(255, 255, 255, 0.24);
+  --color-border-strong: rgba(255, 255, 255, 0.12);
+  --glass-bg: var(--t-card);
+  --glass-bg-hover: rgba(255, 255, 255, 0.1);
+  --glass-bg-active: rgba(255, 255, 255, 0.16);
+  --glass-border: var(--t-border);
+  --glass-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
+  --glass-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.34);
+  --glass-blur: blur(36px) saturate(180%);
+}
+
+[data-theme="light"] {
+  --t-bg: #f5f5f7;
+  --t-card: rgba(255, 255, 255, 0.65);
+  --t-card2: rgba(255, 255, 255, 0.8);
+  --t-border: rgba(0, 0, 0, 0.06);
+  --t-text: rgba(0, 0, 0, 0.88);
+  --t-text2: rgba(0, 0, 0, 0.5);
+  --t-text3: rgba(0, 0, 0, 0.28);
+  --t-blue: #007aff;
+  --t-green: #34c759;
+  --t-red: #ff3b30;
+  --t-orange: #ff9500;
+  --t-purple: #af52de;
+  --t-neutral: #5f6368;
+  --t-menu-bg: #ffffff;
+  --t-chat: #30d158;
+  --card-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+  --modal-glass-bg: rgba(234, 237, 244, 0.59);
+  --modal-panel-bg: rgba(255, 255, 255, 0.91);
+  --menu-glass-bg: rgba(234, 237, 244, 0.94);
+  --overlay-border: rgba(15, 23, 42, 0.12);
+  --overlay-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+  --color-bg-secondary: var(--t-card2);
+  --color-bg-tertiary: rgba(255, 255, 255, 0.58);
+  --color-text-quaternary: rgba(15, 23, 42, 0.24);
+  --color-border-strong: rgba(15, 23, 42, 0.12);
+  --glass-bg: var(--t-card);
+  --glass-bg-hover: rgba(255, 255, 255, 0.82);
+  --glass-bg-active: rgba(255, 255, 255, 0.94);
+  --glass-border: var(--t-border);
+  --glass-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+  --glass-shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.14);
+  --glass-blur: blur(36px) saturate(180%);
+}
+
+/* Repeat the aliases at theme boundaries so nested previews resolve locally. */
+:root,
+[data-theme] {
+  --color-bg-primary: var(--t-bg);
+  --color-text-primary: var(--t-text);
+  --color-text-secondary: var(--t-text2);
+  --color-text-tertiary: var(--t-text3);
+  --color-border: var(--t-border);
+  --color-accent: var(--t-blue);
+  --color-danger: var(--t-red);
+  --color-success: var(--t-green);
+  --color-warning: var(--t-orange);
+}
+
+/* ==================== Component-Scoped Tokens (Tier 3) ==================== */
+
+:root {
+  --card-radius: 18px;
+  --card-padding: 16px;
+  --card-transition: transform 0.3s ease, box-shadow 0.3s ease;
+  --toast-font-size: 13px;
+  --toast-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --chip-radius: 14px;
+  --modal-radius: 20px;
+  --modal-backdrop: rgba(7, 9, 13, 0.24);
+}

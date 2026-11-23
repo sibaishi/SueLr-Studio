@@ -1,6 +1,5 @@
-import { DARK } from '@/app/theme/constants';
-import type { Colors } from '@/shared/types';
 import { createContext, useContext } from 'react';
 
-export const TCtx = createContext<Colors>(DARK);
-export const useT = () => useContext(TCtx);
+/** Canvas drawing code uses the resolved mode to refresh computed CSS colors. */
+export const ResolvedThemeContext = createContext<'dark' | 'light'>('dark');
+export const useResolvedTheme = () => useContext(ResolvedThemeContext);

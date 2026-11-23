@@ -95,7 +95,7 @@ export type SettingsViewModel = {
   connectionStatus: 'idle' | 'testing' | 'success' | 'error';
   connectionResult: string;
   themeMode: ThemeMode;
-  themeOptions: Array<{ l: string; v: string }>;
+  themeOptions: Array<{ label: string; value: string }>;
   edgeStyle: 'bezier' | 'smoothstep';
   workflowConcurrency: WorkflowConcurrencySettingsPayload;
 };

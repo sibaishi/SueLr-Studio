@@ -1,3 +1,4 @@
+import { containDialogTab } from '@/ui/dialogKeyboard';
 import { type KeyboardEvent, type RefObject, useLayoutEffect } from 'react';
 
 const inertCounts = new Map<HTMLElement, number>();
@@ -49,23 +50,7 @@ export function useWorkflowModalIsolation(
 
 export function isolateWorkflowModalKey(event: KeyboardEvent<HTMLElement>) {
   event.stopPropagation();
-  if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || event.altKey) return;
-  const dialog = event.currentTarget;
-  const controls = Array.from(
-    dialog.querySelectorAll<HTMLElement>(
-      'button, input, textarea, select, a[href], [tabindex], [contenteditable="true"]',
-    ),
-  ).filter((element) => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0);
-  const first = controls[0];
-  const last = controls.at(-1);
-  if (
-    !first ||
-    (event.shiftKey && (event.target === first || event.target === dialog)) ||
-    (!event.shiftKey && (event.target === last || event.target === dialog))
-  ) {
-    event.preventDefault();
-    (event.shiftKey ? last : first)?.focus();
-  }
+  containDialogTab(event, event.currentTarget);
 }
 
 export function stopWorkflowModalEvent(event: { stopPropagation: () => void }) {

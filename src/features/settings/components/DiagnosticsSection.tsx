@@ -1,7 +1,8 @@
-import { LogPanel } from '@/shared/ui/ios';
+import { DiagnosticsLogPanel } from './DiagnosticsLogPanel';
 import { formatRuntimeModeLabel } from '../runtimePresentation';
 import type { SettingsActions, SettingsViewModel } from './shared';
-import { SectionCard, eyebrowStyle, mutedPanelStyle } from './styles';
+import { SectionCard } from '@/ui/PanelPrimitives';
+import { eyebrowStyle, mutedPanelStyle } from './styles';
 
 type Props = {
   T: Record<string, string>;
@@ -77,11 +78,7 @@ export function DiagnosticsSection({ actions, view }: Props) {
       </SectionCard>
 
       <SectionCard title="运行日志" description="集中查看最近的连接、导入、搜索和后端运行反馈。">
-        <LogPanel
-          logs={view.logs}
-          onClear={actions.onClearLogs}
-          style={{ height: 360, border: '1px solid var(--color-border)', borderRadius: 18, overflow: 'hidden' }}
-        />
+        <DiagnosticsLogPanel logs={view.logs} onClear={actions.onClearLogs} />
       </SectionCard>
     </div>
   );

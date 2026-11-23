@@ -1,9 +1,11 @@
+import { StatusBadge, StatusNotice } from '@/ui/FeedbackPrimitives';
+import { MediaPlayer } from '@/ui/MediaPlayer';
 import type { ExecutionHistoryEntry } from '@/domains/workflow/lib/api/execution';
 import type { GeneratedOutputFile } from '@/domains/workflow/lib/api/files';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
 import { formatDurationSeconds } from '@/domains/workflow/lib/executionFormat';
 import type { ExecutionLogEntry } from '@/domains/workflow/lib/store/types';
-import { PanelEmptyState, PanelHeader, PanelSurface, PanelTabs } from '@/ui/PanelPrimitives';
+import { PanelButton, PanelEmptyState, PanelHeader, PanelSurface, PanelTabs } from '@/ui/PanelPrimitives';
 import {
   CaretDown,
   Clipboard,
@@ -282,7 +284,7 @@ function AiOutputValue({
         />
       );
     if (value.type === 'video') return <VideoResult src={value.url} />;
-    if (value.type === 'audio') return <audio src={value.url} controls className="w-full" />;
+    if (value.type === 'audio') return <MediaPlayer kind="audio" src={value.url} className="w-full" />;
     if (isPreviewableTextOutput(value)) {
       return <TextFileResult url={value.url} name={value.name || value.url} onBackfillText={onBackfillText} />;
     }
@@ -296,7 +298,7 @@ function AiOutputValue({
   if (typeof value === 'string') {
     if (isRenderableOutputImageUrl(value)) return <ImageResult src={value} onPreviewImage={onPreviewImage} />;
     if (isRenderableOutputVideoUrl(value)) return <VideoResult src={value} />;
-    if (isRenderableOutputAudioUrl(value)) return <audio src={value} controls className="w-full" />;
+    if (isRenderableOutputAudioUrl(value)) return <MediaPlayer kind="audio" src={value} className="w-full" />;
     return <TextResult text={value} />;
   }
 
@@ -325,7 +327,7 @@ function AiOutputValue({
       return (
         <div className="space-y-2">
           {values.map((src) => (
-            <audio key={src} src={src} controls className="w-full" />
+            <MediaPlayer kind="audio" key={src} src={src} className="w-full" />
           ))}
         </div>
       );
@@ -346,10 +348,10 @@ function TextResult({
   return (
     <div>
       <div className="mb-1 flex justify-end">
-        <button type="button" onClick={() => void navigator.clipboard?.writeText(text)} className="ui-panel-button">
+        <PanelButton onClick={() => void navigator.clipboard?.writeText(text)}>
           <Clipboard size={10} />
           复制
-        </button>
+        </PanelButton>
       </div>
       <div className={`workflow-results__text ${mono ? 'workflow-results__text--mono' : ''}`}>{text || '(空内容)'}</div>
     </div>
@@ -396,7 +398,7 @@ function isRenderableOutputImageUrl(value: string) {
 function VideoResult({ src, compact = false }: { src: string; compact?: boolean }) {
   return (
     <div className={`workflow-results__video ${compact ? 'workflow-results__video--compact' : ''}`}>
-      <video src={src} controls className="h-full w-full rounded-[inherit] object-cover" />
+      <MediaPlayer kind="video" src={src} className="h-full w-full rounded-[inherit] object-cover" />
       <div className="workflow-results__video-label">
         <VideoCamera size={12} />
         视频输出
@@ -432,14 +434,12 @@ export function LogsList({
       <div className="workflow-results__log-toolbar">
         <span>共 {readableLogs.length} 条</span>
         {compactedCount > 0 && <span>已折叠 {compactedCount} 条细节</span>}
-        <button type="button" onClick={onClear} className="ui-panel-button">
-          清空
-        </button>
+        <PanelButton onClick={onClear}>清空</PanelButton>
       </div>
       {orderedLogs.map((log) => (
         <div key={log.id} className="ui-panel-card workflow-results__log-item">
           <div className="workflow-results__log-head">
-            <span className={`workflow-results__log-level workflow-results__log-level--${log.level}`}>{log.level}</span>
+            <StatusBadge tone={log.level}>{log.level}</StatusBadge>
             <span>{formatReadableLogTime(log)}</span>
           </div>
           <div className="workflow-results__log-message">
@@ -740,14 +740,12 @@ export function RunHistoryList({
     <div className="workflow-results__stack">
       <div className="workflow-results__log-toolbar">
         {entries && <span>共 {entries.length} 条</span>}
-        <button type="button" className="ui-panel-button" onClick={onRefresh}>
-          刷新历史
-        </button>
+        <PanelButton onClick={onRefresh}>刷新历史</PanelButton>
       </div>
       {(error || recoveryError) && (
-        <div className="workflow-results__banner workflow-results__banner--warning" role="alert">
+        <StatusNotice tone="warning" className="workflow-results__banner ui-status-notice--compact" role="alert">
           {error || recoveryError}
-        </div>
+        </StatusNotice>
       )}
       {!entries && !error && <p className="workflow-results__log-message">正在读取运行历史…</p>}
       {entries?.length === 0 && (
@@ -766,9 +764,7 @@ export function RunHistoryList({
           >
             <summary className="workflow-results__history-summary">
               <span className="workflow-results__log-head">
-                <span className={`workflow-results__log-level workflow-results__log-level--${status.tone}`}>
-                  {status.label}
-                </span>
+                <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
                 <time dateTime={startedAt.toISOString()}>{startedAt.toLocaleString('zh-CN')}</time>
               </span>
               <span className="workflow-results__history-overview">
@@ -781,9 +777,7 @@ export function RunHistoryList({
             <div className="workflow-results__history-details workflow-results__log-message">
               <div>
                 <p className="break-all select-text">运行 ID · {entry.runId}</p>
-                <button
-                  type="button"
-                  className="ui-panel-button"
+                <PanelButton
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(entry.runId);
@@ -794,7 +788,7 @@ export function RunHistoryList({
                   }}
                 >
                   复制运行 ID
-                </button>
+                </PanelButton>
                 {runIdCopy?.id === entry.runId && (
                   <span className="ml-2" role="status">
                     {runIdCopy.succeeded ? '已复制' : '复制失败'}
@@ -823,15 +817,13 @@ export function RunHistoryList({
                 </p>
               ))}
               {entry.recoverableVideos.map((task) => (
-                <button
+                <PanelButton
                   key={task.id}
-                  type="button"
-                  className="ui-panel-button"
                   disabled={Boolean(recovering)}
                   onClick={() => void onRecover(entry.runId, task.id)}
                 >
                   {recovering === task.id ? '正在取回视频…' : `取回视频 · ${task.nodeId}`}
-                </button>
+                </PanelButton>
               ))}
               {entry.outputs.map((url, index) => (
                 <p key={url}>

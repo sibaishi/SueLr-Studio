@@ -1,3 +1,5 @@
+import { StatusNotice } from '@/ui/FeedbackPrimitives';
+import { Select } from '@/ui/FormPrimitives';
 import AgentMarkdown from '@/domains/agent/AgentMarkdown';
 import {
   AgentComposer,
@@ -13,7 +15,7 @@ import { agentResizeEdges, useAgentWindow } from '@/domains/agent/useAgentWindow
 import type { ExecutionLogEntry } from '@/domains/workflow/lib/store/types';
 import { IconButton } from '@/ui/CanvasPrimitives';
 import { MenuGroup } from '@/ui/MenuPrimitives';
-import { PanelSurface } from '@/ui/PanelPrimitives';
+import { PanelButton, PanelSurface } from '@/ui/PanelPrimitives';
 import { ArrowUp, Crosshair, Graph, Paperclip, PuzzlePiece, Stop } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { LogsList, type PanelTab, ResultsList, ResultsPanelView, RunHistoryList } from './ResultsPresentation';
@@ -230,9 +232,7 @@ export function GalleryAgentPanel({
                   <li>添加参考输入节点</li>
                   <li>连接图像模型与输出节点</li>
                 </ol>
-                <button
-                  type="button"
-                  className="ui-panel-button"
+                <PanelButton
                   disabled={applied}
                   onClick={() => {
                     setApplied(true);
@@ -240,7 +240,7 @@ export function GalleryAgentPanel({
                   }}
                 >
                   {applied ? '已应用' : '应用到画布'}
-                </button>
+                </PanelButton>
               </AgentPlanCard>
             )}
             {!busy && (
@@ -259,23 +259,19 @@ export function GalleryAgentPanel({
               </AgentPlanCard>
             )}
             {busy && (
-              <p role="status" className="agent-panel__notice">
+              <StatusNotice className="ui-status-notice--compact" role="status">
                 弧光正在处理消息…
-              </p>
+              </StatusNotice>
             )}
             {stopped && <p className="agent-panel__notice">已停止回复。</p>}
             {scenario === 'error' && (
               <>
-                <p role="alert" className="agent-panel__notice">
+                <StatusNotice tone="error" className="ui-status-notice--compact" role="alert">
                   演示错误：连接不可用，请检查配置。
-                </p>
-                <button
-                  type="button"
-                  className="ui-panel-button agent-panel__restore"
-                  onClick={() => setDraft('帮我整理这个图生图流程。')}
-                >
+                </StatusNotice>
+                <PanelButton className="agent-panel__restore" onClick={() => setDraft('帮我整理这个图生图流程。')}>
                   恢复到输入框
-                </button>
+                </PanelButton>
               </>
             )}
           </article>
@@ -289,27 +285,30 @@ export function GalleryAgentPanel({
           setDraft('');
           notify('发送交互演示，不调用模型，也不保存会话。');
         }}
+        textareaProps={{
+          placeholder: '说说你的创意，或添加参考文件…',
+          value: draft,
+          disabled: busy,
+          rows: 3,
+          onChange: (event) => setDraft(event.target.value),
+        }}
+        leadingContent={
+          <>
+            {attached && (
+              <ul className="agent-panel__attachments" aria-label="待发送附件">
+                <li>
+                  <Paperclip size={16} />
+                  <span>参考图片.png</span>
+                  <button type="button" aria-label="移除演示附件" onClick={() => setAttached(false)}>
+                    ×
+                  </button>
+                </li>
+              </ul>
+            )}
+            {includeCanvas && <p className="agent-panel__notice">当前画布已关联 · 点击画布图标可关闭</p>}
+          </>
+        }
       >
-        {attached && (
-          <ul className="agent-panel__attachments" aria-label="待发送附件">
-            <li>
-              <Paperclip size={16} />
-              <span>参考图片.png</span>
-              <button type="button" aria-label="移除演示附件" onClick={() => setAttached(false)}>
-                ×
-              </button>
-            </li>
-          </ul>
-        )}
-        {includeCanvas && <p className="agent-panel__notice">当前画布已关联 · 点击画布图标可关闭</p>}
-        <textarea
-          aria-label="消息"
-          placeholder="说说你的创意，或添加参考文件…"
-          value={draft}
-          disabled={busy}
-          rows={3}
-          onChange={(event) => setDraft(event.target.value)}
-        />
         <div
           className="agent-panel__composer-actions"
           onKeyDown={(event) => {
@@ -348,10 +347,10 @@ export function GalleryAgentPanel({
             <section className="menu-surface ui-menu-popover agent-panel__popover" aria-label="模型配置">
               <MenuGroup label="对话模型">
                 <label className="agent-panel__model-group">
-                  <select aria-label="演示对话模型" value={model} onChange={(event) => setModel(event.target.value)}>
+                  <Select aria-label="演示对话模型" value={model} onChange={setModel}>
                     <option value="demo-chat">演示对话模型</option>
                     <option value="demo-chat-2">演示对话模型 B</option>
-                  </select>
+                  </Select>
                 </label>
               </MenuGroup>
             </section>
