@@ -16,4 +16,3 @@ export const FLOW_NODE_COLORS: Record<string, string> = {
 
 export const FLOW_DISABLED_NEW_NODE_TYPES = new Set<string>();
 export const FLOW_FORCE_DISABLED_NODE_TYPES = new Set<string>();
-export const FLOW_DISABLED_NODE_REASON = '暂时停用，无法新建';

@@ -32,7 +32,7 @@ import {
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GridDots } from './GridDots';
 import { GridGlow } from './GridGlow';
-import { ContextMenuButton, NodeCatalogButton } from './flowCanvasCatalog';
+import { CanvasContextMenu, CanvasNodeCatalog, ContextMenuButton } from './flowCanvasCatalog';
 import { snapNodeBox } from './flowCanvasClipboard';
 import {
   FLOW_DISABLED_NEW_NODE_TYPES,
@@ -54,7 +54,6 @@ import {
   findEdgeInsertionCandidate,
   getEdgeDataTypeColor,
 } from './flowCanvasUiHelpers';
-import './contextMenu.css';
 import './nodes/nodeAnimations.css';
 
 function isCanvasPointerEvent(event: { currentTarget: HTMLElement; target: EventTarget }) {
@@ -784,127 +783,101 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
       {ctxMenu.contextMenu &&
         (ctxMenu.contextMenu.kind === 'node' || ctxMenu.contextMenu.kind === 'paneActions' ? (
-          <div
-            className="menu-surface workflow-context-menu workflow-context-menu--root"
-            style={{
-              left: ctxMenu.contextMenu.x,
-              top: ctxMenu.contextMenu.y,
-            }}
-            onClick={(event) => event.stopPropagation()}
+          <CanvasContextMenu
+            key={`${ctxMenu.contextMenu.kind}-${ctxMenu.contextMenu.nodeId ?? ''}`}
+            x={ctxMenu.contextMenu.x}
+            y={ctxMenu.contextMenu.y}
+            label={ctxMenu.contextMenu.kind === 'paneActions' ? '画布右键菜单' : '节点右键菜单'}
+            onDismiss={ctxMenu.closeContextMenu}
           >
-            <div className="menu-group">
-              {ctxMenu.contextMenu.kind === 'paneActions' ? (
-                <>
+            {ctxMenu.contextMenu.kind === 'paneActions' ? (
+              <ContextMenuButton
+                label="粘贴节点"
+                onClick={clipboard.pasteNodeAtContext}
+                disabled={!clipboard.clipboardNode}
+                title={!clipboard.clipboardNode ? '剪贴板里还没有可粘贴的节点' : undefined}
+              />
+            ) : hasMultipleContextNodes ? (
+              <>
+                {canCreateGroup && <ContextMenuButton label="创建节点组" onClick={createGroupFromContextNodes} />}
+                <ContextMenuButton label="复制所选节点" onClick={clipboard.copyContextNodes} />
+                <ContextMenuButton
+                  label={allContextNodesDisabled ? '启用所选节点' : '禁用所选节点'}
+                  onClick={() => setContextNodesDisabled(!allContextNodesDisabled)}
+                />
+                <ContextMenuButton
+                  label={allContextNodesLocked ? '解锁所选节点' : '锁定所选节点'}
+                  onClick={() => setContextNodesLocked(!allContextNodesLocked)}
+                />
+                <ContextMenuButton label="删除所选节点" onClick={deleteContextNodes} danger />
+              </>
+            ) : (
+              <>
+                <ContextMenuButton
+                  label={hasSingleGroupContextNode ? '复制节点组' : '复制节点'}
+                  onClick={hasSingleGroupContextNode ? clipboard.copyContextNodes : clipboard.copySelectedNode}
+                />
+                <ContextMenuButton
+                  label={
+                    allContextNodesLocked
+                      ? hasSingleGroupContextNode
+                        ? '解锁组'
+                        : '解锁节点'
+                      : hasSingleGroupContextNode
+                        ? '锁定组'
+                        : '锁定节点'
+                  }
+                  onClick={() => setContextNodesLocked(!allContextNodesLocked)}
+                />
+                <ContextMenuButton
+                  label={
+                    allContextNodesDisabled
+                      ? hasSingleGroupContextNode
+                        ? '启用组'
+                        : '启用节点'
+                      : hasSingleGroupContextNode
+                        ? '禁用组'
+                        : '禁用节点'
+                  }
+                  onClick={() => setContextNodesDisabled(!allContextNodesDisabled)}
+                />
+                {canRunToSingleContextNode && (
                   <ContextMenuButton
-                    label="粘贴节点"
-                    onClick={clipboard.pasteNodeAtContext}
-                    disabled={!clipboard.clipboardNode}
-                    title={!clipboard.clipboardNode ? '剪贴板里还没有可粘贴的节点' : undefined}
-                  />
-                </>
-              ) : hasMultipleContextNodes ? (
-                <>
-                  {canCreateGroup && <ContextMenuButton label="创建节点组" onClick={createGroupFromContextNodes} />}
-                  <ContextMenuButton label="复制所选节点" onClick={clipboard.copyContextNodes} />
-                  <ContextMenuButton
-                    label={allContextNodesDisabled ? '启用所选节点' : '禁用所选节点'}
-                    onClick={() => setContextNodesDisabled(!allContextNodesDisabled)}
-                  />
-                  <ContextMenuButton
-                    label={allContextNodesLocked ? '解锁所选节点' : '锁定所选节点'}
-                    onClick={() => setContextNodesLocked(!allContextNodesLocked)}
-                  />
-                  <ContextMenuButton label="删除所选节点" onClick={deleteContextNodes} danger />
-                </>
-              ) : (
-                <>
-                  <ContextMenuButton
-                    label={hasSingleGroupContextNode ? '复制节点组' : '复制节点'}
-                    onClick={hasSingleGroupContextNode ? clipboard.copyContextNodes : clipboard.copySelectedNode}
-                  />
-                  <ContextMenuButton
-                    label={
-                      allContextNodesLocked
-                        ? hasSingleGroupContextNode
-                          ? '解锁组'
-                          : '解锁节点'
-                        : hasSingleGroupContextNode
-                          ? '锁定组'
-                          : '锁定节点'
+                    label="运行到该节点"
+                    onClick={runToContextNode}
+                    disabled={store.isExecuting || allContextNodesDisabled}
+                    title={
+                      store.isExecuting
+                        ? '当前已有工作流正在运行'
+                        : allContextNodesDisabled
+                          ? '当前节点已禁用'
+                          : undefined
                     }
-                    onClick={() => setContextNodesLocked(!allContextNodesLocked)}
                   />
-                  <ContextMenuButton
-                    label={
-                      allContextNodesDisabled
-                        ? hasSingleGroupContextNode
-                          ? '启用组'
-                          : '启用节点'
-                        : hasSingleGroupContextNode
-                          ? '禁用组'
-                          : '禁用节点'
-                    }
-                    onClick={() => setContextNodesDisabled(!allContextNodesDisabled)}
-                  />
-                  {canRunToSingleContextNode && (
-                    <ContextMenuButton
-                      label="运行到该节点"
-                      onClick={runToContextNode}
-                      disabled={store.isExecuting || allContextNodesDisabled}
-                      title={
-                        store.isExecuting
-                          ? '当前已有工作流正在运行'
-                          : allContextNodesDisabled
-                            ? '当前节点已禁用'
-                            : undefined
-                      }
-                    />
-                  )}
-                  {hasSingleGroupContextNode && <ContextMenuButton label="解组" onClick={ungroupContextNodes} />}
-                  {hasSingleChildContextNode && (
-                    <ContextMenuButton label="从组释放" onClick={releaseContextNodesFromGroup} />
-                  )}
-                  {canDetachSingleContextNode && (
-                    <ContextMenuButton label="摘除并重接" onClick={detachContextNodeFromChain} />
-                  )}
-                  <ContextMenuButton label="恢复默认尺寸" onClick={resetContextNodeSize} />
-                  <ContextMenuButton
-                    label={hasSingleGroupContextNode ? '删除组' : '删除节点'}
-                    onClick={deleteContextNode}
-                    danger
-                  />
-                </>
-              )}
-            </div>
-          </div>
+                )}
+                {hasSingleGroupContextNode && <ContextMenuButton label="解组" onClick={ungroupContextNodes} />}
+                {hasSingleChildContextNode && (
+                  <ContextMenuButton label="从组释放" onClick={releaseContextNodesFromGroup} />
+                )}
+                {canDetachSingleContextNode && (
+                  <ContextMenuButton label="摘除并重接" onClick={detachContextNodeFromChain} />
+                )}
+                <ContextMenuButton label="恢复默认尺寸" onClick={resetContextNodeSize} />
+                <ContextMenuButton
+                  label={hasSingleGroupContextNode ? '删除组' : '删除节点'}
+                  onClick={deleteContextNode}
+                  danger
+                />
+              </>
+            )}
+          </CanvasContextMenu>
         ) : (
-          <div className="workflow-context-panel-layer" onClick={ctxMenu.closeContextMenu}>
-            <div
-              className="menu-surface workflow-context-menu workflow-context-menu--panel"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="workflow-context-menu__catalog menu-group">
-                <div className="workflow-context-menu__catalog-header">
-                  <div className="workflow-context-menu__catalog-title">
-                    {ctxMenu.contextMenu.kind === 'connect' ? '连接到新节点' : '新建节点'}
-                  </div>
-                  <div className="workflow-context-menu__catalog-subtitle">
-                    {ctxMenu.contextMenu.kind === 'connect' ? '只显示当前端口可以连接的节点' : '选择一个节点插入到画布'}
-                  </div>
-                </div>
-
-                <div className="workflow-context-menu__node-list">
-                  {availableNodeDefs.map((nodeDef) => (
-                    <NodeCatalogButton
-                      key={nodeDef.type}
-                      nodeDef={nodeDef}
-                      onClick={() => addNodeFromMenu(nodeDef.type)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <CanvasNodeCatalog
+            connecting={ctxMenu.contextMenu.kind === 'connect'}
+            nodeDefs={availableNodeDefs}
+            onChoose={addNodeFromMenu}
+            onDismiss={ctxMenu.closeContextMenu}
+          />
         ))}
     </div>
   );

@@ -63,8 +63,8 @@ export function MenuGroup({
   );
 }
 
-export function MenuItem({ className = '', ...props }: ButtonProps) {
-  return <button type="button" className={`ui-menu-item ${className}`} {...props} />;
+export function MenuItem({ className = '', tone, ...props }: ButtonProps & { tone?: 'danger' }) {
+  return <button type="button" className={`ui-menu-item ${className}`} data-tone={tone} {...props} />;
 }
 
 export function ChoiceGroup({

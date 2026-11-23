@@ -700,6 +700,7 @@ Updated 2026-11-22 (supersedes the earlier sectional catalogue notes): the multi
 | L2 业务组合层 | AI 节点、输入输出节点的卡片及工具栏 | `WorkflowCardPresentation`、`WorkflowCardToolbar` | 复用正式节点的展示组件 |
 | L2 业务组合层 | 分组背景、标题栏和框架 | `WorkflowGroupPresentation.tsx` | 复用正式分组的展示组件 |
 | L2 业务组合层 | 选中节点的编辑面板容器 | `WorkflowStylePanelShell` | 复用底部位置及尺寸调整交互 |
+| L2 业务组合层 | 新建节点、端口拖出后的节点选择、画布与节点右键菜单 | `CanvasNodeCatalog`、`CanvasContextMenu`（`flowCanvasCatalog.tsx`） | 正式画布共用菜单项、浮层和键盘状态；演示画板复用新建与右键菜单展示，操作本地节点 |
 | L2 业务组合层 | 模型选择器和参数弹层 | `ModelTreeSelector`、`StylePanelPopoverButton` | 复用正式控件；模型列表使用演示数据 |
 | L2 业务组合层 | 图片和文本预览弹窗 | `ImagePreviewModal` | 复用正式弹窗，跟随演示页主题 |
 | L2 业务组合层 | 当次提示词、参考、参数及操作反馈 | `ResultGenerationDetails.tsx` | 正式结果与演示共用；三段内容分别提供复制、回填、复用 |
@@ -729,3 +730,8 @@ Updated 2026-11-22 (supersedes the earlier sectional catalogue notes): the multi
 更新日期：2026-11-22（真实结果生成信息）。执行服务为每次运行建立独立的生成记录映射；AI 各模式在获得结果后按实际请求记录提示词、参考及允许的参数。IO 保存结果时将记录绑定到输出文件，元信息保存在运行时存储解析器给出的 logsDir/output-generation 下，不混入输出文件列表。文件列表读取经校验的记录，清空结果时同步删除记录；同内容跨节点来源不明确时不强行归属。记录不改变节点结果、端口或调度协议，不持久化 API Key、渠道配置和供应商原始响应。
 
 结果详情与动作按上述层级维护，样式仍集中在 workflow/index.css 并使用 foundations.css 的深浅主题变量，未新增组件样式文件。画板示例只注入本地回调；真实 ResultsPanel 注入业务动作。记录覆盖工作流 AI → IO 保存链路；弧光直接生成、独立视频恢复及历史文件暂无可用快照。参考保留当次素材地址，不承诺供应商外链永久有效。
+
+
+### 画布节点菜单
+
+新增节点入口、空白处双击与从端口拖出后打开的选单共用 `CanvasNodeCatalog`。端口兼容性和自动连线由正式画布负责。画布和节点右键操作共用 `CanvasContextMenu` 和 `MenuItem`，删除操作使用共用危险状态。菜单的宽度、网格、定位与遮罩在工作流样式表维护。菜单打开后将焦点移至首个可操作项，Escape 关闭；焦点仍在菜单内时回到原控件。演示画板的添加按钮、双击以及右键可检查新建、复制、粘贴、锁定、禁用和删除等场景。演示动作使用本地状态。

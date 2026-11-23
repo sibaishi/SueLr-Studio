@@ -180,8 +180,8 @@ export function getContextMenuLayout(
   localY: number,
 ): { x: number; y: number; horizontalDirection: MenuHorizontalDirection } {
   const rect = container?.getBoundingClientRect();
-  const menuWidth = kind === 'node' ? 220 : 328;
-  const menuHeight = kind === 'node' ? 288 : 360;
+  const menuWidth = 220;
+  const menuHeight = kind === 'node' ? 332 : 60;
   const maxX = rect ? Math.max(8, rect.width - menuWidth - 8) : localX;
   const maxY = rect ? Math.max(8, rect.height - menuHeight - 8) : localY;
 

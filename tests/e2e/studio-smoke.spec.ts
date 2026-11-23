@@ -1495,6 +1495,76 @@ test('settings and asset library share layered glass in both themes', async ({ p
 });
 
 
+test('canvas menus support keyboard selection and creating a connected node', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.addInitScript(() => localStorage.setItem('suelr_onboarding_dismissed', 'true'));
+  await page.goto('/');
+  await page.getByTestId('workflow-new').click();
+  await expect(page.locator('.react-flow__node')).toHaveCount(0);
+  const add = page.getByTestId('workflow-add-node');
+  const catalog = page.getByRole('dialog', { name: '新建节点' });
+  await add.click();
+  await expect(catalog.getByRole('button').first()).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(catalog).toBeHidden();
+  await expect(add).toBeFocused();
+
+  await page.mouse.dblclick(1100, 230);
+  await catalog.getByTestId('workflow-node-catalog-item-io').focus();
+  await page.keyboard.press('Space');
+  await expect(catalog).toBeHidden();
+  const node = page.locator('.react-flow__node').last();
+  await expect(node).toBeVisible();
+
+  await node.click({ button: 'right' });
+  const nodeMenu = page.getByRole('group', { name: '节点右键菜单' });
+  const copy = nodeMenu.getByRole('button', { name: '复制节点', exact: true });
+  await expect(copy).toBeFocused();
+  await expect(nodeMenu.getByRole('button', { name: '删除节点' })).toHaveAttribute('data-tone', 'danger');
+  await copy.click();
+  await page.mouse.click(980, 560);
+  await page.mouse.click(980, 560, { button: 'right' });
+  const paneMenu = page.getByRole('group', { name: '画布右键菜单' });
+  await expect(paneMenu.getByRole('button', { name: '粘贴节点' })).toBeEnabled();
+  await page.keyboard.press('Escape');
+
+  const output = await node.locator('.react-flow__handle.source').first().boundingBox();
+  if (!output) throw new Error('Missing IO output handle');
+  await page.mouse.move(output.x + output.width / 2, output.y + output.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(980, 560, { steps: 14 });
+  await page.mouse.up();
+  const connect = page.getByRole('dialog', { name: '连接到新节点' });
+  await connect.getByTestId('workflow-node-catalog-item-ai').click();
+  await expect(connect).toBeHidden();
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1);
+
+  await page.mouse.click(1220, 650);
+  await page.mouse.click(1220, 650, { button: 'right' });
+  await paneMenu.getByRole('button', { name: '粘贴节点' }).click();
+  await expect(page.locator('.react-flow__node')).toHaveCount(3);
+});
+
+test('canvas component gallery includes new-node and context menus in light theme', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/?view=canvas-components');
+  const gallery = page.getByRole('main', { name: '画布组件库' });
+  await gallery.getByRole('button', { name: '切换浅色模式' }).click();
+  await expect(gallery).toHaveAttribute('data-theme', 'light');
+
+  const nodes = gallery.locator('.react-flow__node');
+  await expect(nodes).toHaveCount(4);
+  await gallery.getByTestId('workflow-add-node').click();
+  await gallery.getByRole('dialog', { name: '新建节点' }).getByTestId('workflow-node-catalog-item-ai').click();
+  await expect(nodes).toHaveCount(5);
+  await nodes.last().click({ button: 'right' });
+  await gallery.getByRole('group', { name: '节点右键菜单' }).getByRole('button', { name: '删除节点' }).click();
+  await expect(nodes).toHaveCount(4);
+  await page.mouse.click(1200, 150);
+  await page.mouse.click(1200, 150, { button: 'right' });
+  await expect(gallery.getByRole('group', { name: '画布右键菜单' }).getByRole('button', { name: '粘贴节点' })).toBeDisabled();
+});
+
 test('Arc and node menus share the same glass layers', async ({ page }) => {
   await clearLocalState(page);
   await addTextInputNode(page);

@@ -326,6 +326,12 @@
 .ui-choice-group button:hover:where(:not(:disabled)) {
   background: color-mix(in srgb, var(--t-blue) 6%, var(--t-bg));
 }
+.ui-menu-item[data-tone="danger"] {
+  color: var(--t-red);
+}
+.ui-menu-item[data-tone="danger"]:hover:where(:not(:disabled)) {
+  background: color-mix(in srgb, var(--t-red) 10%, var(--t-bg));
+}
 .ui-menu-trigger[aria-expanded="true"],
 .ui-menu-trigger[aria-pressed="true"],
 .ui-menu-item[aria-expanded="true"],
@@ -430,7 +436,8 @@
   --ui-menu-card: color-mix(in srgb, var(--t-text) 3%, var(--t-bg));
 }
 
-.menu-surface.ui-menu-popover {
+.menu-surface.ui-menu-popover,
+.menu-surface.ui-menu-surface {
   padding: 8px;
   border-radius: 12px;
 }

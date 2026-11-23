@@ -1,4 +1,5 @@
 import { DARK, LIGHT } from '@/app/theme/constants';
+import { NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import { getCollapsedGroupNodeSize } from '@/domains/workflow/lib/groupLayout';
 import { TCtx } from '@/providers/ThemeContext';
 import {
@@ -10,7 +11,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { useEffect, useRef, useState } from 'react';
+import { type MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react';
 import { CanvasGalleryInspector, CanvasGalleryTools } from './CanvasGalleryInspector';
 import CanvasNavigation from './CanvasNavigation';
 import FloatingToolbar from './FloatingToolbar';
@@ -19,6 +20,8 @@ import { GridGlow } from './GridGlow';
 import { ImagePreviewModal } from './ImagePreviewModal';
 import StatusBar from './StatusBar';
 import Toolbar from './Toolbar';
+import { CanvasContextMenu, CanvasNodeCatalog, ContextMenuButton } from './flowCanvasCatalog';
+import { getContextMenuLayout, isPaneBackgroundTarget } from './flowCanvasUiHelpers';
 import {
   GalleryActions,
   type GalleryData,
@@ -34,6 +37,11 @@ import {
   type GallerySidePanel,
 } from './WorkflowGallerySidePanels';
 import '../index.css';
+
+const galleryCatalog = NODE_REGISTRY.filter((node) => node.type === 'ai' || node.type === 'io');
+type GalleryMenu =
+  | { kind: 'catalog'; position: { x: number; y: number } }
+  | { kind: 'paneActions' | 'node'; x: number; y: number; position: { x: number; y: number }; nodeId?: string };
 
 const initialDocuments = [
   { documentId: 'draft', name: '基础图生图', hasUnsavedChanges: true, isExecuting: false },
@@ -99,6 +107,8 @@ function VirtualCanvas({
   const [activeId, setActiveId] = useState('draft');
   const [emptyModels, setEmptyModels] = useState(false);
   const [inputState, setInputState] = useState('editable');
+  const [menu, setMenu] = useState<GalleryMenu | null>(null);
+  const [clipboard, setClipboard] = useState<GalleryData | null>(null);
   const [preview, setPreview] = useState<GalleryData | null>(null);
   const [message, setMessage] = useState('点击节点编辑内容；拖动画布、节点或小地图，检查实际组合效果。');
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -158,6 +168,29 @@ function VirtualCanvas({
       setMessage('已复制示例节点，可拖动查看。');
       return [...current.map((node) => ({ ...node, selected: false })), copy];
     });
+  const addGalleryNode = (position: { x: number; y: number }, data: GalleryData) => {
+    const id = `added-${++serial.current}`;
+    setNodes((current) => [
+      ...current.map((node) => ({ ...node, selected: false })),
+      { id, type: 'gallery', position, width: 280, height: 280, selected: true, data },
+    ]);
+    setMenu(null);
+  };
+  const openCatalog = (x: number, y: number) => {
+    setMenu({ kind: 'catalog', position: flow.screenToFlowPosition({ x, y }) });
+  };
+  const openContextMenu = (event: MouseEvent | ReactMouseEvent, nodeId?: string) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = stage.getBoundingClientRect();
+    if (nodeId) setNodes((current) => current.map((node) => ({ ...node, selected: node.id === nodeId })));
+    const kind = nodeId ? 'node' : 'paneActions';
+    const { x, y } = getContextMenuLayout(kind, stage, event.clientX - rect.left, event.clientY - rect.top);
+    setMenu({ kind, nodeId, x, y, position: flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }) });
+  };
+  const contextNode = menu?.kind === 'node' ? nodes.find((node) => node.id === menu.nodeId) : undefined;
   const run = (running: boolean) => {
     setExecuting(running);
     setNodes((current) =>
@@ -183,6 +216,12 @@ function VirtualCanvas({
         <div
           className="canvas-gallery-stage"
           ref={stageRef}
+          onClickCapture={(event) => {
+            if (!(event.target instanceof Element) || !event.target.closest('.workflow-context-menu')) setMenu(null);
+          }}
+          onDoubleClick={(event) => {
+            if (event.button === 0 && isPaneBackgroundTarget(event.target)) openCatalog(event.clientX, event.clientY);
+          }}
           onPointerMove={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
             setPointer({
@@ -226,11 +265,14 @@ function VirtualCanvas({
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={(connection) => setEdges((current) => addEdge(connection, current))}
+              onNodeContextMenu={(event, node) => openContextMenu(event, node.id)}
+              onPaneContextMenu={(event) => openContextMenu(event, selected?.id)}
               onNodeClick={(_, node) => setMessage(`已选中「${node.data.title}」。`)}
               fitView
               fitViewOptions={fitOptions}
               minZoom={0.2}
               maxZoom={1.5}
+              zoomOnDoubleClick={false}
               snapToGrid={snapping}
               snapGrid={[12, 12]}
               deleteKeyCode={null}
@@ -269,22 +311,7 @@ function VirtualCanvas({
             onToggleTheme={onThemeChange}
             onAddNode={() => {
               const rect = stageRef.current?.getBoundingClientRect();
-              const position = flow.screenToFlowPosition({
-                x: (rect?.left || 0) + size.width / 2,
-                y: (rect?.top || 0) + size.height / 2,
-              });
-              setNodes((current) => [
-                ...current.map((node) => ({ ...node, selected: false })),
-                {
-                  id: `added-${++serial.current}`,
-                  type: 'gallery',
-                  position,
-                  width: 280,
-                  height: 280,
-                  selected: true,
-                  data: { kind: 'io', title: '新增 IO', content: 'empty', text: '', status: 'idle' },
-                },
-              ]);
+              if (rect) openCatalog(rect.left + rect.width / 2, rect.top + rect.height / 2);
             }}
             onOpenAssetLibrary={() => setMessage('资产库入口演示，不读取本地文件或资产。')}
             onOpenSettings={() => setMessage('设置入口演示，不修改用户设置。')}
@@ -399,6 +426,79 @@ function VirtualCanvas({
                 notify={setMessage}
               />
             </div>
+          )}
+          {menu?.kind === 'catalog' && (
+            <CanvasNodeCatalog
+              nodeDefs={galleryCatalog}
+              onDismiss={() => setMenu(null)}
+              onChoose={(kind) => {
+                const definition = galleryCatalog.find((node) => node.type === kind);
+                if (!definition || (kind !== 'ai' && kind !== 'io')) return;
+                addGalleryNode(menu.position, {
+                  kind,
+                  title: definition.label,
+                  content: 'empty',
+                  text: '',
+                  status: 'idle',
+                });
+              }}
+            />
+          )}
+          {menu && menu.kind !== 'catalog' && (
+            <CanvasContextMenu
+              key={contextNode?.id ?? 'pane-actions'}
+              x={menu.x}
+              y={menu.y}
+              label={contextNode ? '节点右键菜单' : '画布右键菜单'}
+              onDismiss={() => setMenu(null)}
+            >
+              {contextNode ? (
+                <>
+                  <ContextMenuButton
+                    label={contextNode.data.kind === 'group' ? '复制节点组' : '复制节点'}
+                    onClick={() => {
+                      setClipboard(contextNode.data);
+                      setMenu(null);
+                    }}
+                    disabled={contextNode.data.kind === 'group'}
+                    title={contextNode.data.kind === 'group' ? '演示仅支持复制 AI 和 IO 节点' : undefined}
+                  />
+                  <ContextMenuButton
+                    label={contextNode.data.locked ? '解锁' : '锁定'}
+                    onClick={() => {
+                      flow.updateNodeData(contextNode.id, { locked: !contextNode.data.locked });
+                      setMenu(null);
+                    }}
+                  />
+                  <ContextMenuButton
+                    label={contextNode.data.disabled ? '启用' : '禁用'}
+                    onClick={() => {
+                      flow.updateNodeData(contextNode.id, { disabled: !contextNode.data.disabled });
+                      setMenu(null);
+                    }}
+                  />
+                  {contextNode.data.kind !== 'group' && (
+                    <ContextMenuButton
+                      label="删除节点"
+                      danger
+                      onClick={() => {
+                        void flow.deleteElements({ nodes: [{ id: contextNode.id }] });
+                        setMenu(null);
+                      }}
+                    />
+                  )}
+                </>
+              ) : (
+                <ContextMenuButton
+                  label="粘贴节点"
+                  disabled={!clipboard}
+                  title={!clipboard ? '剪贴板里还没有可粘贴的节点' : undefined}
+                  onClick={() => {
+                    if (clipboard) addGalleryNode(menu.position, { ...clipboard });
+                  }}
+                />
+              )}
+            </CanvasContextMenu>
           )}
         </div>
         {inspector && (
