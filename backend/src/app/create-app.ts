@@ -26,6 +26,7 @@ import {
 } from '../platform/media/image-thumbnails.ts';
 import { getMimeType } from '../platform/media/media-resolver.ts';
 import { getRuntimeCapabilities, summarizeScopeFoundation } from '../platform/runtime/index.ts';
+import { APP_VERSION } from '../platform/runtime/version.ts';
 import {
   ensureStorageDirectories,
   getScopedStoragePaths,
@@ -191,14 +192,14 @@ export function createApp() {
   app.use('/api', storageRoutes);
 
   app.get('/api/health', (_req: RequestLike, res: ResponseLike) => {
-    res.json(successEnvelope({ status: 'ok', version: '0.1.0', timestamp: Date.now() }));
+    res.json(successEnvelope({ status: 'ok', version: APP_VERSION, timestamp: Date.now() }));
   });
 
   app.get('/api/status', (_req: RequestLike, res: ResponseLike) => {
     res.json(
       successEnvelope({
         ok: true,
-        version: '1.0.0',
+        version: APP_VERSION,
         processInstanceId: getProcessInstanceId(),
         runtime: runtimeCapabilities,
         scope: summarizeScopeFoundation(getRequestContext()?.scope),

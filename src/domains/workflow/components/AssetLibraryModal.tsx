@@ -1,13 +1,13 @@
-import { MediaPlayer } from '@/ui/MediaPlayer';
-import { DialogCloseButton, DialogHeader } from '@/ui/DialogPrimitives';
-import { Button, Checkbox, Select, TextInput } from '@/ui/FormPrimitives';
 import { IconButton } from '@/ui/CanvasPrimitives';
-import { Badge, Eyebrow } from '@/ui/PanelPrimitives';
+import { DialogCloseButton, DialogHeader } from '@/ui/DialogPrimitives';
 import { StatusNotice } from '@/ui/FeedbackPrimitives';
+import { Button, Checkbox, Select, TextInput } from '@/ui/FormPrimitives';
+import { MediaPlayer } from '@/ui/MediaPlayer';
 import { SearchInput } from '@/ui/MenuPrimitives';
 import { ModalSurface } from '@/ui/ModalSurface';
+import { Badge, Eyebrow } from '@/ui/PanelPrimitives';
 import { CheckSquare, FolderOpen, MagnifyingGlass, Square, Star, X } from '@phosphor-icons/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import {
   type AssetBatchChange,
   type AssetMetadata,
@@ -20,9 +20,11 @@ import {
 } from '../lib/api/assets';
 import { uploadFile } from '../lib/api/files';
 import { archiveLimit, downloadArchive, readArchiveAsset, safeArchiveName } from '../lib/fileArchive';
-import { isNodeLockedWithAncestors } from '../lib/store/editorShared';
+import { backfillGenerationReferences, reuseGenerationParameters } from '../lib/generationActions';
 import { useWorkflowStore } from '../lib/store';
+import { isNodeLockedWithAncestors } from '../lib/store/editorShared';
 import { ImagePreviewModal } from './ImagePreviewModal';
+import { type GenerationActions, ResultGenerationDetails } from './ResultGenerationDetails';
 import './asset-library.css';
 
 const types = { image: '图片', video: '视频', audio: '音频', text: '文本', data: '数据', file: '文件' };
@@ -118,6 +120,10 @@ export default function AssetLibraryModal({ position, ...props }: AssetLibraryPr
       {...props}
       sourceApi={projectSource}
       lastExecutionTime={lastExecutionTime}
+      generationActions={{
+        onReuseParameters: reuseGenerationParameters,
+        onBackfillReferences: backfillGenerationReferences,
+      }}
       selectedIoId={selectedIoId}
       onBackfill={(asset, id) => backfillProjectAsset(asset, position, id)}
     />
@@ -133,17 +139,23 @@ export function AssetLibraryView({
   selectedIoId,
   onBackfill,
   theme,
+  generationActions,
 }: Omit<AssetLibraryProps, 'position'> & {
   sourceApi: AssetLibrarySource;
   lastExecutionTime?: number | null;
   selectedIoId?: string;
   onBackfill: (asset: LibraryAsset, targetId?: string) => Promise<void>;
   theme?: 'dark' | 'light';
+  generationActions?: GenerationActions;
 }) {
   const [search, setSearch] = useState('');
   const [type, setType] = useState('all');
   const [source, setSource] = useState('all');
   const [category, setCategory] = useState('');
+  const [sort, setSort] = useState('newest');
+  const [group, setGroup] = useState('none');
+  const [layout, setLayout] = useState<'grid' | 'list'>('grid');
+  const [referencePreview, setReferencePreview] = useState<string>();
   const [favorite, setFavorite] = useState(false);
   const [page, setPage] = useState(1);
   const [data, setData] = useState(emptyPage);
@@ -179,7 +191,7 @@ export function AssetLibraryView({
 
   useEffect(() => {
     setCheckedIds(new Set());
-  }, [search, type, source, category, favorite, page]);
+  }, [search, type, source, category, favorite, sort, group, page]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -192,6 +204,8 @@ export function AssetLibraryView({
           source,
           category,
           favorite: favorite ? 'true' : 'all',
+          sort,
+          group,
           page: String(page),
         }),
         controller.signal,
@@ -211,7 +225,7 @@ export function AssetLibraryView({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [search, type, source, category, favorite, page, pickType, revision, lastExecutionTime, sourceApi]);
+  }, [search, type, source, category, favorite, sort, group, page, pickType, revision, lastExecutionTime, sourceApi]);
 
   async function importFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -416,6 +430,33 @@ export function AssetLibraryView({
             <option key={c}>{c}</option>
           ))}
         </Select>
+        <Select
+          aria-label="资产排序"
+          value={sort}
+          onChange={(value) => {
+            setSort(value);
+            setPage(1);
+          }}
+        >
+          <option value="newest">最近更新</option>
+          <option value="oldest">最早更新</option>
+          <option value="name">名称顺序</option>
+          <option value="size">文件从大到小</option>
+        </Select>
+        <Select
+          aria-label="资产分组"
+          value={group}
+          onChange={(value) => {
+            setGroup(value);
+            setPage(1);
+          }}
+        >
+          <option value="none">不分组</option>
+          <option value="type">按类型分组</option>
+          <option value="source">按来源分组</option>
+          <option value="category">按分类分组</option>
+          <option value="date">按日期分组</option>
+        </Select>
         <Button
           variant="secondary"
           small
@@ -440,7 +481,16 @@ export function AssetLibraryView({
           <div className="asset-library__section-heading">
             <div>
               <div className="asset-library__eyebrow">素材浏览</div>
-              <h3>全部资产</h3>
+              <h3>{favorite ? '收藏资产' : '全部资产'}</h3>
+              <p className="asset-library__meta">{data.total} 个资产 · 分类、标签和收藏可帮助整理素材</p>
+            </div>
+            <div className="asset-library__batch-controls" role="group" aria-label="资产展现方式">
+              <Button small variant="secondary" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}>
+                网格
+              </Button>
+              <Button small variant="secondary" aria-pressed={layout === 'list'} onClick={() => setLayout('list')}>
+                列表
+              </Button>
             </div>
             {!onPick && (
               <div className="asset-library__batch-controls">
@@ -478,56 +528,64 @@ export function AssetLibraryView({
                 : '还没有资产。导入素材或运行工作流后，它们会出现在这里。'}
             </p>
           ) : (
-            <div className="asset-library__grid">
-              {data.items.map((asset) => (
-                <article
-                  key={asset.id}
-                  className={`asset-library__card ${(batchMode ? checkedIds.has(asset.id) : selected?.id === asset.id) ? 'is-selected' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="asset-library__select"
-                    aria-label={batchMode ? `选择 ${asset.name}` : `查看 ${asset.name}`}
-                    aria-pressed={batchMode ? checkedIds.has(asset.id) : undefined}
-                    disabled={batchMode && busy}
-                    onClick={() => (batchMode ? toggleBatchSelection(asset.id) : setSelected(asset))}
-                  >
-                    {batchMode && (
-                      <span className="asset-library__batch-check" aria-hidden="true">
-                        {checkedIds.has(asset.id) ? <CheckSquare size={18} weight="fill" /> : <Square size={18} />}
-                      </span>
-                    )}
-                    <div className="asset-library__thumbnail">
-                      {asset.type === 'image' ? (
-                        <img
-                          src={asset.thumbnailUrl || asset.url}
-                          alt={asset.name}
-                          loading="lazy"
-                          onError={(e) => {
-                            if (e.currentTarget.getAttribute('src') !== asset.url) e.currentTarget.src = asset.url;
-                          }}
-                        />
-                      ) : (
-                        <span>{types[asset.type]}</span>
-                      )}
-                    </div>
-                    <strong title={asset.name}>{asset.name}</strong>
-                    <small>
-                      {asset.source === 'uploaded' ? '上传素材' : '生成结果'} · {asset.category || '未分类'}
-                    </small>
-                  </button>
-                  {!batchMode && (
-                    <IconButton
-                      compact
-                      className="asset-library__favorite"
-                      disabled={busy}
-                      label={`${asset.favorite ? '取消收藏' : '收藏'} ${asset.name}`}
-                      pressed={asset.favorite}
-                      onClick={() => void toggleFavorite(asset)}
-                      icon={<Star size={18} weight={asset.favorite ? 'fill' : 'regular'} />}
-                    />
+            <div className={`asset-library__grid ${layout === 'list' ? 'asset-library__grid--list' : ''}`}>
+              {data.items.map((asset, index) => (
+                <Fragment key={asset.id}>
+                  {asset.groupLabel && asset.groupLabel !== data.items[index - 1]?.groupLabel && (
+                    <h4 className="asset-library__group-heading">{asset.groupLabel}</h4>
                   )}
-                </article>
+                  <article
+                    className={`asset-library__card ${(batchMode ? checkedIds.has(asset.id) : selected?.id === asset.id) ? 'is-selected' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="asset-library__select"
+                      aria-label={batchMode ? `选择 ${asset.name}` : `查看 ${asset.name}`}
+                      aria-pressed={batchMode ? checkedIds.has(asset.id) : undefined}
+                      disabled={batchMode && busy}
+                      onClick={() => (batchMode ? toggleBatchSelection(asset.id) : setSelected(asset))}
+                    >
+                      {batchMode && (
+                        <span className="asset-library__batch-check" aria-hidden="true">
+                          {checkedIds.has(asset.id) ? <CheckSquare size={18} weight="fill" /> : <Square size={18} />}
+                        </span>
+                      )}
+                      <div className="asset-library__thumbnail">
+                        {asset.type === 'image' ? (
+                          <img
+                            src={asset.thumbnailUrl || asset.url}
+                            alt={asset.name}
+                            loading="lazy"
+                            onError={(e) => {
+                              if (e.currentTarget.getAttribute('src') !== asset.url) e.currentTarget.src = asset.url;
+                            }}
+                          />
+                        ) : (
+                          <span>{types[asset.type]}</span>
+                        )}
+                      </div>
+                      <strong title={asset.name}>{asset.name}</strong>
+                      <small>
+                        {asset.source === 'uploaded' ? '上传素材' : '生成结果'} · {asset.category || '未分类'}
+                        <span className="asset-library__card-meta">
+                          {new Date(asset.modifiedAt).toLocaleDateString()} · {(asset.size / 1024).toFixed(1)} KB
+                          {asset.generation ? ' · 含生成信息' : ''}
+                        </span>
+                      </small>
+                    </button>
+                    {!batchMode && (
+                      <IconButton
+                        compact
+                        className="asset-library__favorite"
+                        disabled={busy}
+                        label={`${asset.favorite ? '取消收藏' : '收藏'} ${asset.name}`}
+                        pressed={asset.favorite}
+                        onClick={() => void toggleFavorite(asset)}
+                        icon={<Star size={18} weight={asset.favorite ? 'fill' : 'regular'} />}
+                      />
+                    )}
+                  </article>
+                </Fragment>
               ))}
             </div>
           )}
@@ -600,6 +658,8 @@ export function AssetLibraryView({
             <AssetDetails
               key={selected.id}
               asset={selected}
+              generationActions={generationActions}
+              onPreviewReference={setReferencePreview}
               previewTrigger={previewTrigger}
               onOpenPreview={() => setPreviewOpen(true)}
               busy={busy}
@@ -643,6 +703,14 @@ export function AssetLibraryView({
   return (
     <>
       {library}
+      {referencePreview && (
+        <ImagePreviewModal
+          theme={theme}
+          src={referencePreview}
+          overlayClassName="asset-library-image-preview"
+          onClose={() => setReferencePreview(undefined)}
+        />
+      )}
       {previewAsset && (
         <ImagePreviewModal
           theme={theme}
@@ -790,6 +858,8 @@ function TextAssetPreview({ url, size }: { url: string; size: number }) {
 
 function AssetDetails({
   asset,
+  generationActions,
+  onPreviewReference,
   previewTrigger,
   onOpenPreview,
   busy,
@@ -800,6 +870,8 @@ function AssetDetails({
   onDelete,
 }: {
   asset: LibraryAsset;
+  generationActions?: GenerationActions;
+  onPreviewReference: (src: string) => void;
   previewTrigger: React.Ref<HTMLButtonElement>;
   onOpenPreview: () => void;
   busy: boolean;
@@ -846,6 +918,15 @@ function AssetDetails({
           <br />
           <span title={asset.originalName}>原始名称：{asset.originalName}</span>
         </p>
+        {asset.generation ? (
+          <ResultGenerationDetails
+            record={asset.generation}
+            {...generationActions}
+            onPreviewImage={onPreviewReference}
+          />
+        ) : (
+          asset.source === 'generated' && <p className="asset-library__meta">此历史结果未记录生成信息。</p>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();

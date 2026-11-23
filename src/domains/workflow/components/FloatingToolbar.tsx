@@ -1,8 +1,8 @@
 import { THEME_LABELS } from '@/app/theme/constants';
 import { ArcIcon } from '@/domains/agent/ArcIcon';
 import type { ThemeMode } from '@/shared/types';
-import { FolderOpen, Gear, GridNine, Monitor, Moon, Plus, Sun } from '@phosphor-icons/react';
 import { IconButton as FloatingToolbarButton, ToolGroup } from '@/ui/CanvasPrimitives';
+import { FolderOpen, Gear, GridNine, Monitor, Moon, Plus, Sun } from '@phosphor-icons/react';
 import { ArrangeNodesIcon, ResultsSidebarIcon } from './CanvasToolIcons';
 
 const THEME_ICONS = { dark: Moon, light: Sun, system: Monitor };
@@ -86,7 +86,7 @@ export default function FloatingToolbar({
         <FloatingToolbarButton
           icon={<Gear size={16} />}
           label="打开设置"
-          onClick={onOpenSettings}
+          onClick={() => onOpenSettings?.()}
           testId="workflow-open-settings"
         />
         <FloatingToolbarButton

@@ -21,6 +21,7 @@ export type PendingConnection =
       sourceId: string;
       sourceHandle: string;
       sourceType: string;
+      batchSourceIds?: string[];
     }
   | {
       allowCreateNode: boolean;

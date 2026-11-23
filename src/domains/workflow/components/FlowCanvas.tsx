@@ -1,5 +1,3 @@
-import CanvasNavigation from './CanvasNavigation';
-import { isWorkflowModalOpen } from './workflowModalIsolation';
 import {
   GRID_SIZE,
   NODE_REGISTRY,
@@ -30,15 +28,13 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import CanvasNavigation from './CanvasNavigation';
 import { GridDots } from './GridDots';
 import { GridGlow } from './GridGlow';
+import { BATCH_OUTPUT_ID, batchOutputNode, planBatchConnection } from './flowBatchConnection';
 import { CanvasContextMenu, CanvasNodeCatalog, ContextMenuButton } from './flowCanvasCatalog';
 import { snapNodeBox } from './flowCanvasClipboard';
-import {
-  FLOW_DISABLED_NEW_NODE_TYPES,
-  FLOW_NODE_COLORS,
-  FLOW_NODE_TYPES,
-} from './flowCanvasConfig';
+import { FLOW_DISABLED_NEW_NODE_TYPES, FLOW_NODE_COLORS, FLOW_NODE_TYPES } from './flowCanvasConfig';
 import { buildDefaultData, getCenteredPosition } from './flowCanvasHelpers';
 import { useFlowClipboard } from './flowCanvasHooks/useFlowClipboard';
 import { useFlowConnection } from './flowCanvasHooks/useFlowConnection';
@@ -54,6 +50,7 @@ import {
   findEdgeInsertionCandidate,
   getEdgeDataTypeColor,
 } from './flowCanvasUiHelpers';
+import { isWorkflowModalOpen } from './workflowModalIsolation';
 import './nodes/nodeAnimations.css';
 
 function isCanvasPointerEvent(event: { currentTarget: HTMLElement; target: EventTarget }) {
@@ -290,7 +287,6 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     ];
   }, [edgeInsertionCandidate, renderModel.edges, renderNodes, store.edgeStyle]);
 
-
   const edgeCut = useFlowEdgeCutting({
     store,
     reactFlow,
@@ -301,7 +297,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      store.onNodesChange(changes);
+      store.onNodesChange(changes.filter((change) => !('id' in change) || change.id !== BATCH_OUTPUT_ID));
     },
     [store],
   );
@@ -388,9 +384,9 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
   const onNodeClick = useCallback(
     (event: ReactMouseEvent, node: { id: string }) => {
       if (!event.metaKey && !event.ctrlKey && !event.shiftKey) {
-        store.selectNode(node.id);
+        if (node.id !== BATCH_OUTPUT_ID) store.selectNode(node.id);
       } else {
-        store.selectNode(node.id);
+        if (node.id !== BATCH_OUTPUT_ID) store.selectNode(node.id);
       }
       ctxMenu.closeContextMenu();
     },
@@ -436,7 +432,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     if (!ctxMenu.contextMenu) return [];
     if (ctxMenu.contextMenu.selectedNodeIds?.length) return ctxMenu.contextMenu.selectedNodeIds;
     return ctxMenu.contextMenu.nodeId ? [ctxMenu.contextMenu.nodeId] : [];
-  }, [ctxMenu.contextMenu]);
+  }, [ctxMenu.contextMenu, store.nodes, store.edges]);
 
   const selectedNodeIds = useMemo(
     () => store.nodes.filter((node) => node.selected).map((node) => node.id),
@@ -594,7 +590,19 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
       if (ctxMenu.contextMenu.kind === 'connect' && ctxMenu.contextMenu.sourceConnection) {
         const pending = ctxMenu.contextMenu.sourceConnection;
 
-        if (pending.handleType === 'source') {
+        if (pending.handleType === 'source' && pending.batchSourceIds) {
+          const state = useWorkflowStore.getState();
+          const target = state.nodes.find((node) => node.id === newNodeId);
+          const def = getNodeDef(nodeType);
+          const handles = def?.maxInputs ? [def.inputs[0]?.id] : def?.inputs.map((input) => input.id);
+          for (const handle of handles || []) {
+            if (!target || !handle) continue;
+            const edges = planBatchConnection(state.nodes, state.edges, newNodeId, handle, pending.batchSourceIds);
+            if (!edges.length) continue;
+            edges.forEach(connection.commitConnection);
+            break;
+          }
+        } else if (pending.handleType === 'source') {
           const targetHandle = resolveTargetHandle(nodeType, pending.sourceType);
           if (targetHandle) {
             connection.commitConnection({
@@ -619,14 +627,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
 
       ctxMenu.closeContextMenu();
     },
-    [
-      ctxMenu.closeContextMenu,
-      connection,
-      ctxMenu.contextMenu,
-      resolveSourceHandle,
-      resolveTargetHandle,
-      store,
-    ],
+    [ctxMenu.closeContextMenu, connection, ctxMenu.contextMenu, resolveSourceHandle, resolveTargetHandle, store],
   );
 
   const availableNodeDefs = useMemo(() => {
@@ -643,6 +644,19 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
     return NODE_REGISTRY.filter(
       (nodeDef) => nodeDef.type !== 'group' && !FLOW_DISABLED_NEW_NODE_TYPES.has(nodeDef.type),
     ).filter((nodeDef) => {
+      if (pending.handleType === 'source' && pending.batchSourceIds) {
+        const target = {
+          id: '__selection_target__',
+          type: nodeDef.type,
+          position: { x: 0, y: 0 },
+          data: buildDefaultData(nodeDef.type),
+        };
+        return nodeDef.inputs.some(
+          (input) =>
+            planBatchConnection([...store.nodes, target], store.edges, target.id, input.id, pending.batchSourceIds)
+              .length > 0,
+        );
+      }
       if (pending.handleType === 'source') {
         if (nodeDef.inputs.length === 0) return false;
 
@@ -668,7 +682,7 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         return compatibleTargets?.includes(pending.targetType) ?? false;
       });
     });
-  }, [ctxMenu.contextMenu]);
+  }, [ctxMenu.contextMenu, store.nodes, store.edges]);
 
   const miniMapNodeColor = useCallback((node: { type?: string | null }) => {
     return FLOW_NODE_COLORS[node.type || ''] || '#8E8E93';
@@ -715,7 +729,10 @@ function FlowCanvasInner({ onViewportCenterChange }: FlowCanvasProps) {
         fadeOut={fadeOut}
       />
       <ReactFlow
-        nodes={renderNodes}
+        nodes={(() => {
+          const output = batchOutputNode(renderNodes);
+          return output ? [...renderNodes, output] : renderNodes;
+        })()}
         edges={renderEdges}
         connectionMode={ConnectionMode.Strict}
         onInit={reportViewportCenter}

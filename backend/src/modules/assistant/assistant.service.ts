@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
 import { createLogger } from '../../platform/logging/logger.ts';
+import { APP_VERSION } from '../../platform/runtime/version.ts';
 import {
   applyOwnershipToList,
   ensureResourceOwnership,
@@ -103,7 +104,7 @@ export class AssistantService {
   }
 
   getStatus(_options: ScopeOptions = {}) {
-    return { ok: true, version: '1.0.0' };
+    return { ok: true, version: APP_VERSION };
   }
 
   getConversations(options: ScopeOptions = {}) {

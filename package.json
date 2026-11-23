@@ -1,7 +1,7 @@
 {
   "name": "suelr-studio",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Local-first multimodal AI studio",
   "author": "SueLr",
   "license": "UNLICENSED",
@@ -38,14 +38,16 @@
     "test": "npm run test:backend",
     "test:backend": "npm run test --prefix backend",
     "build": "vite build",
-    "check": "npm run check:workflow-store && npm run check:docs && npm run check:runtime-baseline && npm run check:test-surface && npm run check:repo-hygiene && npm run check:dead-code && npm run check:encoding && npm run typecheck && npm run test:unit && npm run build && npm run test:backend",
+    "check": "npm run check:version && npm run check:workflow-store && npm run check:docs && npm run check:runtime-baseline && npm run check:test-surface && npm run check:repo-hygiene && npm run check:dead-code && npm run check:encoding && npm run typecheck && npm run test:unit && npm run build && npm run test:backend",
     "preview": "vite preview",
     "electron:dev": "electron .",
     "electron:pack": "npm run build && electron-builder --dir",
     "electron:dist": "npm run build && electron-builder",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:install": "playwright install --with-deps chromium"
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "version:bump": "node scripts/sync-version.mjs --bump",
+    "check:version": "node scripts/sync-version.mjs --check"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",

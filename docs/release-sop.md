@@ -82,8 +82,8 @@ This document defines the standard release workflow for SueLr Studio. The active
 8. Create and push a version tag:
 
    ```powershell
-   git tag -a v1.0.1 -m "SueLr Studio v1.0.1"
-   git push origin v1.0.1
+   git tag -a v2.0.0 -m "SueLr Studio v2.0.0"
+   git push origin v2.0.0
    ```
 
 9. Create a GitHub Release based on the new tag and upload the appropriate variant artifact.
@@ -92,7 +92,10 @@ This document defines the standard release workflow for SueLr Studio. The active
 
 ## Versioning Guidance
 
-- Keep version bumps aligned with the actual packaged scope.
+- 2026-11-24：当前产品版本统一为 `2.0.0`。此后每次提交前执行 `npm run version:bump`，补丁位加一，例如 `2.0.0 → 2.0.1`；同一批提交只递增一次，检查失败后的修正不重复递增。
+- 该命令同步前后端包清单及锁文件中的产品版本；界面、启动页、Electron 和后端接口读取包版本。不要修改依赖版本、数据格式版本或历史记录。
+- 递增后运行 `npm run check`，版本文件与业务修改一起提交。`npm run check:version` 校验前后端及锁文件一致；该检查不会自动修改版本，也未安装 Git 钩子。
+- 大版本或次版本升级须按用户明确指示执行。标签示例应替换为本次实际版本，仅在正式发布时创建。
 - Use changelog notes or release descriptions to call out variant-specific differences.
 - Prefer tagging only after validation has passed on the branch being released.
 

@@ -1,5 +1,6 @@
+import { OnboardingGallery } from '@/features/settings/components/SettingsGallery';
 import { MagnifyingGlass } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DialogCloseButton, DialogHeader } from './DialogPrimitives';
 import { StatusNotice } from './FeedbackPrimitives';
 import {
@@ -16,6 +17,7 @@ import {
 import { MenuGroup, MenuItem, SearchInput } from './MenuPrimitives';
 import { ModalSurface } from './ModalSurface';
 import { Badge, PanelCard, PanelEmptyState, PanelHeader, SectionCard } from './PanelPrimitives';
+import { StudioStartup } from './StudioStartup';
 import { TextComposer } from './TextComposer';
 import './studio-component-gallery.css';
 
@@ -37,7 +39,16 @@ export default function StudioComponentGallery() {
   const [query, setQuery] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [model, setModel] = useState(models[0]);
+  const [entryPreview, setEntryPreview] = useState<'startup' | 'onboarding' | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  useEffect(() => {
+    if (entryPreview !== 'startup') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setEntryPreview(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [entryPreview]);
   const visibleModels = models.filter((item) => item.includes(query.trim()));
 
   return (
@@ -49,7 +60,26 @@ export default function StudioComponentGallery() {
         </div>
         <SegmentedControl label="演示主题" options={themes} value={theme} onChange={setTheme} />
       </header>
+      {entryPreview === 'onboarding' && <OnboardingGallery onClose={() => setEntryPreview(null)} />}
+      {entryPreview === 'startup' && (
+        <div className="studio-entry-preview studio-entry-preview--startup">
+          <Button variant="secondary" className="studio-entry-preview__close" onClick={() => setEntryPreview(null)}>
+            关闭启动页演示
+          </Button>
+          <StudioStartup />
+        </div>
+      )}
       <div className="studio-component-gallery__grid">
+        <PanelCard className="studio-component-gallery__section">
+          <PanelHeader title="进入工作室" />
+          <p>启动页与真实启动共用主视觉和加载状态组件；首次引导展示配置流程。</p>
+          <Button variant="secondary" onClick={() => setEntryPreview('startup')}>
+            预览启动页
+          </Button>
+          <Button variant="secondary" onClick={() => setEntryPreview('onboarding')}>
+            预览首次引导
+          </Button>
+        </PanelCard>
         <PanelCard className="studio-component-gallery__section">
           <PanelHeader title="表单" />
           <div>

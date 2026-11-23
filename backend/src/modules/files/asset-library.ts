@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
+import type { GenerationRecord } from '../../../../src/shared/types/generation.ts';
+import { assetGroupLabel, compareAssets } from '../../../../src/shared/workflow/asset-order.ts';
 import { NotFoundError, ValidationError } from '../../app/errors/index.ts';
+import { readOutputGeneration } from '../../platform/media/output-generation.ts';
 import { getScopedStoragePaths, writeJsonFile } from '../../platform/storage/index.ts';
 import { getStoredFileType } from './files.repository.ts';
 import type { ScopeOptions } from './types.ts';
@@ -40,6 +43,8 @@ export const assetQuerySchema = z
     source: z.enum(['all', 'uploaded', 'generated']).default('all'),
     category: z.string().trim().max(60).default(''),
     favorite: z.enum(['all', 'true']).default('all'),
+    sort: z.enum(['newest', 'oldest', 'name', 'size']).default('newest'),
+    group: z.enum(['none', 'type', 'source', 'category', 'date']).default('none'),
     page: z.coerce.number().int().min(1).max(100000).default(1),
   })
   .strict();
@@ -62,6 +67,8 @@ export type LibraryAsset = {
   category: string;
   tags: string[];
   favorite: boolean;
+  generation?: GenerationRecord | null;
+  groupLabel?: string;
 };
 
 function metadataFile(options: ScopeOptions) {
@@ -151,10 +158,21 @@ export function listAssets(query: Query, options: ScopeOptions = {}) {
       (!search ||
         [asset.name, asset.originalName, asset.category, ...asset.tags].join(' ').toLocaleLowerCase().includes(search)),
   );
+  filtered.sort((a, b) => compareAssets(a, b, query.sort, query.group));
   const total = filtered.length;
   const page = Math.min(query.page, Math.max(1, Math.ceil(total / pageSize)));
   return {
-    items: filtered.slice((page - 1) * pageSize, page * pageSize),
+    items: filtered.slice((page - 1) * pageSize, page * pageSize).map((asset) => ({
+      ...asset,
+      groupLabel: assetGroupLabel(asset, query.group),
+      generation:
+        asset.source === 'generated'
+          ? readOutputGeneration(
+              asset.url.slice('/api/outputs/'.length).split('/').map(decodeURIComponent).join('/'),
+              options.scope,
+            )
+          : null,
+    })),
     total,
     page,
     pageSize,
@@ -173,7 +191,17 @@ export function updateAsset(id: string, patch: Metadata, options: ScopeOptions =
   if (!asset) throw new NotFoundError('ASSET_NOT_FOUND', '资产文件不存在，请刷新资产库');
   metadata[id] = mergeMetadata(metadata[id], patch);
   writeJsonFile(metadataFile(options), metadata);
-  return { ...asset, ...metadata[id] };
+  return {
+    ...asset,
+    ...metadata[id],
+    generation:
+      asset.source === 'generated'
+        ? readOutputGeneration(
+            asset.url.slice('/api/outputs/'.length).split('/').map(decodeURIComponent).join('/'),
+            options.scope,
+          )
+        : null,
+  };
 }
 
 export function mutateAssetBatch(request: z.infer<typeof assetBatchSchema>, options: ScopeOptions = {}) {

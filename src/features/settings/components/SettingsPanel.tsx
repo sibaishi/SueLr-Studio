@@ -1,5 +1,3 @@
-import { projectSettingsServices, type SettingsPanelServices } from './settingsPanelServices';
-import { Badge } from '@/ui/PanelPrimitives';
 import { THEME_LABELS } from '@/app/theme/constants';
 import {
   createImportedProjectModels,
@@ -13,15 +11,17 @@ import type {
   SettingsPanelProps,
   StorageSettingsPayload,
 } from '@/features/settings';
-import { themeColors as T, themeTint } from '@/ui/theme';
 import { useToast } from '@/providers/ToastContext';
 import type { ApiConfig, ModelInfo, ProjectModel, ProviderConfig } from '@/shared/types';
+import { Badge } from '@/ui/PanelPrimitives';
+import { themeColors as T, themeTint } from '@/ui/theme';
 import { Database, Gauge, Key, Stack, Target } from '@phosphor-icons/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionSettingsSection } from './ConnectionSettingsSection';
 import { DefaultsSection } from './DefaultsSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
 import { ModelsSection } from './ModelsSection';
+import { type SettingsPanelServices, projectSettingsServices } from './settingsPanelServices';
 import type { SettingsActions, SettingsModuleMeta, SettingsViewModel } from './shared';
 import { eyebrowStyle, fuzzyMatch, mutedPanelStyle, sectionTitleStyle } from './styles';
 import './settings-panel.css';
@@ -58,7 +58,9 @@ export function SettingsPanel({
   const [projectModelSearch, setProjectModelSearch] = useState('');
   const [discoveries, setDiscoveries] = useState<Record<string, ModelInfo[]>>({});
   const [selectedImports, setSelectedImports] = useState<string[]>([]);
-  const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>(initialModule);
+  const [activeModule, setActiveModule] = useState<SettingsModuleMeta['id']>(
+    initialModule === 'connection' || initialModule === 'models' ? initialModule : 'overview',
+  );
   const [storageSettings, setStorageSettings] = useState<StorageSettingsPayload | null>(null);
   const [storagePathDraft, setStoragePathDraft] = useState('');
   const [storagePathPicking, setStoragePathPicking] = useState(false);
@@ -813,6 +815,7 @@ export function SettingsPanel({
                   key={module.id}
                   onClick={() => setActiveModule(module.id)}
                   data-testid={`settings-module-${module.id}`}
+                  aria-current={active ? 'page' : undefined}
                   style={{
                     ...mutedPanelStyle(),
                     textAlign: 'left',

@@ -1086,7 +1086,6 @@
   padding: 0 12px 12px;
 }
 
-
 .workflow-results__summary-card {
   display: flex;
   align-items: flex-start;
@@ -1178,7 +1177,6 @@
   flex-direction: column;
   gap: 12px;
 }
-
 
 .workflow-results__card-header {
   display: flex;
@@ -1333,7 +1331,6 @@
   font-size: 11px;
 }
 
-
 .workflow-results__log-toolbar {
   display: flex;
   align-items: center;
@@ -1414,8 +1411,6 @@
   padding-top: 12px;
   border-top: 1px solid var(--color-border);
 }
-
-
 
 @media (max-width: 1680px) {
   .workflow-toolbar__status {
@@ -1616,7 +1611,11 @@
   flex: 1 1 360px;
 }
 
-.workflow-library-modal__section-title { margin-top: 8px; font-size: 18px; font-weight: 700; }
+.workflow-library-modal__section-title {
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 700;
+}
 
 .workflow-library-modal__body {
   display: flex;
@@ -2318,7 +2317,11 @@ input[type="range"]::-moz-range-thumb {
   background: var(--t-bg);
   color: var(--t-text);
 }
-.canvas-gallery-hint { color: var(--t-text2); font-size: 12px; line-height: 1.8; }
+.canvas-gallery-hint {
+  color: var(--t-text2);
+  font-size: 12px;
+  line-height: 1.8;
+}
 .canvas-gallery-header-actions {
   position: absolute;
   right: var(--canvas-inset);
@@ -2330,10 +2333,27 @@ input[type="range"]::-moz-range-thumb {
   padding: 8px;
   border-radius: var(--ui-surface-radius);
 }
-.canvas-gallery-label { padding: 0 8px; font-size: 12px; color: var(--ui-control-fg); }
-.canvas-gallery-workspace { position: relative; display: flex; flex: 1; min-height: 0; }
-.canvas-gallery-stage { position: relative; flex: 1; min-width: 0; background: var(--color-bg-canvas); overflow: hidden; }
-.canvas-gallery-stage > .react-flow { background: transparent !important; }
+.canvas-gallery-label {
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--ui-control-fg);
+}
+.canvas-gallery-workspace {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.canvas-gallery-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  background: var(--color-bg-canvas);
+  overflow: hidden;
+}
+.canvas-gallery-stage > .react-flow {
+  background: transparent !important;
+}
 .canvas-gallery-inspector {
   position: absolute;
   right: var(--canvas-inset);
@@ -2353,25 +2373,56 @@ input[type="range"]::-moz-range-thumb {
   border-left: 1px solid var(--t-border);
   background: var(--node-card-bg-soft);
 }
-.canvas-gallery-inspector-heading { display: flex; align-items: center; justify-content: space-between; }
-.canvas-gallery-inspector h2 { font-size: 14px; font-weight: 600; }
-.canvas-gallery-inspector label { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--t-text2); }
+.canvas-gallery-inspector-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.canvas-gallery-inspector h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.canvas-gallery-inspector label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--t-text2);
+}
 .canvas-gallery-inspector .ui-form-control {
   min-height: var(--ui-control-compact-size);
   padding-block: var(--ui-space-1);
   font-size: 12px;
 }
-.canvas-gallery-inspector label.canvas-gallery-check { flex-direction: row; align-items: center; gap: 8px; min-height: 24px; }
-.canvas-gallery-inspector-divider { height: 1px; background: var(--t-border); margin: 12px 0; }
+.canvas-gallery-inspector label.canvas-gallery-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+.canvas-gallery-inspector-divider {
+  height: 1px;
+  background: var(--t-border);
+  margin: 12px 0;
+}
 @media (max-width: 760px) {
   .canvas-gallery-page .workflow-canvas-identity,
   .canvas-gallery-page .workflow-library-fab,
-  .canvas-gallery-page .workflow-canvas-run-controls { position: absolute; }
-  .canvas-gallery-label { display: none; }
-  .canvas-gallery-inspector { width: min(288px, calc(100% - 48px)); bottom: 156px; }
+  .canvas-gallery-page .workflow-canvas-run-controls {
+    position: absolute;
+  }
+  .canvas-gallery-label {
+    display: none;
+  }
+  .canvas-gallery-inspector {
+    width: min(288px, calc(100% - 48px));
+    bottom: 156px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .canvas-gallery-stage .react-flow__edge.animated path { animation: none; }
+  .canvas-gallery-stage .react-flow__edge.animated path {
+    animation: none;
+  }
 }
 
 /* 演示页沿用正式侧栏的避让规则；检查工具位于侧栏左边。 */
@@ -2379,35 +2430,165 @@ input[type="range"]::-moz-range-thumb {
 .canvas-gallery-workspace[data-side-panel] .canvas-gallery-inspector {
   right: calc(var(--panel-width) + var(--canvas-inset) + 12px);
 }
-.canvas-gallery-editor-area { pointer-events: none; }
-.canvas-gallery-editor-area > * { pointer-events: auto; }
+.canvas-gallery-editor-area {
+  pointer-events: none;
+}
+.canvas-gallery-editor-area > * {
+  pointer-events: auto;
+}
 @media (max-width: 760px) {
-  .canvas-gallery-header-actions[data-side-panel] { right: var(--canvas-inset); top: auto; bottom: var(--canvas-bottom-clearance); }
-  .canvas-gallery-workspace[data-side-panel] .canvas-gallery-inspector { right: var(--canvas-inset); }
+  .canvas-gallery-header-actions[data-side-panel] {
+    right: var(--canvas-inset);
+    top: auto;
+    bottom: var(--canvas-bottom-clearance);
+  }
+  .canvas-gallery-workspace[data-side-panel] .canvas-gallery-inspector {
+    right: var(--canvas-inset);
+  }
 }
 
 /* 生成记录属于结果卡片，使用侧栏共用色彩与 12px 排版节奏。 */
-.workflow-result-recipe { display: grid; gap: 12px; margin-top: 12px; }
-.workflow-result-recipe__section { min-width: 0; padding-top: 12px; border-top: 1px solid var(--ui-panel-line); }
-.workflow-result-recipe__section > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.workflow-result-recipe__section h3 { margin: 0; font-size: 12px; font-weight: 650; color: var(--t-text); }
-.workflow-result-recipe__section .ui-panel-button { flex: none; }
-.workflow-result-recipe__prompt { margin: 0; padding: 12px; border-radius: 12px; background: var(--ui-panel-inset); color: var(--t-text); font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
-.workflow-result-recipe__prompt--compact { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.workflow-result-recipe__expand { margin-top: 8px; color: var(--t-blue); font-size: 12px; }
-.workflow-result-recipe__references { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.workflow-result-recipe__reference { min-width: 0; display: grid; align-content: start; gap: 4px; color: var(--ui-panel-muted); font-size: 11px; }
-.workflow-result-recipe__reference button { display: block; overflow: hidden; border-radius: 8px; background: var(--ui-panel-inset); cursor: zoom-in; }
-.workflow-result-recipe__reference img { display: block; width: 100%; height: 64px; object-fit: cover; }
-.workflow-result-recipe__reference:has(video, audio) { grid-column: 1 / -1; }
-.workflow-result-recipe__reference :is(video, audio) { width: 100%; max-height: 160px; border-radius: 8px; }
-.workflow-result-recipe__parameters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin: 0; padding: 12px; border-radius: 12px; background: var(--ui-panel-inset); }
-.workflow-result-recipe__parameters > div { min-width: 0; }
-.workflow-result-recipe__parameters > [data-wide] { grid-column: 1 / -1; }
-.workflow-result-recipe__parameters dt { color: var(--ui-panel-muted); font-size: 11px; }
-.workflow-result-recipe__parameters dd { margin: 4px 0 0; color: var(--t-text); font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
-.workflow-result-recipe__feedback, .workflow-result-recipe__missing, .workflow-result-recipe__muted { margin: 0; font-size: 12px; color: var(--ui-panel-muted); line-height: 1.6; }
-.workflow-result-recipe__missing { margin-top: 12px; }
+.workflow-result-recipe {
+  margin-top: 12px;
+  border-top: 1px solid var(--ui-panel-line);
+}
+.workflow-result-recipe > summary {
+  padding: 12px 0;
+  cursor: pointer;
+  color: var(--t-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.workflow-result-recipe > summary span {
+  margin-left: 12px;
+  color: var(--ui-panel-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.workflow-result-recipe > summary:focus-visible {
+  outline: 2px solid var(--ui-focus-color);
+  outline-offset: 2px;
+}
+.workflow-result-recipe__body {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 12px;
+}
+.workflow-result-recipe__section {
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--ui-panel-line);
+}
+.workflow-result-recipe__section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.workflow-result-recipe__section h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--t-text);
+}
+.workflow-result-recipe__section .ui-panel-button {
+  flex: none;
+}
+.workflow-result-recipe__prompt {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--ui-panel-inset);
+  color: var(--t-text);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.workflow-result-recipe__prompt--compact {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.workflow-result-recipe__expand {
+  margin-top: 8px;
+  color: var(--t-blue);
+  font-size: 12px;
+}
+.workflow-result-recipe__references {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.workflow-result-recipe__reference {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  color: var(--ui-panel-muted);
+  font-size: 11px;
+}
+.workflow-result-recipe__reference button {
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--ui-panel-inset);
+  cursor: zoom-in;
+}
+.workflow-result-recipe__reference img {
+  display: block;
+  width: 100%;
+  height: 64px;
+  object-fit: cover;
+}
+.workflow-result-recipe__reference:has(video, audio) {
+  grid-column: 1 / -1;
+}
+.workflow-result-recipe__reference :is(video, audio) {
+  width: 100%;
+  max-height: 160px;
+  border-radius: 8px;
+}
+.workflow-result-recipe__parameters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--ui-panel-inset);
+}
+.workflow-result-recipe__parameters > div {
+  min-width: 0;
+}
+.workflow-result-recipe__parameters > [data-wide] {
+  grid-column: 1 / -1;
+}
+.workflow-result-recipe__parameters dt {
+  color: var(--ui-panel-muted);
+  font-size: 11px;
+}
+.workflow-result-recipe__parameters dd {
+  margin: 4px 0 0;
+  color: var(--t-text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.workflow-result-recipe__feedback,
+.workflow-result-recipe__missing,
+.workflow-result-recipe__muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-panel-muted);
+  line-height: 1.6;
+}
+.workflow-result-recipe__missing {
+  margin-top: 12px;
+}
 
 /* Canvas menus use the shared menu surfaces and actions. */
 .workflow-context-menu {
@@ -2543,4 +2724,22 @@ input[type="range"]::-moz-range-thumb {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* The same padded frame follows marquee and modifier-click selection. */
+.react-flow:has(.workflow-selection-output) .react-flow__nodesselection-rect {
+  visibility: hidden;
+}
+
+.workflow-selection-output {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  border: 1px dashed var(--ui-focus-color);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+}
+
+.workflow-selection-output .workflow-node-handle {
+  color: var(--node-card-ink);
 }

@@ -25,6 +25,10 @@ test('asset library indexes history, persists organization, validates requests a
   fs.writeFileSync(path.join(storage.uploadsDir, 'recording.webm'), 'audio');
   const { uploadMetadataRepository } = await import('../src/modules/files/upload-metadata.repository.ts');
   uploadMetadataRepository.set('recording.webm', { fileName: '旁白.webm', mimeType: 'audio/webm' });
+  const { writeOutputGeneration } = await import('../src/platform/media/output-generation.ts');
+  const generation = { version: 1 as const, runId: 'asset-test', workflowId: 'workflow', nodeId: 'ai', createdAt: 1,
+    prompt: '测试提示词', references: [{ url: '/api/files/reference.png', kind: 'image' as const }], parameters: { model: 'test-model', ratio: '4:3' } };
+  writeOutputGeneration('history/旧结果.txt', generation);
   const listed = await requestJson(runtime.baseUrl, '/api/assets');
   assert.equal(listed.status, 200);
   assert.equal(listed.body.data.libraryTotal, 2);
@@ -32,6 +36,8 @@ test('asset library indexes history, persists organization, validates requests a
   const audio = listed.body.data.items.find((a) => a.type === 'audio');
   assert.equal(audio.name, '旁白.webm');
   assert.equal(text.source, 'generated');
+  assert.deepEqual(text.generation, generation);
+  assert.equal(audio.generation, null);
   assert.match(text.url, /history\/%/);
   const original = await fetch(runtime.baseUrl + text.url);
   assert.equal(await original.text(), '历史结果');
@@ -40,6 +46,7 @@ test('asset library indexes history, persists organization, validates requests a
     name: '分镜参考', category: '参考素材', tags: ['夜景', '夜景'], favorite: true,
   }) });
   assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.data.generation, generation);
   assert.deepEqual(saved.body.data.tags, ['夜景']);
   assert.equal(fs.readFileSync(path.join(nested, '旧结果.txt'), 'utf8'), '历史结果');
   const filtered = await requestJson(runtime.baseUrl, '/api/assets?search=夜景&category=参考素材&favorite=true&source=generated&type=text&page=999');
@@ -52,13 +59,21 @@ test('asset library indexes history, persists organization, validates requests a
   assert.equal(listAssets(assetQuerySchema.parse({ favorite: 'true' })).items[0].id, text.id);
   const missing = await requestJson(runtime.baseUrl, `/api/assets/${'0'.repeat(64)}`, { method: 'PATCH', body: '{}' });
   assert.equal(missing.status, 404);
-  for (const url of ['/api/assets?page=0', '/api/assets?type=unknown', '/api/assets?favorite=yes']) {
+  for (const url of ['/api/assets?page=0', '/api/assets?type=unknown', '/api/assets?favorite=yes', '/api/assets?sort=unknown', '/api/assets?group=unknown']) {
     assert.equal((await requestJson(runtime.baseUrl, url)).status, 400);
   }
   for (const body of [{ name: '' }, { favorite: 'true' }, { tags: ['x'.repeat(41)] }, { unknown: 'field' }]) {
     assert.equal((await requestJson(runtime.baseUrl, `/api/assets/${text.id}`, { method: 'PATCH', body: JSON.stringify(body) })).status, 400);
   }
   for (let i = 0; i < 51; i++) fs.writeFileSync(path.join(nested, `page-${i}.txt`), 'page');
+  const oldest = await requestJson(runtime.baseUrl, '/api/assets?sort=oldest');
+  assert.equal(oldest.body.data.items[0].id, text.id);
+  const namedFirst = await requestJson(runtime.baseUrl, '/api/assets?sort=name&page=1');
+  const namedSecond = await requestJson(runtime.baseUrl, '/api/assets?sort=name&page=2');
+  const names = [...namedFirst.body.data.items, ...namedSecond.body.data.items].map((asset) => asset.name);
+  assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true })));
+  const grouped = await requestJson(runtime.baseUrl, '/api/assets?group=source&sort=oldest');
+  assert.ok(grouped.body.data.items.every((asset) => asset.groupLabel === (asset.source === 'uploaded' ? '上传素材' : '生成结果')));
   const page2 = await requestJson(runtime.baseUrl, '/api/assets?page=2');
   assert.equal(page2.body.data.items.length, 5);
   assert.equal(page2.body.data.total, 53);

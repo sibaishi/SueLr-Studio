@@ -1,4 +1,3 @@
-import { ConnectionTestStatus, type ConnectionTestState } from './ConnectionTestStatus';
 import {
   loadClientDownloadDirectoryState,
   loadStorageSettings,
@@ -12,13 +11,26 @@ import {
   waitForBackendReady,
 } from '@/features/settings';
 import type { StorageSettingsPayload } from '@/features/settings';
-import { themeColors as T, themeTint } from '@/ui/theme';
 import { DEFAULT_PROVIDER_CONFIG } from '@/shared/providers';
 import type { ApiConfig, ModelInfo } from '@/shared/types';
-import { Button, TextInput, FieldLabel } from '@/ui/FormPrimitives';
-import { ArrowRight, CheckCircle, Database, FolderOpen, Key, ShieldCheck } from '@phosphor-icons/react';
+import { Button, FieldLabel, TextInput } from '@/ui/FormPrimitives';
+import { StudioWelcome } from '@/ui/StudioWelcome';
+import { themeColors as T, themeTint } from '@/ui/theme';
+import { ArrowRight, CheckCircle, Database, FolderOpen, Key } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
+import { type ConnectionTestState, ConnectionTestStatus } from './ConnectionTestStatus';
+const projectOnboardingServices = {
+  loadStorageSettings,
+  pickStorageDirectory,
+  saveStorageSettings,
+  resetStorageSettings,
+  restartBackendRequest,
+  waitForBackendReady,
+  testSettingsConnection,
+};
+
 type Props = {
+  services?: typeof projectOnboardingServices;
   activeConfigId: string;
   addLog: (level: string, message: string) => void;
   addNewConfig: () => string;
@@ -29,13 +41,6 @@ type Props = {
   setApiKey: (value: string) => void;
   setBase: (value: string) => void;
   setModels: (models: ModelInfo[]) => void;
-};
-
-const panelStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border)',
-  borderRadius: 8,
-  background: 'var(--color-bg-secondary)',
-  boxShadow: '0 18px 40px rgba(15, 23, 42, 0.10)',
 };
 
 function getConnectionFailureGuidance(message: string) {
@@ -64,6 +69,7 @@ function getConnectionFailureGuidance(message: string) {
 }
 
 export function FirstRunOnboarding({
+  services = projectOnboardingServices,
   activeConfigId,
   addLog,
   addNewConfig,
@@ -95,7 +101,8 @@ export function FirstRunOnboarding({
 
   useEffect(() => {
     let cancelled = false;
-    void loadStorageSettings()
+    void services
+      .loadStorageSettings()
       .then((next) => {
         if (cancelled) return;
         setStorage(next);
@@ -107,7 +114,7 @@ export function FirstRunOnboarding({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [services]);
 
   useEffect(() => {
     if (activeConfigId) return;
@@ -139,7 +146,7 @@ export function FirstRunOnboarding({
         if (selected) setStorageDraft(selected.label);
         return;
       }
-      const selected = await pickStorageDirectory();
+      const selected = await services.pickStorageDirectory();
       if (selected) setStorageDraft(selected);
     } catch (error) {
       addLog('error', error instanceof Error ? error.message : String(error));
@@ -157,17 +164,19 @@ export function FirstRunOnboarding({
         addLog('success', '浏览器自动下载目录已更新');
         return;
       }
-      let next = storageDraft.trim() ? await saveStorageSettings(storageDraft.trim()) : await resetStorageSettings();
+      let next = storageDraft.trim()
+        ? await services.saveStorageSettings(storageDraft.trim())
+        : await services.resetStorageSettings();
       if (next.restartRequired) {
-        const restartResult = await restartBackendRequest();
+        const restartResult = await services.restartBackendRequest();
         if (restartResult.mode === 'desktop') {
           addLog('info', '桌面端已保存数据路径。请关闭并重新打开应用，让新的路径生效。');
         } else if (restartResult.mode === 'desktop-relaunch') {
           addLog('info', '桌面端正在重新启动以应用新的数据路径。');
           return;
         } else {
-          await waitForBackendReady({ timeoutMs: 25000, intervalMs: 500 });
-          next = (await loadStorageSettings()) || next;
+          await services.waitForBackendReady({ timeoutMs: 25000, intervalMs: 500 });
+          next = (await services.loadStorageSettings()) || next;
         }
       }
       setStorage(next);
@@ -195,7 +204,7 @@ export function FirstRunOnboarding({
     setMessage('');
     setGuidance('');
     try {
-      const result = await testSettingsConnection(
+      const result = await services.testSettingsConnection(
         cleanSecret,
         cleanBase,
         activeConfig?.id,
@@ -240,317 +249,307 @@ export function FirstRunOnboarding({
   const audioCount = testedModels.filter((model) => model.cat === 'audio').length;
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100vh',
-        overflow: 'auto',
-        background: 'var(--color-bg)',
-        color: 'var(--color-text-primary)',
-      }}
-    >
-      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 28px 40px' }}>
-        <header
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 24,
-            marginBottom: 24,
-          }}
-        >
-          <div style={{ maxWidth: 680 }}>
-            <div
-              style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.08, textTransform: 'uppercase', color: T.text3 }}
-            >
-              SueLr Studio
-            </div>
-            <h1 style={{ margin: '10px 0 10px', fontSize: 34, lineHeight: 1.18, letterSpacing: 0, color: T.text }}>
-              开始前，先完成你的本地配置
-            </h1>
-            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: T.text2 }}>
-              这里不会内置 API Key 或个人配置。应用只会启动本地服务，并把你的工作流、日志和上传文件保存到外部数据目录。
-            </p>
-          </div>
-          <div style={{ ...panelStyle, padding: 14, minWidth: 220 }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: 10, color: T.green, fontWeight: 700, fontSize: 13 }}
-            >
-              <ShieldCheck size={18} />
-              纯净封装版
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.6, color: T.text2 }}>
-              无需安装 Node 或后端；首次使用只需要填入你自己的服务配置。
-            </div>
-          </div>
-        </header>
-
-        <main
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.1fr)',
-            gap: 18,
-            alignItems: 'start',
-          }}
-        >
-          <section style={{ ...panelStyle, padding: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <FolderOpen size={18} color={T.blue} />
-              <h2 style={{ margin: 0, fontSize: 18, letterSpacing: 0 }}>数据保存位置</h2>
-            </div>
-
-            <div
-              style={{
-                borderRadius: 8,
-                border: `1px solid ${T.border}`,
-                background: T.card2,
-                padding: 14,
-                marginBottom: 14,
-              }}
-            >
-              <div style={{ fontSize: 12, color: T.text3, marginBottom: 8 }}>
-                {isServerRuntime ? '当前浏览器下载目录' : '当前生效路径'}
+    <div className="studio-onboarding">
+      <div className="studio-onboarding__layout">
+        <aside className="studio-onboarding__intro">
+          <StudioWelcome compact />
+          <ol className="studio-onboarding__steps">
+            <li>
+              <span>01</span>
+              <div>
+                <strong>安放你的创作</strong>
+                <p>为素材、工作流和生成结果选择保存位置。</p>
               </div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: T.text, overflowWrap: 'anywhere' }}>
-                {storageLabel}
+            </li>
+            <li>
+              <span>02</span>
+              <div>
+                <strong>连接模型服务</strong>
+                <p>使用你自己的服务地址与密钥，测试连接。</p>
               </div>
-            </div>
+            </li>
+            <li>
+              <span>03</span>
+              <div>
+                <strong>选择创作工具</strong>
+                <p>在设置中亲自导入、启用需要的项目模型。</p>
+              </div>
+            </li>
+          </ol>
+          <p className="studio-onboarding__privacy">由你选择服务与模型。发现的模型不会自动启用。</p>
+        </aside>
+        <div className="studio-onboarding__workspace">
+          <header className="studio-onboarding__heading">
+            <span>欢迎来到你的工作室</span>
+            <h2>先准备好，再自由创作</h2>
+            <p>完成以下两项设置，或稍后在工作室设置中继续。</p>
+          </header>
+          <main className="studio-onboarding__panels">
+            <section className="studio-onboarding__panel modal-inset-panel">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <FolderOpen size={18} color={T.blue} />
+                <h2 style={{ margin: 0, fontSize: 18, letterSpacing: 0 }}>数据保存位置</h2>
+              </div>
 
-            <FieldLabel>{isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径'}</FieldLabel>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) auto',
-                gap: 10,
-                alignItems: 'center',
-                marginBottom: 12,
-              }}
-            >
-              <TextInput
-                value={storageDraft}
-                onChange={setStorageDraft}
-                placeholder={isServerRuntime ? '授权后用于接收 ?????? 输出的本地下载目录' : '留空则使用默认位置'}
-                disabled={isServerRuntime}
-              />
-              <Button
-                label={storageBusy ? '选择中...' : isServerRuntime ? '授权目录' : '选择'}
-                onClick={() => {
-                  void chooseStorage();
+              <div
+                style={{
+                  borderRadius: 8,
+                  border: `1px solid ${T.border}`,
+                  background: T.card2,
+                  padding: 12,
+                  marginBottom: 12,
                 }}
-                disabled={storageBusy}
-                small
-                style={{ width: 72 }}
-              />
-            </div>
-            {isServerRuntime ? (
-              <div style={{ fontSize: 12, color: T.text2, lineHeight: 1.6, marginBottom: 12 }}>
-                这里只管理当前浏览器接收 `??????` 输出时的本地自动下载目录，不会修改服务器宿主机路径。
+              >
+                <div style={{ fontSize: 12, color: T.text3, marginBottom: 8 }}>
+                  {isServerRuntime ? '当前浏览器下载目录' : '当前生效路径'}
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.6, color: T.text, overflowWrap: 'anywhere' }}>
+                  {storageLabel}
+                </div>
               </div>
-            ) : null}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Button
-                label={
-                  storageBusy
-                    ? '处理中...'
-                    : isServerRuntime
-                      ? '应用目录'
-                      : storageDraft.trim()
-                        ? '保存并应用路径'
-                        : '使用默认位置'
-                }
-                onClick={() => {
-                  void applyStorage();
+
+              <FieldLabel htmlFor="onboarding-storage">
+                {isServerRuntime ? '浏览器自动下载目录' : '自定义绝对路径'}
+              </FieldLabel>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) auto',
+                  gap: 12,
+                  alignItems: 'center',
+                  marginBottom: 12,
                 }}
-                disabled={storageBusy}
-                small
-                style={{ width: 'auto' }}
-              />
-              {isServerRuntime ? (
+              >
+                <TextInput
+                  id="onboarding-storage"
+                  value={storageDraft}
+                  onChange={setStorageDraft}
+                  placeholder={isServerRuntime ? '授权后用于接收生成结果的本地下载目录' : '留空则使用默认位置'}
+                  disabled={isServerRuntime}
+                />
                 <Button
-                  label={storageBusy ? '处理中...' : '清除授权'}
+                  label={storageBusy ? '选择中...' : isServerRuntime ? '授权目录' : '选择'}
                   onClick={() => {
-                    void (async () => {
-                      setStorageBusy(true);
-                      try {
-                        await resetClientDownloadDirectory();
-                        const next = loadClientDownloadDirectoryState();
-                        setStorageDraft(next?.label || '');
-                        addLog('success', '浏览器自动下载目录授权已清除');
-                      } catch (error) {
-                        addLog('error', error instanceof Error ? error.message : String(error));
-                      } finally {
-                        setStorageBusy(false);
-                      }
-                    })();
+                    void chooseStorage();
+                  }}
+                  disabled={storageBusy}
+                  small
+                  style={{ width: 72 }}
+                />
+              </div>
+              {isServerRuntime ? (
+                <div style={{ fontSize: 12, color: T.text2, lineHeight: 1.6, marginBottom: 12 }}>
+                  这里只管理当前浏览器接收生成结果时的本地自动下载目录，不会修改服务器宿主机路径。
+                </div>
+              ) : null}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Button
+                  label={
+                    storageBusy
+                      ? '处理中...'
+                      : isServerRuntime
+                        ? '应用目录'
+                        : storageDraft.trim()
+                          ? '保存并应用路径'
+                          : '使用默认位置'
+                  }
+                  onClick={() => {
+                    void applyStorage();
                   }}
                   disabled={storageBusy}
                   small
                   style={{ width: 'auto' }}
                 />
-              ) : null}
-              <span style={{ fontSize: 12, color: T.text3 }}>之后也可以在设置里修改。</span>
-            </div>
-          </section>
-
-          <section style={{ ...panelStyle, padding: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <Key size={18} color={T.green} />
-              <h2 style={{ margin: 0, fontSize: 18, letterSpacing: 0 }}>模型服务配置</h2>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)',
-                gap: 12,
-                marginBottom: 12,
-              }}
-            >
-              <div>
-                <FieldLabel>配置名称</FieldLabel>
-                <TextInput
-                  value={configName}
-                  onChange={(value) => {
-                    setConfigName(value);
-                    updateActiveConfig({ name: value });
-                  }}
-                />
+                {isServerRuntime ? (
+                  <Button
+                    label={storageBusy ? '处理中...' : '清除授权'}
+                    onClick={() => {
+                      void (async () => {
+                        setStorageBusy(true);
+                        try {
+                          await resetClientDownloadDirectory();
+                          const next = loadClientDownloadDirectoryState();
+                          setStorageDraft(next?.label || '');
+                          addLog('success', '浏览器自动下载目录授权已清除');
+                        } catch (error) {
+                          addLog('error', error instanceof Error ? error.message : String(error));
+                        } finally {
+                          setStorageBusy(false);
+                        }
+                      })();
+                    }}
+                    disabled={storageBusy}
+                    small
+                    style={{ width: 'auto' }}
+                  />
+                ) : null}
+                <span style={{ fontSize: 12, color: T.text3 }}>之后也可以在设置里修改。</span>
               </div>
-              <div>
-                <FieldLabel>接口地址</FieldLabel>
+            </section>
+
+            <section className="studio-onboarding__panel modal-inset-panel">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <Key size={18} color={T.green} />
+                <h2 style={{ margin: 0, fontSize: 18, letterSpacing: 0 }}>模型服务配置</h2>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)',
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <div>
+                  <FieldLabel htmlFor="onboarding-name">配置名称</FieldLabel>
+                  <TextInput
+                    id="onboarding-name"
+                    value={configName}
+                    onChange={(value) => {
+                      setConfigName(value);
+                      updateActiveConfig({ name: value });
+                    }}
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="onboarding-base">接口地址</FieldLabel>
+                  <TextInput
+                    id="onboarding-base"
+                    value={baseUrl}
+                    disabled={testing}
+                    onChange={(value) => {
+                      setConnectionVerified(false);
+                      setBaseUrl(value);
+                      setBase(value);
+                      updateActiveConfig({ base: value, models: [] });
+                    }}
+                    placeholder="https://api.example.com/v1"
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <FieldLabel htmlFor="onboarding-key">API Key</FieldLabel>
                 <TextInput
-                  value={baseUrl}
+                  id="onboarding-key"
+                  value={secret}
                   disabled={testing}
                   onChange={(value) => {
                     setConnectionVerified(false);
-                    setBaseUrl(value);
-                    setBase(value);
-                    updateActiveConfig({ base: value, models: [] });
+                    setSecret(value);
+                    setApiKey(value);
+                    updateActiveConfig({ apiKey: value, models: [] });
                   }}
-                  placeholder="https://api.example.com/v1"
+                  type="password"
+                  placeholder="sk-..."
                 />
               </div>
-            </div>
 
-            <div style={{ marginBottom: 14 }}>
-              <FieldLabel>API Key</FieldLabel>
-              <TextInput
-                value={secret}
-                disabled={testing}
-                onChange={(value) => {
-                  setConnectionVerified(false);
-                  setSecret(value);
-                  setApiKey(value);
-                  updateActiveConfig({ apiKey: value, models: [] });
-                }}
-                type="password"
-                placeholder="sk-..."
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
-              <Button
-                label={testing ? '测试中...' : '测试连接并发现模型'}
-                onClick={() => {
-                  void testConnection();
-                }}
-                disabled={testing}
-                small
-                style={{ width: 'auto' }}
-              />
-              <ConnectionTestStatus status={connectionStatus} result={message} />
-            </div>
-
-            {guidance && (
-              <div
-                style={{
-                  borderRadius: 8,
-                  border: `1px solid ${canComplete ? themeTint(T.green, 27) : themeTint(T.orange, 27)}`,
-                  background: canComplete ? themeTint(T.green, 7) : themeTint(T.orange, 7),
-                  padding: 12,
-                  marginBottom: 14,
-                }}
-              >
-                <div
-                  style={{ fontSize: 12, fontWeight: 700, color: canComplete ? T.green : T.orange, marginBottom: 6 }}
-                >
-                  {canComplete ? '下一步' : '处理建议'}
-                </div>
-                <div style={{ fontSize: 13, lineHeight: 1.6, color: T.text2 }}>{guidance}</div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+                <Button
+                  label={testing ? '测试中...' : '测试连接并发现模型'}
+                  onClick={() => {
+                    void testConnection();
+                  }}
+                  disabled={testing}
+                  small
+                  style={{ width: 'auto' }}
+                />
+                <ConnectionTestStatus status={connectionStatus} result={message} />
               </div>
-            )}
 
-            <div
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}
-            >
-              {[
-                ['对话', chatCount, T.blue],
-                ['图像', imageCount, T.green],
-                ['视频', videoCount, T.purple],
-                ['音频', audioCount, T.orange],
-              ].map(([label, count, color]) => (
+              {guidance && (
                 <div
-                  key={label}
-                  style={{ borderRadius: 8, border: `1px solid ${T.border}`, background: T.card2, padding: 12 }}
+                  style={{
+                    borderRadius: 8,
+                    border: `1px solid ${canComplete ? themeTint(T.green, 27) : themeTint(T.orange, 27)}`,
+                    background: canComplete ? themeTint(T.green, 7) : themeTint(T.orange, 7),
+                    padding: 12,
+                    marginBottom: 12,
+                  }}
                 >
-                  <div style={{ fontSize: 12, color: T.text3 }}>{label}</div>
-                  <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: color as string }}>{count}</div>
+                  <div
+                    style={{ fontSize: 12, fontWeight: 700, color: canComplete ? T.green : T.orange, marginBottom: 8 }}
+                  >
+                    {canComplete ? '下一步' : '处理建议'}
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.6, color: T.text2 }}>{guidance}</div>
                 </div>
-              ))}
-            </div>
+              )}
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 14,
-                flexWrap: 'wrap',
-              }}
-            >
+              <div
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}
+              >
+                {[
+                  ['对话', chatCount, T.blue],
+                  ['图像', imageCount, T.green],
+                  ['视频', videoCount, T.purple],
+                  ['音频', audioCount, T.orange],
+                ].map(([label, count, color]) => (
+                  <div
+                    key={label}
+                    style={{ borderRadius: 8, border: `1px solid ${T.border}`, background: T.card2, padding: 12 }}
+                  >
+                    <div style={{ fontSize: 12, color: T.text3 }}>{label}</div>
+                    <div style={{ marginTop: 8, fontSize: 24, fontWeight: 800, color: color as string }}>{count}</div>
+                  </div>
+                ))}
+              </div>
+
               <div
                 style={{
                   display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  gap: 8,
-                  fontSize: 12,
-                  color: canComplete ? T.green : T.text3,
+                  gap: 12,
+                  flexWrap: 'wrap',
                 }}
               >
-                {canComplete ? <CheckCircle size={16} /> : <Database size={16} />}
-                {canComplete ? '连接信息已保存。' : '测试连接后可继续配置项目模型。'}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 12,
+                    color: canComplete ? T.green : T.text3,
+                  }}
+                >
+                  {canComplete ? <CheckCircle size={16} /> : <Database size={16} />}
+                  {canComplete ? '连接信息已保存。' : '测试连接后可继续配置项目模型。'}
+                </div>
+                <Button
+                  label="配置项目模型"
+                  onClick={() => onComplete(true)}
+                  disabled={!canComplete}
+                  small
+                  style={{ width: 'auto', padding: '8px 16px' }}
+                />
               </div>
-              <Button
-                label="配置项目模型"
-                onClick={() => onComplete(true)}
-                disabled={!canComplete}
-                small
-                style={{ width: 'auto', padding: '9px 16px' }}
-              />
-            </div>
-          </section>
-        </main>
+            </section>
+          </main>
 
-        <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={() => onComplete()}
-            data-testid="onboarding-skip"
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: T.text2,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 12,
-              padding: 8,
-            }}
-          >
-            我稍后再配置
-            <ArrowRight size={14} />
-          </button>
+          <div className="studio-onboarding__footer">
+            <button
+              type="button"
+              onClick={() => onComplete()}
+              data-testid="onboarding-skip"
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: T.text2,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 12,
+                padding: 8,
+              }}
+            >
+              我稍后再配置
+              <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

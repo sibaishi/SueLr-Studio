@@ -1,15 +1,9 @@
-import { SettingsGallery } from '@/features/settings/components/SettingsGallery';
-import { ToastProvider } from '@/providers/ToastContext';
-import { AssetLibraryView } from './AssetLibraryModal';
-import { createGalleryAssetSource } from './galleryAssetSource';
 import type { WorkflowListItem } from '@/domains/workflow/lib/api/workflows';
-import WorkflowExportModal from './WorkflowExportModal';
-import WorkflowImportReportModal from './WorkflowImportReportModal';
-import WorkflowLibraryModal from './WorkflowLibraryModal';
-import { WorkflowConfirmProvider } from './WorkflowConfirmDialog';
 import { NODE_REGISTRY } from '@/domains/workflow/lib/constants';
 import { getCollapsedGroupNodeSize } from '@/domains/workflow/lib/groupLayout';
+import { SettingsGallery } from '@/features/settings/components/SettingsGallery';
 import { ResolvedThemeContext } from '@/providers/ThemeContext';
+import { ToastProvider } from '@/providers/ToastContext';
 import {
   type Edge,
   ReactFlow,
@@ -20,16 +14,18 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { type MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react';
+import { AssetLibraryView } from './AssetLibraryModal';
 import { CanvasGalleryInspector, CanvasGalleryTools } from './CanvasGalleryInspector';
 import CanvasNavigation from './CanvasNavigation';
 import FloatingToolbar from './FloatingToolbar';
 import { GridDots } from './GridDots';
 import { GridGlow } from './GridGlow';
 import { ImagePreviewModal } from './ImagePreviewModal';
+import { SelectionOutputNode } from './SelectionOutputNode';
 import StatusBar from './StatusBar';
 import Toolbar from './Toolbar';
-import { CanvasContextMenu, CanvasNodeCatalog, ContextMenuButton } from './flowCanvasCatalog';
-import { getContextMenuLayout, isPaneBackgroundTarget } from './flowCanvasUiHelpers';
+import { WorkflowConfirmProvider } from './WorkflowConfirmDialog';
+import WorkflowExportModal from './WorkflowExportModal';
 import {
   GalleryActions,
   type GalleryData,
@@ -44,6 +40,12 @@ import {
   GalleryResultsPanel,
   type GallerySidePanel,
 } from './WorkflowGallerySidePanels';
+import WorkflowImportReportModal from './WorkflowImportReportModal';
+import WorkflowLibraryModal from './WorkflowLibraryModal';
+import { BATCH_OUTPUT_ID, batchOutputNode, planBatchConnection } from './flowBatchConnection';
+import { CanvasContextMenu, CanvasNodeCatalog, ContextMenuButton } from './flowCanvasCatalog';
+import { getContextMenuLayout, isPaneBackgroundTarget } from './flowCanvasUiHelpers';
+import { createGalleryAssetSource } from './galleryAssetSource';
 import '../index.css';
 
 const galleryCatalog = NODE_REGISTRY.filter((node) => node.type === 'ai' || node.type === 'io');
@@ -124,7 +126,9 @@ function VirtualCanvas({
   const [activeId, setActiveId] = useState('draft');
   const [galleryAssetSource] = useState(createGalleryAssetSource);
   const [savedWorkflows, setSavedWorkflows] = useState(initialSavedWorkflows);
-  const [workflowDialog, setWorkflowDialog] = useState<'library' | 'assets' | 'settings' | 'import' | 'export' | null>(null);
+  const [workflowDialog, setWorkflowDialog] = useState<'library' | 'assets' | 'settings' | 'import' | 'export' | null>(
+    null,
+  );
   const [emptyModels, setEmptyModels] = useState(false);
   const [inputState, setInputState] = useState('editable');
   const [menu, setMenu] = useState<GalleryMenu | null>(null);
@@ -276,15 +280,58 @@ function VirtualCanvas({
           )}
           <div className={`workflow-flow-area ${docked ? 'workflow-flow-area--with-results' : ''}`}>
             <ReactFlow
-              nodes={renderedNodes}
+              nodes={(() => {
+                const output = batchOutputNode(renderedNodes.map((node) => ({ ...node, type: node.data.kind })));
+                return output
+                  ? [
+                      ...renderedNodes,
+                      {
+                        ...output,
+                        type: 'selectionOutput' as const,
+                        data: {
+                          ...output.data,
+                          kind: 'io' as const,
+                          title: '总输出',
+                          content: 'empty' as const,
+                          text: '',
+                        },
+                      },
+                    ]
+                  : renderedNodes;
+              })()}
               edges={edges.map((edge) => ({
                 ...edge,
                 hidden: hiddenIds.has(edge.source) || hiddenIds.has(edge.target),
               }))}
-              nodeTypes={galleryNodeTypes}
-              onNodesChange={onNodesChange}
+              nodeTypes={{ ...galleryNodeTypes, selectionOutput: SelectionOutputNode }}
+              onNodesChange={(changes) =>
+                onNodesChange(changes.filter((change) => !('id' in change) || change.id !== BATCH_OUTPUT_ID))
+              }
               onEdgesChange={onEdgesChange}
-              onConnect={(connection) => setEdges((current) => addEdge(connection, current))}
+              isValidConnection={(connection) =>
+                connection.source !== BATCH_OUTPUT_ID ||
+                Boolean(
+                  connection.targetHandle &&
+                    planBatchConnection(
+                      nodes.map((node) => ({ ...node, type: node.data.kind })),
+                      edges,
+                      connection.target,
+                      connection.targetHandle,
+                    ).length,
+                )
+              }
+              onConnect={(connection) =>
+                setEdges((current) =>
+                  connection.source === BATCH_OUTPUT_ID && connection.targetHandle
+                    ? planBatchConnection(
+                        nodes.map((node) => ({ ...node, type: node.data.kind })),
+                        current,
+                        connection.target,
+                        connection.targetHandle,
+                      ).reduce((all, edge) => addEdge(edge, all), current)
+                    : addEdge(connection, current),
+                )
+              }
               onNodeContextMenu={(event, node) => openContextMenu(event, node.id)}
               onPaneContextMenu={(event) => openContextMenu(event, selected?.id)}
               onNodeClick={(_, node) => setMessage(`已选中「${node.data.title}」。`)}
@@ -293,6 +340,9 @@ function VirtualCanvas({
               minZoom={0.2}
               maxZoom={1.5}
               zoomOnDoubleClick={false}
+              multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
+              selectionOnDrag
+              panOnDrag={[1]}
               snapToGrid={snapping}
               snapGrid={[12, 12]}
               deleteKeyCode={null}
@@ -574,15 +624,17 @@ function VirtualCanvas({
           onOpenWorkflow={(id) => {
             const workflow = savedWorkflows.find((item) => item.id === id);
             if (!workflow) return;
-            setDocuments((current) => current.some(({ documentId }) => documentId === id)
-              ? current
-              : [...current, { documentId: id, name: workflow.name, hasUnsavedChanges: false, isExecuting: false }]);
+            setDocuments((current) =>
+              current.some(({ documentId }) => documentId === id)
+                ? current
+                : [...current, { documentId: id, name: workflow.name, hasUnsavedChanges: false, isExecuting: false }],
+            );
             setActiveId(id);
             setWorkflowDialog(null);
           }}
           onRenameWorkflow={async (id, name) => {
-            setSavedWorkflows((current) => current.map((item) => item.id === id ? { ...item, name } : item));
-            setDocuments((current) => current.map((item) => item.documentId === id ? { ...item, name } : item));
+            setSavedWorkflows((current) => current.map((item) => (item.id === id ? { ...item, name } : item)));
+            setDocuments((current) => current.map((item) => (item.documentId === id ? { ...item, name } : item)));
             return true;
           }}
           onDeleteWorkflow={async (id) => {
@@ -601,21 +653,50 @@ function VirtualCanvas({
           }}
         />
       )}
-      <SettingsGallery open={workflowDialog === 'settings'} theme={theme} onSetTheme={onSetTheme}
-        onClose={() => setWorkflowDialog(null)} />
+      <SettingsGallery
+        open={workflowDialog === 'settings'}
+        theme={theme}
+        onSetTheme={onSetTheme}
+        onClose={() => setWorkflowDialog(null)}
+      />
       {workflowDialog === 'assets' && (
         <AssetLibraryView
           theme={theme}
           sourceApi={galleryAssetSource}
+          generationActions={{
+            onReuseParameters: () => {
+              setMessage('演示：已复用生成参数。');
+              return '演示：已复用参数';
+            },
+            onBackfillReferences: (record) => {
+              record.references.forEach((reference, index) =>
+                addGalleryNode(
+                  { x: 48 + index * 312, y: 480 },
+                  {
+                    kind: 'io',
+                    title: `生成参考 ${index + 1}`,
+                    content: reference.kind,
+                    src: reference.url,
+                    text: '',
+                    status: 'idle',
+                  },
+                ),
+              );
+              return `演示：已回填 ${record.references.length} 份参考`;
+            },
+          }}
           onClose={() => setWorkflowDialog(null)}
           onBackfill={async (asset) => {
             const content = asset.type === 'data' || asset.type === 'file' ? 'text' : asset.type;
             const text = content === 'text' ? await (await fetch(asset.url)).text() : '';
             const bounds = stageRef.current?.getBoundingClientRect();
-            addGalleryNode(flow.screenToFlowPosition({
-              x: (bounds?.left || 0) + size.width / 2,
-              y: (bounds?.top || 0) + size.height / 2,
-            }), { kind: 'io', title: asset.name, content, text, src: asset.url, status: 'idle' });
+            addGalleryNode(
+              flow.screenToFlowPosition({
+                x: (bounds?.left || 0) + size.width / 2,
+                y: (bounds?.top || 0) + size.height / 2,
+              }),
+              { kind: 'io', title: asset.name, content, text, src: asset.url, status: 'idle' },
+            );
           }}
         />
       )}
@@ -678,14 +759,14 @@ export default function CanvasComponentGallery() {
       <main data-theme={theme} className="workflow-page canvas-gallery-page" aria-label="画布组件库">
         <ReactFlowProvider key={revision}>
           <ToastProvider>
-          <WorkflowConfirmProvider theme={theme}>
-            <VirtualCanvas
-              theme={theme}
-              onSetTheme={setTheme}
-              onThemeChange={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-              onReset={() => setRevision((current) => current + 1)}
-            />
-          </WorkflowConfirmProvider>
+            <WorkflowConfirmProvider theme={theme}>
+              <VirtualCanvas
+                theme={theme}
+                onSetTheme={setTheme}
+                onThemeChange={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                onReset={() => setRevision((current) => current + 1)}
+              />
+            </WorkflowConfirmProvider>
           </ToastProvider>
         </ReactFlowProvider>
       </main>

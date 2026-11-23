@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { APP_VERSION } from '../src/platform/runtime/version.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
@@ -139,14 +140,14 @@ test('HTTP contract: health and status endpoints expose runtime baseline payload
     assert.equal(health.status, 200);
     assertEnvelopeShape(health.body);
     assert.equal(health.body.data.status, 'ok');
-    assert.equal(health.body.data.version, '0.1.0');
+    assert.equal(health.body.data.version, APP_VERSION);
     assert.equal(typeof health.body.data.timestamp, 'number');
 
     const status = await requestJson(baseUrl, '/api/status');
     assert.equal(status.status, 200);
     assertEnvelopeShape(status.body);
     assert.equal(status.body.data.ok, true);
-    assert.equal(status.body.data.version, '1.0.0');
+    assert.equal(status.body.data.version, APP_VERSION);
     assert.equal(status.body.data.runtime.mode, 'local-web');
     assert.equal(status.body.data.runtime.canSelectDirectory, true);
     assert.equal(status.body.data.runtime.canRestartBackend, true);

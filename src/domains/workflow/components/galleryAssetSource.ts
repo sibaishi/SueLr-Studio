@@ -1,3 +1,4 @@
+import { assetGroupLabel, compareAssets } from '@/shared/workflow/asset-order';
 import type { LibraryAsset } from '../lib/api/assets';
 import type { AssetLibrarySource } from './AssetLibraryModal';
 import { galleryImage } from './WorkflowGalleryNode';
@@ -27,6 +28,16 @@ export function createGalleryAssetSource(): AssetLibrarySource {
       size: new Blob([galleryImage]).size,
       modifiedAt: 1795334400000,
       category: '参考素材',
+      generation: {
+        version: 1,
+        runId: 'gallery-run',
+        workflowId: 'gallery',
+        nodeId: 'model',
+        createdAt: 1795334400000,
+        prompt: '保留参考图主体的轮廓与细节，使用明亮、清晰的画面。',
+        references: [{ url: galleryImage, kind: 'image' }],
+        parameters: { model: '演示图像模型', mode: 'image', ratio: '4:3', n: 1 },
+      },
       tags: ['图像'],
       favorite: true,
     },
@@ -61,12 +72,16 @@ export function createGalleryAssetSource(): AssetLibrarySource {
           (!category || item.category === category) &&
           (query.get('favorite') !== 'true' || item.favorite),
       );
-      const page = Number(query.get('page')) || 1;
+      const group = query.get('group') || 'none';
+      items.sort((a, b) => compareAssets(a, b, query.get('sort') || 'newest', group));
+      const page = Math.min(Number(query.get('page')) || 1, Math.max(1, Math.ceil(items.length / 48)));
       const pageSize = 48;
       return {
         success: true,
         data: {
-          items: items.slice((page - 1) * pageSize, page * pageSize),
+          items: items
+            .slice((page - 1) * pageSize, page * pageSize)
+            .map((asset) => ({ ...asset, groupLabel: assetGroupLabel(asset, group) })),
           total: items.length,
           page,
           pageSize,

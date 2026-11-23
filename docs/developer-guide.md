@@ -752,3 +752,41 @@ Updated 2026-11-22 (supersedes the earlier sectional catalogue notes): the multi
 ### 画布节点菜单
 
 新增节点入口、空白处双击与从端口拖出后打开的选单共用 `CanvasNodeCatalog`。端口兼容性和自动连线由正式画布负责。画布和节点右键操作共用 `CanvasContextMenu` 和 `MenuItem`，删除操作使用共用危险状态。菜单的宽度、网格、定位与遮罩在工作流样式表维护。菜单打开后将焦点移至首个可操作项，Escape 关闭；焦点仍在菜单内时回到原控件。演示画板的添加按钮、双击以及右键可检查新建、复制、粘贴、锁定、禁用和删除等场景。演示动作使用本地状态。
+
+### 工作室入口与素材浏览层级（2026-11-23）
+
+| 层级 | 中文职责 | 本轮组件／模块 |
+| --- | --- | --- |
+| 基础层 | 主题、间距、表单、按钮、焦点 | `src/ui/theme.css`、`foundations.css`、`FormPrimitives`；布局沿用 4px 步进与 12px 节奏 |
+| 组合层 | 产品标识与素材—模型—作品示意 | `StudioWelcome` 用于引导；`StudioStartup` 用于启动，两者均有组件库预览 |
+| 组合层 | 生成信息折叠、提示词／参考／参数及操作反馈 | `ResultGenerationDetails`，供真实结果与资产详情共用；默认关闭 |
+| 画布交互层 | 临时多选框、右侧居中总输出与普通连线规划 | `SelectionOutputNode`、`flowBatchConnection`；不进入节点注册表、持久化或执行器 |
+| 页面层 | 资产浏览、分组标题、网格／列表与详情 | `AssetLibraryView`；业务操作由正式适配器传入，演示仅操作本地样例 |
+| 页面层 | 模块导航与总览初始态 | `SettingsPanel`；工具栏回调隔离点击事件，初始模块值兜底为总览 |
+| 页面层 | 启动加载态与首次配置 | `SplashScreen`、`FirstRunOnboarding`；引导保留连接验证与显式导入模型边界 |
+| 数据层 | 全库筛选、分组、排序、分页及生成记录 | `asset-library.ts`；查询由 Zod 校验；`asset-order.ts` 共用浏览排序规则；只为当前页读取生成记录 |
+| 演示层 | 可操作预览及隔离服务 | `StudioComponentGallery`、`OnboardingGallery`、`CanvasComponentGallery`；不写真实设置或画布 |
+
+资产生成信息读取现有 `output-generation` 旁车记录，运行时路径仍由 storage resolver 管理。上传素材不虚构生成信息。资产元数据更新返回相同生成记录，避免编辑名称／收藏后详情丢失。分组使用全量排序后的分页，服务端返回每项 `groupLabel`，跨页组会重复显示标题。
+
+多选控件只出现在 React Flow 的渲染节点集合；节点 change 事件会过滤控件 ID，拖线提交时展开为真实 source/handle → target/handle。连接规划整体校验选区、锁定、自环与环路，拒绝会覆盖单输入的批量连接，不改变已有工作流格式和快捷键。
+
+多选框按实际选中节点及父分组的绝对位置计算，框选与按键点选共用同一套展示。临时节点显式提供端口几何信息，受控节点更新时不能丢弃拖线起点坐标；点击连接不能替代拖拽连接验收。
+
+总输出拖线到空白处复用正式画布的新建节点菜单，记录拖线开始时的来源 ID 快照，避免创建节点改变选中态后丢失来源。菜单候选与创建后的连线共用批量连接规划器校验。
+
+### 启动主视觉组件（2026-11-23）
+
+| 层级 | 内容 | 实现 |
+| --- | --- | --- |
+| 样式基础层 | 品牌画面配色与单行居中排版 | `src/ui/foundations.css` 的 `studio-startup` 样式族 |
+| 共享展示层 | 主视觉、单行产品名与包版本、屏幕阅读器加载状态 | `src/ui/StudioStartup.tsx`，真实启动与预览共用 |
+| 启动生命周期层 | 等待工作室与主视觉就绪、淡出和计时清理 | `src/app/bootstrap/SplashScreen.tsx` |
+| 静态资源层 | 专属生成主视觉 | `src/ui/assets/studio-startup.jpg`，由 Vite 打包为本地资源 |
+
+图片通过用户授权的 6789 渠道、`nano-banana-2.1` 的 Gemini generateContent 接口生成。提示词描述蓝色曲面、紫色光学玻璃和银色通道的交汇，无文字。运行时不调用图片生成服务；密钥不进入前端、静态资源或提交文件。首次引导继续使用 `StudioWelcome` 的配置引导版式。
+
+
+### 2026-11-24：统一产品版本来源
+
+产品版本以根目录 `package.json` 为基准，`npm run version:bump` 同步前后端包清单及锁文件，`npm run check:version` 纳入完整检查。前端状态栏和启动页读取根包版本；后端通过 `backend/src/platform/runtime/version.ts` 读取随包发布的后端清单，健康检查、状态与助手接口共享该值。每次提交前补丁位加一，详见 `AGENTS.md` 与发布流程。

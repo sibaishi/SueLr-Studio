@@ -1,6 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
 import type { ApiConfig, LogEntry, ModelInfo, ThemeMode } from '@/shared/types';
+import { Button } from '@/ui/FormPrimitives';
+import { useCallback, useRef, useState } from 'react';
 import type { OutboundProxyRuntimePatch, StorageSettingsPayload } from '../types';
+import { FirstRunOnboarding } from './FirstRunOnboarding';
 import { SettingsModal } from './SettingsModal';
 import { SettingsPanel } from './SettingsPanel';
 import type { SettingsPanelServices } from './settingsPanelServices';
@@ -161,5 +163,40 @@ export function SettingsGallery({
         projectBusy={false}
       />
     </SettingsModal>
+  );
+}
+
+/** Onboarding preview uses local services; it cannot read or change project settings. */
+export function OnboardingGallery({ onClose }: { onClose: () => void }) {
+  const services = useRef(createGalleryServices()).current;
+  const [configs, setConfigs] = useState<ApiConfig[]>([{ ...initialConfig, apiKey: '', models: [] }]);
+  const [activeId, setActiveId] = useState('demo');
+  const [notice, setNotice] = useState('');
+  return (
+    <div className="studio-entry-preview">
+      <Button small variant="secondary" className="studio-entry-preview__close" onClick={onClose}>
+        关闭引导演示
+      </Button>
+      {notice && (
+        <p className="studio-entry-preview__notice" role="status">
+          {notice}
+        </p>
+      )}
+      <FirstRunOnboarding
+        services={services}
+        activeConfigId={activeId}
+        apiConfigs={configs}
+        setApiConfigs={setConfigs}
+        addNewConfig={() => 'demo'}
+        applyConfig={setActiveId}
+        setApiKey={() => {}}
+        setBase={() => {}}
+        setModels={() => {}}
+        addLog={(_, text) => setNotice(text)}
+        onComplete={(models) =>
+          setNotice(models ? '演示：下一步在设置中手动导入模型。' : '演示：进入工作室，稍后配置。')
+        }
+      />
+    </div>
   );
 }

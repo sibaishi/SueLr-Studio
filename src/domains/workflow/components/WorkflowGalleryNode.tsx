@@ -1,19 +1,19 @@
-import { createContext, useContext } from 'react';
-import { useReactFlow, type Node, type NodeProps } from '@xyflow/react';
-import { Robot, Stack } from '@phosphor-icons/react';
 import { getNodeDef } from '@/domains/workflow/lib/constants';
+import { Robot, Stack } from '@phosphor-icons/react';
+import { type Node, type NodeProps, useReactFlow } from '@xyflow/react';
+import { createContext, useContext } from 'react';
 import { WorkflowCardPresentation, WorkflowCardToolbar } from './nodes/WorkflowCardPresentation';
-import type { WorkflowNodeVisualState } from './nodes/WorkflowNodePrimitives';
-import { WorkflowGroupSurface, WorkflowGroupHeader, WorkflowNodeFrame } from './nodes/WorkflowGroupPresentation';
 import {
-  NodeContentSurface,
   NodeContentFrame,
+  NodeContentSurface,
   NodeEmptyState,
   NodeImagePreview,
   NodeMediaPreview,
   NodeTextPreview,
 } from './nodes/WorkflowContentPrimitives';
+import { WorkflowGroupHeader, WorkflowGroupSurface, WorkflowNodeFrame } from './nodes/WorkflowGroupPresentation';
 import { WorkflowNodeIcon } from './nodes/WorkflowNodeIcon';
+import type { WorkflowNodeVisualState } from './nodes/WorkflowNodePrimitives';
 
 export const galleryImage = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="280" viewBox="0 0 400 280"><rect width="400" height="280" fill="#2563eb"/><circle cx="300" cy="64" r="32" fill="#e0e7ff"/><path d="M0 280 140 64 300 280 M180 280 300 120 440 280" fill="#8b5cf6"/></svg>')}`;
 export type GalleryContent = 'empty' | 'text' | 'image' | 'audio' | 'video';
@@ -26,7 +26,7 @@ export type GalleryData = Record<string, unknown> &
     src?: string;
     collapsed?: boolean;
   };
-export type GalleryNode = Node<GalleryData, 'gallery'>;
+export type GalleryNode = Node<GalleryData, 'gallery' | 'selectionOutput'>;
 export const GalleryActions = createContext({
   notify: (_message: string) => {},
   preview: (_data: GalleryData) => {},

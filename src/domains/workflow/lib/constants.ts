@@ -1,3 +1,4 @@
+import { version } from '../../../../package.json';
 import {
   NODE_REGISTRY as WORKFLOW_NODE_DEFS,
   getNodeDef as getSharedNodeDef,
@@ -112,4 +113,4 @@ export const PORT_COMPATIBILITY: Record<string, string[]> = {
 
 export const DEFAULT_WORKFLOW_NAME = '未命名工作流';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = version;

@@ -12,6 +12,14 @@ SueLr-Studio: Electron 41 + React 19 + TypeScript 5.9 + Vite 8 + Tailwind CSS 4.
 - All Chinese text must remain UTF-8
 - Current trunk in this repository is `main`
 
+## 提交前版本约束（2026-11-24 起强制执行）
+
+- 本次版本统一为 `2.0.0`。此后每次提交前，无论功能、修复还是文档修改，均须递增一次补丁版本：`2.0.0 → 2.0.1 → 2.0.2`（“+0.0.01”按标准三段版本号的末位加一执行）。
+- 提交前执行 `npm run version:bump`，同步根目录与 `backend/` 的 `package.json`、`package-lock.json`（含根包条目）；同一批待提交改动只递增一次，修正检查失败不重复递增。
+- 界面、启动页、Electron 安装包和后端接口必须读取包版本，不再写死产品版本号。依赖版本、数据结构版本和历史记录不属于产品版本，不得批量替换。
+- 执行 `npm run check`，将版本修改与业务修改一起提交；不得遗漏锁文件。`check:version` 会阻止包版本不一致。
+- 大版本或次版本升级按用户明确指示执行；未经明确要求不自动创建版本标签或发布安装包。
+
 ## Repository Layout
 
 | Directory | Purpose |

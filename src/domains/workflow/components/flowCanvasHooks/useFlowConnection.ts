@@ -3,6 +3,7 @@ import { useWorkflowStore } from '@/domains/workflow/lib/store';
 import { createsCycle } from '@/domains/workflow/lib/store/editorGraph';
 import type { Connection, Node as FlowNodeType } from '@xyflow/react';
 import { useCallback, useRef } from 'react';
+import { BATCH_OUTPUT_ID, planBatchConnection, selectedOutputNodes } from '../flowBatchConnection';
 import { canNodeTypesConnect, getInputType, getOutputType } from '../flowCanvasConnections';
 import type { ContextMenuKind, ContextMenuState, PendingConnection } from '../flowCanvasTypes';
 import type { FlowHookDeps } from './types';
@@ -21,11 +22,20 @@ export function useFlowConnection({ openContextMenuAtPoint, renderNodeMap, store
 
   const commitConnection = useCallback((connection: Connection) => {
     if (!connection.sourceHandle || !connection.targetHandle) return;
-    useWorkflowStore.getState().addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
+    useWorkflowStore
+      .getState()
+      .addEdge(connection.source, connection.sourceHandle, connection.target, connection.targetHandle);
   }, []);
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (connection.source === BATCH_OUTPUT_ID && connection.targetHandle) {
+        const state = useWorkflowStore.getState();
+        for (const edge of planBatchConnection(state.nodes, state.edges, connection.target, connection.targetHandle)) {
+          commitConnection(edge);
+        }
+        return;
+      }
       commitConnection(connection);
     },
     [commitConnection],
@@ -39,6 +49,12 @@ export function useFlowConnection({ openContextMenuAtPoint, renderNodeMap, store
       targetHandle?: string | null;
     }) => {
       if (!connection.source || !connection.target) return false;
+      if (connection.source === BATCH_OUTPUT_ID) {
+        return Boolean(
+          connection.targetHandle &&
+            planBatchConnection(store.nodes, store.edges, connection.target, connection.targetHandle).length,
+        );
+      }
       if (connection.source === connection.target) return false;
 
       // Prevent cycles — if target can already reach source, this edge would close a loop
@@ -66,6 +82,22 @@ export function useFlowConnection({ openContextMenuAtPoint, renderNodeMap, store
     ) => {
       if (!params.handleType || !params.nodeId || !params.handleId) {
         pendingConnectionRef.current = null;
+        return;
+      }
+
+      if (params.nodeId === BATCH_OUTPUT_ID && params.handleType === 'source') {
+        const sources = selectedOutputNodes(store.nodes);
+        pendingConnectionRef.current =
+          sources.length < 2
+            ? null
+            : {
+                allowCreateNode: true,
+                handleType: 'source',
+                sourceId: BATCH_OUTPUT_ID,
+                sourceHandle: params.handleId,
+                sourceType: 'any',
+                batchSourceIds: sources.map((node) => node.id),
+              };
         return;
       }
 

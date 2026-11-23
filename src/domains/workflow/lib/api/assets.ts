@@ -1,3 +1,4 @@
+import type { GenerationRecord } from '@/shared/types/generation';
 import { workflowApiFetch } from './base';
 
 export interface LibraryAsset {
@@ -14,6 +15,8 @@ export interface LibraryAsset {
   category: string;
   tags: string[];
   favorite: boolean;
+  generation?: GenerationRecord | null;
+  groupLabel?: string;
 }
 export interface AssetPage {
   items: LibraryAsset[];

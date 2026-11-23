@@ -1,53 +1,30 @@
-import { themeColors as T, themeTint } from '@/ui/theme';
-import { Robot } from '@phosphor-icons/react';
+import { StudioStartup } from '@/ui/StudioStartup';
 import { useEffect, useRef, useState } from 'react';
 
 export function SplashScreen({ done, onHidden }: { done: boolean; onHidden: () => void }) {
   const [fading, setFading] = useState(false);
-  const hiddenRef = useRef(false);
+  const [artworkReady, setArtworkReady] = useState(false);
   const mountTimeRef = useRef(Date.now());
-
+  const callback = useRef(onHidden);
+  callback.current = onHidden;
   useEffect(() => {
-    if (done && !hiddenRef.current) {
-      hiddenRef.current = true;
-      const elapsed = Date.now() - mountTimeRef.current;
-      const minDisplay = 800;
-      const delay = Math.max(0, minDisplay - elapsed);
-
-      const startFade = () => {
+    if (!done || !artworkReady) return;
+    let fadeTimer: number | undefined;
+    const delayTimer = window.setTimeout(
+      () => {
         setFading(true);
-        const timer = window.setTimeout(onHidden, 500);
-        return () => clearTimeout(timer);
-      };
-
-      if (delay > 0) {
-        const delayTimer = window.setTimeout(startFade, delay);
-        return () => clearTimeout(delayTimer);
-      }
-      return startFade();
-    }
-  }, [done, onHidden]);
-
+        fadeTimer = window.setTimeout(() => callback.current(), 320);
+      },
+      Math.max(0, 800 - (Date.now() - mountTimeRef.current)),
+    );
+    return () => {
+      window.clearTimeout(delayTimer);
+      window.clearTimeout(fadeTimer);
+    };
+  }, [done, artworkReady]);
   return (
-    <div
-      className="splash-overlay"
-      style={{ background: T.bg, opacity: fading ? 0 : 1, pointerEvents: fading ? 'none' : 'auto' }}
-    >
-      <div className="splash-logo" style={{ background: T.blue, boxShadow: `0 12px 40px ${themeTint(T.blue, 31)}` }}>
-        <Robot size={36} color="#fff" />
-      </div>
-      <div className="splash-title" style={{ color: T.text }}>
-        AI 多模态助手
-      </div>
-      <div className="splash-dots">
-        {[0, 1, 2].map((index) => (
-          <div
-            key={index}
-            className="splash-dot"
-            style={{ background: T.text3, animation: `dotBounce 1.2s ease-in-out ${index * 0.15}s infinite` }}
-          />
-        ))}
-      </div>
+    <div className="splash-overlay" style={{ opacity: fading ? 0 : 1, pointerEvents: fading ? 'none' : 'auto' }}>
+      <StudioStartup done={done} onArtworkReady={() => setArtworkReady(true)} />
     </div>
   );
 }
